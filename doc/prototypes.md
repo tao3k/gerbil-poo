@@ -26,7 +26,7 @@ by [Jsonnet](https://jsonnet.org/) and
 object instances as trivial fixed-points of prototypes,
 themselves simple composable mixins in a dynamically-typed pure lazy functional language.
 
-We will also present [POO](https://github.com/fare/gerbil-poo),
+We will also present [POO](https://git.cons.io/mighty-gerbils/gerbil-poo),
 a practical implementation of Prototype Object-Orientation
 with plenty of bells an whistles and a nice syntax extension,
 all in a few hundreds of lines of [Gerbil Scheme](https://cons.io).

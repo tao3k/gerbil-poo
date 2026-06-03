@@ -12,7 +12,7 @@ on tries with millions of elements.*
 
 In the presentation below and the accompanying code,
 I am using [Gerbil Scheme](https://cons.io) with my own
-prototype object system [POO](https://github.com/fare/gerbil-poo)
+prototype object system [POO](https://git.cons.io/mighty-gerbils/gerbil-poo)
 to represent runtime descriptors for dynamically-enforced dependent typeclasses.
 But the same design can be readily adapted (with more or less pain, depending)
 to whichever language your blockchain (or non-blockchain) codebase is using.

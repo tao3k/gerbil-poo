@@ -184,7 +184,7 @@
 (.defgeneric (<-string type b) slot: .<-string)
 
 
-;;; Gambit printer hook for object. See https://github.com/vyzo/gerbil/issues/589
+;;; Gambit printer hook for object. See https://git.cons.io/mighty-gerbils/gerbil/issues/589
 ;;; See also ##inverse-eval.
 (defmethod (@method :wr object)
   (lambda (self we)
