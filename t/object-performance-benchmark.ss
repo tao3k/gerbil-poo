@@ -41,7 +41,7 @@
   (values result (- (cpu-time) started)))
 
 (def (main)
-  ;; Construct and instantiate the shared object before every runtime interval.
+  ;; Construct and instantiate the shared object before the runtime intervals.
   (.ref base target-slot)
   (hot-lookup warmup-repetitions base)
   (cold-lookup warmup-repetitions)
