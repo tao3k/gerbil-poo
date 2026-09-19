@@ -47,6 +47,16 @@
       (def t (Tuple UInt8 UInt8 UInt8))
       (check-rep (.@ t .<-json) (.@ t .json<-) [5 8 13] #(5 8 13))
       (check-rep (.@ t .<-bytes) (.@ t .bytes<-) #u8(#x15 #x22 #x37) #(21 34 55)))
+    (test-case "Enum V19 equal-hash indices preserve first occurrence"
+      (def E (Enum "alpha" "beta" "alpha" (structured 1)))
+      (check-equal? (.call E .element? "alpha") #t)
+      (check-equal? (.call E .element? (list 'structured 1)) #t)
+      (check-equal? (.call E .element? "missing") #f)
+      (check-equal? (.call E .uint<- "alpha") 0)
+      (check-equal? (.call E .uint<- (list 'structured 1)) 3)
+      (check-equal? (.call E .<-json "alpha") 0)
+      (check-equal? (.call E .bytes<- "alpha") #u8(0))
+      (check-equal? (.call E .<-bytes #u8(3)) '(structured 1)))
     (test-case "Sum tag indices preserve the public variant model"
       (def UInt8 (UIntN 8))
       (def Message (Sum ok: UInt8 payload: Bytes2))
