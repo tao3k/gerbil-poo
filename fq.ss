@@ -57,16 +57,16 @@
                 (n-1 (1- .n)))
 
             ;; for i across indexes
-            (for (i (iota .n))
+            (for (i (in-range .n))
               ;; add in the ith multiplier time the ith coefficient
               (let (c (vector-ref m i))
-                (for (j (iota .n))
+                (for (j (in-range .n))
                   (vector-set! result j
                                (add (vector-ref result j)
                                     (mul c (vector-ref a j))))))
               ;; adjust the multiplier
               (let (c (vector-ref a n-1))
-                (for (j (iota .n n-1 -1))
+                (for (j (in-range n-1 -1 -1))
                   (vector-set! a j (add (if (zero? j) 0 (vector-ref a (1- j)))
                                         (mul c (vector-ref .xn j)))))))
             result))
