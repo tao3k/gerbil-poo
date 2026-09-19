@@ -49,7 +49,7 @@
 (def (instantiate-object! self)
   (if (object? self)
     (unless (object-%instance self)
-      (set! (object-%instance self) (make-hash-table))
+      (set! (object-%instance self) (make-hash-table-symbolic))
       (compute-precedence-list! self)
       (compute-slot-funs! self)
       #;(check-assertions! self)) ;; TODO: allow for instantiation-time assertions
@@ -91,7 +91,7 @@
         precedence-list)))))
 
 (def (compute-slot-funs! self)
-  (def h (make-hash-table))
+  (def h (make-hash-table-symbolic))
   (def supers (reverse (object-%precedence-list self)))
   ;; Handle defaults
   (for (super supers)
@@ -109,7 +109,7 @@
 ;; return a list of keys from containing from left to right
 ;; all the keys from tail to head of the precedence list, skipping repetitions.
 (def (merge-super-slots super-slots)
-  (def h (make-hash-table))
+  (def h (make-hash-table-symbolic))
   (with-list-builder (c)
     (for-each (lambda (l)
     (for-each (lambda (k)
@@ -254,8 +254,8 @@
   ;; Interpretation according to `doc/poo.md` section `POO Definition Syntax`
 
   (def (normalize-slot-specs ctx specs)
-    (def methods (make-hash-table))
-    (def defaults (make-hash-table))
+    (def methods (make-hash-table-symbolic))
+    (def defaults (make-hash-table-symbolic))
     (def defaults-list '())
     (def (d x) (push! x defaults-list))
     (def slot-methods
@@ -475,7 +475,7 @@
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>
 (def (.cc self . overrides)
-  (def added-hash (make-hash-table))
+  (def added-hash (make-hash-table-symbolic))
   (def added
     (with-list-builder (c)
       (def (add-slot! slot value)
