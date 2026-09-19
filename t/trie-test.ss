@@ -1,8 +1,8 @@
 (export #t)
 
 (import
-  :std/sugar :std/test
-  :clan/base :clan/testing
+  :std/test
+  ../support/base ../support/testing
   ../object ../mop ../number ../type ../trie
   ./table-testing)
 
@@ -32,12 +32,13 @@
       (defrule (check-leaf-focus k v t)
         (begin
           (F .validate t)
-          (let-match ((cons focus path) (F .refocus ($Costep -1 k) (F .zipper<- t)))
+          (match (F .refocus ($Costep -1 k) (F .zipper<- t))
+           ((cons focus path)
             (check-equal? focus (F .leaf<-opt (F .ref/opt t k)))
             (check-equal? (F .ref t k false) v)
             (validate (E Path) path)
             (check-equal? ($Path-costep path) ($Costep -1 k))
-            (check-equal? (F .<-zipper (cons focus path)) t))))
+            (check-equal? (F .<-zipper (cons focus path)) t)))))
       (check-leaf-focus 100 "one hundred" (F .singleton 100 "one hundred"))
       (check-leaf-focus 101 "needle" (F .<-list '((100 . "hey") (101 . "needle")
                                                   (102 . "hay") (103 . "haAAy"))))

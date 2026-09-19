@@ -1,22 +1,17 @@
 (export #t)
 
 (import
-  (only-in :gerbil/gambit object->serial-number object->string)
-  :gerbil/gambit
-  (only-in :gerbil/runtime/mop write-style)
+  (only-in :gerbil/runtime/gambit macro-writeenv-style)
   :std/assert
   :std/format
-  :std/generic
+  (only-in :std/func compose)
   :std/iter
-  :std/misc/repr
-  :std/misc/walist
-  (only-in :std/sugar defrule ignore-errors hash try catch)
-  :std/stxutil
-  :std/text/json
-  :clan/base
-  :clan/hash
-  :clan/io
-  :clan/json
+  :std/list/walist
+  :std/encoding/json
+  ./support/repr
+  ./support/base
+  ./support/io
+  ./support/json
   ./object
   ./mop)
 
@@ -194,7 +189,7 @@
       (if inconsistent?
         (values (map car (append (object-slots self) (object-defaults self))) (hash))
         (values (.all-slots self) (object-%instance self))))
-    (def style (write-style we))
+    (def style (macro-writeenv-style we))
     (def mark? (eq? style 'mark))
     (def (s x) (unless mark? (##wr-str we x)))
     (def (w x) (##wr we x))
@@ -237,7 +232,7 @@
   transparent: #t)
 (defmethod (@method :wr TV)
   (lambda (self writeenv)
-    (def style (values (write-style writeenv))) ;; prevent inlining, until v0.18.2
+    (def style (macro-writeenv-style writeenv))
     (def mark? (eq? style 'mark))
     (def (s x) (unless mark? (##wr-str writeenv x)))
     (def (w x) (##wr writeenv x))

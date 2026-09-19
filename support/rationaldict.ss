@@ -1,0 +1,50 @@
+;;; Persistent rational-key dictionary backed by Gerbil V19's red-black tree.
+
+(export rationaldict? empty-rationaldict rationaldict-empty?
+        rationaldict-ref rationaldict-put rationaldict-remove
+        rationaldict-has-key? rationaldict-keys rationaldict-values
+        list->rationaldict rationaldict->list rationaldict=?
+        rationaldict-min-key rationaldict-max-key)
+
+(import :std/iter :std/struct/rbtree)
+
+(defstruct rationaldict (tree) transparent: #t)
+(def empty-rationaldict (rationaldict (RBTree -)))
+(def absent (gensym 'absent))
+
+(def (rationaldict-empty? dict) (rbtree-empty? (rationaldict-tree dict)))
+(def (rationaldict-ref dict key
+                       (default (cut error "rationaldict-ref: missing key" dict key)))
+  (def value (rbtree-ref (rationaldict-tree dict) key absent))
+  (if (eq? value absent) (default) value))
+(def (rationaldict-put dict key value)
+  (rationaldict (rbtree-put (rationaldict-tree dict) key value)))
+(def (rationaldict-remove dict key)
+  (rationaldict (rbtree-remove (rationaldict-tree dict) key)))
+(def (rationaldict-has-key? dict key)
+  (not (eq? absent (rbtree-ref (rationaldict-tree dict) key absent))))
+(def (rationaldict-keys dict)
+  (for/collect ((key (in-rbtree-keys (rationaldict-tree dict)))) key))
+(def (rationaldict-values dict)
+  (for/collect ((value (in-rbtree-values (rationaldict-tree dict)))) value))
+(def (list->rationaldict entries)
+  (rationaldict
+   (foldl (lambda (entry tree) (rbtree-put tree (car entry) (cdr entry)))
+          (RBTree -) entries)))
+(def (rationaldict->list dict) (rbtree->list (rationaldict-tree dict)))
+(def (rationaldict=? left right (value=? equal?))
+  (def left-entries (rationaldict->list left))
+  (def right-entries (rationaldict->list right))
+  (and (= (length left-entries) (length right-entries))
+       (every (lambda (left-entry right-entry)
+                (and (= (car left-entry) (car right-entry))
+                     (value=? (cdr left-entry) (cdr right-entry))))
+              left-entries right-entries)))
+(def (rationaldict-min-key dict (default #f))
+  (let/cc return
+    (rbtree-for-each (lambda (key _value) (return key)) (rationaldict-tree dict))
+    default))
+(def (rationaldict-max-key dict (default #f))
+  (let/cc return
+    (rbtree-for-eachr (lambda (key _value) (return key)) (rationaldict-tree dict))
+    default))

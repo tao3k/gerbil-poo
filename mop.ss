@@ -6,23 +6,19 @@
 (export #t)
 
 (import
-  (for-syntax
-   (only-in :std/srfi/1 list-index split-at))
   (only-in :std/error deferror-class defraise/context)
-  (only-in :std/generic defgeneric)
-  (only-in :std/misc/list-builder with-list-builder)
-  (only-in :std/misc/list pop!)
-  (only-in :std/misc/repr repr pr)
-  (only-in :std/misc/walist walist)
-  (only-in :std/srfi/1 every append-map)
-  (only-in :std/sugar defrule try catch)
+  (only-in :std/list/list-builder with-list-builder)
+  (only-in :std/list/list pop! append-map)
+  (only-in :std/list/walist walist)
   (only-in :std/values list->values)
-  (only-in :clan/base λ compose nest invalid)
-  (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal
+  (only-in :std/func compose)
+  (only-in ./support/base λ nest invalid)
+  (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal
            marshal<-u8vector<- unmarshal<-<-u8vector
            marshal-sized16-u8vector unmarshal-sized16-u8vector)
-  (only-in :clan/json string<-json json<-string)
-  (only-in :clan/syntax call<-formals)
+  (only-in ./support/json string<-json json<-string)
+  (only-in ./support/syntax call<-formals)
+  (only-in ./support/repr repr pr)
   (only-in ./object object .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            NoApplicableMethod?
@@ -103,18 +99,16 @@
 ;; gf to extract a source sexp from a value of given type
 (.defgeneric (sexp<- type x) slot: .sexp<-)
 
-(defgeneric :sexp
-  (lambda (x)
-    (if (or (number? x) (boolean? x) (string? x) (char? x) (void? x) (keyword? x) (eof-object? x))
-      x
-      `',x))) ;; TODO: do better than that.
-
-(defmethod (@@method :sexp object)
-  (λ (self)
+(def (:sexp x)
+  (if (object? x)
     (cond
-     ((.has? self .type .sexp<-) (.call (.@ self .type) .sexp<- self))
-     ((.has? self sexp) (.@ self sexp))
-     (else self))))
+     ((.has? x .type .sexp<-) (.call (.@ x .type) .sexp<- x))
+     ((.has? x sexp) (.@ x sexp))
+     (else x))
+    (if (or (number? x) (boolean? x) (string? x) (char? x)
+            (void? x) (keyword? x) (eof-object? x))
+      x
+      `',x)))
 
 ;; gf to extract a value of given type from some json
 (.defgeneric (<-json type j) slot: .<-json)
@@ -240,27 +234,36 @@
 ;; The expander complains "Syntax Error: Ambiguous pattern".
 ;; TODO: Use syntax-case, detect when there are opposite arrows, curry when there are multiple ones?
 ;; With no arrow, it's a thunk (no inputs) with the given outputs.
+(begin-syntax
+  ;; V19 removed SRFI-1's list-index. Keep the O(n) helper private to this
+  ;; transformer; split-at is provided by the Gerbil runtime.
+  (def (syntax-list-index pred xs)
+    (let loop ((xs xs) (index 0))
+      (cond ((null? xs) #f)
+            ((pred (car xs)) index)
+            (else (loop (cdr xs) (1+ index)))))))
+
 (defsyntax (Fun stx)
   (syntax-case stx ()
     ((_ . io)
      (let (iol (syntax->list #'io))
        (cond
-        ((list-index (lambda (x) (eq? (stx-e x) '<-)) iol)
+        ((syntax-list-index (lambda (x) (eq? (stx-e x) '<-)) iol)
          => (lambda (k)
               (defvalues (outputs inputs) (split-at iol k))
               (let loop ((o outputs) (i (cdr inputs)))
                 (cond
-                 ((list-index (lambda (x) (eq? (stx-e x) '<-)) i)
+                 ((syntax-list-index (lambda (x) (eq? (stx-e x) '<-)) i)
                   => (lambda (k)
                        (defvalues (inputs moreinputs) (split-at i k))
                        (loop [[#'Function [#'@list . o] [#'@list . inputs]]] (cdr moreinputs))))
                  (else [#'Function [#'@list . o] [#'@list . i]])))))
-        ((list-index (lambda (x) (eq? (stx-e x) '->)) iol)
+        ((syntax-list-index (lambda (x) (eq? (stx-e x) '->)) iol)
          => (lambda (k)
               (defvalues (inputs ios) (split-at iol k))
               (let loop ((i inputs) (iol (cdr ios)))
                 (cond
-                 ((list-index (lambda (x) (eq? (stx-e x) '->)) i)
+                 ((syntax-list-index (lambda (x) (eq? (stx-e x) '->)) i)
                   => (lambda (k)
                        (defvalues (inputs moreios) (split-at i k))
                        [#'Function [#'@list (loop inputs (cdr moreios))] [#'@list . i]]))

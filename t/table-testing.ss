@@ -1,37 +1,43 @@
 (export #t)
 
 (import
-  :std/format :std/iter :std/misc/list :std/misc/number :std/misc/queue :std/misc/shuffle
-  :std/sort :std/srfi/1 :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug
-  :clan/option :clan/timestamp :clan/roman
-  :clan/testing
+  :gerbil/core/more-syntax-sugar
+  :std/format :std/iter :std/list/list :std/number/misc :std/struct/queue :std/shuffle
+  (only-in :std/list/list-builder with-list-builder)
+  :std/func
+  :std/test
+  :std/debug/DBG
+  ../support/base ../support/debug ../support/option ../support/testing
   ../object ../mop)
 
 ;; TODO: systematically write function properties and make more property-based tests?
 ;; TODO: support multimethods / externally defined methods / monkey patching / whatever
 ;;  so that tests can be defined as generic functions?
 
-(defrules def-table-test-accessors ()
-  ((d T) (d d T))
-  ((_ ctx T)
-   (with-id ctx (E F alist<- <-alist <-l)
-     (defrule (E e) (.@ T e))
-     (defrule (F f args (... ...)) (.call T f args (... ...)))
-     ;; TODO: for tries, check that the alists are already sorted?
-     (defrule (alist<- t) (sort (F .list<- (validate T t)) (comparing-key test: < key: car)))
-     (defrule (<-alist t) (validate T (F .<-list (shuffle t))))
-     (defrule (<-l l) (<-alist (al<-ks l))))))
+(defsyntax (def-table-test-accessors stx)
+  (syntax-case stx ()
+    ((_ T) #'(def-table-test-accessors T T))
+    ((_ ctx T)
+     (with-identifiers ((E #'ctx "E") (F #'ctx "F") (alist<- #'ctx "alist<-")
+                        (<-alist #'ctx "<-alist") (<-l #'ctx "<-l"))
+       #'(begin
+           (defrule (E e) (.@ T e))
+           (defrule (F f args (... ...)) (.call T f args (... ...)))
+           ;; TODO: for tries, check that the alists are already sorted?
+           (defrule (alist<- t) (list-sort (comparing-key test: < key: car) (F .list<- (validate T t))))
+           (defrule (<-alist t) (validate T (F .<-list (shuffle t))))
+           (defrule (<-l l) (<-alist (al<-ks l))))))))
 
 (defrule (table-test-case T name body ...)
-  (test-case (format "~a for ~s" name (.@ T sexp))
+  (begin
     (def-table-test-accessors T T)
-    body ...))
+    (test-case name
+      body ...)))
 
 (def (al<-ks ks (f number->string)) (map (lambda (k) (cons k (f k))) ks))
 (def (make-alist n (f number->string)) (al<-ks (iota n 1) f))
 (def (l . ks) (al<-ks ks))
-(def (sort-alist alist) (sort alist (comparing-key test: < key: car)))
+(def (sort-alist alist) (list-sort (comparing-key test: < key: car) alist))
 (def alist-equal? (comparing-key test: equal? key: sort-alist))
 
 (def al-10-latin (make-alist 10 roman-numeral<-integer))
@@ -40,12 +46,14 @@
 (def al-2 (filter (compose even? car) al-100-decimal))
 (def al-3 (filter (lambda (x) (> (string-length (cdr x)) 5)) al-100-latin))
 (def al-4 '((42 . "42") (1729 . "1729") (666 . "666")))
-(def al-5 (sort-alist (delete-duplicates (append al-3 al-4) (comparing-key test: = key: car))))
+(def al-5 (sort-alist (delete-duplicates/hash (append al-3 al-4) key: car from-end?: #t)))
 (def test-alists
   [al-10-latin al-100-decimal al-100-latin al-2 al-3 al-4 al-5])
 
-(def current-verbosity (make-parameter #t))
-(defrule (X tag rest ...) (DBG (and (current-verbosity) tag) rest ...))
+(def current-verbosity (make-parameter #f))
+(defrule (X tag rest ...)
+  (when (current-verbosity)
+    (DBG tag rest ...)))
 
 (def (universal-tests T)
   (def-table-test-accessors T)
@@ -72,10 +80,14 @@
       (X "bar")
       (for-each! test-alists
         (lambda (al2)
-          (write [foo: al al2 (eq? al al2) (0x<-random-source)])(newline)
           (def m2 (<-alist al2))
-          (write [foo2: (F .sexp<- m) (F .sexp<- m2)])(newline)
-          (write [foo3: (F .=? m m2)])(newline)
+          (when (current-verbosity)
+            (write [foo: al al2 (eq? al al2) (0x<-random-source)])
+            (newline)
+            (write [foo2: (F .sexp<- m) (F .sexp<- m2)])
+            (newline)
+            (write [foo3: (F .=? m m2)])
+            (newline))
           (assert-equal! (F .=? m m2) (eq? al al2))))
       (X "baz")
       (for-each! al
@@ -125,10 +137,10 @@
     (check-equal? (F .max-binding/opt (E .empty)) #f)
     (check-exception (F .max-binding (E .empty)) true)
     (X 'foldl)
-    (check-equal? (F .foldl (constantly #t) #f (E .empty)) #f)
+    (check-equal? (F .foldl (lambda _ #t) #f (E .empty)) #f)
     (check-equal? (F .foldl (lambda (k _ a) (+ k a)) 0 m-100-latin) (* 1/2 100 101))
     (X 'foldr)
-    (check-equal? (F .foldr (constantly #t) #f (E .empty)) #f)
+    (check-equal? (F .foldr (lambda _ #t) #f (E .empty)) #f)
     (check-equal? (F .foldr (lambda (k _ a) (+ k a)) 0 m-100-latin) (* 1/2 100 101))
     (X 'count)
     (check-equal? (F .count (E .empty)) 0)
@@ -197,7 +209,7 @@
       (check-equal? (alist<- (F .join d1 d2)) al-100-latin))
 
     ;; Repeatedly divide a map into pairs of smaller sub-maps.
-    (let (q (make-queue))
+    (let (q (make-Queue))
       (enqueue! q (<-alist al-100-decimal))
       (until (queue-empty? q)
         (let* ((m (dequeue! q))
@@ -235,7 +247,7 @@
 
      ;; Repeatedly divide/list a map into pairs of smaller sub-maps.
      (def l (with-list-builder (c)
-              (let (q (make-queue))
+              (let (q (make-Queue))
                 (enqueue! q (<-alist al-100-decimal))
                 (until (queue-empty? q)
                   (let* ((m (dequeue! q))
@@ -272,25 +284,19 @@
     (test-case "update/opt toggle"
       (def t1 (F .<-list '((13 . "a") (21 . "bee") (34 . "c"))))
       (def t2 (F .<-list '((13 . "a") (34 . "c"))))
-      (def toggle (match <> ((some _) #f) (#f (some "I'm back"))))
+      (def (toggle value) (match value ((some _) #f) (#f (some "I'm back"))))
       (check-equal? (alist<- (F .update/opt 21 toggle t1)) (alist<- t2))
       (check-equal? (alist<- (F .update/opt 21 toggle t2))
                     '((13 . "a") (21 . "I'm back") (34 . "c"))))
     (test-case "update/opt 1597 toggle"
       (def t1 (F .<-list '((34 . "34") (13 . "13"))))
       (def t2 (F .<-list '((13 . "13") (34 . "34") (1597 . "veni, vidi"))))
-      (def toggle (match <> ((some _) #f) (#f (some "veni, vidi"))))
-      (check-equal? (alist<- (F .update/opt 1597 toggle t1)) (alist<- t2))
-      (check-equal? (alist<- (F .update/opt 1597 toggle t2)) (alist<- t1))
+      (def (toggle-1597 value) (match value ((some _) #f) (#f (some "veni, vidi"))))
+      (check-equal? (alist<- (F .update/opt 1597 toggle-1597 t1)) (alist<- t2))
+      (check-equal? (alist<- (F .update/opt 1597 toggle-1597 t2)) (alist<- t1))
       (def t3 (F .singleton 1597 "veni, vidi"))
-      (check-equal? (alist<- (F .update/opt 1597 toggle (E .empty))) (alist<- t3))
-      (check-equal? (alist<- (F .update/opt 1597 toggle t3)) '()))))
-
-;; TODO: use this simple benchmark?
-(def (benchmark T n m)
-  (def-table-test-accessors T)
-  (F .count (F .<-zipper (with-timing ()
-    (for/fold (acc (F .zipper<- (E .empty))) ((k (iota m n))) (F .zipper-acons k k acc))))))
+      (check-equal? (alist<- (F .update/opt 1597 toggle-1597 (E .empty))) (alist<- t3))
+      (check-equal? (alist<- (F .update/opt 1597 toggle-1597 t3)) '()))))
 
 (def (table-tests T)
   (read-only-linear-table-test T)

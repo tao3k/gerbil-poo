@@ -3,15 +3,21 @@
 (export #t)
 
 (import
-  (only-in :std/iter for/fold :iter iterator-next iterator-next-set!)
-  (only-in :std/misc/alist acons)
-  (only-in :clan/base compose !> fun)
-  (only-in :clan/option some some? option-ref option-get/default map/option some-value)
+  :std/iter
+  (only-in :std/list/alist acons)
+  (only-in :std/func compose)
+  (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method)
   (only-in ./io marshal)
   (only-in ./mop define-type Type. Any validate)
   (only-in ./object .@ .call)
   (only-in ./type List Pair))
+
+(def (iterator-map transform source)
+  (in-coroutine
+   (lambda (yield)
+     (for (value source)
+       (yield (transform value))))))
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
@@ -64,8 +70,11 @@
   ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @
   .merge:
   (lambda (f ta tb)
-    (!> (.foldl (lambda (k va m) (.acons/opt k (f k (some va) (.ref/opt tb k)) m)) .empty ta)
-        (cut .foldl (lambda (k vb m) (if (.key? ta k) m (.acons/opt k (f k #f (some vb)) m))) <> tb)))
+    (.foldl (lambda (k vb m)
+              (if (.key? ta k) m (.acons/opt k (f k #f (some vb)) m)))
+            (.foldl (lambda (k va m) (.acons/opt k (f k (some va) (.ref/opt tb k)) m))
+                    .empty ta)
+            tb))
 
   ;; : Nat <- @
   .count: (lambda (t) (.foldl (lambda (_1 _2 a) (1+ a)) 0 t))
@@ -80,7 +89,7 @@
   .list<-: (lambda (t) (.foldr acons [] t))
 
   ;; : @ <- (List (Pair Key Value))
-  .<-list: (lambda (l) (foldr (fun (aconskv kv t) (.acons (car kv) (cdr kv) t)) .empty l))
+  .<-list: (lambda (l) (foldr (lambda (kv t) (.acons (car kv) (cdr kv) t)) .empty l))
 
   ;; : (Option (Pair Key Value)) <- @
   .min-binding/opt: (lambda (t) (let/cc return (.for-each (lambda (k v) (return (some (cons k v)))) t) #f))
@@ -183,7 +192,7 @@
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (kv s) (.acons (car kv) (cdr kv) t)))
 
   ;; : (Iterator (Pair Key Value)) <- @
-  .iter<-: (lambda (x) (:iter (.list<- x)))
+  .iter<-: (lambda (x) (iter (.list<- x)))
 
   ;; : (Lens Value <- @) <- Key
   .lens: (lambda (k) {get: (lambda (t) (.ref t k)) set: (lambda (t v) (.acons k v t))})
@@ -231,8 +240,8 @@
   .find-first: (lambda (f t) (option-ref (.find-first/opt f t))) ;; : Elt <- (Bool <- Elt) @
   .find-last/opt: (lambda (f t) (map/option car (.call Table .find-last/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
   .find-last: (lambda (f t) (option-ref (.find-last/opt f t))) ;; : Elt <- (Bool <- Elt) @
-  .iter<-: (lambda (t from: (from 0)) (def i (.call Table .iter<- t from: from)) ;; : (Iterator Elt) <- @ ?Elt
-              (set! (iterator-next i) (compose car (iterator-next i))) i)
+  .iter<-: (lambda (t from: (from 0)) ;; : (Iterator Elt) <- @ ?Elt
+              (iterator-map car (.call Table .iter<- t from: from)))
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (elt s) (.cons elt t))) ;; : @ <- (Iterator Elt) ?@
   .List: (List Elt)
   .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @

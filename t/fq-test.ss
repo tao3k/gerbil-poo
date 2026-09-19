@@ -1,14 +1,11 @@
 (export fq-test)
 
 (import
-  :gerbil/gambit
   :std/assert :std/format
   :std/iter
-  :std/misc/repr
-  :std/sort
-  :std/srfi/13
-  :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug
+  :std/test
+  :std/debug/DBG
+  ../support/base ../support/debug ../support/testing
   ../object ../mop ../number ../type ../brace ../fq)
 
 

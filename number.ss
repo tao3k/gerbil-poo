@@ -6,15 +6,15 @@
 (export #t)
 
 (import
-  (only-in :std/srfi/141 floor-quotient)
   (only-in :std/error check-argument)
-  (only-in :std/misc/bytes big u8vector-double-ref u8vector-double-set!
+  (only-in :std/vector/u8vector big u8vector-double-ref u8vector-double-set!
            sint->u8vector u8vector->sint uint->u8vector u8vector->uint)
-  (only-in :std/misc/hash hash-ensure-ref)
-  (only-in :std/misc/number uint? uint-below? n-bits->n-u8 div-mod
+  (only-in :std/hash/misc hash-ensure-ref)
+  (only-in :std/number/misc uint? uint-below? n-bits->n-u8 div-mod
            uint-of-length? sint-of-length? normalize-sint normalize-uint)
-  (only-in :clan/base λ compose number-comparer)
-  (only-in :clan/io write-varuint read-varuint write-varint read-varint)
+  (only-in :std/func compose)
+  (only-in ./support/base λ number-comparer)
+  (only-in ./support/io write-varuint read-varuint write-varint read-varint)
   (only-in ./mop define-type Type.)
   (only-in ./brace @method)
   (only-in ./io methods.marshal<-fixed-length-bytes))

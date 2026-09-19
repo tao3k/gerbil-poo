@@ -1,0 +1,15 @@
+(export traced-function)
+
+(def trace-counter (make-parameter 0))
+(def (traced-function name function (port (current-error-port)))
+  (lambda args
+    (def depth (trace-counter))
+    (parameterize ((trace-counter (1+ depth)))
+      (display ">>> " port) (display depth port) (display " (" port)
+      (write name port) (display " " port) (write args port) (display ")\n" port)
+      (force-output port)
+      (def results (call-with-values (lambda () (apply function args)) list))
+      (display "<<< " port) (display depth port) (display " (" port)
+      (write name port) (display ") => " port) (write results port) (newline port)
+      (force-output port)
+      (apply values results))))

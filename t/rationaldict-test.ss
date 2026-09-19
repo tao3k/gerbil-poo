@@ -2,7 +2,7 @@
 
 (import
   :std/test
-  :clan/testing
+  ../support/testing
   ../mop ../rationaldict ../type
   ./table-testing)
 

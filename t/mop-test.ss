@@ -1,13 +1,9 @@
 (export mop-test)
 
 (import
-  :gerbil/gambit
   :std/assert :std/format
-  :std/misc/repr
-  :std/sort
-  :std/srfi/13
-  :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug
+  :std/test
+  ../support/base ../support/debug ../support/testing
   ../object ../mop ../number ../type ../brace)
 
 (def mop-test

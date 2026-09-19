@@ -4,8 +4,9 @@
 
 (import
   (only-in :std/values first-value)
-  (only-in :clan/base λ compose)
-  (only-in :clan/pure/dict/rationaldict
+  (only-in :std/func compose)
+  (only-in ./support/base λ)
+  (only-in ./support/rationaldict
            rationaldict-keys rationaldict-min-key rationaldict-max-key
            rationaldict-empty? empty-rationaldict
            rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove

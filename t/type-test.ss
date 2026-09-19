@@ -2,18 +2,13 @@
   type-test)
 
 (import
-  :gerbil/gambit
   :std/assert
   :std/format
-  :std/misc/repr   :std/misc/ports
-  :std/pregexp
-  :std/sort
-  :std/srfi/13
-  :std/sugar
+  :std/misc/ports
+  :std/text/pregexp
   :std/test
-  :clan/assert
-  :clan/base
-  :clan/exception
+  ../support/base
+  ../support/testing
   ../object
   ../mop
   ../number

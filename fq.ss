@@ -13,9 +13,8 @@
 (import
   :std/error
   :std/iter
-  :std/misc/number
-  :clan/base
-  (only-in :std/srfi/133 vector-map)
+  :std/number/misc
+  (only-in ./support/base undefined)
   ./object ./mop ./brace ./number ./type)
 
 

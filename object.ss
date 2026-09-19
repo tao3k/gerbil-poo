@@ -10,19 +10,18 @@
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
-  (for-syntax (only-in :clan/base !>)
-              (only-in :std/iter for/collect)
-              (only-in :std/misc/list push!)
-              (only-in :std/misc/list-builder with-list-builder))
+  (for-syntax :std/iter
+              (only-in :std/list/list push!)
+              (only-in :std/list/list-builder with-list-builder))
   (only-in :std/error deferror-class Exception)
-  (only-in :std/misc/hash hash->list/sort hash-ref/default hash-ensure-ref hash-ensure-modify!)
-  (only-in :std/iter for for/collect)
-  (only-in :std/misc/list-builder with-list-builder)
-  (only-in :std/misc/list aset flatten)
-  (only-in :std/sort sort)
-  (only-in :std/sugar awhen defrule with-id with-id/expr)
-  (only-in :clan/base modify! looking-for λ symbol<? constantly rcurry let-id-rule defonce)
-  (only-in :clan/list c3-compute-precedence-list))
+  (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-ref hash-ensure-modify!)
+  :std/iter
+  (only-in :std/list/list-builder with-list-builder)
+  (only-in :std/list/list flatten)
+  (only-in :std/list/alist aset)
+  (only-in :std/values first-value)
+  (only-in :gerbil/runtime/c3 c4-linearize)
+  (only-in ./support/base modify! looking-for λ symbol<? let-id-rule defonce awhen))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
@@ -72,12 +71,15 @@
    ((object-%precedence-list self))
    ((member self heads) => (lambda (l) (error "Circular precedence graph" l)))
    (else
-    (for-each (rcurry compute-precedence-list! [self . heads]) (object-supers self))
+    (for-each (lambda (super) (compute-precedence-list! super [self . heads]))
+              (object-supers self))
     (let (precedence-list
-          (c3-compute-precedence-list
-           self get-supers: object-supers
-           get-name: invalid-object-summary
-           get-precedence-list: object-%precedence-list))
+          (first-value
+           (c4-linearize
+            [self] (object-supers self)
+            get-precedence-list: object-%precedence-list
+            eq: eq?
+            get-name: invalid-object-summary)))
       (set! (object-%precedence-list self) precedence-list)
       precedence-list))))
 
@@ -87,7 +89,7 @@
   ;; Handle defaults
   (for (super supers)
     (for (([slot . value] (object-defaults super)))
-      (hash-put! h slot (constantly value))))
+      (hash-put! h slot (lambda _ value))))
   ;; Handle methods
   (for (super supers)
     (for (([slot . spec] (object-slots super)))
@@ -116,7 +118,7 @@
 
 (def (apply-slot-spec self spec superfun)
   (match spec
-    (($constant-slot-spec val) (constantly val))
+    (($constant-slot-spec val) (lambda _ val))
     (($thunk-slot-spec fun) fun)
     (($self-slot-spec fun) (cut fun self))
     (($computed-slot-spec fun) (cut fun self superfun))))
@@ -190,7 +192,7 @@
   (for-each (lambda (slot) (fun slot (.ref self slot))) (.all-slots self)))
 
 ;; : (Listof Symbol) <- (Object _)
-(def (.all-slots/sort object) (sort (.all-slots object) symbol<?))
+(def (.all-slots/sort object) (list-sort symbol<? (.all-slots object)))
 
 ;; : (Listof (Pair s:Symbol (A s))) <- (Object A)
 (def (.alist self)
@@ -232,11 +234,8 @@
   ;; TODO: is there a better option than (stx-car stx) to introduce correct identifier scope?
   ;; the stx argument is the original syntax #'(.o args ...) or #'(@method args ...)
   (def (unkeywordify-syntax ctx k)
-    (!> k
-        syntax->datum
-        keyword->string
-        string->symbol
-        (cut datum->syntax (stx-car ctx) <>)))
+    (datum->syntax (stx-car ctx)
+                   (string->symbol (keyword->string (syntax->datum k)))))
 
   ;; A NormalizedSlotSpec is one of:
   ;;  - (slot-name value-expr)                           ; ignore parent, override
@@ -369,23 +368,30 @@
 
 ;; TODO: have it called with-slots in both cases, but autodetect
 ;; that the first argument is a keyword or string?
-(defrules with-prefixed-slots ()
-  ((ctx (prefix slot ...) self body ...)
-   (with-prefixed-slots ctx (prefix slot ...) self body ...))
-  ((_ ctx (prefix) self body ...) (begin body ...))
-  ((_ ctx (prefix slot slots ...) self body ...)
-   (with-id/expr ctx ((var #'prefix #'slot))
-     (let-id-rule (var (.@ self slot))
-       (with-prefixed-slots ctx (prefix slots ...) self body ...)))))
+(defsyntax (with-prefixed-slots input)
+  (let (stx (syntax-local-introduce input))
+    (syntax-local-introduce
+     (syntax-case stx ()
+       ((_ (prefix slot ...) self body ...)
+        #'(with-prefixed-slots prefix (prefix slot ...) self body ...))
+       ((_ ctx (prefix) self body ...) #'(begin body ...))
+       ((_ ctx (prefix slot slots ...) self body ...)
+        (with-syntax ((var (stx-identifier #'ctx #'prefix #'slot)))
+          #'(let-id-rule (var (.@ self slot))
+              (with-prefixed-slots ctx (prefix slots ...) self body ...))))))))
 
-(defrules def-prefixed-slots ()
-  ((ctx (prefix slot ...) self)
-   (def-prefixed-slots ctx (prefix slot ...) self))
-  ((_ ctx (prefix) self) (void))
-  ((_ ctx (prefix slot slots ...) self)
-   (with-id ctx ((var #'prefix #'slot))
-     (def var (.@ self slot))
-     (def-prefixed-slots ctx (prefix slots ...) self))))
+(defsyntax (def-prefixed-slots input)
+  (let (stx (syntax-local-introduce input))
+    (syntax-local-introduce
+     (syntax-case stx ()
+       ((_ (prefix slot ...) self)
+        #'(def-prefixed-slots prefix (prefix slot ...) self))
+       ((_ ctx (prefix) self) #'(void))
+       ((_ ctx (prefix slot slots ...) self)
+        (with-syntax ((var (stx-identifier #'ctx #'prefix #'slot)))
+          #'(begin
+              (def var (.@ self slot))
+              (def-prefixed-slots ctx (prefix slots ...) self))))))))
 
 ;; TODO: use defsyntax-for-match, and in the pattern use (? test :: proc => pattern) to do the job
 (defsyntax-for-match .o

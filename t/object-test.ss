@@ -4,10 +4,8 @@
 ;; NB: For debugging, use (import :std/interactive)
 
 (import
-  :gerbil/gambit
-  :std/format :std/sort :std/srfi/13 :std/test
-  :clan/assert :clan/base :clan/debug
-  :std/sugar
+  :std/format :std/test
+  ../support/base ../support/debug ../support/testing
   ../object ../brace)
 
 (def object-test
@@ -24,7 +22,7 @@
       (check-equal? (.get bar x) 18)
       (check-equal? (.slot? foo 'y) #t)
       (check-equal? (.has? foo z) #f)
-      (def (sort-symbols symbols) (sort symbols (λ (a b) (string< (symbol->string a) (symbol->string b)))))
+      (def (sort-symbols symbols) (list-sort (λ (a b) (string<? (symbol->string a) (symbol->string b))) symbols))
       (check-equal? (sort-symbols (.all-slots foo)) '(x y))
       (check-equal? (sort-symbols (.all-slots bar)) '(x))
       (def my-point (.o (x 3) (y 4)))
@@ -63,13 +61,13 @@
     (test-case "simple hello tests"
       (.def hello
         (name (error "Undefined"))
-        (greeting (format "Hello, ~a." name))
+        (greeting (format "Hello, %a." name))
         (level 0))
       (.def (alice @ hello)
         (name "Alice")
         (level => + 1)
         (language 'english)
-        (greeting (previous) (if (eq? language 'french) (format "Salut, ~a." name) (previous))))
+        (greeting (previous) (if (eq? language 'french) (format "Salut, %a." name) (previous))))
       (.def (bob @ alice greeting)
         (name "Bob")
         (level => + 1)

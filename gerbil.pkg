@@ -1,3 +1,2 @@
 ;; Prototype Object Orientation for Gerbil
-(package: clan/poo
- depend: ("git.cons.io/mighty-gerbils/gerbil-utils"))
+(package: clan/poo)

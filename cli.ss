@@ -1,35 +1,46 @@
 (export #t)
 
 (import
-  (only-in :std/generic defmethod)
-  (only-in :std/cli/getopt getopt getopt-parse getopt-display-help flag option
-           ->getopt-spec call-with-processed-command-line call-with-getopt-parse)
-  (only-in :std/cli/multicall current-program-string)
-  (only-in :std/misc/list flatten)
-  (only-in :std/sugar awhen)
-  (only-in :clan/cli getopt-spec/backtrace process-opts/backtrace)
-  (only-in :clan/hash hash-removed)
-  (only-in :clan/list pair-tree-for-each!)
-  (only-in :clan/path-config set-path-config-root!)
-  (only-in ./object .has? .@ object)
+  (only-in :std/cli/getopt getopt getopt-parse getopt-display-help flag
+           call-with-getopt-parse)
+  (rename-in
+   (only-in :std/cli/multicall
+            ->getopt-spec call-with-processed-command-line current-program-string)
+   (->getopt-spec std:->getopt-spec)
+   (call-with-processed-command-line std:call-with-processed-command-line))
+  (only-in :std/hash/misc hash-ensure-removed!)
+  (only-in :std/list/list flatten)
+  (only-in ./support/list pair-tree-for-each!)
+  (only-in ./object .has? .@ object?)
   (only-in ./brace @method))
 
-(defmethod (->getopt-spec (x object))
-  (cond
-   ((.has? x .type .getopt-spec) (->getopt-spec ((.@ x .type .getopt-spec) x)))
-   ((.has? x getopt-spec) (->getopt-spec (.@ x getopt-spec)))
-   (else (error "No getopt-spec" x))))
+(def getopt-spec/backtrace
+  [(flag 'backtrace "--backtrace" help: "enable backtraces for debugging purposes")])
+(def process-opts/backtrace
+  [(lambda (options)
+     (let-values (((enabled? _) (hash-ensure-removed! options 'backtrace)))
+       (when enabled? (dump-stack-trace? #t))))])
 
-(defmethod (call-with-processed-command-line (x object) (command-line :t) (function :t))
-  (def process-opts
+(def (->getopt-spec x)
+  (if (object? x)
     (cond
-     ((.has? x .type .process-opts) ((.@ x .type .process-opts) x))
-     ((.has? x process-opts) (.@ x process-opts))
-     (else (error "No getopt-spec" x))))
-  (def gopt (apply getopt (->getopt-spec x)))
-  (def h (getopt-parse gopt command-line))
-  (pair-tree-for-each! process-opts (cut <> h))
-  (call-with-getopt-parse gopt h function))
+     ((.has? x .type .getopt-spec) (->getopt-spec ((.@ x .type .getopt-spec) x)))
+     ((.has? x getopt-spec) (->getopt-spec (.@ x getopt-spec)))
+     (else (error "No getopt-spec" x)))
+    (std:->getopt-spec x)))
+
+(def (call-with-processed-command-line x command-line function)
+  (if (object? x)
+    (let* ((process-opts
+            (cond
+             ((.has? x .type .process-opts) ((.@ x .type .process-opts) x))
+             ((.has? x process-opts) (.@ x process-opts))
+             (else (error "No getopt-spec" x))))
+           (gopt (apply getopt (->getopt-spec x)))
+           (h (getopt-parse gopt command-line)))
+      (pair-tree-for-each! process-opts (cut <> h))
+      (call-with-getopt-parse gopt h function))
+    (std:call-with-processed-command-line x command-line function)))
 
 (def options/base {getopt-spec: ? [] process-opts: ? []})
 
@@ -39,12 +50,6 @@
    process-opts: => (cut cons <> process-opts_)})
 
 (def options/backtrace (make-options getopt-spec/backtrace process-opts/backtrace))
-
-(def options/path-config-root
-  (make-options [(option 'path-config-root "--path-config-root"
-                         help: "Directory under which to configure all runtime paths")]
-                [(lambda (opt) (awhen (it (hash-removed opt 'path-config-root))
-                            (set-path-config-root! it)))]))
 
 (def options/help
   {(:: @ [options/base])

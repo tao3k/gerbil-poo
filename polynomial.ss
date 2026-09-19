@@ -5,15 +5,20 @@
 (import
   :std/error
   :std/iter
-  :std/misc/number
-  :std/sugar
+  :std/number/misc
+  (only-in :std/vector/vector subvector-reverse-for-each/index)
   :std/values
-  :clan/base
   :std/debug/DBG
-  (only-in :std/srfi/133 vector-map vector-index-right)
   ./object ./mop ./brace ./number ./type)
 
 (defrule (let0 (x init) body ...) (let ((x init)) body ... x))
+
+(def (vector-index-right pred vector)
+  (let/cc return
+    (subvector-reverse-for-each/index
+     (lambda (index value) (when (pred value) (return index)))
+     vector)
+    #f))
 
 ;; (Univariate) Polynomials
 (define-type (Polynomial. @ [expt<-mul.] .expt .mul-expt)
@@ -159,5 +164,3 @@
                         (scale (Rinv y) P)))
                     xs X-xs)))
       (lambda (ys) (foldl add #() (map scale ys LL))))))
-
-
