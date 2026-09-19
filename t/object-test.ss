@@ -10,6 +10,31 @@
 
 (def object-test
   (test-suite "test suite for clan/poo/object"
+    (test-case "V19 C4 preserves the C3 object precedence subset"
+      (def root (.mix))
+      (def left (.mix root))
+      (def right (.mix root))
+      (def diamond (.mix left right))
+      (def (precedence-names precedence)
+        (map (lambda (object)
+               (cond ((eq? object diamond) 'diamond)
+                     ((eq? object left) 'left)
+                     ((eq? object right) 'right)
+                     ((eq? object root) 'root)
+                     (else 'unknown)))
+             precedence))
+      (check (precedence-names (compute-precedence-list! diamond))
+             => '(diamond left right root))
+
+      ;; This is the canonical C3 inconsistency: each intermediate object
+      ;; requires the two roots in the opposite order.  C4 without suffix
+      ;; objects must reject it exactly as C3 does.
+      (def first (.mix))
+      (def second (.mix))
+      (def first-before-second (.mix first second))
+      (def second-before-first (.mix second first))
+      (def inconsistent (.mix first-before-second second-before-first))
+      (check-exception (compute-precedence-list! inconsistent) true))
     (test-case "simple tests from poo.md"
       (check-equal? (object? (.o (x 1) (y 2))) #t)
       (check-equal? (object? 42) #f)
