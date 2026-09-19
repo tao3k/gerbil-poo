@@ -18,7 +18,7 @@
   (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal write-u8vector*
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in ./support/json json-normalize string<-json json<-string)
-  (only-in ./support/list index-of alist<-plist)
+  (only-in ./support/list alist<-plist)
   (only-in ./object .@ .ref object<-alist .slot? .call .o)
   (only-in ./mop define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
@@ -351,11 +351,18 @@
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
   (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (alist<-plist plist)))
-  (def tag-marsh-t (UIntN (integer-length (max 0 (1- (length a))))))
+  (def variant-names (map car a))
+  (def variant-names@ (list->vector variant-names))
+  (def variant-indices
+    (object<-alist
+     (for/collect ((tag variant-names)
+                   (tag-n (in-range (length variant-names))))
+       (cons tag tag-n))))
+  (def tag-marsh-t (UIntN (integer-length (max 0 (1- (vector-length variant-names@))))))
   {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
       variants: (object<-alist a)
-      variant-names: (map car a)
+      variant-names: variant-names
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
       .validate:
@@ -386,12 +393,12 @@
                  (make tag (<-json (.ref variants tag) (hash-ref j "value"))))
       .marshal: (lambda (v port)
                   (def tag (.@ v tag))
-                  (def tag-n (index-of variant-names tag))
+                  (def tag-n (.ref variant-indices tag))
                   (marshal tag-marsh-t tag-n port)
                   (marshal (.ref variants tag) (.@ v value) port))
       .unmarshal: (lambda (port)
                     (def tag-n (unmarshal tag-marsh-t port))
-                    (def tag (list-ref variant-names tag-n))
+                    (def tag (vector-ref variant-names@ tag-n))
                     (def value (unmarshal (.ref variants tag) port))
                     (make tag value))})
 
