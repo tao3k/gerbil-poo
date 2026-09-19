@@ -67,8 +67,11 @@
       (check (values->list (.call Polynomial. .division #(6 3 -4 4 -1) #(1 2 -1))) =>
              [#(1 -2 1) #(5 3)]))
     (test-case "test .apply"
+      (check (.call Polynomial. .apply #() 3) => 0)
+      (check (.call Polynomial. .apply #(7) 3) => 7)
       (check (.call Polynomial. .apply #(1 -2 1) 1) => 0)
-      (check (.call Polynomial. .apply #(1 -2 1) 3) => 4))
+      (check (.call Polynomial. .apply #(1 -2 1) 3) => 4)
+      (check (.call Polynomial. .apply #(1 2 3 4) 2) => 49))
     (test-case "test lagrange interpolation"
       (def P (list->vector (map char->integer (string->list "hello"))))
       (def xs '(1 2 3 4 5))
