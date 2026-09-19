@@ -19,6 +19,7 @@
     "support/rationaldict"
     "support/repr"
     "support/syntax"
+    "support/testing"
     "cli"
     "debug"
     "fq"
@@ -32,6 +33,7 @@
     "rationaldict"
     "table"
     "trie"
-    "type"))
+    "type"
+    "t/table-testing"))
 
 (defbuild-script +gerbil-poo-build-spec+)
