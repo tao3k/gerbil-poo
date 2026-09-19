@@ -132,15 +132,16 @@
   .apply:
   (lambda (P x)
     (def l (vector-length P))
-    (match l
-      (0 (.@ .Ring .zero))
-      (1 (vector-ref P 0))
-      (else (let ((add (.@ .Ring .add))
-                  (mul (.@ .Ring .mul)))
-              (let loop ((r (vector-ref P 0)) (i 1) (xi x))
-                (let ((s (add r (mul (vector-ref P i) xi)))
-                      (j (1+ i)))
-                (if (= j l) s (loop s j (mul x xi))))))))))
+    (if (zero? l)
+      (.@ .Ring .zero)
+      (let ((add (.@ .Ring .add))
+            (mul (.@ .Ring .mul)))
+        ;; Horner evaluation performs one multiplication per remaining
+        ;; coefficient instead of separately maintaining x^i.
+        (let loop ((i (- l 2)) (result (vector-ref P (1- l))))
+          (if (negative? i)
+            result
+            (loop (1- i) (add (vector-ref P i) (mul x result)))))))))
 
 
 ;; Given a list of points xs of length N, return a function that given a list ys computes
