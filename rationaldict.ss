@@ -10,7 +10,7 @@
            rationaldict-keys rationaldict-min-key rationaldict-max-key
            rationaldict-empty? empty-rationaldict
            rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
-           list->rationaldict rationaldict->list
+           list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr
            rationaldict? rationaldict=?)
   (only-in ./type Rational Unit)
   (only-in ./object .@)
@@ -32,9 +32,8 @@
    .key?: rationaldict-has-key?
    .acons: (lambda (k v d) (rationaldict-put d k v))
    .remove: rationaldict-remove
-   ;; TODO: expose rbtree-fold in clan/pure/dict/rationaldict
-   .foldl: (lambda (f seed d) (foldl (lambda (kv acc) (f (car kv) (cdr kv) acc)) seed (rationaldict->list d)))
-   .foldr: (lambda (f seed d) (foldr (lambda (kv acc) (f (car kv) (cdr kv) acc)) seed (rationaldict->list d)))
+   .foldl: rationaldict-fold
+   .foldr: rationaldict-foldr
    .<-list: list->rationaldict
    .list<-: rationaldict->list
    .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))

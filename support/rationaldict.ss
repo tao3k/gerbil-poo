@@ -3,7 +3,7 @@
 (export rationaldict? empty-rationaldict rationaldict-empty?
         rationaldict-ref rationaldict-put rationaldict-remove
         rationaldict-has-key? rationaldict-keys rationaldict-values
-        list->rationaldict rationaldict->list rationaldict=?
+        list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr rationaldict=?
         rationaldict-min-key rationaldict-max-key)
 
 (import :std/iter :std/struct/rbtree)
@@ -32,6 +32,10 @@
    (foldl (lambda (entry tree) (rbtree-put tree (car entry) (cdr entry)))
           (RBTree -) entries)))
 (def (rationaldict->list dict) (rbtree->list (rationaldict-tree dict)))
+(def (rationaldict-fold proc seed dict)
+  (rbtree-fold proc seed (rationaldict-tree dict)))
+(def (rationaldict-foldr proc seed dict)
+  (rbtree-foldr proc seed (rationaldict-tree dict)))
 (def (rationaldict=? left right (value=? equal?))
   (def left-entries (rationaldict->list left))
   (def right-entries (rationaldict->list right))
