@@ -14,7 +14,7 @@
               (only-in :std/list/list push!)
               (only-in :std/list/list-builder with-list-builder))
   (only-in :std/error deferror-class Exception)
-  (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-ref hash-ensure-modify!)
+  (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten)
@@ -128,9 +128,16 @@
   (object-%instance self))
 
 (def (.ref self slot)
-  (hash-ensure-ref (object-instance self) slot
-                   (lambda () ((hash-ref/default (object-%slot-funs self) slot
-                                            (cut cut no-applicable-method self slot))))))
+  (def instance (object-instance self))
+  ;; Keep the cached path to one V19 runtime hash lookup without allocating
+  ;; the cache-miss thunk required by hash-ensure-ref.
+  (def value (hash-ref instance slot absent-value))
+  (if (eq? value absent-value)
+    (let (value ((hash-ref/default (object-%slot-funs self) slot
+                                   (cut cut no-applicable-method self slot))))
+      (hash-put! instance slot value)
+      value)
+    value))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))

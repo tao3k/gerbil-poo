@@ -121,6 +121,15 @@
       (check-equal? (.get foo x) 6)
       (check-equal? (.get foo y) 42)
       (check-equal? (.get bar x) 1))
+    (test-case "cached slots preserve false values"
+      (def calls 0)
+      (.def cached-false
+        (value (begin
+                 (set! calls (1+ calls))
+                 #f)))
+      (check-equal? (.get cached-false value) #f)
+      (check-equal? (.get cached-false value) #f)
+      (check-equal? calls 1))
     (test-case "keyword and brace syntax"
       (check-equal? 2 (.get (.o a: 1 b: (+ a 1)) b))
       (check-equal? 2 (.get {a: 1 b: (+ a 1)} b))
