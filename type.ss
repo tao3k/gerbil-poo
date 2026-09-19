@@ -10,7 +10,7 @@
   (only-in :std/vector/vector vector-map/index vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
   (only-in :std/list/list pop! append-map)
-  (only-in :std/list/alist acons)
+  (only-in :std/list/alist acons plist->alist)
   (only-in :std/number/misc n-bits->n-u8)
   (only-in :std/encoding/hex hex-decode hex-encode)
   (only-in :std/func compose)
@@ -18,7 +18,6 @@
   (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal write-u8vector*
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in ./support/json json-normalize string<-json json<-string)
-  (only-in ./support/list alist<-plist)
   (only-in ./object .@ .ref object<-alist .slot? .call .o)
   (only-in ./mop define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
@@ -27,15 +26,6 @@
   (only-in ./io methods.bytes<-marshal methods.marshal<-bytes
            methods.marshal<-fixed-length-bytes methods.string<-json
            marshal unmarshal string<- <-string))
-
-;; V19 no longer ships SRFI-43's vector-index.  Keep the compatibility
-;; operation private and delegate traversal to the official vector iterator.
-(def (vector-index pred vector)
-  (let/cc return
-    (vector-for-each/index
-     (lambda (index value) (when (pred value) (return index)))
-     vector)
-    #f))
 
 ;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
 ;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`
@@ -341,7 +331,7 @@
 (def (RecordSlot type . options)
   (object<-alist
    (acons 'type type
-          (map (match <> ([k . v] (cons (make-symbol k) v))) (alist<-plist options)))))
+          (map (match <> ([k . v] (cons (make-symbol k) v))) (plist->alist options)))))
 
 ;; TODO: Generate a proto field that supports initialization-time defaults.
 ;; TODO: Support single inheritance.
@@ -352,13 +342,13 @@
    slots: =>.+ (object<-alist
                 (map (match <> ([kw type . options]
                                 (cons (make-symbol kw) (apply RecordSlot type options))))
-                     (alist<-plist args)))})
+                     (plist->alist args)))})
 
 ;; Sum : {Kw Type} ... -> Type
 ;; Sum types aka tagged unions, each kw is a tag
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
-  (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (alist<-plist plist)))
+  (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (plist->alist plist)))
   (def variant-names (map car a))
   (def variant-names@ (list->vector variant-names))
   (def variant-indices
