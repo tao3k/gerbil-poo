@@ -1,5 +1,6 @@
-platform-env := if os() == "macos" { "env -u SDKROOT" } else { "env" }
-build-env := platform-env + " GERBIL_BUILD_VERBOSE=9"
+platform-env := if os() == "macos" { "env -u SDKROOT -u DEVELOPER_DIR" } else { "env" }
+build-verbose := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
+build-env := platform-env + " GERBIL_BUILD_VERBOSE=" + build-verbose
 
 [parallel]
 test: test-core test-types test-trie
