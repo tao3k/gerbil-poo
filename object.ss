@@ -67,21 +67,28 @@
   (InvalidObject slots: (map car (append (object-slots self) (object-defaults self)))))
 
 (def (compute-precedence-list! self (heads '()))
-  (cond
-   ((object-%precedence-list self))
-   ((member self heads) => (lambda (l) (error "Circular precedence graph" l)))
-   (else
-    (for-each (lambda (super) (compute-precedence-list! super [self . heads]))
-              (object-supers self))
-    (let (precedence-list
-          (first-value
-           (c4-linearize
-            [self] (object-supers self)
-            get-precedence-list: object-%precedence-list
-            eq: eq?
-            get-name: invalid-object-summary)))
-      (set! (object-%precedence-list self) precedence-list)
-      precedence-list))))
+  ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
+  ;; as private implementation state at this abstraction boundary.
+  (def active (make-hash-table-eq))
+  (for-each (lambda (head) (hash-put! active head #t)) heads)
+  (let compute ((object self) (heads heads))
+    (cond
+     ((object-%precedence-list object))
+     ((hash-key? active object)
+      (error "Circular precedence graph" (member object heads)))
+     (else
+      (hash-put! active object #t)
+      (let (precedence-list
+            (first-value
+             (c4-linearize
+              [object] (object-supers object)
+              get-precedence-list:
+              (lambda (super) (compute super [object . heads]))
+              eq: eq?
+              get-name: invalid-object-summary)))
+        (hash-remove! active object)
+        (set! (object-%precedence-list object) precedence-list)
+        precedence-list)))))
 
 (def (compute-slot-funs! self)
   (def h (make-hash-table))

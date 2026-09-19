@@ -35,6 +35,11 @@
       (def second-before-first (.mix second first))
       (def inconsistent (.mix first-before-second second-before-first))
       (check-exception (compute-precedence-list! inconsistent) true))
+    (test-case "precedence cycle guard uses object identity"
+      (def left (.mix))
+      (def right (.mix left))
+      (set! (object-supers left) [right])
+      (check-exception (compute-precedence-list! left) true))
     (test-case "simple tests from poo.md"
       (check-equal? (object? (.o (x 1) (y 2))) #t)
       (check-equal? (object? 42) #f)
