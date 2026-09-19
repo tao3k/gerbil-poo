@@ -17,7 +17,10 @@
        (when separate? (display separator port))
        (display-element value port)
        (loop rest #t))
-      (_ (void))))
+      ([] (void))
+      (tail
+       (when separate? (display " . " port))
+       (display-element tail port))))
   (display suffix port))
 
 (def (print-representation value (port (current-output-port))
