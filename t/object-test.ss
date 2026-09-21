@@ -10,10 +10,10 @@
 
 (def object-test
   (test-suite "test suite for clan/poo/object"
-    (test-case "V19 C4 preserves the C3 object precedence subset"
-      (def root (.mix))
-      (def left (.mix root))
-      (def right (.mix root))
+    (test-case "V19 C4 linearizes composed object prototypes"
+      (def root (.o (value 'root) (shared 'root)))
+      (def left (.o (:: @ root) (value 'left)))
+      (def right (.o (:: @ root) (shared 'right)))
       (def diamond (.mix left right))
       (def (precedence-names precedence)
         (map (lambda (object)
@@ -25,10 +25,14 @@
              precedence))
       (check (precedence-names (compute-precedence-list! diamond))
              => '(diamond left right root))
+      (check (.ref diamond 'value) => 'left)
+      (check (.ref diamond 'shared) => 'right)
+      (def extended (.mix (.o (value 'extended)) diamond))
+      (check (.ref extended 'value) => 'extended)
+      (check (.ref extended 'shared) => 'right)
+      (check (.ref diamond 'value) => 'left)
 
-      ;; This is the canonical C3 inconsistency: each intermediate object
-      ;; requires the two roots in the opposite order.  C4 without suffix
-      ;; objects must reject it exactly as C3 does.
+      ;; Opposite ordering requirements cannot form a valid prototype DAG.
       (def first (.mix))
       (def second (.mix))
       (def first-before-second (.mix first second))

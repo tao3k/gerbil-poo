@@ -16,6 +16,12 @@
       (map (λ-match ([type element] (assert! (not (element? type element)))))
            [[Bool 5]
             [Integer 3.14159]]))
+    (test-case "source expressions extend through prototype slots"
+      (def base (.o (sexp '(base))))
+      (def derived (.mix (.o (sexp '(derived))) base))
+      (check (:sexp base) => '(base))
+      (check (:sexp derived) => '(derived))
+      (check (:sexp base) => '(base)))
     (test-case "class tests"
       (define-type (Amount @ Class.)
         slots: =>.+
