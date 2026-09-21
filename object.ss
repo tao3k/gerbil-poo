@@ -6,7 +6,9 @@
 ;; TODO: see Future Features and the Internals TODO sections in document above.
 
 ;; Reexport renamed version of core things we shadow
-(export #t @object? @make-object)
+(export #t @object? @make-object
+        (for-syntax %make-object-slot-self-parameter
+                    %make-object-slot-identifier-expander))
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -19,6 +21,7 @@
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten)
   (only-in :std/list/alist aset)
+  :std/stxparam
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize)
   (only-in ./support/base modify! looking-for λ symbol<? let-id-rule defonce awhen))
@@ -320,16 +323,62 @@
           ((slot =>.+ . _) (raise-syntax-error #f "=>.+ not allowed in patterns" ctx))
           ((slot (next-method) form) (raise-syntax-error #f "(inherited-computation) not allowed in patterns" ctx)))))))
 
+;; A prototype may name the same slot in its inherited, default, and direct
+;; declarations.  Syntax bindings only need one entry for identifiers that
+;; denote the same lexical slot.
+(begin-syntax
+  (def (%make-object-slot-self-parameter)
+    (make-syntax-parameter key: (gensym 'slot-self) default: #f))
+
+  (def (%make-object-slot-identifier-expander self-parameter slot ref)
+    (lambda (stx)
+      (let (self (syntax-parameter-value self-parameter))
+        (unless self
+          (raise-syntax-error #f "slot reference outside object method scope" stx))
+        (with-syntax ((self self) (slot slot) (ref ref))
+          (if (identifier? stx)
+            #'(ref self 'slot)
+            (syntax-case stx ()
+              ((_ . args) #'((ref self 'slot) . args))))))))
+
+  (def (deduplicate-slot-identifiers slots)
+    (let loop ((rest (syntax->list slots)) (seen []) (result []))
+      (match rest
+        ([] (reverse result))
+        ([slot . tail]
+         (if (find (cut bound-identifier=? slot <>) seen)
+           (loop tail seen result)
+           (loop tail [slot . seen] [slot . result]))))))
+
+  (def (prepare-shared-slot-specs specs)
+    (let loop ((rest specs) (bindings []) (result []))
+      (match rest
+        ([] [(reverse bindings) (reverse result)])
+        ([spec . tail]
+         (syntax-case spec ()
+           ((slot)
+            (with-syntax ((value (genident 'slot-value)))
+              (loop tail
+                    [#'(value slot) . bindings]
+                    [#'(slot lexical-slot-value value) . result])))
+           (_ (loop tail bindings [spec . result]))))))))
+
 ;; the ctx argument exists for macro-scope purposes
 (defsyntax (object/slots stx)
   (syntax-case stx ()
     ((_ ctx self super (slots ...) . slot-specs)
-     (with-syntax (((((slot spec ...) ...)
-                     ((default-slot . default-value) ...))
-                    (normalize-slot-specs #'ctx #'slot-specs)))
-       #'(object/init self super (slots ... default-slot ... slot ...)
-                      ((default-slot . default-value) ...)
-                      (slot spec ...) ...)))))
+     (let* ((normalized (normalize-slot-specs #'ctx #'slot-specs))
+            (slot-methods (car normalized))
+            (defaults (cadr normalized))
+            (prepared (prepare-shared-slot-specs slot-methods)))
+       (with-syntax ((((slot spec ...) ...) slot-methods)
+                     (((default-slot . default-value) ...) defaults)
+                     (((constant-id constant-value) ...) (car prepared))
+                     (((prepared-slot prepared-spec ...) ...) (cadr prepared)))
+         #'(let ((constant-id constant-value) ...)
+             (object/init self super (slots ... default-slot ... slot ...)
+                          ((default-slot . default-value) ...)
+                          (prepared-slot prepared-spec ...) ...)))))))
 
 (defrule (object/defaults (default-slot default-value) ...)
   (list (cons 'default-slot default-value) ...))
@@ -337,32 +386,56 @@
 (defrule (object/init self super slots ((default-slot default-value) ...) (slot slotspec ...) ...)
   (make-object
    supers: super
-   slots: (list (cons 'slot (object/slot-spec self slots slot slotspec ...)) ...)
+   slots: (%with-shared-slot-bindings slots (slot-self)
+           (list (cons 'slot (object/slot-spec %with-shared-slots slot-self self slots slot slotspec ...)) ...))
    defaults: (object/defaults (default-slot default-value) ...)))
 
-(defrules object/slot-spec (=> =>.+)
-  ((_ self slots slot form)
+(defrules object/slot-spec (=> =>.+ lexical-slot-value)
+  ((_ scope slot-self self slots slot lexical-slot-value value)
+   ($constant-slot-spec value))
+  ((_ scope slot-self self slots slot form)
    ($self-slot-spec (lambda (self)
-    (%with-slots slots self form))))
-  ((_ self slots slot => form args ...)
+    (scope slot-self slots self form))))
+  ((_ scope slot-self self slots slot => form args ...)
    ($computed-slot-spec (lambda (self superfun)
-    (%with-slots slots self (form (superfun) args ...)))))
-  ((_ self slots slot =>.+ args ...)
-   (object/slot-spec self slots slot => .+ args ...))
-  ((_ self slots slot (next-method) form)
+    (scope slot-self slots self (form (superfun) args ...)))))
+  ((_ scope slot-self self slots slot =>.+ args ...)
+   (object/slot-spec scope slot-self self slots slot => .+ args ...))
+  ((_ scope slot-self self slots slot (next-method) form)
    ($computed-slot-spec (lambda (self superfun)
      (defonce (next-method) (superfun))
-     (%with-slots slots self form))))
-  ((_ self slots slot)
+     (scope slot-self slots self form))))
+  ((_ scope slot-self self slots slot)
    ($constant-slot-spec slot)))
 
-;;NB: This doesn't work, because of slots that appear more than once.
-#;(defrule (with-slots (slot ...) self body ...) (let-id-rule ((slot (.@ self slot)) ...) body ...))
+(defsyntax (%with-slots stx)
+  (syntax-case stx ()
+    ((_ (slots ...) self body ...)
+     (with-syntax (((slot ...) (deduplicate-slot-identifiers #'(slots ...))))
+       #'(let-id-rule ((slot (.@ self slot)) ...) body ...)))))
 
-(defrules %with-slots ()
-  ((_ () self body ...) (begin body ...))
-  ((_ (slot slots ...) self body ...)
-   (let-id-rule (slot (.@ self slot)) (with-slots (slots ...) self body ...))))
+(defsyntax (%with-shared-slot-bindings stx)
+  (syntax-case stx ()
+    ((_ (slots ...) (slot-self) body ...)
+     (let* ((slot-self-id (genident 'slot-self))
+            (body (stx-substitute [[#'slot-self . slot-self-id]]
+                                  #'(begin body ...))))
+       (with-syntax (((slot ...) (deduplicate-slot-identifiers #'(slots ...)))
+                     (slot-self slot-self-id)
+                     (body body))
+         #'(let-syntax ((slot-self (%make-object-slot-self-parameter)))
+             (let-syntax ((slot
+                           (%make-object-slot-identifier-expander
+                            (quote-syntax slot-self)
+                            (quote-syntax slot)
+                            (quote-syntax .ref))) ...)
+               body)))))))
+
+(defrule (%with-shared-slots slot-self _ self body ...)
+  (syntax-parameterize ((slot-self (quote-syntax self))) body ...))
+
+(defrule (%with-direct-slots _ slots self body ...)
+  (%with-slots slots self body ...))
 
 (defrules with-slots ()
   ((_ () self body ...) (begin body ...))
@@ -458,7 +531,9 @@
 
 (defrules .def! ()
   ((_ object slot (:: self _ slots ...) slotspec ...)
-   (.putslot! object 'slot (object/slot-spec self (slot slots ...) slot slotspec ...)))
+   (.putslot! object 'slot
+              (object/slot-spec %with-direct-slots #f self
+                                (slot slots ...) slot slotspec ...)))
   ((_ object slot (:: self) slotspec ...)
    (.def! object slot (:: self []) slotspec ...))
   ((_ object slot (slots ...) slotspec ...)

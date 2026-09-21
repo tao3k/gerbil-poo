@@ -138,6 +138,21 @@
     (test-case "referring to another method"
       (def m (.o a: 1+ b: a c: ((lambda (aa) (lambda (x) (aa x))) a) d: (lambda (x) (a x))))
       (check-equal? (map (lambda (x) ((.ref m x) 2)) '(a b c d)) [3 3 3 3]))
+    (test-case "nested object methods retain the outer lexical slot scope"
+      (.def outer
+        (outer-value 41)
+        (inner {read: (lambda () outer-value)}))
+      (check-equal? (.call (.@ outer inner) read) 41)
+      (def (make-outer value)
+        (.o (outer-value value)
+            (inner {read: (lambda () outer-value)})))
+      (check-equal? (.call (.@ (make-outer 7) inner) read) 7)
+      (check-equal? (.call (.@ (make-outer 9) inner) read) 9)
+      (def shadowed
+        (.o (outer-value 41)
+            (inner (.o (outer-value 7)
+                       (read outer-value)))))
+      (check-equal? (.@ (.@ shadowed inner) read) 7))
     (test-case "testing overrides"
       (def m (.o c: 3 b: 2 a: 1))
       (def n (.cc m b: 20 'c 30 d: 40))
