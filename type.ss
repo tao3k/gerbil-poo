@@ -351,18 +351,18 @@
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
   (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (alist<-plist plist)))
-  (def variant-names (map car a))
-  (def variant-names@ (list->vector variant-names))
+  (def sum-variant-names (map car a))
+  (def variant-names@ (list->vector sum-variant-names))
   (def variant-indices
     (object<-alist
-     (for/collect ((tag variant-names)
-                   (tag-n (in-range (length variant-names))))
+     (for/collect ((tag sum-variant-names)
+                   (tag-n (in-range (length sum-variant-names))))
        (cons tag tag-n))))
   (def tag-marsh-t (UIntN (integer-length (max 0 (1- (vector-length variant-names@))))))
   {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
       variants: (object<-alist a)
-      variant-names: variant-names
+      variant-names: sum-variant-names
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
       .validate:
