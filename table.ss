@@ -3,6 +3,7 @@
 (export #t)
 
 (import
+  :std/interface
   :std/iter
   (only-in :std/list/alist acons)
   (only-in :std/func compose)
@@ -13,11 +14,16 @@
   (only-in ./object .@ .call)
   (only-in ./type List Pair))
 
+(defstruct %mapped-iterator (source transform) final: #t)
+(implement Iterator %mapped-iterator
+  (next!
+   (lambda (self)
+     (using ((source self.source :- Iterator))
+       (def value (source.next!))
+       (if (eq? value #!eof) #!eof (self.transform value))))))
+
 (def (iterator-map transform source)
-  (in-coroutine
-   (lambda (yield)
-     (for (value source)
-       (yield (transform value))))))
+  (Iterator (%mapped-iterator (iter source) transform)))
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
@@ -240,8 +246,11 @@
   .find-first: (lambda (f t) (option-ref (.find-first/opt f t))) ;; : Elt <- (Bool <- Elt) @
   .find-last/opt: (lambda (f t) (map/option car (.call Table .find-last/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
   .find-last: (lambda (f t) (option-ref (.find-last/opt f t))) ;; : Elt <- (Bool <- Elt) @
-  .iter<-: (lambda (t from: (from 0)) ;; : (Iterator Elt) <- @ ?Elt
-              (iterator-map car (.call Table .iter<- t from: from)))
+  .iter<-: (lambda (t from: (from #f)) ;; : (Iterator Elt) <- @ ?Elt
+              (iterator-map car
+                            (if (not from)
+                              (.call Table .iter<- t)
+                              (.call Table .iter<- t from))))
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (elt s) (.cons elt t))) ;; : @ <- (Iterator Elt) ?@
   .List: (List Elt)
   .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @

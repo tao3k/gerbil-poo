@@ -4,7 +4,7 @@
         rationaldict-ref rationaldict-put rationaldict-remove
         rationaldict-has-key? rationaldict-keys rationaldict-values
         list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr rationaldict=?
-        rationaldict-min-key rationaldict-max-key)
+        rationaldict-min-key rationaldict-max-key rationaldict-iter)
 
 (import :std/iter :std/struct/rbtree)
 
@@ -31,6 +31,14 @@
   ;; V19 owns the transient construction path; only the completed tree escapes.
   (rationaldict (list->rbtree - entries)))
 (def (rationaldict->list dict) (rbtree->list (rationaldict-tree dict)))
+(def (rationaldict-iter dict (from #f))
+  (def entries (iter (rationaldict-tree dict)))
+  (if from
+    (in-coroutine
+     (lambda (yield)
+       (for (entry entries)
+         (when (>= (car entry) from) (yield entry)))))
+    entries))
 (def (rationaldict-fold proc seed dict)
   (rbtree-fold proc seed (rationaldict-tree dict)))
 (def (rationaldict-foldr proc seed dict)

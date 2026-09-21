@@ -514,11 +514,14 @@
 
   ;; : (Fun UInt <- @)
   .count: (lambda (trie)
-            (match (.unwrap trie)
-              ((Empty) 0)
-              ((Leaf _) 1)
-              ((Branch _ left right) (+ (.count left) (.count right)))
-              ((Skip _1 _2 _3 child) (.count child))))
+            ;; Resolve the overridable prototype slot once, then recurse locally.
+            (def unwrap-node .unwrap)
+            (let count ((node trie))
+              (match (unwrap-node node)
+                ((Empty) 0)
+                ((Leaf _) 1)
+                ((Branch _ left right) (+ (count left) (count right)))
+                ((Skip _1 _2 _3 child) (count child)))))
 
   ;; Binary search given a monotonic predicate f that is #f then #t.
   ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,

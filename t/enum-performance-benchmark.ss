@@ -3,8 +3,8 @@
 (import
   :gerbil/runtime/gambit
   :std/iter
-  :clan/poo/object
-  :clan/poo/type)
+  ../object
+  ../type)
 
 (def E
   (Enum 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
@@ -32,7 +32,7 @@
   (unless (= result (* target measured-repetitions))
     (error "Enum lookup benchmark produced an invalid result"))
   (displayln
-   "ENUM_LOOKUP_AOT_RUNTIME_RECEIPT="
+   "ENUM_LOOKUP_RUNTIME_RECEIPT="
    [variants: 64
     target-index: target
     warmup-repetitions: warmup-repetitions

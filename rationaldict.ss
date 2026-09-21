@@ -11,7 +11,7 @@
            rationaldict-empty? empty-rationaldict
            rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
            list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr
-           rationaldict? rationaldict=?)
+           rationaldict? rationaldict=? rationaldict-iter)
   (only-in ./type Rational Unit)
   (only-in ./object .@)
   (only-in ./brace @method)
@@ -34,6 +34,7 @@
    .remove: rationaldict-remove
    .foldl: rationaldict-fold
    .foldr: rationaldict-foldr
+   .iter<-: rationaldict-iter
    .<-list: list->rationaldict
    .list<-: rationaldict->list
    .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))

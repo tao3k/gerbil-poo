@@ -1,11 +1,13 @@
 (export #t)
 
 (import
+  :std/iter
   :std/test
   ../support/testing
   (only-in ../support/rationaldict
            list->rationaldict rationaldict-ref rationaldict-fold rationaldict-foldr
            rationaldict=?)
+  (only-in ../object .call)
   ../mop ../rationaldict ../type
   ./table-testing)
 
@@ -35,4 +37,22 @@
       (check (rationaldict=? left different-key) => #f)
       (check (rationaldict=? left different-value) => #f)
       (check (rationaldict=? left different-value string-ci=?) => #t))
+    (test-case "rational set iterator respects an inclusive lower bound"
+      (def set (.call RationalSet .<-list '(-3 -1 1 3 5)))
+      (check (for/collect (element (.call RationalSet .iter<- set)) element)
+             => '(-3 -1 1 3 5))
+      (check (for/collect (element (.call RationalSet .iter<- set from: 0)) element)
+             => '(1 3 5))
+      (check (for/collect (element (.call RationalSet .iter<- set from: 3)) element)
+             => '(3 5))
+      (check (for/collect (element (.call RationalSet .iter<- set from: -1/2)) element)
+             => '(1 3 5))
+      (check (for/collect (element (.call RationalSet .iter<- set from: 6)) element)
+             => '())
+      (def dict (.call T .<-list '((-1 . "minus one") (1 . "one") (3 . "three"))))
+      (check (for/collect (entry (.call T .iter<- dict 1)) entry)
+             => '((1 . "one") (3 . "three")))
+      (using ((iterator (.call RationalSet .iter<- set from: 6) :- Iterator))
+        (check (iterator.next!) => #!eof)
+        (check (iterator.next!) => #!eof)))
     (table-tests T)))

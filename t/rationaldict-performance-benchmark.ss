@@ -3,9 +3,9 @@
 (import
   :gerbil/runtime/gambit
   :std/iter
-  :clan/poo/object
-  :clan/poo/rationaldict
-  :clan/poo/type)
+  ../object
+  ../rationaldict
+  ../type)
 
 (def T (RationalDict String))
 (def entry-count 4096)
@@ -60,7 +60,7 @@
   (when different-result
     (error "different RationalDict values compared equal"))
   (displayln
-   "RATIONALDICT_AOT_RUNTIME_RECEIPT="
+   "RATIONALDICT_RUNTIME_RECEIPT="
    [entries: entry-count
     warmup-repetitions: warmup-repetitions
     measured-repetitions: measured-repetitions

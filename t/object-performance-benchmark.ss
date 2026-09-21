@@ -4,7 +4,7 @@
   :gerbil/runtime/gambit
   :std/format
   :std/iter
-  :clan/poo/object)
+  ../object)
 
 (def slot-count 64)
 (def hot-repetitions 1000000)
@@ -74,7 +74,7 @@
   (unless (= (.ref clone-result 'added-1) 201)
     (error "POO clone lost an added slot"))
   (displayln
-   "POO_OBJECT_AOT_RUNTIME_RECEIPT="
+   "POO_OBJECT_RUNTIME_RECEIPT="
    [slots: slot-count
     hot-repetitions: hot-repetitions
     structural-repetitions: structural-repetitions
