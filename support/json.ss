@@ -9,7 +9,7 @@
 
 (def (json<-string text)
   ;; POO's Class and Slot decoders use the HashTable interface for object
-  ;; lookup.  Keep that public representation while adopting V19's JSON API.
+  ;; lookup.  Keep that public representation when decoding JSON objects.
   (string->json text
                 (JSONReadOptions key-as-symbol: #f
                                  array-as-vector: #f

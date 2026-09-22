@@ -60,14 +60,14 @@
       (check-equal?
        (.alist (.call Lens .modify (slot-lens 'a) 1+ {a: 1 b: 6}))
        '((a . 2) (b . 6))))
-    (test-case "class JSON string round trip preserves the HashTable contract"
+    (test-case "class JSON string round trip preserves the object contract"
       (define-type (JsonRecord @ Class.)
         slots: =>.+
         {name: {type: String}
          values: {type: (List Integer)}}
         sealed: #t)
-      (def value (.new JsonRecord name: "v19" values: '(1 2 3)))
+      (def value (.new JsonRecord name: "example" values: '(1 2 3)))
       (def roundtrip
         (<-json-string JsonRecord (json-string<- JsonRecord value)))
-      (check-equal? (.get roundtrip name) "v19")
+      (check-equal? (.get roundtrip name) "example")
       (check-equal? (.get roundtrip values) '(1 2 3)))))
