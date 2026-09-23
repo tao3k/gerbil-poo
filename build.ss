@@ -8,6 +8,14 @@
 
 ;; Keep the package build graph explicit. V19 std/make owns dependency
 ;; scheduling and native compilation; this file only declares package inputs.
+(def +gerbil-poo-fq-spec+
+  (cond-expand
+   (darwin
+    ;; Gambit loads this AOT module as a Mach-O bundle. Math symbols such as
+    ;; pow are resolved from the host runtime when the bundle is loaded.
+    '(gxc: "fq" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
+   (else "fq")))
+
 (def +gerbil-poo-build-spec+
   `("brace"
     "support/base"
@@ -22,7 +30,7 @@
     "support/testing"
     "cli"
     "debug"
-    "fq"
+    ,+gerbil-poo-fq-spec+
     "fun"
     (gxc: "io" ,@(include-gambit-sharp))
     "mop"
