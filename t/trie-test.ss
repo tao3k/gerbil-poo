@@ -1,8 +1,9 @@
 (export #t)
 
 (import
-  :std/sugar :std/test
-  :clan/base :clan/testing
+  :std/iter
+  :std/test
+  ../support/base ../support/testing
   ../object ../mop ../number ../type ../trie
   ./table-testing)
 
@@ -32,12 +33,13 @@
       (defrule (check-leaf-focus k v t)
         (begin
           (F .validate t)
-          (let-match ((cons focus path) (F .refocus ($Costep -1 k) (F .zipper<- t)))
+          (match (F .refocus ($Costep -1 k) (F .zipper<- t))
+           ((cons focus path)
             (check-equal? focus (F .leaf<-opt (F .ref/opt t k)))
             (check-equal? (F .ref t k false) v)
             (validate (E Path) path)
             (check-equal? ($Path-costep path) ($Costep -1 k))
-            (check-equal? (F .<-zipper (cons focus path)) t))))
+            (check-equal? (F .<-zipper (cons focus path)) t)))))
       (check-leaf-focus 100 "one hundred" (F .singleton 100 "one hundred"))
       (check-leaf-focus 101 "needle" (F .<-list '((100 . "hey") (101 . "needle")
                                                   (102 . "hay") (103 . "haAAy"))))
@@ -66,5 +68,24 @@
 (def trie-test
   (test-suite "test suite for clan/poo/trie"
     (init-test-random-source!)
+    (test-case "set iterator maps native table entries"
+      (def set (.call UIntTrieSet .<-list '(1 3 5)))
+      (check (for/collect (element (.call UIntTrieSet .iter<- set)) element)
+             => '(1 3 5))
+      (check (for/collect (element (.call UIntTrieSet .iter<- set from: 3)) element)
+             => '(3 5))
+      (using ((iterator (.call UIntTrieSet .iter<- set) :- Iterator))
+        (check (iterator.next!) => 1)
+        (check (iterator.next!) => 3)
+        (check (iterator.next!) => 5)
+        (check (iterator.next!) => #!eof)
+        (check (iterator.next!) => #!eof)))
+    (test-case "count preserves persistent trie branches"
+      (def base (.call T .<-list '((1 . "one") (3 . "three") (5 . "five"))))
+      (def extended (.call T .acons 7 "seven" base))
+      (check (.call T .count base) => 3)
+      (check (.call T .count extended) => 4)
+      (check (.call T .count (.call T .remove extended 3)) => 3)
+      (check (.call T .count base) => 3))
     (table-tests T)
     (simple-tests T)))

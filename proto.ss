@@ -1,7 +1,7 @@
 ;;; Prototypes, in the most universal sense.
 (export #t)
 
-(import :clan/base)
+(import (only-in ./support/base undefined))
 
 ;; If we could define types with constraints, it would be:
 ;; (deftype (Proto A B) (A ← A B) st: (<: A B))

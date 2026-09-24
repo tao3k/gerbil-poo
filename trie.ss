@@ -5,12 +5,10 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/error :std/format :std/iter :std/misc/number :std/sugar :std/values
-  :clan/base :clan/option
+  :std/format :std/iter :std/number/misc :std/values
+  ./support/base ./support/option
   ./object ./mop ./brace ./number ./type ./fun ./io ./table)
 
-#;(import :clan/debug :clan/exception :gerbil/gambit/threads :gerbil/gambit/continuations)
 #;(defrule (aver cond msg expr ...)
   (unless cond
     (DBG msg expr ...)
@@ -138,7 +136,8 @@
     ;; : (forall (trunk branch)
     ;;      (Pair trunk Costep) <- (Unstep trunk branch) (Step branch) (Pair trunk Costep))
     .op: (lambda (unstep step acc)
-           (let-match ((cons trie ($Costep height key)) acc)
+           (match acc
+            ((cons trie ($Costep height key))
              (unless height (error "Trie.Step.op: height must be non-empty for a non-empty path"))
              (match step
                ((BranchStep branch)
@@ -153,7 +152,7 @@
                        (h (+ height l)) ;; new height after un-skipping
                        (bits (extract-bit-field l 0 key))
                        (upkey (arithmetic-shift key (- l))))
-                  (cons (($Unstep-skip unstep) upkey h bh bits trie) ($Costep h upkey)))))))
+                  (cons (($Unstep-skip unstep) upkey h bh bits trie) ($Costep h upkey))))))))
 
     .up: (let (up (.@ Unstep .up)) (lambda (step acc) (.op up step acc)))
     ;; Can be used to trivially merkleize a step.
@@ -181,7 +180,8 @@
     ;; : Bool <- Any
     .validate:
     (lambda (path)
-      (let-match (($Path (and costep ($Costep height key)) steps) path)
+      (match path
+       (($Path (and costep ($Costep height key)) steps)
         (validate Costep costep)
         (let c ((height height) (steps steps))
           (match steps
@@ -195,14 +195,17 @@
                 (validate Height bits-height)
                 (let (new-height (+ height bits-height 1))
                   (validate Height new-height)
-                  (c new-height steps))))))))
+                  (c new-height steps)))))))))
       path)
 
     ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
     .op: (let (apply-step (.@ Step .op))
            (lambda (unstep t path)
-             (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
-               (foldl (cut apply-step unstep <> <>) (cons t costep) steps)))))
+             (match path
+              (($Path costep steps)
+               (match costep
+                (($Costep _ _)
+                 (foldl (cut apply-step unstep <> <>) (cons t costep) steps)))))))
 
     ;; : (Pair @ Costep) <- @ (Path @)
     .up: (let (up (.@ Unstep .up))
@@ -511,11 +514,14 @@
 
   ;; : (Fun UInt <- @)
   .count: (lambda (trie)
-            (match (.unwrap trie)
-              ((Empty) 0)
-              ((Leaf _) 1)
-              ((Branch _ left right) (+ (.count left) (.count right)))
-              ((Skip _1 _2 _3 child) (.count child))))
+            ;; Resolve the overridable prototype slot once, then recurse locally.
+            (def unwrap-node .unwrap)
+            (let count ((node trie))
+              (match (unwrap-node node)
+                ((Empty) 0)
+                ((Leaf _) 1)
+                ((Branch _ left right) (+ (count left) (count right)))
+                ((Skip _1 _2 _3 child) (count child)))))
 
   ;; Binary search given a monotonic predicate f that is #f then #t.
   ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,
@@ -657,16 +663,18 @@
        ((Empty) [])
        ((Leaf _) [])
        ((Branch _ left right)
-        (let-match (($Path ($Costep h k) steps) path)
+        (match path
+         (($Path ($Costep h k) steps)
           (def h1 (1- h))
           (def k1 (arithmetic-shift k 1))
           [(cons left ($Path ($Costep h1 k1) (.make-branch-step right steps)))
-           (cons right ($Path ($Costep h1 (1+ k1)) (.make-branch-step left steps)))]))
+           (cons right ($Path ($Costep h1 (1+ k1)) (.make-branch-step left steps)))])))
        ((Skip _ bits-height bits child)
-        (let-match (($Path ($Costep h k) steps) path)
+        (match path
+         (($Path ($Costep h k) steps)
           (def length (1+ bits-height))
           [(cons child ($Path ($Costep (- h length) (+ (arithmetic-shift k length) bits))
-                              [(SkipStep bits-height) . steps]))])))))
+                              [(SkipStep bits-height) . steps]))]))))))
 
   .make-branch-step:
   (lambda (branch steps)
@@ -912,21 +920,18 @@
   ;; : (Iterator (Pair Key Value)) <- @ ?Key
   .iter<-:
   (lambda (t (from 0))
-    (def (next it)
-      (defvalues (r ne)
-        (let loop ((e (iterator-e it)))
-          (match e
-            ([] (values iter-end []))
-            ([[k . t] . kts]
-             (match (.unwrap t)
-               ((Empty) (loop kts))
-               ((Leaf v) (values [k . v] kts))
-               ((Branch h l r) (loop [[k . l] [(.right-key h k) . r] . kts]))
-               ((Skip h l b c) (loop [[(.skip-key h l b k) . c] . kts])))))))
-      (set! (iterator-e it) ne)
-      r)
     (when (positive? from) (let-values (((_1 _2 r) (.split (1- from) t))) (set! t r)))
-    (make-iterator [[0 . t]] next)))
+    (in-coroutine
+     (lambda (yield)
+       (let loop ((entries [[0 . t]]))
+         (match entries
+           ([] (void))
+           ([[k . t] . rest]
+            (match (.unwrap t)
+              ((Empty) (loop rest))
+              ((Leaf v) (yield [k . v]) (loop rest))
+              ((Branch h l r) (loop [[k . l] [(.right-key h k) . r] . rest]))
+              ((Skip h l b c) (loop [[(.skip-key h l b k) . c] . rest]))))))))))
 
 (define-type (TrieSet. @ Set<-Table.)
   Table: {(:: @ Trie.) Value: Unit}

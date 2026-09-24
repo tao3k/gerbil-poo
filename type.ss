@@ -5,21 +5,19 @@
 
 (import
   (only-in :std/assert assert!)
-  (only-in :std/iter for/collect for in-range in-iota)
-  (only-in :std/misc/bytes big uint->u8vector u8vector->uint)
-  (only-in :std/misc/hash hash-key-value-map hash-ensure-ref)
-  (only-in :std/misc/list pop! acons)
-  (only-in :std/misc/number n-bits->n-u8)
-  (only-in :std/srfi/1 append-map any every)
-  (only-in :std/srfi/43 vector-index vector-map vector-unfold vector-for-each)
-  (only-in :std/sugar defrule hash with-id ignore-errors)
-  (only-in :std/text/hex hex-decode hex-encode)
-  (only-in :clan/assert assert-equal!)
-  (only-in :clan/base λ compose invalid)
-  (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal write-u8vector*
+  :std/iter
+  (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
+  (only-in :std/vector/vector vector-map/index vector-for-each/index)
+  (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
+  (only-in :std/list/list pop! append-map)
+  (only-in :std/list/alist acons plist->alist)
+  (only-in :std/number/misc n-bits->n-u8)
+  (only-in :std/encoding/hex hex-decode hex-encode)
+  (only-in :std/func compose)
+  (only-in ./support/base λ invalid ignore-errors hash)
+  (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal write-u8vector*
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
-  (only-in :clan/json json-normalize string<-json json<-string)
-  (only-in :clan/list index-of alist<-plist)
+  (only-in ./support/json json-normalize string<-json json<-string)
   (only-in ./object .@ .ref object<-alist .slot? .call .o)
   (only-in ./mop define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
@@ -47,15 +45,15 @@
       (def l (vector-length types))
       (and (vector? x) (= (vector-length x) l)
            (let/cc return
-             (for ((i (in-iota l)))
+             (for ((i (in-range l)))
                (unless (element? (vector-ref types i) (vector-ref x i)) (return #f)))
              #t)))
-  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map (lambda (_ t x) (sexp<- t x)) types v))))
-  .json<-: (lambda (v) (vector->list (vector-map (lambda (_ t x) (json<- t x)) types v)))
-  .<-json: (lambda (j) (vector-map (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
+  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map/index (lambda (_ t x) (sexp<- t x)) types v))))
+  .json<-: (lambda (v) (vector->list (vector-map/index (lambda (_ t x) (json<- t x)) types v)))
+  .<-json: (lambda (j) (vector-map/index (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
   .marshal: (lambda (v port)
-              (vector-for-each (lambda (_ type val) (marshal type val port))
-                               types v))
+              (vector-for-each/index (lambda (_ type val) (marshal type val port))
+                                     types v))
   .unmarshal: (lambda (port) (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
 (def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) type-list)))
@@ -158,7 +156,7 @@
   ;; WE ASSUME THE JSON'S ARE DISJOINT, AS ARE THE VALUES (BUT WE DISCRIMINATE WHEN MARSHALLING)
   .discriminant-length-in-bits: (integer-length (1- (length types)))
   .discriminant-length-in-bytes: (n-bits->n-u8 .discriminant-length-in-bits)
-  .discriminant<-: (lambda (v) (let/cc return (vector-for-each (lambda (i t) (when (element? t v) (return i))) types@) #f))
+  .discriminant<-: (lambda (v) (let/cc return (vector-for-each/index (lambda (i t) (when (element? t v) (return i))) types@) #f))
   .sexp<-: (lambda (v) (sexp<- (vector-ref types@ (.discriminant<- v)) v))
   .json<-: (lambda (v) (def disc (.discriminant<- v))
               ;;[disc (json<- (vector-ref types@ disc) v)])
@@ -198,8 +196,8 @@
   kvalue: (lambda _ value)
   jsvalue: (json-normalize value)
   .sexp<-: (.@ Any .sexp<-)
-  .json<-: (lambda (x) (assert-equal! x value) jsvalue)
-  .<-json: (lambda (x) (assert-equal! x jsvalue) value)
+  .json<-: (lambda (x) (assert! (equal? x value)) jsvalue)
+  .<-json: (lambda (x) (assert! (equal? x jsvalue)) value)
   .bytes<-: (lambda _ #u8())
   .<-bytes: kvalue
   .marshal: void
@@ -212,16 +210,24 @@
 (define-type True (Exactly #t))
 (define-type Unit (Exactly (void)))
 
+(def (first-index-hash<-vector values)
+  (def indices (make-hash-table size: (vector-length values)))
+  (for (index (in-range (vector-length values)))
+    (hash-ensure-ref indices (vector-ref values index) (lambda () index)))
+  indices)
+
 (define-type (Enum. @ [methods.marshal<-fixed-length-bytes Type.] vals)
-  .element?: (cut member <> vals)
   .vals@: (list->vector vals)
   .json@: (list->vector (map json-normalize vals))
+  .value-indices@: (first-index-hash<-vector .vals@)
+  .json-indices@: (first-index-hash<-vector .json@)
+  .element?: (cut hash-key? .value-indices@ <>)
   .length-in-bits: (integer-length (1- (vector-length .vals@)))
   .length-in-bytes: (n-bits->n-u8 .length-in-bits)
   .<-uint: (cut vector-ref .vals@ <>)
-  .uint<-: (lambda (v) (vector-index (cut equal? <> v) .vals@))
+  .uint<-: (cut hash-get .value-indices@ <>)
   .json<-: (lambda (v) (vector-ref .json@ (.uint<- v)))
-  .<-json: (lambda (j) (vector-index (cut equal? <> j) .json@))
+  .<-json: (cut hash-get .json-indices@ <>)
   .bytes<-: (compose (cut uint->u8vector <> big .length-in-bytes) .uint<-)
   .<-bytes: (compose .<-uint u8vector->uint)
   .marshal: => (lambda (super) (if (zero? .length-in-bytes) void super))
@@ -325,7 +331,7 @@
 (def (RecordSlot type . options)
   (object<-alist
    (acons 'type type
-          (map (match <> ([k . v] (cons (make-symbol k) v))) (alist<-plist options)))))
+          (map (match <> ([k . v] (cons (make-symbol k) v))) (plist->alist options)))))
 
 ;; TODO: Generate a proto field that supports initialization-time defaults.
 ;; TODO: Support single inheritance.
@@ -336,18 +342,25 @@
    slots: =>.+ (object<-alist
                 (map (match <> ([kw type . options]
                                 (cons (make-symbol kw) (apply RecordSlot type options))))
-                     (alist<-plist args)))})
+                     (plist->alist args)))})
 
 ;; Sum : {Kw Type} ... -> Type
 ;; Sum types aka tagged unions, each kw is a tag
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
-  (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (alist<-plist plist)))
-  (def tag-marsh-t (UIntN (integer-length (max 0 (1- (length a))))))
+  (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (plist->alist plist)))
+  (def sum-variant-names (map car a))
+  (def variant-names@ (list->vector sum-variant-names))
+  (def variant-indices
+    (object<-alist
+     (for/collect ((tag sum-variant-names)
+                   (tag-n (in-range (length sum-variant-names))))
+       (cons tag tag-n))))
+  (def tag-marsh-t (UIntN (integer-length (max 0 (1- (vector-length variant-names@))))))
   {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
       variants: (object<-alist a)
-      variant-names: (map car a)
+      variant-names: sum-variant-names
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
       .validate:
@@ -378,12 +391,12 @@
                  (make tag (<-json (.ref variants tag) (hash-ref j "value"))))
       .marshal: (lambda (v port)
                   (def tag (.@ v tag))
-                  (def tag-n (index-of variant-names tag))
+                  (def tag-n (.ref variant-indices tag))
                   (marshal tag-marsh-t tag-n port)
                   (marshal (.ref variants tag) (.@ v value) port))
       .unmarshal: (lambda (port)
                     (def tag-n (unmarshal tag-marsh-t port))
-                    (def tag (list-ref variant-names tag-n))
+                    (def tag (vector-ref variant-names@ tag-n))
                     (def value (unmarshal (.ref variants tag) port))
                     (make tag value))})
 
@@ -394,10 +407,15 @@
   (def ((sum-constructor-expr-transformer sum-id tag-sym) stx)
     (syntax-case stx ()
       ((_ e) (with-syntax ((sum sum-id) (tag* tag-sym)) #'(.call sum make 'tag* e))))))
-(defrule (define-sum-constructors sum-id variant-id ...)
-  (begin
-    (with-id sum-id ((sum-variant-id #'sum-id "-" #'variant-id))
-      (defsyntax-for-match sum-variant-id
-        (sum-constructor-match-transformer 'variant-id)
-        (sum-constructor-expr-transformer #'sum-id 'variant-id)))
-    ...))
+(defsyntax (define-sum-constructors stx)
+  (syntax-case stx ()
+    ((_ sum-id variant-id ...)
+     (with-syntax (((sum-variant-id ...)
+                    (stx-map (lambda (variant)
+                               (stx-identifier #'sum-id #'sum-id "-" variant))
+                             #'(variant-id ...))))
+       #'(begin
+           (defsyntax-for-match sum-variant-id
+             (sum-constructor-match-transformer 'variant-id)
+             (sum-constructor-expr-transformer #'sum-id 'variant-id))
+           ...)))))

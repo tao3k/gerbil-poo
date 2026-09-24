@@ -1,8 +1,7 @@
 (export #t)
 (import
-  :gerbil/gambit
-  :std/format :std/sugar
-  :clan/base :clan/debug
+  :std/format
+  ./support/base ./support/debug
   ./object ./mop ./io ./type ./brace)
 
 ;; A bit like DBG, but with types
@@ -31,21 +30,21 @@
             (force-output (current-error-port))))
        (v (λ (t x)
             (cond
-             ((not t) (f " ~a~%" x))
+             ((not t) (f " %a\n" x))
              ((procedure? t)
-              (f " ~a~%" (try (t x) (catch (_) (format "[CONVERSION ERROR] ~r" x)))))
+              (f " %a\n" (try (t x) (catch (_) (format "[CONVERSION ERROR] %s" x)))))
              ((element? Type t)
               (if (element? t x)
-                (f " ~s~%" (sexp<- t x))
-                (f " [TYPE ERROR: not a ~s] ~r~%" (.@ t sexp) x)))
+                (f " %s\n" (sexp<- t x))
+                (f " [TYPE ERROR: not a %s] %s\n" (.@ t sexp) x)))
              (else
               (error "Invalid type or DDT printing specifier" t x)))))
        (x (λ (expr type thunk)
-            (f "  ~s =>" expr)
+            (f "  %s =>" expr)
             (call-with-values thunk (λ x (let (vx (apply values x)) (v type vx) vx))))))
     (if tag
       (begin
-        (unless (void? tag) (f "~a~%" tag))
+        (unless (void? tag) (f "%a\n" tag))
         (for-each x dbg-exprs dbg-types dbg-thunks)
         (if thunk (x expr type thunk) (void)))
       (if thunk (thunk) (void)))))

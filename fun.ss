@@ -4,8 +4,8 @@
 
 (import
   :std/error :std/iter
-  (only-in :clan/list acons)
-  :clan/option
+  (only-in :std/list/list acons)
+  ./support/option
   ./object ./mop ./brace ./number ./type ./io)
 
 (define-type (Category. @ Type. ;; The Category is identified to the type of its objects/nodes/states/points

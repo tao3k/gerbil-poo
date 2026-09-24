@@ -1,14 +1,10 @@
 (export mop-test)
 
 (import
-  :gerbil/gambit
   :std/assert :std/format
-  :std/misc/repr
-  :std/sort
-  :std/srfi/13
-  :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug
-  ../object ../mop ../number ../type ../brace)
+  :std/test
+  ../support/base ../support/debug ../support/testing
+  ../object ../mop ../number ../type ../brace ../io)
 
 (def mop-test
   (test-suite "test suite for clan/poo/mop"
@@ -20,6 +16,12 @@
       (map (λ-match ([type element] (assert! (not (element? type element)))))
            [[Bool 5]
             [Integer 3.14159]]))
+    (test-case "source expressions extend through prototype slots"
+      (def base (.o (sexp '(base))))
+      (def derived (.mix (.o (sexp '(derived))) base))
+      (check (:sexp base) => '(base))
+      (check (:sexp derived) => '(derived))
+      (check (:sexp base) => '(base)))
     (test-case "class tests"
       (define-type (Amount @ Class.)
         slots: =>.+
@@ -57,4 +59,15 @@
     (test-case "Lenses"
       (check-equal?
        (.alist (.call Lens .modify (slot-lens 'a) 1+ {a: 1 b: 6}))
-       '((a . 2) (b . 6))))))
+       '((a . 2) (b . 6))))
+    (test-case "class JSON string round trip preserves the object contract"
+      (define-type (JsonRecord @ Class.)
+        slots: =>.+
+        {name: {type: String}
+         values: {type: (List Integer)}}
+        sealed: #t)
+      (def value (.new JsonRecord name: "example" values: '(1 2 3)))
+      (def roundtrip
+        (<-json-string JsonRecord (json-string<- JsonRecord value)))
+      (check-equal? (.get roundtrip name) "example")
+      (check-equal? (.get roundtrip values) '(1 2 3)))))

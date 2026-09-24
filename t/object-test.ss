@@ -4,14 +4,46 @@
 ;; NB: For debugging, use (import :std/interactive)
 
 (import
-  :gerbil/gambit
-  :std/format :std/sort :std/srfi/13 :std/test
-  :clan/assert :clan/base :clan/debug
-  :std/sugar
+  :std/format :std/test
+  ../support/base ../support/debug ../support/testing
   ../object ../brace)
 
 (def object-test
   (test-suite "test suite for clan/poo/object"
+    (test-case "V19 C4 linearizes composed object prototypes"
+      (def root (.o (value 'root) (shared 'root)))
+      (def left (.o (:: @ root) (value 'left)))
+      (def right (.o (:: @ root) (shared 'right)))
+      (def diamond (.mix left right))
+      (def (precedence-names precedence)
+        (map (lambda (object)
+               (cond ((eq? object diamond) 'diamond)
+                     ((eq? object left) 'left)
+                     ((eq? object right) 'right)
+                     ((eq? object root) 'root)
+                     (else 'unknown)))
+             precedence))
+      (check (precedence-names (compute-precedence-list! diamond))
+             => '(diamond left right root))
+      (check (.ref diamond 'value) => 'left)
+      (check (.ref diamond 'shared) => 'right)
+      (def extended (.mix (.o (value 'extended)) diamond))
+      (check (.ref extended 'value) => 'extended)
+      (check (.ref extended 'shared) => 'right)
+      (check (.ref diamond 'value) => 'left)
+
+      ;; Opposite ordering requirements cannot form a valid prototype DAG.
+      (def first (.mix))
+      (def second (.mix))
+      (def first-before-second (.mix first second))
+      (def second-before-first (.mix second first))
+      (def inconsistent (.mix first-before-second second-before-first))
+      (check-exception (compute-precedence-list! inconsistent) true))
+    (test-case "precedence cycle guard uses object identity"
+      (def left (.mix))
+      (def right (.mix left))
+      (set! (object-supers left) [right])
+      (check-exception (compute-precedence-list! left) true))
     (test-case "simple tests from poo.md"
       (check-equal? (object? (.o (x 1) (y 2))) #t)
       (check-equal? (object? 42) #f)
@@ -24,7 +56,7 @@
       (check-equal? (.get bar x) 18)
       (check-equal? (.slot? foo 'y) #t)
       (check-equal? (.has? foo z) #f)
-      (def (sort-symbols symbols) (sort symbols (λ (a b) (string< (symbol->string a) (symbol->string b)))))
+      (def (sort-symbols symbols) (list-sort (λ (a b) (string<? (symbol->string a) (symbol->string b))) symbols))
       (check-equal? (sort-symbols (.all-slots foo)) '(x y))
       (check-equal? (sort-symbols (.all-slots bar)) '(x))
       (def my-point (.o (x 3) (y 4)))
@@ -63,13 +95,13 @@
     (test-case "simple hello tests"
       (.def hello
         (name (error "Undefined"))
-        (greeting (format "Hello, ~a." name))
+        (greeting (format "Hello, %a." name))
         (level 0))
       (.def (alice @ hello)
         (name "Alice")
         (level => + 1)
         (language 'english)
-        (greeting (previous) (if (eq? language 'french) (format "Salut, ~a." name) (previous))))
+        (greeting (previous) (if (eq? language 'french) (format "Salut, %a." name) (previous))))
       (.def (bob @ alice greeting)
         (name "Bob")
         (level => + 1)
@@ -98,6 +130,15 @@
       (check-equal? (.get foo x) 6)
       (check-equal? (.get foo y) 42)
       (check-equal? (.get bar x) 1))
+    (test-case "cached slots preserve false values"
+      (def calls 0)
+      (.def cached-false
+        (value (begin
+                 (set! calls (1+ calls))
+                 #f)))
+      (check-equal? (.get cached-false value) #f)
+      (check-equal? (.get cached-false value) #f)
+      (check-equal? calls 1))
     (test-case "keyword and brace syntax"
       (check-equal? 2 (.get (.o a: 1 b: (+ a 1)) b))
       (check-equal? 2 (.get {a: 1 b: (+ a 1)} b))
@@ -106,6 +147,21 @@
     (test-case "referring to another method"
       (def m (.o a: 1+ b: a c: ((lambda (aa) (lambda (x) (aa x))) a) d: (lambda (x) (a x))))
       (check-equal? (map (lambda (x) ((.ref m x) 2)) '(a b c d)) [3 3 3 3]))
+    (test-case "nested object methods retain the outer lexical slot scope"
+      (.def outer
+        (outer-value 41)
+        (inner {read: (lambda () outer-value)}))
+      (check-equal? (.call (.@ outer inner) read) 41)
+      (def (make-outer value)
+        (.o (outer-value value)
+            (inner {read: (lambda () outer-value)})))
+      (check-equal? (.call (.@ (make-outer 7) inner) read) 7)
+      (check-equal? (.call (.@ (make-outer 9) inner) read) 9)
+      (def shadowed
+        (.o (outer-value 41)
+            (inner (.o (outer-value 7)
+                       (read outer-value)))))
+      (check-equal? (.@ (.@ shadowed inner) read) 7))
     (test-case "testing overrides"
       (def m (.o c: 3 b: 2 a: 1))
       (def n (.cc m b: 20 'c 30 d: 40))

@@ -5,15 +5,20 @@
 (import
   :std/error
   :std/iter
-  :std/misc/number
-  :std/sugar
+  :std/number/misc
+  (only-in :std/vector/vector subvector-reverse-for-each/index)
   :std/values
-  :clan/base
   :std/debug/DBG
-  (only-in :std/srfi/133 vector-map vector-index-right)
   ./object ./mop ./brace ./number ./type)
 
 (defrule (let0 (x init) body ...) (let ((x init)) body ... x))
+
+(def (vector-index-right pred vector)
+  (let/cc return
+    (subvector-reverse-for-each/index
+     (lambda (index value) (when (pred value) (return index)))
+     vector)
+    #f))
 
 ;; (Univariate) Polynomials
 (define-type (Polynomial. @ [expt<-mul.] .expt .mul-expt)
@@ -45,7 +50,7 @@
         (retry Q P)
         (let ((S (vector-copy P))
               (add (.@ .Ring .add)))
-          (for (i (iota (vector-length Q)))
+          (for (i (in-range (vector-length Q)))
             (vector-set! S i (add (vector-ref P i) (vector-ref Q i))))
           (.normalize S)))))
   .sub:
@@ -53,13 +58,13 @@
     (let (sub (.@ .Ring .sub))
       (if (>= (vector-length P) (vector-length Q))
         (let (D (vector-copy P))
-          (for (i (iota (vector-length Q)))
+          (for (i (in-range (vector-length Q)))
             (vector-set! D i (sub (vector-ref P i) (vector-ref Q i))))
           (.normalize D))
         (let (D (make-vector (vector-length Q)))
-          (for (i (iota (vector-length P)))
+          (for (i (in-range (vector-length P)))
             (vector-set! D i (sub (vector-ref P i) (vector-ref Q i))))
-          (for (i (iota (- (vector-length Q) (vector-length P)) (vector-length P)))
+          (for (i (in-range (vector-length P) (vector-length Q)))
             (vector-set! D i (sub (.@ .Ring .zero) (vector-ref Q i))))
           (.normalize D)))))
   .neg:
@@ -80,8 +85,8 @@
              (add (.@ .Ring .add))
              (mul (.@ .Ring .mul)))
       ;; for i across indexes
-      (for (i (iota (1+ degP)))
-        (for (j (iota (1+ degQ)))
+      (for (i (in-range (1+ degP)))
+        (for (j (in-range (1+ degQ)))
           (let (k (+ i j))
             (vector-set! PQ k (add (vector-ref PQ k) (mul (vector-ref P i) (vector-ref Q j)))))))
       PQ)))
@@ -90,7 +95,7 @@
     (let (l (1- (vector-length P)))
       (if (positive? l)
         (let (dP (make-vector l))
-          (for (i (iota l 1))
+          (for (i (in-range 1 (vector-length P)))
             (vector-set! dP (1- i)
                          (.call .Ring .intscale i (vector-ref P i))))
           (.normalize dP))
@@ -113,7 +118,7 @@
               (let loop ((i (- degP degQ)))
                 (let ((c (div (vector-ref r (+ i degQ)) (vector-ref Q degQ))))
                   (vector-set! q i c)
-                  (for (j (iota degQ)) ;; could be (1+ degQ), but we leave the top term unzeroed
+                  (for (j (in-range degQ)) ;; could be (1+ degQ), but we leave the top term unzeroed
                     (let (k (+ j i))
                       (vector-set! r k (sub (vector-ref r k) (mul c (vector-ref Q j)))))))
                 (if (positive? i)
@@ -127,15 +132,16 @@
   .apply:
   (lambda (P x)
     (def l (vector-length P))
-    (match l
-      (0 (.@ .Ring .zero))
-      (1 (vector-ref P 0))
-      (else (let ((add (.@ .Ring .add))
-                  (mul (.@ .Ring .mul)))
-              (let loop ((r (vector-ref P 0)) (i 1) (xi x))
-                (let ((s (add r (mul (vector-ref P i) xi)))
-                      (j (1+ i)))
-                (if (= j l) s (loop s j (mul x xi))))))))))
+    (if (zero? l)
+      (.@ .Ring .zero)
+      (let ((add (.@ .Ring .add))
+            (mul (.@ .Ring .mul)))
+        ;; Horner evaluation performs one multiplication per remaining
+        ;; coefficient instead of separately maintaining x^i.
+        (let loop ((i (- l 2)) (result (vector-ref P (1- l))))
+          (if (negative? i)
+            result
+            (loop (1- i) (add (vector-ref P i) (mul x result)))))))))
 
 
 ;; Given a list of points xs of length N, return a function that given a list ys computes
@@ -159,5 +165,3 @@
                         (scale (Rinv y) P)))
                     xs X-xs)))
       (lambda (ys) (foldl add #() (map scale ys LL))))))
-
-

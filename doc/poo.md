@@ -161,12 +161,14 @@ such that you can chain your partial computations from left to right.
 Therefore, to instantiate a prototype, you must first *linearize*
 its inheritance DAG into a *precedence list*,
 a total order that completes the DAG, of which the DAG is subset.
-There are many ways to linearize it, but modern languages use
-the [C3 linearization algorithm](https://en.wikipedia.org/wiki/C3_linearization),
-initially introduced in Dylan,
-for its nice properties: notably, it ensures that the precedence list
+There are many ways to linearize it. Gerbil V19 uses C4, an extension of
+[C3 linearization](https://en.wikipedia.org/wiki/C3_linearization),
+for POO's prototype DAGs. The important object-model property is that the
+precedence list
 of a super-prototype is always a sub-list (not necessarily contiguously)
 of the precedence list of its sub-prototypes.
+This changes how prototypes are ordered, not what defines behavior: objects
+still compose prototypes, and their slots supply and override computations.
 
 ### Prototypes Easily Generalize Classes
 
@@ -222,7 +224,7 @@ and of course the Yale T Scheme object system by Jonathan Rees.
 
 Moreover, we also added
 multiple inheritance and default arguments in the style of CLOS,
-and C3 linearization in the style of Dylan, just like we also did for Nix in
+and originally C3 linearization in the style of Dylan, just like we also did for Nix in
 [POP](https://github.com/divnix/POP)
 (see the explanation in [POP.md](https://github.com/divnix/POP/blob/main/POP.md)).
 
@@ -244,8 +246,8 @@ a DAG (a Directed Acyclic Graph).
 This inheritance graph is reduced to a *precedence list*
 using a *linearization algorithm* that yields a total order
 compatible with the partial order of the DAG.
-We use the same “C3 linearization algorithm” as all modern languages
-for its nice properties:
+On Gerbil V19, POO uses the runtime's C4 linearization for its prototype DAGs.
+The precedence contract is:
 the precedence list of a prototype always includes
 as (possibly non-contiguous) sublists the precedence lists
 of each of its superclasses, and its direct superclasses are included
