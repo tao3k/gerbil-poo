@@ -1,7 +1,8 @@
 # V19 runtime performance audit
 
-These benchmarks measure runtime CPU time. They do not measure compilation or
-claim a separate AOT optimization. Build and benchmark with the same Gerbil V19
+The object-scale and table-count benchmarks measure runtime CPU time; the
+wide-slot construction A/B below measures wall time. None claims a separate
+AOT optimization. Build and benchmark with the same Gerbil V19
 toolchain, using an isolated `GERBIL_PATH` so installed package artifacts are
 not mixed with this checkout:
 
@@ -71,3 +72,30 @@ covers negative keys, a fractional bound, an exact match, a bound beyond the
 last key, direct dictionary iteration, and repeated EOF reads. This closes
 the previously failing RationalSet lower-bound case without changing TrieSet's
 POO interface.
+
+## Wide-slot construction: storage-layer A/B
+
+The original `.putslot!` and `.putdefault!` repeatedly search and append a
+list, making wide incremental construction O(n²). The candidate keeps
+`Class.proto` and its overridable `.slot.define` dispatch unchanged. Only
+objects that receive a write open a private slot store: V19 symbolic HashTables
+track values, and `:std/list/list-builder` materializes an ordered snapshot on
+the next `object-slots` / `object-defaults` read. Prior snapshots, duplicate
+input keys, and a custom descriptor's view of preceding definitions are tested.
+
+```sh
+bench_path=$(mktemp -d /tmp/poo-v19-class-proto.XXXXXX)
+GERBIL_PATH="$bench_path" just build
+GERBIL_PATH="$bench_path" just test
+GERBIL_PATH="$bench_path" just benchmark-class-proto 10000 6
+GERBIL_PATH="$bench_path" just benchmark-object-scale
+```
+
+On the local Gerbil `2591dcd` / Gambit `dcd677c` toolchain, the real 10,000-slot
+`Class.proto` path measured 1.698 seconds median for the original code and
+0.0897 seconds for this candidate (18.9×, six samples each). At 64 slots the
+20-sample observations were approximately 0.43 ms versus 0.40 ms. One compiled
+object-scale A/B kept clone-only and clone/read times within roughly 5% at 8,
+64, and 256 slots; this single run is not a statistical or cross-platform gate.
+`just test` passed. Raw struct-field reflection by external consumers still
+needs qualification before calling the private-field change an ABI closure.

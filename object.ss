@@ -20,17 +20,58 @@
   :std/iter
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten)
-  (only-in :std/list/alist aset)
   :std/stxparam
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize)
-  (only-in ./support/base modify! looking-for λ symbol<? let-id-rule defonce awhen))
+  (only-in ./support/base λ symbol<? let-id-rule defonce awhen))
+
+;; A slot list is still exposed as an immutable-in-practice snapshot.  Writes
+;; accumulate behind that view and are materialized only when a reader asks for
+;; the list, so repeated .putslot! calls do not repeatedly copy its prefix.
+(defstruct $slot-store (snapshot pending values dirty?))
+
+(def (make-slot-store snapshot)
+  (make-$slot-store snapshot '() #f #f))
+
+(def ($slot-store-put! store name value)
+  (unless ($slot-store-values store)
+    (let (values (make-hash-table-symbolic))
+      (for (([key . old-value] ($slot-store-snapshot store)))
+        (unless (hash-key? values key)
+          (hash-put! values key old-value)))
+      (set! ($slot-store-values store) values)))
+  (unless (hash-key? ($slot-store-values store) name)
+    (set! ($slot-store-pending store)
+          (cons name ($slot-store-pending store))))
+  (hash-put! ($slot-store-values store) name value)
+  (set! ($slot-store-dirty? store) #t))
+
+(def ($slot-store-list store)
+  (if (not ($slot-store-dirty? store))
+    ($slot-store-snapshot store)
+    (let ((seen (make-hash-table-symbolic))
+          (values ($slot-store-values store)))
+      (def result
+        (with-list-builder (add)
+          (for (([name . old-value] ($slot-store-snapshot store)))
+            (if (hash-key? seen name)
+              (add (cons name old-value))
+              (begin
+                (hash-put! seen name #t)
+                (add (cons name (hash-ref values name))))))
+          (for (name (reverse ($slot-store-pending store)))
+            (add (cons name (hash-ref values name))))))
+      (set! ($slot-store-snapshot store) result)
+      (set! ($slot-store-pending store) '())
+      (set! ($slot-store-values store) #f)
+      (set! ($slot-store-dirty? store) #f)
+      result)))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
   (supers ;; : (Listof (Object ?))
-   slots ;; : (Listof (Pair Symbol (SlotSpec ?))) ; direct slot methods in reverse order
-   defaults ;; : (Listof (Pair Symbol ?)) ; direct slot defaults in reverse order
+   %slots ;; : direct slot method list, or $slot-store after mutation
+   %defaults ;; : direct slot default list, or $slot-store after mutation
    %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
    %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
@@ -42,12 +83,26 @@
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
       defaults: (defaults '())) ;; : (Listof (Pair Symbol ?))
     (set! (object-supers self) (flatten supers))
-    (set! (object-slots self) slots)
-    (set! (object-defaults self) defaults)
+    (set! (object-%slots self) slots)
+    (set! (object-%defaults self) defaults)
     (set! (object-%instance self) #f)
     (set! (object-%precedence-list self) #f)
     (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)))
+
+(def (object-slots self)
+  (let (storage (object-%slots self))
+    (if ($slot-store? storage) ($slot-store-list storage) storage)))
+
+(def (object-defaults self)
+  (let (storage (object-%defaults self))
+    (if ($slot-store? storage) ($slot-store-list storage) storage)))
+
+(def (object-slots-set! self slots)
+  (set! (object-%slots self) slots))
+
+(def (object-defaults-set! self defaults)
+  (set! (object-%defaults self) defaults))
 
 (def (instantiate-object! self)
   (if (object? self)
@@ -521,18 +576,18 @@
 
 ;; : Unit <- (Object A) s:Symbol (SlotSpec A s)
 (def (.putslot! self slot slot-spec)
-  (modify! (object-slots self)
-           (lambda (slot-specs)
-             (if (find (looking-for slot key: car) slot-specs)
-               (aset slot-specs slot slot-spec)
-               (append slot-specs [[slot . slot-spec]]))))) ;; add the spec at the end
+  (let (storage (object-%slots self))
+    (unless ($slot-store? storage)
+      (set! storage (make-slot-store storage))
+      (set! (object-%slots self) storage))
+    ($slot-store-put! storage slot slot-spec)))
 
 (def (.putdefault! self slot default)
-  (modify! (object-defaults self)
-           (lambda (defaults)
-             (if (find (looking-for slot key: car) defaults)
-               (aset defaults slot default)
-               (append defaults [[slot . default]]))))) ;; add the spec at the end
+  (let (storage (object-%defaults self))
+    (unless ($slot-store? storage)
+      (set! storage (make-slot-store storage))
+      (set! (object-%defaults self) storage))
+    ($slot-store-put! storage slot default)))
 
 (defrules .setslot! () ((_ object. slot slot-spec) (.putslot! object. 'slot slot-spec)))
 
