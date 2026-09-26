@@ -57,6 +57,24 @@
         #(10 20 30))
        #(10 20 30))
       (check-equal? (reverse seen) '(0 1 2)))
+    (test-case "ordered tuple JSON mapping validates arity"
+      (def seen [])
+      (check-equal?
+       (vector-map2-in-order
+        (lambda (index left right)
+          (set! seen (cons index seen))
+          (+ left right))
+        #(1 2 3) #(10 20 30))
+       #(11 22 33))
+      (check-equal? (reverse seen) '(0 1 2))
+      (check-exception (vector-map2-in-order + #(1 2) #(10)) true)
+      (def t (Tuple (UIntN 8) (UIntN 8) (UIntN 8)))
+      (check-equal? (.call t .<-json #(1 2 3)) #(1 2 3))
+      (check-exception (.call t .<-json '(1 2)) true)
+      (check-exception (.call t .<-json '(1 2 3 4)) true)
+      (check-exception (.call t .json<- #(1 2)) true)
+      (check-exception (.call t .json<- #(1 2 3 4)) true)
+      (check-exception (.call t .sexp<- #(1 2)) true))
     (test-case "Enum V19 equal-hash indices preserve first occurrence"
       (def E (Enum "alpha" "beta" "alpha" (structured 1)))
       (check-equal? (.call E .element? "alpha") #t)

@@ -7,7 +7,7 @@
   (only-in :std/assert assert!)
   :std/iter
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
-  (only-in :std/vector/vector vector-map/index vector-for-each/index)
+  (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
   (only-in :std/list/list pop! append-map)
   (only-in :std/list/alist acons plist->alist)
@@ -35,6 +35,14 @@
    source)
   result)
 
+(def (vector-map2-in-order f left right)
+  (def length (vector-length left))
+  (unless (= length (vector-length right))
+    (error "vector-map2-in-order: length mismatch" length (vector-length right)))
+  (vector-unfold
+   (lambda (index) (f index (vector-ref left index) (vector-ref right index)))
+   length))
+
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
   .element?:
@@ -45,9 +53,9 @@
              (for ((i (in-range l)))
                (unless (element? (vector-ref types i) (vector-ref x i)) (return #f)))
              #t)))
-  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map/index (lambda (_ t x) (sexp<- t x)) types v))))
-  .json<-: (lambda (v) (vector->list (vector-map/index (lambda (_ t x) (json<- t x)) types v)))
-  .<-json: (lambda (j) (vector-map/index (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
+  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map2-in-order (lambda (_ t x) (sexp<- t x)) types v))))
+  .json<-: (lambda (v) (vector->list (vector-map2-in-order (lambda (_ t x) (json<- t x)) types v)))
+  .<-json: (lambda (j) (vector-map2-in-order (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
   .marshal: (lambda (v port)
               (vector-for-each/index (lambda (_ type val) (marshal type val port))
                                      types v))

@@ -63,6 +63,23 @@ measured 0.138 and 0.134 seconds; it was shorter but slower. These are not
 general or cross-platform speed claims; Tuple semantics and callback order are
 covered by `t/type-test.ss`.
 
+## Tuple JSON: ordered two-vector mapping
+
+The V19 `vector-map/index` implementation evaluates two-vector callbacks from
+right to left and uses a per-element `apply`. It also silently stops at the
+shorter vector. Tuple S-expression and JSON conversion now use a small
+`vector-map2-in-order` combinator based on `vector-unfold`: it keeps the
+sequence-level expression, evaluates left to right, and rejects arity mismatch.
+
+`t/tuple-json-performance-test.ss` measures a 256-field UInt8 Tuple, with
+10,000 real `.json<-` and `.<-json` calls per sample and five samples per run.
+Two baseline runs had encode medians of 0.384 and 0.403 CPU seconds and decode
+medians of 0.347 and 0.354 seconds. Three candidate runs had encode medians of
+0.219, 0.218, and 0.219 seconds and decode medians of 0.183, 0.205, and 0.199
+seconds: about 1.7–1.8× on this fixture. The builds were alternated under the
+same isolated Gerbil V19 path. The receipt does not establish a general or
+cross-platform gain. `t/type-test.ss` covers ordering and short/long inputs.
+
 ## Table count
 
 `count-performance-benchmark.ss` measures RationalDict and Trie at 256,
