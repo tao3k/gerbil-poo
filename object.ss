@@ -20,10 +20,11 @@
   :std/iter
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten)
+  (only-in :std/string/symbol symbol<?)
   :std/stxparam
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize)
-  (only-in ./support/base λ symbol<? let-id-rule defonce awhen))
+  (only-in ./support/base λ let-id-rule defonce awhen))
 
 ;; A slot list is still exposed as an immutable-in-practice snapshot.  Writes
 ;; accumulate behind that view and are materialized only when a reader asks for

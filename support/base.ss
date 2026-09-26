@@ -60,4 +60,3 @@
   ((_ x) (void)))
 
 (def (number-comparer x y) (if (= x y) 0 (if (< x y) -1 1)))
-(def (symbol<? x y) (string<? (symbol->string x) (symbol->string y)))

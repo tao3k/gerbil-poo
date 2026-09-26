@@ -47,6 +47,16 @@
       (def t (Tuple UInt8 UInt8 UInt8))
       (check-rep (.@ t .<-json) (.@ t .json<-) [5 8 13] #(5 8 13))
       (check-rep (.@ t .<-bytes) (.@ t .bytes<-) #u8(#x15 #x22 #x37) #(21 34 55)))
+    (test-case "ordered vector mapping preserves callback order"
+      (def seen [])
+      (check-equal?
+       (vector-map-in-order
+        (lambda (index value)
+          (set! seen (cons index seen))
+          value)
+        #(10 20 30))
+       #(10 20 30))
+      (check-equal? (reverse seen) '(0 1 2)))
     (test-case "Enum V19 equal-hash indices preserve first occurrence"
       (def E (Enum "alpha" "beta" "alpha" (structured 1)))
       (check-equal? (.call E .element? "alpha") #t)

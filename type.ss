@@ -27,6 +27,14 @@
            methods.marshal<-fixed-length-bytes methods.string<-json
            marshal unmarshal string<- <-string))
 
+;; V19 vector-map/index visits right-to-left; port reads require left-to-right.
+(def (vector-map-in-order f source)
+  (def result (make-vector (vector-length source)))
+  (vector-for-each/index
+   (lambda (index value) (vector-set! result index (f index value)))
+   source)
+  result)
+
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
   .element?:
@@ -44,8 +52,7 @@
               (vector-for-each/index (lambda (_ type val) (marshal type val port))
                                      types v))
   .unmarshal: (lambda (port)
-                (vector-unfold (lambda (index) (unmarshal (vector-ref types index) port))
-                               (vector-length types))))
+                (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
 (def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) type-list)))
   {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})
