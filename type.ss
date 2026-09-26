@@ -7,7 +7,7 @@
   (only-in :std/assert assert!)
   :std/iter
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
-  (only-in :std/vector/vector vector-map/index vector-for-each/index)
+  (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
   (only-in :std/list/list pop! append-map)
   (only-in :std/list/alist acons plist->alist)
@@ -27,16 +27,21 @@
            methods.marshal<-fixed-length-bytes methods.string<-json
            marshal unmarshal string<- <-string))
 
-;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
-;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`
-(def (vector-map-in-order f v . rst)
-  (def n (vector-length v))
-  (for ((v2 rst))
-    (assert! (= n (vector-length v2)) "vector-map-in-order: lengths should be the equal"))
+;; V19 vector-map/index visits right-to-left; port reads require left-to-right.
+(def (vector-map-in-order f source)
+  (def result (make-vector (vector-length source)))
+  (vector-for-each/index
+   (lambda (index value) (vector-set! result index (f index value)))
+   source)
+  result)
+
+(def (vector-map2-in-order f left right)
+  (def length (vector-length left))
+  (unless (= length (vector-length right))
+    (error "vector-map2-in-order: length mismatch" length (vector-length right)))
   (vector-unfold
-   (lambda (i)
-     (apply f i (vector-ref v i) (map (cut vector-ref <> i) rst)))
-   n))
+   (lambda (index) (f index (vector-ref left index) (vector-ref right index)))
+   length))
 
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
@@ -48,13 +53,14 @@
              (for ((i (in-range l)))
                (unless (element? (vector-ref types i) (vector-ref x i)) (return #f)))
              #t)))
-  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map/index (lambda (_ t x) (sexp<- t x)) types v))))
-  .json<-: (lambda (v) (vector->list (vector-map/index (lambda (_ t x) (json<- t x)) types v)))
-  .<-json: (lambda (j) (vector-map/index (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
+  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map2-in-order (lambda (_ t x) (sexp<- t x)) types v))))
+  .json<-: (lambda (v) (vector->list (vector-map2-in-order (lambda (_ t x) (json<- t x)) types v)))
+  .<-json: (lambda (j) (vector-map2-in-order (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
   .marshal: (lambda (v port)
               (vector-for-each/index (lambda (_ type val) (marshal type val port))
                                      types v))
-  .unmarshal: (lambda (port) (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
+  .unmarshal: (lambda (port)
+                (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
 (def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) type-list)))
   {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})

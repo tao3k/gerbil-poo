@@ -56,6 +56,28 @@
            [[Object 5]
             [Amount (.new Amount (quantity 100))] ;; missing unit
             ]))
+    (test-case "custom slot definitions observe incremental state"
+      (def observed '())
+      (def snapshot #f)
+      (define-type (ObservingSlot @ Slot)
+        .slot.define:
+        (lambda (_ slot-name object)
+          (set! observed (map car (object-slots object)))
+          (.putslot! object slot-name ($constant-slot-spec 2))
+          (.putslot! object 'c ($constant-slot-spec 99))
+          (set! snapshot (object-slots object))))
+      (def descriptors
+        (object<-alist
+         (list (cons 'a (.new Slot constant: 1))
+               (cons 'b (.new ObservingSlot constant: 2))
+               (cons 'c (.new Slot constant: 3)))))
+      (def descriptor
+        (object<-alist (list (cons 'slots descriptors)) supers: [Class.]))
+      (def proto (.ref descriptor 'proto))
+      (check-equal? observed '(a))
+      (check-equal? (.all-slots proto) '(a b c))
+      (check-equal? (.alist proto) '((a . 1) (b . 2) (c . 3)))
+      (check-equal? (.ref (make-object slots: snapshot) 'c) 99))
     (test-case "Lenses"
       (check-equal?
        (.alist (.call Lens .modify (slot-lens 'a) 1+ {a: 1 b: 6}))

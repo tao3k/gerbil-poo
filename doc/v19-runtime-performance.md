@@ -1,7 +1,8 @@
 # V19 runtime performance audit
 
-These benchmarks measure runtime CPU time. They do not measure compilation or
-claim a separate AOT optimization. Build and benchmark with the same Gerbil V19
+The object-scale and table-count benchmarks measure runtime CPU time; the
+wide-slot construction A/B below measures wall time. None claims a separate
+AOT optimization. Build and benchmark with the same Gerbil V19
 toolchain, using an isolated `GERBIL_PATH` so installed package artifacts are
 not mixed with this checkout:
 
@@ -41,6 +42,44 @@ These measurements do not justify changing the object representation or adding
 cache state. Revisit only if a real consumer has a documented clone/first-read
 rate that makes this cost material.
 
+## Tuple unmarshal: standard-library iteration
+
+`Tuple. .unmarshal` previously used a local `vector-map-in-order` helper whose
+per-element path called `apply` and mapped the remaining vector arguments.
+The helper now retains its sequence-level call site, using V19's
+`vector-for-each/index` internally to fill the result in left-to-right order.
+`vector-map/index` does not guarantee callback order and currently evaluates
+right-to-left, so it cannot be used for stateful port reads. The unused
+variadic mapping machinery has been removed.
+
+`t/tuple-unmarshal-performance-test.ss` checks a 256-field byte round trip and
+measures 1,000 decodes per sample, five samples per run. The original medians
+were 0.148 and 0.153 CPU seconds in the two baseline runs. The concise
+ordered mapper measured 0.119 and 0.120 seconds in two follow-up runs, roughly
+1.2–1.3× for this synthetic wide Tuple. It matches the direct
+`vector-for-each/index` implementation (0.122 and 0.120 seconds) without
+lowering the call site's abstraction level. A direct `vector-unfold` expression
+measured 0.138 and 0.134 seconds; it was shorter but slower. These are not
+general or cross-platform speed claims; Tuple semantics and callback order are
+covered by `t/type-test.ss`.
+
+## Tuple JSON: ordered two-vector mapping
+
+The V19 `vector-map/index` implementation evaluates two-vector callbacks from
+right to left and uses a per-element `apply`. It also silently stops at the
+shorter vector. Tuple S-expression and JSON conversion now use a small
+`vector-map2-in-order` combinator based on `vector-unfold`: it keeps the
+sequence-level expression, evaluates left to right, and rejects arity mismatch.
+
+`t/tuple-json-performance-test.ss` measures a 256-field UInt8 Tuple, with
+10,000 real `.json<-` and `.<-json` calls per sample and five samples per run.
+Two baseline runs had encode medians of 0.384 and 0.403 CPU seconds and decode
+medians of 0.347 and 0.354 seconds. Three candidate runs had encode medians of
+0.219, 0.218, and 0.219 seconds and decode medians of 0.183, 0.205, and 0.199
+seconds: about 1.7–1.8× on this fixture. The builds were alternated under the
+same isolated Gerbil V19 path. The receipt does not establish a general or
+cross-platform gain. `t/type-test.ss` covers ordering and short/long inputs.
+
 ## Table count
 
 `count-performance-benchmark.ss` measures RationalDict and Trie at 256,
@@ -71,3 +110,30 @@ covers negative keys, a fractional bound, an exact match, a bound beyond the
 last key, direct dictionary iteration, and repeated EOF reads. This closes
 the previously failing RationalSet lower-bound case without changing TrieSet's
 POO interface.
+
+## Wide-slot construction: storage-layer A/B
+
+The original `.putslot!` and `.putdefault!` repeatedly search and append a
+list, making wide incremental construction O(n²). The candidate keeps
+`Class.proto` and its overridable `.slot.define` dispatch unchanged. Only
+objects that receive a write open a private slot store: V19 symbolic HashTables
+track values, and `:std/list/list-builder` materializes an ordered snapshot on
+the next `object-slots` / `object-defaults` read. Prior snapshots, duplicate
+input keys, and a custom descriptor's view of preceding definitions are tested.
+
+```sh
+bench_path=$(mktemp -d /tmp/poo-v19-class-proto.XXXXXX)
+GERBIL_PATH="$bench_path" just build
+GERBIL_PATH="$bench_path" just test
+GERBIL_PATH="$bench_path" just benchmark-class-proto 10000 6
+GERBIL_PATH="$bench_path" just benchmark-object-scale
+```
+
+On the local Gerbil `2591dcd` / Gambit `dcd677c` toolchain, the real 10,000-slot
+`Class.proto` path measured 1.698 seconds median for the original code and
+0.0897 seconds for this candidate (18.9×, six samples each). At 64 slots the
+20-sample observations were approximately 0.43 ms versus 0.40 ms. One compiled
+object-scale A/B kept clone-only and clone/read times within roughly 5% at 8,
+64, and 256 slots; this single run is not a statistical or cross-platform gate.
+`just test` passed. Raw struct-field reflection by external consumers still
+needs qualification before calling the private-field change an ABI closure.
