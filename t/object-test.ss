@@ -242,8 +242,12 @@
       (.putslot! object 'f ($constant-slot-spec 6))
       (object-slots-set! object (list (cons 'reset ($constant-slot-spec 7))))
       (check-equal? (map car (object-slots object)) '(reset))
+      (set! (object-slots object) (list (cons 'assigned ($constant-slot-spec 8))))
+      (check-equal? (map car (object-slots object)) '(assigned))
       (object-defaults-set! object '((new-default . #f)))
-      (check-equal? (object-defaults object) '((new-default . #f))))
+      (check-equal? (object-defaults object) '((new-default . #f)))
+      (set! (object-defaults object) '((assigned-default . #t)))
+      (check-equal? (object-defaults object) '((assigned-default . #t))))
     (test-case "testing .+"
       (def o  (.+ {x: 1 y: 2} {z: 3}))
       (def o2 {x: 1 y: 2 z: 3})
