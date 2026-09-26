@@ -42,6 +42,23 @@ These measurements do not justify changing the object representation or adding
 cache state. Revisit only if a real consumer has a documented clone/first-read
 rate that makes this cost material.
 
+## Tuple unmarshal: standard-library iteration
+
+`Tuple. .unmarshal` previously used a local `vector-map-in-order` helper whose
+per-element path called `apply` and mapped the remaining vector arguments.
+V19's `vector-for-each/index` guarantees left-to-right visitation, unlike
+`vector-map/index`, whose callback order is unspecified. Tuple decoding now
+fills a fresh vector through the former, preserving stateful port read order.
+
+`t/tuple-unmarshal-performance-test.ss` checks a 256-field byte round trip and
+measures 1,000 decodes per sample, five samples per run. In an A/B/A/B run
+against the same isolated build path, the original medians were 0.148 and
+0.153 CPU seconds; the standard-library implementation medians were 0.122 and
+0.120 seconds. This is roughly 1.2–1.3× for this synthetic wide Tuple, not a
+general or cross-platform speed claim. The primary maintenance gain is removing
+the local mapping implementation; ordinary Tuple semantics remain covered by
+`t/type-test.ss`.
+
 ## Table count
 
 `count-performance-benchmark.ss` measures RationalDict and Trie at 256,

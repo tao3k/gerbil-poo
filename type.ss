@@ -27,17 +27,6 @@
            methods.marshal<-fixed-length-bytes methods.string<-json
            marshal unmarshal string<- <-string))
 
-;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
-;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`
-(def (vector-map-in-order f v . rst)
-  (def n (vector-length v))
-  (for ((v2 rst))
-    (assert! (= n (vector-length v2)) "vector-map-in-order: lengths should be the equal"))
-  (vector-unfold
-   (lambda (i)
-     (apply f i (vector-ref v i) (map (cut vector-ref <> i) rst)))
-   n))
-
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
   .element?:
@@ -54,7 +43,14 @@
   .marshal: (lambda (v port)
               (vector-for-each/index (lambda (_ type val) (marshal type val port))
                                      types v))
-  .unmarshal: (lambda (port) (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
+  .unmarshal: (lambda (port)
+                ;; Input is stateful: consume fields in index order.
+                (def result (make-vector (vector-length types)))
+                (vector-for-each/index
+                 (lambda (index type)
+                   (vector-set! result index (unmarshal type port)))
+                 types)
+                result))
 (def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) type-list)))
   {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})
