@@ -44,13 +44,8 @@
               (vector-for-each/index (lambda (_ type val) (marshal type val port))
                                      types v))
   .unmarshal: (lambda (port)
-                ;; Input is stateful: consume fields in index order.
-                (def result (make-vector (vector-length types)))
-                (vector-for-each/index
-                 (lambda (index type)
-                   (vector-set! result index (unmarshal type port)))
-                 types)
-                result))
+                (vector-unfold (lambda (index) (unmarshal (vector-ref types index) port))
+                               (vector-length types))))
 (def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) type-list)))
   {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})

@@ -46,18 +46,19 @@ rate that makes this cost material.
 
 `Tuple. .unmarshal` previously used a local `vector-map-in-order` helper whose
 per-element path called `apply` and mapped the remaining vector arguments.
-V19's `vector-for-each/index` guarantees left-to-right visitation, unlike
-`vector-map/index`, whose callback order is unspecified. Tuple decoding now
-fills a fresh vector through the former, preserving stateful port read order.
+The V19 `vector-unfold` constructor retains the same sequence-level expression
+and consumes fields left to right; `vector-map/index` does not guarantee its
+callback order and cannot be used for stateful port reads.
 
 `t/tuple-unmarshal-performance-test.ss` checks a 256-field byte round trip and
-measures 1,000 decodes per sample, five samples per run. In an A/B/A/B run
-against the same isolated build path, the original medians were 0.148 and
-0.153 CPU seconds; the standard-library implementation medians were 0.122 and
-0.120 seconds. This is roughly 1.2–1.3× for this synthetic wide Tuple, not a
-general or cross-platform speed claim. The primary maintenance gain is removing
-the local mapping implementation; ordinary Tuple semantics remain covered by
-`t/type-test.ss`.
+measures 1,000 decodes per sample, five samples per run. The original medians
+were 0.148 and 0.153 CPU seconds in the two baseline runs. The concise
+`vector-unfold` implementation measured 0.138 and 0.134 seconds in two follow-up
+runs, roughly 1.1× for this synthetic wide Tuple. An explicit
+`vector-for-each/index` plus `vector-set!` was faster (0.122 and 0.120 seconds)
+but lowered the abstraction level and added code, so it was not retained.
+These are not general or cross-platform speed claims; ordinary Tuple semantics
+remain covered by `t/type-test.ss`.
 
 ## Table count
 
