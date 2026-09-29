@@ -19,6 +19,19 @@ a document explaining Gerbil-POO.
 [Prototype Object Programming in Gerbil Scheme](doc/prototypes.md),
 notes from a talk at LispNYC in November 2020.
 
+### MOP imports
+
+`(import :clan/poo/mop)` remains the full MOP entry, including JSON string
+encoding and decoding. Code that uses native type descriptors, `define-type`,
+`element?`, or `validate` without JSON string conversion can import
+`:clan/poo/mop-core`. Both entries use the same POO type objects, so a process
+may import the full entry later. JSON string conversion through a descriptor
+requires the full entry to have been imported.
+
+The smaller entry avoids loading Gerbil's JSON reader and writer during module
+initialization. It is intended for contract-heavy modules whose normal path
+does not serialize JSON; it does not change the behavior of the full entry.
+
 ### HACKING
 
 If you'd like to build your own object system, with its own optimized meta-object protocol

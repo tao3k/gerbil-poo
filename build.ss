@@ -33,6 +33,7 @@
     ,+gerbil-poo-fq-spec+
     "fun"
     (gxc: "io" ,@(include-gambit-sharp))
+    "mop-core"
     "mop"
     "number"
     "object"
