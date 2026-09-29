@@ -1,8 +1,12 @@
 (export #t)
 (import
+  ;; V19's fprintf expansion needs bindings beyond format and fprintf.
   :std/format
-  ./support/base ./support/debug
-  ./object ./mop ./io ./type ./brace)
+  (only-in ./support/base λ)
+  (only-in ./support/debug traced-function)
+  (only-in ./object .@ .all-slots .putslot! $computed-slot-spec)
+  (only-in ./mop-core Type element? sexp<-)
+  (only-in ./brace @method))
 
 ;; A bit like DBG, but with types
 (defrules DDT ()

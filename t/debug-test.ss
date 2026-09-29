@@ -3,6 +3,7 @@
 (import
   :std/test
   ../debug
+  (only-in ../object .o .ref)
   (only-in ../mop Type))
 
 (def (capture-ddt type value)
@@ -13,6 +14,11 @@
 
 (def debug-test
   (test-suite "test suite for clan/poo/debug"
+    (test-case "tracing retains inherited object slots"
+      (def prototype (.o (sexp 'sample) (answer 42)))
+      (def traced (trace-poo prototype 'sample))
+      (check (.ref traced 'sexp) => 'sample)
+      (check (.ref traced 'answer) => 42))
     (test-case "conversion errors use the standard written representation"
       (check (capture-ddt (lambda (_) (error "conversion failed")) '(a 1))
              => "tag\n  value => [CONVERSION ERROR] (a 1)\n"))
