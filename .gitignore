@@ -1,2 +1,5 @@
 version.ss
 build-deps
+
+# Reproducible local closure benchmark executable and fresh receipts.
+/.build/closure/
