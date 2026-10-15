@@ -292,3 +292,11 @@ selector arithmetic causes the full gap, nor evidence that direct is uniformly
 faster. The initial 584-row optimized study and all negative controls remain
 ignored and described in the summary. The robust gain is invariant descriptor
 specialization; actual runtime strategy still needs matched workload measurements.
+
+Lean now makes this restriction explicit with ~withCollections~ and
+~publication_collection_bound~: collection-count budgets accompany the core-cost
+bound. ~collection_budget_bound~ allows an excess only if core savings cover its
+priced charge. An executable counterexample shows that one extra collection can
+reverse a primitive saving. Native GC observations cannot be dropped when using
+the model to recommend a strategy. These are conditional cost laws, not a collector
+or compiler verification, and no Lean results are embedded into this package.
