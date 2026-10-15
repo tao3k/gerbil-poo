@@ -1,7 +1,8 @@
 ;;; Finite positive equations: private compiled descriptors and owned scratch.
 (export literal fact both either compile-closure reconfigure-closure
         closure-plan? closure-result? solve-closure closure-ref closure->list
-        closure-counts closure-plan-size closure-plan-edges closure-plan-nodes)
+        closure-counts closure-plan-size closure-plan-edges closure-plan-nodes
+        closure-policy balanced-closure-policy)
 (import :gerbil/runtime/gambit)
 
 ;; Input constructors; compilation validates and copies every descriptor.
@@ -11,6 +12,13 @@
 (def (either left right) (vector 3 left right))
 (defstruct closure-plan (code watches degrees edges nodes maximum) final: #t)
 (defstruct closure-result (bits counts) final: #t)
+(defstruct queue-prices (copy suspend resume) final: #t)
+(def (closure-policy copy suspend resume)
+  (unless (and (fixnum? copy) (>= copy 0) (fixnum? suspend) (>= suspend 0)
+               (fixnum? resume) (>= resume 0) (fixnum? (+ suspend resume)))
+    (error "invalid queue primitive prices"))
+  (make-queue-prices copy suspend resume))
+(def balanced-closure-policy (closure-policy 1 4 4))
 (def (closure-plan-size plan) (vector-length (closure-plan-code plan)))
 
 ;; Counters: pops/evaluations/nodes/writes/pushes/frame-allocations/frame-pops/
@@ -101,48 +109,74 @@
   (let loop ((index (- size 1)) (queue '()))
     (if (< index 0) queue (loop (- index 1) (cons index queue)))))
 
-(def (solve-closure plan (queue-kind 'minimum-allocation) (state-kind 'owned))
-  ;; Minimize the proved worst-case queue-cell bound, not measured latency.
+;; Macro-expanded engines dispatch once per solve, outside the propagation loop.
+(defrule (queue-append loop plan counts index tail pending fuel depth copy-price frame-price)
+  (begin
+    (inc! counts 10 (vector-ref (closure-plan-degrees plan) index))
+    (loop (append (vector-ref (closure-plan-watches plan) index) tail) pending (- fuel 1) depth)))
+(defrule (queue-chunked loop plan counts index tail pending fuel depth copy-price frame-price)
+  (begin
+    (inc! counts 5) (inc! counts 10)
+    (vector-set! counts 12 (max (vector-ref counts 12) (+ depth 1)))
+    (loop (vector-ref (closure-plan-watches plan) index) (cons tail pending) (- fuel 1) (+ depth 1))))
+(defrule (queue-hybrid loop plan counts index tail pending fuel depth copy-price frame-price)
+  (let ((watchers (vector-ref (closure-plan-watches plan) index))
+        (degree (vector-ref (closure-plan-degrees plan) index)))
+    (cond
+      ((= degree 0) (inc! counts 14) (loop tail pending (- fuel 1) depth))
+      ((null? tail) (inc! counts 15) (loop watchers pending (- fuel 1) depth))
+      ((<= (* degree copy-price) frame-price)
+       (inc! counts 13 degree) (inc! counts 16) (inc! counts 10 degree)
+       (loop (if (= degree 1) (cons (car watchers) tail) (append watchers tail)) pending (- fuel 1) depth))
+      (else
+       (inc! counts 5) (inc! counts 10)
+       (vector-set! counts 12 (max (vector-ref counts 12) (+ depth 1)))
+       (loop watchers (cons tail pending) (- fuel 1) (+ depth 1))))))
+
+(defrule (define-queue-engine name enqueue)
+  (def (name plan state-kind policy)
+    (let* ((size (closure-plan-size plan)) (bits (make-u8vector size 0))
+           (counts (make-vector 17 0)) (budget (+ size (closure-plan-edges plan)))
+           (copy-price (queue-prices-copy policy))
+           (frame-price (+ (queue-prices-suspend policy) (queue-prices-resume policy))))
+      (inc! counts 10 size)
+      (let loop ((current (initial-queue size)) (pending '()) (fuel budget) (depth 0))
+        (cond
+          ((null? current)
+           (if (null? pending) (make-closure-result (u8vector-copy bits) counts)
+             (begin (inc! counts 6) (loop (car pending) (cdr pending) fuel (- depth 1)))))
+          ((= fuel 0) (error "certified work budget exhausted"))
+          (else
+            (let ((index (car current)) (tail (cdr current)))
+              (inc! counts 0)
+              (if (= (u8vector-ref bits index) 1) (loop tail pending (- fuel 1) depth)
+                (begin
+                  (inc! counts 1)
+                  (if (evaluate (vector-ref (closure-plan-code plan) index) bits counts)
+                    (begin
+                      (when (eq? state-kind 'copied)
+                        (set! bits (u8vector-copy bits)) (inc! counts 11 size))
+                      (u8vector-set! bits index 1)
+                      (inc! counts 3) (inc! counts 4 (vector-ref (closure-plan-degrees plan) index))
+                      (enqueue loop plan counts index tail pending fuel depth copy-price frame-price))
+                    (loop tail pending (- fuel 1) depth)))))))))))
+
+(define-queue-engine solve-append queue-append)
+(define-queue-engine solve-chunked queue-chunked)
+(define-queue-engine solve-hybrid queue-hybrid)
+
+(def (solve-closure plan (queue-kind 'hybrid) (state-kind 'owned) (policy balanced-closure-policy))
   (when (eq? queue-kind 'minimum-allocation)
     (set! queue-kind (if (<= (closure-plan-edges plan) (closure-plan-size plan)) 'append 'chunked)))
-  (unless (memq queue-kind '(chunked append)) (error "queue kind" queue-kind))
   (unless (memq state-kind '(owned copied)) (error "state kind" state-kind))
-  (let* ((size (closure-plan-size plan)) (bits (make-u8vector size 0))
-         (counts (make-vector 13 0)) (budget (+ size (closure-plan-edges plan))))
-    (inc! counts 10 size)
-    (let loop ((current (initial-queue size)) (pending '()) (fuel budget) (depth 0))
-      (cond
-        ((null? current)
-         (if (null? pending)
-           ;; Copy at publication; callers never receive the scratch vector.
-           (make-closure-result (u8vector-copy bits) counts)
-           (begin (inc! counts 6) (loop (car pending) (cdr pending) fuel (- depth 1)))))
-        ((= fuel 0) (error "certified work budget exhausted"))
-        (else
-          (let* ((index (car current)) (tail (cdr current)))
-            (inc! counts 0)
-            (if (= (u8vector-ref bits index) 1)
-              (loop tail pending (- fuel 1) depth)
-              (begin
-                (inc! counts 1)
-                (if (evaluate (vector-ref (closure-plan-code plan) index) bits counts)
-                  (begin
-                    (when (eq? state-kind 'copied)
-                      (set! bits (u8vector-copy bits)) (inc! counts 11 size))
-                    (u8vector-set! bits index 1)
-                    (inc! counts 3)
-                    (inc! counts 4 (vector-ref (closure-plan-degrees plan) index))
-                    (if (eq? queue-kind 'chunked)
-                      (begin (inc! counts 5) (inc! counts 10)
-                        (vector-set! counts 12 (max (vector-ref counts 12) (+ depth 1)))
-                        (loop (vector-ref (closure-plan-watches plan) index)
-                              (cons tail pending) (- fuel 1) (+ depth 1)))
-                      (begin
-                        (inc! counts 10 (vector-ref (closure-plan-degrees plan) index))
-                        (loop (append (vector-ref (closure-plan-watches plan) index) tail)
-                              pending (- fuel 1) depth))))
-                  (loop tail pending (- fuel 1) depth))))))))))
-
+  (unless (and (queue-prices? policy)
+               (fixnum? (* (closure-plan-edges plan) (queue-prices-copy policy))))
+    (error "queue prices exceed fixnum-priced range"))
+  (case queue-kind
+    ((append) (solve-append plan state-kind policy))
+    ((chunked) (solve-chunked plan state-kind policy))
+    ((hybrid) (solve-hybrid plan state-kind policy))
+    (else (error "queue kind" queue-kind))))
 (def (closure-ref result index) (= (u8vector-ref (closure-result-bits result) index) 1))
 (def (closure->list result)
   (let* ((bits (closure-result-bits result)) (size (u8vector-length bits)))

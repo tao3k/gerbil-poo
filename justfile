@@ -60,4 +60,4 @@ benchmark-closure: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/closure
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
-    python3 tools/benchmark_closure.py --binary .build/closure/closure-scale --output .build/closure/receipt.json
+    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss .build/closure/closure-scale "{{ timeout-executable }}" .build/closure/receipt.json

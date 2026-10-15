@@ -1,0 +1,26 @@
+;;; Native receipt analysis; reject missing or nonpassing trials.
+(export main)
+(import :std/iter :std/encoding/json)
+(def (median3 values)
+  (unless (= (length values) 3) (error "three independent trials required" values))
+  (let ((a (car values)) (b (cadr values)) (c (caddr values)))
+    (max (min a b) (min (max a b) c))))
+(def (main path)
+  (let* ((receipt (parameterize ((current-json-read-options (JSONReadOptions object-as-hash: #t))) (call-with-input-file path read-json))) (rows (hash-ref receipt "rows")))
+    (for (row rows)
+      (unless (equal? (hash-ref row "status") "pass") (error "nonpassing row" row)))
+    (for* ((family '("diamond" "dense" "ring" "skewed" "gated" "quorum" "hubchain" "bursts"))
+           (scope '("cold" "warm")))
+      (for (queue '("append" "chunked" "hybrid"))
+        (let ((matches (filter (lambda (row)
+                         (and (equal? (hash-ref row "family") family)
+                              (equal? (hash-ref row "scope") scope)
+                              (equal? (hash-ref row "seed") "true")
+                              (equal? (hash-ref row "queue") queue)
+                              (= (hash-ref row "n") (if (equal? family "dense") 256
+                                                     (if (equal? family "skewed") 128
+                                                       (if (equal? family "quorum") 256 1024)))))) rows)))
+          (displayln family " scope=" scope " queue=" queue " cpu_ms="
+            (median3 (map (lambda (row) (* 1000 (/ (hash-ref row "cpu_seconds") (hash-ref row "repetitions")))) matches))
+            " frames=" (hash-ref (car matches) "frame_allocations")
+            " pairs=" (hash-ref (car matches) "queue_pairs")))))))

@@ -31,7 +31,7 @@
 
 (def closure-test
   (test-suite "costed positive closure"
-    (test-case "all 512 three-fact source combinations and three representations"
+    (test-case "all 512 three-fact source combinations and four representations"
       (def clauses (vector (literal #f) (literal #t) (fact 0) (fact 1) (fact 2)
                            (both (fact 0) (fact 1)) (either (fact 1) (fact 2))
                            (both (either (fact 0) (fact 2)) (fact 1))))
@@ -39,8 +39,17 @@
         (def source (vector (vector-ref clauses a) (vector-ref clauses b) (vector-ref clauses c)))
         (def plan (compile-closure source))
         (def expected (oracle source))
-        (for (variant '((append copied) (append owned) (chunked owned)))
-          (assert-result plan (solve-closure plan (car variant) (cadr variant)) expected))))
+        (for (variant '((append copied) (append owned) (chunked owned) (hybrid owned)))
+          (assert-result plan (solve-closure plan (car variant) (cadr variant)) expected))
+        (for (prices '((0 0 0) (1 4 4) (9 0 0) (2 1 1)))
+          (def policy (apply closure-policy prices))
+          (def result (solve-closure plan 'hybrid 'owned policy))
+          (assert-result plan result expected)
+          (def c (closure-counts result))
+          (def fee (+ (* (car prices) (vector-ref c 13))
+                      (* (+ (cadr prices) (caddr prices)) (vector-ref c 5))))
+          (check (<= fee (* (car prices) (vector-ref c 4))) => #t)
+          (check (<= fee (* (+ (cadr prices) (caddr prices)) (vector-ref c 3))) => #t))))
     (test-case "retained topology revocation and private snapshots"
       (def source (vector (literal #t) (either (fact 0) (fact 2)) (fact 1)))
       (def plan (compile-closure source))
@@ -59,7 +68,17 @@
       (def cycle (both (literal #f) (literal #t)))
       (vector-set! cycle 1 cycle)
       (check-exception (compile-closure (vector cycle)) true))
-    (test-case "empty and dense allocations"
+(test-case "queue shortcuts and invalid prices"
+  (check-exception (closure-policy -1 4 4) true)
+  (check-exception (closure-policy 1 1.5 4) true)
+  (def plan (compile-closure (vector (literal #t) (fact 0) (fact 1))))
+  (def result (solve-closure plan))
+  (assert-result plan result '(#t #t #t))
+  (def counts (closure-counts result))
+  (check-equal? (vector-ref counts 5) 0)
+  (check-equal? (vector-ref counts 14) 1)
+  (check (positive? (+ (vector-ref counts 15) (vector-ref counts 16))) => #t))
+(test-case "empty and dense allocations"
       (assert-result (compile-closure '#()) (solve-closure (compile-closure '#())) '())
       (def size 64)
       (def source (make-vector size))
@@ -69,7 +88,7 @@
             (for/fold (expression (literal #f)) (j (in-range i))
               (either expression (fact j))))))
       (def plan (compile-closure source))
-      (def chunked (solve-closure plan))
+      (def chunked (solve-closure plan 'chunked))
       (def append (solve-closure plan 'append))
       (assert-result plan chunked (make-list size #t))
       (def chunk-counts (closure-counts chunked))
