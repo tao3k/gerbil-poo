@@ -22,8 +22,12 @@ conservative. A dependency-ordered pass materializes each shared node once; clea
 slots never invoke a builder or resolver. Source capture uses direct lookup tables
 for active keys while preserving latent code/base for later support edits.
 
-Source capture, scheduling, invalidation and cache preparation still scan the
-supported graph; builder skipping does not imply sublinear total time. Private
+An identical captured source retains its lookup and schedule in constant source-
+level work (one private cache record and shared traces). Changed sources still
+capture and scan supported keys. ~reschedule~ reuses checked order/reads when
+support and every complete footprint agree; changed edges fall back to full
+cycle/unsupported validation. Value/program invalidation is independent: a new
+method body still rebuilds its cone even when its reads are unchanged. Private
 transient tables reuse the standard hash library. Values, source objects and
 callbacks must remain stable and pure. Open POO metadata and arbitrary extension
 callbacks do not carry dependent kernel proofs. Extensions must declare their
@@ -66,7 +70,7 @@ Lean adds ~Partial.step_reused_builder_independent~ and
 ~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
 rejecting every node outside its eleven-node cone.
 
-~just benchmark-metadata~ measures 29 phases / 232 observations. Component phases
+~just benchmark-metadata~ measures 34 phases / 272 observations. Component phases
 include source capture, scheduling and cache preparation; release phases include
 fresh services/contracts and admission. Existing 90-second compile, 20-second
 measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
@@ -76,3 +80,26 @@ Complete raw results stay under ignored ~.build/metadata/~, with concise source-
 bound repository summaries. See [[file:performance/history.org][historical evidence]] for the lossless archive
 of older results and the fixed native Scheme output policy. No new versioned JSON
 or Lean checkout dependency is introduced.
+
+* Stable and dynamic joint approval
+
+The native model's ~.readmit~ method defaults to full ~admit~. ServiceBundle
+specializes it to ~cache-admit~: every new publication runs all three business
+probes, release/ceiling checks and the budget; each call checks the actual
+successor budget. Methods, contracts, cooked view and policy remain immutable
+through dispatch-cache insertion. Stable probes therefore retain their meaning.
+Custom overrides must justify every omitted check; an arbitrary cache-dependent
+or effectful predicate must continue to use full admission.
+
+Differential controls run identical cold/hit/cross-service calls under full and
+factored approval, comparing results, refusals and all cache sizes. A second
+service exceeding the joint budget still refuses without leaking tentative state.
+Schedule controls cover equal footprints with new bodies, changed edges, cycles
+and unsupported reads. Lean's ~Scheduled.rebase~, ~Cache.retain~, family definition
+and observation preservation, and ~Snapshot.invokeRetaining~ state the respective
+proof obligations. They do not constitute compiler/runtime refinement.
+
+Native same-process controls include full/retained scheduling, recaptured/same-
+source zero-builder preparation and full/factored cold/warm joint admission.
+Release measurements include construction, generic rebuilding, contract binding
+and full fresh approval. These finite observations do not prove universal speed.

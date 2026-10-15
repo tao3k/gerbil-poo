@@ -3,7 +3,7 @@
         failure? failure-key failure-cause)
 (import :std/iter ./object (only-in ./mop define-type) ./support/option
         (prefix-in ./generalized-graph graph.) (prefix-in ./dependency-analysis computation.))
-(defstruct cache (source lookup evaluated reused) final: #t)
+(defstruct cache (source lookup evaluated reused scheduled) final: #t)
 (defstruct failure (key cause) final: #t)
 (def (cache-ref cache key) ((cache-lookup cache) key))
 (define-type (Builder. @ [])
@@ -41,7 +41,7 @@
           (catch (cause) (raise (make-failure key cause)))))
         (hash-put! state key value) (set! evaluated (cons key evaluated)))))
   (make-cache spec (lambda (key) (if (hash-key? state key) (hash-ref state key) (.call spec .base key)))
-    (reverse evaluated) (reverse reused)))
+    (reverse evaluated) (reverse reused) scheduled))
 (def (freeze spec)
   (def programs (make-hash-table-eq))
   (def values (make-hash-table-eq))
@@ -52,4 +52,8 @@
     .code: (lambda (key) (if (hash-key? programs key) (hash-ref programs key) (.call spec .code key)))
     .base: (lambda (key) (if (hash-key? values key) (hash-ref values key) (.call spec .base key)))))
 (def (start spec (builder default-builder)) (materialize #f (graph.schedule (freeze spec)) builder))
-(def (refresh old spec (builder default-builder)) (materialize old (graph.schedule (freeze spec)) builder))
+(def (refresh old spec (builder default-builder))
+  (if (eq? spec (cache-source old))
+    ;; Same immutable source: retain lookup and checked schedule, reset work trace.
+    (make-cache spec (cache-lookup old) [] (graph.schedule-order (cache-scheduled old)) (cache-scheduled old))
+    (materialize old (graph.reschedule (cache-scheduled old) (freeze spec)) builder)))

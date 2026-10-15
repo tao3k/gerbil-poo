@@ -1,5 +1,5 @@
 ;;; ServiceBundle: C4 method combination, negative watches and joint metadata.
-(export Policy. model declarations start revise)
+(export Policy. model declarations admit cache-admit start revise)
 (import :std/iter (only-in :std/values first-value)
         ../object (only-in ../mop define-type Any Bool) (only-in ../number IntegerRange)
         (only-in ../type String)
@@ -64,6 +64,11 @@
     (metadata.both (metadata.atom 'reserve-linked)
       (metadata.both (metadata.atom 'cancel-linked)
         (metadata.both (metadata.atom 'release) (metadata.atom 'cache-budget))))))
+(def (cache-admit policy candidate)
+  (<= (apply + (map (lambda (service)
+                     (multimethod.cache-size (dispatch.snapshot (publication.version-service candidate service))))
+                   '(quote reserve cancel)))
+      (.@ policy cache-limit)))
 (def (admit policy candidate)
   (def view (publication.version-view candidate))
   ;; Probes validate actual implementations/contracts and discard tentative caches.
@@ -78,13 +83,12 @@
         ((reserve-linked) (equal? (probe 'reserve 2) (list 'ok (- (.@ view capacity) 2) #t)))
         ((cancel-linked) (equal? (probe 'cancel "customer" #t) (list "customer" (.@ view invoice))))
         ((release) (.@ view release))
-        ((cache-budget)
-         (<= (apply + (map (lambda (service)
-                           (multimethod.cache-size (dispatch.snapshot (publication.version-service candidate service))))
-                         '(quote reserve cancel)))
-             (.@ policy cache-limit)))))))
+        ((cache-budget) (cache-admit policy candidate))))))
 (def model
   (.cc staged.Model. generics: generics contracts: contracts admit: admit
+       ;; Dispatch cache insertion preserves methods, contracts and cooked view.
+       ;; Business probes run on every release; actual successor budget on every call.
+       .readmit: cache-admit
        cook: (lambda (policy facts) (service.cook (.@ policy capacity) (.@ policy price) (.@ policy invoice) facts))))
 (def (start policy (config (access.config)) (enabled #t))
   (staged.prepare model (access.equations config enabled) policy))

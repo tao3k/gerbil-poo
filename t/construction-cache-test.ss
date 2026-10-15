@@ -31,6 +31,28 @@
       (for (key '(left right join input absent))
         (check-equal? (if (cache.cache-ref next key) (value next key) 'absent)
                       (if (cache.cache-ref cold key) (value cold key) 'absent))))
+    (test-case "checked schedules survive bodies and values, not changed edges"
+      (def source (graph.declaration '(join left right root)
+        (list (cons 'left (code.need 'root identity)) (cons 'right (code.need 'root identity))
+              (cons 'join (code.both (code.need 'left identity) (code.need 'right identity) +)))
+        (list (cons 'root (some (code.make-success 3))))))
+      (def prior (graph.schedule source))
+      (def edited (graph.define source 'left (code.need 'root (cut + <> 7))))
+      (def retained (graph.reschedule prior edited))
+      (check (eq? (graph.schedule-order retained) (graph.schedule-order prior)) => #t)
+      (check (eq? (graph.schedule-reads retained) (graph.schedule-reads prior)) => #t)
+      (def old (cache.start source))
+      (def next (cache.refresh old edited))
+      (check-equal? (value next 'join) 13)
+      (check-equal? (cache.cache-evaluated next) '(left join))
+      (def changed (graph.define edited 'left (code.need 'right identity)))
+      (def fresh (graph.reschedule retained changed))
+      (check-equal? ((graph.schedule-reads fresh) 'left) '(right))
+      (check-equal? (value (cache.refresh next changed) 'join) 6)
+      (check-equal? (graph.failure-kind (caught (cut graph.reschedule prior
+        (graph.define source 'root (code.need 'join identity))))) 'cycle)
+      (check-equal? (graph.failure-kind (caught (cut graph.reschedule prior
+        (graph.define source 'left (code.need 'missing identity))))) 'unsupported))
     (test-case "absence failures and unselected branches are tracked"
       (def source (graph.declaration '(select available denied failed absent)
         (list (cons 'select (code.choose (code.inspect 'absent identity) identity (code.pure 1) (code.pure 2)))

@@ -1,5 +1,5 @@
 ;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
-(export Declaration. declaration define remove set-base support schedule
+(export Declaration. declaration define remove set-base support schedule reschedule
         schedule? schedule-source schedule-order schedule-reads
         failure? failure-kind failure-key)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
@@ -59,3 +59,15 @@
             (hash-put! states key 'done) (add key))))
       (for-each visit keys)))
   (make-%schedule spec order (lambda (key) (hash-ref reads key))))
+
+;;; Preserve checked order only after checking the complete new read footprint.
+;;; Equal outputs or revision labels never authorize this path.
+(def (reschedule prior spec)
+  (if (and (equal? (.@ spec keys) (.@ (schedule-source prior) keys))
+           (andmap (lambda (key)
+             (def code (.call spec .code key))
+             (or (eq? code (.call (schedule-source prior) .code key))
+                 (equal? (if code (keys! (.@ code reads)) []) ((schedule-reads prior) key))))
+             (.@ spec keys)))
+    (make-%schedule spec (schedule-order prior) (schedule-reads prior))
+    (schedule spec)))

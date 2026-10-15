@@ -8,7 +8,7 @@
         (prefix-in ../cyclic-publication publication.)
         (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/protected-dispatch protected.)
-        (prefix-in ../generic-family family.)
+        (prefix-in ../generic-family family.) (prefix-in ../staged-publication staged.)
         (prefix-in ../multimethod multimethod.)
         (prefix-in ../dispatch-extension dispatch.)
         (prefix-in ../construction-cache cache.) (prefix-in ../generalized-graph graph.)
@@ -20,13 +20,15 @@
 (def phases '(raw bound invoke wrap-build input-refuse output-refuse logic-refuse family-build family-warm revise refused-revise
               protected-build protected-cold protected-warm guarded-low guarded-high protected-refuse protected-cancelled metadata-refuse call-refuse
               component-start component-refresh component-reuse component-root component-presence
-              selective-release policy-release selective-negative-refuse selective-admission-refuse))
+              selective-release policy-release selective-negative-refuse selective-admission-refuse
+              schedule-full schedule-retained component-recapture protected-full-cold protected-full-warm))
 (def rounds 4)
 (def (repetitions phase)
   (cond ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
                          component-start component-refresh component-reuse component-root component-presence
-                         selective-release policy-release selective-negative-refuse selective-admission-refuse)) 8)
-        ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse)) 512)
+                         selective-release policy-release selective-negative-refuse selective-admission-refuse
+                         schedule-full schedule-retained component-recapture)) 8)
+        ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse protected-full-cold protected-full-warm)) 512)
         (else 4000)))
 (def (main output binary)
   (write-datum output '(metadata-benchmarks (status incomplete)))
@@ -58,6 +60,11 @@
   (defvalues (limited limited-issue) (bundle.start (.cc policy cache-limit: 1)))
   (when limited-issue (error "limited baseline"))
   (defvalues (_ limited-warm) (publication.invoke limited 'quote protected.invoice protected.card 10))
+  ;; Matched control retains full joint admission, with identical service code.
+  (defvalues (full full-issue)
+    (staged.prepare (.cc bundle.model .readmit: bundle.admit) (access.equations config #t) policy))
+  (when full-issue (error "full admission control refused"))
+  (defvalues (full-value full-warm) (publication.invoke full 'quote protected.invoice protected.card 10))
   (def (quote-call current channel amount expected same?)
     (defvalues (result next) (publication.invoke current 'quote protected.invoice channel amount))
     (and (equal? result expected) (eq? (eq? next current) same?)))
@@ -74,6 +81,10 @@
   (def baseline (publication.version-cache settlement-warm))
   (def source (cache.cache-source baseline))
   (def changed (graph.define source 'invoice (code.need 'settlement (cut + <> 9))))
+  (def prior-schedule (graph.schedule source))
+  (def expected-order (graph.schedule-order prior-schedule))
+  ;; Equal immutable fields, different source identity: forces capture/scan.
+  (def recaptured (.cc source))
   (def allowed (.cc cache.Builder. allow: (cut memq <> '(invoice release total))))
   (def reject (.cc cache.Builder. allow: (lambda (_) #f)))
   (def (cache-oracle next count total)
@@ -127,9 +138,14 @@
             (and (not issue) (cache-oracle (publication.version-cache next) 0 32)
                  (equal? (first-value (publication.invoke next 'quote protected.invoice protected.card 10)) '(13 14))))
           (lambda () (selective changed (.cc policy forbidden-cancel: #t) allowed 'services))
-          (lambda () (selective changed (.cc policy reserve-shift: 1) allowed 'admission))))
+          (lambda () (selective changed (.cc policy reserve-shift: 1) allowed 'admission))
+          (lambda () (equal? (graph.schedule-order (graph.schedule changed)) expected-order))
+          (lambda () (equal? (graph.schedule-order (graph.reschedule prior-schedule changed)) expected-order))
+          (lambda () (cache-oracle (cache.refresh baseline recaptured reject) 0 32))
+          (lambda () (quote-call full protected.card 10 '(13 13) #f))
+          (lambda () (quote-call full-warm protected.card 10 '(13 13) #t))))
   (def expected (append (list '(ok 8 #t) '(ok 8 #t) '(ok 8 #t) #t 'input 'output 'logic #t '(ok 8 #t) #t #t)
-                        (make-list 18 #t)))
+                        (make-list 23 #t)))
   (def rows [])
   (for* ((gc '(natural collected)) (round (in-range rounds)) (position (in-range (length phases))))
     (def index (modulo (+ round position) (length phases)))
