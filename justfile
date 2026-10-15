@@ -80,3 +80,13 @@ benchmark-dispatch: build
     mkdir -p .build/dispatch
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/dispatch -exe -ld-options "{{ closure-ld-options }}" -o .build/dispatch/dispatch-benchmark t/dispatch-benchmark.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/dispatch/dispatch-benchmark -:max-heap=1G .build/dispatch/dispatch-benchmarks.scm .build/dispatch/dispatch-benchmark
+
+# Composed metadata wrappers and complete cooked-family publication costs.
+benchmark-metadata:
+    mkdir -p .build/metadata
+    printf '%s\n' '(metadata-benchmarks (status incomplete))' > .build/metadata/metadata-benchmarks.scm
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    just build
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "{{ closure-ld-options }}" -o .build/metadata/metadata-benchmark t/metadata-benchmark.ss
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/metadata/metadata-benchmark -:max-heap=1G .build/metadata/metadata-benchmarks.scm .build/metadata/metadata-benchmark
+    {{ platform-env }} gxi {{ test-runtime-options }} t/metadata-report.ss .build/metadata/metadata-benchmarks.scm

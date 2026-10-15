@@ -16,7 +16,7 @@ checks the runtime premises at its public boundary.
 | Ten-fact cyclic access and lossy view | CyclicAccess | examples/cyclic-access.ss | Implemented and tested over 32 configurations; active is a list of indices |
 | General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Existing Scheme implementation reused; generalized hook equivalence needs separate coverage |
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only |
-| Declarative type/logical metadata, proof-bearing generic caches | DeclarativeMetadata / StagedPublication | existing runtime Type descriptors cover a subset | Open: do not treat ordinary Scheme descriptors as those proofs/contracts |
+| Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence and general cache-sensitive admission remain Lean-only |
 | Safe recursive attestation and certified recursive memo | RecursiveCacheSemantics / CyclicAccess | no equivalent bounded request program in this addition | Open; Boolean seed is currently supplied explicitly |
 | General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | cooked snapshots / exact old bundle retention here | Partial; arbitrary adapters and selective component rebuilds remain open |
 
@@ -231,3 +231,10 @@ verification is inferred from this measurement guard.
 The [current dispatch matrix](performance/dispatch-benchmarks.scm) uses the
 explicit admission policy above. Neither rejected data nor missing allocation
 values are used to claim a speedup or allocation saving.
+
+## Declarative metadata expression protocol
+
+See [DeclarativeMetadata](declarative-metadata.org) for native MOP protocols,
+wrapper composition, the heterogeneous service example, rejection guarantees
+and the standalone native metadata benchmark. Existing dispatch measurements
+remain historical receipts at their pinned source identities.

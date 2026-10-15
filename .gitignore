@@ -6,3 +6,5 @@ build-deps
 
 # Native dispatch benchmark executable and generated study.
 /.build/dispatch/
+
+.build/metadata/
