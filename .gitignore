@@ -3,3 +3,6 @@ build-deps
 
 # Reproducible local closure benchmark executable and fresh receipts.
 /.build/closure/
+
+# Native dispatch benchmark executable and generated study.
+/.build/dispatch/
