@@ -3,6 +3,7 @@
 (import :std/iter (only-in :std/values first-value)
         ../object (only-in ../mop define-type Any Bool) (only-in ../number IntegerRange)
         (only-in ../type String)
+        (prefix-in ../contract-family contract-family.)
         (prefix-in ../generic-family family.)
         (prefix-in ../staged-publication staged.)
         (prefix-in ../cyclic-publication publication.)
@@ -79,6 +80,11 @@
    (metadata.family
     (.cc family.Model. keys: '(quote reserve cancel) seed: seed watches: watches)
     declarations)))
+(def contract-source
+  (.cc contract-family.Source.
+    keys: (lambda (_ __) '(reserve))
+    project: (lambda (_ __ view) (.@ view capacity))
+    construct: (lambda (_ capacity) (service.reservation capacity))))
 (def (contracts _ view) (list (cons 'reserve (service.reservation (.@ view capacity)))))
 (def release-rule
   (metadata.both (metadata.atom 'quote-bound)
@@ -105,7 +111,10 @@
                    (probe 'quote protected.invoice protected.card 10)))
            (and (equal? quote-result (list 13 (+ 10 (.@ view price))))
                 (<= (apply + quote-result) (.@ policy ceiling)))))
-        ((reserve-linked) (equal? (probe 'reserve 2) (list 'ok (- (.@ view capacity) 2) #t)))
+        ((reserve-linked)
+         (or (and (publication.same-service? old candidate 'reserve)
+                  (= (.@ view capacity) (.@ (publication.version-view old) capacity)))
+             (equal? (probe 'reserve 2) (list 'ok (- (.@ view capacity) 2) #t))))
         ((cancel-linked)
          (or (and (publication.same-service? old candidate 'cancel)
                   (equal? (.@ view invoice) (.@ (publication.version-view old) invoice)))
@@ -113,13 +122,14 @@
         ((release) (.@ view release))
         ((cache-budget) (cache-admit policy candidate))))))
 (def model
-  (.cc staged.Model. generics: generics contracts: contracts admit: admit
+  (.mix (.cc staged.methods.contracts<-projection contract-source: contract-source contracts-source: contracts)
+   (.cc staged.Model. generics: generics contracts: contracts admit: admit
        ;; Dispatch cache insertion preserves methods, contracts and cooked view.
        ;; Business probes run on every release; actual successor budget on every call.
        .readmit: cache-admit
        admit-source: admit
        .admit-refresh: (lambda (old policy candidate) (admit policy candidate old))
-       cook: (lambda (policy facts) (service.cook (.@ policy capacity) (.@ policy price) (.@ policy invoice) facts))))
+       cook: (lambda (policy facts) (service.cook (.@ policy capacity) (.@ policy price) (.@ policy invoice) facts)))))
 (def (start policy (config (access.config)) (enabled #t))
   (staged.prepare model (access.equations config enabled) policy))
 (def (revise old policy (config (access.config)) (enabled #t))

@@ -40,6 +40,7 @@
     "dispatch-extension"
     "declarative-metadata"
     "generic-family"
+    "contract-family"
     "dependency-analysis"
     "generalized-graph"
     "construction-cache"

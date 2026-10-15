@@ -1,6 +1,6 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc .@) ../support/option (only-in :std/values first-value)
+(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc .@ .o) ../support/option (only-in :std/values first-value)
         "closure-measure.ss"
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../examples/service-metadata service.)
@@ -8,12 +8,13 @@
         (prefix-in ../cyclic-publication publication.)
         (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/protected-dispatch protected.)
+        (prefix-in ../contract-family contracts.)
         (prefix-in ../generic-family family.) (prefix-in ../staged-publication staged.)
         (prefix-in ../multimethod multimethod.)
         (prefix-in ../dispatch-extension dispatch.)
         (prefix-in ../construction-cache cache.) (prefix-in ../generalized-graph graph.)
         (prefix-in ../dependency-analysis code.) (prefix-in ../examples/construction-workflow workflow.))
-(def sources '("dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
+(def sources '("contract-family.ss" "build.ss" "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
                "closure.ss" "object.ss" "mop.ss" "type.ss" "number.ss" "justfile"
                "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
                "t/closure-measure.ss" "t/metadata-benchmark.ss" "t/metadata-report.ss"))
@@ -23,15 +24,22 @@
               selective-release policy-release selective-negative-refuse selective-admission-refuse
               schedule-full schedule-retained component-recapture protected-full-cold protected-full-warm
               service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
-              service-budget-refuse service-negative-refuse))
+              service-budget-refuse service-negative-refuse
+              contract-prepare contract-retain contract-change contract-rebind
+              contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold))
 (def rounds 4)
 (def (repetitions phase)
-  (cond ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
+  ;; Release-only follow-up: initial 8-op natural-GC price comparison regressed.
+  ;; Increase both matched sides equally; keep the same fixed time/heap bounds.
+  (cond ((memq phase '(contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 128)
+        ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
                          component-start component-refresh component-reuse component-root component-presence
                          selective-release policy-release selective-negative-refuse selective-admission-refuse
                          schedule-full schedule-retained component-recapture
                          service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
-                         service-budget-refuse service-negative-refuse)) 8)
+                         service-budget-refuse service-negative-refuse
+                         contract-prepare contract-retain contract-change contract-rebind
+                         contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 8)
         ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse protected-full-cold protected-full-warm)) 512)
         (else 4000)))
 (def (main output binary)
@@ -125,6 +133,31 @@
     (and issue (eq? retained service-warm)
       (equal? (map (lambda (key) (multimethod.cache-size (dispatch.snapshot (publication.version-service retained key))))
                    '(quote reserve cancel)) '(1 1 1))))
+  (def contract-source (.@ bundle.model contract-source))
+  (def contract-view (publication.version-view service-warm))
+  (def larger-view (.o (capacity 20)))
+  (def (contract-execute _ args current)
+    (values (list 'ok (- (.@ current capacity) (car args)) #t) current))
+  (def (other-execute key args current) (contract-execute key args current))
+  (def prepared-contracts (contracts.prepare contract-source policy contract-view contract-execute))
+  (def contract-cold-model
+    (.cc bundle.model .contracts: (lambda (_ policy view execute available) (contracts.prepare contract-source policy view execute available))))
+  (def (contract-oracle current built bound shared? view)
+    (defvalues (result returned) ((contracts.family-invoker current 'reserve) '(2) view))
+    (and (equal? (contracts.family-built current) built) (equal? (contracts.family-bound current) bound)
+         (eq? (eq? (contracts.family-ref current 'reserve) (contracts.family-ref prepared-contracts 'reserve)) shared?)
+         (equal? result (list 'ok (- (.@ view capacity) 2) #t)) (eq? returned view)))
+  (def (contract-release model changed cold? expected expected-reused)
+    (defvalues (next issue) (staged.publish model service-warm (access.equations config #t) changed))
+    (and (not issue)
+      (equal? (family.family-built (publication.version-family next)) expected)
+      (equal? (family.family-reused (publication.version-family next)) expected-reused)
+      (equal? (contracts.family-built (publication.version-contract-family next)) (if cold? '(reserve) []))
+      (equal? (contracts.family-bound (publication.version-contract-family next)) (if cold? '(reserve) []))
+      (eq? (eq? (publication.version-contract-invoker next 'reserve)
+                (publication.version-contract-invoker service-warm 'reserve)) (not cold?))
+      (equal? (first-value (publication.invoke next 'reserve 2)) '(ok 8 #t))
+      (equal? (first-value (publication.invoke next 'quote protected.invoice protected.card 10)) (list 13 (+ 10 (.@ changed price))))))
   (def actions
     (list (lambda () (first-value (raw '(2))))
           (lambda () (first-value (bound '(2))))
@@ -178,9 +211,21 @@
           (lambda () (service-revision bundle.model (.cc policy invoice: "invoice:2") '(cancel) '(quote reserve)))
           (lambda () (service-revision cold-model (.cc policy invoice: "invoice:2") '(quote reserve cancel) []))
           (lambda () (service-refusal (.cc policy cache-limit: 2)))
-          (lambda () (service-refusal (.cc policy forbidden-cancel: #t)))))
+          (lambda () (service-refusal (.cc policy forbidden-cancel: #t)))
+          (lambda () (contract-oracle (contracts.prepare contract-source policy contract-view contract-execute) '(reserve) '(reserve) #f contract-view))
+          (lambda () (let (next (contracts.refresh contract-source prepared-contracts policy contract-view contract-execute))
+            (and (contract-oracle next [] [] #t contract-view)
+                 (eq? (contracts.family-invoker next 'reserve) (contracts.family-invoker prepared-contracts 'reserve)))))
+          (lambda () (contract-oracle (contracts.refresh contract-source prepared-contracts policy larger-view contract-execute) '(reserve) '(reserve) #f larger-view))
+          (lambda () (let (next (contracts.refresh contract-source prepared-contracts policy contract-view other-execute))
+            (and (contract-oracle next [] '(reserve) #t contract-view)
+                 (not (eq? (contracts.family-invoker next 'reserve) (contracts.family-invoker prepared-contracts 'reserve))))))
+          (lambda () (contract-release bundle.model policy #f [] '(quote reserve cancel)))
+          (lambda () (contract-release contract-cold-model policy #t [] '(quote reserve cancel)))
+          (lambda () (contract-release bundle.model (.cc policy price: 4) #f '(quote) '(reserve cancel)))
+          (lambda () (contract-release contract-cold-model (.cc policy price: 4) #t '(quote) '(reserve cancel)))))
   (def expected (append (list '(ok 8 #t) '(ok 8 #t) '(ok 8 #t) #t 'input 'output 'logic #t '(ok 8 #t) #t #t)
-                        (make-list 31 #t)))
+                        (make-list 39 #t)))
   (def rows [])
   (for* ((gc '(natural collected)) (round (in-range rounds)) (position (in-range (length phases))))
     (def index (modulo (+ round position) (length phases)))

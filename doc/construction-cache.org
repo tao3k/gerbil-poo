@@ -36,7 +36,8 @@ reads; actual undeclared provider accesses are refused.
 Accepted releases refresh generics from closed per-service inputs. Equal inputs
 under the identical model retain exact warm certificates; changed inputs rebuild
 only that generic, including registration and completed-candidate negative checks.
-Contract descriptors/wrappers still prepare conservatively against the new view.
+ContractFamily also projects descriptor inputs and retains wrappers with the same
+executor, while revalidating current service support.
 Calls retain the exact component cache and recheck the actual service-cache
 successor. A refused release retains the identical previous version, including
 its component values and warm service caches. External effects are outside this
@@ -72,7 +73,7 @@ Lean adds ~Partial.step_reused_builder_independent~ and
 ~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
 rejecting every node outside its eleven-node cone.
 
-~just benchmark-metadata~ measures 42 phases / 336 observations. Component phases
+~just benchmark-metadata~ measures 50 phases / 400 observations. Component phases
 include source capture, scheduling and cache preparation; release phases include
 fresh services/contracts and admission. Existing 90-second compile, 20-second
 measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
@@ -133,15 +134,59 @@ generic. Changing the approval program falls back to full approval.
 Stable quote/cancel business conclusions can transfer only from the identical
 admission source, identical actual service and identical contract descriptor
 (absence included), with matching expected view inputs. Current ceiling/release
-and exact successor cache budget are always checked. The reservation contract
-still binds afresh and its probe remains conservative. Arbitrary custom admission
+and exact successor cache budget are always checked. Reservation contracts/wrappers now retain through ContractFamily when their
+source/inputs and executor agree; exact service/contract identity permits retaining
+the reservation business conclusion as well. Arbitrary custom admission
 or contract changes cannot inherit this shortcut.
 
 Runtime controls compare projected and direct constructors over 36 view settings
 and six actual calls each, preserve sibling cache identity, and test changed code,
 new budgets, changed admission, negative conflicts and atomic refusal. Native
 matched release controls compare selective versus forced cold preparation for
-no-op, price-only and invoice-only revisions. Complete 336-row data remains in
+no-op, price-only and invoice-only revisions. Complete 400-row data remains in
 ignored build output. Lean has Source.asModel/projection, Certified.transport,
 Partial.refresh_retained, and stageRefresh/publishRefresh with refusal identity.
 This is executable alignment with explicit premises, not compiler refinement.
+
+* Contract-family preparation
+
+~contract-family.ss~ supplies native ~Source.~ with keys/project/construct and
+derived ~.prepare / .refresh~. Only projected inputs reach construction. Source
+identity changes force reconstruction; equal names/results cannot authorize reuse.
+Every requested key is checked against current service support before projection
+or construction; duplicate names and invalid descriptors refuse preparation.
+
+Private contract and invoker tables share unchanged entries, with independent
+copy-on-write on first descriptor/binding change. An executor change reuses the
+descriptor but binds a new wrapper; key removal rebuilds finite support and cannot
+leave stale invokers. Wrappers receive the current publication snapshot as an
+argument and resolve services there, including freshly replaced generics. Custom
+legacy contract callbacks fall back to ordinary preparation rather than being
+ignored by the projection mixin.
+
+ServiceBundle projects the reservation contract on capacity. Price/invoice-only
+revisions retain both descriptor and wrapper. Existing joint admission transfers
+the reserve observation only from the same admitted source and same actual
+service/contract identities with unchanged expected capacity. New ceilings,
+release conditions and the actual cache budget are still checked. Normal calls
+always enforce input/output/relational predicates; retained wrappers never bypass
+checks. Contract removal, changed constructor, missing service and late refusal
+retain the previous version on failure. Source exceptions remain distinct from
+business error values through the existing metadata wrapper.
+
+Native tests count actual construction/wrapping/probe calls, exercise input and
+logic refusal, replacement services through retained wrappers, independent
+executor rebinding, contract add/remove, duplicate/missing keys and legacy
+contract overrides. Lean ContractFamily certifies origins/bindings and exact
+zero-build/zero-bind retained traces, current-state invocation, missing-service
+refusal and atomic joint refusal; its reserve/cancel example changes invoice
+while retaining reserve. Matched native phases isolate cold/retained preparation,
+changed inputs, rebind-only work, and complete no-op/price releases with cold
+versus retained contracts. These are finite observations, not verified Scheme
+allocation/compiler/runtime claims. Complete data/binaries remain ignored outputs.
+
+Contract release pairs use 128 operations on both sides after an initial 8-op
+natural-GC price regression. The concise performance summary retains that
+negative observation; initial data/log/source and final measurements stay ignored.
+The follow-up changed batch size only, preserving production source and all
+compile/time/heap bounds. It does not establish a universal performance guarantee.
