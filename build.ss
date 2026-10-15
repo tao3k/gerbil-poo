@@ -43,6 +43,8 @@
     "table"
     "trie"
     "type"
+    "t/closure-benchmark-support"
+    "t/closure-scale-benchmark"
     "t/table-testing"))
 
 (defbuild-script +gerbil-poo-build-spec+)

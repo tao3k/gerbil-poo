@@ -1,25 +1,20 @@
-;;; Native receipt analysis; reject missing or nonpassing trials.
+;;; Standard list sorting/statistics shared with the matched native controls.
 (export main)
-(import :std/iter :std/encoding/json)
-(def (median4 values)
-  (unless (= (length values) 4) (error "four independent trials required" values))
-  (/ (- (apply + values) (apply min values) (apply max values)) 2))
+(import :std/iter "closure-benchmark-support.ss")
 (def (main path)
-  (let* ((receipt (parameterize ((current-json-read-options (JSONReadOptions object-as-hash: #t))) (call-with-input-file path read-json))) (rows (hash-ref receipt "rows")))
-    (for (row rows)
-      (unless (equal? (hash-ref row "status") "pass") (error "nonpassing row" row)))
-    (for* ((family '("diamond" "dense" "ring" "skewed" "gated" "quorum" "hubchain" "bursts"))
-           (scope '("cold" "warm")))
-      (for (queue '("append" "chunked" "hybrid" "auto"))
-        (let ((matches (filter (lambda (row)
-                         (and (equal? (hash-ref row "family") family)
-                              (equal? (hash-ref row "scope") scope)
-                              (equal? (hash-ref row "seed") "true")
-                              (equal? (hash-ref row "queue") queue)
-                              (= (hash-ref row "n") (if (equal? family "dense") 256
-                                                     (if (equal? family "skewed") 128
-                                                       (if (equal? family "quorum") 256 1024)))))) rows)))
-          (displayln family " scope=" scope " queue=" queue " cpu_ms="
-            (median4 (map (lambda (row) (* 1000 (/ (hash-ref row "cpu_seconds") (hash-ref row "repetitions")))) matches))
-            " frames=" (hash-ref (car matches) "frame_allocations")
-            " pairs=" (hash-ref (car matches) "queue_pairs")))))))
+  (def rows (hash-ref (read-receipt path) "rows"))
+  (unless (andmap (lambda (row) (equal? (hash-ref row "status") "pass")) rows) (error "nonpassing receipt"))
+  (for* ((family '("diamond" "dense" "ring" "skewed" "gated" "quorum" "hubchain" "bursts"))
+         (scope '("cold" "warm" "refresh")) (queue '("append" "chunked" "hybrid" "auto")))
+    (def size (case (string->symbol family) ((dense quorum) 256) ((skewed) 128) (else 1024)))
+    (def matches (filter (lambda (row)
+                          (and (equal? (hash-ref row "family") family) (equal? (hash-ref row "scope") scope)
+                               (equal? (hash-ref row "seed") "true") (equal? (hash-ref row "queue") queue)
+                               (= (hash-ref row "n") size))) rows))
+    (unless (= (length matches) 4) (error "four independent trials required"))
+    (displayln family " scope=" scope " queue=" queue " cpu_ms="
+      (median (map (lambda (row) (* 1000 (/ (hash-ref row "cpu_seconds") (hash-ref row "repetitions")))) matches))
+      " lifecycle_ms="
+      (median (map (lambda (row) (* 1000 (/ (hash-ref row "lifecycle_seconds") (hash-ref row "repetitions")))) matches))
+      " setup_ms=" (median (map (lambda (row) (* 1000 (hash-ref row "setup_seconds"))) matches))
+      " frames=" (hash-ref (car matches) "frame_allocations") " pairs=" (hash-ref (car matches) "queue_pairs"))))

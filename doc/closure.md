@@ -1,3 +1,60 @@
+# Closure lifecycle and standard-library implementation (v4)
+
+This advances the paper's generalized-protocol future work for finite positive
+Boolean equations. `closure.ss` now uses Gerbil's `for/fold`, `in-vector`, `iota`,
+pattern matching and compiler-style private typed `using` contexts. Benchmark
+helpers share standard JSON, hash literals, `list->hash-table`, `map`, `cut`,
+`list-sort`, ports, digest and process libraries. Both native benchmark programs
+emit JSON; the duplicated record constructor and hand-written field parser are
+gone. Solver queue loops remain specialized where the operation model needs them.
+
+## Construction, preparation and reuse
+
+`compile-closure equations` prepares the reference adaptive strategy once;
+`compile-closure equations 'cold` skips degree selector preparation and chooses
+append or chunked from `4E` and `32V`. Explicit `'append`, `'chunked`, `'hybrid`
+compile modes also skip that preparation. `construct-closure equations` is the
+cold compile+solve convenience function. `prepare-closure plan` adds adaptive
+metadata later, sharing the private code and reverse index. The chosen engine is
+cached; default `solve-closure` dispatches it directly. Adaptive selection now
+also considers fixed chunked: min(4E,32V,V+4*sum(min(degree,8))). Dense 64 chooses
+hybrid, dense 256 chooses chunked; cold selection uses only the first two bounds.
+
+`reconfigure-closure` still copies, validates and compares revised descriptors;
+it shares the admitted reverse index/queue metadata only with identical tag/read
+topology, reports zero new selector visits and solves from bottom. Published
+snapshots remain separate. One compilation context tracks descriptor visits;
+node counting no longer invokes an accounting callback per descriptor. A read
+visitor remains per equation during initial reverse-index construction.
+
+Lean's `ClosureLifecycle` proves exact core/canonical closure, three candidate
+ceilings, cold/retained zero preparation and explicit construction/preparation/
+publication costs. Repeated construction and revision have separate batch bounds.
+The adaptive surcharge remains explicit; no theorem says it is always repaid or
+that this reference profile minimizes native latency. Backend prices must cover
+actual descriptor validation, topology comparison and representation work.
+
+## Native evidence
+
+`just benchmark-closure` runs 960 bounded rows across cold, warm and retained-index
+refresh, both seeds and four rotated independent-process trials. Setup time is
+reported separately and included in `lifecycle_seconds`. `just benchmark-closure-paired`
+runs 480 balanced same-process observations with one untimed warmup per engine.
+`gxi t/closure-report.ss <receipt>` reports CPU query and amortized lifecycle times.
+Native parity checks 23 fields/row (22,080 assertions), including selector visits
+and construction/index counts. Children retain a 20-second deadline and 1 GiB heap.
+All helpers and clocks are native Scheme; no Python benchmark driver is added.
+
+The v4 raw receipts below supplement preserved v1–v3 results. Compare timings
+within a runtime: Scheme workload generation occurs before the query clock,
+whereas Lean materializes its equation function during compilation. Operation
+proofs do not verify the Scheme compiler, GC, allocator or machine execution.
+Historical slowdowns are not erased by changing the selector.
+
+---
+
+## Historical v1–v3 design and measurements
+
 # Finite positive cyclic construction
 
 This module advances generalized-prototype/MOP **future work**. It is an explicit
@@ -256,3 +313,21 @@ frames without reducing total pairs; diamond copied more cells than chunking.
 These negative latency controls show why a declared local fee minimum cannot
 establish minimum CPU time. Keep explicit engines and calibrate backend prices
 against the intended workload before making deployment performance claims.
+
+## v4 matched observations
+
+Eight-rotation same-process means, milliseconds per request:
+
+| family / scope | append | chunked | auto |
+|---|---:|---:|---:|
+| dense 256 cold | 3.572 | 2.613 | 2.845 |
+| dense 256 warm | 1.204 | 0.846 | 0.852 |
+| dense 256 refresh | 3.602 | 2.909 | 3.135 |
+| diamond 1024 cold | 0.125 | 0.268 | 0.239 |
+| bursts 1024 warm | 0.059 | 0.069 | 0.052 |
+
+Auto is not uniformly fastest. Fixed chunked remains faster in dense cold/refresh;
+diamond cold still regresses relative to append. Independent-process receipts
+also retain noisy/negative outcomes and include initial setup separately. The
+initial Lean v4 run had 19 launch failures during relinking; its raw receipt is
+retained in Lean and excluded from accepted parity/performance evidence.

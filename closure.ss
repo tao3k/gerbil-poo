@@ -2,15 +2,15 @@
 (export literal fact both either compile-closure reconfigure-closure
         closure-plan? closure-result? solve-closure closure-ref closure->list
         closure-counts closure-plan-size closure-plan-edges closure-plan-nodes
-        closure-policy balanced-closure-policy closure-plan-queue closure-plan-hybrid-ceiling)
-(import :gerbil/runtime/gambit)
+        closure-policy balanced-closure-policy closure-plan-queue closure-plan-hybrid-ceiling closure-plan-selector-visits prepare-closure construct-closure)
+(import :gerbil/runtime/gambit :std/iter)
 
 ;; Input constructors; compilation validates and copies every descriptor.
 (def (literal value) (vector 0 value #f))
 (def (fact index) (vector 1 index #f))
 (def (both left right) (vector 2 left right))
 (def (either left right) (vector 3 left right))
-(defstruct closure-plan (code watches degrees edges nodes maximum hybrid-ceiling queue) final: #t)
+(defstruct closure-plan (code watches degrees edges nodes maximum hybrid-ceiling queue selector-visits) final: #t)
 (defstruct closure-result (bits counts) final: #t)
 (defstruct queue-prices (copy suspend resume) final: #t)
 (def (closure-policy copy suspend resume)
@@ -26,47 +26,70 @@
 (def (inc! counts index (amount 1))
   (vector-set! counts index (+ (vector-ref counts index) amount)))
 
-(def (copy-expression node size on-read on-node (depth 4096))
+;; Like the compiler's typed contexts, one private state owns traversal counters.
+;; Reads are a higher-order visitor; node accounting does not allocate callbacks.
+(defstruct compilation (nodes local) final: #t)
+(def (copy-expression node size context on-read (depth 4096))
   (when (= depth 0) (error "positive descriptor depth limit"))
-  (unless (and (vector? node) (= (vector-length node) 3))
-    (error "invalid positive descriptor" node))
-  (on-node)
-  (let ((tag (vector-ref node 0)) (left (vector-ref node 1)) (right (vector-ref node 2)))
-    (case tag
-      ((0) (unless (boolean? left) (error "literal must be Boolean" left)) (literal left))
-      ((1) (unless (and (exact-integer? left) (<= 0 left) (< left size))
-             (error "fact index outside declaration" left size))
-           (on-read left) (fact left))
-      ((2 3) (vector tag (copy-expression left size on-read on-node (- depth 1))
-                         (copy-expression right size on-read on-node (- depth 1))))
-      (else (error "unknown positive descriptor" tag)))))
+  (using (ctx context :- compilation)
+    (set! ctx.nodes (1+ ctx.nodes))
+    (set! ctx.local (1+ ctx.local))
+    (when (> ctx.nodes 1000000) (error "positive descriptor node limit"))
+    (match node
+      (#(tag left right)
+       (case tag
+         ((0) (unless (boolean? left) (error "literal must be Boolean" left)) (literal left))
+         ((1) (unless (and (exact-integer? left) (<= 0 left) (< left size))
+                (error "fact index outside declaration" left size))
+              (on-read left) (fact left))
+         ((2 3) (vector tag (copy-expression left size ctx on-read (1- depth))
+                            (copy-expression right size ctx on-read (1- depth))))
+         (else (error "unknown positive descriptor" tag))))
+      (else (error "invalid positive descriptor" node)))))
 
-(def (compile-closure equations)
+(def (compile-closure equations (mode 'auto))
   (unless (vector? equations) (error "equations must be a finite vector"))
-  (let* ((size (vector-length equations)) (code (make-vector size))
-         (watches (make-vector size '())) (degrees (make-vector size 0))
-         (edges 0) (nodes 0) (maximum 0))
-    (let loop ((target 0))
-      (when (< target size)
-        (let ((local 0))
-          (vector-set! code target
-            (copy-expression (vector-ref equations target) size
-              (lambda (source)
-                (set! edges (+ edges 1))
-                (vector-set! watches source (cons target (vector-ref watches source)))
-                (vector-set! degrees source (+ 1 (vector-ref degrees source))))
-              (lambda () (set! local (+ local 1)) (set! nodes (+ nodes 1))
-                (when (> nodes 1000000) (error "positive descriptor node limit")))))
-          (set! maximum (max maximum local)))
-        (loop (+ target 1))))
-    ;; Generic arithmetic checks capacity before the fixnum-priced solve scope.
-    (unless (and (fixnum? (+ size edges)) (fixnum? (* 16 (+ 1 size edges (* (+ size edges) maximum)))))
-      (error "declaration exceeds fixnum-priced operation range"))
-    (let ((ceiling (let sum ((index 0) (cost 0))
-                     (if (= index size) cost
-                       (sum (+ index 1) (+ cost 1 (* 4 (min 8 (vector-ref degrees index)))))))))
-      (make-closure-plan code watches degrees edges nodes maximum ceiling
-                         (if (<= (* 4 edges) ceiling) 'append 'hybrid)))))
+  (unless (memq mode '(auto cold append chunked hybrid)) (error "compile mode" mode))
+  (def size (vector-length equations))
+  (def code (make-vector size))
+  (def watches (make-vector size '()))
+  (def degrees (make-vector size 0))
+  (def ctx (make-compilation 0 0))
+  (def edges 0)
+  (def maximum 0)
+  (for (target (in-range size))
+    (set! (compilation-local ctx) 0)
+    (vector-set! code target
+      (copy-expression (vector-ref equations target) size ctx
+        (lambda (source)
+          (set! edges (1+ edges))
+          (vector-set! watches source (cons target (vector-ref watches source)))
+          (vector-set! degrees source (1+ (vector-ref degrees source))))))
+    (set! maximum (max maximum (compilation-local ctx))))
+  (unless (and (fixnum? (+ size edges)) (fixnum? (* 16 (+ 1 size edges (* (+ size edges) maximum)))))
+    (error "declaration exceeds fixnum-priced operation range"))
+  (defvalues (ceiling queue visits) (queue-metadata mode degrees edges size))
+  (make-closure-plan code watches degrees edges (compilation-nodes ctx) maximum ceiling queue visits))
+
+(def (queue-metadata mode degrees edges size)
+  (def append-bound (* 4 edges))
+  (def chunk-bound (* 32 size))
+  (def ceiling (if (eq? mode 'auto)
+                 (for/fold (cost size) (degree (in-vector degrees)) (+ cost (* 4 (min 8 degree))))
+                 (+ size (min append-bound chunk-bound))))
+  (values ceiling
+    (case mode
+      ((auto) (cond ((and (<= append-bound chunk-bound) (<= append-bound ceiling)) 'append)
+                    ((<= chunk-bound ceiling) 'chunked) (else 'hybrid)))
+      ((cold) (if (<= append-bound chunk-bound) 'append 'chunked))
+      (else mode))
+    (if (eq? mode 'auto) size 0)))
+
+;; Delayed cache preparation shares private code/index vectors; no AST copying.
+(def (prepare-closure plan)
+  (using (p plan :- closure-plan)
+    (defvalues (ceiling queue visits) (queue-metadata 'auto p.degrees p.edges (vector-length p.code)))
+    (make-closure-plan p.code p.watches p.degrees p.edges p.nodes p.maximum ceiling queue visits)))
 
 ;; A sufficient no-allocation topology check: same tags/read indices, arbitrary
 ;; literal changes. General dependency-equivalent reshaping needs fresh compile.
@@ -79,23 +102,23 @@
                     (same-topology? (vector-ref old 2) (vector-ref fresh 2)))))))
 
 (def (reconfigure-closure prior equations)
-  (let* ((size (closure-plan-size prior)) (code (make-vector size)) (nodes 0) (maximum 0))
-    (unless (and (vector? equations) (= (vector-length equations) size))
-      (error "reconfiguration changes fact range"))
-    (let loop ((index 0))
-      (when (< index size)
-        (let* ((local 0)
-               (fresh (copy-expression (vector-ref equations index) size void
-                        (lambda () (set! local (+ local 1)) (set! nodes (+ nodes 1))
-                (when (> nodes 1000000) (error "positive descriptor node limit"))))))
-          (unless (same-topology? (vector-ref (closure-plan-code prior) index) fresh)
-            (error "reconfiguration changes read topology" index))
-          (vector-set! code index fresh)
-          (set! maximum (max maximum local)))
-        (loop (+ index 1))))
-    (make-closure-plan code (closure-plan-watches prior) (closure-plan-degrees prior)
-                       (closure-plan-edges prior) nodes maximum
-                       (closure-plan-hybrid-ceiling prior) (closure-plan-queue prior))))
+  (def size (closure-plan-size prior))
+  (unless (and (vector? equations) (= (vector-length equations) size))
+    (error "reconfiguration changes fact range"))
+  (def code (make-vector size))
+  (def ctx (make-compilation 0 0))
+  (def maximum 0)
+  (for (index (in-range size))
+    (set! (compilation-local ctx) 0)
+    (def fresh (copy-expression (vector-ref equations index) size ctx void))
+    (unless (same-topology? (vector-ref (closure-plan-code prior) index) fresh)
+      (error "reconfiguration changes read topology" index))
+    (vector-set! code index fresh)
+    (set! maximum (max maximum (compilation-local ctx))))
+  (make-closure-plan code (closure-plan-watches prior) (closure-plan-degrees prior)
+                    (closure-plan-edges prior) (compilation-nodes ctx) maximum
+                    (closure-plan-hybrid-ceiling prior) (closure-plan-queue prior)
+                    0))
 
 ;; Strict evaluation agrees with the Lean instrumented interpreter; Boolean
 ;; results are scalar and no result pair is allocated per visited AST node.
@@ -110,9 +133,7 @@
              (right (evaluate (vector-ref node 2) bits counts)))
         (if (= (vector-ref node 0) 2) (and left right) (or left right))))))
 
-(def (initial-queue size)
-  (let loop ((index (- size 1)) (queue '()))
-    (if (< index 0) queue (loop (- index 1) (cons index queue)))))
+(defalias initial-queue iota)
 
 ;; Macro-expanded engines dispatch once per solve, outside the propagation loop.
 (defrule (queue-append loop plan counts index tail pending fuel depth degree copy-price frame-price)
@@ -180,7 +201,9 @@
   ;; uses that immutable policy object and cached choice, with no degree scan.
   (if (and (eq? queue-kind 'auto) (eq? policy balanced-closure-policy))
     (if (eq? (closure-plan-queue plan) 'append)
-      (solve-append plan state-kind policy) (solve-hybrid plan state-kind policy))
+      (solve-append plan state-kind policy)
+      (if (eq? (closure-plan-queue plan) 'chunked) (solve-chunked plan state-kind policy)
+        (solve-hybrid plan state-kind policy)))
     (begin
       (when (eq? queue-kind 'auto)
         (unless (and (queue-prices? policy) (= (queue-prices-copy policy) 1)
@@ -197,6 +220,8 @@
         ((chunked) (solve-chunked plan state-kind policy))
         ((hybrid) (solve-hybrid plan state-kind policy))
         (else (error "queue kind" queue-kind))))))
+(def (construct-closure equations) (solve-closure (compile-closure equations 'cold)))
+
 (def (closure-ref result index) (= (u8vector-ref (closure-result-bits result) index) 1))
 (def (closure->list result)
   (let* ((bits (closure-result-bits result)) (size (u8vector-length bits)))

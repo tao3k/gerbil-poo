@@ -1,46 +1,40 @@
-;;; Matched warm controls: same process/plan, rotate first position each round.
+;;; Balanced same-process cold, warm and retained-index controls.
 (export main)
-(import :gerbil/runtime/gambit :std/iter :std/encoding/json :std/crypto/digest
-        :std/encoding/hex :std/misc/ports :std/misc/process :std/string/misc
-        ../closure (only-in "closure-scale-benchmark.ss" workload))
-(def (record . values)
-  (let ((table (make-hash-table)))
-    (let loop ((values values))
-      (unless (null? values)
-        (hash-put! table (car values) (cadr values)) (loop (cddr values)))) table))
-(def (file-sha path)
-  (hex-encode (sha256 (call-with-input-file path read-all-as-u8vector))))
+(import :gerbil/runtime/gambit :std/iter ../closure
+        (only-in "closure-scale-benchmark.ss" workload) "closure-benchmark-support.ss")
+(def queues '(append chunked hybrid auto))
 (def (main family size-text width-text output)
-  (let* ((size (string->number size-text)) (width (string->number width-text))
-         (valid (unless (and (exact-integer? size) (> size 0) (exact-integer? width) (> width 0)
-                              (member family '("diamond" "hubchain" "ring" "bursts" "dense")))
-                  (error "paired workload parameters")))
-         (source (workload family size width #t)) (plan (compile-closure source))
-         (rows '()) (repetitions 200) (last #f)
-         (sources (record))
-         (receipt (record "schema" 1 "scope" "warm_same_process" "rounds" 8
-                    "family" family "n" size "width" width "seed" "true"
-                    "toolchain" (list (gerbil-version-string) (system-version-string))
-                    "platform" (string-trim (run-process '("uname" "-srm")))
-                    "source_sha256" sources)))
-    (for (path '("closure.ss" "t/closure-scale-benchmark.ss" "t/closure-paired-benchmark.ss"))
-      (hash-put! sources path (file-sha path)))
-    ;; Each candidate gets a warm-up solve outside the timer; initial heap state
-    ;; is shared. Rotation balances GC and cache order; neither is excluded.
-    (for (queue '(append chunked hybrid auto)) (solve-closure plan queue))
-    (for* ((round (in-range 8)) (position (in-range 4)))
-      (let* ((queue (list-ref '(append chunked hybrid auto) (modulo (+ round position) 4)))
-             (begin (cpu-time)))
-        (let loop ((remaining repetitions))
-          (unless (= remaining 0)
-            (set! last (solve-closure plan queue)) (loop (- remaining 1))))
-        (let ((seconds (- (cpu-time) begin)))
-          (for (index (in-range size))
-            (unless (closure-ref last index) (error "independent seeded oracle" index)))
-          (set! rows (cons (record "queue" (symbol->string queue) "round" round
-                            "position" position "cpu_seconds" seconds
-                            "repetitions" repetitions "oracle_parity" #t) rows)))))
-    (hash-put! receipt "rows" (reverse rows))
-    (call-with-output-file (list path: output truncate: #t)
-      (lambda (port) (write-json port receipt) (newline port)))
-    (displayln "CLOSURE-PAIRED-OK family=" family " observations=" (length rows))))
+  (def size (string->number size-text))
+  (def width (string->number width-text))
+  (unless (and (exact-integer? size) (> size 0) (exact-integer? width) (> width 0)
+               (member family '("diamond" "hubchain" "ring" "bursts" "dense"))) (error "paired parameters"))
+  (def source (workload family size width #t))
+  (def revoked (workload family size width #f))
+  (def plans (list->hash-table (map (lambda (queue) (cons queue (compile-closure source queue))) queues)))
+  (def old-plans (list->hash-table (map (lambda (queue) (cons queue (compile-closure revoked queue))) queues)))
+  ;; One untimed solve for each engine before the balanced rotations.
+  (for-each (lambda (queue) (solve-closure (hash-ref plans queue) queue)) queues)
+  (def rows [])
+  (for* ((scope '(cold warm refresh)) (round (in-range 8)) (position (in-range 4)))
+    (def queue (list-ref queues (modulo (+ round position) 4)))
+    (def repetitions (if (eq? scope 'warm) 200 5))
+    (def started (cpu-time))
+    (def last
+      (for/fold (last #f) (_ (in-range repetitions))
+        (let ((plan (case scope
+                    ((cold) (compile-closure source (if (eq? queue 'auto) 'cold queue)))
+                    ((refresh) (reconfigure-closure (hash-ref old-plans queue) source))
+                    (else (hash-ref plans queue)))))
+          (solve-closure plan queue))))
+    (def seconds (- (cpu-time) started))
+    (unless (andmap identity (closure->list last)) (error "independent seeded oracle"))
+    (set! rows (cons (hash ("queue" (symbol->string queue)) ("scope" (symbol->string scope))
+                          ("round" round) ("position" position) ("cpu_seconds" seconds)
+                          ("repetitions" repetitions) ("oracle_parity" #t)) rows)))
+  (write-receipt output
+    (hash ("schema" 2) ("rounds" 8) ("family" family) ("n" size) ("width" width) ("seed" "true")
+          ("toolchain" (list (gerbil-version-string) (system-version-string)))
+          ("source_sha256" (source-digests '("closure.ss" "t/closure-scale-benchmark.ss"
+                                             "t/closure-benchmark-support.ss" "t/closure-paired-benchmark.ss")))
+          ("rows" (reverse rows))))
+  (displayln "CLOSURE-PAIRED-OK family=" family " observations=" (length rows)))
