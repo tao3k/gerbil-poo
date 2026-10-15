@@ -13,10 +13,10 @@
          (index (make-hash-table)) (seen (make-hash-table)) (result (make-hash-table))
          (fields '("pops" "evals" "nodes" "writes" "pushes" "edges" "copied_queue"
                    "frame_allocations" "queue_pairs" "empty_schedules" "shared_schedules"
-                   "inline_schedules" "selected_fee")))
+                   "inline_schedules" "selected_fee" "engine" "policy_charge" "append_ceiling" "hybrid_ceiling")))
 (unless (and (equal? (hash-ref lean "runtime") "lean")
              (equal? (hash-ref scheme "runtime") "scheme")
-             (= (hash-ref lean "schema") 2) (= (hash-ref scheme "schema") 2))
+             (= (hash-ref lean "schema") 3) (= (hash-ref scheme "schema") 3))
   (error "receipt runtime or schema"))
 (when lean-root
   (for (receipt (list lean scheme))
@@ -25,7 +25,7 @@
                        (unless (equal? digest (file-sha (string-append root "/" name)))
                          (error "stale source identity" root name)))
                      (hash-ref receipt "source_sha256")))))
-(unless (and (= (length left) 360) (= (length right) 360)) (error "incomplete matrix"))
+(unless (and (= (length left) 640) (= (length right) 640)) (error "incomplete matrix"))
     (for (row right)
       (unless (equal? (hash-ref row "status") "pass") (error "nonpassing Scheme row" row))
       (when (hash-key? index (key row)) (error "duplicate Scheme key" (key row)))
@@ -38,8 +38,8 @@
         (for (field fields)
           (unless (equal? (hash-ref row field) (hash-ref peer field))
             (error "cross-runtime count mismatch" (key row) field (hash-ref row field) (hash-ref peer field))))))
-    (for (entry (list (cons "schema" 2) (cons "observations" 360) (cons "fields" fields)
-                      (cons "assertions" (* 360 (length fields))) (cons "status" "pass")
+    (for (entry (list (cons "schema" 3) (cons "observations" 640) (cons "fields" fields)
+                      (cons "assertions" (* 640 (length fields))) (cons "status" "pass")
                       (cons "lean_receipt_sha256" (file-sha lean-path))
                       (cons "scheme_receipt_sha256" (file-sha scheme-path))
                       (cons "lean_source_sha256" (hash-ref lean "source_sha256"))
@@ -47,4 +47,4 @@
                       (cons "boundary" "Finite executable controls, not a Scheme translation or machine-time proof.")))
       (hash-put! result (car entry) (cdr entry)))
     (call-with-output-file (list path: output truncate: #t) (lambda (port) (write-json port result) (newline port)))
-    (displayln "CLOSURE-NATIVE-PARITY-OK observations=360 assertions=" (* 360 (length fields)))))
+    (displayln "CLOSURE-NATIVE-PARITY-OK observations=640 assertions=" (* 640 (length fields)))))

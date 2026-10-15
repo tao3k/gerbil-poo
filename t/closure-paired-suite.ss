@@ -1,0 +1,52 @@
+;;; Bounded matched controls; retain process failures alongside successful cases.
+(export main)
+(import :gerbil/runtime/gambit :std/iter :std/misc/process :std/misc/ports
+        :std/encoding/json :std/encoding/hex :std/crypto/digest)
+(def (record . fields)
+  (let ((table (make-hash-table)))
+    (let loop ((fields fields))
+      (unless (null? fields)
+        (hash-put! table (car fields) (cadr fields)) (loop (cddr fields)))) table))
+(def (file-sha path) (hex-encode (sha256 (call-with-input-file path read-all-as-u8vector))))
+(def (main binary timeout output)
+  (let ((cases '()) (failures 0)
+        (receipt (record "schema" 1 "scope" "warm_same_process" "deadline_seconds" 20
+                   "heap_limit" "1G" "binary_sha256" (file-sha binary)
+                   "runner_sha256" (file-sha "t/closure-paired-suite.ss"))))
+    (for (spec '(("diamond" 1024) ("hubchain" 1024) ("ring" 1024) ("bursts" 1024) ("dense" 256)))
+      (let* ((path (string-append output "." (car spec) ".json"))
+             (entry (record "family" (car spec))) (status 0))
+        (try
+          (let ((stdout (run-process
+                          (list timeout "--signal=TERM" "--kill-after=3s" "20s" binary "-:max-heap=1G"
+                                (car spec) (number->string (cadr spec)) "16" path)
+                          stdin-redirection: #f stderr-redirection: #t
+                          check-status: (lambda (result _) (set! status result)))))
+            (hash-put! entry "stdout" stdout)
+            (hash-put! entry "process_status" status)
+            (hash-put! entry "status" (cond ((= status 0) "pass") ((= status (* 124 256)) "timeout") (else "failed")))
+            (when (= status 0)
+              (let ((child (parameterize ((current-json-read-options (JSONReadOptions object-as-hash: #t)))
+                             (call-with-input-file path read-json))))
+                (unless (= (length (hash-ref child "rows")) 32) (error "incomplete matched case"))
+                (hash-put! entry "receipt" child))))
+          (catch (exception)
+            (hash-put! entry "status" "launch_error") (hash-put! entry "error" (object->string exception))))
+        (unless (equal? (hash-get entry "status") "pass") (set! failures (+ failures 1)))
+        (set! cases (cons entry cases))
+        (hash-put! receipt "cases" (reverse cases))
+        (call-with-output-file (list path: output truncate: #t)
+          (lambda (port) (write-json port receipt) (newline port)))
+        (displayln "PAIRED-CASE family=" (car spec) " status=" (hash-get entry "status"))
+        (force-output)))
+    (unless (= failures 0) (error "matched failures retained" failures))
+    ;; Report averages over balanced rotations, retaining every raw observation.
+    (for (entry (reverse cases))
+      (let ((rows (hash-ref (hash-ref entry "receipt") "rows")))
+        (for (queue '("append" "chunked" "hybrid" "auto"))
+          (let ((matches (filter (lambda (row) (equal? (hash-ref row "queue") queue)) rows)))
+            (unless (= (length matches) 8) (error "matched queue coverage"))
+            (displayln (hash-ref entry "family") " queue=" queue " mean_cpu_ms="
+              (/ (apply + (map (lambda (row) (* 1000 (/ (hash-ref row "cpu_seconds")
+                                                       (hash-ref row "repetitions")))) matches)) 8))))))
+    (displayln "CLOSURE-PAIRED-SUITE-OK observations=160")))

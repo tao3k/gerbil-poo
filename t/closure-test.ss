@@ -31,7 +31,7 @@
 
 (def closure-test
   (test-suite "costed positive closure"
-    (test-case "all 512 three-fact source combinations and four representations"
+    (test-case "all 512 three-fact source combinations and five representations"
       (def clauses (vector (literal #f) (literal #t) (fact 0) (fact 1) (fact 2)
                            (both (fact 0) (fact 1)) (either (fact 1) (fact 2))
                            (both (either (fact 0) (fact 2)) (fact 1))))
@@ -39,8 +39,16 @@
         (def source (vector (vector-ref clauses a) (vector-ref clauses b) (vector-ref clauses c)))
         (def plan (compile-closure source))
         (def expected (oracle source))
-        (for (variant '((append copied) (append owned) (chunked owned) (hybrid owned)))
+        (for (variant '((append copied) (append owned) (chunked owned) (hybrid owned) (auto owned)))
           (assert-result plan (solve-closure plan (car variant) (cadr variant)) expected))
+        (def automatic (solve-closure plan))
+        (def selected (solve-closure plan (closure-plan-queue plan)))
+        (check-equal? (closure-counts automatic) (closure-counts selected))
+        (def counts (closure-counts automatic))
+        (def charge (if (eq? (closure-plan-queue plan) 'append) (* 4 (vector-ref counts 4))
+                       (+ (* 4 (vector-ref counts 13)) (* 32 (vector-ref counts 5)) (vector-ref counts 3))))
+        (check (<= charge (* 4 (closure-plan-edges plan))) => #t)
+        (check (<= charge (closure-plan-hybrid-ceiling plan)) => #t)
         (for (prices '((0 0 0) (1 4 4) (9 0 0) (2 1 1)))
           (def policy (apply closure-policy prices))
           (def result (solve-closure plan 'hybrid 'owned policy))
@@ -58,6 +66,8 @@
       (assert-result plan old '(#t #t #t))
       (assert-result plan (solve-closure plan) '(#t #t #t))
       (def next (reconfigure-closure plan source))
+      (check-equal? (closure-plan-queue next) (closure-plan-queue plan))
+      (check-equal? (closure-plan-hybrid-ceiling next) (closure-plan-hybrid-ceiling plan))
       (assert-result next (solve-closure next) '(#f #f #f))
       (assert-result plan old '(#t #t #t))
       (check-exception (reconfigure-closure plan (vector (literal #f) (fact 0) (fact 1))) true)
@@ -68,17 +78,18 @@
       (def cycle (both (literal #f) (literal #t)))
       (vector-set! cycle 1 cycle)
       (check-exception (compile-closure (vector cycle)) true))
-(test-case "queue shortcuts and invalid prices"
-  (check-exception (closure-policy -1 4 4) true)
-  (check-exception (closure-policy 1 1.5 4) true)
-  (def plan (compile-closure (vector (literal #t) (fact 0) (fact 1))))
-  (def result (solve-closure plan))
-  (assert-result plan result '(#t #t #t))
-  (def counts (closure-counts result))
-  (check-equal? (vector-ref counts 5) 0)
-  (check-equal? (vector-ref counts 14) 1)
-  (check (positive? (+ (vector-ref counts 15) (vector-ref counts 16))) => #t))
-(test-case "empty and dense allocations"
+    (test-case "queue shortcuts and invalid prices"
+      (check-exception (closure-policy -1 4 4) true)
+      (check-exception (solve-closure (compile-closure '#()) 'auto 'owned (closure-policy 0 0 0)) true)
+      (check-exception (closure-policy 1 1.5 4) true)
+      (def plan (compile-closure (vector (literal #t) (fact 0) (fact 1))))
+      (def result (solve-closure plan 'hybrid))
+      (assert-result plan result '(#t #t #t))
+      (def counts (closure-counts result))
+      (check-equal? (vector-ref counts 5) 0)
+      (check-equal? (vector-ref counts 14) 1)
+      (check (positive? (+ (vector-ref counts 15) (vector-ref counts 16))) => #t))
+    (test-case "empty and dense allocations"
       (assert-result (compile-closure '#()) (solve-closure (compile-closure '#())) '())
       (def size 64)
       (def source (make-vector size))

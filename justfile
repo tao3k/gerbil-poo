@@ -61,3 +61,9 @@ benchmark-closure: build
     mkdir -p .build/closure
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
     {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss .build/closure/closure-scale "{{ timeout-executable }}" .build/closure/receipt.json
+
+# Same-process warm comparisons with balanced queue order and bounded children.
+benchmark-closure-paired: build
+    mkdir -p .build/closure
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-paired t/closure-paired-benchmark.ss
+    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-paired-suite.ss .build/closure/closure-paired "{{ timeout-executable }}" .build/closure/paired.json

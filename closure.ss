@@ -2,7 +2,7 @@
 (export literal fact both either compile-closure reconfigure-closure
         closure-plan? closure-result? solve-closure closure-ref closure->list
         closure-counts closure-plan-size closure-plan-edges closure-plan-nodes
-        closure-policy balanced-closure-policy)
+        closure-policy balanced-closure-policy closure-plan-queue closure-plan-hybrid-ceiling)
 (import :gerbil/runtime/gambit)
 
 ;; Input constructors; compilation validates and copies every descriptor.
@@ -10,7 +10,7 @@
 (def (fact index) (vector 1 index #f))
 (def (both left right) (vector 2 left right))
 (def (either left right) (vector 3 left right))
-(defstruct closure-plan (code watches degrees edges nodes maximum) final: #t)
+(defstruct closure-plan (code watches degrees edges nodes maximum hybrid-ceiling queue) final: #t)
 (defstruct closure-result (bits counts) final: #t)
 (defstruct queue-prices (copy suspend resume) final: #t)
 (def (closure-policy copy suspend resume)
@@ -62,7 +62,11 @@
     ;; Generic arithmetic checks capacity before the fixnum-priced solve scope.
     (unless (and (fixnum? (+ size edges)) (fixnum? (* 16 (+ 1 size edges (* (+ size edges) maximum)))))
       (error "declaration exceeds fixnum-priced operation range"))
-    (make-closure-plan code watches degrees edges nodes maximum)))
+    (let ((ceiling (let sum ((index 0) (cost 0))
+                     (if (= index size) cost
+                       (sum (+ index 1) (+ cost 1 (* 4 (min 8 (vector-ref degrees index)))))))))
+      (make-closure-plan code watches degrees edges nodes maximum ceiling
+                         (if (<= (* 4 edges) ceiling) 'append 'hybrid)))))
 
 ;; A sufficient no-allocation topology check: same tags/read indices, arbitrary
 ;; literal changes. General dependency-equivalent reshaping needs fresh compile.
@@ -90,7 +94,8 @@
           (set! maximum (max maximum local)))
         (loop (+ index 1))))
     (make-closure-plan code (closure-plan-watches prior) (closure-plan-degrees prior)
-                       (closure-plan-edges prior) nodes maximum)))
+                       (closure-plan-edges prior) nodes maximum
+                       (closure-plan-hybrid-ceiling prior) (closure-plan-queue prior))))
 
 ;; Strict evaluation agrees with the Lean instrumented interpreter; Boolean
 ;; results are scalar and no result pair is allocated per visited AST node.
@@ -110,18 +115,21 @@
     (if (< index 0) queue (loop (- index 1) (cons index queue)))))
 
 ;; Macro-expanded engines dispatch once per solve, outside the propagation loop.
-(defrule (queue-append loop plan counts index tail pending fuel depth copy-price frame-price)
-  (begin
-    (inc! counts 10 (vector-ref (closure-plan-degrees plan) index))
-    (loop (append (vector-ref (closure-plan-watches plan) index) tail) pending (- fuel 1) depth)))
-(defrule (queue-chunked loop plan counts index tail pending fuel depth copy-price frame-price)
+(defrule (queue-append loop plan counts index tail pending fuel depth degree copy-price frame-price)
+  (if (= degree 0) (loop tail pending (- fuel 1) depth)
+    (let ((watchers (vector-ref (closure-plan-watches plan) index)))
+      (inc! counts 10 degree)
+      (loop (cond ((= degree 1) (cons (car watchers) tail))
+                  ((= degree 2) (cons (car watchers) (cons (cadr watchers) tail)))
+                  (else (append watchers tail)))
+            pending (- fuel 1) depth))))
+(defrule (queue-chunked loop plan counts index tail pending fuel depth degree copy-price frame-price)
   (begin
     (inc! counts 5) (inc! counts 10)
     (vector-set! counts 12 (max (vector-ref counts 12) (+ depth 1)))
     (loop (vector-ref (closure-plan-watches plan) index) (cons tail pending) (- fuel 1) (+ depth 1))))
-(defrule (queue-hybrid loop plan counts index tail pending fuel depth copy-price frame-price)
-  (let ((watchers (vector-ref (closure-plan-watches plan) index))
-        (degree (vector-ref (closure-plan-degrees plan) index)))
+(defrule (queue-hybrid loop plan counts index tail pending fuel depth degree copy-price frame-price)
+  (let ((watchers (vector-ref (closure-plan-watches plan) index)))
     (cond
       ((= degree 0) (inc! counts 14) (loop tail pending (- fuel 1) depth))
       ((null? tail) (inc! counts 15) (loop watchers pending (- fuel 1) depth))
@@ -157,26 +165,38 @@
                       (when (eq? state-kind 'copied)
                         (set! bits (u8vector-copy bits)) (inc! counts 11 size))
                       (u8vector-set! bits index 1)
-                      (inc! counts 3) (inc! counts 4 (vector-ref (closure-plan-degrees plan) index))
-                      (enqueue loop plan counts index tail pending fuel depth copy-price frame-price))
+                      (let ((degree (vector-ref (closure-plan-degrees plan) index)))
+                        (inc! counts 3) (inc! counts 4 degree)
+                        (enqueue loop plan counts index tail pending fuel depth degree copy-price frame-price)))
                     (loop tail pending (- fuel 1) depth)))))))))))
 
 (define-queue-engine solve-append queue-append)
 (define-queue-engine solve-chunked queue-chunked)
 (define-queue-engine solve-hybrid queue-hybrid)
 
-(def (solve-closure plan (queue-kind 'hybrid) (state-kind 'owned) (policy balanced-closure-policy))
-  (when (eq? queue-kind 'minimum-allocation)
-    (set! queue-kind (if (<= (closure-plan-edges plan) (closure-plan-size plan)) 'append 'chunked)))
+(def (solve-closure plan (queue-kind 'auto) (state-kind 'owned) (policy balanced-closure-policy))
   (unless (memq state-kind '(owned copied)) (error "state kind" state-kind))
-  (unless (and (queue-prices? policy)
-               (fixnum? (* (closure-plan-edges plan) (queue-prices-copy policy))))
-    (error "queue prices exceed fixnum-priced range"))
-  (case queue-kind
-    ((append) (solve-append plan state-kind policy))
-    ((chunked) (solve-chunked plan state-kind policy))
-    ((hybrid) (solve-hybrid plan state-kind policy))
-    (else (error "queue kind" queue-kind))))
+  ;; Compilation already admitted the reference price range. The common path
+  ;; uses that immutable policy object and cached choice, with no degree scan.
+  (if (and (eq? queue-kind 'auto) (eq? policy balanced-closure-policy))
+    (if (eq? (closure-plan-queue plan) 'append)
+      (solve-append plan state-kind policy) (solve-hybrid plan state-kind policy))
+    (begin
+      (when (eq? queue-kind 'auto)
+        (unless (and (queue-prices? policy) (= (queue-prices-copy policy) 1)
+                     (= (queue-prices-suspend policy) 4) (= (queue-prices-resume policy) 4))
+          (error "automatic selection requires the reference profile"))
+        (set! queue-kind (closure-plan-queue plan)))
+      (when (eq? queue-kind 'minimum-allocation)
+        (set! queue-kind (if (<= (closure-plan-edges plan) (closure-plan-size plan)) 'append 'chunked)))
+      (unless (and (queue-prices? policy)
+                   (fixnum? (* (closure-plan-edges plan) (queue-prices-copy policy))))
+        (error "queue prices exceed fixnum-priced range"))
+      (case queue-kind
+        ((append) (solve-append plan state-kind policy))
+        ((chunked) (solve-chunked plan state-kind policy))
+        ((hybrid) (solve-hybrid plan state-kind policy))
+        (else (error "queue kind" queue-kind))))))
 (def (closure-ref result index) (= (u8vector-ref (closure-result-bits result) index) 1))
 (def (closure->list result)
   (let* ((bits (closure-result-bits result)) (size (u8vector-length bits)))

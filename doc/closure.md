@@ -47,7 +47,84 @@ also admits only declarations whose conservative operation cap fits fixnums.
 The bounded solve fuel is derived from V+E, not caller-selected. Exhaustion is an
 internal invariant failure, never a returned partial solution.
 
-## Representations and allocation tradeoffs
+## Cached automatic strategy (current default)
+
+The default is now `auto`. Compilation computes A=4*E and
+H=V+4*sum(min(degree,8)), then caches append when A<=H and hybrid otherwise.
+The choice uses topology only. It includes a relative decision charge per
+potential hybrid write; `(4,16,16,1)` are reference copy/suspend/resume/decision
+prices, not hardware calibration. They preserve the existing degree-eight hybrid
+threshold. A sparse hub among many singletons is distinguished from repeated
+bursts. Every degree <=8 guarantees append. Explicit queue modes remain available.
+`auto` admits the reference profile; explicit `hybrid` supports custom prices.
+
+The common automatic entry path recognizes the immutable admitted reference
+policy and avoids repeating generic price-range multiplication. All engines load
+a successful write's degree once and reuse it. Append now directly constructs
+zero/one/two-watcher spines; wider spines use generic append. The Lean executed
+append helper has an exact append equality proof, and selected execution retains
+the same store, least solution and five core counters (pops, evaluations, AST
+nodes, writes, pushes). Frame/allocation counters vary by selected engine.
+
+`reconfigure-closure` shares the cached hybrid ceiling and engine with the exact
+retained topology; it still solves fresh from bottom. `closure-plan-queue` and
+`closure-plan-hybrid-ceiling` expose immutable scalar metadata. Scheme preparation
+scans cached degrees once; warm solves do not scan the graph or select an engine
+inside propagation. Cold benchmarks include this extra metadata preparation for
+all variants. Selecting append can request more pairs than chunking; the general
+selected queue bound is V+E, with headers/snapshot words separately priced.
+
+Lean's per-fact credit proof bounds actual hybrid copying/frame fees plus
+per-write decisions by H. The selected actual declared charge is <= both A and H,
+and explicit common setup costs can be added. These are ceilings over possible
+writes: the choice does not claim to minimize actual alternate costs on a
+partially active/unseeded source, machine CPU time, GC or peak memory.
+
+### Reproduction and evidence
+
+- `just benchmark-closure`: 640 rows, ten size/shape settings, both seeds,
+  cold/warm, four engines, four trials. Rotate engines through all four process
+  positions and report middle-pair medians. Fixed 20-second/1-GiB child bounds.
+- `just benchmark-closure-paired`: five targeted workloads, same process and
+  compiled plan, eight rotations, 200 fresh-bottom solves per candidate/rotation.
+  The 160 raw observations include GC and instrumentation. Report means across
+  balanced rounds, distinct from the separate-process medians.
+- Both workflows use Scheme/Gerbil timers, process/JSON/hash libraries and the
+  existing external timeout. Failures/timeouts remain in checkpointed receipts.
+- The existing native runner also drives Lean. The v3 parity checker compares
+  640 matching observations and 10880 fields, including engine and both ceilings.
+
+Current files: [independent processes](performance/closure-selection-v3.json),
+[same-process controls](performance/closure-selection-paired-v3.json) and
+[cross-runtime checks](performance/closure-selection-parity-v3.json).
+The [initial development diagnostic](performance/closure-selection-initial-v3.json)
+retains a negative hub-chain auto result before the final fast paths. Its source
+hashes identify that earlier development snapshot; it is not a current-source
+pass. Existing v1/v2 receipts and timing tables above remain historical.
+
+The final same-process seeded means (CPU ms/solve, eight rotations) are:
+
+| Shape | append | chunked | hybrid | auto |
+|---|---:|---:|---:|---:|
+| diamond, 1024 | 0.09511 | 0.10077 | 0.10313 | 0.09167 |
+| hubchain, 1024 | 0.06709 | 0.07538 | 0.07756 | 0.06622 |
+| ring, 1024 | 0.06908 | 0.07930 | 0.07907 | 0.06831 |
+| bursts, 1024 | 0.06212 | 0.07229 | 0.04946 | 0.04919 |
+| dense, 256 | 1.15188 | 0.73271 | 0.74428 | 0.76070 |
+
+Auto selects append for the first three shapes and hybrid for bursts/dense.
+Relative to hybrid these local matched means are about 11%, 15%, 14% lower for
+the target shapes. Dense remains slower than chunked/hybrid. Independent-process
+results can disagree; the initial negative receipt is retained. These data do
+not establish stable universal speedups or price calibration.
+
+## Earlier v2 implementation and measurements
+
+The following records the earlier default, three-trial tooling and historical
+v2 observations. The current automatic strategy and v3 controls above supersede
+those default and matrix descriptions. The original raw receipts are preserved.
+
+### Representations and allocation tradeoffs
 
 `solve-closure` accepts optional queue, state and price arguments:
 
@@ -55,7 +132,7 @@ internal invariant failure, never a returned partial solution.
 (solve-closure plan 'hybrid 'owned (closure-policy 1 4 4))
 ```
 
-- Queue `hybrid` (default): skip empty watcher lists, share directly when the
+- Queue `hybrid` (the v2 default; now explicit): skip empty watcher lists, share directly when the
   current tail is empty, otherwise copy when degree * copy <= suspend + resume;
   suspend the tail otherwise. Singletons use a direct `cons` on the copy path.
   The default prices `(1,4,4)` are a declared reference profile, not calibrated
@@ -97,7 +174,7 @@ GC, CPU latency and compiler correctness are not proved. A backend must justify
 layout, ownership, scalar return and its primitive prices. This advances the
 paper's generalized-protocol future work, within concrete positive equations.
 
-## Checks and complex workloads
+### Checks and complex workloads
 
 - `t/closure-test.ss`: 512 three-fact equation combinations, independently solved
   by synchronous scalar truth tables, checked across four representations and four price profiles;
@@ -114,7 +191,7 @@ paper's generalized-protocol future work, within concrete positive equations.
   Cold has five compile/solve/publication iterations; warm has 400 solves with
   retained immutable compilation. Input AST creation precedes the CPU clock.
 
-## Scheme-native performance tooling
+### Scheme-native performance tooling
 
 `just build` and `just test` use the normal package environment. For isolation,
 set `GERBIL_PATH` to a temporary environment. `just benchmark-closure` builds the

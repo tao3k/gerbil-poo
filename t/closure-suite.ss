@@ -27,17 +27,17 @@
 (def (main binary timeout output (runtime "scheme") (source-root "."))
   (unless (member runtime '("scheme" "lean")) (error "runtime" runtime))
   (let* ((sources (record)) (rows '()) (failures 0)
-         (receipt (record "schema" 2 "runtime" runtime
+         (receipt (record "schema" 3 "runtime" runtime
                     "toolchain" (if (equal? runtime "lean")
                        (string-trim (run-process '("lake" "env" "lean" "--version") directory: source-root))
                        (list (gerbil-version-string) (system-version-string)))
                     "source_base" (string-trim (run-process '("git" "rev-parse" "HEAD") directory: source-root))
                     "platform" (string-trim (run-process '("uname" "-srm")))
                     "driver_sha256" (file-sha "t/closure-suite.ss") "binary_sha256" (file-sha binary) "source_sha256" sources
-                    "deadline_seconds" 20 "heap_limit" (if (equal? runtime "scheme") "1G" "not-configured") "trials" 3
-                    "policy" (record "copy" 1 "suspend" 4 "resume" 4))))
+                    "deadline_seconds" 20 "heap_limit" (if (equal? runtime "scheme") "1G" "not-configured") "trials" 4 "order_policy" "rotate_by_trial"
+                    "policy" (record "copy" 4 "suspend" 16 "resume" 16 "decision" 1))))
     (for (path (if (equal? runtime "lean")
-                   '("LeanPoo/Functional/HybridClosure.lean" "LeanPoo/Functional/ClosureScenarios.lean"
+                   '("LeanPoo/Functional/QueueSelection.lean" "LeanPoo/Functional/HybridClosure.lean" "LeanPoo/Functional/ClosureScenarios.lean"
                      "LeanPoo/Functional/IncrementalClosure.lean" "LeanPoo/Functional/ChunkedClosure.lean"
                      "LeanPoo/Functional/ClosureCosts.lean" "Benchmarks/HybridClosureScale.lean")
                    '("closure.ss" "t/closure-scale-benchmark.ss" "t/closure-suite.ss" "t/closure-report.ss" "t/closure-parity.ss")))
@@ -45,12 +45,13 @@
     (for* ((spec '(("diamond" 256 16) ("diamond" 1024 16) ("dense" 64 16) ("dense" 256 16)
                   ("ring" 1024 16) ("skewed" 128 64) ("gated" 1024 16) ("quorum" 256 16)
                   ("hubchain" 1024 16) ("bursts" 1024 16)))
-           (seed '("true" "false")) (scope '("cold" "warm")) (trial (in-range 3))
-           (queue '("append" "chunked" "hybrid")))
-      (let* ((family (car spec)) (size (cadr spec)) (width (caddr spec))
+           (seed '("true" "false")) (scope '("cold" "warm")) (trial (in-range 4))
+           (position (in-range 4)))
+      (let* ((queue (list-ref '("append" "chunked" "hybrid" "auto") (modulo (+ trial position) 4)))
+             (family (car spec)) (size (cadr spec)) (width (caddr spec))
              (repetitions (if (equal? scope "cold") 5 400))
              (row (record "family" family "n" size "width" width "seed" seed "scope" scope
-                          "trial" trial "queue" queue "state" "owned"))
+                          "trial" trial "execution_order" position "queue" queue "state" "owned"))
              (started (time->seconds (current-time))) (status 0))
         (try
           (let ((text (run-process
