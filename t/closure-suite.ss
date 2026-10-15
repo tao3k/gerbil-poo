@@ -1,20 +1,11 @@
 ;;; Append one native datum per result; common identities/columns occur once.
 (export main read-study)
 (import :gerbil/runtime/gambit :std/iter "closure-cases.ss" "closure-benchmark-support.ss")
-(def lean-sources '("LeanPoo/Functional/ClosureConstruction.lean" "LeanPoo/Functional/ClosureLifecycle.lean"
-                   "LeanPoo/Functional/QueueSelection.lean" "LeanPoo/Functional/HybridClosure.lean"
-                   "LeanPoo/Functional/ChunkedClosure.lean" "LeanPoo/Functional/ClosureCosts.lean"
-                   "LeanPoo/Functional/PositiveEquations.lean"
-                   "LeanPoo/Functional/IncrementalClosure.lean" "LeanPoo/Functional/ClosureScenarios.lean"
-                   "Benchmarks/HybridClosureScale.lean"))
 (def scheme-sources '("closure.ss" "t/closure-scale-benchmark.ss" "t/closure-cases.ss"
                      "t/closure-measure.ss" "t/closure-benchmark-support.ss" "t/closure-suite.ss"))
-(def (main binary timeout output (lean-binary #f) (lean-root #f))
-  (unless (and lean-binary lean-root) (error "both Scheme and Lean executables are required"))
-  (def identities (list (cons 'scheme (source-digests scheme-sources))
-                        (cons 'lean (source-digests lean-sources lean-root))))
+(def (main binary timeout output)
+  (def identities (list (cons 'scheme (source-digests scheme-sources))))
   (def observations (make-hash-table))
-  (def assertions 0)
   (def failures 0)
   (call-with-output-file (list path: output truncate: #t)
     (lambda (port)
@@ -22,9 +13,9 @@
       (emit `(closure-benchmarks (cases ,@cases) (queues ,@queues) (scopes ,@scopes)
                 (seeds ,@seeds) (trials ,trials) (counters ,@counters)
                 (metrics cpu wall gc-cpu collections bytes) (columns runtime case seed scope trial queue data)
-                (sources ,@identities) (binaries ,@(source-digests (list binary lean-binary)))
+                (sources ,@identities) (binaries ,@(source-digests (list binary)))
                 (toolchain ,(gerbil-version-string) ,(system-version-string)) (deadline 20) (heap "1G")))
-      (for* ((runtime '(scheme lean)) (case-index (in-range (length cases))) (seed seeds) (scope scopes)
+      (for* ((runtime '(scheme)) (case-index (in-range (length cases))) (seed seeds) (scope scopes)
              (trial (in-range trials)) (position (in-range (length queues))))
         (match (list-ref cases case-index) ([family size width]
           (def queue (list-ref queues (modulo (+ trial position) (length queues))))
@@ -35,9 +26,8 @@
           (try
             (defvalues (status stdout)
               (run-bounded timeout
-                (if (eq? runtime 'lean) (append (list lean-binary) parameters (list (symbol->string scope)))
-                  (append (list binary "-:max-heap=1G" (car parameters) "owned") (cdr parameters)
-                          (list (number->string repetitions) (symbol->string scope))))))
+                (append (list binary "-:max-heap=1G" (car parameters) "owned") (cdr parameters)
+                        (list (number->string repetitions) (symbol->string scope)))))
             (unless (= status 0) (error "benchmark child failed" status stdout))
             (def datum (call-with-input-string stdout read-one))
             (unless (and (vector? datum) (= (vector-length datum) 4)
@@ -45,21 +35,17 @@
                          (= (vector-ref datum 1) repetitions)) (error "malformed benchmark result" datum))
             (when (hash-key? observations (cons runtime key)) (error "duplicate benchmark key" key))
             (hash-put! observations (cons runtime key) (vector-ref datum 0))
-            (when (eq? runtime 'lean)
-              (unless (equal? (vector-ref datum 0) (hash-ref observations (cons 'scheme key)))
-                (error "Lean/Scheme counter mismatch" key))
-              (set! assertions (+ assertions (length counters))))
             (emit (vector runtime case-index seed scope trial queue datum))
             (catch (exception)
               (set! failures (1+ failures))
               (emit `(failed ,runtime ,key ,(object->string exception)))))
           (when (= position 3) (displayln runtime "/" family "/" size "/" seed "/" scope "/" trial)))))
-      (for (identity identities) (check-sources! (cdr identity) (if (eq? (car identity) 'lean) lean-root ".")))
+      (for (identity identities) (check-sources! (cdr identity) "."))
       (unless (= failures 0) (error "benchmark failures retained" failures output))
-      (emit `(complete ,(hash-length observations) ,assertions))))
-  (displayln "CLOSURE-BENCHMARKS-OK observations=" (hash-length observations) " assertions=" assertions))
+      (emit `(complete ,(hash-length observations)))))
+  (displayln "CLOSURE-BENCHMARKS-OK observations=" (hash-length observations)))
 
-(def (read-study path (lean-root #f))
+(def (read-study path (check-current? #f))
   (call-with-input-file path
     (lambda (port)
       (def header (read port))
@@ -68,17 +54,15 @@
                       (cons 'seeds seeds) (cons 'trials (list trials)) (cons 'counters counters)))
         (unless (equal? (cdr (assq (car pair) (cdr header))) (cdr pair)) (error "benchmark definition changed" (car pair))))
       (def identities (cdr (assq 'sources (cdr header))))
-      (unless (and (equal? (map car (cdr (assq 'scheme identities))) scheme-sources)
-                   (equal? (map car (cdr (assq 'lean identities))) lean-sources)) (error "missing source identities"))
-      (when lean-root
-        (check-sources! (cdr (assq 'scheme identities)))
-        (check-sources! (cdr (assq 'lean identities)) lean-root))
-      (let loop ((rows []) (seen (make-hash-table)) (compared 0))
+      (unless (and (= (length identities) 1)
+                   (equal? (map car (cdr (assq 'scheme identities))) scheme-sources)) (error "missing source identities"))
+      (when check-current? (check-sources! (cdr (assq 'scheme identities))))
+      (let loop ((rows []) (seen (make-hash-table)))
         (match (read port)
-          (['complete count assertions]
+          (['complete count]
            (unless (and (eof-object? (read port)) (= count (length rows))
-                        (= count (* 2 (length cases) (length seeds) (length scopes) trials (length queues)))
-                        (= compared (/ count 2)) (= assertions (* compared (length counters))))
+                        (= count (* (length cases) (length seeds) (length scopes) trials (length queues)))
+                        )
              (error "incomplete benchmark study"))
            (values header (reverse rows)))
           ((? vector? row)
@@ -86,7 +70,7 @@
            (def runtime (vector-ref row 0))
            (def case-index (vector-ref row 1))
            (def trial (vector-ref row 4))
-           (unless (and (memq runtime '(lean scheme)) (exact-integer? case-index) (<= 0 case-index) (< case-index (length cases))
+           (unless (and (eq? runtime 'scheme) (exact-integer? case-index) (<= 0 case-index) (< case-index (length cases))
                         (boolean? (vector-ref row 2)) (memq (vector-ref row 3) scopes)
                         (exact-integer? trial) (<= 0 trial) (< trial trials) (memq (vector-ref row 5) queues))
              (error "benchmark key outside declared cases"))
@@ -100,9 +84,6 @@
            (def suffix (vector->list (subvector row 1 6)))
            (def key (cons runtime suffix))
            (when (hash-key? seen key) (error "duplicate benchmark row"))
-           (def peer (hash-get seen (cons (if (eq? runtime 'lean) 'scheme 'lean) suffix)))
-           (when peer
-             (unless (equal? (vector-ref peer 0) (vector-ref data 0)) (error "counter mismatch" key)))
            (hash-put! seen key data)
-           (loop (cons row rows) seen (+ compared (if peer 1 0))))
+           (loop (cons row rows) seen))
           (else (error "failed or truncated benchmark study")))))))

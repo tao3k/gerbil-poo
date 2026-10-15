@@ -55,12 +55,12 @@ clean:
 build:
     {{ build-env }} gxi build.ss
 
-# Both runtimes share fixed cases and native Scheme data; public results are source-bound.
-benchmark-closure lean-root: build
+# Standalone native Scheme matrix; no companion checkout is required.
+benchmark-closure: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/closure
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
-    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss .build/closure/closure-scale "{{ timeout-executable }}" .build/closure/closure-benchmarks.scm "{{ lean-root }}/.lake/build/bin/hybridClosureScale" "{{ lean-root }}"
+    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss .build/closure/closure-scale "{{ timeout-executable }}" .build/closure/closure-benchmarks.scm
 
 # Same-process warm comparisons with balanced queue order and bounded children.
 benchmark-closure-paired: build

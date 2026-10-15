@@ -54,13 +54,15 @@ properties; native timing/GC counters are separate measurements.
 ```
 GERBIL_PATH=<package-env> just benchmark-closure-phases
 GERBIL_PATH=<package-env> just benchmark-closure-paired
-GERBIL_PATH=<package-env> just benchmark-closure <lean-checkout>
+GERBIL_PATH=<package-env> just benchmark-closure
 GERBIL_PATH=<package-env> gxi t/closure-report.ss .build/closure/closure-benchmarks.scm
 ```
 
-The matrix driver runs both already selected runtimes using one case definition,
-checks their 23 counters, records every failure, and verifies source identities
-before/after measurement. Its reader rejects incomplete, duplicated, changed-source
+The matrix driver runs Scheme alone using the declared case definition,
+records every failure, and verifies Scheme source identities before/after
+measurement. Each child checks its result against an independent scalar oracle.
+Cross-project counter comparison lives in the Lean repository as an optional
+tool with explicit executable and checkout arguments. Its reader rejects incomplete, duplicated, changed-source
 or counter-mismatched studies. Data is read without evaluation. Every child keeps
 the 20s deadline and Scheme's 1GiB heap bound; compile jobs keep 90s.
 
@@ -320,35 +322,17 @@ paper's generalized-protocol future work, within concrete positive equations.
 
 ### Scheme-native performance tooling
 
-`just build` and `just test` use the normal package environment. For isolation,
-set `GERBIL_PATH` to a temporary environment. `just benchmark-closure` builds the
-native executable and writes `.build/closure/receipt.json`. No Python is needed:
+Use the commands in [Reproduction](#reproduction). `just benchmark-closure`
+requires no Lean checkout and writes `.build/closure/closure-benchmarks.scm`.
+The driver uses `:std/misc/process`, SHA-256, and native Scheme `read`/`write`.
+It retains failed launches/checks/timeouts and rejects incomplete or duplicated
+matrices. `t/closure-parity.ss` validates the standalone study, including its
+fixed cases and row shapes; the benchmark child owns scalar-oracle checks.
+`closure-report.ss` reports Scheme CPU and allocation medians.
 
-- `t/closure-scale-benchmark.ss`: Gambit `cpu-time`, full result forcing and
-  independent scalar oracle plus queue/cost assertions.
-- `t/closure-suite.ss`: Gerbil `:std/misc/process`, JSON and SHA-256 libraries;
-  source/binary/driver identities, toolchain, platform and per-row checkpoints.
-  Failed launches, checks and timeout rows remain in the receipt and fail the
-  suite. Existing external `timeout` enforces 20 seconds per child, with the
-  unchanged 1 GiB Scheme heap limit.
-- `t/closure-report.ss`: Scheme median-of-three CPU summaries.
-- `t/closure-parity.ss`: Scheme cross-runtime checker, rejecting nonpassing rows,
-  duplicates, incomplete matrices, stale local sources and mismatched counts.
-
-```sh
-just benchmark-closure
-gxi t/closure-report.ss .build/closure/receipt.json
-# After building hybridClosureScale in the Lean companion:
-gxi t/closure-suite.ss /absolute/lean-poo/.lake/build/bin/hybridClosureScale \
-  /absolute/timeout /tmp/lean-hybrid.json lean /absolute/lean-poo
-gxi t/closure-parity.ss /tmp/lean-hybrid.json .build/closure/receipt.json \
-  /tmp/parity.json /absolute/lean-poo
-```
-
-The same native Scheme runner supervises both binaries. Lean children have the
-20-second deadline; no native Lean heap limit is asserted. Darwin linker search
-paths can be overridden with `GERBIL_CLOSURE_LD_OPTIONS`; the default uses the
-stable Homebrew OpenSSL opt path.
+The observations below are historical receipts, tied to their recorded sources
+and the drivers at those commits. Their old JSON commands and cross-project
+layout are superseded by the standalone native commands above.
 
 [Current raw observations](performance/closure-hybrid-v2.json) and
 [4680 matching count assertions](performance/closure-hybrid-parity-v2.json)

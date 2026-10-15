@@ -50,11 +50,21 @@ remain preserved for reference at their original commits.
 ```
 GERBIL_PATH=<package-env> just benchmark-closure-phases
 GERBIL_PATH=<package-env> just benchmark-closure-paired
-GERBIL_PATH=<package-env> just benchmark-closure <lean-checkout>
+GERBIL_PATH=<package-env> just benchmark-closure
 GERBIL_PATH=<package-env> gxi t/closure-report.ss .build/closure/closure-benchmarks.scm
 ```
 
-The last command requires the already-built Lean native executable in its checkout.
+These commands require only this Scheme package and its declared toolchain.
+Cross-project counter comparison is an optional tool in the Lean repository; it
+accepts explicit executable and checkout arguments, with no fixed build layout.
 Each measured child retains the 20s/1GiB limits. Initial allocation/probe/GC costs
 are visible in native CPU, wall, GC CPU, collection and allocation measurements.
 Minimum source ceilings remain distinct from fastest native execution.
+
+The [standalone native matrix](performance/closure-standalone.scm) records 960
+Scheme observations with source/executable identities. It requires no companion
+repository. `gxi t/closure-parity.ss <study>` validates that Scheme-only matrix;
+for current-source validation, call `read-study` with its second argument `#t`.
+Historical dual-runtime observations retain their original driver at the recorded
+commit. This separation changes benchmark orchestration, not closure semantics
+or the open typed-dispatch implementation row above.
