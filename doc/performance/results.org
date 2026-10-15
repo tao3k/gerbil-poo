@@ -1,0 +1,15 @@
+#+TITLE: Native benchmark output policy
+
+Run ~just benchmark-metadata~ (or another native ~just benchmark-*~ recipe)
+from this package. No Lean checkout is required.
+
+Executables, complete measurements, escaped stdout and failure diagnostics stay
+in ignored ~.build/~ output. Do not commit raw JSON/Scheme matrices, compressed
+archives or binary benchmark artifacts. Documentation contains only concise
+source-bound summaries, reproduction commands, dimensions and claim limits.
+
+Current Scheme data records common field/case definitions once and one
+observation per line. Allocation crossing collection or a negative native
+counter delta is unavailable. Source and binary digests bind a study to the run;
+old observations cannot qualify changed source. Reproduce results with the
+native toolchain and the unchanged timeout/heap bounds.

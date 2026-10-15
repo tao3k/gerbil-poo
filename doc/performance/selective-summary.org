@@ -1,45 +1,56 @@
 #+TITLE: Native selective construction observations
 
-Run: just benchmark-metadata. Complete current-source matrix: 272 observations,
-34 phases, four rotating rounds, natural and pre-collected controls.
+Run: just benchmark-metadata. Complete current-source matrix: 336 observations,
+42 phases, four rotating rounds, natural and pre-collected controls.
 Toolchain Gerbil/Gambit: (1cfb032 ea114fc). Native compile <=90s;
 measurement <=20s with 1-GiB heap. No simultaneous Lean build during measurement.
 
 CPU medians per operation, microseconds; local finite observations only.
 | Phase | evaluated/reused | natural CPU us | collected CPU us |
 |-------+------------------+----------------+------------------|
-| component-start | 15/0 | 35.125 | 33.25 |
-| component-refresh | 3/12 | 27.938 | 27.25 |
-| component-reuse | 0/15 | .25 | .375 |
-| component-root | 11/4 | 34.875 | 34.937 |
-| component-presence | 6/9 | 32.25 | 32.312 |
-| selective-release | 3/12 | 149.375 | 243.25 |
-| policy-release | 0/15 | 119.5 | 213.25 |
-| schedule-full | - | 12.187 | 12. |
-| schedule-retained | - | 4.875 | 5.063 |
-| component-recapture | 0/15 | 24.813 | 24.438 |
-| protected-cold | - | 4.607 | 5.987 |
-| protected-full-cold | - | 13.045 | 19.313 |
-| protected-warm | - | 3.129 | 4.626 |
-| protected-full-warm | - | 11.24 | 17.815 |
+| component-start | 15/0 | 38.437 | 37.062 |
+| component-refresh | 3/12 | 27.125 | 27.625 |
+| component-reuse | 0/15 | .375 | .375 |
+| component-root | 11/4 | 38. | 34.938 |
+| component-presence | 6/9 | 32.25 | 34.25 |
+| selective-release | 3/12 | 196.625 | 389.187 |
+| policy-release | 0/15 | 118.812 | 247.438 |
+| schedule-full | - | 12.063 | 12.75 |
+| schedule-retained | - | 4.938 | 4.938 |
+| component-recapture | 0/15 | 25. | 25.438 |
+| protected-cold | - | 4.053 | 7.493 |
+| protected-full-cold | - | 14.355 | 22.613 |
+| protected-warm | - | 3.317 | 5.854 |
+| protected-full-warm | - | 13.129 | 21.135 |
+| service-reuse | 0/3 generics | 74.062 | 125.938 |
+| service-cold | 3/0 generics | 169.313 | 341.938 |
+| service-price | 1/2 generics | 124.063 | 233. |
+| service-price-cold | 3/0 generics | 168.125 | 338.938 |
+| service-invoice | 1/2 generics | 138.125 | 165.25 |
+| service-invoice-cold | 3/0 generics | 230.375 | 341.313 |
+| service-budget-refuse | refused | 66.75 | 127.25 |
+| service-negative-refuse | refused | 43.625 | 43.938 |
 
 Component phases include source capture, scheduling, invalidation and cache preparation.
-Release phases also rebuild services/contracts and execute joint approval.
+Release phases include generic refresh, conservative contracts and joint approval.
 Same-source retention shares lookup/order in constant source work; changed-source preparation scans support.
 Matched controls: schedule-full/retained use the same edited graph; component-recapture/reuse
 have equal immutable fields but distinct/identical captured-source identity; protected-full versus
 factored cold/warm calls use identical business code, differing only in readmission policy.
+Service selective/cold controls start with all three generics warm; compare identical policies, outputs
+and actual sibling identity/cache sizes. Cold controls force all generic construction and full approval.
+No-op/price/invoice generic work is 0/3, 1/2, 1/2 versus 3/0 built/reused. Tightened budgets count retained caches.
 Four rotating rounds are finite local evidence, not a universal speed or allocator/runtime proof.
 Allocation crossing GC or a negative counter delta remains unavailable; signed
 diagnostics and complete rows stay under ignored .build/metadata/. No new raw matrix
-is committed. Historical results remain losslessly archived in history.tar.gz.
+is committed. Compressed result archives are not committed.
 
-Study digest: 58bcdb388de90f30da10a58eb07ccbe3ceb577eb4878e70f75698ddb0da33dfd
-Binary digest: 4cf284d75134c79591001ec946fa59b6fa8c727c27c451a898361d59cd88c239
+Study digest: 1f2340d1b168447fb6bd06f106362a0afeee2110cd8452c46f0af651ecfde1dc
+Binary digest: 60e6d494b9d1524c0af9a6048f137f2bfd9dd511fa342b87bc08b2a82c43e150
 
 Selected construction source identities (the raw header records all sources):
 - dependency-analysis.ss 904a981def4602a64eddbb5b25fbe687f3c090e92e563bf0a6e7bc774d1d4ec9
 - generalized-graph.ss ab5056feb63369e91e8323b0693781843f9015ffb60ef2513586691f41746807
 - construction-cache.ss 7c21ff8c7f2412885ed74d52b8b131da7b425c0c2d109657c75739c9509943ea
-- staged-publication.ss 7b56a4410b99a999b5f068b7f4826808aa70806a31ebdcf3de497f8aabf53caf
-- t/metadata-benchmark.ss 554cb7825cb84e8f427a02fca653d34de4634e7c5012c6bf018b47acef53a232
+- staged-publication.ss 290c871db8ad12751633a613fdaf460854a5bfae6398d69c844e767af3b49e46
+- t/metadata-benchmark.ss 32d707beab80e7fec3bdf31d02753c9df85f5d9603d4383b902957f854a047bf

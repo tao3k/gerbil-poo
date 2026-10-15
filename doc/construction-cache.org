@@ -33,8 +33,10 @@ callbacks must remain stable and pure. Open POO metadata and arbitrary extension
 callbacks do not carry dependent kernel proofs. Extensions must declare their
 reads; actual undeclared provider accesses are refused.
 
-Each accepted release rebuilds services/contracts against the new cooked view
-with cold service caches. Per-service method rebuilding is not claimed selective.
+Accepted releases refresh generics from closed per-service inputs. Equal inputs
+under the identical model retain exact warm certificates; changed inputs rebuild
+only that generic, including registration and completed-candidate negative checks.
+Contract descriptors/wrappers still prepare conservatively against the new view.
 Calls retain the exact component cache and recheck the actual service-cache
 successor. A refused release retains the identical previous version, including
 its component values and warm service caches. External effects are outside this
@@ -70,15 +72,14 @@ Lean adds ~Partial.step_reused_builder_independent~ and
 ~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
 rejecting every node outside its eleven-node cone.
 
-~just benchmark-metadata~ measures 34 phases / 272 observations. Component phases
+~just benchmark-metadata~ measures 42 phases / 336 observations. Component phases
 include source capture, scheduling and cache preparation; release phases include
 fresh services/contracts and admission. Existing 90-second compile, 20-second
 measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
 negative counter deltas; signed diagnostics are retained.
 
 Complete raw results stay under ignored ~.build/metadata/~, with concise source-
-bound repository summaries. See [[file:performance/history.org][historical evidence]] for the lossless archive
-of older results and the fixed native Scheme output policy. No new versioned JSON
+bound repository summaries. See [[file:performance/results.org][benchmark output policy]] for native result storage and reproduction. No new versioned JSON
 or Lean checkout dependency is introduced.
 
 * Stable and dynamic joint approval
@@ -103,3 +104,44 @@ Native same-process controls include full/retained scheduling, recaptured/same-
 source zero-builder preparation and full/factored cold/warm joint admission.
 Release measurements include construction, generic rebuilding, contract binding
 and full fresh approval. These finite observations do not prove universal speed.
+
+* Selective service-family revision
+
+~GenericFamily.Projection~ captures a finite immutable input value per generic;
+~expand~ constructs its closed policy/view environment. Native
+~methods.refresh<-projection~ derives build/prepare/refresh using those inputs
+and the existing seed/method/watch callbacks. Source/model identity is mandatory.
+A changed source reconstructs everything even when input values compare equal.
+The private family carries warm certificates and source contexts; only invoke
+can create a warm successor. Context/prototype values and callbacks remain pure
+and stable. Context equality is an optimization premise, not a version stamp.
+
+The staged model now calls family prepare/refresh in its existing atomic chain.
+Unchanged entries share their original cache; the service table is copied only
+on the first changed entry. New generic registration/negative refusal or late
+joint refusal returns the identical old version. Cold construction uses the same
+projected environments. Default models conservatively reconstruct all services.
+
+ServiceBundle projects quote capacity/price/extension flags, reserve
+capacity/release/shift/signature, and cancel invoice/shift/negative flags. A price
+revision rebuilds quote while retaining exact warm reserve/cancel objects. An
+invoice revision rebuilds cancel only. A no-op revision retains all three. Joint
+cache approval counts retained warm caches; tightening a limit can refuse even
+when no generic was rebuilt. Negative assumptions are checked on every changed
+generic. Changing the approval program falls back to full approval.
+
+Stable quote/cancel business conclusions can transfer only from the identical
+admission source, identical actual service and identical contract descriptor
+(absence included), with matching expected view inputs. Current ceiling/release
+and exact successor cache budget are always checked. The reservation contract
+still binds afresh and its probe remains conservative. Arbitrary custom admission
+or contract changes cannot inherit this shortcut.
+
+Runtime controls compare projected and direct constructors over 36 view settings
+and six actual calls each, preserve sibling cache identity, and test changed code,
+new budgets, changed admission, negative conflicts and atomic refusal. Native
+matched release controls compare selective versus forced cold preparation for
+no-op, price-only and invoice-only revisions. Complete 336-row data remains in
+ignored build output. Lean has Source.asModel/projection, Certified.transport,
+Partial.refresh_retained, and stageRefresh/publishRefresh with refusal identity.
+This is executable alignment with explicit premises, not compiler refinement.

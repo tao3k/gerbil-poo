@@ -54,10 +54,31 @@
     ((quote) (protected.watches))
     ((reserve) (list (dispatch.shape '((Forbidden)))))
     ((cancel) (list (dispatch.call "forbidden" #t)))))
+;; Projection is the closed lexical environment used by compilation, not a
+;; revision label. Expand supplies only these inputs to the existing constructors.
+(def projection
+  (.cc family.Projection.
+    project: (lambda (key policy view)
+      (case key
+        ((quote) (list (.@ view capacity) (.@ view price) (.@ policy forbidden-quote) (.@ policy cancelled-extension)))
+        ((reserve) (list (.@ view capacity) (.@ view release) (.@ policy reserve-shift) (.@ policy broken-reserve)))
+        ((cancel) (list (.@ view invoice) (.@ policy cancel-shift) (.@ policy forbidden-cancel)))))
+    expand: (lambda (key inputs)
+      (match (cons key inputs)
+        (['quote capacity-value price-value forbidden cancelled]
+         (values (.cc Policy. capacity: capacity-value price: price-value invoice: "" forbidden-quote: forbidden cancelled-extension: cancelled)
+                 (.o (capacity capacity-value) (price price-value))))
+        (['reserve capacity-value released shift broken]
+         (values (.cc Policy. capacity: capacity-value price: 0 invoice: "" reserve-shift: shift broken-reserve: broken)
+                 (.o (capacity capacity-value) (release released))))
+        (['cancel invoice-value shift forbidden]
+         (values (.cc Policy. capacity: 0 price: 0 invoice: invoice-value cancel-shift: shift forbidden-cancel: forbidden)
+                 (.o (invoice invoice-value))))))))
 (def generics
-  (metadata.family
+  (.mix (.cc family.methods.refresh<-projection projection: projection)
+   (metadata.family
     (.cc family.Model. keys: '(quote reserve cancel) seed: seed watches: watches)
-    declarations))
+    declarations)))
 (def (contracts _ view) (list (cons 'reserve (service.reservation (.@ view capacity)))))
 (def release-rule
   (metadata.both (metadata.atom 'quote-bound)
@@ -69,7 +90,7 @@
                      (multimethod.cache-size (dispatch.snapshot (publication.version-service candidate service))))
                    '(quote reserve cancel)))
       (.@ policy cache-limit)))
-(def (admit policy candidate)
+(def (admit policy candidate (old #f))
   (def view (publication.version-view candidate))
   ;; Probes validate actual implementations/contracts and discard tentative caches.
   (def (probe key . args) (first-value (apply publication.probe candidate key args)))
@@ -77,11 +98,18 @@
     (lambda (key)
       (case key
         ((quote-bound)
-         (let (quote-result (probe 'quote protected.invoice protected.card 10))
+         (let (quote-result
+                 (if (and (publication.same-service? old candidate 'quote)
+                          (= (.@ view price) (.@ (publication.version-view old) price)))
+                   (list 13 (+ 10 (.@ view price)))
+                   (probe 'quote protected.invoice protected.card 10)))
            (and (equal? quote-result (list 13 (+ 10 (.@ view price))))
                 (<= (apply + quote-result) (.@ policy ceiling)))))
         ((reserve-linked) (equal? (probe 'reserve 2) (list 'ok (- (.@ view capacity) 2) #t)))
-        ((cancel-linked) (equal? (probe 'cancel "customer" #t) (list "customer" (.@ view invoice))))
+        ((cancel-linked)
+         (or (and (publication.same-service? old candidate 'cancel)
+                  (equal? (.@ view invoice) (.@ (publication.version-view old) invoice)))
+             (equal? (probe 'cancel "customer" #t) (list "customer" (.@ view invoice)))))
         ((release) (.@ view release))
         ((cache-budget) (cache-admit policy candidate))))))
 (def model
@@ -89,6 +117,8 @@
        ;; Dispatch cache insertion preserves methods, contracts and cooked view.
        ;; Business probes run on every release; actual successor budget on every call.
        .readmit: cache-admit
+       admit-source: admit
+       .admit-refresh: (lambda (old policy candidate) (admit policy candidate old))
        cook: (lambda (policy facts) (service.cook (.@ policy capacity) (.@ policy price) (.@ policy invoice) facts))))
 (def (start policy (config (access.config)) (enabled #t))
   (staged.prepare model (access.equations config enabled) policy))

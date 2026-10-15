@@ -17,6 +17,8 @@
 (define-type (Model. @ [] cook generics contracts admit)
   ;; Default remains full admission. Overrides must justify stability of omitted
   ;; checks under cache-only invocation; every new publication still runs admit.
+  admit-source: #f
+  .admit-refresh: (lambda (_ policy candidate) (admit policy candidate))
   .readmit: (lambda (policy candidate) (admit policy candidate))
   .construct:
   (lambda (equations)
@@ -29,12 +31,14 @@
   .prepare:
   (lambda (source policy)
     (cyclic-publication.stage-from #f (cut .construct source) (cut cook policy <>)
-      (cut generic-family.build generics policy <>) (cut admit policy <>)
-      (cut contracts policy <>) (cut .readmit policy <>)))
+      (cut generic-family.prepare generics policy <>) (cut admit policy <>)
+      (cut contracts policy <>) (cut .readmit policy <>) admit))
   .publish:
   (lambda (old source policy)
     (cyclic-publication.stage-from old (cut .refresh old source) (cut cook policy <>)
-      (cut generic-family.build generics policy <>) (cut admit policy <>)
-      (cut contracts policy <>) (cut .readmit policy <>))))
+      (cut generic-family.refresh generics (cyclic-publication.version-family old) policy <>)
+      (if (and (eq? admit-source admit) (eq? admit (cyclic-publication.version-admission-source old)))
+        (cut .admit-refresh old policy <>) (cut admit policy <>))
+      (cut contracts policy <>) (cut .readmit policy <>) admit)))
 (.defgeneric (prepare model source policy) slot: .prepare)
 (.defgeneric (publish model old source policy) slot: .publish)

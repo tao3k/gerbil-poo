@@ -1,6 +1,6 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc) ../support/option (only-in :std/values first-value)
+(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc .@) ../support/option (only-in :std/values first-value)
         "closure-measure.ss"
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../examples/service-metadata service.)
@@ -21,13 +21,17 @@
               protected-build protected-cold protected-warm guarded-low guarded-high protected-refuse protected-cancelled metadata-refuse call-refuse
               component-start component-refresh component-reuse component-root component-presence
               selective-release policy-release selective-negative-refuse selective-admission-refuse
-              schedule-full schedule-retained component-recapture protected-full-cold protected-full-warm))
+              schedule-full schedule-retained component-recapture protected-full-cold protected-full-warm
+              service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
+              service-budget-refuse service-negative-refuse))
 (def rounds 4)
 (def (repetitions phase)
   (cond ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
                          component-start component-refresh component-reuse component-root component-presence
                          selective-release policy-release selective-negative-refuse selective-admission-refuse
-                         schedule-full schedule-retained component-recapture)) 8)
+                         schedule-full schedule-retained component-recapture
+                         service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
+                         service-budget-refuse service-negative-refuse)) 8)
         ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse protected-full-cold protected-full-warm)) 512)
         (else 4000)))
 (def (main output binary)
@@ -98,6 +102,29 @@
            (= (multimethod.cache-size (dispatch.snapshot (publication.version-service next 'reserve))) 1))
       (and (not issue) (cache-oracle (publication.version-cache next) 3 41)
            (equal? (first-value (publication.invoke next 'reserve 2)) '(ok 39 #t)))))
+  (defvalues (reserve-value service-held) (publication.invoke composed-warm 'reserve 2))
+  (defvalues (cancel-value service-warm) (publication.invoke service-held 'cancel "customer" #t))
+  (unless (and (equal? reserve-value '(ok 8 #t)) (equal? cancel-value '("customer" "invoice:1")))
+    (error "warm service baseline"))
+  (def generics (.@ bundle.model generics))
+  (def cold-model
+    (.cc bundle.model
+      generics: (.cc generics .refresh: (lambda (_ policy view) (family.prepare generics policy view)))
+      .admit-refresh: (lambda (_ policy candidate) (bundle.admit policy candidate))))
+  (def (service-revision model changed expected expected-reused)
+    (defvalues (next issue) (staged.publish model service-warm (access.equations config #t) changed))
+    (and (not issue)
+      (equal? (family.family-built (publication.version-family next)) expected)
+      (equal? (family.family-reused (publication.version-family next)) expected-reused)
+      (andmap (lambda (key) (eq? (publication.version-service next key) (publication.version-service service-warm key))) expected-reused)
+      (equal? (first-value (publication.invoke next 'quote protected.invoice protected.card 10)) (list 13 (+ 10 (.@ changed price))))
+      (equal? (first-value (publication.invoke next 'reserve 2)) (list 'ok (- (.@ changed capacity) 2) #t))
+      (equal? (first-value (publication.invoke next 'cancel "customer" #t)) (list "customer" (.@ changed invoice)))))
+  (def (service-refusal changed)
+    (defvalues (retained issue) (bundle.revise service-warm changed))
+    (and issue (eq? retained service-warm)
+      (equal? (map (lambda (key) (multimethod.cache-size (dispatch.snapshot (publication.version-service retained key))))
+                   '(quote reserve cancel)) '(1 1 1))))
   (def actions
     (list (lambda () (first-value (raw '(2))))
           (lambda () (first-value (bound '(2))))
@@ -143,9 +170,17 @@
           (lambda () (equal? (graph.schedule-order (graph.reschedule prior-schedule changed)) expected-order))
           (lambda () (cache-oracle (cache.refresh baseline recaptured reject) 0 32))
           (lambda () (quote-call full protected.card 10 '(13 13) #f))
-          (lambda () (quote-call full-warm protected.card 10 '(13 13) #t))))
+          (lambda () (quote-call full-warm protected.card 10 '(13 13) #t))
+          (lambda () (service-revision bundle.model policy [] '(quote reserve cancel)))
+          (lambda () (service-revision cold-model policy '(quote reserve cancel) []))
+          (lambda () (service-revision bundle.model (.cc policy price: 4) '(quote) '(reserve cancel)))
+          (lambda () (service-revision cold-model (.cc policy price: 4) '(quote reserve cancel) []))
+          (lambda () (service-revision bundle.model (.cc policy invoice: "invoice:2") '(cancel) '(quote reserve)))
+          (lambda () (service-revision cold-model (.cc policy invoice: "invoice:2") '(quote reserve cancel) []))
+          (lambda () (service-refusal (.cc policy cache-limit: 2)))
+          (lambda () (service-refusal (.cc policy forbidden-cancel: #t)))))
   (def expected (append (list '(ok 8 #t) '(ok 8 #t) '(ok 8 #t) #t 'input 'output 'logic #t '(ok 8 #t) #t #t)
-                        (make-list 23 #t)))
+                        (make-list 31 #t)))
   (def rows [])
   (for* ((gc '(natural collected)) (round (in-range rounds)) (position (in-range (length phases))))
     (def index (modulo (+ round position) (length phases)))

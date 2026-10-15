@@ -17,6 +17,7 @@ checks the runtime premises at its public boundary.
 | General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Existing Scheme implementation reused; generalized hook equivalence needs separate coverage |
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
 | Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
+| Selective generic construction and warm-cache retention | GenericFamily.Source / Projection / refresh; StagedPublication.stageRefresh | generic-family.ss / staged-publication.ss / cyclic-publication.ss | Implemented through native closed projections and atomic family refresh; changed source/inputs reconstruct and recheck negative watches; exact warm siblings retained; fresh reservation contracts remain conservative |
 | Safe recursive attestation and certified recursive memo | RecursiveCacheSemantics / CyclicAccess | no equivalent bounded request program in this addition | Open; Boolean seed is currently supplied explicitly |
 | General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | generalized-graph.ss / construction-cache.ss / staged-publication.ss | Finite inspectable DAG rebuilding and source-bound invalidation implemented; arbitrary adapters and dependent evidence remain separate |
 
@@ -47,8 +48,7 @@ metadata or internal counter structures.
 `t/closure-cases.ss` is the case/column definition. Active tools use Scheme
 `read`/`write` only; there is no new JSON record format or version series. The
 matrix driver emits common metadata once and streams result vectors. Files are
-read as data, never loaded as Scheme programs. Historical v1-v4 JSON controls
-remain preserved for reference at their original commits.
+read as data, never loaded as Scheme programs. Complete measurements and diagnostic stdout remain local ignored outputs.
 
 ```
 GERBIL_PATH=<package-env> just benchmark-closure-phases
@@ -64,7 +64,7 @@ Each measured child retains the 20s/1GiB limits. Initial allocation/probe/GC cos
 are visible in native CPU, wall, GC CPU, collection and allocation measurements.
 Minimum source ceilings remain distinct from fastest native execution.
 
-The [standalone native matrix](performance/history.org) records 960
+The [standalone native matrix](performance/results.org) records 960
 Scheme observations with source/executable identities. It requires no companion
 repository. `gxi t/closure-parity.ss <study>` validates that Scheme-only matrix;
 for current-source validation, call `read-study` with its second argument `#t`.
@@ -210,7 +210,7 @@ or total memory bound is claimed.
 
 The first 264-row dispatch control completed its semantic checks, but its reader
 refused two negative allocation deltas. The unchanged signed data is retained in
-[the rejected control](performance/history.org); it is not accepted
+[the rejected control](performance/results.org); it is not accepted
 allocation evidence. On the installed Gambit `ea114fc` runtime, the allocation
 counter was also observed to decrease across a direct GC. The existing
 `closure-measure` formula follows Gambit's `##exec-stats` subtraction of the end
@@ -228,7 +228,7 @@ Earlier GC-crossing closure allocation receipts remain historical observations,
 not retroactively qualified allocation evidence. No runtime/compiler repair or
 verification is inferred from this measurement guard.
 
-The [current dispatch matrix](performance/history.org) uses the
+The [current dispatch matrix](performance/results.org) uses the
 explicit admission policy above. Neither rejected data nor missing allocation
 values are used to claim a speedup or allocation saving.
 
@@ -251,7 +251,7 @@ can therefore be refused by joint admission without returning a new version.
 Lower-level cyclic publication without the optional readmission procedure still
 has construction-only admission. The selective settlement graph is now implemented through native construction hooks; kernel proof receipts remain separate.
 
-Historical studies are preserved in [the lossless compressed archive](performance/history.org).
+[Benchmark output policy](performance/results.org): complete results and diagnostics stay in ignored `.build/` output; archives are not committed.
 New complete matrices and binaries stay under ignored `.build/` output.
 See [selective component construction](construction-cache.org) for the native
 protocols, shared settlement graph, reuse guarantees and measured scope.

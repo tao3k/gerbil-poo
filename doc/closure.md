@@ -224,13 +224,10 @@ partially active/unseeded source, machine CPU time, GC or peak memory.
 - The existing native runner also drives Lean. The v3 parity checker compares
   640 matching observations and 10880 fields, including engine and both ceilings.
 
-Current files: [independent processes](performance/history.org),
-[same-process controls](performance/history.org) and
-[cross-runtime checks](performance/history.org).
-The [initial development diagnostic](performance/history.org)
-retains a negative hub-chain auto result before the final fast paths. Its source
-hashes identify that earlier development snapshot; it is not a current-source
-pass. Existing v1/v2 receipts and timing tables above remain historical.
+Complete observations and diagnostics are local ignored build outputs, following
+[the native benchmark output policy](performance/results.org). Reproduce them
+using the commands above. Earlier timing tables describe their recorded source
+snapshots and do not qualify current source.
 
 The final same-process seeded means (CPU ms/solve, eight rotations) are:
 
@@ -335,11 +332,9 @@ The observations below are historical receipts, tied to their recorded sources
 and the drivers at those commits. Their old JSON commands and cross-project
 layout are superseded by the standalone native commands above.
 
-[Current raw observations](performance/history.org) and
-[4680 matching count assertions](performance/history.org)
-cover 360 matched runs in each runtime. The v1 raw/parity files remain historical
-receipts of their recorded sources, including the earlier removed Python driver.
-They are not receipts for current source identities.
+Earlier cross-project studies covered 360 matched runs per runtime and 4680
+matching count assertions. These historical counts do not qualify current source.
+Complete raw data and diagnostic archives are not stored in this checkout.
 
 Compare CPU timing only within Scheme and within the same scope. Lean measures
 monotonic elapsed time and includes source construction in cold runs, so there
