@@ -73,7 +73,7 @@ Lean adds ~Partial.step_reused_builder_independent~ and
 ~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
 rejecting every node outside its eleven-node cone.
 
-~just benchmark-metadata~ measures 56 phases / 448 observations. Component phases
+~just benchmark-metadata~ measures 75 phases / 600 observations. Component phases
 include source capture, scheduling and cache preparation; release phases include
 fresh services/contracts and admission. Existing 90-second compile, 20-second
 measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
@@ -228,3 +228,67 @@ microseconds under natural GC); this negative result remains in the concise
 summary. An initial new benchmark oracle incorrectly omitted quote from the
 capacity dirty set and refused the run; only that expectation was corrected.
 No incomplete/oracle-failed run is admitted as a performance result.
+
+* Costed selection and invariant contract prototypes
+
+The isolated pre-change study measured descriptor construction at about 95 us per
+reserve/cancel pair, wrapper creation at 0.16 us, generic refresh at 114 us and
+joint approval at 14 us (natural GC). These are separate batch medians, not additive
+parts of one timed request. Shared/independent joint publication differed only
+about 0.3 percent in this sample; the prior 2.9 percent difference remains recorded.
+
+Reservation and cancellation now derive from private native Contract prototypes
+using ~.cc~ and a fresh ~meaning~ closure. Invariant input/output Type predicates and
+Formula nodes are reused; changed capacity/invoice never retains old interpretation.
+Ordinary metadata checks and negative dispatch watches still run. Tests check shared
+predicate/formula identities, distinct descriptor identities, changed interpretations,
+invalid arguments, source replacement and dynamic warm-cache refusal.
+
+~ContractFamily.PreparationCosts.~ mirrors Lean ~PreparationCosts~. Native prices
+~prepare-cost / shared-cost / direct-cost / selection-cost~ are nonnegative integers.
+~choose-preparation~ selects direct only if its modeled saving covers selection;
+ties use shared. ~methods.inputs<-selection~ derives the existing closed-input
+protocol, and ~family-preparation~ records direct/shared/retained/independent.
+The existing shared protocol remains available. Prices affect performance choice,
+not support checks or admission. The direct callback must equal shared projection
+for all closed inputs; Lean ~direct_source_eq~ establishes that equality for the
+model, and the native heterogeneous controls check the corresponding functions.
+
+The selected example uses the two-field context directly instead of allocating
+an index. Its ~workflow-model~ composes the existing 15-node settlement DAG,
+cooked interface, typed generic projections, two contracts and joint admission.
+An invoice dependency revision evaluates 3 nodes and retains 12, then rebuilds
+both affected contracts. A price-only follow-up retains both bound wrappers and
+warm reservation; a zero cache budget still refuses that actual successor.
+
+Lean ~Contract.withMeaning~ preserves input/output/rule, and both example
+specializations equal the original contracts for every parameter.
+~PreparationCosts.direct_covered / publication_direct_bound~ include selection
+alongside unchanged construction/binding/generic/probe counts. The fallback bound
+charges selection overhead explicitly. ~template_amortized~ includes once-only
+validation and needs an explicit break-even premise; it does not declare cold
+process startup free or prove native compiler/runtime performance.
+
+The final native matrix has 75 phases / 600 rows. It adds stage isolation,
+selector/direct/shared controls, original unfactored constructors and a full
+settlement-DAG matched pair. All new pairs use 128 operations on both sides,
+four rotating rounds and both GC regimes under the existing 90s compile/20s
+measurement/1-GiB bounds. Initial profiling and earlier regressions stay ignored
+and are described in the concise summary. No raw results or archives are committed.
+
+Final matched controls show invariant specialization reducing descriptor construction
+from 105.441 to 17.223 us (natural), and from 95.922 to 19.402 us (collected).
+Complete binding isolation, including current-state adapters, costs 0.395/0.402 us;
+joint admission costs 13.754/15.926 us. These standalone phases are not additive.
+The shared settlement pair improves 380.461 -> 290.941 us (natural) and
+358.344 -> 272.215 us (collected), with identical construction/admission work.
+
+The dynamic selector is experimental, not the default source strategy. Its final
+natural complete-joint median is 255.750 vs independent 222.422 us (~15 percent
+regression); collected is 249.598 vs 248.648 us (~0.4 percent regression).
+Per-round selected/independent GC counts are 1/0, 21/0, 31/31 and 24/32; the raw
+CPU median includes those different GC histories. This is not evidence that
+selector arithmetic causes the full gap, nor evidence that direct is uniformly
+faster. The initial 584-row optimized study and all negative controls remain
+ignored and described in the summary. The robust gain is invariant descriptor
+specialization; actual runtime strategy still needs matched workload measurements.

@@ -1,12 +1,13 @@
 ;;; ContractFamily: closed contract inputs and late-bound invocation wrappers.
-(export Source. methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
-        family-built family-bound family-reused family-prepared?)
+(export Source. PreparationCosts. choose-preparation methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
+        family-built family-bound family-reused family-prepared? family-preparation)
 (import :std/iter ./object (only-in ./mop define-type .defgeneric)
         (prefix-in ./declarative-metadata metadata.))
 ;; Private tables/records never escape. Pure immutable source/input premises are
 ;; the same as GenericFamily; labels and sampled outputs cannot authorize reuse.
-(defstruct input-batch (context lookup prepared?) final: #t)
+(defstruct input-batch (context lookup prepared? strategy) final: #t)
 (defstruct family (source keys batch inputs contracts invokers execute built bound reused) final: #t)
+(def (family-preparation current) (input-batch-strategy (family-batch current)))
 (def (family-prepared? current) (input-batch-prepared? (family-batch current)))
 (def (family-ref current key) (hash-get (family-contracts current) key))
 (def (family-invoker current key) (hash-get (family-invokers current) key))
@@ -19,7 +20,7 @@
     (when (hash-key? seen key) (error "duplicate contract binding" key))
     (unless (available key) (error "contract without service" key))
     (hash-put! seen key #t))
-  (def batch (prepare-inputs (and prior (family-batch prior)) policy view))
+  (def batch (prepare-inputs (and prior (family-batch prior)) policy view keys))
   (def shared? (and prior (equal? keys (family-keys prior))))
   (def contracts (if shared? (family-contracts prior) (make-hash-table-eq)))
   (def invokers (if shared? (family-invokers prior) (make-hash-table-eq)))
@@ -50,15 +51,33 @@
   (make-family source keys batch inputs contracts invokers execute (reverse built) (reverse bound) (reverse reused)))
 ;; Derived protocol: expensive preparation can observe ONLY its closed context.
 ;; The retained lookup captures prepared immutable values, never the old snapshot.
+;; Prices are explicit nonnegative operation weights supplied by the model.
+;; They are not sampled timings, trust flags, or permissions to skip metadata.
+(define-type (PreparationCosts. @ [] prepare-cost shared-cost direct-cost)
+  selection-cost: 0
+  .choose:
+  (begin
+    (unless (andmap (lambda (cost) (and (exact-integer? cost) (>= cost 0)))
+                   (list prepare-cost shared-cost direct-cost selection-cost)) (error "invalid preparation costs"))
+    (lambda (count) (if (< (+ selection-cost (* count direct-cost)) (+ prepare-cost (* count shared-cost))) 'direct 'shared))))
+(.defgeneric (choose-preparation costs count) slot: .choose)
 (define-type (methods.inputs<-shared @ [] shared-input prepare-shared project-shared)
-  .inputs: (lambda (previous policy view)
+  .select: (lambda (_) 'shared)
+  .direct: (lambda (_ __) (error "direct projection unavailable"))
+  .inputs: (lambda (previous policy view keys)
     (def context (shared-input policy view))
     (if (and previous (equal? context (input-batch-context previous)))
-      (make-input-batch context (input-batch-lookup previous) #f)
-      (let (prepared (prepare-shared context))
-        (make-input-batch context (cut project-shared <> prepared) #t)))))
+      (make-input-batch context (input-batch-lookup previous) #f 'retained)
+      (case (.select keys)
+        ((shared) (let (prepared (prepare-shared context))
+                    (make-input-batch context (cut project-shared <> prepared) #t 'shared)))
+        ((direct) (make-input-batch context (cut .direct <> context) #f 'direct))
+        (else (error "invalid preparation strategy"))))))
+(define-type (methods.inputs<-selection @ [methods.inputs<-shared] preparation-costs project-direct)
+  .select: (lambda (keys) (choose-preparation preparation-costs (length keys)))
+  .direct: project-direct)
 (define-type (Source. @ [] keys project construct)
-  .inputs: (lambda (_ policy view) (make-input-batch #f (cut project <> policy view) #f))
+  .inputs: (lambda (_ policy view __) (make-input-batch #f (cut project <> policy view) #f 'independent))
   .prepare: (lambda (policy view execute available) (materialize @ (keys policy view) .inputs construct #f policy view execute available))
   .refresh: (lambda (previous policy view execute available) (materialize @ (keys policy view) .inputs construct previous policy view execute available)))
 (.defgeneric (prepare source policy view execute (available (lambda (_) #t))) slot: .prepare)

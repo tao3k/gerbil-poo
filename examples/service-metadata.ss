@@ -11,16 +11,20 @@
         (prefix-in ../cyclic-publication publication.)
         (prefix-in ./cyclic-access access.))
 (def units-type (IntegerRange min: 0))
-(def (reservation available)
+(def (reservation-meaning available)
+  (lambda (key args result)
+    (case key
+      ((permission) (<= (car args) available))
+      ((conservation) (equal? result (list 'ok (- available (car args)) #t))))))
+;; Validate invariant native Type/Formula descriptors once; specialize only meaning.
+(def reservation-template
   (metadata.contract
     (metadata.predicate "positive-units" (match <> ([units] (and (element? units-type units) (> units 0))) (else #f)))
     (metadata.predicate "successful-reservation"
       (match <> (['ok remaining permitted] (and (integer? remaining) (>= remaining 0) (boolean? permitted))) (else #f)))
-    (lambda (key args result)
-      (case key
-        ((permission) (<= (car args) available))
-        ((conservation) (equal? result (list 'ok (- available (car args)) #t)))))
+    (reservation-meaning 0)
     (metadata.both (metadata.atom 'permission) (metadata.atom 'conservation))))
+(def (reservation available) (.cc reservation-template meaning: (reservation-meaning available)))
 (def (declarations view)
   (list
     (cons 'quote (list (metadata.replace "quote.total" [] (lambda (units) (* units (.@ view price))))))

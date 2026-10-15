@@ -1,8 +1,9 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc .@ .o) ../support/option (only-in :std/values first-value)
+(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc .@ .o .call) ../support/option (only-in :std/values first-value)
         "closure-measure.ss"
         (prefix-in ../declarative-metadata metadata.)
+        (only-in ../mop element?) (only-in ../number IntegerRange)
         (prefix-in ../examples/service-metadata service.)
         (prefix-in ../examples/cyclic-access access.)
         (prefix-in ../cyclic-publication publication.)
@@ -28,12 +29,18 @@
               service-budget-refuse service-negative-refuse
               contract-prepare contract-retain contract-change contract-rebind
               contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold
-              shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint))
+              shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint
+              joint-input-shared joint-input-independent joint-construct joint-bind joint-family-shared joint-family-independent joint-generics joint-approval joint-cook
+              selected-price selected-joint joint-family-selected joint-input-direct joint-selection joint-unfactored-construct unfactored-joint unfactored-price
+              workflow-selected-joint workflow-unfactored-joint))
 (def rounds 4)
 (def (repetitions phase)
   ;; Release-only follow-up: initial 8-op natural-GC price comparison regressed.
   ;; Increase both matched sides equally; keep the same fixed time/heap bounds.
-  (cond ((memq phase '(shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint)) 128)
+  (cond ((memq phase '(workflow-selected-joint workflow-unfactored-joint)) 128)
+        ((memq phase '(selected-price selected-joint joint-family-selected joint-input-direct joint-selection joint-unfactored-construct unfactored-joint unfactored-price)) 128)
+        ((memq phase '(joint-input-shared joint-input-independent joint-construct joint-bind joint-family-shared joint-family-independent joint-generics joint-approval joint-cook)) 128)
+        ((memq phase '(shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint)) 128)
         ((memq phase '(contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 128)
         ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
                          component-start component-refresh component-reuse component-root component-presence
@@ -45,6 +52,25 @@
                          contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 8)
         ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse protected-full-cold protected-full-warm)) 512)
         (else 4000)))
+;; Matched unfactored control: the previous public constructor semantics.
+;; This intentionally reconstructs invariant Types/Formula; it is not a runtime API.
+(def reference-units-type (IntegerRange min: 0))
+(def (unfactored-construct key input)
+  (case key
+    ((reserve)
+     (metadata.contract
+       (metadata.predicate "positive-units" (match <> ([units] (and (element? reference-units-type units) (> units 0))) (else #f)))
+       (metadata.predicate "successful-reservation"
+         (match <> (['ok remaining permitted] (and (integer? remaining) (>= remaining 0) (boolean? permitted))) (else #f)))
+       (lambda (atom args result)
+         (case atom ((permission) (<= (car args) input))
+                   ((conservation) (equal? result (list 'ok (- input (car args)) #t)))))
+       (metadata.both (metadata.atom 'permission) (metadata.atom 'conservation))))
+    ((cancel)
+     (metadata.contract
+       (metadata.predicate "consent" (match <> ([customer #t] (string? customer)) (else #f)))
+       (metadata.predicate "invoice-event" (match <> ([customer tag] (and (string? customer) (string? tag))) (else #f)))
+       (lambda (_ args result) (equal? result (list (car args) input))) (metadata.atom 'invoice)))))
 (def (main output binary)
   (write-datum output '(metadata-benchmarks (status incomplete)))
   (def identities (source-digests sources))
@@ -183,6 +209,57 @@
       (equal? (family.family-built (publication.version-family next)) (if joint? '(quote reserve cancel) '(quote)))
       (equal? (first-value (publication.invoke next 'reserve 2)) (list 'ok (- (.@ changed capacity) 2) #t))
       (equal? (first-value (publication.invoke next 'cancel "customer" #t)) (list "customer" (.@ changed invoice)))))
+  ;; Stage isolation uses the same real closed inputs, constructors and candidate.
+  ;; Measure whole batches, never put timers into production callbacks.
+  (def joint-policy (.cc policy capacity: 20 invoice: "invoice:2"))
+  (defvalues (joint-candidate joint-issue) (staged.publish shared.model shared-old (access.equations config #t) joint-policy))
+  (when joint-issue (error "joint profiling candidate refused"))
+  (def joint-view (publication.version-view joint-candidate))
+  (def reserve-descriptor (shared.construct 'reserve 20))
+  (def cancel-descriptor (shared.construct 'cancel "invoice:2"))
+  (def (joint-input shared?)
+    (def context (shared.shared-input joint-policy joint-view))
+    (def lookup (and shared? (shared.prepare-shared context)))
+    (equal? (map (lambda (key) (shared.project-shared key (or lookup (shared.prepare-shared context)))) '(reserve cancel))
+            '(20 "invoice:2")))
+  (def (joint-family source previous)
+    (def next (contracts.refresh source previous joint-policy joint-view contract-execute))
+    (and (equal? (contracts.family-built next) '(reserve cancel))
+         (equal? (contracts.family-bound next) '(reserve cancel))))
+  (def selected-source shared.selected-source)
+  (def selected-costs (.@ selected-source preparation-costs))
+  (def prepared-selected (contracts.prepare selected-source policy shared-view contract-execute))
+  (defvalues (selected-old selected-issue) (staged.prepare shared.selected-model (access.equations config #t) policy))
+  (def unfactored-model (.cc shared.model contract-source: (.cc shared.source construct: unfactored-construct)))
+  (defvalues (unfactored-old unfactored-issue) (staged.prepare unfactored-model (access.equations config #t) policy))
+  (when (or selected-issue unfactored-issue) (error "strategy/control baseline refused"))
+  ;; Admit the reference semantics before measuring constructor-only batches.
+  (for* ((key '(reserve cancel)) (constructor (list shared.construct unfactored-construct)))
+    (def descriptor (constructor key (if (eq? key 'reserve) 20 "invoice:2")))
+    (def args (if (eq? key 'reserve) '(2) '("customer" #t)))
+    (def expected-result (if (eq? key 'reserve) '(ok 18 #t) '("customer" "invoice:2")))
+    (unless (equal? (first-value (metadata.invoke descriptor (lambda (_) (values expected-result 'state)) args)) expected-result)
+      (error "constructor control result" key))
+    (def invalid (if (eq? key 'reserve) '(0) '("customer" #f)))
+    (def refused (try (metadata.invoke descriptor (lambda (_) (error "invalid input executed")) invalid) #f
+                     (catch (cause) (and (metadata.failure? cause) (eq? (metadata.failure-phase cause) 'input)))))
+    (unless refused (error "constructor control input" key)))
+  (def workflow-unfactored (.cc shared.workflow-model contract-source: (.cc shared.source construct: unfactored-construct)))
+  (defvalues (selected-workflow selected-workflow-issue) (staged.prepare shared.workflow-model (workflow.graph 30) policy))
+  (defvalues (unfactored-workflow unfactored-workflow-issue) (staged.prepare workflow-unfactored (workflow.graph 30) policy))
+  (when (or selected-workflow-issue unfactored-workflow-issue) (error "workflow control baseline"))
+  (def selected-revision (graph.define (publication.version-source selected-workflow) 'invoice (code.need 'settlement (cut + <> 9))))
+  (def unfactored-revision (graph.define (publication.version-source unfactored-workflow) 'invoice (code.need 'settlement (cut + <> 9))))
+  (def (workflow-joint model old source)
+    (defvalues (next issue) (staged.publish model old source policy))
+    (and (not issue)
+      (equal? (cache.cache-evaluated (publication.version-cache next)) '(invoice release total))
+      (= (length (cache.cache-reused (publication.version-cache next))) 12)
+      (equal? (contracts.family-built (publication.version-contract-family next)) '(reserve cancel))
+      (equal? (contracts.family-bound (publication.version-contract-family next)) '(reserve cancel))
+      (equal? (first-value (publication.invoke next 'reserve 2)) '(ok 39 #t))
+      (equal? (first-value (publication.invoke next 'cancel "customer" #t)) '("customer" "invoice:33"))))
+  (def binding-descriptors (list reserve-descriptor cancel-descriptor))
   (def actions
     (list (lambda () (first-value (raw '(2))))
           (lambda () (first-value (bound '(2))))
@@ -254,9 +331,34 @@
           (lambda () (shared-release shared.model shared-old #f #t))
           (lambda () (shared-release independent-model independent-old #f #f))
           (lambda () (shared-release shared.model shared-old #t #t))
-          (lambda () (shared-release independent-model independent-old #t #f))))
+          (lambda () (shared-release independent-model independent-old #t #f))
+          (lambda () (joint-input #t))
+          (lambda () (joint-input #f))
+          (lambda () (and (metadata.contract? (shared.construct 'reserve 20))
+                          (metadata.contract? (shared.construct 'cancel "invoice:2"))))
+          (lambda () (for/fold (valid #t) ((key '(reserve cancel)) (descriptor binding-descriptors))
+            (and valid (procedure? (metadata.wrap descriptor
+              (lambda (args current) (contract-execute key args current)))))))
+          (lambda () (joint-family shared.source prepared-shared))
+          (lambda () (joint-family shared.independent-source prepared-independent))
+          (lambda () (equal? (family.family-built
+            (family.refresh (.@ shared.model generics) (publication.version-family shared-old) joint-policy joint-view)) '(quote reserve cancel)))
+          (lambda () (bundle.admit joint-policy joint-candidate shared-old))
+          (lambda () (let (view (.call shared.model cook joint-policy (publication.version-cache shared-old)))
+            (and (= (.@ view capacity) 20) (equal? (.@ view invoice) "invoice:2"))))
+          (lambda () (shared-release shared.selected-model selected-old #f #f))
+          (lambda () (shared-release shared.selected-model selected-old #t #f))
+          (lambda () (joint-family selected-source prepared-selected))
+          (lambda () (equal? (map (cut shared.project-direct <> (shared.shared-input joint-policy joint-view)) '(reserve cancel)) '(20 "invoice:2")))
+          (lambda () (eq? (contracts.choose-preparation selected-costs 2) 'direct))
+          (lambda () (and (metadata.contract? (unfactored-construct 'reserve 20))
+                          (metadata.contract? (unfactored-construct 'cancel "invoice:2"))))
+          (lambda () (shared-release unfactored-model unfactored-old #t #t))
+          (lambda () (shared-release unfactored-model unfactored-old #f #f))
+          (lambda () (workflow-joint shared.workflow-model selected-workflow selected-revision))
+          (lambda () (workflow-joint workflow-unfactored unfactored-workflow unfactored-revision))))
   (def expected (append (list '(ok 8 #t) '(ok 8 #t) '(ok 8 #t) #t 'input 'output 'logic #t '(ok 8 #t) #t #t)
-                        (make-list 45 #t)))
+                        (make-list 64 #t)))
   (def rows [])
   (for* ((gc '(natural collected)) (round (in-range rounds)) (position (in-range (length phases))))
     (def index (modulo (+ round position) (length phases)))
