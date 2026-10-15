@@ -2,7 +2,7 @@
 (export literal fact both either compile-closure reconfigure-closure
         closure-plan? closure-result? solve-closure closure-ref closure->list
         closure-counts closure-plan-size closure-plan-edges closure-plan-nodes
-        closure-policy balanced-closure-policy closure-plan-queue closure-plan-hybrid-ceiling closure-plan-selector-visits prepare-closure construct-closure)
+        closure-index-shared? closure-policy balanced-closure-policy closure-plan-queue closure-plan-hybrid-ceiling closure-plan-selector-visits prepare-closure construct-closure)
 (import :gerbil/runtime/gambit :std/iter)
 
 ;; Input constructors; compilation validates and copies every descriptor.
@@ -10,7 +10,7 @@
 (def (fact index) (vector 1 index #f))
 (def (both left right) (vector 2 left right))
 (def (either left right) (vector 3 left right))
-(defstruct closure-plan (code watches degrees edges nodes maximum hybrid-ceiling queue selector-visits) final: #t)
+(defstruct closure-plan (code watches degrees edges nodes maximum hybrid-ceiling queue selector) final: #t)
 (defstruct closure-result (bits counts) final: #t)
 (defstruct queue-prices (copy suspend resume) final: #t)
 (def (closure-policy copy suspend resume)
@@ -19,6 +19,8 @@
     (error "invalid queue primitive prices"))
   (make-queue-prices copy suspend resume))
 (def balanced-closure-policy (closure-policy 1 4 4))
+(def (closure-plan-selector-visits plan)
+  (if (eq? (closure-plan-selector plan) 'prepared) (closure-plan-size plan) 0))
 (def (closure-plan-size plan) (vector-length (closure-plan-code plan)))
 
 ;; Counters: pops/evaluations/nodes/writes/pushes/frame-allocations/frame-pops/
@@ -26,50 +28,57 @@
 (def (inc! counts index (amount 1))
   (vector-set! counts index (+ (vector-ref counts index) amount)))
 
-;; Like the compiler's typed contexts, one private state owns traversal counters.
-;; Reads are a higher-order visitor; node accounting does not allocate callbacks.
-(defstruct compilation (nodes local) final: #t)
-(def (copy-expression node size context on-read (depth 4096))
-  (when (= depth 0) (error "positive descriptor depth limit"))
-  (using (ctx context :- compilation)
-    (set! ctx.nodes (1+ ctx.nodes))
-    (set! ctx.local (1+ ctx.local))
-    (when (> ctx.nodes 1000000) (error "positive descriptor node limit"))
-    (match node
-      (#(tag left right)
-       (case tag
-         ((0) (unless (boolean? left) (error "literal must be Boolean" left)) (literal left))
-         ((1) (unless (and (exact-integer? left) (<= 0 left) (< left size))
-                (error "fact index outside declaration" left size))
-              (on-read left) (fact left))
-         ((2 3) (vector tag (copy-expression left size ctx on-read (1- depth))
-                            (copy-expression right size ctx on-read (1- depth))))
-         (else (error "unknown positive descriptor" tag))))
-      (else (error "invalid positive descriptor" node)))))
+;; Private typed state, following the compiler's context style. Walkers are
+;; specialized at expansion time: index construction has no per-equation closure
+;; and copy-only revisions perform no reverse-index writes.
+(defstruct compilation (nodes local edges target watches degrees) final: #t)
+(defrule (index-read! ctx source)
+  (using (indexer ctx :- compilation)
+    (set! indexer.edges (1+ indexer.edges))
+    (vector-set! indexer.watches source (cons indexer.target (vector-ref indexer.watches source)))
+    (vector-set! indexer.degrees source (1+ (vector-ref indexer.degrees source)))))
+(defrule (ignore-read! ctx source) (void))
+(defrule (define-copy-walker name visit)
+  (def (name node size context (depth 4096))
+    (when (= depth 0) (error "positive descriptor depth limit"))
+    (using (ctx context :- compilation)
+      (set! ctx.nodes (1+ ctx.nodes))
+      (set! ctx.local (1+ ctx.local))
+      (when (> ctx.nodes 1000000) (error "positive descriptor node limit"))
+      (unless (and (vector? node) (= (vector-length node) 3))
+        (error "invalid positive descriptor" node))
+      (let ((tag (vector-ref node 0)) (left (vector-ref node 1)))
+        (case tag
+          ((0) (unless (boolean? left) (error "literal must be Boolean" left)) (literal left))
+          ((1) (unless (and (exact-integer? left) (<= 0 left) (< left size))
+                 (error "fact index outside declaration" left size))
+               (visit ctx left) (fact left))
+          ((2 3) (vector tag (name left size ctx (1- depth))
+                             (name (vector-ref node 2) size ctx (1- depth))))
+          (else (error "unknown positive descriptor" tag)))))))
+(define-copy-walker copy-indexed index-read!)
+(define-copy-walker copy-only ignore-read!)
+
+(def (check-priced-range! size edges maximum)
+  (unless (and (fixnum? (+ size edges))
+               (fixnum? (* 16 (+ 1 size edges (* (+ size edges) maximum)))))
+    (error "declaration exceeds fixnum-priced operation range")))
 
 (def (compile-closure equations (mode 'auto))
   (unless (vector? equations) (error "equations must be a finite vector"))
   (unless (memq mode '(auto cold append chunked hybrid)) (error "compile mode" mode))
   (def size (vector-length equations))
   (def code (make-vector size))
-  (def watches (make-vector size '()))
-  (def degrees (make-vector size 0))
-  (def ctx (make-compilation 0 0))
-  (def edges 0)
-  (def maximum 0)
-  (for (target (in-range size))
-    (set! (compilation-local ctx) 0)
-    (vector-set! code target
-      (copy-expression (vector-ref equations target) size ctx
-        (lambda (source)
-          (set! edges (1+ edges))
-          (vector-set! watches source (cons target (vector-ref watches source)))
-          (vector-set! degrees source (1+ (vector-ref degrees source))))))
-    (set! maximum (max maximum (compilation-local ctx))))
-  (unless (and (fixnum? (+ size edges)) (fixnum? (* 16 (+ 1 size edges (* (+ size edges) maximum)))))
-    (error "declaration exceeds fixnum-priced operation range"))
-  (defvalues (ceiling queue visits) (queue-metadata mode degrees edges size))
-  (make-closure-plan code watches degrees edges (compilation-nodes ctx) maximum ceiling queue visits))
+  (using (ctx (make-compilation 0 0 0 0 (make-vector size '()) (make-vector size 0)) :- compilation)
+    (def maximum
+      (for/fold (maximum 0) (target (in-range size))
+        (set! ctx.local 0)
+        (set! ctx.target target)
+        (vector-set! code target (copy-indexed (vector-ref equations target) size ctx))
+        (max maximum ctx.local)))
+    (check-priced-range! size ctx.edges maximum)
+    (defvalues (ceiling queue) (queue-metadata mode ctx.degrees ctx.edges size))
+    (make-closure-plan code ctx.watches ctx.degrees ctx.edges ctx.nodes maximum ceiling queue (if (eq? mode 'auto) 'prepared 'unprepared))))
 
 (def (queue-metadata mode degrees edges size)
   (def append-bound (* 4 edges))
@@ -82,17 +91,18 @@
       ((auto) (cond ((and (<= append-bound chunk-bound) (<= append-bound ceiling)) 'append)
                     ((<= chunk-bound ceiling) 'chunked) (else 'hybrid)))
       ((cold) (if (<= append-bound chunk-bound) 'append 'chunked))
-      (else mode))
-    (if (eq? mode 'auto) size 0)))
+      (else mode))))
 
 ;; Delayed cache preparation shares private code/index vectors; no AST copying.
 (def (prepare-closure plan)
-  (using (p plan :- closure-plan)
-    (defvalues (ceiling queue visits) (queue-metadata 'auto p.degrees p.edges (vector-length p.code)))
-    (make-closure-plan p.code p.watches p.degrees p.edges p.nodes p.maximum ceiling queue visits)))
+  (if (eq? (closure-plan-selector plan) 'unprepared)
+    (using (p plan :- closure-plan)
+      (defvalues (ceiling queue) (queue-metadata 'auto p.degrees p.edges (vector-length p.code)))
+      (make-closure-plan p.code p.watches p.degrees p.edges p.nodes p.maximum ceiling queue 'prepared))
+    plan))
 
-;; A sufficient no-allocation topology check: same tags/read indices, arbitrary
-;; literal changes. General dependency-equivalent reshaping needs fresh compile.
+;; Allocation-free fast path for literal-only revisions. The fallback below
+;; admits changed shapes with exactly equal ordered read occurrences.
 (def (same-topology? old fresh)
   (and (= (vector-ref old 0) (vector-ref fresh 0))
        (case (vector-ref old 0)
@@ -101,24 +111,38 @@
          (else (and (same-topology? (vector-ref old 1) (vector-ref fresh 1))
                     (same-topology? (vector-ref old 2) (vector-ref fresh 2)))))))
 
+;; Same ordered read occurrences are sufficient, even after reassociating joins
+;; or replacing both with either. This matches IncrementalClosure.reconfigure.
+(def (collect-reads node tail)
+  (case (vector-ref node 0)
+    ((0) tail)
+    ((1) (cons (vector-ref node 1) tail))
+    (else (collect-reads (vector-ref node 1) (collect-reads (vector-ref node 2) tail)))))
+(def (same-dependencies? old fresh)
+  (or (same-topology? old fresh) (equal? (collect-reads old []) (collect-reads fresh []))))
+(def (closure-index-shared? first second)
+  (and (eq? (closure-plan-watches first) (closure-plan-watches second))
+       (eq? (closure-plan-degrees first) (closure-plan-degrees second))))
+
 (def (reconfigure-closure prior equations)
   (def size (closure-plan-size prior))
   (unless (and (vector? equations) (= (vector-length equations) size))
     (error "reconfiguration changes fact range"))
   (def code (make-vector size))
-  (def ctx (make-compilation 0 0))
+  (def ctx (make-compilation 0 0 0 0 #f #f))
   (def maximum 0)
   (for (index (in-range size))
     (set! (compilation-local ctx) 0)
-    (def fresh (copy-expression (vector-ref equations index) size ctx void))
-    (unless (same-topology? (vector-ref (closure-plan-code prior) index) fresh)
+    (def fresh (copy-only (vector-ref equations index) size ctx))
+    (unless (same-dependencies? (vector-ref (closure-plan-code prior) index) fresh)
       (error "reconfiguration changes read topology" index))
     (vector-set! code index fresh)
     (set! maximum (max maximum (compilation-local ctx))))
+  (check-priced-range! size (closure-plan-edges prior) maximum)
   (make-closure-plan code (closure-plan-watches prior) (closure-plan-degrees prior)
                     (closure-plan-edges prior) (compilation-nodes ctx) maximum
                     (closure-plan-hybrid-ceiling prior) (closure-plan-queue prior)
-                    0))
+                    (if (eq? (closure-plan-selector prior) 'unprepared) 'unprepared 'retained)))
 
 ;; Strict evaluation agrees with the Lean instrumented interpreter; Boolean
 ;; results are scalar and no result pair is allocated per visited AST node.

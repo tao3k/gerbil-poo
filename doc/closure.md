@@ -1,3 +1,73 @@
+# Closure construction, native measurements and publication alignment
+
+The current implementation and open interface gaps are mapped in
+[alignment.md](alignment.md). The active benchmark tools now use fixed Scheme
+case/column definitions and native `read`/`write` data. Common metadata appears
+once, followed by result vectors and a completion marker. No new JSON format or
+version series is introduced; historical JSON records below remain unchanged.
+
+## Measured construction changes
+
+Diamond's cold path skips adaptive degree preparation. The remaining construction
+walk is specialized with `defrule` into indexed and copy-only visitors using a
+private compiler-style typed context. It no longer creates a read callback for
+each equation. Direct checked tag dispatch avoids the pattern continuations seen
+in the previous generated walker. Input copying/validation, depth/node caps and
+fixnum-priced range admission remain. Shape-growing revisions recheck the new
+size bound. Native CPU, wall, GC CPU/count and allocated-byte measurements are
+recorded per phase; GC CPU is included in CPU, not added to it again.
+
+`prepare-closure` is idempotent on an already admitted adaptive plan, including
+retained revisions: it returns the identical plan without rescanning degrees or
+allocating another plan. `closure-plan-selector-visits` describes construction of
+that plan; it is not another visit count for repeated cached preparation calls.
+
+`reconfigure-closure` now accepts equal ordered read occurrences even when Boolean
+operators or association change. It first takes the no-allocation same-topology
+fast path, then uses linear dependency collection for reshapes. Changed occurrence
+order/multiplicity/range is refused; the solution is always recomputed from bottom.
+The old published facts never bootstrap an unsupported new cycle.
+
+## Unified construction/publication operations
+
+`closure-workflow.ss` stages least closure, cooked view, heterogeneous named
+procedures and candidate admission as one bundle. Duplicate/invalid services,
+cooking exceptions or admission refusal preserve the identical old bundle. A
+fresh compile is explicit when topology changes. Published views are immutable by
+contract: callbacks and clients must not mutate them. Arbitrary external effects
+are not rolled back. Method indexes and raw fact storage are private.
+
+`examples/closure-access.ss` ports the exact ten CyclicAccess equations and cooked
+view (including active indices), with two different service signatures, consent,
+revocation and admission refusal. All 32 source configurations are tested through
+real `.o` objects. The callback family does not implement Lean's arbitrary typed
+multi-dispatch, negative watches, logical metadata or certified recursive memo;
+those remaining gaps are explicit in the alignment map.
+
+Lean proves the fused exact index and core preservation, dependency-equal reshape
+canonicality, conditional construction allocation savings, cached preparation
+idempotence and retained publication/refusal. These are finite source/model
+properties; native timing/GC counters are separate measurements.
+
+## Reproduction
+
+```
+GERBIL_PATH=<package-env> just benchmark-closure-phases
+GERBIL_PATH=<package-env> just benchmark-closure-paired
+GERBIL_PATH=<package-env> just benchmark-closure <lean-checkout>
+GERBIL_PATH=<package-env> gxi t/closure-report.ss .build/closure/closure-benchmarks.scm
+```
+
+The matrix driver runs both already selected runtimes using one case definition,
+checks their 23 counters, records every failure, and verifies source identities
+before/after measurement. Its reader rejects incomplete, duplicated, changed-source
+or counter-mismatched studies. Data is read without evaluation. Every child keeps
+the 20s deadline and Scheme's 1GiB heap bound; compile jobs keep 90s.
+
+---
+
+# Earlier lifecycle implementation (historical v4)
+
 # Closure lifecycle and standard-library implementation (v4)
 
 This advances the paper's generalized-protocol future work for finite positive

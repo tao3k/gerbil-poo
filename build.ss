@@ -29,6 +29,7 @@
     "support/syntax"
     "support/testing"
     "closure"
+    "closure-workflow"
     "cli"
     "debug"
     ,+gerbil-poo-fq-spec+
@@ -43,6 +44,9 @@
     "table"
     "trie"
     "type"
+    "examples/closure-access"
+    "t/closure-measure"
+    "t/closure-cases"
     "t/closure-benchmark-support"
     "t/closure-scale-benchmark"
     "t/table-testing"))
