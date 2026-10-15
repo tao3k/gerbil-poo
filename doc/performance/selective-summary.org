@@ -1,27 +1,43 @@
 #+TITLE: Native selective construction observations
 
-Run: just benchmark-metadata. Complete current-source matrix: 400 observations,
-50 phases, four rotating rounds, natural and pre-collected controls.
+Run: just benchmark-metadata (binary/output basename shared-benchmark/shared-benchmarks.scm in this run). Complete current-source matrix: 448 observations,
+56 phases, four rotating rounds, natural and pre-collected controls.
 Toolchain Gerbil/Gambit: (1cfb032 ea114fc). Native compile <=90s;
 measurement <=20s with 1-GiB heap. No simultaneous Lean build during measurement.
 
 CPU medians per operation, microseconds; local finite observations only.
 | Phase | work | natural CPU us | collected CPU us |
 |-------+------------------+----------------+------------------|
-| contract-prepare | built 1 / bound 1 | 106.437 | 37.062 |
-| contract-retain | built 0 / bound 0 | 6.438 | 3.062 |
-| contract-change | built 1 / bound 1 | 103.5 | 36.563 |
-| contract-rebind | built 0 / bound 1 | 6.813 | 4.25 |
-| contract-release-reuse | contract 0/0 | 43.617 | 41.488 |
-| contract-release-cold | contract 1/1 | 111.859 | 134.012 |
-| contract-price-reuse | contract 0/0 | 132.375 | 163.488 |
-| contract-price-cold | contract 1/1 | 203.195 | 251.184 |
-| service-reuse | generic 0/3 | 37.125 | 31.875 |
-| service-cold | generic 3/0 | 193.938 | 247.812 |
-| service-price | generic 1/2 | 197.375 | 139. |
-| service-price-cold | generic 3/0 | 196.687 | 245.062 |
-| service-invoice | generic 1/2 | 96.562 | 127.625 |
-| service-invoice-cold | generic 3/0 | 286.875 | 254.625 |
+| shared-input-retain | shared prepare 0 | 2.398 | 2.379 |
+| independent-input-retain | per-key prepare 2 | 4.969 | 3.148 |
+| shared-price | shared prepare 0; contract 0/0 | 131.238 | 130.906 |
+| independent-price | per-key prepare 2; contract 0/0 | 134.91 | 136.121 |
+| shared-joint | shared prepare 1; contract 2/2 | 348.684 | 341.91 |
+| independent-joint | per-key prepare 2; contract 2/2 | 338.934 | 339.41 |
+| contract-prepare | built 1 / bound 1 | 96.375 | 37.187 |
+| contract-retain | built 0 / bound 0 | 3.312 | 3.437 |
+| contract-change | built 1 / bound 1 | 35.5 | 35.938 |
+| contract-rebind | built 0 / bound 1 | 3.5 | 3.562 |
+| contract-release-reuse | contract 0/0 | 38.242 | 34.68 |
+| contract-release-cold | contract 1/1 | 109.438 | 111.227 |
+| contract-price-reuse | contract 0/0 | 131.664 | 128.398 |
+| contract-price-cold | contract 1/1 | 201.77 | 203.988 |
+| service-reuse | generic 0/3 | 32.25 | 31.625 |
+| service-cold | generic 3/0 | 248.438 | 189.75 |
+| service-price | generic 1/2 | 89.5 | 84.687 |
+| service-price-cold | generic 3/0 | 226.438 | 193.937 |
+| service-invoice | generic 1/2 | 125.688 | 64.875 |
+| service-invoice-cold | generic 3/0 | 195.125 | 192.813 |
+
+Shared pairs use identical constructors, generic work, admission and outputs. Input-only pairs
+isolate preparation without invoking wrappers. Complete release pairs include checked reserve/cancel calls.
+Shared price revisions retain both contracts/wrappers and both stable business probes; dynamic checks remain.
+Joint capacity/invoice changes rebuild all three generics (quote also depends on capacity).
+Changed-input joint publication regressed about 2.9 percent under natural GC; common preparation is
+not a universal strategy. Collected input-only allocation: shared 4176.25 vs independent 9989.25 bytes/op;
+these batches had no intervening collections. Other unavailable allocation is not admitted as a gain.
+A first new joint oracle incorrectly omitted quote from the dirty set and refused the run.
+Its failure log remains ignored; only that expectation was corrected, without changing production code or bounds.
 
 Direct contract phases include source/input capture, table preparation, construction/binding and a checked call.
 Retained descriptors and wrappers are the identical objects; rebind-only retains the descriptor.
@@ -29,7 +45,7 @@ Release controls begin with all services warm and compare identical generic work
 forcing only contract construction/binding cold. Approval and real checked calls are included.
 Price-only releases rebuild quote; reservation/cancellation stay warm. Generic work is built/reused.
 Whole-service cold controls additionally rebuild all generics and run full approval.
-Contract release pairs use 128 operations per batch on both sides; other preparation phases use 8.
+Contract release and new shared/independent pairs use 128 operations per batch on both sides; other preparation phases use 8.
 An initial 8-op natural-GC price comparison regressed: retained 139.063 us vs cold 122.312 us.
 That initial matrix/log stays ignored; the follow-up changes only benchmark batch size, not production code.
 Four rotating rounds are finite local evidence, not universal speed or allocator/runtime proof.
@@ -37,12 +53,13 @@ Allocation crossing GC or a negative counter delta remains unavailable; signed
 diagnostics and complete rows stay under ignored .build/metadata/. No new raw matrix
 is committed. Compressed result archives are not committed.
 
-Study digest: 17d3ef25e99dd922619a1432cec6760cf6773e259536e5d8cfa19c77e93253b8
-Binary digest: 59a9bd1ab2fdba2be5a225482b2bac2225220e691913a3733e79ea876e316125
+Study digest: 56c349824bb8f5324c04ba3dc1a633096b0f4b3985e294dc595fa2d9a3778e1a
+Binary digest: ec3bd94b1304ef9f6f0dd91b12b38e10039b9902e346ae0d4b4f93351beb84e1
 
 Selected construction source identities (the raw header records all sources):
-- contract-family.ss 25aa26bf6087a4bf6be3cca65165655ce26e8935f8874fbe149333eaa65b3ac4
+- contract-family.ss f6254657b679c2be282dbfd90a30dcfe75606291334be57d08b91634701abdbc
 - cyclic-publication.ss 53ad3d6ead88869887e1f2e628e6a1cb86c00995d14658fbe6cc8add6559004d
 - staged-publication.ss 1934a2a75017aa4835d1b13987f46015eff47f6c4a2de84e874953d60dd46f59
 - examples/service-bundle.ss bba0c1a318403db071597f039724663c60130b8dddde92f9cdffdbeab7ea7b77
-- t/metadata-benchmark.ss ef392c7c1df39af02cbd1f1c49059804045d665c4e0b4c9907f44bc9aa59a950
+- examples/shared-contracts.ss cc97d1b842891adae8a220ae3c848eca6f4865caa60ce6ead70c6aeb7bc27af2
+- t/metadata-benchmark.ss 0a8ade6dce1fef53ee67c2d5ab3cd76dbbd5659400b4c7faa0d9120784bf213a

@@ -58,6 +58,7 @@
     "examples/service-metadata"
     "examples/service-bundle"
     "examples/construction-workflow"
+    "examples/shared-contracts"
     "t/closure-measure"
     "t/closure-cases"
     "t/closure-benchmark-support"

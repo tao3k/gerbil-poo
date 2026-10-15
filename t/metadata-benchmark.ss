@@ -9,6 +9,7 @@
         (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/protected-dispatch protected.)
         (prefix-in ../contract-family contracts.)
+        (prefix-in ../examples/shared-contracts shared.)
         (prefix-in ../generic-family family.) (prefix-in ../staged-publication staged.)
         (prefix-in ../multimethod multimethod.)
         (prefix-in ../dispatch-extension dispatch.)
@@ -16,7 +17,7 @@
         (prefix-in ../dependency-analysis code.) (prefix-in ../examples/construction-workflow workflow.))
 (def sources '("contract-family.ss" "build.ss" "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
                "closure.ss" "object.ss" "mop.ss" "type.ss" "number.ss" "justfile"
-               "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
+               "examples/shared-contracts.ss" "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
                "t/closure-measure.ss" "t/metadata-benchmark.ss" "t/metadata-report.ss"))
 (def phases '(raw bound invoke wrap-build input-refuse output-refuse logic-refuse family-build family-warm revise refused-revise
               protected-build protected-cold protected-warm guarded-low guarded-high protected-refuse protected-cancelled metadata-refuse call-refuse
@@ -26,12 +27,14 @@
               service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
               service-budget-refuse service-negative-refuse
               contract-prepare contract-retain contract-change contract-rebind
-              contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold))
+              contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold
+              shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint))
 (def rounds 4)
 (def (repetitions phase)
   ;; Release-only follow-up: initial 8-op natural-GC price comparison regressed.
   ;; Increase both matched sides equally; keep the same fixed time/heap bounds.
-  (cond ((memq phase '(contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 128)
+  (cond ((memq phase '(shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint)) 128)
+        ((memq phase '(contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 128)
         ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
                          component-start component-refresh component-reuse component-root component-presence
                          selective-release policy-release selective-negative-refuse selective-admission-refuse
@@ -158,6 +161,28 @@
                 (publication.version-contract-invoker service-warm 'reserve)) (not cold?))
       (equal? (first-value (publication.invoke next 'reserve 2)) '(ok 8 #t))
       (equal? (first-value (publication.invoke next 'quote protected.invoice protected.card 10)) (list 13 (+ 10 (.@ changed price))))))
+  (def shared-view (publication.version-view service-warm))
+  (def prepared-shared (contracts.prepare shared.source policy shared-view contract-execute))
+  (def prepared-independent (contracts.prepare shared.independent-source policy shared-view contract-execute))
+  (def independent-model (.cc shared.model contract-source: shared.independent-source))
+  (defvalues (shared-old shared-issue) (staged.prepare shared.model (access.equations config #t) policy))
+  (defvalues (independent-old independent-issue) (staged.prepare independent-model (access.equations config #t) policy))
+  (when (or shared-issue independent-issue) (error "shared initial publication refused"))
+  (def (retain-inputs source previous)
+    (def next (contracts.refresh source previous policy shared-view contract-execute))
+    (and (not (contracts.family-prepared? next))
+      (equal? (contracts.family-built next) []) (equal? (contracts.family-bound next) [])
+      (andmap (lambda (key) (eq? (contracts.family-invoker next key) (contracts.family-invoker previous key))) '(reserve cancel))))
+  (def (shared-release model previous joint? shared?)
+    (def changed (if joint? (.cc policy capacity: 20 invoice: "invoice:2") (.cc policy price: 4)))
+    (defvalues (next issue) (staged.publish model previous (access.equations config #t) changed))
+    (and (not issue)
+      (eq? (contracts.family-prepared? (publication.version-contract-family next)) (and shared? joint?))
+      (equal? (contracts.family-built (publication.version-contract-family next)) (if joint? '(reserve cancel) []))
+      (equal? (contracts.family-bound (publication.version-contract-family next)) (if joint? '(reserve cancel) []))
+      (equal? (family.family-built (publication.version-family next)) (if joint? '(quote reserve cancel) '(quote)))
+      (equal? (first-value (publication.invoke next 'reserve 2)) (list 'ok (- (.@ changed capacity) 2) #t))
+      (equal? (first-value (publication.invoke next 'cancel "customer" #t)) (list "customer" (.@ changed invoice)))))
   (def actions
     (list (lambda () (first-value (raw '(2))))
           (lambda () (first-value (bound '(2))))
@@ -223,9 +248,15 @@
           (lambda () (contract-release bundle.model policy #f [] '(quote reserve cancel)))
           (lambda () (contract-release contract-cold-model policy #t [] '(quote reserve cancel)))
           (lambda () (contract-release bundle.model (.cc policy price: 4) #f '(quote) '(reserve cancel)))
-          (lambda () (contract-release contract-cold-model (.cc policy price: 4) #t '(quote) '(reserve cancel)))))
+          (lambda () (contract-release contract-cold-model (.cc policy price: 4) #t '(quote) '(reserve cancel)))
+          (lambda () (retain-inputs shared.source prepared-shared))
+          (lambda () (retain-inputs shared.independent-source prepared-independent))
+          (lambda () (shared-release shared.model shared-old #f #t))
+          (lambda () (shared-release independent-model independent-old #f #f))
+          (lambda () (shared-release shared.model shared-old #t #t))
+          (lambda () (shared-release independent-model independent-old #t #f))))
   (def expected (append (list '(ok 8 #t) '(ok 8 #t) '(ok 8 #t) #t 'input 'output 'logic #t '(ok 8 #t) #t #t)
-                        (make-list 39 #t)))
+                        (make-list 45 #t)))
   (def rows [])
   (for* ((gc '(natural collected)) (round (in-range rounds)) (position (in-range (length phases))))
     (def index (modulo (+ round position) (length phases)))

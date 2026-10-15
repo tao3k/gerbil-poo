@@ -73,7 +73,7 @@ Lean adds ~Partial.step_reused_builder_independent~ and
 ~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
 rejecting every node outside its eleven-node cone.
 
-~just benchmark-metadata~ measures 50 phases / 400 observations. Component phases
+~just benchmark-metadata~ measures 56 phases / 448 observations. Component phases
 include source capture, scheduling and cache preparation; release phases include
 fresh services/contracts and admission. Existing 90-second compile, 20-second
 measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
@@ -190,3 +190,41 @@ natural-GC price regression. The concise performance summary retains that
 negative observation; initial data/log/source and final measurements stay ignored.
 The follow-up changed batch size only, preserving production source and all
 compile/time/heap bounds. It does not establish a universal performance guarantee.
+
+* Shared heterogeneous contract contexts
+
+~ContractFamily.methods.inputs<-shared~ derives ~.inputs~ from ~shared-input~,
+~prepare-shared~ and ~project-shared~. Only the closed immutable shared context
+reaches preparation. A private source-bound batch retains the prepared lookup
+when that complete context is equal; changed contexts prepare once for the whole
+family. Independent ~Source.~ implementations keep ordinary per-key projections.
+The ~family-prepared?~ trace reports actual shared preparation, not skipped calls
+for sources that do not implement the shared protocol. An empty/default source
+still has the original semantics. Current support and duplicates are checked for
+all keys before any shared preparation, descriptor construction or wrapper binding.
+
+~examples/shared-contracts.ss~ composes this mixin with existing reserve/cancel
+constructors, typed generic projections and staged publication. Price revisions
+retain both contracts and wrappers and skip both stable business probes. Capacity
+and invoice changes jointly rebuild affected descriptors; invoice-only changes
+retain reserve. Missing service, changed source, shared preparation failure and
+joint admission refusal are checked by native tests. Old snapshots and warmed
+certificates remain intact after refusal. Ordinary invocation always checks metadata;
+dynamic cache/ceiling/release approval is not transferred by the shared context.
+
+Lean ~ContractFamily.SharedProjection~ uses the corresponding structure for closed input,
+preparation and projection. ~refresh_project / cached_source_project~ establish
+fresh-input equivalence for every heterogeneous key, ~refresh_retained~ proves
+zero prepare calls on unchanged input, ~refresh_cost~ bounds calls by one, and
+~retain_origin~ preserves contract origin when only sibling inputs change.
+These laws reuse existing binding/publication laws and assume immutable pure
+sources. They do not verify Scheme allocation or runtime execution.
+
+The native matrix now has 56 phases / 448 rows. Shared/independent input and
+complete price/joint publication pairs use 128 operations equally on both sides,
+including preparation, construction, binding, admission and actual checked calls.
+The small two-contract joint changed-input case regressed (348.684 versus 338.934
+microseconds under natural GC); this negative result remains in the concise
+summary. An initial new benchmark oracle incorrectly omitted quote from the
+capacity dirty set and refused the run; only that expectation was corrected.
+No incomplete/oracle-failed run is admitted as a performance result.
