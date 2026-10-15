@@ -1,4 +1,4 @@
-(export closure-workflow-test)
+(export cyclic-access-test)
 (import :std/test :std/iter ../closure ../object)
 
 (def (quorum a b c) (either (both a b) (either (both a c) (both b c))))
@@ -12,7 +12,7 @@
   (.o (member (closure-ref result 1)) (approved (closure-ref result 4))
       (release (closure-ref result 7)) (active (closure->list result))))
 
-(def closure-workflow-test
+(def cyclic-access-test
   (test-suite "cyclic construction through real POO public slots"
     (test-case "quorum, shared membership, loss of source authority and old snapshots"
       (for* ((seed '(#f #t)) (trust '(#f #t)) (training '(#f #t))

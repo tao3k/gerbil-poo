@@ -30,14 +30,14 @@ The old published facts never bootstrap an unsupported new cycle.
 
 ## Unified construction/publication operations
 
-`closure-workflow.ss` stages least closure, cooked view, heterogeneous named
+`cyclic-publication.ss` stages least closure, cooked view, heterogeneous named
 procedures and candidate admission as one bundle. Duplicate/invalid services,
 cooking exceptions or admission refusal preserve the identical old bundle. A
 fresh compile is explicit when topology changes. Published views are immutable by
 contract: callbacks and clients must not mutate them. Arbitrary external effects
 are not rolled back. Method indexes and raw fact storage are private.
 
-`examples/closure-access.ss` ports the exact ten CyclicAccess equations and cooked
+`examples/cyclic-access.ss` ports the exact ten CyclicAccess equations and cooked
 view (including active indices), with two different service signatures, consent,
 revocation and admission refusal. All 32 source configurations are tested through
 real `.o` objects. The callback family does not implement Lean's arbitrary typed
@@ -310,7 +310,7 @@ paper's generalized-protocol future work, within concrete positive equations.
   private source copies, retained topology, revocation, malformed input, cyclic
   input refusal, empty systems, dense allocation, singleton/empty shortcuts,
   invalid prices and counter partition.
-- `t/closure-workflow-test.ss`: actual POO public slots for membership, quorum,
+- `t/cyclic-access-test.ss`: actual POO public slots for membership, quorum,
   shared approval/team cycles, compliance join and source revocation across 32
   configurations. Old public snapshots survive refused reconfiguration.
 - Native benchmark families: multilevel diamonds, dense shared dependencies,
