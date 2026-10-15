@@ -1,0 +1,78 @@
+#+TITLE: Selective generalized component construction
+
+* Native composition
+
+This advances the generalized-prototype future work. Computation expressions
+(~dependency-analysis.ss~) infer dependencies from child expressions, including
+presence observations and both conditional branches. Declaration sources
+(~generalized-graph.ss~) support define/remove/set-base/support and reject cycles
+or unsupported reads before construction. Builder and materialized caches
+(~construction-cache.ss~) retain successes, source failures and real absences.
+
+~StagedPublication.methods.construction<-cache~ specializes the existing model's
+~.construct / .refresh~ hooks. The Boolean cyclic solver remains its default;
+general component graphs require a valid DAG schedule. Cooking, typed generics,
+negative watches, contracts and joint approval reuse one shared finish boundary.
+
+* Reuse and invalidation
+
+Reuse requires exact program/base identity and clean transitive dependencies.
+Equal outputs or version labels cannot authorize reuse. Changed support/order is
+conservative. A dependency-ordered pass materializes each shared node once; clean
+slots never invoke a builder or resolver. Source capture uses direct lookup tables
+for active keys while preserving latent code/base for later support edits.
+
+Source capture, scheduling, invalidation and cache preparation still scan the
+supported graph; builder skipping does not imply sublinear total time. Private
+transient tables reuse the standard hash library. Values, source objects and
+callbacks must remain stable and pure. Open POO metadata and arbitrary extension
+callbacks do not carry dependent kernel proofs. Extensions must declare their
+reads; actual undeclared provider accesses are refused.
+
+Each accepted release rebuilds services/contracts against the new cooked view
+with cold service caches. Per-service method rebuilding is not claimed selective.
+Calls retain the exact component cache and recheck the actual service-cache
+successor. A refused release retains the identical previous version, including
+its component values and warm service caches. External effects are outside this
+value rollback contract.
+
+* Shared settlement example
+
+~examples/construction-workflow.ss~ reuses ConstructionWorkflow's fifteen keys:
+input feeds freight/cover/audit, tax/risk merge at settlement, invoice/audit merge
+at release, and the absence of blocked feeds total. It composes the existing C4
+ServiceBundle and its quote/reserve/cancel metadata and negative-watch rules.
+
+- Input 30: 15 evaluated, total 32.
+- Invoice adjustment: 3 evaluated / 12 reused, total 41. Reservation, cancellation
+  and guarded Bank quotation all capture the revised component values.
+- Shared input 60 after that adjustment: 11 evaluated / 4 reused, total 67.
+- Discount presence change invalidates risk and all dependent joins.
+- Policy-only repricing: 0 evaluated / 15 reused, even with a builder refusing all
+  nodes. The family and contracts still rebuild and undergo joint approval.
+- Cycles, builder refusal, blocked capability, forbidden dispatch and late joint
+  refusal cannot publish a mixed version.
+
+The component arithmetic aligns with the Lean settlement example. Existing
+Scheme C4 quote policies are reused; full dependent-type or quote-policy parity
+is not claimed.
+
+* Evidence and output
+
+Tests exercise refusing builders, shared-node call counts, independent numerical
+expectations, cold/refresh comparisons, failed/absent reuse, latent source support,
+new same-result programs, cycles, undeclared reads and cross-service rollback.
+Lean adds ~Partial.step_reused_builder_independent~ and
+~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
+rejecting every node outside its eleven-node cone.
+
+~just benchmark-metadata~ measures 29 phases / 232 observations. Component phases
+include source capture, scheduling and cache preparation; release phases include
+fresh services/contracts and admission. Existing 90-second compile, 20-second
+measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
+negative counter deltas; signed diagnostics are retained.
+
+Complete raw results stay under ignored ~.build/metadata/~, with concise source-
+bound repository summaries. See [[file:performance/history.org][historical evidence]] for the lossless archive
+of older results and the fixed native Scheme output policy. No new versioned JSON
+or Lean checkout dependency is introduced.

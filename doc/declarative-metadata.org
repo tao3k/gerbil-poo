@@ -133,3 +133,13 @@ hits, negative refusal, cancelled extension, metadata refusal and post-call join
 refusal. Preparation and re-admission costs are included. The original 88-row
 ~metadata-benchmarks.scm~ remains in the historical archive; the local study is saved under the ignored
 ~.build/metadata/~ directory. Neither study establishes end-to-end acceleration.
+
+* Selective component specialization
+
+The staged Model now exposes ~.construct / .refresh~ hooks. Defaults preserve
+Boolean cyclic closure; ~methods.construction<-cache~ supplies generalized DAG
+materialization through the same family/contract/admission boundary. See
+[[file:construction-cache.org][selective construction]] for exact source identity and genuinely skipped builders.
+The current native matrix has 29 phases / 232 observations; raw results are
+ignored build output. Earlier counts and scope descriptions refer to historical
+additions preserved in the archive.

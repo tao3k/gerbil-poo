@@ -1,0 +1,34 @@
+#+TITLE: Native selective construction observations
+
+Run: just benchmark-metadata. Complete current-source matrix: 232 observations,
+29 phases, four rotating rounds, natural and pre-collected controls.
+Toolchain Gerbil/Gambit: (1cfb032 ea114fc). Native compile <=90s;
+measurement <=20s with 1-GiB heap. No simultaneous Lean build during measurement.
+
+CPU medians per operation, microseconds; local finite observations only.
+| Phase | evaluated/reused | natural CPU us | collected CPU us |
+|-------+------------------+----------------+------------------|
+| component-start | 15/0 | 38.875 | 33.75 |
+| component-refresh | 3/12 | 34.625 | 34.563 |
+| component-reuse | 0/15 | 30.5 | 31.375 |
+| component-root | 11/4 | 42.688 | 42.562 |
+| component-presence | 6/9 | 40.187 | 41. |
+| selective-release | 3/12 | 193.25 | 254.062 |
+| policy-release | 0/15 | 164.813 | 259.125 |
+
+Component phases include source capture, scheduling, invalidation and cache preparation.
+Release phases also rebuild services/contracts and execute joint approval. Skipped
+builders do not prove overall acceleration; graph preparation still scans support.
+Allocation crossing GC or a negative counter delta remains unavailable; signed
+diagnostics and complete rows stay under ignored .build/metadata/. No new raw matrix
+is committed. Historical results remain losslessly archived in history.tar.gz.
+
+Study digest: a6d18946e345f853f55a54b50ab37c41d9fe027acf77f2bae5dc8c1527f2f76f
+Binary digest: 43a580419380bed13b8cba2a961bf0fd591141aebc577aaa962492903bd9597d
+
+Selected construction source identities (the raw header records all sources):
+- dependency-analysis.ss 904a981def4602a64eddbb5b25fbe687f3c090e92e563bf0a6e7bc774d1d4ec9
+- generalized-graph.ss 85291009e12a41ac033b3d02264c47ffb356e996ce65a37aca79b5343d649b4e
+- construction-cache.ss cac379fc1c225fd6529fdb3321bae09d1f64582f4186480688c175352b2563e5
+- staged-publication.ss ea319b5f3b6fc24d1d34cbd2b1f1c5991abfd590fc10d860b8b8ed9a7f0e2264
+- t/metadata-benchmark.ss 47a80331140aeba2b65576bbd1b4a1e93b0739a19b39bf780080b5ddfde94cbf

@@ -1,6 +1,6 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc) (only-in :std/values first-value)
+(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc) ../support/option (only-in :std/values first-value)
         "closure-measure.ss"
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../examples/service-metadata service.)
@@ -10,16 +10,22 @@
         (prefix-in ../examples/protected-dispatch protected.)
         (prefix-in ../generic-family family.)
         (prefix-in ../multimethod multimethod.)
-        (prefix-in ../dispatch-extension dispatch.))
-(def sources '("declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
+        (prefix-in ../dispatch-extension dispatch.)
+        (prefix-in ../construction-cache cache.) (prefix-in ../generalized-graph graph.)
+        (prefix-in ../dependency-analysis code.) (prefix-in ../examples/construction-workflow workflow.))
+(def sources '("dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
                "closure.ss" "object.ss" "mop.ss" "type.ss" "number.ss" "justfile"
-               "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
+               "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
                "t/closure-measure.ss" "t/metadata-benchmark.ss" "t/metadata-report.ss"))
 (def phases '(raw bound invoke wrap-build input-refuse output-refuse logic-refuse family-build family-warm revise refused-revise
-              protected-build protected-cold protected-warm guarded-low guarded-high protected-refuse protected-cancelled metadata-refuse call-refuse))
+              protected-build protected-cold protected-warm guarded-low guarded-high protected-refuse protected-cancelled metadata-refuse call-refuse
+              component-start component-refresh component-reuse component-root component-presence
+              selective-release policy-release selective-negative-refuse selective-admission-refuse))
 (def rounds 4)
 (def (repetitions phase)
-  (cond ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse)) 8)
+  (cond ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
+                         component-start component-refresh component-reuse component-root component-presence
+                         selective-release policy-release selective-negative-refuse selective-admission-refuse)) 8)
         ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse)) 512)
         (else 4000)))
 (def (main output binary)
@@ -62,6 +68,25 @@
            (and (eq? (publication.failure-stage issue) 'services)
                 (eq? (family.failure-stage (publication.failure-cause issue)) 'negative))
            (eq? (publication.failure-stage issue) stage))))
+  (defvalues (settled settlement-issue) (workflow.start (workflow.graph 30) policy))
+  (when settlement-issue (error "selective baseline" settlement-issue))
+  (defvalues (initial-reservation settlement-warm) (publication.invoke settled 'reserve 2))
+  (def baseline (publication.version-cache settlement-warm))
+  (def source (cache.cache-source baseline))
+  (def changed (graph.define source 'invoice (code.need 'settlement (cut + <> 9))))
+  (def allowed (.cc cache.Builder. allow: (cut memq <> '(invoice release total))))
+  (def reject (.cc cache.Builder. allow: (lambda (_) #f)))
+  (def (cache-oracle next count total)
+    (and (= (length (cache.cache-evaluated next)) count)
+         (= (+ count (length (cache.cache-reused next))) 15)
+         (= (workflow.value next 'total) total)))
+  (def (selective changed policy builder expected-stage)
+    (defvalues (next issue) (workflow.revise settlement-warm changed policy builder))
+    (if expected-stage
+      (and (eq? next settlement-warm) issue (eq? (publication.failure-stage issue) expected-stage)
+           (= (multimethod.cache-size (dispatch.snapshot (publication.version-service next 'reserve))) 1))
+      (and (not issue) (cache-oracle (publication.version-cache next) 3 41)
+           (equal? (first-value (publication.invoke next 'reserve 2)) '(ok 39 #t)))))
   (def actions
     (list (lambda () (first-value (raw '(2))))
           (lambda () (first-value (bound '(2))))
@@ -90,9 +115,21 @@
               (let-values (((value next) (publication.invoke limited-warm 'reserve 2))) #f)
               (catch (cause)
                 (and (publication.failure? cause) (eq? (publication.failure-stage cause) 'admission)
-                     (= (multimethod.cache-size (dispatch.snapshot (publication.version-service limited-warm 'reserve))) 0)))))))
+                     (= (multimethod.cache-size (dispatch.snapshot (publication.version-service limited-warm 'reserve))) 0)))))
+          (lambda () (cache-oracle (cache.start source) 15 32))
+          (lambda () (cache-oracle (cache.refresh baseline changed allowed) 3 41))
+          (lambda () (cache-oracle (cache.refresh baseline source reject) 0 32))
+          (lambda () (cache-oracle (cache.refresh baseline (graph.set-base source 'input (some (code.make-success 60)))) 11 58))
+          (lambda () (cache-oracle (cache.refresh baseline (graph.set-base source 'discount (some (code.make-success 5)))) 6 37))
+          (lambda () (selective changed policy allowed #f))
+          (lambda ()
+            (defvalues (next issue) (workflow.revise settlement-warm source (.cc policy price: 4) reject))
+            (and (not issue) (cache-oracle (publication.version-cache next) 0 32)
+                 (equal? (first-value (publication.invoke next 'quote protected.invoice protected.card 10)) '(13 14))))
+          (lambda () (selective changed (.cc policy forbidden-cancel: #t) allowed 'services))
+          (lambda () (selective changed (.cc policy reserve-shift: 1) allowed 'admission))))
   (def expected (append (list '(ok 8 #t) '(ok 8 #t) '(ok 8 #t) #t 'input 'output 'logic #t '(ok 8 #t) #t #t)
-                        (make-list 9 #t)))
+                        (make-list 18 #t)))
   (def rows [])
   (for* ((gc '(natural collected)) (round (in-range rounds)) (position (in-range (length phases))))
     (def index (modulo (+ round position) (length phases)))
@@ -113,6 +150,7 @@
        (notes "Raw/bound/invoke include identical result allocation; bound wrapper prepared outside timed region."
               "Family preparation includes cooking, declarations, contract binding and admission probes."
               "Protected phases include actual C4 dispatch, negative watches, metadata and exact-successor joint admission."
+              "Component phases include source capture, scheduling, invalidation and cache preparation; releases include fresh services/contracts/admission."
               "Allocation unavailable across GC or negative counter delta; raw signed delta retained.")
        (rows ,@(reverse rows))))
   (displayln "METADATA-BENCHMARKS-OK rows=" (length rows)))

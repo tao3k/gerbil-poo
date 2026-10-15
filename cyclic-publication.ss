@@ -1,7 +1,7 @@
 ;;; CyclicPublication: finite least closure followed by staged value publication.
 ;;; Procedure services and checked typed multimethods share one publication.
-(export prepare publish version?
-        version-view version-facts version-service invoke probe
+(export prepare publish finish stage-from version?
+        version-view version-facts version-cache version-source version-service invoke probe
         failure? failure-stage failure-cause)
 (import :std/iter ./closure (prefix-in ./dispatch-extension dispatch-extension.)
         (prefix-in ./declarative-metadata declarative-metadata.))
@@ -68,24 +68,35 @@
 
 ;; Callbacks must be pure with respect to already published values. External
 ;; callback side effects are outside this value-publication/rollback contract.
+(def version-source version-plan)
+(def version-cache version-result)
+(def (finish old source materialized cook methods admit contracts-builder readmit)
+  (def phase 'cooking)
+  (try
+    (def view (cook materialized))
+    (set! phase 'services)
+    (def services (prepare-services methods view))
+    (set! phase 'metadata)
+    (def invokers (prepare-contracts contracts-builder view services))
+    (def candidate (make-version source materialized view services invokers contracts-builder readmit))
+    (set! phase 'admission)
+    (admit! admit candidate)
+    (values candidate #f)
+    (catch (cause) (values old (make-failure phase cause)))))
+(def (stage-from old construct cook methods admit contracts-builder readmit)
+  (try
+    (defvalues (source materialized) (construct))
+    (finish old source materialized cook methods admit contracts-builder readmit)
+    (catch (cause) (values old (make-failure 'construction cause)))))
 (def (stage old equations cook methods admit retain? contracts-builder readmit)
-  (def stage 'construction)
+  (def phase 'construction)
   (try
     (def plan (if (and old retain?) (reconfigure-closure (version-plan old) equations)
                   (compile-closure equations 'cold)))
-    (set! stage 'closure)
+    (set! phase 'closure)
     (def facts (solve-closure plan))
-    (set! stage 'cooking)
-    (def view (cook facts))
-    (set! stage 'services)
-    (def services (prepare-services methods view))
-    (set! stage 'metadata)
-    (def invokers (prepare-contracts contracts-builder view services))
-    (def candidate (make-version plan facts view services invokers contracts-builder readmit))
-    (set! stage 'admission)
-    (admit! admit candidate)
-    (values candidate #f)
-    (catch (cause) (values old (make-failure stage cause)))))
+    (finish old plan facts cook methods admit contracts-builder readmit)
+    (catch (cause) (values old (make-failure phase cause)))))
 
 (def (prepare equations cook methods admit (contracts-builder no-contracts) (readmit #f))
   (stage #f equations cook methods admit #f contracts-builder readmit))

@@ -18,7 +18,7 @@ checks the runtime premises at its public boundary.
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
 | Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
 | Safe recursive attestation and certified recursive memo | RecursiveCacheSemantics / CyclicAccess | no equivalent bounded request program in this addition | Open; Boolean seed is currently supplied explicitly |
-| General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | cooked snapshots / exact old bundle retention here | Partial; arbitrary adapters and selective component rebuilds remain open |
+| General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | generalized-graph.ss / construction-cache.ss / staged-publication.ss | Finite inspectable DAG rebuilding and source-bound invalidation implemented; arbitrary adapters and dependent evidence remain separate |
 
 ## Current construction API
 
@@ -249,9 +249,9 @@ The new [ServiceBundle example](../examples/service-bundle.ss) uses a real C4
 diamond, dynamic guards and a cross-service cache budget. A successful method
 can therefore be refused by joint admission without returning a new version.
 Lower-level cyclic publication without the optional readmission procedure still
-has construction-only admission. The selective fifteen-node graph and kernel
-proof receipts remain separate boundaries.
+has construction-only admission. The selective settlement graph is now implemented through native construction hooks; kernel proof receipts remain separate.
 
-The extended native study is `doc/performance/composition-benchmarks.scm`. Older
-studies retain their historical source hashes and must not be read as current
-measurements after the model changes.
+Historical studies are preserved in [the lossless compressed archive](performance/history.org).
+New complete matrices and binaries stay under ignored `.build/` output.
+See [selective component construction](construction-cache.org) for the native
+protocols, shared settlement graph, reuse guarantees and measured scope.
