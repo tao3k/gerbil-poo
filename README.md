@@ -25,3 +25,11 @@ If you'd like to build your own object system, with its own optimized meta-objec
 to implement objects efficiently, come join the team!
 
 See the [doc/TODO.md](doc/TODO.md) document for projects.
+
+### Finite cyclic construction
+
+[`closure`](doc/closure.md) provides positive Boolean closure with private compiled
+metadata, owned byte state, allocation-aware queue selection, immutable public
+snapshots, retained-topology revisions, POO workflow controls and native benchmarks.
+This advances generalized-prototype future work with a bounded Lean cost-model
+companion; it does not change ordinary prototype recursion.

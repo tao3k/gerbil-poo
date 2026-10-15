@@ -11,6 +11,7 @@ build-env := platform-env + " GERBIL_BUILD_VERBOSE=" + build-verbose
 test-max-heap := env_var_or_default("GERBIL_TEST_MAX_HEAP", "1G")
 test-debug := env_var_or_default("GERBIL_TEST_DEBUG", "q")
 test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
+closure-ld-options := env_var_or_default("GERBIL_CLOSURE_LD_OPTIONS", if os() == "macos" { "-L/opt/homebrew/opt/openssl@3/lib" } else { "" })
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
 test:
@@ -53,3 +54,10 @@ clean:
 
 build:
     {{ build-env }} gxi build.ss
+
+# Cold private compilation plus solve; source workload generation is outside CPU timing.
+benchmark-closure: build
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    mkdir -p .build/closure
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
+    python3 tools/benchmark_closure.py --binary .build/closure/closure-scale --output .build/closure/receipt.json

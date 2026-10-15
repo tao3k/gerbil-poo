@@ -28,6 +28,7 @@
     "support/repr"
     "support/syntax"
     "support/testing"
+    "closure"
     "cli"
     "debug"
     ,+gerbil-poo-fq-spec+
