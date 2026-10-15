@@ -1,11 +1,11 @@
 ;;; CyclicPublication: finite least closure followed by staged value publication.
 ;;; Procedure services and checked typed multimethods share one publication.
 (export prepare publish version?
-        version-view version-facts version-service invoke
+        version-view version-facts version-service invoke probe
         failure? failure-stage failure-cause)
 (import :std/iter ./closure (prefix-in ./dispatch-extension dispatch-extension.)
         (prefix-in ./declarative-metadata declarative-metadata.))
-(defstruct version (plan result view services invokers contract-builder) final: #t)
+(defstruct version (plan result view services invokers contract-builder readmit) final: #t)
 (defstruct failure (stage cause) final: #t)
 
 (def (version-facts current)
@@ -19,14 +19,31 @@
       (if (eq? checked implementation) (values result current)
         (let (services (hash-copy (version-services current)))
           (hash-put! services service checked)
-          (values result (make-version (version-plan current) (version-result current) (version-view current) services (version-invokers current) (version-contract-builder current))))))
+          (values result (make-version (version-plan current) (version-result current) (version-view current) services (version-invokers current) (version-contract-builder current) (version-readmit current))))))
     (values (apply implementation arguments) current)))
 
-(def (invoke current service . arguments)
+(def (invoke-checked current service . arguments)
   (def checked (hash-get (version-invokers current) service))
   (if checked
     (checked arguments current)
     (invoke-source current service arguments)))
+
+(def (probe current service . arguments)
+  (defvalues (result _) (apply invoke-checked current service arguments))
+  result)
+(def (admit! admit candidate)
+  (def accepted (admit candidate))
+  (unless (and (boolean? accepted) accepted) (error "publication candidate refused")))
+
+(def (invoke current service . arguments)
+  (defvalues (result candidate) (apply invoke-checked current service arguments))
+  ;; Admission observes this exact cache successor. Probes inside admission use
+  ;; probe, which checks contracts without recursively admitting another version.
+  (when (version-readmit current)
+    (try
+      (admit! (version-readmit current) candidate)
+      (catch (cause) (raise (make-failure 'admission cause)))))
+  (values result candidate))
 
 (def (prepare-bindings declarations valid? label (adapt (lambda (_ value) value)))
   (unless (list? declarations) (error "expected metadata association list" label))
@@ -51,7 +68,7 @@
 
 ;; Callbacks must be pure with respect to already published values. External
 ;; callback side effects are outside this value-publication/rollback contract.
-(def (stage old equations cook methods admit retain? contracts-builder)
+(def (stage old equations cook methods admit retain? contracts-builder readmit)
   (def stage 'construction)
   (try
     (def plan (if (and old retain?) (reconfigure-closure (version-plan old) equations)
@@ -64,14 +81,14 @@
     (def services (prepare-services methods view))
     (set! stage 'metadata)
     (def invokers (prepare-contracts contracts-builder view services))
-    (def candidate (make-version plan facts view services invokers contracts-builder))
+    (def candidate (make-version plan facts view services invokers contracts-builder readmit))
     (set! stage 'admission)
-    (unless (admit candidate) (error "closure candidate refused"))
+    (admit! admit candidate)
     (values candidate #f)
     (catch (cause) (values old (make-failure stage cause)))))
 
-(def (prepare equations cook methods admit (contracts-builder no-contracts))
-  (stage #f equations cook methods admit #f contracts-builder))
-(def (publish old equations cook methods admit (retain? #t) (contracts-builder (version-contract-builder old)))
+(def (prepare equations cook methods admit (contracts-builder no-contracts) (readmit #f))
+  (stage #f equations cook methods admit #f contracts-builder readmit))
+(def (publish old equations cook methods admit (retain? #t) (contracts-builder (version-contract-builder old)) (readmit (version-readmit old)))
   (unless (version? old) (error "expected previous cyclic publication version"))
-  (stage old equations cook methods admit retain? contracts-builder))
+  (stage old equations cook methods admit retain? contracts-builder readmit))

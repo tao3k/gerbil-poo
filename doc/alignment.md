@@ -15,8 +15,8 @@ checks the runtime premises at its public boundary.
 | Cooked snapshot and heterogeneous service family | CyclicPublication / StagedPublication | cyclic-publication.ss | Named procedures and checked typed generics; duplicate checks and exact old identity on refusal |
 | Ten-fact cyclic access and lossy view | CyclicAccess | examples/cyclic-access.ss | Implemented and tested over 32 configurations; active is a list of indices |
 | General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Existing Scheme implementation reused; generalized hook equivalence needs separate coverage |
-| Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only |
-| Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence and general cache-sensitive admission remain Lean-only |
+| Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
+| Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
 | Safe recursive attestation and certified recursive memo | RecursiveCacheSemantics / CyclicAccess | no equivalent bounded request program in this addition | Open; Boolean seed is currently supplied explicitly |
 | General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | cooked snapshots / exact old bundle retention here | Partial; arbitrary adapters and selective component rebuilds remain open |
 
@@ -238,3 +238,20 @@ See [DeclarativeMetadata](declarative-metadata.org) for native MOP protocols,
 wrapper composition, the heterogeneous service example, rejection guarantees
 and the standalone native metadata benchmark. Existing dispatch measurements
 remain historical receipts at their pinned source identities.
+
+## Complete native model composition
+
+`GenericFamily.Model` and `StagedPublication.Model` now bind declaration
+compilation, existing typed dispatch, completed-candidate absence checks,
+contracts and exact-successor joint admission through native POO methods.
+`publication.probe` returns the checked result only; it discards tentative caches.
+The new [ServiceBundle example](../examples/service-bundle.ss) uses a real C4
+diamond, dynamic guards and a cross-service cache budget. A successful method
+can therefore be refused by joint admission without returning a new version.
+Lower-level cyclic publication without the optional readmission procedure still
+has construction-only admission. The selective fifteen-node graph and kernel
+proof receipts remain separate boundaries.
+
+The extended native study is `doc/performance/composition-benchmarks.scm`. Older
+studies retain their historical source hashes and must not be read as current
+measurements after the model changes.

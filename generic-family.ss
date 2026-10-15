@@ -1,0 +1,30 @@
+;;; GenericFamily.Model: native construction of checked heterogeneous generics.
+(export Model. build failure? failure-key failure-stage failure-cause)
+(import :std/iter (only-in :std/list/list-builder with-list-builder)
+        ./object (only-in ./mop define-type .defgeneric)
+        (prefix-in ./multimethod multimethod.)
+        (prefix-in ./dispatch-extension dispatch-extension.))
+(defstruct failure (key stage cause) final: #t)
+(def (at-stage key phase thunk)
+  (try (thunk) (catch (cause) (raise (make-failure key phase cause)))))
+(def (build-generic seed methods watches key policy cooked)
+  (def candidate
+    (at-stage key 'registration
+      (lambda ()
+        (def base (seed key policy cooked))
+        (unless (= (multimethod.cache-size base) 0) (error "generic seed must have an empty cache"))
+        (dispatch-extension.patch base (methods key policy cooked)))))
+  (at-stage key 'negative (lambda () (dispatch-extension.check candidate (watches key)))))
+(define-type (Model. @ [] keys seed watches)
+  methods: (lambda (_ __ ___) [])
+  .build:
+  (lambda (policy cooked)
+    (unless (and (list? keys) (andmap symbol? keys)) (error "generic keys must be symbols"))
+    (def installed (make-hash-table-eq))
+    (with-list-builder (add)
+      (for (key keys)
+        ;; Like Lean Partial.build, repeated keys retain the first installation.
+        (unless (hash-key? installed key)
+          (add (cons key (build-generic seed methods watches key policy cooked)))
+          (hash-put! installed key #t))))))
+(.defgeneric (build model policy cooked) slot: .build)

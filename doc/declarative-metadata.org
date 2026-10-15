@@ -70,10 +70,66 @@ wrapper composition, formula decisions, edit identity and failure priority.
 cooked contracts, business errors and atomic refusals.
 
 ~just benchmark-metadata~ compiles a native Scheme executable, runs with the
-existing 20-second/1-GiB measurement bound, and validates all 88 observations.
+existing 20-second/1-GiB measurement bound, and validates the complete declared matrix (currently 160 observations).
 Raw/bound/invoke use identical result allocation. Preparation includes graph,
 cooking, declaration installation, wrapper binding and admission. No end-to-end
 speedup is inferred from the microbenchmark. GC-crossing or negative allocation
 deltas are unavailable; their signed diagnostic is retained. Source and binary
 identities are checked before/after measurement; historical studies remain pinned
 to their original sources.
+
+* Composed GenericFamily and StagedPublication models
+
+~generic-family.ss~ implements the native ~GenericFamily.Model.~ protocol:
+~keys~, ~seed~, ~methods~, ~watches~ and derived ~.build~. The default method batch
+is empty. ~metadata.family~ rebinds that batch from declarations while preserving
+inherited keys, seed, watches and custom methods. Build validates an empty seed
+cache, applies the complete edit batch, then checks negative assumptions. Repeated
+keys retain the first installation, matching Lean's ~Partial.build~. Failure
+payloads identify the service key and registration/negative phase.
+
+~staged-publication.ss~ implements ~StagedPublication.Model.~ with ~cook~,
+~generics~, ~contracts~, ~admit~ and derived ~.prepare / .publish~. These bind the
+existing finite cyclic lifecycle; they do not introduce another closure solver,
+dispatch index, certificate or cache representation. The correspondence is to the
+finite positive specialization of Lean's model, not its selective graph builder.
+
+The composition is:
+
+#+begin_src scheme
+(def generics
+  (metadata.family
+    (.cc family.Model. keys: '(quote reserve cancel) seed: seed watches: watches)
+    declarations))
+(def model
+  (.cc staged.Model. generics: generics cook: cook contracts: contracts admit: admit))
+(staged.prepare model equations policy)
+#+end_src
+
+Native staged models retain their bound admission procedure. Every invocation
+checks the exact tentative cache successor before returning it, including a cache
+hit. Admission must return a Boolean. ~publication.probe~ validates the actual
+service/contract but returns only the result and discards the tentative successor;
+admission uses it to avoid recursive re-admission. Negative certificates transfer
+through cache-only changes under the existing immutable/pure premises.
+
+The lower-level cyclic API permits an explicit optional readmission callback;
+without one it retains its documented construction-only admission semantics.
+Native staged models always supply one. A caller cannot claim cache-sensitive
+approval for the lower-level construction-only form.
+
+~examples/service-bundle.ss~ composes the actual C4 diamond, Financial/Card
+contributions, a current-argument Invoice/Bank guard, shape/call absence watches,
+reservation refinements, relational conservation, quote/cancel coherence and a
+joint cache budget. A first quote may pass while a successful reservation is
+refused because the two caches exceed the budget. Revision rebuilds all three
+signatures and their captured metadata from the new cooked view. A forbidden
+extension removed within the same declaration batch passes completed-candidate
+checking; an installed forbidden method refuses the whole release.
+
+The native matrix now has twenty phases and 160 observations. Added protected
+phases cover full preparation, cold/warm joint invocation, low/high guarded cache
+hits, negative refusal, cancelled extension, metadata refusal and post-call joint
+refusal. Preparation and re-admission costs are included. The original 88-row
+~metadata-benchmarks.scm~ remains a historical receipt; the new study is saved as
+~composition-benchmarks.scm~. Neither study establishes end-to-end acceleration.

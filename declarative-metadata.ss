@@ -1,7 +1,7 @@
 ;;; DeclarativeMetadata: declarations and contracts use the existing POO MOP.
 (export Declaration Declaration. Formula Formula. Predicate Predicate. Contract Contract.
         methods.check<-holds methods.invoke<-wrap
-        replace contribute guarded remove of-edit named declaration? declaration-name compile install
+        replace contribute guarded remove of-edit named declaration? declaration-name compile install family
         truth atom both either implies deny formula? holds check
         predicate typed predicate? contract contract? wrap invoke publish
         failure? failure-phase failure-name failure-cause)
@@ -32,6 +32,9 @@
 (def (guarded name path guard body) (of-edit name (dispatch-extension.register-when path guard body)))
 (def (remove name path) (of-edit name (dispatch-extension.erase path)))
 (def (install seed declarations) (dispatch-extension.patch seed (map compile declarations)))
+(def (family base declarations)
+  ;; Rebinding methods preserves the native model's seed, watches and overrides.
+  (.cc base methods: (lambda (key policy cooked) (map compile (declarations key policy cooked)))))
 (def (named label edits)
   (for/collect ((edit edits) (index (in-range (length edits))))
     (of-edit (string-append label ":" (number->string index)) edit)))
@@ -40,7 +43,7 @@
 ;; the invocation path. Scheme's and/or preserve left-to-right short circuiting.
 (define-type (Formula @ Type.) .element?: (cut metadata? @ <>))
 (define-type (methods.check<-holds @ [] .holds)
-  .check: (lambda (meaning) (unless (.holds meaning) (refuse 'logic #f #f)) #t))
+  .check: (lambda (meaning) (unless (boolean! (.holds meaning)) (refuse 'logic #f #f)) #t))
 (define-type (Formula. @ [methods.check<-holds] .holds) .type: Formula)
 (.defgeneric (holds formula meaning) slot: .holds)
 (.defgeneric (check formula meaning) slot: .check)
@@ -49,7 +52,7 @@
 (def (atom key)
   (unless (symbol? key) (error "logic atom must be a symbol"))
   (.cc Formula. .holds: (lambda (meaning) (boolean! (meaning key)))))
-(def (decision formula) (.@ (validate Formula formula) .holds))
+(def (decision formula) (compose boolean! (.@ (validate Formula formula) .holds)))
 (def (both left right)
   (let ((l (decision left)) (r (decision right)))
     (.cc Formula. .holds: (lambda (meaning) (and (l meaning) (r meaning))))))
