@@ -73,3 +73,10 @@ benchmark-closure-phases: build
     mkdir -p .build/closure
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-phases t/closure-phases.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/closure/closure-phases -:max-heap=1G .build/closure/closure-phases.scm
+
+# Standalone Scheme signature/negative-watch costs; no Lean checkout required.
+benchmark-dispatch: build
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    mkdir -p .build/dispatch
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/dispatch -exe -ld-options "{{ closure-ld-options }}" -o .build/dispatch/dispatch-benchmark t/dispatch-benchmark.ss
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/dispatch/dispatch-benchmark -:max-heap=1G .build/dispatch/dispatch-benchmarks.scm .build/dispatch/dispatch-benchmark

@@ -36,6 +36,8 @@
     "fun"
     (gxc: "io" ,@(include-gambit-sharp))
     "mop"
+    "multimethod"
+    "dispatch-extension"
     "number"
     "object"
     "polynomial"
@@ -45,6 +47,7 @@
     "trie"
     "type"
     "examples/cyclic-access"
+    "examples/protected-dispatch"
     "t/closure-measure"
     "t/closure-cases"
     "t/closure-benchmark-support"

@@ -1,6 +1,6 @@
 ;;; CyclicAccess's ten equations and lossy cooked view on real POO objects.
 (export config equations cook services start revise)
-(import :std/iter ../closure ../object
+(import (only-in :std/values first-value) :std/iter ../closure ../object
         (prefix-in ../cyclic-publication cyclic-publication.))
 (def (config (trusted #t) (trained #t) (team-member #t) (compliant #t))
   (.o (trust trusted) (training trained) (team team-member) (compliance compliant)))
@@ -24,8 +24,8 @@
 (def (admit require-release candidate)
   (def view (cyclic-publication.version-view candidate))
   (and (or (not require-release) (.@ view release))
-       (equal? (cyclic-publication.invoke candidate 'explain) (.@ view active))
-       (equal? (cyclic-publication.invoke candidate 'grant "sample" #f) '(error consent))))
+       (equal? (first-value (cyclic-publication.invoke candidate 'explain)) (.@ view active))
+       (equal? (first-value (cyclic-publication.invoke candidate 'grant "sample" #f)) '(error consent))))
 (def (start config seed (require-release #f))
   (cyclic-publication.prepare (equations config seed) cook services
                               (cut admit require-release <>)))

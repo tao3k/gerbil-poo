@@ -1,17 +1,25 @@
 ;;; CyclicPublication: finite least closure followed by staged value publication.
-;;; Callback-only subset; GenericFamily typed dispatch is not yet implemented.
+;;; Procedure services and checked typed multimethods share one publication.
 (export prepare publish version?
-        version-view version-facts invoke
+        version-view version-facts version-service invoke
         failure? failure-stage failure-cause)
-(import :std/iter ./closure)
+(import :std/iter ./closure (prefix-in ./dispatch-extension dispatch-extension.))
 (defstruct version (plan result view services) final: #t)
 (defstruct failure (stage cause) final: #t)
 
 (def (version-facts current)
   (closure->list (version-result current)))
 
+(def (version-service current service) (hash-ref (version-services current) service))
 (def (invoke current service . arguments)
-  (apply (hash-ref (version-services current) service) arguments))
+  (def implementation (version-service current service))
+  (if (dispatch-extension.certificate? implementation)
+    (let-values (((result checked) (apply dispatch-extension.invoke implementation arguments)))
+      (if (eq? checked implementation) (values result current)
+        (let (services (hash-copy (version-services current)))
+          (hash-put! services service checked)
+          (values result (make-version (version-plan current) (version-result current) (version-view current) services)))))
+    (values (apply implementation arguments) current)))
 
 (def (prepare-services methods view)
   (def declarations (methods view))
@@ -20,7 +28,7 @@
   (for (declaration declarations)
     (match declaration
       ([name . procedure]
-       (unless (and (symbol? name) (procedure? procedure)) (error "invalid closure service" name))
+       (unless (and (symbol? name) (or (procedure? procedure) (dispatch-extension.certificate? procedure))) (error "invalid closure service" name))
        (when (hash-key? table name) (error "duplicate closure service" name))
        (hash-put! table name procedure))
       (else (error "invalid closure service declaration" declaration))))

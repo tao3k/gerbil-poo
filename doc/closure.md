@@ -31,8 +31,8 @@ The old published facts never bootstrap an unsupported new cycle.
 ## Unified construction/publication operations
 
 `cyclic-publication.ss` stages least closure, cooked view, heterogeneous named
-procedures and candidate admission as one bundle. Duplicate/invalid services,
-cooking exceptions or admission refusal preserve the identical old bundle. A
+procedures or checked typed generics, and candidate admission as one version. Duplicate/invalid services,
+cooking exceptions, negative-watch conflicts or admission refusal preserve the identical old version. A
 fresh compile is explicit when topology changes. Published views are immutable by
 contract: callbacks and clients must not mutate them. Arbitrary external effects
 are not rolled back. Method indexes and raw fact storage are private.
@@ -40,9 +40,10 @@ are not rolled back. Method indexes and raw fact storage are private.
 `examples/cyclic-access.ss` ports the exact ten CyclicAccess equations and cooked
 view (including active indices), with two different service signatures, consent,
 revocation and admission refusal. All 32 source configurations are tested through
-real `.o` objects. The callback family does not implement Lean's arbitrary typed
-multi-dispatch, negative watches, logical metadata or certified recursive memo;
-those remaining gaps are explicit in the alignment map.
+real `.o` objects. This example keeps its original procedure services. The
+`protected-dispatch` example adds checked typed multi-dispatch and negative
+watches through the same publication owner. Dependent logical approvals and
+certified recursive memo remain open, as recorded in the alignment map.
 
 Lean proves the fused exact index and core preservation, dependency-equal reshape
 canonicality, conditional construction allocation savings, cached preparation
@@ -385,3 +386,13 @@ diamond cold still regresses relative to append. Independent-process receipts
 also retain noisy/negative outcomes and include initial setup separately. The
 initial Lean v4 run had 19 launch failures during relinking; its raw receipt is
 retained in Lean and excluded from accepted parity/performance evidence.
+
+
+## Checked typed services
+
+See [typed multi-dispatch and protected extension](alignment.md#typed-multi-dispatch-and-protected-extension)
+for the new runtime `Multimethod` / `DispatchExtension` correspondence, contracts,
+example and native benchmark. `cyclic-publication.invoke` now returns result and
+updated immutable version as two values, matching the Lean publication owner.
+Consumers must retain the second value to reuse warmed generic caches. Admission
+probes may discard it using `:std/values first-value`.
