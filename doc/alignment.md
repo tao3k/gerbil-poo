@@ -64,7 +64,7 @@ Each measured child retains the 20s/1GiB limits. Initial allocation/probe/GC cos
 are visible in native CPU, wall, GC CPU, collection and allocation measurements.
 Minimum source ceilings remain distinct from fastest native execution.
 
-The [standalone native matrix](performance/closure-standalone.scm) records 960
+The [standalone native matrix](performance/history.org) records 960
 Scheme observations with source/executable identities. It requires no companion
 repository. `gxi t/closure-parity.ss <study>` validates that Scheme-only matrix;
 for current-source validation, call `read-study` with its second argument `#t`.
@@ -210,7 +210,7 @@ or total memory bound is claimed.
 
 The first 264-row dispatch control completed its semantic checks, but its reader
 refused two negative allocation deltas. The unchanged signed data is retained in
-[the rejected control](performance/dispatch-rejected.scm); it is not accepted
+[the rejected control](performance/history.org); it is not accepted
 allocation evidence. On the installed Gambit `ea114fc` runtime, the allocation
 counter was also observed to decrease across a direct GC. The existing
 `closure-measure` formula follows Gambit's `##exec-stats` subtraction of the end
@@ -228,7 +228,7 @@ Earlier GC-crossing closure allocation receipts remain historical observations,
 not retroactively qualified allocation evidence. No runtime/compiler repair or
 verification is inferred from this measurement guard.
 
-The [current dispatch matrix](performance/dispatch-benchmarks.scm) uses the
+The [current dispatch matrix](performance/history.org) uses the
 explicit admission policy above. Neither rejected data nor missing allocation
 values are used to claim a speedup or allocation saving.
 

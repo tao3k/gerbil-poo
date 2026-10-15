@@ -1,0 +1,37 @@
+#+TITLE: Benchmark results and historical evidence
+
+* Current output policy
+
+Run native Scheme ~just benchmark-*~ recipes from this package. Executables,
+raw measurements and failure diagnostics stay in the ignored ~.build/~ tree.
+They are reproducible without a Lean checkout. New raw result matrices are not
+checked in; documentation records concise conclusions, source identity, commands,
+dimensions and claim limits. Native data uses fixed Scheme file names. Field and
+case definitions occur once; observations occupy one line. No new versioned JSON
+formats are introduced.
+
+* Historical archive
+
+~history.tar.gz~ preserves all twenty original result files byte for byte from
+Scheme commit ~2e6e1f1581c1eb8715a0888c13c958a287e0428a~. This includes v1-v4 JSON,
+native Scheme studies, the initial diagnostic and the rejected dispatch study.
+Those suffixes identify historical formats/development stages, not package
+releases or the current benchmark interface. Their schemas have not been silently
+rewritten or interpreted as current-source evidence.
+
+Original matrices totaled 4,564,383 bytes; the deterministic Git archive is
+400,901 bytes (about 91% smaller). This reduces checkout artifacts, not existing
+Git history. Older JSON duplicated parsed fields inside escaped stdout; that
+diagnostic material remains in the lossless archive.
+
+Inspect original studies using standard system tools:
+
+#+begin_src sh
+mkdir -p .build/history
+tar -xzf doc/performance/history.tar.gz -C .build/history
+(cd .build/history && sha256sum -c ../../doc/performance/history.sha256)
+#+end_src
+
+~history.sha256~ records original paths and checksums. The archive retains
+~doc/performance/~ paths. Acceptance/refusal claims and source hashes belong to
+those exact studies; archived data is not admitted by a current-source reader.

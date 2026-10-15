@@ -224,10 +224,10 @@ partially active/unseeded source, machine CPU time, GC or peak memory.
 - The existing native runner also drives Lean. The v3 parity checker compares
   640 matching observations and 10880 fields, including engine and both ceilings.
 
-Current files: [independent processes](performance/closure-selection-v3.json),
-[same-process controls](performance/closure-selection-paired-v3.json) and
-[cross-runtime checks](performance/closure-selection-parity-v3.json).
-The [initial development diagnostic](performance/closure-selection-initial-v3.json)
+Current files: [independent processes](performance/history.org),
+[same-process controls](performance/history.org) and
+[cross-runtime checks](performance/history.org).
+The [initial development diagnostic](performance/history.org)
 retains a negative hub-chain auto result before the final fast paths. Its source
 hashes identify that earlier development snapshot; it is not a current-source
 pass. Existing v1/v2 receipts and timing tables above remain historical.
@@ -335,8 +335,8 @@ The observations below are historical receipts, tied to their recorded sources
 and the drivers at those commits. Their old JSON commands and cross-project
 layout are superseded by the standalone native commands above.
 
-[Current raw observations](performance/closure-hybrid-v2.json) and
-[4680 matching count assertions](performance/closure-hybrid-parity-v2.json)
+[Current raw observations](performance/history.org) and
+[4680 matching count assertions](performance/history.org)
 cover 360 matched runs in each runtime. The v1 raw/parity files remain historical
 receipts of their recorded sources, including the earlier removed Python driver.
 They are not receipts for current source identities.

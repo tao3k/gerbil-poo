@@ -131,5 +131,5 @@ The native matrix now has twenty phases and 160 observations. Added protected
 phases cover full preparation, cold/warm joint invocation, low/high guarded cache
 hits, negative refusal, cancelled extension, metadata refusal and post-call joint
 refusal. Preparation and re-admission costs are included. The original 88-row
-~metadata-benchmarks.scm~ remains a historical receipt; the new study is saved as
-~composition-benchmarks.scm~. Neither study establishes end-to-end acceleration.
+~metadata-benchmarks.scm~ remains in the historical archive; the local study is saved under the ignored
+~.build/metadata/~ directory. Neither study establishes end-to-end acceleration.

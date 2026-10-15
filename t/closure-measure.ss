@@ -19,7 +19,21 @@
       datum)))
 (def (write-datum path datum)
   (call-with-output-file (list path: path truncate: #t)
-    (lambda (port) (pretty-print datum port))))
+    (lambda (port)
+      ;; Machine-readable fields occur once; each observation stays on one line.
+      (if (list? datum)
+        (begin
+          (display "(" port)
+          (for ((field datum) (index (in-range (length datum))))
+            (when (> index 0) (newline port))
+            (if (and (pair? field) (eq? (car field) 'rows))
+              (begin (display "(rows" port)
+                (for (row (cdr field)) (newline port) (write row port))
+                (display ")" port))
+              (write field port)))
+          (display ")" port))
+        (write datum port))
+      (newline port))))
 (def (source-digests paths (root "."))
   (map (lambda (path) (cons path (hex-encode (sha256 (call-with-input-file
                   (path-expand path (string-append root "/")) read-all-as-u8vector))))) paths))

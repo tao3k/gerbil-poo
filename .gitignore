@@ -8,3 +8,6 @@ build-deps
 /.build/dispatch/
 
 .build/metadata/
+
+# Generated executables, raw benchmark matrices and extracted historical data.
+/.build/
