@@ -1,5 +1,5 @@
 ;;; Atomic replacement of shared approval metadata and all endpoint heads.
-(export publication current head approval stage stage-at stage-with submit!)
+(export publication current head approval stage stage-at stage-with approve install! submit!)
 (import (only-in :gerbil/runtime/thread with-lock) (only-in :std/list/list delete-duplicates/hash)
         ./object ./mop ./lens-laws ./feedback-graph
         (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
@@ -10,6 +10,9 @@
 (defstruct %publication (snapshot lock build admit joint guards) final: #t)
 ;; A request captures one old bundle, policy replacements and endpoint fragments.
 (defstruct %request (owner expected approvals revisions guards builder) final: #t)
+;; Only this module constructs a receipt AFTER complete local and joint approval.
+;; The exact request retains owner, old/proposed metadata guards and expected head.
+(defstruct %approved (request candidate) final: #t)
 ;; Validate ordered keyed contributions before any constructor or publication.
 (def (bindings! entries)
   (unless (and (list? entries) (andmap (lambda (entry) (and (pair? entry) (symbol? (car entry)))) entries)
@@ -68,11 +71,11 @@
   (call-with-values (lambda () (prepare expected))
     (lambda (policies revisions) (stage-at owner expected policies revisions guards: guards builder: builder))))
 ;; Close every endpoint using its exact old graph and PROPOSED approval values.
-;; Then check joint consistency, recheck sources/head under lock, and replace ONE
-;; bundle pointer. Failure returns actual current bundle; no installed object was
-;; mutated and no denied candidate becomes a retry cache. Side effects outside
-;; this protocol are not rolled back; production callbacks are pure/locally total.
-(def (submit! owner request)
+;; Then check joint consistency and return a PRIVATE receipt, without installation.
+;; Failure returns #f plus the error; no denied candidate becomes a retry cache.
+;; Side effects outside this protocol are not rolled back; production callbacks
+;; are pure/locally total. install! independently revalidates this receipt later.
+(def (approve owner request)
   (try
     (unless (and (%request? request) (eq? owner (%request-owner request))) (error "foreign joint request"))
     (def expected (%request-expected request))
@@ -91,9 +94,29 @@
         (def next (make-%snapshot heads policies))
         (unless (eq? ((%publication-joint owner) expected next) #t) (error "joint endpoint consistency refused"))
         next)))
+    (values (make-%approved request candidate) #f)
+    (catch (failure) (values #f failure))))
+;; Install only a private approved receipt belonging to this owner. The short
+;; critical section rechecks EVERY registered source/policy guard and expected
+;; whole snapshot; failure returns the actual current winner, never an old head.
+;; Approval receipts are not refreshable: metadata drift requires fresh staging.
+(def (install! owner receipt)
+  (try
+    (unless (and (%approved? receipt)
+      (eq? owner (%request-owner (%approved-request receipt)))) (error "foreign joint approval receipt"))
+    (def request (%approved-request receipt))
+    (def candidate (%approved-candidate receipt))
     (with-lock (%publication-lock owner) (lambda ()
       (with-lens-checks (%request-guards request) (lambda ()
-        (unless (eq? (%publication-snapshot owner) expected) (error "stale joint publication at installation"))
+        (unless (eq? (%publication-snapshot owner) (%request-expected request))
+          (error "stale joint publication at installation"))
         (%publication-snapshot-set! owner candidate)))))
     (values candidate #f)
     (catch (failure) (values (current owner) failure))))
+;; Standard composition retains the original one-call failure/current contract.
+;; Explicit two-phase callers can schedule approval and installation independently
+;; without access to constructors for trusted receipts or candidate internals.
+(def (submit! owner request)
+  (call-with-values (lambda () (approve owner request))
+    (lambda (receipt failure)
+      (if failure (values (current owner) failure) (install! owner receipt)))))

@@ -333,6 +333,14 @@ composable admission and refusal-prefix laws with actual certified topology head
 See [joint-admission.md](joint-admission.md); this remains generalized-prototype
 future work with explicit finite/purity/identity premises.
 
+Post-admission installation now has an explicit native `approve` / `install!`
+boundary with private receipts; `submit!` composes both. Competing approved SCC
+changes, shared proposed-policy revision drift, equal-value revision round trips
+and their combination refuse before installation, then explicitly restage from the
+actual winner. Whole typed bundles reuse the Lean checked-installation laws. See
+[joint-installation.md](joint-installation.md) for native lifecycle controls,
+exact API failure conventions and the immutable-installed-policy boundary.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
