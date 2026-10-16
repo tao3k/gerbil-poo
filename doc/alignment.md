@@ -991,3 +991,7 @@ define the equations; nonlocal declaration finalization runs once. Lean
 typed seed, paired with native `examples/feedback-services.ss` and negative controls.
 This advances future work; see [feedback-closure.md](feedback-closure.md) for finite
 lens checks, extra residual work, staged cooking and remaining recursion limits.
+
+Shared-dependency warm revision and guarded joint approval now pair
+`FeedbackRevision` / `Examples/SharedFeedback.lean` with native FUN composition;
+see [feedback-revision.md](feedback-revision.md) for exact guarantees and controls.

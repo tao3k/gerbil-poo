@@ -186,6 +186,28 @@ Arbitrary convergence/leastness, unrestricted higher-order recursive knots,
 automatic dependency/law discovery and callback termination remain open. A finite
 budget is not a proof of divergence. Functional closure here precedes optimization.
 
+### Shared feedback and cross-service revision
+
+`feedback-revision.ss` composes fresh feedback closure with current joint approval
+inside one source guard. Old raw is only a seed; no old fixedness or approval is
+reused, even if the raw value is unchanged. Registered preparation/check sources
+stay protected until approval finishes. Strict Boolean approval and exact old
+publication retention cover closure, source, residual and callback failures.
+
+`examples/shared-feedback.ss` connects one shared quota node to two nested service
+branches in a four-node feedback ring, joint readiness, primary/around methods
+and current cross-service commitment/permission checks. Quota increases/decreases,
+approval rejection/retry and old snapshots have native controls and paired Lean
+examples. `reviseFeedback` proves new closure, exact-candidate approval, component
+equations, seed provenance and budget bounds; `admitted_joint` proves current
+permission/coherence/commitment for any accepted example revision. Product lens
+laws and explicit frame preservation are universal. See
+[feedback-revision.md](feedback-revision.md) for preparation/refusal boundaries.
+
+This closes the explicit shared-feedback revision workflow; generic convergence,
+selective cyclic recomputation, automatic dependencies/laws and unrestricted
+higher-order knots remain open. No performance or compiler/runtime claim follows.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
