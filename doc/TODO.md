@@ -34,7 +34,7 @@ further tuning of the corresponding workflow.
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
 | Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream and `.defgeneric` `combination:` bridge. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and unified arbitrary multi-dispatch syntax remain future work. Optional generic formals retain their separate open TODO. |
 | General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
-| User-selected storage and focused computation | Explicit lens/wrapper protocol now accepts user-selected non-record raw/cooked storage; heterogeneous nested-vector and procedure controls in `t/generalized-declaration-test.ss`. Existing item raw form, prepared hooks and focused construction are reused. | Lawful custom adapters remain caller obligations. Automatic storage selection/layout synthesis, primitive proxies/impersonators and automatic law discovery are open. |
+| User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
 | Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
 | Object keyword syntax / lexical slot bindings | Partial: current `.o`, `with-slots` and explicit self/supers bindings work | Proposed keyword grammar and independently configurable automatic slot bindings remain open. |
@@ -113,6 +113,30 @@ membership-scoped frame preservation and complete-source finalization. Examples
 prove finite observations for both carriers and seed-independent charge after
 three stages for the triangular service. No general raw fixed-point or arbitrary
 callback/lens correctness follows. See [generalized-declarations.md](generalized-declarations.md).
+
+### Controlled raw closure and custom lens laws
+
+`generalized-closure.ss` now closes a generalized declaration only after actual
+adjacent raw states compare equal, within a fixed raw-step budget. It reuses the
+existing source-guarded step/cook operations and returns a receipt bound to its
+prepared owner/base. Budget, finite law and source/cooking refusals expose no
+partial candidate; publication retains the exact old receipt. A native Reader/FUN
+action composes successful closure with downstream observation.
+
+`lens-laws.ss` checks get-put, put-get and put-put on supplied immutable states
+and focus values. Check sources stay protected across raw steps and final cooking.
+These are finite counterexample controls. Lean `LensLaws` states the universal
+laws, proves their composition and discharges custom nested-product examples.
+`Generalized.closeWithin` proves actual fixedness, the raw-step bound, origin in
+the original seed and stability of every later original-seed unfolding.
+
+`examples/closed-declarations.ss` places comparable data in nested vector raw
+state, closes a three-component dependency chain, then cooks existing standard
+method policy into a callable interface. Four raw evaluations include the final
+equality check. This does not assert equivalence of earlier finite observations
+to the older freshly allocated method-closure representation. Arbitrary fresh
+procedure identities cannot be certified from sampled calls; budget exhaustion
+remains inconclusive about divergence. See [controlled-closure.md](controlled-closure.md).
 
 ### Declared method fragments and receiver generics
 

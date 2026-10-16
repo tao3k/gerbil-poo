@@ -63,6 +63,11 @@ the base. Finite depth is not an automatic fixed-point witness. `bind-fragments`
 returns the existing native FUN Reader action, checking sources on each new seed.
 No result or approval is reused across calls.
 
+For controlled closure, `generalized-closure.ss` now checks actual adjacent raw
+equality within a supplied step budget before returning a closed callable
+interface. See [controlled-closure.md](controlled-closure.md); the finite
+observation API itself keeps its original weaker boundary.
+
 Captured sources include expander/context/form metadata, complete finalized
 descriptors, their immediate lenses and explicit `sources`. Supported source
 revisions refuse stale observation, including at zero depth and cooking. Sources

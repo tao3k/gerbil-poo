@@ -934,3 +934,27 @@ not a general raw fixed point. Native controls separately exercise the macro,
 copying setters, invalidation/refusal, ignored getters and registered-write guards.
 Custom callback termination and lens/compiler laws remain premises. See
 [generalized-declarations.md](generalized-declarations.md).
+
+### Controlled non-record closure and custom lens laws
+
+Racket's generalized raw/cooked construction now has a bounded adjacent-state
+closure API in `generalized-closure.ss`, reusing source-guarded fragment steps and
+existing cooking. Lean `Generalized.closeWithin_fixed/bound/reached/forever`
+proves actual fixedness, transition bound, original-seed provenance and later
+stability. Finite observations or equal sampled function calls cannot establish
+that raw equation. Native budget/law/source refusal retains the old publication.
+
+`Prototype.LensLaws` states universal getter/setter laws and proves composition
+and the existing MonoLens bridge. `lens-laws.ss` supplies corresponding finite
+counterexample checks on visited immutable states and declared focus values;
+native passes are NOT imported as universal Lean witnesses. Check dependencies
+stay protected through the entire staged closure, including cooking.
+
+`Examples/ClosedPrototypes.lean` / `examples/closed-declarations.ss` pair nested
+products/vectors, a three-component dependency chain and existing standard method
+cooking. Four raw steps include final verification. Native controls additionally
+cover all three law counterexamples, sampling limitations, source/cooking failures
+and FUN Reader suffix suppression. Pure local totality, immutable raw data and
+registered dependencies remain premises; unrestricted recursion/closure equality
+and compiler/runtime verification remain outside scope. See
+[controlled-closure.md](controlled-closure.md).

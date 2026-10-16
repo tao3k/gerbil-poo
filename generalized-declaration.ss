@@ -1,6 +1,7 @@
 ;;; Declaration elaboration for arbitrary raw/cooked carriers using Appendix B lenses.
 (export Fragment Fragment. lens-fragment GeneralizedDeclaration. prepare-fragments .prototype
-        prepared-fragments? fragment-names observe-fragments bind-fragments)
+        prepared-fragments? fragment-names observe-fragments bind-fragments
+        with-fragment-sources step-fragments)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         ./object ./mop ./declaration (prefix-in ./generalized-prototype gp.))
 ;; The public descriptor is ordinary extensible POO metadata. Lens laws and local
@@ -79,6 +80,11 @@
 (def (observe-fragments prepared base seed depth)
   (with-fragment-sources prepared
     (lambda () (gp.observe (prepared-fragments-snapshot prepared) base seed depth))))
+;; One actual raw transition for controlled closure; no cooking of the result or
+;; equality guess is performed here. It has the same source guard as observation.
+(def (step-fragments prepared final base)
+  (with-fragment-sources prepared
+    (lambda () (gp.step (prepared-fragments-snapshot prepared) final base))))
 ;; Bind as native FUN Reader, reusing the existing observer and checking current
 ;; registered source versions on EACH seed; no result/approval is cached across calls.
 (def (bind-fragments prepared base depth)
