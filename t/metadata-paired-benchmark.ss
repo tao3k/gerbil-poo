@@ -7,11 +7,14 @@
         (prefix-in ../staged-publication staged.) (prefix-in ../cyclic-publication publication.)
         (prefix-in ../examples/service-combination qualified.) (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/cyclic-access access.) (prefix-in ../multimethod dispatch.))
- ;; Every child constructs the SAME ten controls; duplicate indices share exact
+;; One view-independent child supplies the actual no-binding control. Construction
+;; is common module setup, not silently charged to any timed binding sample.
+(def shared-context-program (qualified.context-preflight #t))
+;; Every child constructs the SAME ten controls; duplicate indices share exact
 ;; model identity. Module setup stays outside measured publication/call phases.
 (def (models)
-  (list qualified.staged-simula-model qualified.sized-simula-model qualified.bound-simula-model
-    qualified.bound-simula-model qualified.staged-simula-model qualified.sized-simula-model
+  (list qualified.staged-simula-model qualified.empty-storage-simula-model qualified.bound-simula-model
+    qualified.bound-simula-model qualified.staged-simula-model qualified.empty-storage-simula-model
     qualified.compiled-context-model qualified.prepared-simula-model
     qualified.shape-prepared-simula-model qualified.cached-simula-model))
 ;; Each control prepares its initial captured version AND performs a real first
@@ -26,7 +29,7 @@
   (def revised (.cc policy capacity: 20 invoice: "invoice:2"))
   (def later (.cc policy capacity: 30 invoice: "invoice:3"))
   (def source (access.equations (access.config) #t))
-  (map (lambda (model)
+  (map (lambda (model strategy)
     (defvalues (cold issue) (staged.prepare model source policy))
     (when issue (error "paired baseline refused" issue))
     (defvalues (result old) (publication.invoke cold 'reserve 2))
@@ -39,6 +42,21 @@
     (unless (and (eq? held current) refused (eq? (publication.failure-stage refused) 'admission))
       (error "paired warm-budget refusal"))
     (case scenario
+      ;; Isolate binding over an already reconstructed immutable view. The shared
+      ;; argument-context control returns its exact template; bound modes allocate
+      ;; only their typed context owner. No methods, contracts or publication here.
+      ((simula-bind-allocation)
+       (let (view (publication.version-view switched))
+         (lambda () (dispatch.multimethod?
+           (if (memq strategy '(bound bound-aa empty-storage empty-storage-aa))
+             (qualified.bound-preflight view) shared-context-program)))))
+      ;; Isolate later generic construction, keeping cooking and contracts outside
+      ;; this phase. Full workflows below still include ALL those costs.
+      ((simula-next-generics-allocation)
+       (let (view (.call model cook later (publication.version-cache current)))
+         (lambda ()
+           (def next (generics.refresh (.@ model generics) (publication.version-family current) later view))
+           (equal? (generics.family-built next) '(quote reserve cancel)))))
       ((simula-generics-allocation)
        (let (view (.call model cook revised (publication.version-cache old)))
          (lambda ()
@@ -80,7 +98,7 @@
            (or (eq? scenario 'simula-handoff)
              (equal? (first-value (publication.invoke next 'cancel "customer" #t))
                (list "customer" (if (and subsequent? (not unchanged?)) "invoice:3" "invoice:2"))))))))))
-    (models)))
+    (models) study.strategies))
 ;; Native child entry: validate fixed scenario/regime/one-character side codes,
 ;; warm every thunk, optionally collect, then measure exactly the chosen side.
 ;; Record CPU/wall/GC, signed allocation and prefix counters; allocation becomes

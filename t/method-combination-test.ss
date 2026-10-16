@@ -51,9 +51,10 @@
       (check-equal? guards 2)
       (check-exception (extension.check (dispatch.register rebound (list (dispatch.prototype 'Forbidden))
         (lambda (context units) (+ context units))) (list (extension.shape '((Forbidden))))) true))
-    (test-case "capacity-sized symbol families preserve duplicate empty support and owner refusal"
+    (test-case "sized and empty storage preserve duplicate support owner refusal and old versions"
+      (for (storage (list family.methods.refresh<-sized-projection family.methods.refresh<-empty-storage))
       (def keys (cons 'first (for/collect (i (in-range 24)) (string->symbol (number->string i)))))
-      (def model (.mix family.methods.refresh<-sized-projection
+      (def model (.mix storage
         (.cc family.Model. keys: (cons 'first keys)
           projection: (.cc family.Projection.
             project: (lambda (key policy _) (list key policy))
@@ -67,8 +68,8 @@
       (def same (family.refresh model old 10 #f))
       (check-equal? (family.family-built same) [])
       (check (eq? (family.family-ref same 'first) (family.family-ref old 'first)) => #t)
-      ;; Same cardinality with changed support exercises prune-before-overwrite
-      ;; on copied storage, not the contraction/empty fresh-table fallback.
+      ;; Same cardinality changes support; neither copied/pruned nor empty storage
+      ;; may retain old-only keys or skip checking any current replacement.
       (def swapped (family.refresh (.cc model keys: (cons 'replacement (cdr keys))) same 20 #f))
       (check-equal? (length (family.family-built swapped)) 25)
       (check (family.family-has? swapped 'first) => #f)
@@ -81,7 +82,7 @@
       (check-equal? (family.family-keys empty) [])
       (check-exception (family.prepare (.cc model keys: '(first "invalid")) 20 #f) true)
       (check-exception (family.refresh (.cc model watches: (lambda (_) (list (extension.shape [])))) old 20 #f) true)
-      (check-equal? (first-value (family.invoke old 'first)) '(first 10)))
+      (check-equal? (first-value (family.invoke old 'first)) '(first 10))))
     (test-case "binding runs no body and preserves three-level repeated effect order"
       (def trace [])
       ;; Test-only callback records the actual units and immutable bound context.
@@ -120,7 +121,7 @@
       (check-exception (dispatch.call (combined.bound-preflight (.o (capacity 20) (invoice "ok") (release #f))) 2) true)
       (check-exception (dispatch.call (combined.bound-preflight (.o (capacity 20) (invoice #f) (release #t))) 2) true))
     (test-case "sized and bound handoffs keep full owner checking then exact unchanged reuse"
-      (for (model (list combined.sized-simula-model combined.bound-simula-model))
+      (for (model (list combined.sized-simula-model combined.bound-simula-model combined.empty-storage-simula-model))
         (def policy (.cc bundle.Policy. capacity: 10 price: 3 invoice: "invoice:1"))
         (defvalues (old issue) (combined.start model policy))
         (check-equal? issue #f)

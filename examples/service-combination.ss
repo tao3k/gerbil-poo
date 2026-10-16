@@ -1,6 +1,6 @@
 ;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
 (export standard-model simple-model forwarding-model inner-model simula-model
-        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template sized-simula-model bound-simula-model bound-preflight context-preflight forwarder preflight start revise)
+        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template sized-simula-model bound-simula-model empty-storage-simula-model bound-preflight context-preflight forwarder preflight start revise)
 (import ../object (only-in ../mop Any Object element? validate) (only-in :std/values first-value)
         (prefix-in ../dispatch-extension extension.) (only-in ../number IntegerRange)
         (only-in ../type Unit) (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
@@ -312,3 +312,11 @@
 ;; Revise the same source under new policy; source/type/watch/contract approval errors
 ;; retain the exact old version. External effect rollback is not claimed.
 (def (revise selected old policy) (staged.publish selected old (access.equations (access.config) #t) policy))
+
+;; Select standard empty-table construction without changing the context program,
+;; projection, contract or joint admission protocol. Initial captured preparation
+;; is identical to bound-simula-model; first owner switches and later revisions
+;; use independent empty context storage and checked copy-on-write service updates.
+(def empty-storage-simula-model
+  (.cc bound-simula-model generics:
+    (.mix family.methods.refresh<-empty-storage (.@ bound-simula-model generics))))

@@ -582,3 +582,20 @@ keys absent. `rebuiltLookup_certified` transports only certificates of the fresh
 reference construction. The typed heterogeneous table signatures are preserved.
 Pending cells, copying, support checks and pruning are real work in the supplied
 table price; a capacity or copied table is never an applicability certificate.
+
+### Standard empty storage and ordered checked reconstruction
+
+`methods.refresh<-empty-storage` composes the existing projection/refresh chain
+with `HashTable.new`, Gerbil's ordinary same-kind empty-table interface. One private
+empty eq descriptor supplies fresh context/service storage using positional size;
+no custom runtime constructor or hash backend is introduced. It avoids copied old
+entries, pending cells and pruning. All ordered constructors, negative watches and
+joint approval remain active; later same-owner services retain ordinary COW.
+
+Lean `Partial.rebuild` executes the existing certified key builder. Its
+`build_lookup_eq`, `rebuild_lookup_eq` and `rebuild_empty_reference` preserve the
+first exact typed failure and arbitrary-list successful observations, including
+duplicate keys. `EmptyStorageCosts.covered` charges interface setup and excess GC
+against removed construction dispatch/staging/pruning, with binding and approval
+explicitly common. This advances concrete generalized-protocol future work; it
+does not close the remaining safe-recursion, general MOP hook or migration TODOs.

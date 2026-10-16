@@ -1,6 +1,100 @@
 #+title: Simula owner handoff, prepared context and private storage
 
-* Three-way correspondence and scope
+
+* Current follow-up: standard empty-table interface
+This is generalized-protocol future work, not completion of the whole paper or
+all Scheme TODOs. The original Racket reference and remaining semantic gaps below
+remain unchanged. New native method: methods.refresh<-empty-storage; example:
+empty-storage-simula-model. Both compose the existing FUN/IO Model/projection chain.
+
+Gerbil runtime/hash.ss defines make-hash-table-eq through variadic apply and the
+general make-hash-table constructor. Its HashTable.new interface already accepts
+positional size and creates independent empty same-kind storage. One private empty
+eq descriptor supplies that method; no runtime code, custom hash implementation,
+copy of old entries, pending-cell list or pruning pass is needed. Method declaration,
+registration, negative watches and joint approval still run in their original order.
+Later same-owner service updates retain ordinary copy-on-write and warm siblings.
+The descriptor's module setup is explicitly priced, not a free cold-start result.
+
+Lean Partial.rebuild sequences the original certified Partial.build.
+build_lookup_eq / rebuild_lookup_eq / rebuild_empty_reference preserve successful
+lookups and the FIRST EXACT typed refusal for arbitrary ordered supports, including
+duplicates. EmptyStorageCosts.covered charges fixed interface setup and supplied
+excess collections against removed constructor dispatch/staging/pruning; binding
+and approval stay common. AlignedServices reconstructs real heterogeneous
+reserve/cancel/quote services with repeated reserve, capacity 0/64, current policy
+shifts and forbidden cancellation. Native 25-key tests compare both storage modes,
+replace support, contract to empty and retain old versions on negative refusal.
+All 28 native modules and the Lean library/examples passed.
+
+** Current admitted protocol and results
+The fixed study still admits 1248 children / 624 direct process pairs: 13 scenarios,
+6 pairs, 4 ABBA rounds and natural/collected regimes. The earlier eight-request and
+probe scenarios remain historical above; current coverage adds isolated typed
+binding and later generic construction instead. All ten controls initialize/warm
+in fixed order in every fresh child. Both prior bound and original staged owners,
+pure compiled context and exact A/A duplicates share the binary. No heavy local
+build/test ran during measurement. Compiler/study caps remain 90s, child cap 20s,
+heap 1 GiB. Module loading/setup is outside measured phases and charged separately.
+
+N/C means natural/collected; deltas are target empty-storage minus direct control.
+All byte comparisons below admit four GC-free pairs in EACH regime; A/A byte
+deltas are zero. No bytes are inferred across collections or negative counters.
+
+| Allocation phase | Versus prior bound | Versus staged | Versus pure compiled context |
+|------------------+--------------------+---------------+------------------------------|
+| First complete owner handoff | -2544 B | -3968 B | -1776 B |
+| Later complete revision | -1952 B | -1920 B | -1920 B |
+| First generic construction only | -2544 B | -3776 B | -1584 B |
+| Later generic construction only | -1952 B | -1728 B | -1728 B |
+| Typed child binding only | 0 B | +320 B | +320 B |
+| Contract binding only | 0 B | 0 B | 0 B |
+| Switched-owner hot call | 0 B | -96 B | -96 B |
+
+Thus the preceding +768-byte first-owner difference is eliminated for this trace:
+current direct comparison is -1776 B. Binding itself still allocates +320 B versus
+the no-binding shared template; its cost was NOT removed. The isolated phase inputs
+are precomputed and differ from complete publication. Do NOT add their medians
+into a claimed causal byte/time decomposition. Bytes saved do NOT prove speed.
+
+| Complete phase, paired CPU us | Versus prior bound N/C | Versus staged N/C |
+|------------------------------+------------------------+-------------------|
+| First handoff, no request | -0.391 / -17.711 | +1.547 / -1.852 |
+| First revision, one request and cancel | +22.867 / -6.289 | +23.695 / +1.422 |
+| Later revision, one request and cancel | -5.188 / -6.227 | +0.531 / +1.797 |
+| 256-request publication | +7.000 / -10.875 | -52.188 / -35.781 |
+| Switched-owner hot call | -0.124 / -0.188 | -0.255 / -0.052 |
+| Unchanged publication | +1.430 / -0.445 | -1.594 / +0.195 |
+
+Later-revision improvement versus prior bound is 2/4 and 3/4 faster pairs; recorded
+GC deltas +0.242 / -2.305 us and residual CPU deltas -5.430 / -3.922 us. This is
+not solely a reduction in recorded collection time, but remains a small sample
+with range -50.500..+10.141 / -12.141..+5.781 us. Against staged the target remains
+slower (+0.531 / +1.797 us), so the prior +2.6/+2.4 report is historical context,
+not a pooled estimate or proof of a universally closed regression.
+
+Natural first-revision regression is material: versus staged +23.695 us, recorded
+GC +9.258 and residual +17.320 (separately aggregated medians do not sum). Its
+1/4 faster pairs and range -1.375..+173.156 remain admitted. New A/A in that phase
+is +7.047 / +3.336 us; it does not authorize subtracting away the regression.
+Natural 256-request target also loses +7 us versus prior bound, despite beating
+staged in all four pairs in both regimes. New A/A burst is -9.031 / -29.938 us,
+with natural range -695.188..+28.688. Post-warm A/A is +0.019 / +0.221 us. The
+one-shot collected first-allocation A/A time range reaches +441 us while its byte
+delta remains zero. Timing drift, adverse signs and outliers are not discarded.
+Prefix GC counts match; full-prefix counters frequently differ. Identical heap
+history, general elapsed-time acceleration, equal cache-budget admission and
+compiler/collector correctness are NOT established. The strategy remains opt-in.
+
+Binary SHA256: e20e784298e58600673e02bff9f0dc224247a4ae44ab1ca3d14e4366e0bc8810
+Native receipt SHA256: f25fc444e3cbd815fb343f6fb1c1ea94dfb0b2a8baebed6572e439b0e376d6b8
+Reproduce with the commands below, naming a fresh ignored executable/receipt.
+Current local executable/receipt basename is metadata-paired-empty-storage.
+Only this concise summary is committed; full records/binaries remain ignored.
+
+* Preceding bound-owner implementation and evidence
+
+** Three-way correspondence and scope
 This advances generalized-protocol future work. Racket reference: poof revision
 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl 2040–2099: negative
 assumptions, method fragments and effective methods. No successful invocation
@@ -62,7 +156,7 @@ Admission requires both sides GC-free for byte deltas; all admitted byte pairs
 below have four pairs per regime. Different phase medians are NOT additive: the
 isolated generic/contract controls receive precomputed inputs, unlike full publication.
 
-The final-source study completed 1248 children. Delta is second minus first;
+The preceding bound-source study completed 1248 children. Delta is second minus first;
 N/C means natural/collected. Against staged, bound used 1424 fewer bytes on first
 handoff, 32 more on later revision and 96 fewer on each switched-owner hot call.
 Against pure compiled-context, first-owner excess fell from the preceding 2192-byte

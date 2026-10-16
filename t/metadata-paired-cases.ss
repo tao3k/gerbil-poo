@@ -3,15 +3,16 @@
 ;; Focus on the unresolved Simula workflow: cold child/generic construction,
 ;; discarded admission probes, first cache transfer and complete joint revision.
 ;; A fixed one-operation allocation control admits bytes ONLY without collection.
-(def scenarios '(simula-generics-allocation simula-contracts-allocation simula-handoff simula-revision simula-repeated simula-burst simula-post-warm
-  simula-post-probe simula-next simula-unchanged simula-allocation simula-next-allocation simula-post-allocation))
+(def scenarios '(simula-bind-allocation simula-next-generics-allocation simula-generics-allocation simula-contracts-allocation simula-handoff simula-revision simula-burst simula-post-warm
+  simula-next simula-unchanged simula-allocation simula-next-allocation simula-post-allocation))
 ;; Identical full setup/warmup in natural and explicitly collected processes.
 (def regimes '(natural collected))
-;; Separate capacity sizing and context binding, plus exact duplicate A/A sides.
-(def strategies '(staged sized bound bound-aa staged-aa sized-aa
+;; Compare the preceding bound owner with standard empty storage, the original
+;; staged owner and pure compiled context. Exact duplicates supply A/A controls.
+(def strategies '(staged empty-storage bound bound-aa staged-aa empty-storage-aa
   compiled-context prepared-transport shape-prepared candidate-transport))
 ;; Every comparison is direct in the same binary; no transitive timing inference.
-(def pairs '((0 1) (1 2) (0 2) (2 3) (0 4) (6 2)))
+(def pairs '((2 1) (0 1) (6 1) (1 5) (2 3) (0 4)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping
@@ -21,7 +22,7 @@
 ;; Configuration includes protected construction; no adaptive best-of timing.
 (def (repetitions scenario)
   (case scenario ((simula-burst) 16) ((simula-post-warm simula-post-probe) 1024)
-    ((simula-allocation simula-next-allocation simula-post-allocation simula-generics-allocation simula-contracts-allocation) 1) (else 64)))
+    ((simula-allocation simula-next-allocation simula-post-allocation simula-generics-allocation simula-next-generics-allocation simula-bind-allocation simula-contracts-allocation) 1) (else 64)))
 ;; ABBA across four rounds; both sides are separate fresh processes.
 ;; Balance first/second position over four rounds as ABBA. Adjacent sides always
 ;; run in separate fresh processes; arbitrary temporal drift is not eliminated.

@@ -1,7 +1,7 @@
 ;;; GenericFamily.Model: native construction of checked heterogeneous generics.
-(export Model. Projection. methods.instantiate<-shared-expansion methods.refresh<-projection methods.refresh<-sized-projection build prepare refresh
+(export Model. Projection. methods.instantiate<-shared-expansion methods.refresh<-projection methods.refresh<-sized-projection methods.refresh<-empty-storage build prepare refresh
         family? family-ref family-has? family-keys family-built family-reused invoke failure? failure-key failure-stage failure-cause)
-(import :std/iter (only-in :std/list/list-builder with-list-builder) (only-in :std/list/list delete-duplicates/hash)
+(import (only-in :gerbil/runtime/hash HashTable HashTable-new) :std/iter (only-in :std/list/list-builder with-list-builder) (only-in :std/list/list delete-duplicates/hash)
         ./object (only-in ./mop define-type .defgeneric)
         (prefix-in ./multimethod multimethod.)
         (prefix-in ./dispatch-extension dispatch-extension.))
@@ -63,17 +63,19 @@
 ;; Project closed contexts in key order and retain only same-owner equal contexts.
 ;; Changed entries invoke the projection's instantiation protocol; keyed failures
 ;; propagate without publishing a partial table. Repeated keys keep the first entry.
-(def (project-family owner projection keys seed methods watches previous policy cooked (sized? #f))
+(def (project-family owner projection keys seed methods watches previous policy cooked (sized? #f) (empty-storage #f))
   (unless (and (list? keys) (andmap symbol? keys)) (error "generic keys must be symbols"))
   (def prior (and previous (eq? owner (family-owner previous)) (family-contexts previous) previous))
-  (def contexts (if sized? (make-hash-table-eq size: (length keys)) (make-hash-table-eq)))
+  (def contexts (cond (empty-storage (empty-storage (length keys)))
+    (sized? (make-hash-table-eq size: (length keys))) (else (make-hash-table-eq))))
   ;; Capture the owner-bound constructor callback once, not once per changed key.
   (def instantiate (.@ projection .instantiate))
   ;; Stage fresh checked cells before choosing copied storage on owner handoff.
   ;; The old owner supplies capacity only; no old entry is accepted as current.
-  (def staging? (and sized? previous (not prior)))
+  (def staging? (and sized? previous (not prior) (not empty-storage)))
   (def pending [])
   (def services (cond (prior (family-services prior)) (staging? #f)
+    (empty-storage (empty-storage (length keys)))
     (sized? (make-hash-table-eq size: (length keys)))
     (else (make-hash-table-eq))))
   (def copied? (not prior))
@@ -131,6 +133,24 @@
       (delete-duplicates/hash keys from-end?: #t)))
   .prepare: (lambda (policy cooked) (project-family @ projection keys seed methods watches #f policy cooked #t))
   .refresh: (lambda (previous policy cooked) (project-family @ projection keys seed methods watches previous policy cooked #t)))
+;; One native HashTable interface owns an EMPTY eq representation. Its ordinary
+;; new method reserves the requested capacity without variadic keyword parsing,
+;; copied old entries, pending pairs or a pruning pass. Module setup is paid once;
+;; this descriptor holds no published entries, contexts or checking certificates.
+(def empty-eq-storage (HashTable (make-hash-table-eq)))
+;; Use the standard typed interface, including the optional positional capacity.
+;; Each call returns distinct empty storage; the source is never filled or mutated.
+(def (fresh-eq-storage capacity) (HashTable-new empty-eq-storage capacity))
+;; Compose empty representation construction with the existing checked projection
+;; chain. New owners still rebuild EVERY key; same-owner COW and context equality
+;; retain exact warm siblings. Failed construction discards only private storage.
+(define-type (methods.refresh<-empty-storage @ [methods.refresh<-sized-projection] projection keys seed methods watches)
+  .build: (lambda (policy cooked)
+    (def current (project-family @ projection keys seed methods watches #f policy cooked #t fresh-eq-storage))
+    (map (lambda (key) (cons key (family-ref current key)))
+      (delete-duplicates/hash keys from-end?: #t)))
+  .prepare: (lambda (policy cooked) (project-family @ projection keys seed methods watches #f policy cooked #t fresh-eq-storage))
+  .refresh: (lambda (previous policy cooked) (project-family @ projection keys seed methods watches previous policy cooked #t fresh-eq-storage)))
 ;; Private failure provenance: service key, registration/negative/projection phase
 ;; and original cause; atomic publishers retain their old version on refusal.
 (defstruct failure (key stage cause) final: #t)

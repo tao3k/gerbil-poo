@@ -2,6 +2,18 @@
 
 In the future, we may add the following features and optimizations.
 
+## Current implementation boundary
+
+This design TODO is not a declaration that the whole paper or every Lean model
+has been implemented. `alignment.md` maps executable native counterparts separately
+from proofs. Multiple inheritance and the listed method combinations are available,
+but the unified extensible MOP remains future work. Bounded safe recursive request
+programs/certified recursive memo are still open in Scheme; related examples accept
+an explicit Boolean seed. General inheritance-hook equivalence, arbitrary lens
+adapters and cross-type migration also need further native coverage. Finite DAG,
+metadata, invalidation and joint-publication examples do not close these general
+items. Storage/binding performance progress below does not change their status.
+
 ## Meta-Object Protocol
 
 Redefine POO using
@@ -379,3 +391,10 @@ and performance/simula-publication-summary.org for proof and native cost boundar
   separates post-handoff calls and first/subsequent revision allocation. See
   performance/simula-owner-summary.org; low-call revision-heavy workloads retain
   the shared-context alternative, with full binding/setup/GC cost accounting.
+
+The owner-storage follow-up adds `methods.refresh<-empty-storage`: the existing
+HashTable.new protocol supplies independent empty eq tables, avoiding variadic
+constructor dispatch and copy/stage/prune preparation. Every current owner cell
+is still constructed and checked. Binding is measured separately from first/later
+family and contract construction; full publication, GC and A/A controls remain
+required. See performance/simula-owner-summary.org for source-specific results.
