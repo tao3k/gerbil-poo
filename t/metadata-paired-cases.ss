@@ -3,19 +3,15 @@
 ;; Focus on the unresolved Simula workflow: cold child/generic construction,
 ;; discarded admission probes, first cache transfer and complete joint revision.
 ;; A fixed one-operation allocation control admits bytes ONLY without collection.
-(def scenarios '(simula-configure simula-generics simula-probe simula-transfer simula-cold
-                 simula-bind simula-warm simula-stage simula-revision simula-repeated simula-allocation))
-;; Natural preserves the child's heap history; collected explicitly collects
-;; after the identical warmup prefix. Neither promises identical live heaps.
+(def scenarios '(simula-generics-allocation simula-contracts-allocation simula-handoff simula-revision simula-repeated simula-burst simula-post-warm
+  simula-post-probe simula-next simula-unchanged simula-allocation simula-next-allocation simula-post-allocation))
+;; Identical full setup/warmup in natural and explicitly collected processes.
 (def regimes '(natural collected))
-;; Fixed same-prefix sides distinguish compilation from explicit nested cache
-;; transport and callback compilation. Duplicate sides provide A/A controls.
-(def strategies '(reference context-prepared prepared-transport prepared-control
-  staged-simula staged-simula-aa compiled-context context-prepared-aa shape-prepared-aa candidate-transport))
-;; Direct new/previous, fresh/captured baseline, both A/A controls and preparation
-;; control. Pure compiled/staged isolates lifecycle composition. All sides
-;; initialize/warm the same complete set before measurement.
-(def pairs '((1 4) (2 4) (6 4) (4 5) (1 7) (2 3)))
+;; Separate capacity sizing and context binding, plus exact duplicate A/A sides.
+(def strategies '(staged sized bound bound-aa staged-aa sized-aa
+  compiled-context prepared-transport shape-prepared candidate-transport))
+;; Every comparison is direct in the same binary; no transitive timing inference.
+(def pairs '((0 1) (1 2) (0 2) (2 3) (0 4) (6 2)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping
@@ -24,8 +20,8 @@
 ;; Fixed counts separate warm-call micro-costs from bounded complete publications.
 ;; Configuration includes protected construction; no adaptive best-of timing.
 (def (repetitions scenario)
-  (case scenario ((simula-warm simula-probe simula-transfer) 1024)
-    ((simula-allocation) 1) ((simula-configure) 128) (else 64)))
+  (case scenario ((simula-burst) 16) ((simula-post-warm simula-post-probe) 1024)
+    ((simula-allocation simula-next-allocation simula-post-allocation simula-generics-allocation simula-contracts-allocation) 1) (else 64)))
 ;; ABBA across four rounds; both sides are separate fresh processes.
 ;; Balance first/second position over four rounds as ABBA. Adjacent sides always
 ;; run in separate fresh processes; arbitrary temporal drift is not eliminated.

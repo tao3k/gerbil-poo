@@ -133,3 +133,9 @@ embedded in Scheme. Optional strategies remain explicit. No universal speedup,
 full-process startup reduction, post-handoff hot-call elimination, identical GC
 history or all-budget admission equivalence is asserted. Only concise summaries
 are committed; no versioned JSON, full data, binaries or compressed archives.
+
+* Historical source boundary
+The next study adds opt-in symbol-sized family tables and context binding, and
+measures post-handoff calls explicitly. This receipt remains historical rather
+than current-source re-admission. See simula-owner-summary.org; no timing or byte
+medians are pooled across these source identities.

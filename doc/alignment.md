@@ -501,3 +501,84 @@ Common captured-view initial work remains explicit base. Module initialization i
 outside native phase timings, and must be charged in whole-process reasoning.
 Results, A/A drift, unsuccessful pure-context trials and reproducible native command:
 performance/simula-factory-summary.org. No dependency on a Lean checkout.
+
+### Capacity-sized family storage and bound Simula context
+
+This advances generalized-protocol future work. Racket's effective-method split
+and explicit nonmemoization of results allow immutable current-view binding at
+reconstruction. `bind-simula` uses standard folds to compile two-argument callbacks
+at a fixed view into unary argument-row callbacks. `bound-preflight` validates the
+Object at binding and validates current units and Unit output through the existing
+sparse generic at every call. Bodies still check current bound capacity, invoice
+and release; Forbidden shape watches are installed/checked normally. It uses the
+same immutable declaration source; global declaration setup is not a free operation
+in whole-horizon costs. Separate reconstructed views receive separate bound children.
+No prepared cache successor or result can substitute for current Type/body checks.
+
+The generic-family protocol already rejects nonsymbol keys. Its opt-in
+`methods.refresh<-sized-projection` uses the existing native eq backend with
+`make-hash-table-eq size: (length keys)` for private new tables. This changes
+representation only. New-owner handoff STILL reconstructs and checks every key;
+matching old-owner contexts still follow existing reuse rules. No private receipt
+is retagged. Standard runtime hash.ss/table.ss supply the constructor, hashing and
+capacity management; no custom hash library or runtime modification was added.
+Duplicate support is an upper bound for capacity, not an authorization to omit keys.
+
+`bound-simula-model` composes this storage mixin with the existing FUN/IO staged
+Model and typed contract/negative/admission chain. `sized-simula-model` isolates
+the table change. Native tests include 25 keys, duplicate/empty/invalid support,
+new-owner negative refusal retaining old entries, three-level repeated effect
+traces, current/revoked/malformed views and independently revised capacity/invoice.
+
+Lean `compileParts_contramap` and `bindSimula_correct` prove the fused binding for
+arbitrary lawful effects. `boundPreflight_equivalent` / `boundPreflight_revoked`
+retain current-view failure traces. The certified-family capacity companion proves
+preallocated empty tables still contain no entries; capacity supplies no owner
+or method certificate. `SimulaBindingBudget` charges every reconstructed binding,
+setup, current call and excess GC. Its coverage/selection/table inequalities use
+supplied primitive prices; they do not prove native hashing, compiler correctness,
+GC behavior or universal acceleration. Few calls per revision can favor shared code.
+
+Native paired controls now measure POST-handoff warm calls separately, first versus
+subsequent revision allocations, and unchanged-owner reuse. See
+performance/simula-owner-summary.org for current results and limitations.
+
+The final binding path shares an entire `prepared-context` program.
+`compile-simula-context` prepares code taking explicit context state once;
+`bind-context` validates the new context and copies only private context/invocation
+and generic owners. Method index, invoker callbacks and candidate/effective cache
+are retained exactly. Applicability/precedence/guards depend on typed Args;
+context-sensitive dispatch must remain in Args. A context value is invocation data,
+not permission to freeze a guard or retain a successful result. The child template's
+negative shape check remains valid because rebinding does not edit that program.
+
+Native `invoke-nested` additionally rejects a changed private context owner: a
+method cannot return a rebound view through the cache-only successor channel.
+New views must pass ordinary reconstruction and joint publication. Tests cover
+same-context identity, guarded current arguments, typed rebind refusal and attempted
+nested context replacement. Lean `PreparedContextMultimethod` uses the same prepared
+program with typed context data; its call/reference, bind/program/cache and context
+retention laws complement `NestedMultimethod.callChecked_context_change`.
+
+The final table path follows the standard Gerbil expander usage: native eq tables
+with an explicit capacity hint. The two symbolic-backend trials (random/default
+seed and then seed 0 with shared code) increased allocation; both remain adverse
+results in simula-owner-summary.org. Their price inequality does NOT justify
+selecting that backend. No hash/runtime implementation was changed.
+
+The owner-handoff follow-up stages ALL freshly constructed/negative-checked cells
+before choosing service-table storage. Comparable nonempty supports can use a
+private copy of previous storage; old-only keys are pruned and every current cell
+is overwritten before any new family escapes. Contraction/expansion uses a fresh
+sized table. Constructor execution and built traces retain declaration order;
+private insertion order is not a public family order. A failed first handoff drops
+the pending cells without mutating the previous table. No old receipt authorizes
+a current key. Tests also swap one key in a 25-key support (same cardinality),
+contract to one/zero keys, and reject a late first-handoff negative extension.
+
+Lean `overwriteStorage_current` and `rebuiltLookup_reference` establish independence
+from arbitrary prior storage for the freshly rebuilt domain; pruning makes foreign
+keys absent. `rebuiltLookup_certified` transports only certificates of the fresh
+reference construction. The typed heterogeneous table signatures are preserved.
+Pending cells, copying, support checks and pruning are real work in the supplied
+table price; a capacity or copied table is never an applicability certificate.

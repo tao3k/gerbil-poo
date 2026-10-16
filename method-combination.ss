@@ -3,7 +3,7 @@
         forward-contribution? forward-effective inner-chain SimulaBody SimulaBody. simula-body simula-body? simula-effective
         Contribution Contribution. primary before after around item
         standard-contribution? simple-contribution? effective simple-effective
-        prepare-standard prepare-simple prepare-forwarding prepare-inner prepare-simula compile-simula
+        prepare-standard prepare-simple prepare-forwarding prepare-inner prepare-simula compile-simula bind-simula compile-simula-context
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
 (import :std/iter (only-in :std/list/list foldr) ./object
         (only-in ./mop define-type Type. element?) ./support/option)
@@ -254,3 +254,24 @@
   (foldl (lambda (body next)
     (def callback (.@ body prefix-part))
     (lambda (args) (apply callback args) (next args))) suffix methods))
+
+;; Specialize a two-argument Simula program at one already validated immutable
+;; context. Prefixes/suffixes receive (current-unit, bound-view) directly; no
+;; extra argument row or traversal closure is allocated at invocation. The caller
+;; still validates units through its ordinary generic signature on EVERY call.
+;; Binding executes no callback and caches no result; failure order is unchanged.
+(def (bind-simula methods view)
+  (def compiled (compile-simula-context methods))
+  (cut compiled view <>))
+
+;; Compile context-parameterized code ONCE, before any per-view binding. Context
+;; stays explicit in the existing invoker state; every step directly calls its
+;; two-argument callback with fresh units and that validated current context.
+;; No Type/body/guard is evaluated during compilation and no result is memoized.
+(def (compile-simula-context methods)
+  (def suffix (foldr (lambda (body next)
+    (def callback (.@ body suffix-part))
+    (lambda (view args) (callback (car args) view) (next view args))) (lambda (_ __) (void)) methods))
+  (foldl (lambda (body next)
+    (def callback (.@ body prefix-part))
+    (lambda (view args) (callback (car args) view) (next view args))) suffix methods))

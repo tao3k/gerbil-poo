@@ -373,3 +373,9 @@ and performance/simula-publication-summary.org for proof and native cost boundar
   Model combines captured initial calls with checked shared-definition handoff;
   first owner change still rebuilds all generics. See alignment.md and
   performance/simula-factory-summary.org for proofs, controls and remaining limits.
+
+- Simula owner/call follow-up: opt-in symbol-sized family storage and bound current
+  contexts, with complete owner/watch rechecking. The native paired matrix now
+  separates post-handoff calls and first/subsequent revision allocation. See
+  performance/simula-owner-summary.org; low-call revision-heavy workloads retain
+  the shared-context alternative, with full binding/setup/GC cost accounting.

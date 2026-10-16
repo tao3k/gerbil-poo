@@ -1,10 +1,10 @@
 ;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
 (export standard-model simple-model forwarding-model inner-model simula-model
-        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template context-preflight forwarder preflight start revise)
-(import ../object (only-in ../mop Any Object element?) (only-in :std/values first-value)
+        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template sized-simula-model bound-simula-model bound-preflight context-preflight forwarder preflight start revise)
+(import ../object (only-in ../mop Any Object element? validate) (only-in :std/values first-value)
         (prefix-in ../dispatch-extension extension.) (only-in ../number IntegerRange)
-        (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
-        (prefix-in ../declarative-metadata metadata.) (prefix-in ../staged-publication staged.)
+        (only-in ../type Unit) (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
+        (prefix-in ../declarative-metadata metadata.) (prefix-in ../staged-publication staged.) (prefix-in ../generic-family family.)
         (prefix-in ./shared-contracts shared.) (prefix-in ./cyclic-access access.))
 ;; Reserve arguments retain their ordinary runtime Type; dispatch has one C4 axis.
 (def units-type (IntegerRange min: 0))
@@ -57,6 +57,38 @@
           (lambda (_) (unless (string? (.@ view invoice)) (error "invoice required"))))))))
   (def checked (extension.snapshot (extension.check generic (list (extension.shape '((Forbidden)))))))
   (if prepare-shape? (dispatch.prepare-shape checked '((Reserve Object))) checked))
+;; Construct the original immutable, context-independent declarations. The
+;; ordinary factory still pays this construction; bound factories explicitly reuse
+;; the shared source below (one-time module setup in whole-horizon accounting).
+(def (context-declarations)
+  (list
+      (metadata.replace "preflight.general" (list (dispatch.prototype 'Object))
+        (combination.simula-body
+          (lambda (units _) (unless (> units 0) (error "positive units required")))
+          (lambda (_ view) (unless (.@ view release) (error "release required")))))
+      (metadata.replace "preflight.specific" (list (dispatch.prototype 'Reserve))
+        (combination.simula-body
+          (lambda (units view) (unless (<= units (.@ view capacity)) (error "capacity exceeded")))
+          (lambda (_ view) (unless (string? (.@ view invoice)) (error "invoice required")))))))
+;; Static code/metadata only: no view, mutable cache or invocation result is held.
+(def context-methods (context-declarations))
+;; Validate and bind the reconstructed current view once, then use the existing
+;; typed sparse dispatcher, metadata edits, shape preparation and negative watch.
+;; Reference calls freshly select and compile the same context callbacks. Warm
+;; prepared calls reuse that code, validating current units on every invocation.
+(def (bound-preflight view) (dispatch.bind-context bound-preflight-template view))
+;; Compile/check the context-independent index and effective program once through
+;; the existing metadata and negative-watch machinery. The placeholder is a valid
+;; immutable Object, never a successful business result; current views are Type
+;; validated by bind-context before use. This setup is explicitly priced once.
+(def bound-preflight-template
+  (let (generic (metadata.install
+    (dispatch.prepared-context
+      (dispatch.make (list units-type) Unit (lambda (_) '((Reserve Object)))
+        (lambda _ (error "context invoker required")) 1 combination.simula-body?)
+      combination.compile-simula-context Object (.o (capacity 0) (invoice "") (release #f))) context-methods))
+    (extension.snapshot (extension.prepare-shape
+      (extension.check generic (list (extension.shape '((Forbidden))))) '((Reserve Object))))))
 ;; Construct a view-independent Simula definition. Current view is a REAL typed
 ;; argument, not captured in a method descriptor. Both input arguments still pass
 ;; Type validation; C4 retains its one Reserve/Object dispatch axis. Static code
@@ -65,15 +97,7 @@
   (def generic (metadata.install
     (dispatch.prepared (dispatch.simula (list units-type Object) (lambda (_) '((Reserve Object))) 1)
       (if compiled? combination.compile-simula combination.prepare-simula))
-    (list
-      (metadata.replace "preflight.general" (list (dispatch.prototype 'Object))
-        (combination.simula-body
-          (lambda (units _) (unless (> units 0) (error "positive units required")))
-          (lambda (_ view) (unless (.@ view release) (error "release required")))))
-      (metadata.replace "preflight.specific" (list (dispatch.prototype 'Reserve))
-        (combination.simula-body
-          (lambda (units view) (unless (<= units (.@ view capacity)) (error "capacity exceeded")))
-          (lambda (_ view) (unless (string? (.@ view invoice)) (error "invoice required"))))))))
+    (context-declarations)))
   (extension.snapshot (extension.prepare-shape
     (extension.check generic (list (extension.shape '((Forbidden))))) '((Reserve Object)))))
 ;; Immutable prepared definition: no view, result or mutable body-cache cell.
@@ -85,10 +109,10 @@
   (if (eq? key 'reserve)
     (case mode
       ((standard) ((if prepared? dispatch.prepared-standard dispatch.standard) (list units-type) Any (lambda (_) '((Reserve Object)))))
-      ((forwarding simula contextual-simula)
+      ((forwarding simula contextual-simula bound-simula)
        (if transport?
          (dispatch.nested (list units-type) Any (lambda (_) '((Reserve Object)))
-           (case mode ((forwarding) (forwarder view prepared?)) ((contextual-simula) program)
+           (case mode ((forwarding) (forwarder view prepared?)) ((contextual-simula) program) ((bound-simula) (bound-preflight view))
              (else (preflight view prepared? (memq preparation '(child all))))))
          (dispatch.standard (list units-type) Any (lambda (_) '((Reserve Object))))))
       ((inner) ((if prepared? dispatch.prepared-inner dispatch.inner) (list units-type) Any (lambda (_) '((Reserve Object)))
@@ -121,7 +145,7 @@
                (combination.around (lambda (next units)
                  (unless (<= units (.@ view capacity)) (error "reservation capacity exceeded"))
                  (next))))))
-          ((forwarding simula contextual-simula)
+          ((forwarding simula contextual-simula bound-simula)
            (if transport?
              (list (metadata.replace "reserve.protocol" exact
                (lambda (protocol units)
@@ -175,7 +199,7 @@
   (def generics (.cc shared.expanded-generics
     seed: (cut seed mode prepared? transport? preparation program <> <> <>)
     methods: (cut declarations mode prepared? transport? <> <> <>)))
-  (def projection (if (memq mode '(forwarding simula contextual-simula)) enriched-projection (.@ generics projection)))
+  (def projection (if (memq mode '(forwarding simula contextual-simula bound-simula)) enriched-projection (.@ generics projection)))
   (def selected (if (eq? preparation 'all)
     (let (instantiate (.@ projection .instantiate))
       (.cc projection .instantiate: (lambda (seed methods watches key context)
@@ -267,6 +291,19 @@
 ;; code is module setup (charged separately in whole-horizon costs); factories only
 ;; bind the native override. No mutable cache, hidden warmup or result memoization.
 (def staged-simula-model (simula-workflow-model))
+;; Size only the generic-family tables; a new owner still fully checks all keys.
+;; This control isolates representation allocation from bound-view specialization.
+(def sized-simula-model
+  (.cc staged-simula-model generics:
+    (.mix family.methods.refresh<-sized-projection (.@ compiled-context-model generics))))
+;; Changed views bind a typed context owner over the same compiled unary program. Native owner/projection/watch/contract approval remains unchanged;
+;; initial construction delegates to the same captured-view model as the control.
+(def bound-simula-model
+  (let (selected (model 'bound-simula #t #t 'all))
+    (.cc selected
+      generics: (.mix family.methods.refresh<-sized-projection (.@ selected generics))
+      .prepare: (lambda (source policy) (staged.prepare prepared-simula-model source policy)))))
+
 
 
 ;; Prepare the selected model from existing finite access equations and policy.

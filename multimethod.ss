@@ -1,7 +1,7 @@
 ;;; Executable counterpart of Object.Multimethod and its sparse MethodIndex.
 (export make standard simple forwarding-standard inner simula multimethod? prototype any register contribute register-when erase
         prepared prepared-standard prepared-simple prepared-forwarding-standard prepared-inner prepared-simula nested nested-state
-        prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
+        prepared-context bind-context prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
 (import :std/iter (only-in :std/list/list-builder with-list-builder)
@@ -160,6 +160,9 @@
 ;; Compact private execution state. Published definitions retain immutable callback
 ;; identities; cache transport allocates this record rather than a new POO descriptor.
 (defstruct invocation (prepare invoke state) final: #t)
+;; Private typed, immutable invocation context; callers cannot fabricate its tag.
+;; Unlike a nested child it contains no evolving cache, method index or certificate.
+(defstruct context-state (type value) final: #t)
 ;; Open native invoker descriptor, specialized at construction like FUN/IO wrapper
 ;; methods. The two shared descriptors below own calling conventions; runtime
 ;; successors carry only compiled callbacks and explicit state, not lazy slot maps.
@@ -177,9 +180,20 @@
   (defvalues (result next) (apply method current args))
   (unless (and (multimethod? next) (index-shared? current next))
     (error "nested invocation changed method definitions"))
+  ;; Bound context changes belong to reconstruction/publication, not cache-only
+  ;; child transport. Keep its exact private context owner during a warm call.
+  (def invocation (multimethod-invocation current))
+  (when (and invocation (context-state? (invocation-state invocation)))
+    (unless (eq? (invocation-state invocation) (invocation-state (multimethod-invocation next)))
+      (error "nested invocation changed bound context")))
   (values result next))
 ;; Reusable stateful invoker descriptor; specialization binds only the child owner.
 (def nested-invocation (.cc Invocation. invoke: invoke-nested))
+;; Reuse Invocation.'s ordinary state-specialization protocol. The effective method
+;; receives current validated args and this owner's bound data, never an old result.
+(def context-invocation (.cc Invocation.
+  invoke: (lambda (effective args state)
+    (values (effective (context-state-value state) args) state))))
 ;; Replace invocation state without changing definition/index identity. A hot
 ;; nested hit returns the exact owner; no global or hidden mutable cache exists.
 (def (with-invocation generic invocation)
@@ -193,6 +207,29 @@
   (unless (procedure? prepare) (error "effective preparation must be a procedure"))
   (with-invocation (with-cache generic [])
     (.call prepared-invocation .specialize prepare #f)))
+;; Construct explicit-context prepared dispatch. Preparation sees only method
+;; definitions; applicability/precedence still see typed Args, not context state.
+;; The immutable context Type is checked here and every time bind-context runs.
+;; Effective code and its negative applicability can therefore survive rebinding.
+;; Context-sensitive dispatch must stay in Args; state is an invocation parameter.
+(def (prepared-context generic prepare context-type context)
+  (unless (procedure? prepare) (error "effective preparation must be a procedure"))
+  (validate Type context-type)
+  (def state (make-context-state context-type (validate context-type context)))
+  (with-invocation (with-cache generic []) (.call context-invocation .specialize prepare state)))
+;; Rebind only typed context DATA, retaining the exact index, candidate/effective
+;; cache, signature, precedence and invoker callbacks. Guards still run per call
+;; against Args. Definitions cannot use this operation as a registration shortcut.
+;; It accepts only the private context invoker; nested/stateless owners are refused.
+(def (bind-context generic context)
+  (def invocation (multimethod-invocation generic))
+  (unless (and invocation (context-state? (invocation-state invocation)))
+    (error "expected prepared context generic"))
+  (def previous (invocation-state invocation))
+  (def current (validate (context-state-type previous) context))
+  (if (eq? current (context-state-value previous)) generic
+    (with-invocation generic (make-invocation (invocation-prepare invocation) (invocation-invoke invocation)
+      (make-context-state (context-state-type previous) current)))))
 ;; Standard qualified prepared constructor, corresponding to preparedStandard.
 (def (prepared-standard inputs output precedence
                         (on-missing (lambda (_) (fail 'no-applicable-method #f #f))) (arity (length inputs)))

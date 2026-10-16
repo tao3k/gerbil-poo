@@ -1,5 +1,5 @@
 ;;; GenericFamily.Model: native construction of checked heterogeneous generics.
-(export Model. Projection. methods.instantiate<-shared-expansion methods.refresh<-projection build prepare refresh
+(export Model. Projection. methods.instantiate<-shared-expansion methods.refresh<-projection methods.refresh<-sized-projection build prepare refresh
         family? family-ref family-has? family-keys family-built family-reused invoke failure? failure-key failure-stage failure-cause)
 (import :std/iter (only-in :std/list/list-builder with-list-builder) (only-in :std/list/list delete-duplicates/hash)
         ./object (only-in ./mop define-type .defgeneric)
@@ -63,13 +63,19 @@
 ;; Project closed contexts in key order and retain only same-owner equal contexts.
 ;; Changed entries invoke the projection's instantiation protocol; keyed failures
 ;; propagate without publishing a partial table. Repeated keys keep the first entry.
-(def (project-family owner projection keys seed methods watches previous policy cooked)
+(def (project-family owner projection keys seed methods watches previous policy cooked (sized? #f))
   (unless (and (list? keys) (andmap symbol? keys)) (error "generic keys must be symbols"))
   (def prior (and previous (eq? owner (family-owner previous)) (family-contexts previous) previous))
-  (def contexts (make-hash-table-eq))
+  (def contexts (if sized? (make-hash-table-eq size: (length keys)) (make-hash-table-eq)))
   ;; Capture the owner-bound constructor callback once, not once per changed key.
   (def instantiate (.@ projection .instantiate))
-  (def services (if prior (family-services prior) (make-hash-table-eq)))
+  ;; Stage fresh checked cells before choosing copied storage on owner handoff.
+  ;; The old owner supplies capacity only; no old entry is accepted as current.
+  (def staging? (and sized? previous (not prior)))
+  (def pending [])
+  (def services (cond (prior (family-services prior)) (staging? #f)
+    (sized? (make-hash-table-eq size: (length keys)))
+    (else (make-hash-table-eq))))
   (def copied? (not prior))
   (def built [])
   (def reused [])
@@ -81,10 +87,25 @@
                (equal? context (hash-ref (family-contexts prior) key)))
         (set! reused (cons key reused))
         (begin
-          (unless copied? (set! services (hash-copy services)) (set! copied? #t))
-          (hash-put! services key
-            (instantiate seed methods watches key context))
+          (if staging?
+            (set! pending (cons (cons key (instantiate seed methods watches key context)) pending))
+            (begin
+              (unless copied? (set! services (hash-copy services)) (set! copied? #t))
+              (hash-put! services key (instantiate seed methods watches key context))))
           (set! built (cons key built)))))))
+  (when staging?
+    ;; Copy comparable nonempty storage; support contraction/expansion uses a
+    ;; correctly sized fresh table. No callback observes an uncertified workspace.
+    (let* ((count (hash-length contexts))
+           (workspace? (and (> count 0) (= count (hash-length (family-services previous))))))
+      (set! services (if workspace? (hash-copy (family-services previous))
+        (make-hash-table-eq size: count)))
+      (when workspace?
+        (for (key (hash-keys services))
+          (unless (hash-key? contexts key) (hash-remove! services key))))
+      ;; Keys are unique and constructor order is already recorded in built.
+      ;; Private insertion order is unobservable; avoid another reversed list.
+      (for (entry pending) (hash-put! services (car entry) (cdr entry)))))
   (make-family owner contexts services (reverse built) (reverse reused)))
 ;; Only the projected context reaches compilation. Equal version labels or a
 ;; caller's clean-key predicate cannot authorize reuse. Model identity binds code.
@@ -97,6 +118,19 @@
          (delete-duplicates/hash keys from-end?: #t)))
   .prepare: (lambda (policy cooked) (project-family @ projection keys seed methods watches #f policy cooked))
   .refresh: (lambda (previous policy cooked) (project-family @ projection keys seed methods watches previous policy cooked)))
+;; Use the same native eq table as the original protocol, with its ordinary size
+;; hint (as in the Gerbil expander). No alternate hash backend or random seed.
+;; A new owner may copy prior storage, overwrite every current entry and prune
+;; old-only keys before publication. This changes private storage only. All keys,
+;; owner/context checks and actual constructor/negative checks still execute.
+;; Duplicate support is an upper bound; it cannot omit or authorize an entry.
+(define-type (methods.refresh<-sized-projection @ [methods.refresh<-projection] projection keys seed methods watches)
+  .build: (lambda (policy cooked)
+    (def current (project-family @ projection keys seed methods watches #f policy cooked #t))
+    (map (lambda (key) (cons key (family-ref current key)))
+      (delete-duplicates/hash keys from-end?: #t)))
+  .prepare: (lambda (policy cooked) (project-family @ projection keys seed methods watches #f policy cooked #t))
+  .refresh: (lambda (previous policy cooked) (project-family @ projection keys seed methods watches previous policy cooked #t)))
 ;; Private failure provenance: service key, registration/negative/projection phase
 ;; and original cause; atomic publishers retain their old version on refusal.
 (defstruct failure (key stage cause) final: #t)
