@@ -1,7 +1,7 @@
 ;;; Declaration elaboration for arbitrary raw/cooked carriers using Appendix B lenses.
 (export Fragment Fragment. lens-fragment GeneralizedDeclaration. prepare-fragments .prototype
         prepared-fragments? fragment-names observe-fragments bind-fragments
-        with-fragment-sources step-fragments)
+        with-fragment-sources step-fragments fragment-descriptors)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         ./object ./mop ./declaration (prefix-in ./generalized-prototype gp.))
 ;; The public descriptor is ordinary extensible POO metadata. Lens laws and local
@@ -35,6 +35,11 @@
 (defstruct prepared-fragments (snapshot sources versions names) final: #t)
 ;; Return a fresh label list without exposing the receipt's source/version storage.
 (def (fragment-names prepared) (map identity (prepared-fragments-names prepared)))
+;; Inspect the already expanded complete stream without rerunning a nonlocal
+;; finalizer on subsets. Descriptor edits invalidate the owning preparation.
+(def (fragment-descriptors prepared)
+  (with-fragment-sources prepared (lambda ()
+    (map identity (gp.prepared-fragments (prepared-fragments-snapshot prepared))))))
 ;; Stable source admission applies to zero-depth observation and cooking too.
 ;; Supported writes during callbacks refuse; external effects are never rolled back.
 (def (with-fragment-sources prepared action)

@@ -979,3 +979,15 @@ Each final equation check adds one raw step beyond the local search budget.
 This advances future work: arbitrary mutual feedback, global convergence,
 automatic laws/layout discovery and compiler/runtime validation remain outside
 the construction. See [focused-closure.md](focused-closure.md).
+
+### Controlled cyclic component equations
+
+Racket's `$lens-gen` cooked-global-self/raw-parent construction is reused by
+`feedback-closure.ss`, with whole-raw bounded search and EVERY component residual
+checked before publication. Complete components, not arbitrary method fragments,
+define the equations; nonlocal declaration finalization runs once. Lean
+`FeedbackClosure` proves admission, provenance, bounds and conditional completeness;
+`Examples/FeedbackServices.lean` proves capped-ring convergence/acceptance from any
+typed seed, paired with native `examples/feedback-services.ss` and negative controls.
+This advances future work; see [feedback-closure.md](feedback-closure.md) for finite
+lens checks, extra residual work, staged cooking and remaining recursion limits.

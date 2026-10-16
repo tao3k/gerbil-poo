@@ -157,11 +157,34 @@ Lean proves focused fixedness/frame preservation, final admission soundness,
 independent lens pairing and concrete family results. See
 [focused-closure.md](focused-closure.md).
 
-Still open: automatic proof/law discovery, mutually recursive feedback across
-arbitrary component boundaries, generic convergence for nonmonotone equations,
+Still open: automatic proof/law discovery, unrestricted recursive feedback beyond
+the controlled whole-carrier component equations below, generic convergence for nonmonotone equations,
 arbitrary procedure equality and automatic dependent/cross-type adapters. The new
 protocol is explicit ordered local closure plus final admission, not a general
 global fixed-point solver. Functionality here precedes performance tuning.
+
+### Controlled component feedback
+
+`feedback-closure.ss` now searches a single wider raw state so cyclic components
+read the same previous cooked global self. It reuses generalized declaration,
+bounded actual-raw closure, lens controls and FUN Reader composition. The complete
+declaration is finalized once. After whole-raw stabilization, EVERY named component
+equation is checked independently against that same cooked self and original base;
+cancelling overlapping updates cannot pass merely because the assembly is stable.
+One declared fragment denotes a complete component, with internal method policy
+grouped inside it or cooking. This does not change ordinary incremental inheritance.
+
+The capped three-service ring combines cyclic allocations, joint approval,
+primary/around methods and an independent audit. Lean proves concrete convergence
+and acceptance from every typed seed within five raw steps at cap=3, as well as
+generic conditional completeness, provenance, fixedness, component residuals,
+frame preservation and budget bounds. Native controls cover oscillation,
+cancellation, refusal/old publication, stale sources and nonlocal finalizer reuse.
+See [feedback-closure.md](feedback-closure.md) for API, residual costs and premises.
+
+Arbitrary convergence/leastness, unrestricted higher-order recursive knots,
+automatic dependency/law discovery and callback termination remain open. A finite
+budget is not a proof of divergence. Functional closure here precedes optimization.
 
 ### Declared method fragments and receiver generics
 
