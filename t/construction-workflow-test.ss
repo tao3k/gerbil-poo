@@ -11,8 +11,8 @@
 (def (size version key) (multimethod.cache-size (dispatch.snapshot (publication.version-service version key))))
 (def construction-workflow-test
   (test-suite "selective shared settlement and cross-service publication"
-    (test-case "planned multi-level revisions keep current meaning and warm approvals"
-      (def model shared.planned-workflow-model)
+    (test-case "cached multi-level revisions keep current meaning and warm approvals"
+      (def model shared.cached-workflow-model)
       (defvalues (old issue) (staged.prepare model (workflow.graph 30) policy))
       (check-equal? issue #f)
       (defvalues (_ warm) (publication.invoke old 'reserve 2))

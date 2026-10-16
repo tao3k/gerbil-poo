@@ -2,7 +2,7 @@
 (export scenarios regimes strategies pairs rounds warmups repetitions sources side-order)
 (def scenarios '(selector family joint workflow))
 (def regimes '(natural collected))
-(def strategies '(independent uncaptured dynamic planned))
+(def strategies '(independent uncaptured dynamic cached))
 (def pairs '((0 1) (1 2) (2 3)))
 (def rounds 4)
 (def warmups 4)

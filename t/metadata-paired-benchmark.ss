@@ -13,7 +13,7 @@
 (def uncaptured-source (.cc shared.selected-source
   .select: (let (costs (.@ shared.selected-source preparation-costs))
     (lambda (keys) (contracts.choose-preparation costs (length keys))))))
-(def sources (list shared.independent-source uncaptured-source shared.selected-source shared.planned-source))
+(def sources (list shared.independent-source uncaptured-source shared.selected-source shared.cached-source))
 (def (execute key args view)
   (values (case key ((reserve) (list 'ok (- (.@ view capacity) (car args)) #t))
                     ((cancel) (list (car args) (.@ view invoice)))) view))

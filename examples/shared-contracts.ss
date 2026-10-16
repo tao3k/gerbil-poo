@@ -1,6 +1,6 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
 ;;; Generalized-prototype future work: immutable closed inputs, native mixins.
-(export source independent-source selected-source planned-source model selected-model planned-model workflow-model planned-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
+(export source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
 (import ../object (prefix-in ../contract-family family.)
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ./construction-workflow workflow.)
@@ -55,13 +55,13 @@
 ;; Shared settlement DAG → cooked interface → selected contracts → joint approval.
 (def workflow-model (.cc workflow.model contract-source: selected-source))
 
-;; Stable support can plan its projection strategy once, before revision work.
-(def planned-source
-  (.mix (.cc family.methods.inputs<-plan
+;; Stable support can cache its projection strategy once, before revision work.
+(def cached-source
+  (.mix (.cc family.methods.inputs<-cached-selection
           shared-input: shared-input prepare-shared: prepare-shared project-shared: project-shared
           project-direct: project-direct
-          preparation-plan: (.cc family.PreparationPlan. keys: contract-keys
+          selection-cache: (.cc family.SelectionCache. keys: contract-keys
             preparation-costs: (.@ selected-source preparation-costs)))
     independent-source))
-(def planned-model (.cc bundle.model contract-source: planned-source))
-(def planned-workflow-model (.cc workflow.model contract-source: planned-source))
+(def cached-model (.cc bundle.model contract-source: cached-source))
+(def cached-workflow-model (.cc workflow.model contract-source: cached-source))

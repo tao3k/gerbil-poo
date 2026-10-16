@@ -303,32 +303,32 @@ or compiler verification, and no Lean results are embedded into this package.
 
 * Prepared selectors and fresh-process pairing
 
-~PreparationPlan.~ corresponds to Lean ~PreparationCosts.Plan~. It captures a
+~SelectionCache.~ corresponds to Lean ~PreparationCosts.SelectionCache~. It captures a
 choice for canonical immutable ~keys~, returns that result for matching size,
-and invokes the original selector for different arity. ~methods.inputs<-plan~
+and invokes the original selector for different arity. ~methods.inputs<-cached-selection~
 composes it with the existing closed shared-input protocol. Dynamic selection
 captures the immutable choose function with ~std/func compose1~ (fixed arity);
-planned selection uses its bound function directly, avoiding repeated generic
-lookup. The example exports ~planned-source / planned-model / planned-workflow-model~
+cached selection uses its bound function directly, avoiding repeated generic
+lookup. The example exports ~cached-source / cached-model / cached-workflow-model~
 as optional compositions, not a universal performance default.
 
-Support and duplicates are checked before cold planning is forced. Changing
-source/plan invalidates source-bound descriptors normally. Tests count real
+Support and duplicates are checked before cold cache construction is forced. Changing
+source/cache invalidates source-bound descriptors normally. Tests count real
 selector executions, handle removal/reintroduction, verify current interpretation
 and exercise the 15-node invoice/release/total revision, subsequent pricing,
 wrapper/warm-cache retention and actual budget refusal. Logical approvals and
 negative checks keep their original provenance requirements.
 
-Lean ~Plan.select_eq / hit / miss~ preserve every choice and count actual
-selection paths. ~PlanCosts.total_amortized~ charges setup, the first selector,
-support guards and fallback calls. A one-off plan may cost more. The collector
+Lean ~SelectionCache.select_eq / hit / miss~ preserve every choice and count actual
+selection paths. ~SelectionCache.total_amortized~ charges setup, the first selector,
+support guards and fallback calls. A one-off cache may cost more. The collector
 budget is still an extra premise, and no native heap or compiler verification
 is asserted. ~paired_delta~ decomposes a single observed pair; independent
 medians do not have that algebraic identity.
 
 ~just benchmark-metadata-paired~ uses four scenarios (selector, full contract
 family, atomic joint revision, shared settlement workflow) and adjacent controls:
-independent vs uncaptured, uncaptured vs captured dynamic, captured vs planned.
+independent vs uncaptured, uncaptured vs captured dynamic, captured vs cached.
 Each side starts a new native process with one-character strategy codes, loads
 all four controls in the same order, runs four fixed warmup passes for every
 control, and measures only one side. The caller balances side order ABBA over
