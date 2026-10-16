@@ -1,7 +1,7 @@
 ;;; Executable counterpart of Object.Multimethod and its sparse MethodIndex.
 (export make standard simple forwarding-standard inner simula multimethod? prototype any register contribute register-when erase
         prepared prepared-standard prepared-simple prepared-forwarding-standard prepared-inner prepared-simula nested nested-state
-        call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
+        prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
 (import :std/iter (only-in :std/list/list-builder with-list-builder)
@@ -225,23 +225,37 @@
 (def (nested-state generic)
   (def invocation (multimethod-invocation generic))
   (and invocation (invocation-state invocation)))
-;; Resolve a shape once. Preparation never executes method bodies or guards;
-;; any guarded candidate prohibits reuse of an effective method for the shape.
-(def (resolve generic args)
-  (def shape (shape! generic ((multimethod-precedence generic) args)))
+;; Resolve an already validated shape. Explicit preparation refuses guarded or
+;; ordinary nonprepared shapes without evaluating a guard/body or changing state.
+;; Ordinary calls still retain guarded candidates and select with current args.
+(def (resolve-shape generic shape (prepare-only? #f))
   (def cache (multimethod-cache generic))
   (def entry (assoc shape cache))
   (cond
-   ((and entry (eq? entry (car cache))) (values (cdr entry) generic))
+   ((and entry (or (eq? entry (car cache)) (and prepare-only? (not (resolution-effective (cdr entry))))))
+    (values (cdr entry) generic))
    (else
     (def resolved (if entry (cdr entry)
-      (let* ((candidates (collect generic shape)) (invocation (multimethod-invocation generic)))
-        (make-resolution candidates
-          (and invocation (andmap (lambda (candidate) (not (method-candidate-predicate candidate))) candidates)
-            ((invocation-prepare invocation) (map method-candidate-method candidates)))))))
+      (let* ((candidates (collect generic shape)) (invocation (multimethod-invocation generic))
+             (unconditional? (and invocation (andmap (lambda (candidate) (not (method-candidate-predicate candidate))) candidates))))
+        (and (or (not prepare-only?) unconditional?)
+          (make-resolution candidates
+            (and unconditional? ((invocation-prepare invocation) (map method-candidate-method candidates))))))))
     (def key (if entry (car entry) (map (lambda (order) (map identity order)) shape)))
     (def recent (cons (cons key resolved) (filter (lambda (pair) (not (equal? (car pair) shape))) cache)))
-    (values resolved (with-cache generic (take recent (min cache-capacity (length recent))))))))
+    (values resolved (if resolved (with-cache generic (take recent (min cache-capacity (length recent)))) generic)))))
+;; Ordinary resolution derives/validates C4 from current typed arguments before
+;; reusing the shared shape resolver. No declared shape substitutes for this step.
+(def (resolve generic args)
+  (resolve-shape generic (shape! generic ((multimethod-precedence generic) args))))
+;; Precompile a declared unconditional effective method before admission probes.
+;; This does NOT invoke methods, guards, precedence or Type validators on invented
+;; arguments. Real calls still validate actual arguments and derive their own C4.
+;; Guards/nonprepared generics remain exact unchanged owners; edits invalidate as
+;; usual. Allocated entries are visible to the existing publication cache budget.
+(def (prepare-shape generic shape)
+  (defvalues (_ next) (resolve-shape generic (shape! generic shape) #t))
+  next)
 ;; Invoke one resolved computation with current typed arguments. Child successors
 ;; are installed only after successful output validation; failure leaves the old
 ;; owner accessible, without promising rollback of external body effects.

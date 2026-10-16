@@ -17,6 +17,8 @@ checks the runtime premises at its public boundary.
 | General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Existing Scheme implementation reused; generalized hook equivalence needs separate coverage |
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
 | Prepared effective methods and explicit nested cache owners | PreparedMultimethod; Multimethod.preparedStandard / preparedForwardingStandard / preparedSimple / preparedInner / preparedSimula; NestedMultimethod | multimethod.ss prepared-* / nested; method-combination.ss prepare-* | Implemented on the existing typed sparse dispatcher; one bounded resolution LRU, unconditional effective reuse, guarded reselection, joint invalidation and explicit multi-level child successor transport. Native owner checks definition AND invoker identity; performance remains horizon dependent |
+| Declared unconditional shape preparation before joint admission | PreparedMultimethod.prepareShape / prepareShape_preserves / prepareShape_probes / NestedMultimethod.call_retains; ShapePreparationBudget | multimethod.prepare-shape / dispatch-extension.prepare-shape / child-prepared-simula-model / shape-prepared-simula-model | Body/guard-free construction after completed method edits; actual calls retain their Type/C4 checks. Negative certificates transport the unchanged definition. Declared entries consume cache budget; guarded shapes remain unchanged. Explicit per-model selection; no result memoization |
+| Shared view-independent Simula definitions with current typed context | contextPreflight_equivalent / contextPreflightGeneric / ContextPreparationBudget | context-preflight / context-simula-model / context-prepared-simula-model | One immutable protected child definition is shared across views; current units/Object view are actual typed arguments. Outer projection/contracts still rebuild on capacity/invoice changes. First factory and added argument checks are explicitly charged; no cached view/result |
 | Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
 | Selective generic construction and warm-cache retention | GenericFamily.Source / Projection / refresh; StagedPublication.stageRefresh | generic-family.ss / staged-publication.ss / cyclic-publication.ss | Implemented through native closed projections and atomic family refresh; changed source/inputs reconstruct and recheck negative watches; exact warm siblings retained; contract-family.ss now also retains projected contracts and late-bound wrappers |
 | Prepared selection and controlled cost comparison | PreparationCosts.SelectionCache / SelectionCacheCosts / Observation / paired_delta | contract-family.ss SelectionCache. / methods.inputs<-cached-selection; t/metadata-paired-* | Immutable prepared choice with arity fallback, first-class function capture, setup/guard amortization and per-pair GC decomposition; fresh-process source-bound native controls |
@@ -407,3 +409,59 @@ source wrapper is introduced. A nonzero first policy fee still needs coverage;
 known single-use clients can directly use the ordinary source. The historical control-horizon study is recorded in
 performance/control-combination-summary.org. Current prepared/nested controls,
 including regressions and A/A spread, are in performance/prepared-invocation-summary.org.
+
+
+## Simula construction before discarded admission probes
+
+Joint approval's `probe` intentionally discards cache successors. Previously, a
+changed reserve service could compile the same unconditional Simula combination
+in that probe and again on its first real call. `prepare-shape` compiles a declared
+shape after all method edits, through the SAME bounded resolver; it neither runs
+a method/guard/precedence callback nor invents typed arguments. Real calls derive
+and validate their own C4 rows. Unknown declarations cannot substitute for them.
+Guarded or nonprepared generics remain exact unchanged owners. Edits still clear
+the caches, and preparation on a frontmost hit returns the existing owner.
+
+The POO projection's constructor chain captures its existing `.instantiate` and
+then transports the prepared certificate. `child-prepared-simula-model` prepares
+only the child; `shape-prepared-simula-model` prepares both child and reserve after
+negative checking. The existing family/version/contract/admission chain is reused.
+A prepared first real call can return the exact old version: bodies/contracts and
+readmission still execute, with no new cache owner or private service-table copy.
+
+Preparation allocates real entries. In particular, an initial zero-cache budget
+may reject before any real user call; this is not claimed equivalent to admitting
+an empty cache. Old versions are retained on refusal. Lean proves method-reference
+semantics and cache invariants, not equivalence of every resource-admission result.
+Its per-layer `ShapePreparationBudget` prices discarded misses, first entries,
+all declaration/owner work, different constructor bases and supplied excess GC.
+It never removes probe/body/check costs. Native isolated phases are measured
+separately rather than added as an invented full-workflow decomposition.
+
+Current native results and limitations: performance/simula-publication-summary.org.
+The previous prepared-transport study is historical after this source change.
+
+
+The cold-construction follow-up separates method CODE from current view DATA.
+`context-preflight` constructs the same two Simula bodies once with a typed
+`units, Object` input row and one C4 axis. The current view reaches the prefix /
+suffix bodies as an argument. `context-simula-model` can either build this child
+fresh or bind an explicitly supplied immutable prepared child. Its steady model
+shares that child across revisions, while the existing closed reserve projection
+still carries capacity/invoice context and constructs its current outer method.
+Typed context validation and every prefix/suffix check still execute. No view,
+result, or mutable method-cache cell is captured by the shared definition.
+
+Native tests assert child snapshot identity across a cross-service revision,
+then successfully use the new larger capacity and reject the old version's same
+request. Revoked release, malformed invoice and invalid Object arguments refuse.
+Lean universally proves equivalence with `simulaEffective (preflight view)`;
+closed prepared-dispatch controls exercise current/revoked contexts. Its context
+budget uses existing TemplateCosts, including first definition construction,
+per-view outer binding, every added context argument/check/representation cost,
+and supplied excess GC. A cold or call-heavy horizon can keep the ordinary mode.
+
+The cold native control explicitly constructs the shared child AND its model
+binding on first use. Steady stage/revision controls reuse that immutable source.
+All processes initialize/warm the same control set before timing; process startup
+is outside these phase timings. First factory cost is not hidden as a free cache.

@@ -359,3 +359,11 @@ nested cache successor transport are now implemented; their horizon-dependent
 costs remain under native paired measurement. Forwarding,
 inner and Simula now have native constructors and joint-service examples; their
 control semantics and explicit invoice dependencies are mapped in alignment.md.
+
+
+Declared unconditional shape preparation now addresses Simula assembly repeated
+by discarded admission probes and first real calls. Child-only and both-level
+models use the existing projection/certificate chain. Body/guard execution,
+actual Type/C4 lookup, negative checking and resource admission remain explicit;
+zero-budget cold publication may refuse preallocated entries. See alignment.md
+and performance/simula-publication-summary.org for proof and native cost boundaries.

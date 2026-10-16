@@ -1,22 +1,21 @@
 ;;; One fixed native study definition, shared by child, driver and validator.
 (export scenarios regimes strategies pairs rounds warmups repetitions sources side-order)
-;; Focus this study on preparation, cold checked entry, warm checked invocation,
-;; joint revision with one call, and joint revision with eight calls. Historical
-;; selector studies retain their own source identities; timings are not additive.
-(def scenarios '(forwarding-configure forwarding-cold forwarding-warm forwarding-revision forwarding-repeated
-                 simula-configure simula-cold simula-warm simula-revision simula-repeated))
+;; Focus on the unresolved Simula workflow: cold child/generic construction,
+;; discarded admission probes, first cache transfer and complete joint revision.
+;; A fixed one-operation allocation control admits bytes ONLY without collection.
+(def scenarios '(simula-configure simula-generics simula-probe simula-transfer simula-cold
+                 simula-warm simula-stage simula-revision simula-repeated simula-allocation))
 ;; Natural preserves the child's heap history; collected explicitly collects
 ;; after the identical warmup prefix. Neither promises identical live heaps.
 (def regimes '(natural collected))
 ;; Fixed same-prefix sides distinguish compilation from explicit nested cache
 ;; transport. Duplicate sides provide two A/A controls; every child builds all ten.
-(def strategies '(reference reference-control compiled-discard compiled-discard-control
-  prepared-transport prepared-transport-control prepared-transport-aa prepared-transport-aa-control
-  candidate-transport candidate-transport-control))
-;; Direct pairs isolate compilation-only, transport after compilation, their
-;; combined workflow, and transport with/without compilation; retain two A/A pairs.
-;; Each pair is measured directly; marginal medians are not a transitive cost proof.
-(def pairs '((0 1) (0 2) (2 4) (0 4) (4 6) (4 8)))
+(def strategies '(reference context-prepared prepared-transport prepared-control
+  child-prepared child-control shape-prepared context-prepared-aa shape-prepared-aa candidate-transport))
+;; Isolate declared preparation and shared context-independent definition,
+;; retain original reference and direct previous/current plus two A/A controls.
+;; These are direct pairs; isolated phase timings are never added to full timing.
+(def pairs '((0 1) (2 6) (6 1) (2 1) (1 7) (2 3)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping
@@ -25,8 +24,8 @@
 ;; Fixed counts separate warm-call micro-costs from bounded complete publications.
 ;; Configuration includes protected construction; no adaptive best-of timing.
 (def (repetitions scenario)
-  (case scenario ((forwarding-warm simula-warm) 1024)
-    ((forwarding-configure simula-configure) 128) (else 64)))
+  (case scenario ((simula-warm simula-probe simula-transfer) 1024)
+    ((simula-allocation) 1) ((simula-configure) 128) (else 64)))
 ;; ABBA across four rounds; both sides are separate fresh processes.
 ;; Balance first/second position over four rounds as ABBA. Adjacent sides always
 ;; run in separate fresh processes; arbitrary temporal drift is not eliminated.

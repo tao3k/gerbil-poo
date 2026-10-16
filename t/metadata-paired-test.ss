@@ -46,6 +46,10 @@
       (vector-set! metrics 0 +inf.0)
       (check-exception (check-study (header) data complete) true)
       (vector-set! metrics 0 1.0)
+      ;; A signed/reset allocation counter never becomes a claimed byte saving.
+      (vector-set! child 5 -1)
+      (check-exception (check-study (header) data complete) true)
+      (vector-set! child 5 7)
       (vector-set! metrics 3 1)
       (check-exception (check-study (header) data complete) true)
       (vector-set! metrics 4 #f)

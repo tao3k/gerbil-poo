@@ -89,6 +89,12 @@
     ;; CPU and GC medians are separate summaries and cannot be added together.
     (def differences (map (lambda (round)
       (* 1e6 (- (per-op (sample round (cadr pair)) 0) (per-op (sample round (car pair)) 0)))) indices))
+    ;; Only pair byte counts admitted independently on BOTH collection-free sides.
+    ;; This is allocated work, not retained heap, and unavailable samples stay #f.
+    (def byte-differences (filter identity (map (lambda (round)
+      (and (vector-ref (vector-ref (sample round (car pair)) 4) 4)
+           (vector-ref (vector-ref (sample round (cadr pair)) 4) 4)
+           (- (per-op (sample round (cadr pair)) 4) (per-op (sample round (car pair)) 4)))) indices)))
     (displayln scenario "/" regime " " (map (cut list-ref study.strategies <>) pair)
       " cpu-us=" (* 1e6 (med (car pair) 0)) "/" (* 1e6 (med (cadr pair) 0))
       " paired-delta-us=" (* 1e6 (delta 0)) " paired-gc-delta-us=" (* 1e6 (delta 2))
@@ -102,6 +108,7 @@
       " allocation-pairs=" (length (filter (lambda (round)
         (and (vector-ref (vector-ref (sample round (car pair)) 4) 4)
              (vector-ref (vector-ref (sample round (cadr pair)) 4) 4))) indices))
+      " paired-bytes-delta=" (and (pair? byte-differences) (median byte-differences))
       " prefix-full-mismatch=" (length (filter (lambda (round)
         (not (equal? (vector-ref (sample round (car pair)) 6)
                      (vector-ref (sample round (cadr pair)) 6)))) indices))

@@ -7,29 +7,31 @@
         (prefix-in ../staged-publication staged.) (prefix-in ../cyclic-publication publication.)
         (prefix-in ../examples/service-combination qualified.) (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/cyclic-access access.) (prefix-in ../multimethod dispatch.))
-;; Select a fixed ten-side model row. Contract preparation, shared expansion and
-;; admission policy are identical; only nested combination/cache ownership varies.
-(def (models forwarding?)
-  (def original (if forwarding? qualified.forwarding-model qualified.simula-model))
-  (def compiled (if forwarding? qualified.compiled-forwarding-model qualified.compiled-simula-model))
-  (def prepared (if forwarding? qualified.prepared-forwarding-model qualified.prepared-simula-model))
-  (def cached (if forwarding? qualified.cached-forwarding-model qualified.cached-simula-model))
-  (list original original compiled compiled prepared prepared prepared prepared cached cached))
+;; Build the SAME ten strategy controls in each fresh process. Child-only and
+;; outer+child preparation share the old model's contracts, watches and admission.
+(def (models)
+  (list qualified.simula-model qualified.context-prepared-simula-model
+    qualified.prepared-simula-model qualified.prepared-simula-model
+    qualified.child-prepared-simula-model qualified.child-prepared-simula-model
+    qualified.shape-prepared-simula-model qualified.context-prepared-simula-model
+    qualified.shape-prepared-simula-model qualified.cached-simula-model))
 ;; Each child builds all ten controls before timing and executes the same warmup
-;; prefix. Configure charges the complete protected child construction; cold
-;; charges initial joint publication plus its first checked call. Warm threads
+;; prefix. Configure charges protected child construction/declared preparation;
+;; generics isolates changed heterogeneous constructors without invoking a body.
+;; Probe drops successors as admission does; transfer additionally commits the
+;; family/version successor and readmits its actual cache. Cold charges initial
+;; joint publication plus its first checked call. Warm threads
 ;; returned versions. Revision/repeated charge construction, binding, admission
 ;; and one/eight checked calls under the changed capacity AND invoice dependency.
 ;; Every model first proves its unchanged-snapshot late-admission refusal outside
 ;; timing. No accumulated cache or timing is imported from another process.
 (def (workload scenario)
-  (def forwarding? (memq scenario '(forwarding-configure forwarding-cold forwarding-warm forwarding-revision forwarding-repeated)))
   (def phase (case scenario
-    ((forwarding-configure simula-configure) 'configure)
-    ((forwarding-cold simula-cold) 'cold)
-    ((forwarding-warm simula-warm) 'warm)
-    ((forwarding-revision simula-revision) 'revision)
-    ((forwarding-repeated simula-repeated) 'repeated)
+    ((simula-configure) 'configure) ((simula-generics) 'generics)
+    ((simula-probe) 'probe) ((simula-transfer) 'transfer)
+    ((simula-cold) 'cold) ((simula-warm) 'warm)
+    ((simula-stage) 'stage) ((simula-revision simula-allocation) 'revision)
+    ((simula-repeated) 'repeated)
     (else (error "unknown paired scenario" scenario))))
   (def policy (.cc bundle.Policy. capacity: 10 price: 3 invoice: "invoice:1"))
   (def revised (.cc policy capacity: 20 invoice: "invoice:2"))
@@ -46,11 +48,31 @@
     (case phase
       ((configure)
        (lambda ()
-         (def child ((if forwarding? qualified.forwarder qualified.preflight) view (and (<= 2 index) (< index 8))))
-         (and (dispatch.multimethod? child) (= (dispatch.cache-size child) 0))))
+         (def child (if (memv index '(1 7)) (qualified.context-preflight)
+           (qualified.preflight view (and (<= 2 index) (< index 9)) (and (<= 4 index) (< index 9)))))
+         (and (dispatch.multimethod? child)
+           (= (dispatch.cache-size child) (if (or (memv index '(1 7)) (and (<= 4 index) (< index 9))) 1 0)))))
+      ((generics)
+       (let (next-view (.call model cook revised (publication.version-cache old)))
+         (lambda ()
+           (def next (generics.refresh (.@ model generics) (publication.version-family old) revised next-view))
+           (and (equal? (generics.family-built next) '(quote reserve cancel))
+                (= (length (generics.family-keys next)) 3)))))
+      ((probe transfer)
+       (let-values (((candidate issue) (staged.publish model old source revised)))
+         (when issue (error "paired candidate refused" issue))
+         (if (eq? phase 'probe)
+           (lambda () (equal? (publication.probe candidate 'reserve 2) '(ok 18 #t)))
+           (lambda ()
+             (defvalues (answer successor) (publication.invoke candidate 'reserve 2))
+             (and (equal? answer '(ok 18 #t))
+               (if (memv index '(1 6 7 8)) (eq? successor candidate) #t))))))
       ((cold)
        (lambda ()
-         (defvalues (version failure) (staged.prepare model source policy))
+         ;; Fresh context program AND its model binding are charged on first use;
+         ;; steady revisions separately reuse that immutable source definition.
+         (def selected (if (memv index '(1 7)) (qualified.context-simula-model) model))
+         (defvalues (version failure) (staged.prepare selected source policy))
          (and (not failure) (equal? (first-value (publication.invoke version 'reserve 2)) '(ok 8 #t)))))
       ((warm)
        ;; State is local to this benchmark control, never a production hidden cache.
@@ -65,12 +87,13 @@
            (equal? (contracts.family-built (publication.version-contract-family next)) '(reserve cancel))
            (equal? (contracts.family-bound (publication.version-contract-family next)) '(reserve cancel))
            (equal? (generics.family-built (publication.version-family next)) '(quote reserve cancel))
-           (for/fold (ok #t) (_ (in-range (if (eq? phase 'repeated) 8 1)))
+           (for/fold (ok #t) (_ (in-range (case phase ((stage) 0) ((repeated) 8) (else 1))))
              (let-values (((answer successor) (publication.invoke next 'reserve 2)))
                (set! next successor)
                (and ok (equal? answer '(ok 18 #t)))))
-           (equal? (first-value (publication.invoke next 'cancel "customer" #t)) '("customer" "invoice:2")))))))
-    (models forwarding?) '(0 1 2 3 4 5 6 7 8 9)))
+           (or (eq? phase 'stage)
+             (equal? (first-value (publication.invoke next 'cancel "customer" #t)) '("customer" "invoice:2"))))))))
+    (models) '(0 1 2 3 4 5 6 7 8 9)))
 ;; Native child entry: validate fixed scenario/regime/one-character side codes,
 ;; warm every thunk, optionally collect, then measure exactly the chosen side.
 ;; Record CPU/wall/GC, signed allocation and prefix counters; allocation becomes

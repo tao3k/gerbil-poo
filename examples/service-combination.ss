@@ -1,7 +1,7 @@
 ;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
 (export standard-model simple-model forwarding-model inner-model simula-model
-        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model forwarder preflight start revise)
-(import ../object (only-in ../mop Any element?) (only-in :std/values first-value)
+        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model context-preflight forwarder preflight start revise)
+(import ../object (only-in ../mop Any Object element?) (only-in :std/values first-value)
         (prefix-in ../dispatch-extension extension.) (only-in ../number IntegerRange)
         (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
         (prefix-in ../declarative-metadata metadata.) (prefix-in ../staged-publication staged.)
@@ -45,7 +45,7 @@
   (extension.snapshot (extension.check generic (list (extension.shape '((Forbidden)))))))
 ;; Build a typed Simula preflight whose general/specific prefix/suffix checks all
 ;; use the current reconstructed view. A raised check aborts the remaining stages.
-(def (preflight view (prepared? #f))
+(def (preflight view (prepared? #f) (prepare-shape? #f))
   (def seed ((if prepared? dispatch.prepared-simula dispatch.simula) (list units-type) (lambda (_) '((Reserve Object)))))
   (def generic (metadata.install seed
     (list
@@ -55,17 +55,40 @@
       (metadata.replace "preflight.specific" (list (dispatch.prototype 'Reserve))
         (combination.simula-body (lambda (units) (unless (<= units (.@ view capacity)) (error "capacity exceeded")))
           (lambda (_) (unless (string? (.@ view invoice)) (error "invoice required"))))))))
-  (extension.snapshot (extension.check generic (list (extension.shape '((Forbidden)))))))
+  (def checked (extension.snapshot (extension.check generic (list (extension.shape '((Forbidden)))))))
+  (if prepare-shape? (dispatch.prepare-shape checked '((Reserve Object))) checked))
+;; Construct a view-independent Simula definition. Current view is a REAL typed
+;; argument, not captured in a method descriptor. Both input arguments still pass
+;; Type validation; C4 retains its one Reserve/Object dispatch axis. Static code
+;; and negative checks can be shared across revisions without reusing old values.
+(def (context-preflight)
+  (def generic (metadata.install
+    (dispatch.prepared-simula (list units-type Object) (lambda (_) '((Reserve Object))) 1)
+    (list
+      (metadata.replace "preflight.general" (list (dispatch.prototype 'Object))
+        (combination.simula-body
+          (lambda (units _) (unless (> units 0) (error "positive units required")))
+          (lambda (_ view) (unless (.@ view release) (error "release required")))))
+      (metadata.replace "preflight.specific" (list (dispatch.prototype 'Reserve))
+        (combination.simula-body
+          (lambda (units view) (unless (<= units (.@ view capacity)) (error "capacity exceeded")))
+          (lambda (_ view) (unless (string? (.@ view invoice)) (error "invoice required"))))))))
+  (extension.snapshot (extension.prepare-shape
+    (extension.check generic (list (extension.shape '((Forbidden))))) '((Reserve Object)))))
+;; Immutable prepared definition: no view, result or mutable body-cache cell.
+;; Cold factory benchmarks explicitly charge context-preflight's first creation.
+(def shared-preflight (context-preflight))
 ;; Construct a typed standard/simple reserve seed, or the original sibling seed.
 ;; Native registration owns the method carrier; malformed qualifiers fail before bodies run.
-(def (seed mode prepared? transport? key policy view)
+(def (seed mode prepared? transport? preparation program key policy view)
   (if (eq? key 'reserve)
     (case mode
       ((standard) ((if prepared? dispatch.prepared-standard dispatch.standard) (list units-type) Any (lambda (_) '((Reserve Object)))))
-      ((forwarding simula)
+      ((forwarding simula contextual-simula)
        (if transport?
          (dispatch.nested (list units-type) Any (lambda (_) '((Reserve Object)))
-           (if (eq? mode 'forwarding) (forwarder view prepared?) (preflight view prepared?)))
+           (case mode ((forwarding) (forwarder view prepared?)) ((contextual-simula) program)
+             (else (preflight view prepared? (memq preparation '(child all))))))
          (dispatch.standard (list units-type) Any (lambda (_) '((Reserve Object))))))
       ((inner) ((if prepared? dispatch.prepared-inner dispatch.inner) (list units-type) Any (lambda (_) '((Reserve Object)))
         (lambda (_) (error "missing reservation descendant"))))
@@ -97,14 +120,15 @@
                (combination.around (lambda (next units)
                  (unless (<= units (.@ view capacity)) (error "reservation capacity exceeded"))
                  (next))))))
-          ((forwarding simula)
+          ((forwarding simula contextual-simula)
            (if transport?
              (list (metadata.replace "reserve.protocol" exact
                (lambda (protocol units)
                  (defvalues (result next)
-                   (if (eq? mode 'forwarding)
-                     (dispatch.call protocol 'reserve (list units "pending" []))
-                     (dispatch.call protocol units)))
+                   (case mode
+                     ((forwarding) (dispatch.call protocol 'reserve (list units "pending" [])))
+                     ((contextual-simula) (dispatch.call protocol units view))
+                     (else (dispatch.call protocol units))))
                  (values (if (eq? mode 'forwarding) result (list 'ok (- (.@ view capacity) units) #t)) next))))
              (let (protocol (if (eq? mode 'forwarding) (forwarder view prepared?) (preflight view prepared?)))
                (list (metadata.replace "reserve.protocol" exact
@@ -146,10 +170,19 @@
           (expand key inputs))))))
 ;; Compose a selected carrier into shared expansion, stamped contracts, preparation
 ;; budget, warm-cache transport and exact-successor joint admission. No new publisher.
-(def (model mode (prepared? #f) (transport? #f))
-  (let (generics (.cc shared.expanded-generics seed: (cut seed mode prepared? transport? <> <> <>) methods: (cut declarations mode prepared? transport? <> <> <>)))
-    (.cc shared.budgeted-model contract-source: shared.repeated-source generics:
-      (if (memq mode '(forwarding simula)) (.cc generics projection: enriched-projection) generics))))
+(def (model mode (prepared? #f) (transport? #f) (preparation 'none) (program #f))
+  (def generics (.cc shared.expanded-generics
+    seed: (cut seed mode prepared? transport? preparation program <> <> <>)
+    methods: (cut declarations mode prepared? transport? <> <> <>)))
+  (def projection (if (memq mode '(forwarding simula contextual-simula)) enriched-projection (.@ generics projection)))
+  (def selected (if (eq? preparation 'all)
+    (let (instantiate (.@ projection .instantiate))
+      (.cc projection .instantiate: (lambda (seed methods watches key context)
+        (def checked (instantiate seed methods watches key context))
+        (if (eq? key 'reserve) (extension.prepare-shape checked '((Reserve Object))) checked))))
+    projection))
+  (.cc shared.budgeted-model contract-source: shared.repeated-source
+    generics: (.cc generics projection: selected)))
 ;; Complete standard qualified service model; primary next retains the argument row.
 (def standard-model (model 'standard))
 ;; Complete simple-policy service model; item/accumulator/output types may differ.
@@ -175,6 +208,21 @@
 (def prepared-forwarding-model (model 'forwarding #t #t))
 ;; Prepared Simula preflight uses the same atomic publication and negative watches.
 (def prepared-simula-model (model 'simula #t #t))
+;; Child-only shape preparation isolates saved repeated Simula assembly while
+;; leaving the outer first-call successor transport in the ordinary publication.
+(def child-prepared-simula-model (model 'simula #t #t 'child))
+;; Declared Reserve/Object shapes prepare both levels after all method edits.
+;; Admission still executes every contract/body probe; only lookup/assembly and
+;; temporary cache-owner construction are shared. No invocation result is retained.
+(def shape-prepared-simula-model (model 'simula #t #t 'all))
+;; Bind an independently supplied immutable child definition to the existing
+;; model/projection chain. Omitting program charges a fresh protected definition;
+;; repeated clients can explicitly supply their already prepared program.
+(def (context-simula-model (program (context-preflight)))
+  (model 'contextual-simula #t #t 'all program))
+;; Cross-service revisions share the child definition, while the outer projection
+;; still reconstructs current capacity/invoice/release context and contracts.
+(def context-prepared-simula-model (context-simula-model shared-preflight))
 ;; Prepare the selected model from existing finite access equations and policy.
 ;; Return version/failure using the same atomic lifecycle as the original bundle.
 (def (start selected policy) (staged.prepare selected (access.equations (access.config) #t) policy))

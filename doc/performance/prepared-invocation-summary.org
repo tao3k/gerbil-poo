@@ -1,5 +1,13 @@
 #+title: Prepared effective methods and nested cache successors
 
+* Historical source boundary
+
+This study describes the recorded prepared-transport source, including its
+regressions. The active native study now isolates Simula declared-shape
+preparation, discarded probes, successor transport and complete joint publication;
+see simula-publication-summary.org. Prior full data/binaries remain ignored local
+diagnostics. Do not use this receipt as current-source admission.
+
 * Construction and proof boundary
 
 The reviewed Racket/Appendix B construction separates ordered labelled fragments

@@ -1,5 +1,5 @@
 ;;; DispatchExtension: immutable edits and completed-candidate negative watches.
-(export shape call register contribute register-when erase patch check guard publish invoke
+(export shape call register contribute register-when erase patch check guard publish invoke prepare-shape
         certificate? snapshot conflict? conflict-position conflict-watch conflict-kind conflict-first-method
         failure? failure-stage failure-cause)
 (import :std/iter (prefix-in ./multimethod multimethod.))
@@ -53,3 +53,10 @@
   ;; Watched payloads, type/C4 graph and callbacks must be immutable/pure.
   (values result (if (eq? next (snapshot previous)) previous
                   (make-certificate next (certificate-watches previous)))))
+
+;; Transport only the cache successor of explicit, body-free shape preparation.
+;; The private preparation operation preserves definition and invoker identities,
+;; so completed negative watches remain valid without executing them a second time.
+(def (prepare-shape previous shape)
+  (def next (multimethod.prepare-shape (snapshot previous) shape))
+  (if (eq? next (snapshot previous)) previous (make-certificate next (certificate-watches previous))))
