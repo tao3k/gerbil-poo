@@ -1,5 +1,5 @@
 ;;; Competing staged services share an authoritative component publication.
-(export start stage policies build-group value)
+(export start stage policies build-group value submit-current!)
 (import ../object ../mop ../brace ../lens-laws
         (prefix-in ../component-publication publication.)
         (prefix-in ../construction-cache cache.)
@@ -24,3 +24,9 @@
   (publication.stage owner (service.contributions phase inputs) build-group
     (lambda (old candidate) (and ((service.admit approvals) old candidate) (extra-admit old candidate)))
     guards: [(lens-check (.lens) approvals sources: approvals)] builder: builder))
+
+;; Explicitly restage from the current publication and policy revisions once,
+;; then submit. The caller chooses the current topology's phase; this convenience
+;; never retries stale contributions or reuses a denied candidate automatically.
+(def (submit-current! owner phase inputs approvals builder)
+  (publication.submit! owner (stage owner phase inputs approvals builder)))

@@ -1,5 +1,5 @@
 ;;; Coordinated installation of snapshot-bound component revisions.
-(export publication publication? current stage submit!)
+(export publication publication? current stage submit! revise-approval!)
 (import (only-in :gerbil/runtime/thread with-lock) ./object ./mop ./feedback-graph ./lens-laws
         (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
 ;; Private coordinator and staged request keep authoritative state and its lock
@@ -17,6 +17,17 @@
 (def (current owner)
   (unless (publication? owner) (error "component publication required"))
   (with-lock (%publication-lock owner) (lambda () (%publication-head owner))))
+;; Serialize a registered policy write with final installation. This is one
+;; ordinary native object slot update, not rollback or a multi-object transaction.
+;; Concurrent writes to shared approval objects must use THIS same coordinator;
+;; cross-coordinator/foreign writes and reentrant custom mutation hooks are outside
+;; this protocol. Existing object revisions invalidate every old captured guard.
+(def (revise-approval! owner policy slot value)
+  (unless (and (publication? owner) (object? policy) (symbol? slot))
+    (error "component publication and approval slot required"))
+  (with-lock (%publication-lock owner) (lambda ()
+    (.putslot! policy slot ($constant-slot-spec value))
+    (%publication-head owner))))
 ;; Stage without building. Independent requests may share this exact expected
 ;; snapshot. Source descriptors and callbacks obey existing immutable discipline;
 ;; explicit guards cover mutable registered metadata through final installation.
@@ -37,8 +48,10 @@
     (def expected (%request-expected request))
     (unless (eq? (current owner) expected) (error "stale component revision snapshot"))
     (def candidate ((%request-action request) expected))
-    (with-lens-checks (%request-guards request) (lambda ()
-      (with-lock (%publication-lock owner) (lambda ()
+    ;; Guard versions and expected head are checked under the SAME lock as all
+    ;; coordinated approval revisions. No approval predicate reruns at installation.
+    (with-lock (%publication-lock owner) (lambda ()
+      (with-lens-checks (%request-guards request) (lambda ()
         (unless (eq? (%publication-head owner) expected) (error "stale component revision at installation"))
         (%publication-head-set! owner candidate)
         candidate))))

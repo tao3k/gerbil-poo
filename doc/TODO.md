@@ -282,6 +282,14 @@ reuse existing FUN revision/closure/approval. See
 interleaving controls, abstract Lean installation laws and explicit concurrency
 premises. This does not claim arbitrary mutable-object thread safety or rollback.
 
+Approval metadata invalidation is now serialized with final installation via
+`component-publication.revise-approval!` and guard validation inside the same lock.
+Several paused requests, policy change-back, metadata-only drift and six rounds
+of fresh restaging compose with existing service closure and native versions.
+See [approval-revision.md](approval-revision.md) for same-coordinator write premises,
+abstract revision laws and bounded thread controls. Cross-coordinator/raw metadata
+writes and arbitrary mutable-object transactions remain outside this protocol.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
