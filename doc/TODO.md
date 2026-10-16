@@ -15,6 +15,51 @@ adapters and cross-type migration also need further native coverage. Finite DAG,
 metadata, invalidation and joint-publication examples do not close these general
 items. Storage/binding performance progress below does not change their status.
 
+## Functional completion audit (2026-10-16)
+
+**No: this TODO is not fully implemented.** Performance studies below establish
+neither feature completion nor native implementation of every Lean abstraction.
+The following ledger takes priority over the historical optimization notes.
+“Implemented” means the concrete API in the stated scope; “partial” and “open”
+remain work to do. Proposed language/library projects are not silently removed
+from scope or marked complete by a small example. Feature closure comes before
+further tuning of the corresponding workflow.
+
+| Original TODO | Native status and evidence | Remaining acceptance boundary |
+| --- | --- | --- |
+| Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `t/lifecycle-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
+| Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
+| Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
+| Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs; `t/method-combination-test.ss` and service examples | One extensible fragment macro spanning all records/functions and `.defgeneric` integration remain partial. |
+| General inheritance MOP | Partial: `generalized-prototype.ss` explicit cook/compiler/lens composition and checked inheritance | Intercept the object engine's `compute-slot` / precedence operations through inherited metaobjects; general meta-level bootstrapping is open. |
+| User-selected storage and focused computation | Partial: explicit item raw form, prepared hooks, focused/nested construction | Arbitrary user storage strategies, primitive proxies/impersonators and automatic law discovery are open. |
+| Record/class reflection | Partial: `.all-slots`, `Class.effective-slots`, typed/hidden/optional/default slot metadata | General computation/write interception, access-control policy and nonlocal public/private slot macros remain open. |
+| Conditional/computed slot names | Partial: runtime `object<-alist` and ordinary source computations | General declaration syntax with nonlocal metadata effects remains open. |
+| Object keyword syntax / lexical slot bindings | Partial: current `.o`, `with-slots` and explicit self/supers bindings work | Proposed keyword grammar and independently configurable automatic slot bindings remain open. |
+| Prototype mutability discipline | Open | Freeze prototypes after use as supers or define an explicit invalidating mutation protocol; existing tests currently permit parent mutation, so this requires a deliberate semantic migration. |
+| Data representation / usual object optimizations | Partial: explicit immutable preparations and compact method storage | General persistent prototype maps, shape/hashconsing/vector layout and inline-cache protocols remain open. Historical speed measurements do not close these. |
+| Positional parameter specialization | Open: `.parameters` note in `mop.ss` | Define and implement specialization/closure semantics and controls. |
+| Type system for POO | Partial: executable Type descriptors and guarded publication | General prototype polymorphism/subtyping/inference described below is open. |
+| Generic data structure library | Partial existing containers only | A general collection library with the proposed protocol and laws is open. |
+| Type-driven property-based testing | Open | Native generators, shrinkers and reproducible failures derived from descriptors. |
+| Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
+
+The first four rows form one tested functional chain in `examples/lifecycle.ss`:
+checked nested Account construction → persistent focused revision → fresh
+constraint admission → current-tenant Reader/FUN observation → lazy delegate.
+`doc/alignment.md` records the Racket/Lean/native correspondence and proof limits.
+The Lean model proves input refusal, successful output admission, absence versus
+stored values and active-key cycle selection; native tests separately check
+receiver sharing, dynamic unwinding and callback behavior.
+
+All generalized MOP extensions here advance the paper's **future work**. They
+are not claims that the paper's Racket implementation already specifies this
+complete class lifecycle, nor proofs of the Scheme compiler or runtime.
+The next functional tranche is inherited hook interception / meta-level closure,
+then explicit mutation/invalidation and the still-open declaration protocols.
+Performance tuning of the earlier factory workflow is paused for functional work.
+
 ## Meta-Object Protocol
 
 Redefine POO using

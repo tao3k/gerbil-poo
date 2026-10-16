@@ -8,7 +8,7 @@
 (import
   (only-in :std/error deferror-class defraise/context)
   (only-in :std/list/list-builder with-list-builder)
-  (only-in :std/list/list pop! append-map)
+  (only-in :std/list/list pop! append-map foldr)
   (only-in :std/list/walist walist)
   (only-in :std/values list->values)
   (only-in :std/func compose)
@@ -427,7 +427,7 @@
 (def Slot. (.@ Slot proto))
 
 ;; Functional get/set lenses compose through arbitrary nested immutable storage.
-;; Automatic (.lens foo) accessor syntax remains future work.
+;; .lens / slots-lens below reuse this same protocol for static/dynamic paths.
 (define-type (Lens @ Class.) ;; Lens 's 'a
   slots: =>.+ { ;; or should we have just a ((f a) <- (f : Functor) ((f b) <- b) a) ?
     .get: { } ;; 's -> 'a
@@ -457,8 +457,8 @@
 
 (def (instance class . plist) (apply .cc (.@ class proto) plist))
 
-;; TODO: make-instance or new should .instantiate the object.
-;; TODO: What name for a syntax that does not instantiate it?
+;; Existing .new syntax constructs lazily. Use make-instance / .new/checked for
+;; explicit class validation and construction-time hooks, before publication.
 (defrules .new ()
   ((_ (class self slots ...) slot-defs ...)
    {(:: self (.@ class proto) slots ...) slot-defs ...})
@@ -466,6 +466,28 @@
    {(:: self (.@ class proto)) slot-defs ...})
   ((_ class slot-defs ...)
    {(:: self (.@ class proto)) slot-defs ...}))
+
+;; Instantiate through the CURRENT class validation and optional .instantiate
+;; hook. Invalid input never reaches the hook; its returned replacement is checked
+;; again. Exceptions propagate; external callback effects are not rolled back.
+(def (instantiate class value)
+  (def checked (validate class value))
+  (if (.has? class .instantiate)
+    (validate class (.call class .instantiate checked)) checked))
+;; Checked runtime constructor; instance and .new retain explicit lazy construction.
+(def (make-instance class . plist)
+  (instantiate class (apply instance class plist)))
+;; Checked syntax reuses ALL existing object-binding syntax, evaluating class once.
+;; Class constraints and the hook complete before the new value reaches its caller.
+(defsyntax (.new/checked stx)
+  (syntax-case stx ()
+    ((_ (class self slots ...) slot-defs ...) (identifier? #'self)
+     #'(let (descriptor class)
+         (instantiate descriptor (.new (descriptor self slots ...) slot-defs ...))))
+    ((_ (class) slot-defs ...) (identifier? #'class)
+     #'(.new/checked class slot-defs ...))
+    ((_ class slot-defs ...)
+     #'(let (descriptor class) (instantiate descriptor (.new descriptor slot-defs ...))))))
 
 (defrules .defclass ()
   ((_ (class class-options ...) (slotdefs ...) options ...)
@@ -484,5 +506,15 @@
   {(:: @ (instance Lens))
    .get: (lambda (s) (.ref s slot-name))
    .set: (lambda (x s) (.cc s slot-name x))})
+
+;; Compose a validated dynamic slot path through the standard Lens protocol.
+;; Empty path is identity. Laws require suitable immutable storage, just as for
+;; slot-lens; arbitrary dependent/refining slots do not acquire laws by syntax.
+(def (slots-lens slots)
+  (unless (and (list? slots) (andmap symbol? slots)) (error "symbol slot path required"))
+  (foldr (lambda (slot rest) (.call Lens .compose (slot-lens slot) rest))
+    (lens-of-get-set identity (lambda (value _) value)) slots))
+;; Static slot path syntax expands only to the existing dynamic constructor.
+(defrule (.lens slot ...) (slots-lens '(slot ...)))
 
 ;; TODO: a special slot .parameters, and a function that specialized a object on its positional parameters?

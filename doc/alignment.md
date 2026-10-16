@@ -787,3 +787,36 @@ approval, refusal and recovery. `performance/item-factory-summary.org` separates
 raw construction, immutable preparation, binder construction, warm dependency
 cooking, first-cache and warmed item lookup, including exact A/A and heap-history
 controls. Earlier +84.156us/+60.563us results retain their historical identities.
+
+### Explicit lifecycle, lazy delegation and diagnostic closure (future work)
+
+| Source / Lean semantics | Native implementation and controls |
+| --- | --- |
+| Racket delayed prototype construction / open recursion (`poof.scrbl`), not a checked class-constructor specification | Existing lazy `.new` and `instance` retained; explicit `instantiate`, `make-instance`, `.new/checked` validate before a hook and validate its replacement |
+| `instantiateChecked_rejected`, `instantiateChecked_valid` | `mop.ss` current class admission; invalid input cannot select `.instantiate`; invalid replacement rejected |
+| Existing functional lens composition and skew focus laws | `slots-lens` folds the existing `Lens.compose`; `.lens` quotes a static path; empty path is identity |
+| `fallbackTo_present`, `fallbackTo_missing` | `fallback-to` reuses the missing-method protocol; local slots, including `#f`, bypass delegate forcing |
+| `guardSlot_cycle`, `guardSlot_fresh` | Active `(receiver . slot)` stack scoped with a Gerbil parameter; `CyclicSlot` reports the repeated path without inspecting/forcing values |
+| `Examples/AlignedServices.lean` lifecycle controls | `examples/lifecycle.ss`, `t/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
+
+The chain uses existing Class/Type descriptors, persistent `.cc`, Lens and native
+Reader/FUN mapping; it does not add another object evaluator. Nested admission is
+explicit: `revise-service` checks Account's hook before enclosing Service admission.
+General validators do not automatically invoke all nested construction hooks.
+Callback I/O is allowed by the native API but is neither rolled back nor modeled
+by the pure admission theorem. Each explicit instantiation runs its selected hook.
+
+Only absence of the receiver's own `no-applicable-method` hook means no handler.
+A cyclic/broken hook or delegate source error propagates. Successful slot values
+are cached, including `#f`; exceptions are not cached and the active path unwinds.
+Fallback sharing is per receiving object; callers must use a fresh receiver for a
+changed delegate. No arbitrary callback termination or mutable-source validity
+claim follows from the active-key guard. Arbitrary dependent POO slots do not
+acquire lens laws simply by using the path syntax.
+
+This is a concrete part of the paper's future generalized MOP direction.
+`TODO.md` now keeps broader inherited-hook, mutability, reflection, declaration,
+type-system and library gaps visibly open. Earlier native timing receipts belong
+to their recorded source identities: the lifecycle changes alter core lookup and
+construction, so those receipts are historical, not measurements of this source.
+No new performance claim is made while closing these functional gaps.

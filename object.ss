@@ -193,14 +193,29 @@
   (instantiate-object! self)
   (object-%instance self))
 
+;; Active computations are dynamically scoped per thread and unwind on failure.
+;; Only cache misses enter this path; successful #f and other values stay cached.
+(def active-slot-computations (make-parameter []))
+;; Report receiver/slot paths without forcing any value while formatting the error.
+(defclass (CyclicSlot Exception) (path) transparent: #t)
+;; Evaluate one uncached slot with finite cycle detection, including lazy delegates.
+;; Failures publish no value and parameterize restores the caller's active path.
+(def (compute-slot-value self slot thunk)
+  (def active (active-slot-computations))
+  (def key (cons self slot))
+  (when (any (lambda (entry) (and (eq? (car entry) self) (eq? (cdr entry) slot))) active)
+    (raise (CyclicSlot path: (reverse (cons key active)))))
+  (parameterize ((active-slot-computations (cons key active))) (thunk)))
+;; Read a cached slot or compute it through the cycle-aware missing-method protocol.
 (def (.ref self slot)
   (def instance (object-instance self))
   ;; Keep the cached path to one V19 runtime hash lookup without allocating
   ;; the cache-miss thunk required by hash-ensure-ref.
   (def value (hash-ref instance slot absent-value))
   (if (eq? value absent-value)
-    (let (value ((hash-ref/default (object-%slot-funs self) slot
-                                   (cut cut no-applicable-method self slot))))
+    (let (value (compute-slot-value self slot
+                  (hash-ref/default (object-%slot-funs self) slot
+                    (cut cut no-applicable-method self slot))))
       (hash-put! instance slot value)
       value)
     value))
@@ -216,8 +231,22 @@
 ;; Should it send a special message in that case?
 (def (no-applicable-method self slot)
   (def nam (and (not (eq? slot 'no-applicable-method))
-                (with-catch false (cut .@ self no-applicable-method))))
+    (try (.@ self no-applicable-method)
+      (catch (NoApplicableMethod? cause)
+        ;; Only genuine absence of THIS hook means no handler. A broken hook,
+        ;; cyclic definition or delegate's own missing slot remains a source error.
+        (if (and (eq? (NoApplicableMethod-self cause) self)
+                 (eq? (NoApplicableMethod-slot cause) 'no-applicable-method))
+          #f (raise cause))))))
   (if nam (nam self slot) (raise (NoApplicableMethod self: self slot: slot))))
+
+;; Lazy delegation is ordinary prototype behavior, using the existing missing
+;; method hook. Each receiver computes/caches its own fallback only on first miss;
+;; direct slots never force it. Delegate failures and cycles propagate unchanged.
+(def (fallback-to thunk)
+  (unless (procedure? thunk) (error "fallback must be a thunk"))
+  (.o (.fallback-handler (thunk))
+    (no-applicable-method (lambda (self slot) (.ref (.@ self .fallback-handler) slot)))))
 
 ;; : (Object A) <- (IndexedList ? ((Pair s (A s)) <- s:Symbol)) \
 ;;     supers: ? (ConsTreeOf (Object ?)) defaults: ? (Table ? Symbol)

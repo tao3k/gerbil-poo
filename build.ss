@@ -60,6 +60,7 @@
     "type"
     "examples/recursive-catalog"
     "examples/generalized-checkout"
+    "examples/lifecycle"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"
