@@ -240,3 +240,9 @@ interpreting any receipt after a source change. Binary hashes need not reproduce
 across toolchains; each local study binds its own executable and source digests.
 Automatic mutable-source invalidation, general reflection, arbitrary migration
 and whole-program compiler/allocator verification remain outside this increment.
+
+* Source succession: homogeneous item factories
+The item-factory revision changes method-combination.ss and the checkout cooking
+adapters. Every receipt above keeps its original source/binary identity, including
+the +84.156us factory and +60.563us residual. They are historical, not admitted
+against the new source. See item-factory-summary.org for current phase controls.

@@ -1,6 +1,6 @@
 ;;; A diamond checkout composes inheritance, two lenses, effective methods and FUN.
 (export protocol base root declarations prepare-checkout total report nested-protocol nested-base nested-root nested-declarations prepare-nested prepare-nested-unfused nested-report
-        envelope-base envelope-root envelope-declarations prepare-envelope envelope-report bind-envelope-report)
+        envelope-base envelope-root envelope-declarations prepare-envelope envelope-report bind-envelope-report prepare-envelope-items bind-envelope-items-report)
 (import ../object (only-in ../mop define-type Lens lens-of-get-set slot-lens) (prefix-in ../generalized-prototype gp.)
         (prefix-in ../method-combination combination.))
 ;; Raw fields are price contributions, rebate contributions and an untouched audit.
@@ -9,17 +9,22 @@
 (def (set-price value raw) (list value (cadr raw) (caddr raw)))
 ;; The second focus updates rebates without touching price or audit.
 (def (set-rebate value raw) (list (car raw) value (caddr raw)))
-;; Prepare a selected sum field without evaluating its methods or the other field.
-(def (sum-field getter)
+;; Select the raw family and its existing preparer once. Both representations
+;; share demand/argument semantics; no method or unrelated field is evaluated here.
+(def (sum-field getter (prepare combination.prepare-simple))
   (lambda (raw)
-    (def effective (combination.prepare-simple combination.sum (getter raw)))
+    (def effective (prepare combination.sum (getter raw)))
     (lambda () (effective []))))
 ;; Cook only the demanded method family, with standard promise sharing per raw view.
 (def cooked-fields (gp.cook-fields (list (cons 'price (sum-field car)) (cons 'rebate (sum-field cadr)))))
-;; Preserve the original callable interface while deferring its two prepared methods.
-(def (cook raw)
-  (def fields (cooked-fields raw))
-  (lambda (slot) ((fields slot))))
+;; Lift named demanded methods into the public callable interface. Capture the
+;; field preparer once; every raw observation owns fresh per-field promises.
+(def (method-cooking prepare-fields)
+  (lambda (raw)
+    (def fields (prepare-fields raw))
+    (lambda (slot) ((fields slot)))))
+;; Qualified storage uses the same higher-order interface as compact item storage.
+(def cook (method-cooking cooked-fields))
 ;; Each fragment contributes an existing item; inherited contributions stay ordered.
 (def (wrap fragment self parent)
   (cons (combination.item (lambda () (fragment self))) (parent)))
@@ -61,11 +66,15 @@
 (def price-focus (.call Lens .compose service-focus (lens-of-get-set car set-price)))
 ;; Independent nested focus keeps the enclosing service audit and checkout audit.
 (def rebate-focus (.call Lens .compose service-focus (lens-of-get-set cadr set-rebate)))
-;; Broader cooked view combines dependent checkout calls and untouched service metadata.
-(def (cook-service raw)
-  (def checkout (cook (.@ raw checkout)))
-  (lambda (slot) (case slot ((price rebate) (checkout slot))
-    ((service) (.@ raw service)) (else (error "unknown service view" slot)))))
+;; Lift either local representation through the SAME service interface. Capture
+;; cooking once, preserve the current metadata and keep method groups demanded.
+(def (service-cooking local-cook)
+  (lambda (raw)
+    (def checkout (local-cook (.@ raw checkout)))
+    (lambda (slot) (case slot ((price rebate) (checkout slot))
+      ((service) (.@ raw service)) (else (error "unknown service view" slot))))))
+;; Qualified contribution representation uses the shared native service adapter.
+(def cook-service (service-cooking cook))
 ;; Nested raw/cooked adaptation uses native POO slots plus the same existing wrappers.
 (def nested-protocol (.cc gp.Protocol. cook: cook-service compile:
   (gp.sum-compiler (gp.focus-compiler price-focus wrap) (gp.focus-compiler rebate-focus wrap))))
@@ -95,15 +104,17 @@
 (def envelope-base (.o (billing nested-base) (approved #t) (tenant 'eu)))
 ;; Compose the SAME native lenses to focus through billing into its checkout.
 (def envelope-focus (.call Lens .compose (slot-lens 'billing) service-focus))
-;; The cooked interface exposes approval as current context, not a cached decision.
-(def (cook-envelope raw)
-  (def billing (cook-service (.@ raw billing)))
-  (lambda (slot) (case slot ((price rebate service) (billing slot))
-    ;; The typed Bool premise must not become Scheme's arbitrary truthiness.
-    ((approved) (let (value (.@ raw approved))
-      (unless (boolean? value) (error "approval requires a Boolean" value)) value))
-    ((tenant) (.@ raw tenant))
-    (else (error "unknown envelope view" slot)))))
+;; Extend either service cook with the SAME demanded typed approval and tenant.
+;; Current metadata is read on every observation; no prior approval is retained.
+(def (envelope-cooking service-cook)
+  (lambda (raw)
+    (def billing (service-cook (.@ raw billing)))
+    (lambda (slot) (case slot ((price rebate service) (billing slot))
+      ((approved) (let (value (.@ raw approved))
+        (unless (boolean? value) (error "approval requires a Boolean" value)) value))
+      ((tenant) (.@ raw tenant)) (else (error "unknown envelope view" slot))))))
+;; Original qualified interface reuses the same envelope adapter as compact items.
+(def cook-envelope (envelope-cooking cook-service))
 ;; Cross-service root adds a second rebate-dependent contribution after approval.
 (def envelope-root (.mix nested-root))
 ;; Keep local declarations inspectable and inherited; a failed approval stops price.
@@ -132,3 +143,35 @@
 ;; retain bind-envelope-report while the declaration graph/callbacks stay unchanged.
 (def (envelope-report raw (fused? #t))
   (envelope-fields (gp.observe (prepare-envelope fused?) raw raw 2)))
+
+;; A known item-only raw family stores the method functions directly, exactly as
+;; Lean SimpleMethods.items. No qualifier descriptor or per-item slot cache is
+;; needed. This is a distinct raw representation, not an unvalidated mixed group.
+(def (wrap-item fragment self parent)
+  (cons (lambda () (fragment self)) (parent)))
+;; Reuse the same higher-order field/interface adapters with the item preparer.
+;; Demand and sharing stay identical while qualifier/slot-cache work disappears.
+(def item-fields (gp.cook-fields (list
+  (cons 'price (sum-field car combination.prepare-simple-items))
+  (cons 'rebate (sum-field cadr combination.prepare-simple-items)))))
+;; Compact raw methods expose the same public callable view through that adapter.
+(def cook-items (method-cooking item-fields))
+;; Only wrapper/cooking representation changes; C3 declarations/lenses are shared.
+(def item-protocol (.cc gp.Protocol. cook: cook-items compile:
+  (gp.sum-compiler (gp.lens-compiler car set-price wrap-item)
+    (gp.lens-compiler cadr set-rebate wrap-item))))
+;; Compose compact local cooking with the existing shared service adapter.
+(def cook-item-service (service-cooking cook-items))
+;; Reuse precisely the same typed policy/tenant boundary for both representations.
+(def cook-item-envelope (envelope-cooking cook-item-service))
+;; Explicit item-only factory: canonical empty checkout seeds or function-list raw
+;; states, pure declarations, fixed item qualifiers. Mixed/around storage uses the
+;; original prepare-envelope. This reuses C3, focused assembly, lenses and FUN.
+(def (prepare-envelope-items)
+  (gp.prepare-focused-inheritance item-protocol envelope-focus identity
+    cook-item-envelope envelope-root envelope-declarations))
+;; Reusable current-context report for that declared homogeneous representation.
+;; Graph/callback changes need a new factory; current approval is never cached.
+(def (bind-envelope-items-report)
+  ((.@ gp.Observation. .map) envelope-fields
+    (gp.bind-context-observer (prepare-envelope-items) 2 identity identity)))

@@ -761,3 +761,29 @@ regimes and GC-free single-observation controls preserve adverse results. See
 `performance/context-binding-summary.org`. Logical laws, native tests, observed
 allocator behavior and exact-head Lean CI are distinct evidence. This advances
 future work; it does not close arbitrary reflective/generalized MOP TODOs.
+
+### Homogeneous item raw representation (future work)
+
+| Racket / Lean | Gerbil native counterpart |
+| --- | --- |
+| Appendix B raw production / cooked consumption and wrappers | explicit item-only `prepare-envelope-items` |
+| `SimpleMethods.items`, `SimpleMethods.ofItems_eq` | raw ordered method functions, no redundant Contribution qualifier |
+| `simpleEffective_ofItems` | `prepare-simple-items`, shared reducer with general `prepare-simple` |
+| `Protocol.observe_related` / existing `FiniteFix.iterate_relation` | finite raw-transport obligations: related steps and cooked views |
+| `qualifiedItemWork`, `itemWork_le` | supplied descriptor/cache/grouping prices; native time/GC remain measured |
+
+This implements a concrete user-selected storage strategy, not automatic MOP law
+discovery. The compact factory admits the known item-only declaration compiler
+and canonical empty/function-list raw checkout states. Mixed/around contributions
+still use the general factory; no Type/guard/negative-watch check is bypassed.
+Both representations use the SAME higher-order method, service and envelope
+cooking adapters, focused lenses, C3 declarations and current-context FUN chain.
+Source changes require fresh preparation; identity/ancestry inspection and impure
+representation-sensitive callbacks are outside these extensional laws.
+
+Tests cover ordered effects, Boolean short-circuit suffixes, first failure,
+unused empty policy, shared C3 methods, both audits, tenant changes, malformed
+approval, refusal and recovery. `performance/item-factory-summary.org` separates
+raw construction, immutable preparation, binder construction, warm dependency
+cooking, first-cache and warmed item lookup, including exact A/A and heap-history
+controls. Earlier +84.156us/+60.563us results retain their historical identities.

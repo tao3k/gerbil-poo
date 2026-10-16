@@ -14,6 +14,24 @@
 ;; Complete carrier/qualifier/effect-order/short-circuit and joint revision controls.
 (def method-combination-test
   (test-suite "Appendix B native method combination alignment"
+    (test-case "homogeneous items share policy order laziness and failure semantics"
+      (def effects [])
+      (def methods (list (lambda (x) (set! effects (cons 'first effects)) x)
+        (lambda (x) (set! effects (cons 'second effects)) (+ x 1))))
+      (def prepared (combination.prepare-simple-items combination.sum methods))
+      (check-equal? effects []) (check-equal? (prepared '(3)) 7)
+      (check-equal? (reverse effects) '(first second))
+      (check-equal? ((combination.prepare-simple-items combination.collect methods) '(3)) '(3 4))
+      (check-equal? ((combination.prepare-simple-items combination.sum []) []) 0)
+      (check-equal? ((combination.prepare-simple-items UnusedEmpty. (list (lambda () 7))) []) 7)
+      (check-exception ((combination.prepare-simple-items UnusedEmpty. []) []) true)
+      (def later #f)
+      (check-equal? ((combination.prepare-simple-items combination.all-policy
+        (list (lambda () #f) (lambda () (set! later #t) (error "skipped item")))) []) #f)
+      (check-equal? later #f)
+      (check-exception ((combination.prepare-simple-items combination.sum
+        (list (lambda () (error "item failure")) (lambda () (set! later #t) 2))) []) true)
+      (check-equal? later #f))
     (test-case "prepared context binding preserves code caches guards and current typed data"
       (def bodies 0) (def guards 0) (def compilations 0)
       (def generic (dispatch.prepared-context

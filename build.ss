@@ -74,6 +74,7 @@
     "t/generalized-cases"
     "t/focused-cases"
     "t/binding-cases"
+    "t/factory-cases"
     "t/generalized-observation-reference"
     "t/closure-cases"
     "t/closure-benchmark-support"

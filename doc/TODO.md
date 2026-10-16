@@ -468,3 +468,16 @@ commented; Scheme remains standalone. `alignment.md` links Lean semantic laws,
 supplied cost bounds, complex native controls and the paired benchmark summary.
 Automatic mutable-source invalidation, arbitrary hook-law discovery and full
 reflective MOP remain open; phase improvements are not whole-workflow speed laws.
+
+### Explicit homogeneous method storage
+
+Implemented one user-selected raw/cooked strategy: `prepare-simple-items` consumes
+resolved ordered method functions, as in Lean SimpleMethods.items. General
+`prepare-simple` reuses its reducer and retains qualifier/around support. The
+explicit item envelope factory removes redundant per-item Contribution objects
+and their first slot-cache/grouping work while sharing the existing higher-order
+cooking/lens/C3/FUN pipeline. Complex approval/tenant revisions and recovery have
+native controls and typed semantic laws. See alignment.md and the item-factory
+study for actual phase/GC evidence; no unconditional timing theorem is claimed.
+Automatic mixed-family specialization, arbitrary lawful storage discovery,
+reflection and whole-program native cost/GC verification remain open.

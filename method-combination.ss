@@ -3,7 +3,7 @@
         forward-contribution? forward-effective inner-chain SimulaBody SimulaBody. simula-body simula-body? simula-effective
         Contribution Contribution. primary before after around item
         standard-contribution? simple-contribution? effective simple-effective
-        prepare-standard prepare-simple prepare-forwarding prepare-inner prepare-simula compile-simula bind-simula compile-simula-context
+        prepare-standard prepare-simple prepare-simple-items prepare-forwarding prepare-inner prepare-simula compile-simula bind-simula compile-simula-context
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
 (import :std/iter (only-in :std/list/list foldr) ./object
         (only-in ./mop define-type Type. element?) ./support/option)
@@ -191,22 +191,27 @@
       (def result (primary args))
       (for-each (cut apply <> args) after)
       result)))
-;; Specialize a simple policy and group its items once. Reuse the existing exact
-;; first/stop/step/finish semantics; no item or predicate executes at preparation.
-(def (prepare-simple policy contributions)
-  (def items (group contributions 'item))
+;; Prepare the already resolved homogeneous item group (Lean SimpleMethods.items).
+;; Methods keep their argument row and selected order; no body or empty result
+;; runs here. Callers own item-only admission. General qualifiers use prepare-simple.
+;; This shares the exact first/stop/step/finish loop, including Boolean stop checks.
+(def (prepare-simple-items policy items)
   (def stop (.@ policy stop))
   (def first (.@ policy first))
   (def step (.@ policy step))
   (def finish (.@ policy finish))
-  (prepare-chain (group contributions 'around)
-    (lambda (args)
-      (finish (if (null? items) (.@ policy empty)
-        (let loop ((acc (first (apply (car items) args))) (rest (cdr items)))
-          (if (null? rest) acc
-            (let (done (stop acc))
-              (unless (boolean? done) (error "simple stop must be Boolean"))
-              (if done acc (loop (step (apply (car rest) args) acc) (cdr rest)))))))))))
+  (lambda (args)
+    (finish (if (null? items) (.@ policy empty)
+      (let loop ((acc (first (apply (car items) args))) (rest (cdr items)))
+        (if (null? rest) acc
+          (let (done (stop acc))
+            (unless (boolean? done) (error "simple stop must be Boolean"))
+            (if done acc (loop (step (apply (car rest) args) acc) (cdr rest))))))))))
+;; Resolve extensible qualifiers once, then use the SAME homogeneous item loop.
+;; Around wrappers retain next/argument semantics and may skip the whole reduction.
+(def (prepare-simple policy contributions)
+  (def items (prepare-simple-items policy (group contributions 'item)))
+  (prepare-chain (group contributions 'around) items))
 ;; Compile forwarding continuations while keeping dispatch and current payload
 ;; as invocation parameters. Every explicit replacement retains Type validation.
 (def (prepare-forward-chain methods exhausted validate-payload)
