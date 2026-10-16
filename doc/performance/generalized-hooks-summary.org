@@ -270,3 +270,8 @@ GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
 Use the platform's timeout/linker equivalent on Linux. Final success must include
 GENERALIZED-PAIRED-OK children=528 for current sources (480/144 for historical descriptors); exit zero alone is insufficient. Re-admit with
 read-study after committing to bind the measurement to the committed source.
+
+* Source succession: current-context observers
+Subsequent Reader/context binding changes have a separate fixed native paired
+study in context-binding-summary.org. Older rows above keep their original
+source/binary identities and are not current-source admission.

@@ -207,3 +207,9 @@ Binary SHA256: c4e65ed48a2c83028fdc8568b37de10045cce432464cdc4779a5241f43524bc1
 Receipt one: 933cd33ef2094618613996d0f6f5d3f151ef26d17fd49baaeca3d806bad5ab0d
 Receipt two: fc4b40e9f4a98299f6df13e9cb5164465a06e1f3e3604863459aab71d401378a
 Receipt three: 0a09660c9097b66ad654a249a55f638e475fa8c0b3110278f346c0cc5f28f2a5
+
+* Source succession: current-context observers
+The context-binding revision changes generalized-prototype.ss and the envelope
+example. All measurements above retain their original source identities; they
+are historical controls, not admission for the new source. See
+context-binding-summary.org for the current same-binary Reader/binding study.

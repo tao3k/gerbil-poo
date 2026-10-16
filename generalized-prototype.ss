@@ -1,8 +1,8 @@
 ;;; Generalized prototype hooks advance Appendix B's explicitly deferred future work.
 (export Protocol. Prepared? prepare prepare-inheritance prepared-protocol prepared-fragments
-        lens-compiler focus-compiler focus-protocol prepare-focused prepare-focused-inheritance sum-compiler reindex-self cook-fields bind-observer
+        lens-compiler focus-compiler focus-protocol prepare-focused prepare-focused-inheritance sum-compiler reindex-self cook-fields bind-observer bind-context-observer
         assemble step approximate observe observation-action Observation.)
-(import (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type)
+(import (only-in :std/func compose) (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type)
         (prefix-in ./fun fun.))
 ;; Public immutable-in-practice descriptor: compile returns (delayed self, delayed
 ;; raw parent) -> raw. Cook is the sole raw -> public interface boundary.
@@ -120,16 +120,32 @@
   (check-depth depth)
   (def program (prepared-program snapshot)) (def cook (prepared-cook snapshot))
   (lambda (seed) (cook (iterate program cook base seed depth))))
-;; Expose the same cooked boundary for a one-off observation.
-(def (observe snapshot base seed depth) ((bind-observer snapshot base depth) seed))
+;; Capture only the immutable program/cook/depth. Read BOTH base and seed from
+;; the CURRENT context on every call, so revisions do not allocate another binder
+;; or reuse an old policy/value. Selectors must be pure and source stays immutable.
+(def (bind-context-observer snapshot depth context-base context-seed)
+  (check-depth depth)
+  (def program (prepared-program snapshot)) (def cook (prepared-cook snapshot))
+  ;; Native identity selectors need neither captured selector nor two callbacks.
+  ;; Specialize only the known standard identity; arbitrary selectors stay general.
+  (if (and (eq? context-base identity) (eq? context-seed identity))
+    (lambda (raw) (cook (iterate program cook raw raw depth)))
+    (lambda (context)
+      (cook (iterate program cook (context-base context) (context-seed context) depth)))))
+;; One-off observation executes directly; it does not allocate an escaping Reader
+;; only to invoke it immediately. The same iterate/cook semantics remain shared.
+(def (observe snapshot base seed depth)
+  (check-depth depth)
+  ((prepared-cook snapshot)
+    (iterate (prepared-program snapshot) (prepared-cook snapshot) base seed depth)))
 ;; Reader/FUN introduction keeps one seed shared by all composed observations.
 (def (pure-observation value) (lambda (_) value))
 ;; Reader bind runs the next observation with the same seed; host errors stop it.
 (def (bind-observation action next)
   (lambda (seed) ((next (action seed)) seed)))
-;; Map a cooked result without altering the raw seed or forcing another observation.
-(def (map-observation transform action)
-  (bind-observation action (lambda (value) (pure-observation (transform value)))))
+;; Reader map is ordinary composition: capture once and allocate NO per-call
+;; pure Reader. It still invokes action exactly once before transform; errors stop.
+(def (map-observation transform action) (compose transform action))
 ;; Native FUN protocol for observations; no invented I/O interpreter or global state.
 (define-type (Observation. @ fun.ParametricFunctor.)
   .ap: pure-observation .bind: bind-observation .map: map-observation)

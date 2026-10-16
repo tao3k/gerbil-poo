@@ -733,3 +733,31 @@ reflection, automatic law discovery or native compiler verification.
 Approval in the new envelope uses a demanded Boolean check: 0/string truthiness
 is refused in both paths, matching the typed Bool domain. Final-source native
 proof/control receipts are separate from the initial bce6656 measurements.
+
+### Current-context binding and Reader composition (future work)
+
+| Racket / Lean reference | Native counterpart |
+| --- | --- |
+| Appendix B generalized raw/cooked wrapper, `$lens-gen` | existing prepared hooks and focused lenses; no new object engine |
+| `PreparedHooks.bindContextObserver_eq` | `bind-context-observer`, current base AND seed selectors |
+| `PreparedHooks.bindContextObserver_identity` | standard-identity inputs omit selector captures/callbacks |
+| `PreparedHooks.mapContextObserver_eq` | `Observation..map`, standard `:std/func compose` |
+| `readerMap_eq_bindPure` | composition replaces per-call bind/pure projection |
+| `contextReuseWork_le` | supplied preparation/binding work amortized; all observations retained |
+
+`bind-envelope-report` prepares the fixed C3 graph once and composes the current
+context reader with its public projection. Tests reuse the same reader across
+tenant changes, refusal, malformed Boolean policy and recovery. Separate base
+and seed selectors and a compilation counter check input separation and code
+reuse. A new graph/compiler/cook callback requires a fresh snapshot. Pure
+extensional laws exclude source mutation, identity inspection and callback effects.
+One-off `observe` executes directly; one-off `envelope-report` uses that path.
+No old observation or approval decision is cached by the reusable API.
+
+The paired native study separates Reader calls, temporary binder construction,
+nested observation, fixed heap history, two-context revisions, fresh factories
+and identical descriptor/slot-cache preparation. Explicit A/A, natural/collected
+regimes and GC-free single-observation controls preserve adverse results. See
+`performance/context-binding-summary.org`. Logical laws, native tests, observed
+allocator behavior and exact-head Lean CI are distinct evidence. This advances
+future work; it does not close arbitrary reflective/generalized MOP TODOs.

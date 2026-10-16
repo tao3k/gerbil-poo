@@ -73,6 +73,7 @@
     "t/recursive-cases"
     "t/generalized-cases"
     "t/focused-cases"
+    "t/binding-cases"
     "t/generalized-observation-reference"
     "t/closure-cases"
     "t/closure-benchmark-support"

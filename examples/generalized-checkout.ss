@@ -1,6 +1,6 @@
 ;;; A diamond checkout composes inheritance, two lenses, effective methods and FUN.
 (export protocol base root declarations prepare-checkout total report nested-protocol nested-base nested-root nested-declarations prepare-nested prepare-nested-unfused nested-report
-        envelope-base envelope-root envelope-declarations prepare-envelope envelope-report)
+        envelope-base envelope-root envelope-declarations prepare-envelope envelope-report bind-envelope-report)
 (import ../object (only-in ../mop define-type Lens lens-of-get-set slot-lens) (prefix-in ../generalized-prototype gp.)
         (prefix-in ../method-combination combination.))
 ;; Raw fields are price contributions, rebate contributions and an untouched audit.
@@ -120,9 +120,15 @@
     (gp.prepare-focused-inheritance protocol envelope-focus identity cook-envelope envelope-root envelope-declarations)
     (gp.prepare-inheritance (gp.focus-protocol protocol envelope-focus identity cook-envelope)
       envelope-root envelope-declarations)))
-;; Bind one immutable configuration; revisions build a new binding, retaining the old.
+;; Project one current public interface, retaining the existing error on refusal.
+(def (envelope-fields view)
+  (list (view 'price) (view 'rebate) (view 'service) (view 'tenant) (view 'approved)))
+;; Compile the fixed declaration graph once, then use each invocation's CURRENT
+;; configuration as base and seed. This is code reuse, never cached admission.
+(def (bind-envelope-report (fused? #t))
+  ((.@ gp.Observation. .map) envelope-fields
+    (gp.bind-context-observer (prepare-envelope fused?) 2 identity identity)))
+;; Convenience for a one-off configuration. Repeated revisions should explicitly
+;; retain bind-envelope-report while the declaration graph/callbacks stay unchanged.
 (def (envelope-report raw (fused? #t))
-  (def report ((.@ gp.Observation. .map)
-    (lambda (view) (list (view 'price) (view 'rebate) (view 'service) (view 'tenant) (view 'approved)))
-    (gp.observation-action (prepare-envelope fused?) raw 2)))
-  (report raw))
+  (envelope-fields (gp.observe (prepare-envelope fused?) raw raw 2)))

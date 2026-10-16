@@ -456,3 +456,15 @@ The focused envelope also enforces its Bool approval domain at selection time;
 0/string truthiness is refused rather than widening the Lean premise. Three
 final-source native studies supersede admission of the initial source, retaining
 all older observations as historical data.
+
+### Reusable current-context observation chains
+
+Implemented the finite fixed-source path: `bind-context-observer` captures one
+prepared graph, selects current base and seed, and composes through native FUN
+map with standard function composition. `bind-envelope-report` reuses that chain
+across service/tenant approval revisions without reusing old admission or cooked
+results. One-off observations avoid a temporary binder. Each declaration is
+commented; Scheme remains standalone. `alignment.md` links Lean semantic laws,
+supplied cost bounds, complex native controls and the paired benchmark summary.
+Automatic mutable-source invalidation, arbitrary hook-law discovery and full
+reflective MOP remain open; phase improvements are not whole-workflow speed laws.
