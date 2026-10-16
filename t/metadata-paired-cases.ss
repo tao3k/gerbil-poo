@@ -3,17 +3,17 @@
 ;; Separate selector overhead from real family construction, joint publication
 ;; and the existing 15-node shared-dependency workflow. Isolated stage controls
 ;; are real callbacks; their timings are not additive full-publication attribution.
-(def scenarios '(selector inputs construct bind rebind generics approval family joint workflow))
+(def scenarios '(selector configure inputs construct cold-checks bind rebind generics approval cold-family family joint workflow standard simple))
 ;; Natural preserves the child's heap history; collected explicitly collects
 ;; after the identical warmup prefix. Neither promises identical live heaps.
 (def regimes '(natural collected))
 ;; Fixed side numbering shared by child, driver and validator. Uncaptured is a
 ;; benchmark-only previous callback; cached reuses selection, expanded additionally
 ;; shares pure generic expansion with the captured dynamic contract strategy.
-(def strategies '(independent uncaptured dynamic cached expanded))
+(def strategies '(independent uncaptured dynamic cached expanded expanded-cached shared-checks shared-checks-cached budgeted))
 ;; Adjacent controls isolate preparation choice, function capture and choice reuse.
 ;; Each pair is measured directly; marginal medians are not a transitive cost proof.
-(def pairs '((0 1) (1 2) (2 3) (2 4)))
+(def pairs '((0 1) (1 2) (2 3) (2 4) (4 5) (4 6) (6 7) (7 8)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping
@@ -30,7 +30,7 @@
 ;; Bind all runtime/example/driver inputs used by this study. Changes make old
 ;; receipts historical; source identity is checked before and after the complete run.
 (def sources '("contract-family.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss"
-  "declarative-metadata.ss" "dispatch-extension.ss" "multimethod.ss" "closure.ss"
+  "method-combination.ss" "examples/service-combination.ss" "declarative-metadata.ss" "dispatch-extension.ss" "multimethod.ss" "closure.ss"
   "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss"
   "object.ss" "mop.ss" "type.ss" "number.ss" "build.ss" "justfile"
   "examples/shared-contracts.ss" "examples/service-metadata.ss" "examples/service-bundle.ss"

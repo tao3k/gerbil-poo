@@ -1,0 +1,131 @@
+#+title: Qualified service alignment and configured selector costs
+
+* Scope and reproducibility
+
+This addition implements Appendix B standard/simple method combinations through
+the existing native Type, C4 sparse index, guard, negative-watch and publication
+protocols. Shared invariant checks and joint service/policy composition advance
+the reference's generalized-prototype future work. See ../alignment.md for the
+Racket construction / Lean law / native implementation correspondence and the
+remaining forwarding, inner/Simula, prepared-method, safe-recursion and migration
+gaps. This package builds and benchmarks without a Lean checkout.
+
+The native paired study completed 1,920 children: 15 scenarios, 9 strategies,
+8 direct comparisons, 4 ABBA rounds and 2 GC regimes. Every child constructs and
+warms all controls in fixed order, then measures one side in a fresh process.
+Pair positions rotate. Compilation and aggregate study retain 90s limits; each
+child retains 20s and 1GiB. No concurrent local build/test ran during measurement.
+Source digests, executable digest, exact order/coverage, semantic observations,
+finite counters, allocation admission, completion and EOF all passed validation.
+
+Reproduce with the existing standalone recipe:
+#+begin_src sh
+GERBIL_PATH="$PWD/.build/env" just benchmark-metadata-paired
+#+end_src
+It rebuilds package dependencies before linking; do not skip =just build= in a
+manual invocation. Current local ignored receipts are:
+- =.build/metadata/metadata-paired-configured.scm=
+- =.build/metadata/metadata-paired-configured=
+- =.build/configured-native-run.log=
+- Data SHA256: =86d4e2f4702f9fdb3a8c64a5576f82eeb856f10deea785e8c2db035e7c05c57e=
+- Binary SHA256: =d991c2438dd5c4cbc286bd7c2a5de86e7d425bec320a6f1ee2e61c3be82fad80=
+
+These are local evidence identities, not files committed here. Full data,
+compiler outputs, failed runs and snapshots remain ignored; no JSON or compressed
+archive is added. The usual recipe uses its ordinary fixed output basename.
+
+* Configuration and fallback
+
+=SelectionCacheCosts.= charges setup, actual changed-input preparations, support
+fallbacks, support guards and an explicit extra-GC budget. Unchanged contexts
+never enter selection. Ties choose dynamic. Prices/horizons are supplied premises,
+not measured constants embedded in the implementation.
+
+=choose-source= compiles the fixed policy once at configuration. Dynamic returns
+the exact source, without forcing support or allocating a cache. Cached composes
+the existing immutable cache mixin and retains its changed-arity fallback. Source
+or price changes require explicit reconfiguration. Tests count one real budget
+decision across configuration, fresh source construction and retained revisions.
+
+The =configure= scenario separately charges fresh price-object validation and
+choice, source construction and input-callback preparation. =cold-family= measures
+repeated fresh sources AFTER fixed policy configuration. =cold-checks= charges a
+fresh parent's first invariant compilation and binding, not a free warm template.
+Lean =configuration_covered= requires the one-time cost be covered by selector
+saving; dynamic fallback alone does not make configuration free.
+
+* Direct paired results
+
+Units are microseconds per operation. CPU/GC/residual columns are independently
+computed medians of within-pair differences; they are not additive decomposition.
+Negative means the right strategy used less CPU. Each row contains four pairs.
+Here =budgeted= is the configured conservative dynamic choice, with shared generic
+expansion and invariant checks. =shared-checks-cached= forces selection caching
+with those same two other constructions.
+
+| Scenario | GC regime | CPU delta | GC delta | Residual delta | Faster pairs | CPU delta range |
+|----------+-----------+-----------+----------+----------------+--------------+-----------------|
+| configure | natural | +19.141 | +11.148 | +8.039 | 0/4 | +17.422 .. +21.258 |
+| configure | collected | +17.332 | +9.852 | +7.594 | 0/4 | +16.633 .. +23.133 |
+| cold-family | natural | -0.742 | -0.770 | +0.336 | 2/4 | -3.609 .. +3.875 |
+| cold-family | collected | -0.434 | -0.660 | -0.215 | 3/4 | -3.477 .. +0.258 |
+| joint | natural | -7.031 | -4.094 | -2.937 | 3/4 | -10.391 .. +4.102 |
+| joint | collected | +0.609 | -0.215 | +0.824 | 2/4 | -6.078 .. +6.539 |
+| workflow | natural | -3.609 | -1.340 | -2.270 | 3/4 | -7.438 .. +8.414 |
+| workflow | collected | -3.246 | -1.270 | -1.977 | 3/4 | -11.148 .. +1.281 |
+| standard | natural | +0.918 | +0.309 | +0.887 | 2/4 | -10.687 .. +22.570 |
+| standard | collected | +1.523 | -0.816 | +1.617 | 2/4 | -5.703 .. +5.344 |
+| simple | natural | -7.414 | -4.254 | -3.160 | 3/4 | -19.422 .. +6.797 |
+| simple | collected | +0.477 | -0.090 | +0.688 | 2/4 | -6.023 .. +5.125 |
+
+The joint natural comparison shows both a GC and residual component, while the
+collected comparison still regresses slightly. Qualified standard/simple results
+remain mixed. This is evidence for explicit strategy choice, not a universal
+speedup or proof that every difference was caused by GC.
+
+Caching after shared expansion/checks itself is still unstable: shared-checks ->
+shared-checks-cached has joint CPU delta +3.297 natural / -3.363 collected and
+workflow -0.395 / +6.098. A selector-only timing cannot select these complete
+workflows safely. Configured fallback removes repeated policy interpretation by
+source identity; its one-time configuration remains visibly expensive.
+
+Invariant-check sharing is also opt-in. expanded -> shared-checks has cold-checks
+CPU delta +3.598 natural / +1.742 collected, with 0/4 faster pairs in BOTH regimes.
+The first compilation/stamp/descriptor cost is real. Joint delta -1.496 / +2.605
+and workflow +4.133 / -4.871 remain mixed. Fresh binding alone differs by about
+0.008us natural, so it does not establish a meaningful complete-workflow gain.
+The ordinary fresh-check construction remains available.
+
+There were 21 prefix allocation-vector mismatches among 960 process pairs, across
+12 of the 240 scenario/regime/comparison aggregates; prefix GC counts matched in
+all pairs. Even matching counters do not imply identical heaps. The key
+configure/cold-family/joint/workflow fallback rows above have zero prefix-vector
+mismatches. Simple qualified comparisons have allocation-history mismatches and
+must not be treated as isolated selector/GC causal evidence. Collections make
+allocation deltas unavailable in full publications; no allocation reduction is
+claimed from those raw counters.
+
+* Retained diagnostics and semantic coverage
+
+An earlier manual compile linked an old study-definition module and rejected the
+new =cold-checks= request. The incomplete receipt remains at
+=.build/metadata/metadata-paired-aligned-incomplete-cases.scm=. It is not a pass.
+Rebuilding the declared dependency before compilation corrected the experiment.
+
+The first complete 1,792-child experiment, before configuration-time composition,
+showed the per-source budget interpreter's cold-family regression +5.816 natural /
++8.648 collected (0/4 faster in both). It remains in the ignored
+=metadata-paired-before-configuration.scm= and =before-configuration-run.log= with
+source snapshots. These versions are historical and are NOT a directly paired
+before/after optimization experiment. The final comparisons above are the direct
+controls for the current implementation.
+
+All 28 native test modules passed, followed by the targeted decision-count check.
+They cover standard effect order/original next args/warm guards, simple suffix
+short circuit/empty options/around, strict Boolean decisions, qualified negative
+inspection without body execution, current dependent meaning, changed invariant
+stamp refusal, current cancel invoice, shared generic construction and exact
+old-version retention on joint refusal. Lean proves check-specialization identity,
+standard/simple reservation equivalence/refusal and conditional selector plus
+configuration bounds. Neither layer verifies the Scheme compiler or arbitrary
+external effect rollback. No complete generalized MOP coverage is claimed.

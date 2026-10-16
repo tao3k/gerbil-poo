@@ -1,7 +1,7 @@
 # Lean / Scheme implementation alignment
 
-This map concerns the generalized-protocol future work used by the current
-closure workflow. A Lean proof/type is not mechanically reproduced as an extra
+This map covers concrete original constructions and explicitly labelled
+generalized-protocol future work used by the current closure workflow. A Lean proof/type is not mechanically reproduced as an extra
 Scheme wrapper. Scheme implements the corresponding executable operation and
 checks the runtime premises at its public boundary.
 
@@ -19,7 +19,7 @@ checks the runtime premises at its public boundary.
 | Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
 | Selective generic construction and warm-cache retention | GenericFamily.Source / Projection / refresh; StagedPublication.stageRefresh | generic-family.ss / staged-publication.ss / cyclic-publication.ss | Implemented through native closed projections and atomic family refresh; changed source/inputs reconstruct and recheck negative watches; exact warm siblings retained; contract-family.ss now also retains projected contracts and late-bound wrappers |
 | Prepared selection and controlled cost comparison | PreparationCosts.SelectionCache / SelectionCacheCosts / Observation / paired_delta | contract-family.ss SelectionCache. / methods.inputs<-cached-selection; t/metadata-paired-* | Immutable prepared choice with arity fallback, first-class function capture, setup/guard amortization and per-pair GC decomposition; fresh-process source-bound native controls |
-| Costed preparation and invariant contract specialization | Contract.withMeaning / SharedProjection.direct_source_eq / PreparationCosts / TemplateCosts | contract-family.ss PreparationCosts. / methods.inputs<-selection; examples/shared-contracts.ss workflow-model | Direct/shared projection coherence, selector and initial validation costs, exact original contract semantics, 15-node shared settlement revision; finite native timing and allocation evidence only |
+| Costed preparation and invariant contract specialization | Contract.withMeaning / Contract.Checks.specialize_eq / SharedProjection.direct_source_eq / PreparationCosts / TemplateCosts | declarative-metadata.ss with-meaning; contract-family.ss PreparationCosts. / choose-source; examples/shared-contracts.ss budgeted-workflow-model | Direct/shared projection coherence, selector and initial validation costs, exact original contract semantics, 15-node shared settlement revision; finite native timing and allocation evidence only |
 | Shared heterogeneous contract preparation | ContractFamily.SharedProjection / Cache / refresh_project / cached_source_project | contract-family.ss methods.inputs<-shared / examples/shared-contracts.ss | Source-bound common preparation, unchanged-context lookup retention, per-key descriptor/wrapper invalidation and existing cross-service joint approval reuse; matched changed-input regression retained |
 | Projected contract construction and binding reuse | ContractFamily.Source / Family / bind / publish | contract-family.ss / staged-publication.ss / cyclic-publication.ss | Implemented; exact descriptor/wrapper retention, constructor/executor/support invalidation, fresh-state invocation and admission provenance; constructors run only on changed inputs/source |
 | Safe recursive attestation and certified recursive memo | RecursiveCacheSemantics / CyclicAccess | no equivalent bounded request program in this addition | Open; Boolean seed is currently supplied explicitly |
@@ -266,3 +266,50 @@ by the paper. The paper uses DAG for dependency/inheritance edges and C3
 linearization; this cache contains no dependency edges.
 
 | Shared closed generic reconstruction | `GenericFamily.SharedExpansion.shared_eq / patch_eq / negative_eq`; `PreparationCosts.ExpansionCosts` | `generic-family.Projection.` / `methods.instantiate<-shared-expansion`; shared-contracts expanded models | Opt-in pure immutable reconstruction, unchanged registration/watches, explicit extra guard and GC budget; no fresh-identity or mutation equivalence claim |
+
+## Racket construction, Lean laws, native Scheme implementation
+
+The correspondence is checked in three directions. The source reference is the
+reviewed `poof.scrbl` from `fare/poof`, commit
+`9affa8fbbb4f12cbd98cb97f8b8b84474fc39429`.
+Reading the reference is development work; this package needs neither that
+checkout nor Lean to build, run or benchmark.
+
+| Reference construction | Lean owner / proof | Native operation / executable control |
+|---|---|---|
+| Appendix B, Method Combinations: primary/before/after/around order | `Object.MethodCombination.effective`, `MethodCombinationSemantics` | `method-combination.ss` native `Contribution.`; `multimethod.standard`; effect-order/next/warm-guard tests |
+| Appendix B alternative combinations, sorted labelled fragments | `SimplePolicy`, `SimplePolicies`, `SimpleCombinationSemantics` | `multimethod.simple`; sum, collect, persistent append, all/any, optional last/max/min; suffix short-circuit and empty-result controls |
+| Multiple dispatch and absent-method assumptions, immediately before Method Combinations | `Multimethod`, `DispatchExtension` | Same existing sparse C4 index, typed input/output, guarded carriers and complete-candidate negative watches; no second dispatcher |
+| `$lens-gen` Racket definition: setter/getter/wrapper, cooked self and delayed raw super | `GeneralizedPrototype` / `ProjectedSelf` | Existing `object`/`mop` composition is reused. This addition does not claim arbitrary generalized lens/migration hooks are complete |
+| Generalized Prototype Combination explicitly described as future work | `DeclarativeMetadata.Contract.withMeaning`, `Contract.Checks.specialize_eq` | `with-meaning` shares invariant checks under exact input/output/rule source stamps; derived source overrides force fresh checks; current meaning/executor/state never memoized |
+| Preparation policy, a later cost-model extension | `SelectionCacheCosts.choose`, `selected_bound`, `workflow_bound` | `SelectionCacheCosts.` and `choose-source`, with setup, actual preparation misses, fallback, guard and extra-GC budgets |
+
+The reference gives executable Racket prototype/lens definitions and describes
+the qualified method combinations; it does not provide a complete Racket
+qualified dispatcher that can be cited as a differential execution oracle.
+Native tests therefore check its described order and reuse the existing sparse
+index. Lean proves the abstract effect semantics and reservation equivalence;
+it does not certify the Scheme compiler or arbitrary external side-effect rollback.
+
+`Contribution.` is extensible native POO data, not a new tag interpreter in a
+parallel dispatch engine. `standard` admits primary/before/after/around;
+`simple` admits item/around. Primary/around bodies receive a zero-argument
+`next` followed by the original argument row. Side/item bodies receive only
+that row. The ordinary `make` carrier stays procedure-valued. Registration
+validates the carrier without executing any body; shape watches inspect the
+same qualified data. Guard results still must be Boolean on each invocation.
+`append-policy` is persistent append, not destructive CLOS `nconc`.
+
+The complex `examples/service-combination.ss` models combine these constructors
+with shared expansion, specialized reserve/cancel checks, selection budgeting,
+cross-service revision, current invoice binding and joint approval. Refusal
+preserves the exact published version. Lean's `Examples/AlignedServices` proves
+the corresponding standard/simple arithmetic and refusal laws using existing
+combinators, plus complete conditional selector-budget bounds.
+
+Remaining executable alignment gaps are explicit: forwarding payload methods,
+BETA/Simula constructors, precompiled unconditional effective-method dispatch,
+general safe-recursive attestation/memo programs (the cyclic seed is still a
+supplied Boolean), and arbitrary cross-type lens/migration adapters. Native
+finite DAG rebuilding does not close those broader capabilities. Dependent
+proof evidence itself remains a Lean responsibility, not another Scheme wrapper.

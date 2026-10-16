@@ -5,7 +5,7 @@
         ../object "closure-measure.ss" (prefix-in "metadata-paired-cases.ss" study.)
         (prefix-in ../contract-family contracts.) (prefix-in ../declarative-metadata metadata.) (prefix-in ../generic-family generics.)
         (prefix-in ../staged-publication staged.) (prefix-in ../cyclic-publication publication.)
-        (prefix-in ../examples/shared-contracts shared.) (prefix-in ../examples/service-bundle bundle.)
+        (prefix-in ../examples/service-combination qualified.) (prefix-in ../examples/shared-contracts shared.) (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/construction-workflow workflow.) (prefix-in ../examples/cyclic-access access.)
         (prefix-in ../construction-cache cache.) (prefix-in ../generalized-graph graph.)
         (prefix-in ../dependency-analysis code.))
@@ -15,9 +15,10 @@
 (def uncaptured-source (.cc shared.selected-source
   .select: (let (costs (.@ shared.selected-source preparation-costs))
     (lambda (keys) (contracts.choose-preparation costs (length keys))))))
-;; Construct all five controls in fixed side order, even when measuring only one.
+;; Construct all nine controls in fixed side order, even when measuring only one.
 ;; Keep support, closed projections and publication semantics matched.
-(def sources (list shared.independent-source uncaptured-source shared.selected-source shared.cached-source shared.selected-source))
+(def sources (list shared.independent-source uncaptured-source shared.selected-source shared.cached-source shared.selected-source shared.cached-source
+  shared.shared-checks-source (.@ shared.shared-checks-cached-model contract-source) shared.budgeted-source))
 ;; Reserve/cancel test executor using only the passed current view; returns
 ;; result and unchanged view. Checked wrappers validate both service observations.
 (def (execute key args view)
@@ -42,6 +43,17 @@
      (cons (lambda () #t)
        (map (lambda (source)
          (let (select (.@ source .select)) (lambda () (eq? (select keys) 'direct)))) (cdr sources)))))
+    ;; Charge fresh source/input callback construction for every side. The budgeted
+    ;; side additionally creates/validates its policy and compiles mode selection;
+    ;; that one-time configuration is separate from repeated cold-family requests.
+    ((configure)
+     (map (lambda (source index)
+       (lambda ()
+         (def current (.cc source))
+         (def configured (if (= index 8)
+           (contracts.choose-source (.cc contracts.SelectionCacheCosts. setup: 2 guard: 1 calls: 1
+             collection-price: 1 extra-collections: 1) current (lambda () '(reserve cancel))) current))
+         (procedure? (.@ configured .inputs)))) sources '(0 1 2 3 4 5 6 7 8)))
     ((inputs)
      (map (lambda (source)
        ;; Admit the complete projection/constructor composition before isolating inputs.
@@ -51,16 +63,29 @@
        (def keys (.call source keys policy next-view))
        (lambda () (and (.call source .inputs #f policy next-view keys) #t))) sources))
     ((construct)
-     (map (lambda (_)
-       (lambda () (and (metadata.contract? (shared.construct 'reserve 20))
-                       (metadata.contract? (shared.construct 'cancel "invoice:2"))))) sources))
+     (map (lambda (source)
+       (def construct (.@ source construct))
+       (lambda () (and (metadata.contract? (construct 'reserve 20))
+                       (metadata.contract? (construct 'cancel "invoice:2"))))) sources))
+    ;; Charge a fresh parent's first invariant compilation, specialization,
+    ;; wrapper binding and checked call together; warm templates are not free here.
+    ((cold-checks)
+     (let (template (shared.construct 'reserve 20))
+       (map (lambda (index)
+         (lambda ()
+           (def parent (.cc template checks: #f))
+           (def meaning (.@ parent meaning))
+           (def descriptor (if (>= index 6) (metadata.with-meaning parent meaning)
+                              (.cc parent meaning: meaning)))
+           (def checked (metadata.wrap descriptor (lambda (args current) (execute 'reserve args current))))
+           (equal? (first-value (checked '(2) next-view)) '(ok 18 #t)))) '(0 1 2 3 4 5 6 7 8))))
     ((bind)
-     (let (descriptors (map shared.construct '(reserve cancel) '(20 "invoice:2")))
-       (map (lambda (_)
+     (map (lambda (source)
+       (def descriptors (map (.@ source construct) '(reserve cancel) '(20 "invoice:2")))
          (lambda ()
            (for/fold (valid #t) ((key '(reserve cancel)) (descriptor descriptors))
              (and valid (procedure? (metadata.wrap descriptor
-               (lambda (args current) (execute key args current)))))))) sources)))
+               (lambda (args current) (execute key args current)))))))) sources))
     ((rebind)
      (let (next-execute (lambda (key args current) (execute key args current)))
        (map (lambda (source)
@@ -70,6 +95,15 @@
            (and (null? (contracts.family-built next))
                 (equal? (contracts.family-bound next) '(reserve cancel))
                 (equal? (first-value ((contracts.family-invoker next 'reserve) '(2) view)) '(ok 8 #t))))) sources)))
+    ;; Fresh native source identity charges cold selector/cache preparation and
+    ;; descriptor/binding work. No retained family or warm source slot is supplied.
+    ((cold-family)
+     (map (lambda (source)
+       (lambda ()
+         (def cold (contracts.prepare (.cc source) policy next-view execute))
+         (and (equal? (contracts.family-built cold) '(reserve cancel))
+              (equal? (contracts.family-bound cold) '(reserve cancel))
+              (equal? (first-value ((contracts.family-invoker cold 'reserve) '(2) next-view)) '(ok 18 #t))))) sources))
     ((family)
      (map (lambda (source)
        (def old (contracts.prepare source policy view execute))
@@ -79,13 +113,15 @@
               (equal? (contracts.family-bound next) '(reserve cancel))
               (equal? (first-value ((contracts.family-invoker next 'reserve) '(2) next-view)) '(ok 18 #t))
               (equal? (first-value ((contracts.family-invoker next 'cancel) '("customer" #t) next-view)) '("customer" "invoice:2"))))) sources))
-    ((joint workflow generics approval)
+    ((joint workflow generics approval standard simple)
      (let ()
      (def workflow? (eq? scenario 'workflow))
-     (def base (if workflow? shared.workflow-model bundle.model))
+     (def qualified? (memq scenario '(standard simple)))
+     (def base (case scenario ((workflow) shared.workflow-model) ((standard) qualified.standard-model)
+                ((simple) qualified.simple-model) (else bundle.model)))
      (def models (map (lambda (source index)
        (.cc base contract-source: source
-         generics: (if (= index 4) shared.expanded-generics (.@ base generics)))) sources '(0 1 2 3 4)))
+         generics: (if (and (>= index 4) (not qualified?)) shared.expanded-generics (.@ base generics)))) sources '(0 1 2 3 4 5 6 7 8)))
      (def specification (if workflow? (workflow.graph 30) (access.equations (access.config) #t)))
      (map (lambda (model)
        (defvalues (cold issue) (staged.prepare model specification policy))
@@ -134,7 +170,7 @@
   (def regime (string->symbol regime-text))
   ;; One-character side codes keep the argv allocation shape constant.
   (def side (string->number side-text))
-  (unless (and (memq scenario study.scenarios) (memq regime study.regimes) (memv side '(0 1 2 3 4)))
+  (unless (and (memq scenario study.scenarios) (memq regime study.regimes) (memv side '(0 1 2 3 4 5 6 7 8)))
     (error "invalid paired request"))
   (def actions (workload scenario))
   (for* ((_ (in-range study.warmups)) (action actions)) (unless (action) (error "paired prefix oracle")))

@@ -1,5 +1,5 @@
 ;;; ContractFamily: closed contract inputs and late-bound invocation wrappers.
-(export Source. PreparationCosts. SelectionCache. choose-preparation cached-choice methods.inputs<-cached-selection methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
+(export Source. PreparationCosts. SelectionCache. SelectionCacheCosts. choose-selection choose-source choose-preparation cached-choice methods.inputs<-cached-selection methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
         family-built family-bound family-reused family-prepared? family-preparation)
 (import :std/iter (only-in :std/func compose1) ./object (only-in ./mop define-type .defgeneric)
         (prefix-in ./declarative-metadata metadata.))
@@ -129,6 +129,39 @@
 (define-type (methods.inputs<-cached-selection @ [methods.inputs<-shared] selection-cache project-direct)
   .select: (.@ selection-cache .choose)
   .direct: project-direct)
+;; Explicit selector reuse budget, corresponding to Lean SelectionCacheCosts and
+;; SelectionBudget. calls counts actual changed-input preparations, NOT all workflow
+;; revisions; retained contexts never select. Extra GC is a supplied upper budget,
+;; not inferred from microbenchmarks or an authorization to retain metadata.
+(define-type (SelectionCacheCosts. @ [] setup guard calls)
+  fallbacks: 0 collection-price: 0 extra-collections: 0
+  .choose:
+  (lambda (selection-cost)
+    (unless (and (andmap (lambda (n) (and (exact-integer? n) (>= n 0)))
+      (list setup guard calls fallbacks collection-price extra-collections selection-cost))
+      (<= fallbacks calls)) (error "invalid selection cache budget"))
+    (if (< (+ setup (* (+ 1 fallbacks) selection-cost) (* calls guard)
+              (* collection-price extra-collections)) (* calls selection-cost))
+      'cached 'dynamic)))
+;; Choose the cheaper supported selector mode under explicit counted/GC premises.
+;; Strict comparison keeps dynamic on ties; the budget is a conditional model,
+;; never proof of wall time or the future number of preparation misses.
+(.defgeneric (choose-selection prices selection-cost) slot: .choose)
+
+;; Compile a fixed budget into the existing source composition once at configuration.
+;; Dynamic returns the exact original source, so fresh factory instances neither
+;; interpret the budget again nor allocate an unused cache. Cached mode forces the
+;; supplied support thunk once and uses the existing immutable arity fallback.
+;; Source/preparation-price changes require explicit reconfiguration. Initial
+;; policy validation/choice remains a real one-time setup cost, not a free proof.
+(def (choose-source prices source keys)
+  (def costs (.@ source preparation-costs))
+  (case (choose-selection prices (.@ costs selection-cost))
+    ((dynamic) source)
+    ((cached)
+     (.mix (.cc methods.inputs<-cached-selection
+       selection-cache: (.cc SelectionCache. preparation-costs: costs keys: (keys))) source))
+    (else (error "invalid selector mode"))))
 ;; Pure contract source with keys, per-key project and descriptor construct.
 ;; Default inputs prepare independently; mixins replace only that input protocol.
 ;; prepare stages cold support; refresh may retain descriptors/wrappers under

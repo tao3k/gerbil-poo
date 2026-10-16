@@ -13,6 +13,46 @@
 ;; binding and selector calls rather than inferring work from equal outputs.
 (def contract-family-test
   (test-suite "closed contract preparation and late binding"
+    (test-case "selection budget charges cold setup support fallbacks and extra GC"
+      (def cold (.cc family.SelectionCacheCosts. setup: 2 guard: 1 calls: 1))
+      (check-equal? (family.choose-selection cold 4) 'dynamic)
+      (check-equal? (family.choose-selection (.cc cold calls: 0 setup: 0 guard: 0) 0) 'dynamic)
+      (def stable (.cc cold calls: 64))
+      (check-equal? (family.choose-selection stable 4) 'cached)
+      (check-equal? (family.choose-selection (.cc stable fallbacks: 64) 4) 'dynamic)
+      (check-equal? (family.choose-selection (.cc stable collection-price: 3 extra-collections: 100) 4) 'dynamic)
+      (for (invalid (list (.cc stable calls: -1) (.cc stable fallbacks: 65) (.cc stable guard: 0.5)))
+        (check-exception (family.choose-selection invalid 4) true))
+      (def cache-forced 0)
+      (def decisions 0)
+      (def counted (.cc cold .choose: (lambda (cost)
+        (set! decisions (+ decisions 1)) (family.choose-selection cold cost))))
+      (def source (family.choose-source counted shared.shared-checks-source
+        (lambda () (set! cache-forced (+ cache-forced 1)) '(reserve cancel))))
+      (check (eq? source shared.shared-checks-source) => #t)
+      (check-equal? decisions 1)
+      (def priced (.cc source preparation-costs: (.cc family.PreparationCosts.
+        selection-cost: 4 prepare-cost: 8 shared-cost: 1 direct-cost: 1)))
+      (def cached (family.choose-source stable priced
+        (lambda () (set! cache-forced (+ cache-forced 1)) '(reserve cancel))))
+      (check (eq? cached priced) => #f)
+      (check-equal? cache-forced 1)
+      (set! cache-forced 0)
+      (def view (.o (capacity 10) (invoice "invoice:1")))
+      (def (execute key args current)
+        (values (if (eq? key 'reserve) (list 'ok (- (.@ current capacity) (car args)) #t)
+                    (list (car args) (.@ current invoice))) current))
+      (def initial (family.prepare source #f view execute))
+      (check-equal? cache-forced 0)
+      (def cached-family (family.prepare cached #f view execute))
+      (check-equal? (first-value ((family.family-invoker cached-family 'reserve) '(2) view)) '(ok 8 #t))
+      (def retained (family.refresh source initial #f view execute))
+      (check-equal? (family.family-built retained) [])
+      (def fresh (family.prepare (.cc source) #f view execute))
+      (check-equal? (family.family-built fresh) '(reserve cancel))
+      (check-equal? decisions 1)
+      (check-equal? cache-forced 0)
+      (check-equal? (first-value ((family.family-invoker retained 'reserve) '(2) view)) '(ok 8 #t)))
     (test-case "prepared selection executes once and falls back on changed support size"
       (def calls 0)
       (def prices (.cc family.PreparationCosts. prepare-cost: 3 shared-cost: 0 direct-cost: 1))

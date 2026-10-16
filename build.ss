@@ -36,6 +36,7 @@
     "fun"
     (gxc: "io" ,@(include-gambit-sharp))
     "mop"
+    "method-combination"
     "multimethod"
     "dispatch-extension"
     "declarative-metadata"
@@ -59,6 +60,7 @@
     "examples/service-bundle"
     "examples/construction-workflow"
     "examples/shared-contracts"
+    "examples/service-combination"
     "t/closure-measure"
     "t/metadata-paired-cases"
     "t/closure-cases"

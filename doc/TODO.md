@@ -344,3 +344,14 @@ in the style of
 
 Other type descriptors
 [GNU Poke](http://www.jemarch.net/poke)
+
+### Executable alignment status
+
+The standard qualified combiner and simple policies now have native POO
+constructors in `method-combination.ss`, integrated through `multimethod.standard`
+and `multimethod.simple` with existing Type/guard/negative-watch publication.
+`examples/service-combination.ss` composes them with shared contract checks and
+atomic multi-service revisions. This implements a concrete part of the above
+method-combination direction; the unified generalized MOP remains future work.
+See `alignment.md` for the Racket/Lean/Scheme correspondence and the remaining
+forwarding, inner, prepared-effective, safe recursion and lens/migration gaps.

@@ -1,6 +1,6 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
 ;;; Generalized-prototype future work: immutable closed inputs, native mixins.
-(export source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
+(export source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-cached-model expanded-cached-workflow-model budgeted-source budgeted-model budgeted-workflow-model shared-checks-source shared-checks-model shared-checks-workflow-model shared-checks-cached-model shared-checks-cached-workflow-model specialized-construct expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
 (import ../object (prefix-in ../contract-family family.) (prefix-in ../generic-family generics.)
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ./construction-workflow workflow.)
@@ -118,3 +118,40 @@
 ;; Combine the shared settlement DAG, cooked interface, shared generic expansion,
 ;; checked contracts and joint approval. Warm siblings retain their certificates.
 (def expanded-workflow-model (.cc workflow-model generics: expanded-generics))
+
+;; Direct combination control: change only selection reuse under shared expansion.
+(def expanded-cached-model (.cc expanded-model contract-source: cached-source))
+;; Same DAG, generic reconstruction and approval as expanded-workflow-model, with
+;; stable-support selection caching as the only changed preparation strategy.
+(def expanded-cached-workflow-model (.cc expanded-workflow-model contract-source: cached-source))
+;; Construct the same capacity/invoice descriptors while sharing invariant checks.
+;; Unknown keys fail before a complete family can be published.
+(def (specialized-construct key input)
+  (case key
+    ((reserve) (service.specialized-reservation input))
+    ((cancel) (metadata.with-meaning cancellation-template (cancellation-meaning input)))
+    (else (error "unknown contract" key))))
+;; Dynamic projection choice plus stamped immutable descriptor-check reuse.
+(def shared-checks-source (.cc selected-source construct: specialized-construct))
+;; Combine shared generic expansion and descriptor checks; selection remains dynamic.
+(def shared-checks-model (.cc expanded-model contract-source: shared-checks-source))
+;; Multi-level shared dependencies with the same independent approval/retention rules.
+(def shared-checks-workflow-model (.cc expanded-workflow-model contract-source: shared-checks-source))
+;; Isolate selection-cache effect after both other construction optimizations.
+(def shared-checks-cached-model (.cc expanded-cached-model contract-source:
+  (.cc cached-source construct: specialized-construct)))
+;; Same cached/check-sharing composition in the complete settlement DAG workflow.
+(def shared-checks-cached-workflow-model (.cc expanded-cached-workflow-model contract-source:
+  (.cc cached-source construct: specialized-construct)))
+
+;; Conservative one-miss budget: many workflow revisions may retain the closed
+;; context, so they must not be counted as repeated selector savings. These explicit
+;; operation weights are an illustrative model, not embedded measured timings.
+(def budgeted-source
+  (family.choose-source (.cc family.SelectionCacheCosts. setup: 2 guard: 1 calls: 1
+    collection-price: 1 extra-collections: 1) shared-checks-source (lambda () contract-keys)))
+;; Shared generic expansion/checks with budget-selected projection-choice reuse.
+(def budgeted-model (.cc shared-checks-model contract-source: budgeted-source))
+;; Complete DAG workflow; cold/fallback/GC budgets are separate from descriptor
+;; reconstruction, current-state binding and mandatory joint approval.
+(def budgeted-workflow-model (.cc shared-checks-workflow-model contract-source: budgeted-source))
