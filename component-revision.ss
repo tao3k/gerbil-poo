@@ -1,7 +1,8 @@
 ;;; Joint component membership edits before SCC discovery and whole publication.
-(export Fragment. fragment reconfigure)
+(export Fragment. fragment reconfigure revision-action)
 (import (only-in :std/list/list delete-duplicates/hash filter) ./object ./mop
-        (prefix-in ./generalized-graph graph.))
+        ./feedback-graph (prefix-in ./construction-cache cache.)
+        (prefix-in ./generalized-prototype gp.) (prefix-in ./generalized-graph graph.))
 ;; Service contributions use ordinary POO descriptors; code/base remain separate
 ;; namespaces, and cross-fragment references are checked only on the final graph.
 (define-type (Fragment. @ [] added removed codes bases))
@@ -30,3 +31,14 @@
   (graph.reconfigure spec
     (append (filter (lambda (key) (not (memq key removed))) (.@ spec keys)) added)
     (collect 'codes) (collect 'bases)))
+
+;; Stage against the exact approved publication. FUN Reader bind threads that same
+;; input through validation and joint revision. A later equal-valued publication
+;; is still a different snapshot: stale requests refuse before preparation,
+;; builders or approval. The expected object stays live in this lexical closure.
+(def (revision-action expected fragments build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
+  (unless (graph-cache? expected) (error "expected published component snapshot required"))
+  (.call gp.Observation. .bind identity (lambda (current)
+    (unless (eq? current expected) (error "stale component revision snapshot"))
+    (feedback-graph-revision-action (lambda (spec) (reconfigure spec fragments)) build admit
+      guards: guards builder: builder))))

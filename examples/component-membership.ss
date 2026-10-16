@@ -1,5 +1,5 @@
 ;;; Add/remove feedback bridges with shared invalidation and joint service approval.
-(export keys compact-keys source reconfigure build-group value report admit publish revision-action)
+(export keys compact-keys source code-edits reconfigure build-group value report admit publish revision-action)
 (import ../object ../mop ../brace ../support/option ../generalized-closure ../feedback-cache ../feedback-graph ../lens-laws
         (prefix-in ../generalized-graph graph.) (prefix-in ../examples/service-revisions service.))
 ;; Explicit lens universe is reused; only supported components may be observed.
@@ -30,12 +30,15 @@
 ;; All membership edits and rewiring are staged before the single SCC partition.
 ;; Removal restores surviving recipes AND erases both removed providers at once.
 (def (reconfigure spec expanded? (inputs []))
-  (graph.reconfigure spec (if expanded? keys compact-keys)
-    (if expanded?
-      [(cons 'shared expanded-shared) (cons 'b bridge-b) (cons 'c bridge-c)
-       (cons 'e bridge-e) (cons 'f bridge-f) (cons 'settlement (.call template .code 'settlement))]
-      [(cons 'shared (.call template .code 'shared)) (cons 'b (.call template .code 'b))
-       (cons 'c (.call template .code 'c)) (cons 'settlement compact-settlement)]) inputs))
+  (graph.reconfigure spec (if expanded? keys compact-keys) (code-edits expanded?) inputs))
+;; Share stable recipe edits with multi-round workflows; callers still declare
+;; actual support additions/removals separately before final dependency checking.
+(def (code-edits expanded?)
+  (if expanded?
+    [(cons 'shared expanded-shared) (cons 'b bridge-b) (cons 'c bridge-c)
+     (cons 'e bridge-e) (cons 'f bridge-f) (cons 'settlement (.call template .code 'settlement))]
+    [(cons 'shared (.call template .code 'shared)) (cons 'b (.call template .code 'b))
+     (cons 'c (.call template .code 'c)) (cons 'settlement compact-settlement)]))
 ;; Resolve only current members; deleted nodes fail at graph-cache-ref, not a stale raw slot.
 (def (value current key)
   (def index (let loop ((rest keys) (n 0))

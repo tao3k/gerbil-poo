@@ -93,6 +93,7 @@
     "examples/service-revisions"
     "examples/component-membership"
     "examples/component-migration"
+    "examples/component-rounds"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"

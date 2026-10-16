@@ -265,6 +265,14 @@ exact clean reuse, conflicts and refusal/retry. This is finite generalized-proto
 future work; see [component-migration.md](component-migration.md) for correspondence
 and proof limits. It does not close unrestricted mutation/recursion TODOs.
 
+Multi-round component recreation, interleaved SCC merge/split and repeated shared
+input migration now reuse the same contributions and whole-group closure. Staged
+`component-revision.revision-action` binds to the exact expected publication,
+rejecting old requests even after supported names and values return. Cross-service
+approval metadata changes still require freshly prepared lens checks; refusal
+retains the last publication. See [component-rounds.md](component-rounds.md) for the
+seven-state native/Lean scenario, repeated cycles and explicit proof premises.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
