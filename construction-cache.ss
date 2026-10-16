@@ -16,7 +16,6 @@
 (def default-builder (.cc Builder.))
 (def (materialize old scheduled builder)
   (def spec (graph.schedule-source scheduled))
-  (def same-support? (and old (equal? (.@ spec keys) (.@ (cache-source old) keys))))
   (def state (make-hash-table-eq))
   (def dirty (make-hash-table-eq))
   (def evaluated [])
@@ -24,7 +23,9 @@
   (for (key (graph.schedule-order scheduled))
     (def code (.call spec .code key))
     (def deps ((graph.schedule-reads scheduled) key))
-    (def invalid? (or (not same-support?)
+    ;; New support may merge/split SCCs. Only an existing slot with identical
+    ;; code/base and clean declared readers can survive; new slots always build.
+    (def invalid? (or (not old) (not (memq key (.@ (cache-source old) keys)))
       (not (eq? code (.call (cache-source old) .code key)))
       (not (eq? (.call spec .base key) (.call (cache-source old) .base key)))
       (ormap (cut hash-ref dirty <>) deps)))

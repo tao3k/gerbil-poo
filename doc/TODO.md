@@ -229,8 +229,16 @@ The reusable `Prototype.Generalized.CappedFeedback` supports both the earlier
 ring examples and new selective-vs-fresh construction controls. See
 [feedback-cache.md](feedback-cache.md) for hypotheses and functional boundaries.
 
-Still open: automatic SCC grouping/dependency discovery, cycle-interior selective
-reconstruction, general convergence/leastness and unrestricted higher-order knots.
+Automatic SCC grouping and merge/split invalidation are now implemented in
+`strong-components.ss` / `feedback-graph.ss`. Shared quota, two services, final
+settlement, an independent loop and current joint approval cover graph revisions
+through existing whole-group closure and DAG caching. See
+[strong-components.md](strong-components.md) for the Racket/Lean/native mapping,
+accepted-certificate proof scope and executable controls.
+
+Still open: automatic discovery of hidden callback dependencies, cycle-interior
+selective reconstruction, general convergence/leastness and unrestricted
+higher-order knots.
 Only immutable/extensional DAG metadata and declared dependencies authorize reuse;
 no runtime speed, allocation or GC improvement follows from these controls.
 
