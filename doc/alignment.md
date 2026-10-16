@@ -847,3 +847,20 @@ and register copied descriptors on compilation. Public reads re-admit cached,
 default and hook values through the current Slot checker; an earlier successful
 read is never reused as approval. Negative controls reject malformed defaults and
 transformed values, then verify recovery after protocol correction.
+
+### Constant-base self-hosting and nonlocal declarations (future work)
+
+| Source / Lean | Native counterpart |
+| --- | --- |
+| Racket “A prototype is more than a function”: ordinary metadata objects and an explicit constant base | `meta-prototype.ss`: sealed self-protocol root with two constant operation anchors; other metadata uses the root's own compiler |
+| `MetaPrototype.bootstrapLookup_order/slot/field`, `bootstrapReflect_fixed` | Ordinary reflection of pinned operations without an infinite meta lookup; non-anchor construction keeps normal guards |
+| `DeclarativeMetadata.expandForms_append/refused` | `declaration-action`: native Reader/FUN bind/map chain, source-order expansion, same current context and first-error stop |
+| `DeclarativeMetadata.elaborate_source`, `Catalog.names_valid` | Inherited expansion/finalization followed by complete descriptor/name checking and reserved public/private catalogs |
+| `publishDeclarations_refused` | No candidate receiver is returned after an expansion/finalizer/validation error; external I/O is not rolled back |
+| `Examples/MetaBootstrap.lean` | `examples/metaprotocol-services.ss`, `t/meta-prototype-test.ss`: property/getter/annotation expansion, shared branches, refusal/recovery and revisions |
+
+The new hook/elaboration protocol advances the paper's future work; it is not
+asserted to be the paper's literal Racket API. Captured anchors need fresh bootstrap
+for a kernel change, and compiled declaration actions refuse changed expander
+revisions. Ordinary cycles do not gain this base exception. See
+[meta-prototype.md](meta-prototype.md) for supported inputs and mutation boundaries.

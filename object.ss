@@ -81,14 +81,15 @@
    %state ;; mutation revision, sealed flag and weak dependency edges
    %protocol ;; optional ordinary POO object supplying inheritance hooks
    %overrides ;; explicit INSTANCE assignments, never inherited specifications
-   %declarations) ;; : (Listof Symbol) ; definition order for all slot keys
+   %declarations
+   %bootstrap) ;; explicit constant hook anchors; only the self-hosted root uses them : (Listof Symbol) ; definition order for all slot keys
   constructor: :init!)
 (defmethod {:init! object}
   (lambda (self ;; : (Object A)
       supers: (supers '()) ;; : (Listof Objects) ;; Actually, can be a pair-tree of Object's and nulls.
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
       defaults: (defaults '())
-      protocol: (protocol #f) declarations: (declarations '())) ;; : (Listof (Pair Symbol ?))
+      protocol: (protocol #f) declarations: (declarations '()) bootstrap: (bootstrap #f)) ;; : (Listof (Pair Symbol ?))
     (set! (object-supers self) (flatten supers))
     (set! (object-%slots self) slots)
     (set! (object-%defaults self) defaults)
@@ -100,6 +101,7 @@
     (set! (object-%protocol self) protocol)
     (set! (object-%overrides self) #f)
     (set! (object-%declarations self) declarations)
+    (set! (object-%bootstrap self) bootstrap)
     (for-each (cut depend-on-object! self <>) (object-supers self))
     (when protocol (depend-on-object! self protocol))))
 
@@ -173,12 +175,19 @@
 (def (object-protocol self)
   (let find ((order (object-%precedence-list self)))
     (and (pair? order) (or (object-%protocol (car order)) (find (cdr order))))))
+;; The explicit metalevel base exposes only its pinned hook values. Ordinary
+;; objects and arbitrary cycles retain the normal construction/slot guards.
+(def (bootstrap-anchor self name)
+  (and (object? self) (eq? (object-%protocol self) self) (object-%bootstrap self)
+       (assq name (object-%bootstrap self))))
 ;; Invoke one optional inherited hook. The continuation is the existing engine,
 ;; not a second evaluator; hook errors propagate and never install partial caches.
 (def (invoke-object-hook self name next . args)
   (def protocol (object-protocol self))
-  (if (and protocol (.slot? protocol name))
-    (apply (.ref protocol name) self next args) (next)))
+  (cond
+    ((bootstrap-anchor self name) => (lambda (entry) (apply (cdr entry) self next args)))
+    ((and protocol (.slot? protocol name)) (apply (.ref protocol name) self next args))
+    (else (next))))
 ;; Instantiate atomically with respect to native exceptions. Mutating callbacks and
 ;; concurrent reads/writes are outside the sequential protocol, and are rejected
 ;; for actively evaluated receivers rather than returning a partially built value.
@@ -193,6 +202,9 @@
         (def instance (make-hash-table-symbolic))
         (when (object-%overrides self)
           (for (([key . value] (object-%overrides self))) (hash-put! instance key value)))
+        ;; The constant base is also present in ordinary full-cache reflection.
+        (when (and (eq? (object-%protocol self) self) (object-%bootstrap self))
+          (for (([key . value] (object-%bootstrap self))) (hash-put! instance key value)))
         (set! (object-%instance self) instance)
         (catch (cause) (clear-object-cache! self) (raise cause))))))
 
@@ -258,7 +270,9 @@
         (lambda () (cut no-applicable-method self slot))
         (cut apply-slot-spec self spec <>))))
   (for (([slot . standard] (hash->list h)))
-    (def compiled (invoke-object-hook self 'compute-slot (lambda () standard) slot))
+    ;; Pinned hook definitions are the terminating base of self-description.
+    (def compiled (if (bootstrap-anchor self slot) standard
+      (invoke-object-hook self 'compute-slot (lambda () standard) slot)))
     (unless (procedure? compiled) (error "compute-slot must return a thunk" slot))
     (hash-put! h slot compiled))
   (set! (object-%slot-funs self) h))
@@ -307,21 +321,24 @@
   (parameterize ((active-slot-computations (cons key active))) (thunk)))
 ;; Read a cached slot or compute it through the cycle-aware missing-method protocol.
 (def (.ref self slot)
-  (def instance (object-instance self))
-  ;; Keep the cached path to one V19 runtime hash lookup without allocating
-  ;; the cache-miss thunk required by hash-ensure-ref.
-  (def value (hash-ref instance slot absent-value))
-  (if (eq? value absent-value)
-    (let (value (compute-slot-value self slot
-                  (hash-ref/default (object-%slot-funs self) slot
-                    (cut cut no-applicable-method self slot))))
-      (hash-put! instance slot value)
-      value)
-    value))
+  (def anchor (bootstrap-anchor self slot))
+  (if anchor (cdr anchor)
+    (let ()
+      (def instance (object-instance self))
+      ;; Ordinary cached lookup allocates no cache-miss thunk.
+      (def value (hash-ref instance slot absent-value))
+      (if (eq? value absent-value)
+        (let (value (compute-slot-value self slot
+                      (hash-ref/default (object-%slot-funs self) slot
+                        (cut cut no-applicable-method self slot))))
+          (hash-put! instance slot value)
+          value)
+        value))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))
-  (hash-ref/default (object-instance self) slot default))
+  (def anchor (bootstrap-anchor self slot))
+  (if anchor (cdr anchor) (hash-ref/default (object-instance self) slot default)))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
 
@@ -373,8 +390,8 @@
 
 ;; : Bool <- (Object _) Symbol
 (def (.slot? self slot)
-  (instantiate-object! self)
-  (hash-key? (object-%slot-funs self) slot))
+  (if (bootstrap-anchor self slot) #t
+    (begin (instantiate-object! self) (hash-key? (object-%slot-funs self) slot))))
 
 (defrules .has? ()
   ((_ x) #t)
