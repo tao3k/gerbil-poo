@@ -341,6 +341,15 @@ actual winner. Whole typed bundles reuse the Lean checked-installation laws. See
 [joint-installation.md](joint-installation.md) for native lifecycle controls,
 exact API failure conventions and the immutable-installed-policy boundary.
 
+Multiple already-approved receipts now compose through `install-sequence!`, with
+ordered per-attempt outcomes and independent guarded installations. Six native
+merge/delete/split/restore rounds invalidate two receipts sharing one proposed
+policy, allow an independent same-round winner, then replay all older receipts.
+Fresh approvals, equal-valued revision round trips, component erasure and stable
+feedback reuse are covered. Lean adds certified receipt traces, arbitrary-order
+validity, obsolete batches and drifted-attempt elimination. See
+[joint-receipts.md](joint-receipts.md); sequence-wide atomicity is not claimed.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

@@ -1,6 +1,6 @@
 ;;; Atomic replacement of shared approval metadata and all endpoint heads.
-(export publication current head approval stage stage-at stage-with approve install! submit!)
-(import (only-in :gerbil/runtime/thread with-lock) (only-in :std/list/list delete-duplicates/hash)
+(export publication current head approval stage stage-at stage-with approve install! install-sequence! submit!)
+(import (only-in :gerbil/runtime/thread with-lock) (only-in :std/list/list delete-duplicates/hash foldl)
         ./object ./mop ./lens-laws ./feedback-graph
         (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
 ;; A private immutable bundle is the ONLY authoritative read/installation unit.
@@ -113,6 +113,15 @@
         (%publication-snapshot-set! owner candidate)))))
     (values candidate #f)
     (catch (failure) (values (current owner) failure))))
+;; Install in explicit input order and retain EVERY (snapshot . failure) outcome.
+;; Standard foldl sequences attempts, including after a refusal; no implicit retry,
+;; reapproval, rollback or transaction across the entire sequence is introduced.
+;; Each install! still owns its short lock, so other publishers may interleave.
+(def (install-sequence! owner receipts)
+  (unless (list? receipts) (error "proper joint approval receipt sequence required"))
+  (reverse (foldl (lambda (receipt outcomes)
+    (call-with-values (lambda () (install! owner receipt))
+      (lambda (snapshot failure) (cons (cons snapshot failure) outcomes)))) [] receipts)))
 ;; Standard composition retains the original one-call failure/current contract.
 ;; Explicit two-phase callers can schedule approval and installation independently
 ;; without access to constructors for trusted receipts or candidate internals.
