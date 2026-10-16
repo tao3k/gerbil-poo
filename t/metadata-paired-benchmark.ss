@@ -10,13 +10,24 @@
         (prefix-in ../construction-cache cache.) (prefix-in ../generalized-graph graph.)
         (prefix-in ../dependency-analysis code.))
 ;; The previous dynamic implementation is a matched benchmark control only.
+;; Hold the same immutable costs as selected-source but repeat generic selector
+;; lookup on each call. Benchmark reference only; no compatibility API is exported.
 (def uncaptured-source (.cc shared.selected-source
   .select: (let (costs (.@ shared.selected-source preparation-costs))
     (lambda (keys) (contracts.choose-preparation costs (length keys))))))
+;; Construct all four controls in fixed side order, even when measuring only one.
+;; Keep support, closed projections and publication semantics matched.
 (def sources (list shared.independent-source uncaptured-source shared.selected-source shared.cached-source))
+;; Reserve/cancel test executor using only the passed current view; returns
+;; result and unchanged view. Checked wrappers validate both service observations.
 (def (execute key args view)
   (values (case key ((reserve) (list 'ok (- (.@ view capacity) (car args)) #t))
                     ((cancel) (list (car args) (.@ view invoice)))) view))
+;; Build all controls before timing and return one checked thunk per side.
+;; Family thunks exercise descriptor/binding work; joint/workflow thunks include
+;; atomic revision, selective rebuilding and checked current-state calls. Every
+;; control first passes the same warm-budget refusal outside the timed region.
+;; Unknown scenarios or refused baselines raise instead of producing a timing.
 (def (workload scenario)
   (def policy (.cc bundle.Policy. capacity: 10 price: 3 invoice: "invoice:1"))
   (def view (.o (capacity 10) (invoice "invoice:1")))
@@ -67,6 +78,10 @@
            (equal? (first-value (publication.invoke next 'cancel "customer" #t))
                    (list "customer" (if workflow? "invoice:33" "invoice:2")))))) models)))
     (else (error "unknown paired scenario" scenario))))
+;; Native child entry: validate fixed scenario/regime/one-character side codes,
+;; warm every thunk, optionally collect, then measure exactly the chosen side.
+;; Record CPU/wall/GC, signed allocation and prefix counters; allocation becomes
+;; unavailable across collections/negative deltas. Oracle failure aborts the sample.
 (def (main scenario-text regime-text side-text)
   (def scenario (string->symbol scenario-text))
   (def regime (string->symbol regime-text))

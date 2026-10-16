@@ -5,7 +5,12 @@
         (prefix-in ../examples/service-bundle bundle.) (prefix-in ../examples/cyclic-access access.)
         (prefix-in ../examples/shared-contracts shared.)
         (prefix-in ../staged-publication staged.) (prefix-in ../cyclic-publication publication.))
+;; Return the raised condition, or #f if the thunk succeeds, so refusals can be
+;; asserted without discarding the immutable baseline family.
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
+;; Check closed-input/source/executor reuse, cached-choice invalidation, current
+;; state, support changes and joint approval. Counters measure real constructor,
+;; binding and selector calls rather than inferring work from equal outputs.
 (def contract-family-test
   (test-suite "closed contract preparation and late binding"
     (test-case "prepared selection executes once and falls back on changed support size"

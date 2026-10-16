@@ -7,8 +7,15 @@
         (prefix-in ../generalized-graph graph.) (prefix-in ../construction-cache cache.)
         (prefix-in ../cyclic-publication publication.) (prefix-in ../dispatch-extension dispatch.)
         (prefix-in ../multimethod multimethod.))
+;; Baseline policy whose cooked capacity/invoice come from the settlement DAG;
+;; placeholder fields make accidental use of uncooked policy observable.
 (def policy (.cc bundle.Policy. capacity: 0 price: 3 invoice: "unused"))
+;; Observe the actual dispatch-cache size of one published service. Used to
+;; check warm-cache transport independently of output equality or rebuild traces.
 (def (size version key) (multimethod.cache-size (dispatch.snapshot (publication.version-service version key))))
+;; Exercise multi-level shared dependencies through cooked representation,
+;; contracts and atomic approval. Assert exact rebuild/reuse traces, current
+;; results and refusal retention; faster strategies may not weaken these checks.
 (def construction-workflow-test
   (test-suite "selective shared settlement and cross-service publication"
     (test-case "cached multi-level revisions keep current meaning and warm approvals"

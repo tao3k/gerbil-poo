@@ -4,17 +4,23 @@
         (only-in "metadata-paired-suite.ss" check-study expected-order)
         (only-in "metadata-paired-benchmark.ss" workload))
 ;; Synthetic admission controls only; these are never published measurements.
+;; Synthetic current-identity admission fixture, never native performance evidence.
+;; Its binary identity intentionally points to a small source file used only in tests.
 (def (header)
   `(metadata-paired (scenarios ,@study.scenarios) (regimes ,@study.regimes)
     (strategies ,@study.strategies) (pairs ,@study.pairs) (rounds ,study.rounds) (warmups ,study.warmups)
     (prefix all-controls-in-fixed-order fresh-process-per-side)
     (deadline 20) (heap "1G") (sources ,@(source-digests study.sources))
     (binary ,@(source-digests '("t/metadata-paired-cases.ss")))))
+;; Construct deterministic synthetic rows with valid sides, counters and metrics
+;; so each rejection test changes exactly one receipt premise.
 (def (rows)
   (map (match <> ([scenario regime round pair-index position]
     (def side (list-ref (study.side-order round (list-ref study.pairs pair-index)) position))
     (vector scenario regime round pair-index position
       (vector scenario regime side (study.repetitions scenario) (vector 1.0 1.0 0.0 0 7) 7 (vector 0 0 0))))) (expected-order)))
+;; Execute every workload control semantically, then verify malformed/stale/order
+;; and allocation refusals. Synthetic samples test admission only, never speed.
 (def metadata-paired-test
   (test-suite "fresh-process paired protocol admission"
     (test-case "all semantic controls implement the same public observations"

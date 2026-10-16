@@ -23,7 +23,12 @@ selection and a reusable immutable preparation cache. Selector-only samples use
 Semantic checks include descriptor/binding reuse, current-snapshot invocation,
 atomic budget refusal, shared dependencies and selective rebuilding.
 
-* Current SelectionCache source check
+* SelectionCache measurement at revision 6c60cef
+These observations bind source revision =6c60cef=. Subsequent changes add
+definition comments only; native reader-form equality is checked separately.
+The raw receipt keeps its measured hashes and is not re-labelled as a later
+source admission.
+
 After the terminology correction, the same protocol completed another 192
 children / 96 pairs against the renamed source. No local build/test overlapped
 timing. Prefix collection counts again match every pair; full prefix counter
@@ -54,7 +59,7 @@ Selected paired deltas (us/op), each a separate median over four pairs:
 | workflow | natural | dynamic -> cached | -4.418 | -2.406 | -2.012 |
 | workflow | collected | dynamic -> cached | +1.570 | +0.844 | +0.727 |
 
-Current-source SHA-256:
+Measured-source SHA-256:
 - =contract-family.ss=: =38e7f9f3caa73ba914dc139a67360f02c17ea20f27ec5fd4662406df27d9950e=
 - Native binary: =5fe6e12560c13d17d9c37068609f115955705ca78e3ddf23d8753f14351dd298=
 - Complete raw study: =905595e6edeb9938e8d369a209d0e11b7e13c7ae07f2541e93debc9c16c56685=
