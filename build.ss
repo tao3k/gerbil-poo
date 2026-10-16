@@ -96,6 +96,7 @@
     "examples/component-migration"
     "examples/component-rounds"
     "examples/component-requests"
+    "examples/shared-approvals"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"

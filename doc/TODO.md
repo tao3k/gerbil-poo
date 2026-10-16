@@ -287,8 +287,17 @@ Approval metadata invalidation is now serialized with final installation via
 Several paused requests, policy change-back, metadata-only drift and six rounds
 of fresh restaging compose with existing service closure and native versions.
 See [approval-revision.md](approval-revision.md) for same-coordinator write premises,
-abstract revision laws and bounded thread controls. Cross-coordinator/raw metadata
+abstract revision laws and bounded thread controls. Foreign-domain/raw metadata
 writes and arbitrary mutable-object transactions remain outside this protocol.
+
+Multiple endpoints can now share an explicit `approval-domain` while retaining
+independent graph heads and request ownership. Shared native object revisions
+invalidate all observing guards; local-only policy changes remain selective.
+Related shared/local revisions, two paused owners, independent domains and fresh
+restaging on different topologies are covered in
+[shared-approvals.md](shared-approvals.md). The domain orders individual policy
+updates and installations; atomic multi-head publication or multi-object rollback
+is not claimed.
 
 ### Declared method fragments and receiver generics
 

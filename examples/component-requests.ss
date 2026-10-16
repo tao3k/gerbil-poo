@@ -11,11 +11,11 @@
 ;; Observations resolve the current SCC receipt, never the staged predecessor.
 (def value service.value)
 ;; Begin from an actual approved compact graph, refusing an invalid initial source.
-(def (start approvals)
+(def (start approvals domain: (domain (publication.approval-domain)))
   (defvalues (initial failure) (initial.publish #f (service.source 3 4) (car approvals) (.cc cache.Builder.)))
   (when failure (raise failure))
   (unless ((service.admit approvals) #f initial) (error "initial joint component approval refused"))
-  (publication.publication initial))
+  (publication.publication initial domain: domain))
 ;; Stage work without executing constructors. Additional admission composes with
 ;; BOTH current service decisions on the exact candidate; it may model a competing
 ;; coordinator request for deterministic interleaving controls. Pure callbacks are
