@@ -411,3 +411,14 @@ from an actual recursive receipt, revise from least closure and retain old memo 
 publication refusal. These bounded concrete cases close the earlier explicit-seed
 gap; they do not complete the general MOP or arbitrary callback termination/codec
 work. See performance/recursive-summary.org for reproduction and proof boundaries.
+
+
+### Generalized hooks: finite native bridge implemented, future work continues
+
+`generalized-prototype.ss` now composes checked native C3 local declarations,
+lens wrapping, raw/cooked self, independent compiler families and compatible self
+adaptation. Prepared snapshots hoist compilation; FUN observations preserve one
+seed. Shared checkout tests cover audit frames, delayed ignored parents, callback
+failure, C3 refusal and interface adaptation. This is a finite future-work bridge,
+not completion of arbitrary MOP hooks, lawful storage/migration or metacircular
+bootstrapping. See the current alignment section and native benchmark summary.

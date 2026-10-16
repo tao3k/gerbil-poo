@@ -14,7 +14,7 @@ checks the runtime premises at its public boundary.
 | Dependency-equal syntax reshaping | reshape / reconfigure | reconfigure-closure | Implemented; ordered occurrences, fresh solve, new size admission |
 | Cooked snapshot and heterogeneous service family | CyclicPublication / StagedPublication | cyclic-publication.ss | Named procedures and checked typed generics; duplicate checks and exact old identity on refusal |
 | Ten-fact cyclic access and lossy view | CyclicAccess | examples/cyclic-access.ss | Implemented and tested over 32 configurations; active is a list of indices |
-| General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Existing Scheme implementation reused; generalized hook equivalence needs separate coverage |
+| General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Native C3 reused by `generalized-prototype.prepare-inheritance`; prepared finite hooks covered below |
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
 | Prepared effective methods and explicit nested cache owners | PreparedMultimethod; Multimethod.preparedStandard / preparedForwardingStandard / preparedSimple / preparedInner / preparedSimula; NestedMultimethod | multimethod.ss prepared-* / nested; method-combination.ss prepare-* | Implemented on the existing typed sparse dispatcher; one bounded resolution LRU, unconditional effective reuse, guarded reselection, joint invalidation and explicit multi-level child successor transport. Native owner checks definition AND invoker identity; performance remains horizon dependent |
 | Declared unconditional shape preparation before joint admission | PreparedMultimethod.prepareShape / prepareShape_preserves / prepareShape_probes / NestedMultimethod.call_retains; ShapePreparationBudget | multimethod.prepare-shape / dispatch-extension.prepare-shape / child-prepared-simula-model / shape-prepared-simula-model | Body/guard-free construction after completed method edits; actual calls retain their Type/C4 checks. Negative certificates transport the unchanged definition. Declared entries consume cache budget; guarded shapes remain unchanged. Explicit per-model selection; no result memoization |
@@ -640,3 +640,42 @@ be immutable, callbacks pure and locally terminating, and equality extensional.
 Native node tagging/provenance is not a kernel evaluation proof. A depth budget is
 not a total work/memory quota or termination guarantee for arbitrary Scheme callbacks.
 See performance/recursive-summary.org for native controls and explicit scope.
+
+
+## Generalized prototype hooks (future-work extension)
+
+This advances the generalized-prototype future work explicitly identified in
+Racket `poof.scrbl` 2098–2134 (reference commit
+`9affa8fbbb4f12cbd98cb97f8b8b84474fc39429`). It does not mark the whole paper or
+an unrestricted reflective MOP complete.
+
+| Racket / Lean construction | Native Gerbil counterpart |
+| --- | --- |
+| `$lens-gen`; `Generalized.lensCompiler` | `generalized-prototype.lens-compiler`: setter/getter/wrapper, delayed inherited focus |
+| raw/cooked boundary; `Generalized.Protocol` | `Protocol.` with `cook` and `compile` |
+| `sumCompiler`, `reindexSelf` | `sum-compiler`, `reindex-self`; compatible-view law remains a caller premise |
+| `GeneralizedInheritance.prepare` and ordered fragments | `prepare-inheritance` reuses `object.ss` checked C4/C3, then captures local declarations |
+| `assemble`, `step`, `approximate`, `observe` | same finite semantics; `prepare` hoists compilation once |
+| `PreparedHooks.step_eq`, `iterate_eq` | correspondence target for immutable native compiled snapshots |
+| `HookCosts.shared_le_repeated` | supplied additive work bound for positive observation counts, independent of timings |
+
+`examples/generalized-checkout.ss` composes a shared-ancestor diamond, price and
+rebate lenses, existing prepared sum effective methods, cooked-self dependency,
+an unchanged audit frame, and native FUN observation bind/map. The matching Lean
+triangular example checks finite depths one/two and the audit frame; it abstracts
+the concrete Scheme descriptor representation and does not prove a compiler.
+
+Preparation runs compilation callbacks, but not method bodies. Observations run
+callbacks with delayed self and parent, without implicit thunk memoization. A
+wrapper can ignore its raw suffix. Host exceptions propagate and stop FUN bind;
+there is no rollback of arbitrary callback effects. Public descriptors, fragment
+lists, graph and captured callbacks must remain immutable after preparation.
+Mutation requires fresh preparation; no automatic mutation tracking is claimed.
+A custom compiler can inspect/replace raw state; lens frame laws apply only to
+compilers satisfying their stated frame premise.
+
+Remaining gaps include general hook-law checking, arbitrary lawful storage and
+cross-type migration adapters, reflective metalevel bootstrapping and automatic
+fixed-point closure for arbitrary callbacks. Finite depth never certifies closure
+or callback termination. Scheme neither imports Lean nor serializes proof claims.
+See `doc/performance/generalized-hooks-summary.org` for bounded native evidence.

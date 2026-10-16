@@ -1,0 +1,81 @@
+#+title: Generalized prototype hooks: finite future-work bridge
+
+* Three-way scope
+Racket poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl
+2098–2134 explicitly calls generalized prototypes future work. Its lens getter,
+setter, wrapper and cooked self correspond to Lean Generalized.Protocol and
+lensCompiler, and now to native generalized-prototype.ss. Native C3, existing
+prepared method combinations and FUN are reused. This is not unrestricted MOP
+reflection or a proof that arbitrary callbacks terminate/close.
+
+PreparedHooks.step_eq / iterate_eq prove prepared assembly preserves every finite
+observation, conditional on the exact assembly equation. Compatible self
+adaptation requires its explicit view/cook law. HookCosts.shared_le_repeated is
+an additive supplied-cost bound for positive demand, not a GC/time prediction.
+Neither native module nor benchmark reads a Lean checkout or proof output.
+
+* Native matched study
+144 independent bounded children: three scenarios, natural/collected GC, direct
+pair and two A/A pairs, four balanced ABBA rounds. Every child warms all four
+actions in the same order, validates the actual price 33, and admits current
+source/binary identities and complete EOF. No build/test ran during measurement.
+
+Cold means a fresh snapshot and two-stage observation of an ALREADY EXISTING,
+C3-cached diamond. Module/graph creation and initial C3 cold linearization are
+outside this study. Both cold sides intentionally execute the same function.
+Observation compares a reused compiled snapshot with fresh snapshot preparation
+before each finite observation. Hot compares a retained cooked callable with
+repeated cooking/observation before a price call. Reused setup is outside these
+phase timings; cold is reported separately, not silently amortized away. These
+are phase controls, not an end-to-end service throughput claim.
+
+Delta is hoisted minus fresh, median of within-pair microseconds. N/C denotes
+natural/collected. Residual subtracts recorded GC CPU, not inferred GC causes.
+
+| Scenario | CPU N/C | GC CPU N/C | Residual N/C | Faster pairs N/C |
+|----------+---------+------------+--------------+------------------|
+| Cold snapshot + observation | -3.609 / +4.578 | -2.469 / +2.844 | -3.516 / +1.734 | 4/4 / 1/4 |
+| Repeated finite observation | +0.512 / +0.789 | +1.027 / +0.906 | -0.301 / +0.023 | 2/4 / 1/4 |
+| Retained cooked call | -74.164 / -74.996 | -39.504 / -40.027 | -34.660 / -34.969 | 4/4 / 4/4 |
+
+Cold identical-code A/A deltas are +32.141/+5.391 (hoisted) and -1.938/+3.875
+(fresh); cold direct collected range is -92.219..+11.750. This is pronounced
+runtime/GC-history variation, not evidence that identical cold implementations
+have different algorithmic cost. Observation remains adverse: direct ranges
+-0.766..+3.844 and -0.320..+8.063; hoisted A/A +0.926/-7.688, fresh A/A
+-0.703/+0.996. Hoisting compilation alone has no demonstrated timing gain here.
+Do not subtract A/A or GC to manufacture a speedup.
+
+Hot direct ranges are -76.086..-70.859 and -89.016..-70.953; hoisted A/A
++0.016/-0.012, fresh A/A +0.668/-0.648. The retained cooked interface avoids
+reconstruction under immutable source/seed assumptions; this does not authorize
+reuse after a source, seed or protocol revision. No direct allocation delta is
+admitted (GC occurred); hoisted hot A/A has four GC-free pairs and zero byte
+delta in each regime. Unavailable bytes are not zero. All prefix counters match,
+which does not prove equal heaps. Separately aggregated medians need not sum.
+
+Binary SHA256: 8c873a2d4b3b8b11c61851d3ccf216f01d4d0e0ecb015a9a7369504768a469ef
+Receipt SHA256: af6656a7fecbfac994760e8fa0f099e263f4e0eccf09666ffc5392a841e216c8
+Ignored local directory: .build/generalized-hooks; complete records are not committed.
+
+* Reproduction
+Build with GERBIL_PATH="$PWD/.build/env" just build and run just test in that
+environment. The complete native suite has 32 modules, including hooks and all
+benchmark-control oracles. Use a FRESH executable output directory, compiler
+cap 90s, full study cap 90s, each child cap 20s and heap 1GiB; no widened caps.
+
+#+begin_src sh
+mkdir -p .build/generalized-hooks-repro
+GERBIL_PATH="$PWD/.build/env" env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin \
+  gtimeout --signal=TERM --kill-after=3s 90s gxc -d .build/generalized-hooks-repro -exe \
+  -ld-options '-L/opt/homebrew/opt/openssl@3/lib' \
+  -o .build/generalized-hooks-repro/generalized-paired t/generalized-benchmark.ss
+GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
+  gxi -:max-heap=1G,debug=q t/generalized-suite.ss \
+  .build/generalized-hooks-repro/generalized-paired /opt/homebrew/bin/gtimeout \
+  .build/generalized-hooks-repro/paired.scm
+#+end_src
+
+Use the platform's timeout/linker equivalent on Linux. Final success must include
+GENERALIZED-PAIRED-OK children=144; exit zero alone is insufficient. Re-admit with
+read-study after committing to bind the measurement to the committed source.
