@@ -359,6 +359,14 @@ Coordination failure and worker cleanup are covered. Lean proves either valid
 lock-order winner and replay refusal, with actual certified topology controls.
 See [joint-concurrency.md](joint-concurrency.md) for the native/formal bridge premises.
 
+Mixed-generation waves now release all historical and current approved receipts
+together, preserving receipt identity with a pure higher-order `report:` mapping.
+Six native SCC rounds directly reject each historical receipt while one independent
+current receipt wins; an entirely refused asymmetric wave explicitly restages and
+continues component deletion/restore. Lean adds mixed-head/guard refusal and winner
+laws plus all-order certified controls with historical receipts. See
+[joint-generations.md](joint-generations.md) for exact scenarios and premises.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

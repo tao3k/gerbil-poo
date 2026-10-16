@@ -6,7 +6,10 @@
 ;; it must return locally. Results retain completion order, not input order.
 ;; Each worker uses existing install!, so the owner lock remains the only
 ;; publication critical section. No approval or automatic retry happens here.
-(def (install-concurrently owner receipts before-release: (before-release void))
+;; A pure report maps receipt/snapshot/failure to a caller-chosen result outside
+;; the owner lock; it can preserve provenance for mixed-generation submissions.
+(def (install-concurrently owner receipts before-release: (before-release void)
+     report: (report (lambda (_ snapshot failure) (cons snapshot failure))))
   (unless (list? receipts) (error "proper joint receipt list required"))
   (def ready (make-channel)) (def release (make-channel)) (def output (make-channel))
   (def workers [])
@@ -22,7 +25,7 @@
           (channel-put ready 'ready)
           (unless (eq? (receive release) 'go) (error "invalid joint release"))
           (call-with-values (lambda () (joint.install! owner receipt))
-            (lambda (snapshot failure) (channel-put output (lambda () (cons snapshot failure)))))
+            (lambda (snapshot failure) (channel-put output (lambda () (report receipt snapshot failure)))))
           ;; Transport the original exception to the caller through a thunk.
           (catch (failure) (channel-put output (lambda () (raise failure))))))))
       (set! workers (cons worker workers)) (thread-start! worker)) receipts)
