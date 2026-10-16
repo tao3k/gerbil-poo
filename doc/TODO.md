@@ -256,6 +256,15 @@ higher-order knots.
 Only immutable/extensional DAG metadata and declared dependencies authorize reuse;
 no runtime speed, allocation or GC improvement follows from these controls.
 
+Multi-service membership contributions now join through `component-revision` and
+existing support revision/FUN publication, rejecting conflicting or stale edits
+before construction. `examples/component-migration.ss` replaces endpoints in two
+SCCs, migrates their shared input and changes two inputs in one jointly approved
+source. It checks partial deployment, detached old dependencies, provider erasure,
+exact clean reuse, conflicts and refusal/retry. This is finite generalized-protocol
+future work; see [component-migration.md](component-migration.md) for correspondence
+and proof limits. It does not close unrestricted mutation/recursion TODOs.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

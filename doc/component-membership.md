@@ -87,3 +87,7 @@ immutable vectors, with exact lookup correspondence to the original search. This
 lets the expanded scenario pass the same 30-second check bound; the initial
 unshared run remains a timeout diagnostic. Scheme already shares visited
 reachability sets, and no Scheme performance claim follows from this model change.
+
+See [component-migration.md](component-migration.md) for checked multi-service
+contributions that replace endpoints in several SCCs and migrate shared inputs
+within one final-source publication.
