@@ -1,5 +1,60 @@
 #+title: Focused local assembly and nested native cost controls
 
+* Final Boolean domain and current-source study
+The final review adds a demanded Boolean check for approval: Scheme's 0/string
+truthiness cannot stand in for Lean Bool. Fused and unfused examples both refuse
+0 and "yes"; true/false and current configuration semantics remain unchanged.
+The 33-module final-source suite passes. This source change invalidates current
+admission of the earlier bce6656 records; those three initial runs remain below.
+
+A fresh executable and THREE complete final-source runs were fixed before their
+measurement. Each admits 576 children with the same controls/caps, without any
+build/test overlap. No earlier and current runs are pooled or selected.
+CPU paired delta fused minus unfused, us; N/C denotes natural/collected:
+
+| Phase | Final run one N/C | Final run two N/C | Final run three N/C |
+|-------+-------------------+-------------------+---------------------|
+| nested | -54.344 / -48.891 | -60.785 / -53.695 | -54.664 / -51.219 |
+| nested-history | -53.895 / -51.953 | -51.168 / -49.453 | -49.629 / -55.246 |
+| cold | -59.594 / -41.281 | -58.000 / -47.312 | -61.594 / -43.063 |
+| construction | -51.418 / -51.016 | -53.430 / -53.078 | -51.457 / -54.020 |
+| hook | -26.859 / -25.145 | -27.172 / -27.184 | -26.656 / -27.609 |
+| cooking | -0.035 / +0.012 | +0.004 / +0.082 | +0.004 / -0.020 |
+| binding | +1.691 / -0.539 | -1.922 / -2.203 | -0.305 / +1.676 |
+| envelope | -150.344 / -149.594 | -148.062 / -148.672 | -149.828 / -151.938 |
+| revision | -148.016 / -155.406 | -140.422 / -155.891 | -143.219 / -151.969 |
+| nested-allocation | -24.500 / -26.000 | -25.000 / -25.000 | -25.500 / -23.000 |
+| construction-allocation | -29.500 / -24.000 | -30.000 / -25.500 | -29.000 / -26.500 |
+| envelope-allocation | -62.000 / -62.500 | -61.000 / -60.500 | -58.500 / -61.500 |
+
+Nested and fixed-history nested are faster in EVERY direct pair, four per
+regime/run. The historical +73.313us did not recur in these fixed samples; that
+is not an attribution of its cause or a universal GC-history guarantee. Full
+nested natural medians -54.344/-60.785/-54.664 and collected
+-48.891/-53.695/-51.219us are separate run results.
+
+Final-source cooking is still identical-code control; binding is mixed, including
++1.691us natural in run one and +1.676us collected in run three. These adverse
+values are not replaced with the favorable binding run. Source counters and
+phase controls identify repeated surrounding construction as the saving, not
+an independent cooking/binder speedup. Separate GC CPU/residual and A/A controls
+remain in the admitted native receipts; no CPU residual is labeled GC-free.
+
+All three final studies admit four GC-free direct pairs for each one-operation
+allocation control in both regimes: nested/raw construction -113824 bytes,
+double envelope -307712. All allocation A/A byte deltas are zero, prefix counters
+match; neither proves equal heaps or native allocation correctness. Batch byte
+deltas across collection are unavailable. See initial study below for detailed
+phase definitions, assumptions, historical diagnosis and reproduction commands.
+
+Final binary SHA256: d92052604e2499de536b4185f75ae1ed3db4d5d981affc48d91f57f3ade97ba7
+Final receipt one: 97729e5d1233c95b96fdff7fdc2e9539a8d84d0446d188931a4962fb4b95db1a
+Final receipt two: 8b124d945f8d1ed25b31c99f26178da17ab2b841f15db5d61be3f9978975b1be
+Final receipt three: 688bcec58a703769a9ff83c00ab6ec311ad2aca18981920b596cbdd9773072c5
+Ignored final directory .build/focused-boolean. Each final receipt is admitted
+again after commit. Initial .build/focused-assembly-final records are historical.
+Only this concise summary is committed, no full records/JSON/archive/binaries.
+
 * Scope: generalized-prototype future work
 Racket poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl
 2098–2134 explicitly defers a full generalized protocol. Its nested lens and
@@ -57,7 +112,7 @@ Scheme callback termination or exception-effect equivalence. No Scheme module
 reads a Lean checkout; no native compiler/runtime verification is claimed.
 Logical writes/operation budgets are separate from measured bytes/time/GC.
 
-* Fair native study
+* Initial bce6656 fair native study
 Three complete runs were fixed BEFORE measurement, each 576 children: twelve
 scenarios, natural/collected, direct pair plus two A/A controls, four balanced
 ABBA rounds. One setup creates immutable fused/unfused snapshots and both actions;
@@ -145,7 +200,7 @@ GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
 
 Repeat with two.scm and three.scm. Use platform timeout/linker equivalents on
 Linux. Require FOCUSED-PAIRED-OK children=576 for EACH complete run; exit0 alone
-is insufficient. Re-admit all receipts with focused-suite.read-study after commit.
+is insufficient. The initial records were re-admitted at bce6656; use focused-suite.read-study on the FINAL-source receipts after commit.
 Ignored directory for this study: .build/focused-assembly-final.
 
 Binary SHA256: c4e65ed48a2c83028fdc8568b37de10045cce432464cdc4779a5241f43524bc1

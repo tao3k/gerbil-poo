@@ -450,3 +450,9 @@ extensional observations are required; identity/ancestry inspection, arbitrary
 raw projection elimination, automatic hook-law checking and reflection remain
 open. See focused-assembly-summary.org for all phases, including adverse binding
 controls and the preserved historical natural-GC regression.
+
+
+The focused envelope also enforces its Bool approval domain at selection time;
+0/string truthiness is refused rather than widening the Lean premise. Three
+final-source native studies supersede admission of the initial source, retaining
+all older observations as historical data.

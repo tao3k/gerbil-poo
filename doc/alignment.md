@@ -728,3 +728,8 @@ GC-free allocation controls. Their concise source-bound evidence is in
 `doc/performance/focused-assembly-summary.org`; old 73.313us data remain historical.
 This closes local assembly/write fusion, not arbitrary projection elimination,
 reflection, automatic law discovery or native compiler verification.
+
+
+Approval in the new envelope uses a demanded Boolean check: 0/string truthiness
+is refused in both paths, matching the typed Bool domain. Final-source native
+proof/control receipts are separate from the initial bce6656 measurements.

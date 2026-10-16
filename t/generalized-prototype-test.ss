@@ -102,6 +102,8 @@
       (check-equal? (checkout.envelope-report checkout.envelope-base) '(45 3 billing eu #t))
       (check-exception (checkout.envelope-report (.cc revised approved: #f)) true)
       (check-exception (checkout.envelope-report (.cc revised approved: #f) #f) true)
+      (check-exception (checkout.envelope-report (.cc revised approved: 0)) true)
+      (check-exception (checkout.envelope-report (.cc revised approved: "yes") #f) true)
       (def raw (gp.approximate (checkout.prepare-envelope) revised revised 2))
       (check-equal? (caddr (.@ (.@ raw billing) checkout)) 'audit)
       (check-equal? (.@ (.@ raw billing) service) 'billing))

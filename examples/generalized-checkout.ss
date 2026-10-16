@@ -99,7 +99,10 @@
 (def (cook-envelope raw)
   (def billing (cook-service (.@ raw billing)))
   (lambda (slot) (case slot ((price rebate service) (billing slot))
-    ((approved) (.@ raw approved)) ((tenant) (.@ raw tenant))
+    ;; The typed Bool premise must not become Scheme's arbitrary truthiness.
+    ((approved) (let (value (.@ raw approved))
+      (unless (boolean? value) (error "approval requires a Boolean" value)) value))
+    ((tenant) (.@ raw tenant))
     (else (error "unknown envelope view" slot)))))
 ;; Cross-service root adds a second rebate-dependent contribution after approval.
 (def envelope-root (.mix nested-root))
