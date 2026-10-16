@@ -1,6 +1,71 @@
 #+title: Generalized prototype hooks: finite future-work bridge
 
-* Demand cooking and bound observation follow-up
+* Final-source direct reuse control and bounded repeats
+The final source adds an explicit SAME-NEW-IMPLEMENTATION reuse scenario: bound
+compiled reuse versus fresh compilation/preparation/one-off observation, with the
+same demand cook and actual price 33. This directly revisits the earlier
++0.512/+0.789us reuse regression, separately from comparing new/old cooking.
+The runtime optimization itself is unchanged from the initial 480-child study.
+The eleven-scenario descriptor and binary identity differ; records are not pooled.
+
+The first final-source run admitted 528 children. It showed a +73.313us natural
+nested regression and large A/A excursions. Two MORE COMPLETE runs were fixed
+before executing either, to investigate this concrete remaining variance. All
+three same-source runs admitted 528 children each, under the unchanged caps.
+No favorable run is selected; all results below remain separate.
+
+CPU paired deltas, optimized minus reference, us; N/C means natural/collected:
+
+| Same-source run | Old/new full observation N/C | New reuse/reprepare N/C | New reuse faster pairs N/C | Nested old/new N/C |
+|-----------------+-----------------------------+-------------------------+----------------------------+-------------------|
+| Initial 528 | -25.172 / -28.344 | -5.457 / -4.605 | 4/4 / 4/4 | +73.313 / -32.391 |
+| Fixed repeat one | -25.598 / -27.992 | -3.605 / -3.258 | 3/4 / 3/4 | -25.922 / -18.203 |
+| Fixed repeat two | -27.391 / -29.961 | -5.008 / -2.727 | 4/4 / 4/4 | -34.703 / -23.844 |
+
+Every old/new full-observation pair is faster (4/4 in each regime/run). Reuse has
+positive individual pairs in repeat one: maxima +8.297/+8.172us, which remain
+visible despite negative medians. First-run reuse GC CPU -3.820/-3.703 and
+residual -1.637/-0.902us; optimized A/A -1.813/+0.113 and reference A/A
++2.926/-2.086us. Source-bound phase evidence supports reduced rebuilding cost,
+not a universal per-call speed guarantee.
+
+First-run remaining ablations (CPU N/C; GC N/C; residual N/C, us):
+
+| Phase | CPU | GC | Residual | Faster pairs N/C |
+|-------+-----+----+----------+------------------|
+| Cold | -23.734 / -23.984 | -10.625 / -11.344 | -12.703 / -11.875 | 4/4 / 4/4 |
+| Field cooking | -16.895 / -47.484 | -10.363 / -24.426 | -6.531 / -23.059 | 3/4 / 4/4 |
+| Binding | -0.551 / +0.180 | -0.434 / +0.074 | -0.117 / +0.105 | 2/4 / 1/4 |
+| Raw hook, no self | +1.246 / +2.895 | +1.109 / +3.012 | +0.199 / -0.141 | 2/4 / 1/4 |
+| Self sharing/handling | +2.359 / -4.602 | +2.547 / -1.887 | -0.727 / -2.715 | 1/4 / 4/4 |
+
+The +73.313us nested natural regression includes +37.359 GC CPU AND +35.953
+residual; GC alone does not explain it. Its optimized A/A is -13.000 (range
+-165.656..+11.375); reference A/A +17.750 (range -190.094..+98.875). It did not
+recur in the two fixed repeats, but remains an unresolved stability limitation.
+Do not promote a stable nested-natural speedup or cancel it with later wins.
+Binding alone still has no reliable isolated speedup; self-sharing natural also
+regresses, with optimized A/A +2.969/+1.742us. Raw-hook collected has four
+GC-excess pairs. The demand-field reduction is the concrete structural saving;
+these ablations are not added/subtracted to invent causal percentages.
+
+All three final-source studies admit four GC-free one-operation direct pairs in
+each regime: cold -56720/-56720 bytes, observation -56832/-56832, nested
+-44128/-43488. Allocation A/A deltas remain zero. Natural/collected nested byte
+counts differ; neither are a kernel allocation theorem. Batch deltas across GC
+remain unavailable. All prefix counters match but do not prove identical heaps.
+
+Final binary SHA256: 919f2cd6c9400ded89d135007786c42340500dc9b84665de90b9166ee8ea27c9
+Receipt SHA256, initial: fb57b31e012455e92c87e73dc0efcd0a9562e771511059beb43aa21f9bc877a6
+Receipt SHA256, repeat one: 5dab7cec6a75b6ec63dee28ceaa9026d9358596fbefa3b605d15cb86be7350dc
+Receipt SHA256, repeat two: caf6f95e8adbf6593ce1d409447fa3d81762951b8d7677c820bd55813a6cf0ac
+Ignored directory .build/observation-reuse holds the binary and all three complete
+receipts; initial 480-child data remain in .build/observation-demand. No complete
+records, archives or versioned JSON are committed. Each final receipt is admitted
+again against committed source. Reproduction below uses current descriptor:
+eleven scenarios, success GENERALIZED-PAIRED-OK children=528 for each full study.
+
+* Initial demand-cooking study (5f0447d)
 This advances the same explicitly deferred generalized-prototype future work.
 The previous 144-child result below is historical, not pooled with this study.
 The source changed, including mop.ss; prior native receipts do not re-admit it.
@@ -198,5 +263,5 @@ GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
 #+end_src
 
 Use the platform's timeout/linker equivalent on Linux. Final success must include
-GENERALIZED-PAIRED-OK children=480 for current sources (144 for the historical descriptor); exit zero alone is insufficient. Re-admit with
+GENERALIZED-PAIRED-OK children=528 for current sources (480/144 for historical descriptors); exit zero alone is insufficient. Re-admit with
 read-study after committing to bind the measurement to the committed source.

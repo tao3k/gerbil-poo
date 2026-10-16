@@ -698,7 +698,7 @@ effects/exception timing are outside that total law; unused field errors remain
 delayed by the native demanded semantics.
 
 The test-only prior-algorithm control, untimed operation-count instrumentation,
-ten-scenario 480-child native study and adverse A/A/GC results are described in
+eleven-scenario native study (three complete 528-child runs; initial 480-child study separate) and adverse A/A/GC results are described in
 `doc/performance/generalized-hooks-summary.org`. `ObservationWork.cost_mono`
 requires supplied binding/cook/field/hook prices/count bounds; it does not infer
 allocator or GC prices from those measurements. This advances the generalized

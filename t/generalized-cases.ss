@@ -3,7 +3,7 @@
 (import (only-in :std/list/list delete-duplicates/hash) ../object
         (prefix-in "metadata-paired-cases.ss" metadata.))
 ;; Cold captures construction; repeated finite observation and cooked calls stay distinct.
-(def scenarios '(cold observation field-cooking binding hook self-sharing nested cold-allocation observation-allocation nested-allocation))
+(def scenarios '(cold observation reuse field-cooking binding hook self-sharing nested cold-allocation observation-allocation nested-allocation))
 ;; A/A controls duplicate each implementation in balanced independent processes.
 (def strategies '(optimized reference optimized-aa reference-aa))
 ;; Fixed before measurement; no best-run or timing-dependent sample counts.
