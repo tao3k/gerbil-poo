@@ -367,3 +367,9 @@ models use the existing projection/certificate chain. Body/guard execution,
 actual Type/C4 lookup, negative checking and resource admission remain explicit;
 zero-budget cold publication may refuse preallocated entries. See alignment.md
 and performance/simula-publication-summary.org for proof and native cost boundaries.
+
+- Simula factory/call follow-up: compiled prefix/suffix callbacks with standard
+  folds, fused fresh construction and immutable-template binding. A staged native
+  Model combines captured initial calls with checked shared-definition handoff;
+  first owner change still rebuilds all generics. See alignment.md and
+  performance/simula-factory-summary.org for proofs, controls and remaining limits.

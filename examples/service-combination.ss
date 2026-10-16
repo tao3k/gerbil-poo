@@ -1,6 +1,6 @@
 ;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
 (export standard-model simple-model forwarding-model inner-model simula-model
-        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model context-preflight forwarder preflight start revise)
+        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template context-preflight forwarder preflight start revise)
 (import ../object (only-in ../mop Any Object element?) (only-in :std/values first-value)
         (prefix-in ../dispatch-extension extension.) (only-in ../number IntegerRange)
         (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
@@ -61,9 +61,10 @@
 ;; argument, not captured in a method descriptor. Both input arguments still pass
 ;; Type validation; C4 retains its one Reserve/Object dispatch axis. Static code
 ;; and negative checks can be shared across revisions without reusing old values.
-(def (context-preflight)
+(def (context-preflight (compiled? #f))
   (def generic (metadata.install
-    (dispatch.prepared-simula (list units-type Object) (lambda (_) '((Reserve Object))) 1)
+    (dispatch.prepared (dispatch.simula (list units-type Object) (lambda (_) '((Reserve Object))) 1)
+      (if compiled? combination.compile-simula combination.prepare-simula))
     (list
       (metadata.replace "preflight.general" (list (dispatch.prototype 'Object))
         (combination.simula-body
@@ -223,6 +224,51 @@
 ;; Cross-service revisions share the child definition, while the outer projection
 ;; still reconstructs current capacity/invoice/release context and contracts.
 (def context-prepared-simula-model (context-simula-model shared-preflight))
+;; Fuse the cold context model's generic construction: install seed, declarations
+;; and projection in ONE native prototype extension instead of extending an
+;; intermediate generic then replacing its projection. With no program this is a
+;; private binding skeleton; no placeholder is exposed by the model factory.
+(def (context-simula-template (program #f))
+  (def instantiate (.@ enriched-projection .instantiate))
+  (def projection (.cc enriched-projection .instantiate:
+    (lambda (seed methods watches key context)
+      (def checked (instantiate seed methods watches key context))
+      (if (eq? key 'reserve) (extension.prepare-shape checked '((Reserve Object))) checked))))
+  (.cc shared.budgeted-model contract-source: shared.repeated-source generics:
+    (.cc shared.expanded-generics
+      seed: (cut seed 'contextual-simula #t #t 'all program <> <> <>)
+      methods: (cut declarations 'contextual-simula #t #t <> <> <>)
+      projection: projection)))
+;; Shared immutable wrapper skeleton; full cold controls charge this creation too.
+(def context-model-template (context-simula-template))
+;; Bind only the varying child program through the existing native generic/model
+;; prototypes. A fresh call still constructs and checks its child; reusable wrapper
+;; setup is paid once at module initialization, not claimed free for a new process.
+;; Passing #f selects fused fresh construction and charges no discarded skeleton.
+(def (compiled-context-simula-model (program (context-preflight #t)) (template context-model-template))
+  (if template
+    (.cc template generics:
+      (.cc (.@ template generics)
+        seed: (cut seed 'contextual-simula #t #t 'all program <> <> <>)))
+    (context-simula-template program)))
+;; Steady revisions reuse immutable code and the compiled callback chain. All
+;; Type/current-view/contract/negative checks retain their ordinary call boundary.
+(def compiled-context-model (compiled-context-simula-model (context-preflight #t)))
+;; Compose lifecycle representations through Model.'s native method override.
+;; Initial publication uses the original captured-view constructor and argument row;
+;; revisions use the shared compiled child through inherited .publish. The first
+;; revision rechecks ALL generics under its new family owner, even for equal
+;; contexts; later equal contexts reuse that owner normally. No warm call runs
+;; a selector, changes code or retags an incompatible family certificate.
+(def (simula-workflow-model)
+  (.cc compiled-context-model .prepare:
+    (lambda (source policy) (staged.prepare prepared-simula-model source policy))))
+;; Complete first-publication / changed-revision composition. The immutable shared
+;; code is module setup (charged separately in whole-horizon costs); factories only
+;; bind the native override. No mutable cache, hidden warmup or result memoization.
+(def staged-simula-model (simula-workflow-model))
+
+
 ;; Prepare the selected model from existing finite access equations and policy.
 ;; Return version/failure using the same atomic lifecycle as the original bundle.
 (def (start selected policy) (staged.prepare selected (access.equations (access.config) #t) policy))

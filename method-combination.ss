@@ -3,7 +3,7 @@
         forward-contribution? forward-effective inner-chain SimulaBody SimulaBody. simula-body simula-body? simula-effective
         Contribution Contribution. primary before after around item
         standard-contribution? simple-contribution? effective simple-effective
-        prepare-standard prepare-simple prepare-forwarding prepare-inner prepare-simula
+        prepare-standard prepare-simple prepare-forwarding prepare-inner prepare-simula compile-simula
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
 (import :std/iter (only-in :std/list/list foldr) ./object
         (only-in ./mop define-type Type. element?) ./support/option)
@@ -242,3 +242,15 @@
     (for-each (cut apply <> args) prefixes)
     (for-each (cut apply <> args) suffixes)
     (void)))
+
+;; Compile Simula callbacks into a single argument-row execution chain. Both folds
+;; run only at preparation: general-first prefixes precede specific-first suffixes.
+;; Each step captures its callback once and tail-calls the next step after success;
+;; current args and exceptions flow unchanged, with no per-call traversal closure.
+(def (compile-simula methods)
+  (def suffix (foldr (lambda (body next)
+    (def callback (.@ body suffix-part))
+    (lambda (args) (apply callback args) (next args))) (lambda (_) (void)) methods))
+  (foldl (lambda (body next)
+    (def callback (.@ body prefix-part))
+    (lambda (args) (apply callback args) (next args))) suffix methods))

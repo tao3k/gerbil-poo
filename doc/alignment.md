@@ -465,3 +465,39 @@ The cold native control explicitly constructs the shared child AND its model
 binding on first use. Steady stage/revision controls reuse that immutable source.
 All processes initialize/warm the same control set before timing; process startup
 is outside these phase timings. First factory cost is not hidden as a free cache.
+
+### Compiled callback chains and staged Simula lifecycle
+
+This advances generalized-protocol future work. Native `compile-simula` folds
+specific-first suffixes and general-first prefixes into one argument-row chain,
+extracting callbacks during preparation. Lean `compileParts_correct` and
+`compileSimula_correct` prove the transformation for arbitrary lists and lawful
+monadic effects; no continuation is executed at construction. Three-level native
+traces, repeated current arguments and prefix refusal compare against the original
+`simula-effective`. Current Object/units validation and negative watches remain.
+
+`context-simula-template` fuses cold seed/declaration/projection installation into
+one generic extension. `compiled-context-simula-model` supports either fresh fused
+construction or explicit immutable-template reuse; the latter preserves projection,
+contract and admission callback identity while installing the actual supplied child.
+Tests exercise separate child identities, capacity/invoice revisions and old refusal.
+
+Pure compiled context did not reliably remove full cold/hot regression. The staged
+`simula-workflow-model` instead uses a native Model `.prepare` override to construct
+the existing captured-view program initially, then inherits checked publication to
+the compiled shared child. Warm calls run the ordinary published-version protocol,
+with no selector. The FIRST owner handoff rebuilds/rechecks the entire generic family
+even for equal contexts; it does not retag old certificates. Later unchanged contexts
+reuse the new owner. A test specifically enforces full handoff then exact reuse,
+shared children across later invoice/capacity changes, and atomic negative refusal.
+Lean `stagedPreflight_equivalent` / `stagedPreflight_stream` compare every current
+request computation across phases, including failure traces. These are not proofs
+of identical resource-admission timing or rollback of external effects.
+
+`SimulaFactoryBudget` prices callback/wrapper setup, each child/binding, all calls
+and excess GC. `ContextPreparationBudget.staged_bound` additionally requires later
+saving to cover the workflow wrapper; its setup must include full owner handoff.
+Common captured-view initial work remains explicit base. Module initialization is
+outside native phase timings, and must be charged in whole-process reasoning.
+Results, A/A drift, unsuccessful pure-context trials and reproducible native command:
+performance/simula-factory-summary.org. No dependency on a Lean checkout.

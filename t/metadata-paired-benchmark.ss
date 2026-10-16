@@ -7,20 +7,24 @@
         (prefix-in ../staged-publication staged.) (prefix-in ../cyclic-publication publication.)
         (prefix-in ../examples/service-combination qualified.) (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/cyclic-access access.) (prefix-in ../multimethod dispatch.))
-;; Build the SAME ten strategy controls in each fresh process. Child-only and
-;; outer+child preparation share the old model's contracts, watches and admission.
+;; Build the SAME ten strategy controls in each fresh process. Compiled context
+;; staged lifecycle composition retain the old contracts, watches and admission.
 (def (models)
   (list qualified.simula-model qualified.context-prepared-simula-model
     qualified.prepared-simula-model qualified.prepared-simula-model
-    qualified.child-prepared-simula-model qualified.child-prepared-simula-model
-    qualified.shape-prepared-simula-model qualified.context-prepared-simula-model
+    qualified.staged-simula-model qualified.staged-simula-model
+    qualified.compiled-context-model qualified.context-prepared-simula-model
     qualified.shape-prepared-simula-model qualified.cached-simula-model))
 ;; Each child builds all ten controls before timing and executes the same warmup
 ;; prefix. Configure charges protected child construction/declared preparation;
 ;; generics isolates changed heterogeneous constructors without invoking a body.
 ;; Probe drops successors as admission does; transfer additionally commits the
 ;; family/version successor and readmits its actual cache. Cold charges initial
-;; joint publication plus its first checked call. Warm threads
+;; joint publication plus its first checked call. Pure compiled context charges
+;; fresh code/wrappers; staged lifecycle charges its wrapper and captured child.
+;; Bind isolates pure-context template reuse; staged keeps its same cold path.
+;; Module initialization is common fixed-prefix work outside all phase timings.
+;; Warm threads
 ;; returned versions. Revision/repeated charge construction, binding, admission
 ;; and one/eight checked calls under the changed capacity AND invoice dependency.
 ;; Every model first proves its unchanged-snapshot late-admission refusal outside
@@ -29,7 +33,7 @@
   (def phase (case scenario
     ((simula-configure) 'configure) ((simula-generics) 'generics)
     ((simula-probe) 'probe) ((simula-transfer) 'transfer)
-    ((simula-cold) 'cold) ((simula-warm) 'warm)
+    ((simula-cold) 'cold) ((simula-bind) 'bind) ((simula-warm) 'warm)
     ((simula-stage) 'stage) ((simula-revision simula-allocation) 'revision)
     ((simula-repeated) 'repeated)
     (else (error "unknown paired scenario" scenario))))
@@ -48,10 +52,10 @@
     (case phase
       ((configure)
        (lambda ()
-         (def child (if (memv index '(1 7)) (qualified.context-preflight)
-           (qualified.preflight view (and (<= 2 index) (< index 9)) (and (<= 4 index) (< index 9)))))
+         (def child (if (memv index '(1 6 7)) (qualified.context-preflight (= index 6))
+           (qualified.preflight view (and (<= 2 index) (< index 9)) (memv index '(8)))))
          (and (dispatch.multimethod? child)
-           (= (dispatch.cache-size child) (if (or (memv index '(1 7)) (and (<= 4 index) (< index 9))) 1 0)))))
+           (= (dispatch.cache-size child) (if (memv index '(1 6 7 8)) 1 0)))))
       ((generics)
        (let (next-view (.call model cook revised (publication.version-cache old)))
          (lambda ()
@@ -66,12 +70,17 @@
            (lambda ()
              (defvalues (answer successor) (publication.invoke candidate 'reserve 2))
              (and (equal? answer '(ok 18 #t))
-               (if (memv index '(1 6 7 8)) (eq? successor candidate) #t))))))
-      ((cold)
+               (if (memv index '(1 4 5 6 7 8)) (eq? successor candidate) #t))))))
+      ((cold bind)
        (lambda ()
-         ;; Fresh context program AND its model binding are charged on first use;
-         ;; steady revisions separately reuse that immutable source definition.
-         (def selected (if (memv index '(1 7)) (qualified.context-simula-model) model))
+         ;; Pure context cold charges fresh code/fused construction; bind reuses
+         ;; its template. Staged cold/bind charge a new workflow wrapper and
+         ;; the captured child actually constructed by its initial publisher.
+         (def selected (case index ((1 7) (qualified.context-simula-model))
+           ((4 5) (qualified.simula-workflow-model))
+           ((6) (if (eq? phase 'cold)
+             (qualified.compiled-context-simula-model (qualified.context-preflight #t) #f)
+             (qualified.compiled-context-simula-model))) (else model)))
          (defvalues (version failure) (staged.prepare selected source policy))
          (and (not failure) (equal? (first-value (publication.invoke version 'reserve 2)) '(ok 8 #t)))))
       ((warm)

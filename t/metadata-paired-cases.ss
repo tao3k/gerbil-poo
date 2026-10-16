@@ -4,18 +4,18 @@
 ;; discarded admission probes, first cache transfer and complete joint revision.
 ;; A fixed one-operation allocation control admits bytes ONLY without collection.
 (def scenarios '(simula-configure simula-generics simula-probe simula-transfer simula-cold
-                 simula-warm simula-stage simula-revision simula-repeated simula-allocation))
+                 simula-bind simula-warm simula-stage simula-revision simula-repeated simula-allocation))
 ;; Natural preserves the child's heap history; collected explicitly collects
 ;; after the identical warmup prefix. Neither promises identical live heaps.
 (def regimes '(natural collected))
 ;; Fixed same-prefix sides distinguish compilation from explicit nested cache
-;; transport. Duplicate sides provide two A/A controls; every child builds all ten.
+;; transport and callback compilation. Duplicate sides provide A/A controls.
 (def strategies '(reference context-prepared prepared-transport prepared-control
-  child-prepared child-control shape-prepared context-prepared-aa shape-prepared-aa candidate-transport))
-;; Isolate declared preparation and shared context-independent definition,
-;; retain original reference and direct previous/current plus two A/A controls.
-;; These are direct pairs; isolated phase timings are never added to full timing.
-(def pairs '((0 1) (2 6) (6 1) (2 1) (1 7) (2 3)))
+  staged-simula staged-simula-aa compiled-context context-prepared-aa shape-prepared-aa candidate-transport))
+;; Direct new/previous, fresh/captured baseline, both A/A controls and preparation
+;; control. Pure compiled/staged isolates lifecycle composition. All sides
+;; initialize/warm the same complete set before measurement.
+(def pairs '((1 4) (2 4) (6 4) (4 5) (1 7) (2 3)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping

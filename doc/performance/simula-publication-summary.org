@@ -114,3 +114,9 @@ Full publication phases are measured directly, not reconstructed by adding
 isolated medians. No Scheme dependency on a Lean checkout is introduced.
 Only this concise summary is committed; full receipts, binaries, source
 snapshots and logs remain ignored local artifacts. No versioned JSON or archive.
+
+* Historical source boundary
+The follow-up changes source inputs and adds callback compilation, fused factory
+binding and staged lifecycle composition. This receipt remains historical evidence;
+it is not current-source re-admission. See simula-factory-summary.org for the new
+paired study, including adverse direct-construction results and full owner handoff.
