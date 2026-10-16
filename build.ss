@@ -90,6 +90,7 @@
     "examples/cached-feedback"
     "examples/component-services"
     "examples/service-revisions"
+    "examples/component-membership"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"

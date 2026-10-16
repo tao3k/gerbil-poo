@@ -243,6 +243,13 @@ checks unchanged monitors, equal-value migration, detached old inputs, new-sourc
 invalidation, current joint approval and retry after partial failure. See
 [service-revisions.md](service-revisions.md) for typed laws and functional scope.
 
+Component insertion/deletion now uses an explicit erasing `graph.reconfigure`
+batch before the same FUN graph revision chain. Bridge insertion merges several
+SCCs; removal plus rewiring splits them, clears providers and invalidates shared
+readers. Dangling reads, latent resurrection, removed representatives, isolated
+new nodes and current support-aware joint approval have controls and typed laws.
+See [component-membership.md](component-membership.md) for exact scope.
+
 Still open: automatic discovery of hidden callback dependencies, cycle-interior
 selective reconstruction, general convergence/leastness and unrestricted
 higher-order knots.

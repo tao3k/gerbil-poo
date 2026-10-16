@@ -1,5 +1,5 @@
 ;;; Simultaneous SCC regrouping, shared quota migration and joint service revision.
-(export keys source revise build-group report admit publish revision-action)
+(export keys recipe source revise build-group report admit publish revision-action)
 (import (only-in :std/list/list foldl) ../object ../mop ../brace ../support/option
         ../component-closure ../generalized-closure ../feedback-cache ../feedback-graph ../lens-laws
         (prefix-in ../generalized-graph graph.) (prefix-in ../dependency-analysis code.)

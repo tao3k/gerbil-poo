@@ -1,5 +1,5 @@
 ;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
-(export Declaration. declaration define remove set-base revise support schedule reschedule
+(export Declaration. declaration define remove set-base revise reconfigure support schedule reschedule
         schedule? schedule-source schedule-order schedule-reads
         failure? failure-kind failure-key)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
@@ -49,6 +49,18 @@
   (.cc spec
     .code: (lambda (key) (if (hash-key? programs key) (hash-ref programs key) (.call spec .code key)))
     .base: (lambda (key) (if (hash-key? values key) (hash-ref values key) (.call spec .base key)))))
+;; Change finite support and code/base in one immutable batch. Removed keys lose
+;; both bindings; newly supported keys never inherit latent old definitions.
+;; Surviving keys keep exact identities until explicitly edited. Final dangling
+;; reads are rejected by SCC/schedule validation before construction/approval.
+(def (reconfigure spec keys codes (bases []))
+  (unless (and (list? keys) (andmap symbol? keys)
+               (= (length keys) (length (delete-duplicates/hash keys))))
+    (error "distinct final component support required"))
+  (def kept (lambda (key) (and (memq key keys) (memq key (.@ spec keys)))))
+  (revise (.cc spec keys: keys
+    .code: (lambda (key) (and (kept key) (.call spec .code key)))
+    .base: (lambda (key) (and (kept key) (.call spec .base key)))) codes bases))
 (def (remove spec key)
   (.cc (set-base spec key #f) .code: (lambda (query) (if (eq? key query) #f (.call spec .code query)))))
 (def (support spec keys) (.cc spec keys: (keys! keys)))

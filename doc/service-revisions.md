@@ -83,3 +83,6 @@ new universal discovery-acceptance/convergence/least-fixed-point theorem is clai
 Raw search budgets exclude partition analysis, residual work, cooking and approval.
 This increment completes these functional scenarios without claiming performance
 improvements. The native package does not read a Lean checkout or serialized proof.
+
+Erasing component insertion/deletion extends these batches through
+[component-membership.md](component-membership.md), with support-aware SCC laws.
