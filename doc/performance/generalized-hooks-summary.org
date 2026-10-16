@@ -1,5 +1,126 @@
 #+title: Generalized prototype hooks: finite future-work bridge
 
+* Demand cooking and bound observation follow-up
+This advances the same explicitly deferred generalized-prototype future work.
+The previous 144-child result below is historical, not pooled with this study.
+The source changed, including mop.ss; prior native receipts do not re-admit it.
+
+** Implementation and concrete TODO closure
+The existing native Lens.compose getter omitted .get. It is corrected and tested
+through nested get/set and persistent service metadata preservation. The new
+lens-of-get-set constructor reuses Lens; focus-compiler consumes that SAME lens
+representation, corresponding to Lean MonoLens.ofGetSet/lensCompiler. This closes
+a concrete missing functional-lens path, not all automatic accessor syntax.
+
+cook-fields composes named raw-to-field preparations with standard map/assq and
+Scheme delay/force. Only demanded field preparation runs; #f is memoized too.
+step shares one lazy cooked-self promise per raw stage. bind-observer captures
+compiler/cook/base/depth once but accepts a fresh seed every invocation; it never
+caches observations across seeds or source revisions. Existing FUN bind/map
+compose those reader actions, and native I/O remains in the shared benchmark
+harness. No new object engine, interpreter or mutable global cache is introduced.
+
+The nested billing example composes an object slot lens with two checkout lenses,
+a shared-ancestor diamond, three final-self rebate reads, existing sum methods,
+FUN observations, and two preserved audit/metadata frames. Total is 39, rebate 3,
+service billing; the original flat checkout remains 33. This partially implements
+the TODO's direct subcomponent computation: unused effective-method groups are
+not prepared. Raw fragment assembly still runs; arbitrary projection elimination,
+reflective bootstrapping, automatic (.lens foo) syntax and migration remain open.
+
+** Semantic evidence and scope
+Untimed source instrumentation counts actual operations (not elapsed-time inference):
+
+| Case | Compilations old/new | Raw hooks old/new | Cook interfaces old/new | Effective groups old/new |
+|------+----------------------+-------------------+-------------------------+--------------------------|
+| Flat checkout | 4 / 4 | 8 / 8 | 2 / 2 | 4 / 2 |
+| Nested billing | 4 / 4 | 8 / 8 | 4 / 2 | 8 / 2 |
+
+Instrumentation is effectful and outside timed children. It is not a kernel proof
+of Scheme operation counts or an allocator model. Native tests cover each count,
+unknown/duplicate fields, delayed unused failure, #f sharing, per-stage self
+sharing, different seeds on one binder, C3 refusal and nested functional lens laws.
+The 32-module suite and the final focused benchmark/count tests pass.
+
+Lean PreparedHooks.bindObserver_eq quantifies over every seed/depth;
+Protocol.stepShared_eq gives pure shared-self semantics; observe_withCook requires
+an extensional equality of cooked interfaces, including their use by intermediate
+stages. ObservationWork.cost_mono separates binding/cook/field/hook prices under
+explicit operation-count bounds. Promise allocation/forcing is not priced zero:
+caller-supplied frame/binding bounds must include it. No theorem predicts native
+GC, elapsed time or bytes. Native callbacks/values/descriptors must be immutable,
+pure and locally terminating for this source correspondence. Changing fields or
+protocol requires fresh preparation, not reuse of an old observed answer.
+Demand cooking delays field failures until selection; it does not preserve the
+execution timing of arbitrary eager callback exceptions/effects. The total
+functional law is conditional; unused errors are tested as demanded semantics.
+
+** Fair native phase study
+480 fresh children, ten fixed scenarios, natural/collected GC, three direct/A-A
+pairs, four ABBA rounds. All children warm all controls in identical order. Every
+result is checked against its actual oracle. Full coverage, complete EOF,
+source/binary identity, signed GC-free allocation and prefix counters are admitted.
+No build/test overlapped timing. Fixed caps remain compiler/study 90s, child20s,
+heap1GiB. Fresh output directory: .build/observation-demand (ignored).
+
+Reference code is test-only generalized-observation-reference.ss: the preceding
+b14c15d three-field snapshot, eager two-family cook and per-demand self thunk.
+It uses the unchanged shared assembler/compiler and native C3; no synthetic delay
+or Lean dependency. The nested eager control applies that algorithm to the NEW
+nested carrier, not a falsely claimed historical nested implementation.
+Cold includes declaration capture, compilation, binding, construction and price
+observation of an existing C3-cached graph. Initial graph/module construction is
+outside this study. Observation retains prepared snapshots; construction still
+runs per call. Field-cooking changes only eager/demand field preparation in the
+new observer. Binding compares a prebound action with one-off observe of the
+same snapshot. Hook measures one raw step without demanding self. Self-sharing
+compares lazy-field nested observers with old per-demand self/descriptor handling;
+it includes that handling difference, not just an isolated force primitive.
+Nested includes three self reads, price/rebate and metadata observations.
+
+Delta is optimized minus reference, median of within-pair microseconds; N/C
+means natural/collected. GC is recorded GC CPU, residual is CPU minus recorded GC.
+
+| Phase | CPU N/C | GC CPU N/C | Residual N/C | Faster pairs N/C |
+|-------+---------+------------+--------------+------------------|
+| Cold snapshot + observation | -23.344 / -26.531 | -11.047 / -13.750 | -12.297 / -12.891 | 4/4 / 4/4 |
+| Repeated observation | -26.676 / -25.449 | -14.414 / -13.383 | -12.336 / -12.066 | 4/4 / 4/4 |
+| Field cooking ablation | -38.445 / -27.258 | -18.730 / -14.441 | -19.715 / -12.812 | 4/4 / 4/4 |
+| Binding alone | +1.062 / +1.477 | +0.090 / +1.086 | +0.973 / +0.391 | 1/4 / 2/4 |
+| Raw hook without self demand | -0.098 / +2.762 | -0.039 / +3.023 | -0.066 / -0.117 | 4/4 / 0/4 |
+| Nested self sharing/handling | -1.480 / -4.000 | -0.016 / -2.098 | -1.582 / -1.902 | 3/4 / 3/4 |
+| Complete nested observation | -19.344 / -26.156 | -8.906 / -12.703 | -11.469 / -13.578 | 4/4 / 4/4 |
+
+Repeated observation direct ranges are -28.938..-24.000 and -26.977..-23.070;
+optimized A/A +0.078/+0.523 us. Raw hook collected has four GC-excess pairs;
+its negative residual does NOT erase the adverse +2.762 total. Binding remains
+adverse and its optimized A/A is -0.609/-4.055; there is no isolated binder speed
+claim. Self-sharing optimized A/A +3.773/+0.273 (natural range +0.406..+7.172)
+is comparable to its direct effect; do not claim a stable isolated acceleration.
+The full path's field preparation reduction is the supported structural saving.
+
+Fixed one-operation allocation controls, all four direct pairs GC-free:
+
+| Phase | Bytes N/C | CPU us N/C |
+|-------+-----------+-------------|
+| Cold | -56720 / -56720 | -12.000 / -12.000 |
+| Observation | -56832 / -56832 | -11.500 / -12.500 |
+| Nested | -44128 / -43488 | -11.500 / -11.500 |
+
+Nested byte deltas differ by 640 between regimes; retain both, not an invented
+universal per-operation allocation theorem. All allocation A/A byte deltas are
+zero. Batch-phase allocation deltas are unavailable across GC, not zero. Small
+one-operation CPU samples include timer granularity; nested reference A/A has a
++200us outlier. Separately aggregated medians do not add, A/A is not subtracted,
+and matching prefixes do not establish identical heaps. This is local phase
+measurement, not universal Scheme service throughput or C++ runtime validation.
+
+Binary SHA256: e8e39a28fc0f5fdec3d58e5a72420b4511d4a4bc2f0b109360aea673bd77397a
+Receipt SHA256: 45c6d26c14ea10f2d12df3642887503c18981b1eeb7cc51cd8743e08c0af68f3
+Full records/binaries stay ignored; only this concise summary is committed.
+Reproduce with the same commands below, using a FRESH output directory and the
+current ten-scenario descriptor; success is GENERALIZED-PAIRED-OK children=480.
+
 * Three-way scope
 Racket poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl
 2098–2134 explicitly calls generalized prototypes future work. Its lens getter,
@@ -14,7 +135,7 @@ adaptation requires its explicit view/cook law. HookCosts.shared_le_repeated is
 an additive supplied-cost bound for positive demand, not a GC/time prediction.
 Neither native module nor benchmark reads a Lean checkout or proof output.
 
-* Native matched study
+* Historical b14c15d native matched study
 144 independent bounded children: three scenarios, natural/collected GC, direct
 pair and two A/A pairs, four balanced ABBA rounds. Every child warms all four
 actions in the same order, validates the actual price 33, and admits current
@@ -77,5 +198,5 @@ GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
 #+end_src
 
 Use the platform's timeout/linker equivalent on Linux. Final success must include
-GENERALIZED-PAIRED-OK children=144; exit zero alone is insufficient. Re-admit with
+GENERALIZED-PAIRED-OK children=480 for current sources (144 for the historical descriptor); exit zero alone is insufficient. Re-admit with
 read-study after committing to bind the measurement to the committed source.

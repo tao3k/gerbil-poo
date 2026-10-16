@@ -679,3 +679,27 @@ cross-type migration adapters, reflective metalevel bootstrapping and automatic
 fixed-point closure for arbitrary callbacks. Finite depth never certifies closure
 or callback termination. Scheme neither imports Lean nor serializes proof claims.
 See `doc/performance/generalized-hooks-summary.org` for bounded native evidence.
+
+
+### Demand cooking, nested functional lenses and observation binding
+
+`mop.Lens.compose` now correctly calls the outer `.get`. `lens-of-get-set` maps
+to `MonoLens.ofGetSet`; `focus-compiler` adapts the existing native Lens to
+`Generalized.lensCompiler`. Composition order is outer carrier, inner focus in
+both implementations. The nested service example preserves both audit frames
+while composing C3 fragments and existing effective-method sums.
+
+`cook-fields` uses standard Scheme promises per selected field. Per-stage shared
+cooked self matches the pure `Protocol.stepShared_eq` equation. `bind-observer`
+returns a native FUN reader action; `PreparedHooks.bindObserver_eq` covers every
+seed and depth, without caching answers. Replacing eager cooking is governed by
+`Protocol.observe_withCook`'s extensional interface premise. Arbitrary callback
+effects/exception timing are outside that total law; unused field errors remain
+delayed by the native demanded semantics.
+
+The test-only prior-algorithm control, untimed operation-count instrumentation,
+ten-scenario 480-child native study and adverse A/A/GC results are described in
+`doc/performance/generalized-hooks-summary.org`. `ObservationWork.cost_mono`
+requires supplied binding/cook/field/hook prices/count bounds; it does not infer
+allocator or GC prices from those measurements. This advances the generalized
+MOP future work, without claiming completion of the entire TODO list.

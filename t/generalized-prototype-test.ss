@@ -1,5 +1,5 @@
 (export generalized-prototype-test)
-(import :std/test ../object (prefix-in ../generalized-prototype gp.)
+(import :std/test ../object (only-in ../mop Lens lens-of-get-set slot-lens) (prefix-in ../generalized-prototype gp.)
         (prefix-in ../examples/generalized-checkout checkout.))
 ;; Exercise actual native protocols and failures; no injected compiled snapshots.
 (def generalized-prototype-test
@@ -38,6 +38,43 @@
       (check-equal? ((car (gp.observe snapshot checkout.base checkout.base 2)) 'price) 33)
       (check-equal? (cdr (gp.observe snapshot checkout.base checkout.base 2)) 'metadata)
       (check-exception ((gp.sum-compiler identity identity) '(unknown . value)) true))
+    (test-case "named cooking forces only demanded fields and memoizes false"
+      (def forced 0)
+      (def cook (gp.cook-fields (list
+        (cons 'flag (lambda (_) (set! forced (+ forced 1)) #f))
+        (cons 'unused (lambda (_) (error "unused field must stay delayed"))))))
+      (def view (cook 'seed))
+      (check-equal? forced 0)
+      (check-equal? (view 'flag) #f) (check-equal? (view 'flag) #f)
+      (check-equal? forced 1)
+      (check-exception (view 'unknown) true)
+      (check-exception (view 'unused) true)
+      (check-exception (gp.cook-fields (list (cons 'a identity) (cons 'a identity))) true)
+      (check-exception (gp.cook-fields '((a . 1))) true))
+    (test-case "shared cooked self is local to one stage and one observation seed"
+      (def cooked 0)
+      (def protocol (.cc gp.Protocol. cook:
+        (lambda (value) (set! cooked (+ cooked 1)) value) compile:
+        (lambda (_) (lambda (self parent) (+ (self) (self) (parent))))))
+      (def snapshot (gp.prepare protocol '(unit)))
+      (check-equal? (gp.step snapshot 2 5) 9)
+      (check-equal? cooked 1)
+      (def observe (gp.bind-observer snapshot 5 1))
+      (check-equal? (observe 2) 9) (check-equal? cooked 3)
+      (check-equal? (observe 9) 23) (check-equal? cooked 5)
+      (check-exception (gp.bind-observer snapshot 5 -1) true))
+    (test-case "native composed lenses preserve nested service metadata and both audits"
+      (def focus (.call Lens .compose (slot-lens 'checkout)
+        (lens-of-get-set caddr (lambda (value raw) (list (car raw) (cadr raw) value)))))
+      (def revised (.call focus .set 'revised checkout.nested-base))
+      (check-equal? (.call focus .get revised) 'revised)
+      (check-equal? (.call focus .get checkout.nested-base) 'audit)
+      (check-equal? (.@ revised service) 'billing)
+      (def snapshot (checkout.prepare-nested))
+      (check-equal? (checkout.nested-report snapshot) '(39 3 billing))
+      (def raw (gp.approximate snapshot checkout.nested-base checkout.nested-base 2))
+      (check-equal? (caddr (.@ raw checkout)) 'audit)
+      (check-equal? (.@ raw service) 'billing))
     (test-case "native C3 inconsistency is retained before fragment compilation"
       (def x (.o)) (def y (.o))
       (def xy (.mix x y)) (def yx (.mix y x))

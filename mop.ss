@@ -426,7 +426,8 @@
               (else (error "Missing slot in json" slot-name j))))))))
 (def Slot. (.@ Slot proto))
 
-;; TODO: functional lenses in (.lens foo) as well as imperative accessors
+;; Functional get/set lenses compose through arbitrary nested immutable storage.
+;; Automatic (.lens foo) accessor syntax remains future work.
 (define-type (Lens @ Class.) ;; Lens 's 'a
   slots: =>.+ { ;; or should we have just a ((f a) <- (f : Functor) ((f b) <- b) a) ?
     .get: { } ;; 's -> 'a
@@ -437,7 +438,7 @@
              (.call l .set (f (.call l .get s)) s)) ;; over in haskell
   ;; Same order as in Haskell, opposite to OCaml. (compose x y) will access x then y
   ;; (Lens 'a 'c)  <- (Lens 'a 'b) (Lens 'b 'c)
-  .compose: (lambda (l1 l2) {.get: (lambda (s) (.call l2 .get (.call l1 s)))
+  .compose: (lambda (l1 l2) {.get: (lambda (s) (.call l2 .get (.call l1 .get s)))
                         .set: (lambda (a s) (.modify l1 (cut .call l2 .set a <>) s))}))
 
 (define-type (Type @ Class.)
@@ -472,6 +473,13 @@
   ((_ class (slotdefs ...) options ...)
    (.defclass (class) (slotdefs ...) options ...)))
 
+;; Build the existing Lens protocol from pure callbacks, matching MonoLens.ofGetSet.
+;; Get/set laws remain caller premises; functions do not prove those laws by shape.
+(def (lens-of-get-set getter setter)
+  (unless (and (procedure? getter) (procedure? setter)) (error "lens callbacks required"))
+  (instance Lens .get: getter .set: setter))
+
+;; Focus one native POO slot with persistent updates; the original object is retained.
 (def (slot-lens slot-name)
   {(:: @ (instance Lens))
    .get: (lambda (s) (.ref s slot-name))

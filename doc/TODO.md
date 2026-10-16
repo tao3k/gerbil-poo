@@ -422,3 +422,17 @@ seed. Shared checkout tests cover audit frames, delayed ignored parents, callbac
 failure, C3 refusal and interface adaptation. This is a finite future-work bridge,
 not completion of arbitrary MOP hooks, lawful storage/migration or metacircular
 bootstrapping. See the current alignment section and native benchmark summary.
+
+
+### Demand-driven functional lens and cooked subcomponents
+
+The existing `Lens.compose` getter is repaired; `lens-of-get-set` and
+`generalized-prototype.focus-compiler` now reuse that protocol for nested storage.
+`cook-fields` prepares only selected effective-method groups, while shared cooked
+self and `bind-observer` compose through native FUN with fresh seeds. The nested
+billing example preserves both audits and checks shared self. This closes a
+concrete functional-lens/computation path and part of direct subcomponent
+computation. Automatic `.lens` syntax, skipping full raw assembly, arbitrary
+lawful storage/migration and reflective bootstrapping remain open. Native phase
+measurements retain adverse binding/hook controls, separately from functional
+proofs and logical work-count bounds; see the current performance summary.

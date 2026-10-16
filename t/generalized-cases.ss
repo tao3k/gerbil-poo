@@ -3,15 +3,15 @@
 (import (only-in :std/list/list delete-duplicates/hash) ../object
         (prefix-in "metadata-paired-cases.ss" metadata.))
 ;; Cold captures construction; repeated finite observation and cooked calls stay distinct.
-(def scenarios '(cold observation hot))
+(def scenarios '(cold observation field-cooking binding hook self-sharing nested cold-allocation observation-allocation nested-allocation))
 ;; A/A controls duplicate each implementation in balanced independent processes.
-(def strategies '(hoisted fresh hoisted-aa fresh-aa))
+(def strategies '(optimized reference optimized-aa reference-aa))
 ;; Fixed before measurement; no best-run or timing-dependent sample counts.
-(def (repetitions scenario) (if (eq? scenario 'cold) 32 128))
+(def (repetitions scenario) (case scenario ((cold-allocation observation-allocation nested-allocation) 1) ((cold nested) 32) (else 128)))
 ;; Every runtime/example/driver input participates in source admission; Lean is absent.
 (def sources (delete-duplicates/hash (append metadata.sources
   '("generalized-prototype.ss" "examples/generalized-checkout.ss" "t/generalized-cases.ss"
-    "t/generalized-benchmark.ss" "t/generalized-suite.ss")) from-end?: #t))
+    "t/generalized-observation-reference.ss" "t/generalized-benchmark.ss" "t/generalized-suite.ss")) from-end?: #t))
 ;; ABBA balances process order while warming all four actions identically in each child.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))
 ;; Native descriptor composition shares the existing child protocol and admission checks.
