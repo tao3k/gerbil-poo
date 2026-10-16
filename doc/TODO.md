@@ -316,6 +316,14 @@ failure or a rival publication reuses current source and policy objects. See
 [joint-rounds.md](joint-rounds.md) for bounded native competing workers, six-round
 retry controls, arbitrary stale-batch and finite validity-preservation proofs.
 
+Atomic joint revisions now allow asymmetric endpoint phases: insertion/deletion,
+SCC merge/split and shared input migration at different services in the same
+bundle, with a shared total-budget policy instead of equal-settlement assumptions.
+Seven native rounds preserve independent cache receipts and reject old siblings;
+failed total budgets require explicit fresh preparation. Dependent universe-
+polymorphic Lean replacements retain actual sources/graph/closure receipts. See
+[joint-topology.md](joint-topology.md) for exact scenarios and proof scope.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

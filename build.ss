@@ -99,6 +99,7 @@
     "examples/component-requests"
     "examples/shared-approvals"
     "examples/joint-services"
+    "examples/joint-topology"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"
