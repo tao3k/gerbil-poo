@@ -1,5 +1,5 @@
 ;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
-(export Declaration. declaration define remove set-base support schedule reschedule
+(export Declaration. declaration define remove set-base revise support schedule reschedule
         schedule? schedule-source schedule-order schedule-reads
         failure? failure-kind failure-key)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
@@ -35,6 +35,20 @@
   (unless (symbol? key) (error "component key must be a symbol"))
   (unless (or (not value) (some? value)) (error "base must be an option"))
   (.cc spec .base: (lambda (query) (if (eq? key query) value (.call spec .base query)))))
+;; Apply one checked, immutable batch over existing support. Code/base entries
+;; have independent namespaces: one node may change both, but duplicate writes
+;; within either list refuse. No intermediate graph is scheduled or published.
+;; A #f code removes its equation; a #f base is explicit absence, not no-op.
+(def (revise spec codes (bases []))
+  (def programs (table codes))
+  (def values (table bases))
+  (unless (andmap (lambda (entry) (memq (car entry) (.@ spec keys))) (append codes bases))
+    (error "revision target outside component support"))
+  (unless (andmap (lambda (entry) (or (not (cdr entry)) (some? (cdr entry)))) bases)
+    (error "revision base must be an optional outcome"))
+  (.cc spec
+    .code: (lambda (key) (if (hash-key? programs key) (hash-ref programs key) (.call spec .code key)))
+    .base: (lambda (key) (if (hash-key? values key) (hash-ref values key) (.call spec .base key)))))
 (def (remove spec key)
   (.cc (set-base spec key #f) .code: (lambda (query) (if (eq? key query) #f (.call spec .code query)))))
 (def (support spec keys) (.cc spec keys: (keys! keys)))

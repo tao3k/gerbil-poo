@@ -236,6 +236,13 @@ through existing whole-group closure and DAG caching. See
 [strong-components.md](strong-components.md) for the Racket/Lean/native mapping,
 accepted-certificate proof scope and executable controls.
 
+Simultaneous split/merge, shared-input migration and cross-service joint batches
+now compose through `generalized-graph.revise`, native FUN revision bind and the
+reusable lens-based `component-closure` builder. The twelve-node service example
+checks unchanged monitors, equal-value migration, detached old inputs, new-source
+invalidation, current joint approval and retry after partial failure. See
+[service-revisions.md](service-revisions.md) for typed laws and functional scope.
+
 Still open: automatic discovery of hidden callback dependencies, cycle-interior
 selective reconstruction, general convergence/leastness and unrestricted
 higher-order knots.

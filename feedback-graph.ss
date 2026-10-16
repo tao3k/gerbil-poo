@@ -1,6 +1,7 @@
 ;;; Automatic SCC condensation feeding existing whole-group closure and caching.
 (export graph-cache? graph-cache-partition graph-cache-values graph-cache-source
-        graph-cache-ref feedback-graph-action publish-feedback-graph)
+        graph-cache-ref feedback-graph-action publish-feedback-graph
+        feedback-graph-revision-action publish-feedback-graph-revision)
 (import :std/iter (only-in :std/list/list filter find delete-duplicates/hash)
         ./object ./mop ./support/option ./feedback-cache ./lens-laws
         (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
@@ -80,4 +81,19 @@
 ;; Any partition, closure, source or joint-approval failure retains EXACT old state.
 (def (publish-feedback-graph old source build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
   (try (values ((feedback-graph-action source build admit guards: guards builder: builder) old) #f)
+    (catch (failure) (values old failure))))
+
+;; Compose a revision of the CURRENT published source with reconstruction on the
+;; SAME old Reader input. Guards cover revision preparation and final approval;
+;; the callback returns one final source, never a sequence of published stages.
+(def (feedback-graph-revision-action revise build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
+  (lambda (old)
+    (unless (graph-cache? old) (error "published feedback graph required for revision"))
+    (with-lens-checks guards (lambda ()
+      ((.call gp.Observation. .bind (.call gp.Observation. .ap (graph-cache-source old))
+        (lambda (source) (feedback-graph-action (revise source) build admit guards: guards builder: builder))) old)))))
+;; Preparation exceptions share the same publication boundary as closure and
+;; admission: any refusal returns the exact original graph cache and exception.
+(def (publish-feedback-graph-revision old revise build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
+  (try (values ((feedback-graph-revision-action revise build admit guards: guards builder: builder) old) #f)
     (catch (failure) (values old failure))))

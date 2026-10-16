@@ -85,3 +85,6 @@ cycle-interior skipping, arbitrary higher-order equality, allocation, GC or spee
 claim follows. The example's budget is 32 raw transitions per rebuilt group;
 partition traversal, residual checks, cooking and admission are additional work.
 The native package is standalone and requires no Lean checkout or proof token.
+
+Multiple simultaneous regroupings, shared-input migration and guarded batch
+publication now compose through [service-revisions.md](service-revisions.md).
