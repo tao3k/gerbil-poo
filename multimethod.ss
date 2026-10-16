@@ -1,11 +1,11 @@
 ;;; Executable counterpart of Object.Multimethod and its sparse MethodIndex.
-(export make standard simple multimethod? prototype any register contribute register-when erase
+(export make standard simple forwarding-standard inner simula multimethod? prototype any register contribute register-when erase
         call reference-call cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
 (import :std/iter (only-in :std/list/list-builder with-list-builder)
         (only-in ./mop Type validate)
-        (only-in ./object compute-precedence-list!)
+        (only-in ./object compute-precedence-list!) (only-in ./type Unit)
         (prefix-in ./method-combination combination.))
 
 ;; All index/cache records and their mutators remain private. Names are symbols,
@@ -56,6 +56,24 @@
   (make inputs output precedence
     (lambda (methods args) (combination.simple-effective policy methods args))
     arity combination.simple-contribution?))
+;; Forward one typed dispatch value and one typed payload through existing C4
+;; selection. Only the initial dispatch determines candidates; replacements pass
+;; payload Type validation and cannot replace dispatch or bypass output validation.
+;; Guards run against the initial typed pair, before around/primary enrichment.
+(def (forwarding-standard dispatch-type payload-type output precedence
+                         (on-missing (lambda (_) (fail 'no-applicable-method #f #f))) (arity 1))
+  (make (list dispatch-type payload-type) output (lambda (args) (precedence (car args)))
+    (lambda (methods args) (combination.forward-effective methods args on-missing (cut validate payload-type <>)))
+    arity combination.forward-contribution?))
+;; General-first superclass-controlled inner over the same sparse index and guards.
+;; Methods use (inner . original-args); inner is a zero-argument continuation.
+(def (inner inputs output precedence terminal (arity (length inputs)))
+  (make inputs output precedence
+    (lambda (methods args) (combination.inner-chain methods args terminal)) arity))
+;; Simula automatic-inner combination returns the native Unit value. Prefix/suffix
+;; parts share typed arguments; cache and negative watches retain body data only.
+(def (simula inputs precedence (arity (length inputs)))
+  (make inputs Unit precedence combination.simula-effective arity combination.simula-body?))
 ;; Compute existing object C4 order and map identities to stable symbolic dispatch names.
 (def (prototype-precedence object name)
   ;; name must be a stable, injective map from this C4 graph to symbols.

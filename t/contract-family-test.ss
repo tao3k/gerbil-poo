@@ -53,6 +53,18 @@
       (check-equal? decisions 1)
       (check-equal? cache-forced 0)
       (check-equal? (first-value ((family.family-invoker retained 'reserve) '(2) view)) '(ok 8 #t)))
+    (test-case "check reuse charges first compilation and rejects malformed horizons"
+      (def costs (.cc family.TemplateCosts. setup: 2 specialize: 1 rebuild: 2))
+      (check-equal? (family.choose-checks costs 0) 'fresh)
+      (check-equal? (family.choose-checks costs 1) 'fresh)
+      (check-equal? (family.choose-checks costs 2) 'fresh)
+      (check-equal? (family.choose-checks costs 64) 'shared)
+      (check (eq? shared.budgeted-source shared.selected-source) => #t)
+      (check (eq? shared.repeated-source shared.shared-checks-source) => #t)
+      (check-exception (shared.configured-source -1 64) true)
+      (check-exception (shared.configured-source 64 -1) true)
+      (check-exception (family.choose-checks costs -1) true)
+      (check-exception (family.choose-checks (.cc costs setup: -1) 64) true))
     (test-case "prepared selection executes once and falls back on changed support size"
       (def calls 0)
       (def prices (.cc family.PreparationCosts. prepare-cost: 3 shared-cost: 0 direct-cost: 1))

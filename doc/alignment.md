@@ -307,9 +307,82 @@ preserves the exact published version. Lean's `Examples/AlignedServices` proves
 the corresponding standard/simple arithmetic and refusal laws using existing
 combinators, plus complete conditional selector-budget bounds.
 
-Remaining executable alignment gaps are explicit: forwarding payload methods,
-BETA/Simula constructors, precompiled unconditional effective-method dispatch,
+Remaining executable alignment gaps are explicit: precompiled unconditional
+effective-method dispatch,
 general safe-recursive attestation/memo programs (the cyclic seed is still a
 supplied Boolean), and arbitrary cross-type lens/migration adapters. Native
 finite DAG rebuilding does not close those broader capabilities. Dependent
 proof evidence itself remains a Lean responsibility, not another Scheme wrapper.
+
+
+## Forwarding, inner and Simula control
+
+The original Appendix B admits user-defined combinations of sorted labelled
+fragments and shows the Racket `$lens-gen` wrapper/cooked-self/delayed-super
+construction. It does not specify these three complete dispatch APIs verbatim.
+The following are executable counterparts of the existing Lean extensions of
+that direction; the unified generalized protocol remains future work.
+
+| Control | Lean owner | Native API / boundary |
+|---|---|---|
+| Fixed-dispatch payload forwarding | `ForwardMethod`, `callForwardChain`, `forwardEffective`, `Multimethod.forwardingStandard` | `ForwardContribution.`, `forward-primary/before/after/around`, `multimethod.forwarding-standard` |
+| Superclass-controlled descendants | `innerChain`, `Multimethod.inner` | `method-combination.inner-chain`, `multimethod.inner` |
+| Automatic inner prefix/suffix order | `SimulaBody`, `simulaEffective`, `Multimethod.simula` | `SimulaBody.`, `simula-body`, `multimethod.simula` (native Unit result) |
+| Cold/shared check preparation | `TemplateCosts.choose`, `selected_bound`, `cold` | `TemplateCosts.`, `choose-checks`; `with-meaning` optional Boolean share argument |
+| Hoisted fixed budget arithmetic | `SelectionCacheCosts.compiled_eq` | immutable weights validated/captured once; each `.choose` entry validates only selection-cost |
+
+Forwarding accepts one typed dispatch value and one typed payload. An arity
+parameter allows the dispatch value to carry several C4 axes. Before/after bodies
+receive `(dispatch payload)`; primary/around receive `(next dispatch payload)`.
+`next` takes one Option: `#f` retains payload, `(some payload)` replaces it,
+including `(some #f)`. Replacement payloads are Type-validated before the suffix.
+Neither continuation nor replacement can supply a different dispatch argument.
+Candidate lookup and guards use the INITIAL typed pair once per call; guards are
+not rerun after enrichment. Around changes reach the complete inner computation;
+primary changes affect its remaining suffix, so after observes the inner entry
+payload. Registration and negative inspection never invoke these bodies.
+
+Inner reverses the selected C4 contribution sequence. A superclass omitting its
+zero-argument inner thunk prevents descendants and the innermost default from
+running. Simula runs general-first prefixes then specific-first suffixes. Any
+exception stops all subsequent parts; suffixes are not guaranteed finalizers.
+Native tests and Lean effect laws explicitly preserve executed effects on failure.
+The enclosing atomic publisher separately retains its old admitted snapshot.
+
+The new service models reuse closed generic projections, shared expansion,
+declarative edits, Type predicates, protected candidates, checked contracts and
+joint revision. Forwarding/preflight read invoice, so their reserve projection
+now explicitly carries that dependency and reconstructs it. Invoice-only changes
+rebuild reserve/cancel and retain quote; other combinations keep their smaller
+original dependency support. Tests verify actual rebuild traces, current results,
+negative cancellation refusal and exact old-version identity.
+
+These complex examples keep nested generic ownership functional: the forwarding
+and preflight helper calls consume their result without mutating a hidden cache.
+Their complete workflow timings include nested cold resolution. General prepared
+effective methods and nested warm-cache transport remain separate optimization
+work; these examples do not claim optimal nested dispatch performance.
+
+For a single cold specialization, `with-meaning descriptor meaning #f` avoids
+forcing shared checks and clears a retained record if necessary. Changed invariant
+sources still force fresh checks. The single-use source factory selects the
+existing ordinary clone constructor under `TemplateCosts.choose`; the sustained
+workflow uses a separate descriptor horizon and can retain shared checks. It does not
+interpret costs on every descriptor. Repeated-use callers can select sharing
+explicitly. Budgets are illustrative operation weights, not embedded Lean output
+or measured timings. Fresh/shared modes preserve current meaning and the ordinary
+input/source/output/logic checks.
+
+All new laws/examples are added to existing Lean owners
+`Object.MultimethodCombination`, `Functional.ContractFamily` and
+`Examples.AlignedServices`. The saved original-source inventory and its coverage
+flags remain unchanged. There are no new audit/benchmark JSON files or changes.
+
+
+`configured-source selector-calls check-uses` keeps selector and descriptor
+horizons independent. Identity tests establish cold fresh source = selected-source,
+steady source = shared-checks-source under the example weights; no extra runtime
+source wrapper is introduced. A nonzero first policy fee still needs coverage;
+known single-use clients can directly use the ordinary source. The final native
+paired evidence and A/A variability are recorded in
+performance/control-combination-summary.org.

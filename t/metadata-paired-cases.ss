@@ -3,17 +3,18 @@
 ;; Separate selector overhead from real family construction, joint publication
 ;; and the existing 15-node shared-dependency workflow. Isolated stage controls
 ;; are real callbacks; their timings are not additive full-publication attribution.
-(def scenarios '(selector configure inputs construct cold-checks bind rebind generics approval cold-family family joint workflow standard simple))
+(def scenarios '(selector configure inputs construct cold-checks bind rebind generics approval cold-family family joint workflow standard simple forwarding inner simula))
 ;; Natural preserves the child's heap history; collected explicitly collects
 ;; after the identical warmup prefix. Neither promises identical live heaps.
 (def regimes '(natural collected))
 ;; Fixed side numbering shared by child, driver and validator. Uncaptured is a
 ;; benchmark-only previous callback; cached reuses selection, expanded additionally
 ;; shares pure generic expansion with the captured dynamic contract strategy.
-(def strategies '(independent uncaptured dynamic cached expanded expanded-cached shared-checks shared-checks-cached budgeted))
-;; Adjacent controls isolate preparation choice, function capture and choice reuse.
+(def strategies '(independent uncaptured dynamic cached expanded expanded-cached shared-checks shared-checks-cached budgeted reused-policy))
+;; Focus current pairs on expansion, shared/fresh checks, selector caching and
+;; cold versus reused policy configuration. Earlier capture controls remain warmups.
 ;; Each pair is measured directly; marginal medians are not a transitive cost proof.
-(def pairs '((0 1) (1 2) (2 3) (2 4) (4 5) (4 6) (6 7) (7 8)))
+(def pairs '((2 4) (4 6) (6 7) (6 8) (7 8) (8 9)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping

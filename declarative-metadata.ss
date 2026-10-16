@@ -153,17 +153,20 @@
       (unless valid (refuse 'logic #f #f))
       (values result state))))
 ;; Open contract prototype. Ordinary construction keeps fresh check preparation;
-;; with-meaning specializes only dependent meaning and shares stamped invariants.
+;; with-meaning specializes dependent meaning; sharing is opt-in at the call
+;; boundary (default true), while share? false leaves invariant preparation lazy.
 ;; Later input/output/rule overrides fail the stamp guard and prepare fresh checks.
 (define-type (Contract. @ [methods.invoke<-wrap] input output meaning rule)
   .type: Contract
   checks: #f
+  ;; Lazy template-owned preparation: fresh specialization never forces this.
+  .invariant-checks: (if (matching-checks? checks input output rule) checks (compile-checks input output rule))
   .with-meaning:
-  (let (compiled (if (matching-checks? checks input output rule) checks
-                    (compile-checks input output rule)))
-    (lambda (next-meaning)
-      (unless (procedure? next-meaning) (error "metadata meaning must be a procedure"))
-      (.cc @ meaning: next-meaning checks: compiled)))
+  (lambda (next-meaning (share? #t))
+    (unless (and (procedure? next-meaning) (boolean? share?)) (error "invalid meaning specialization"))
+    (if share?
+      (.cc @ meaning: next-meaning checks: (.@ @ .invariant-checks))
+      (if checks (.cc @ meaning: next-meaning checks: #f) (.cc @ meaning: next-meaning))))
   .wrap:
   (if (matching-checks? checks input output rule)
     (checked-wrapper (contract-checks-in checks) (contract-checks-out checks)
@@ -173,7 +176,8 @@
 ;; Specialize a descriptor through its native method, preserving extensible slots.
 ;; Sharing applies only to immutable invariant sources; the new meaning is always
 ;; used at invocation. Derived invariant changes still take the fresh-check path.
-(.defgeneric (with-meaning contract meaning) slot: .with-meaning)
+;; share? false avoids initial shared-record preparation for a single cold call.
+(.defgeneric (with-meaning contract meaning (share? #t)) slot: .with-meaning)
 ;; Bind the current executor to a descriptor's checked wrapper; state remains an invocation argument.
 (.defgeneric (wrap contract execute) slot: .wrap)
 ;; Execute through the descriptor's native checked invocation method.

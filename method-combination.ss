@@ -1,5 +1,7 @@
 ;;; Appendix B method combination; executable counterpart of Object.MethodCombination.
-(export Contribution Contribution. primary before after around item
+(export ForwardContribution ForwardContribution. forward-primary forward-before forward-after forward-around
+        forward-contribution? forward-effective inner-chain SimulaBody SimulaBody. simula-body simula-body? simula-effective
+        Contribution Contribution. primary before after around item
         standard-contribution? simple-contribution? effective simple-effective
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
 (import :std/iter (only-in :std/list/list foldr) ./object
@@ -102,3 +104,71 @@
 ;; Optional minimum with the same explicit empty-result convention.
 (def minimum (.cc SimplePolicy. stop: (lambda (_) #f) empty: #f first: (lambda (value) (some value))
                   step: (lambda (value acc) (some (min (some-value acc) value))) finish: identity))
+
+;; Forwarding has a distinct carrier: next accepts #f (retain payload) or
+;; (some payload), including (some #f). Dispatch arguments cannot be replaced.
+(define-type (ForwardContribution @ Type.)
+  .element?: (lambda (value) (and (object? value) (.has? value .type)
+    (eq? (.@ value .type) @) (.has? value qualifier) (.has? value body)
+    (procedure? (.@ value body)))))
+;; Extensible forwarding descriptor using the same qualifier grouping protocol.
+(define-type (ForwardContribution. @ [] qualifier body) .type: ForwardContribution)
+;; Validate and construct a forwarding body; no body executes at registration.
+(def (forward-contribution qualifier body)
+  (unless (procedure? body) (error "forward method must be a procedure"))
+  (.cc ForwardContribution. qualifier: qualifier body: body))
+;; Forward primary receives (next dispatch payload); next preserves dispatch.
+(def (forward-primary body) (forward-contribution 'primary body))
+;; Forward before observes the inner combination's current dispatch/payload pair.
+(def (forward-before body) (forward-contribution 'before body))
+;; Forward after observes that same pair, not a primary's replacement payload.
+(def (forward-after body) (forward-contribution 'after body))
+;; Forward around may replace payload for the complete inner combination.
+(def (forward-around body) (forward-contribution 'around body))
+;; Admit only correctly typed standard forwarding qualifiers without invoking them.
+(def (forward-contribution? value)
+  (and (element? ForwardContribution value)
+       (memq (.@ value qualifier) '(primary before after around)) #t))
+;; Fold forwarding continuations over one fixed dispatch value. Every replacement
+;; is validated before the next body, retaining #f and some #f as distinct cases.
+;; A replacement cannot trigger another candidate lookup or change dispatch axes.
+(def (call-forward-chain methods exhausted dispatch payload validate-payload)
+  ((foldr (lambda (method next)
+     (lambda (current)
+       (method (lambda (replacement)
+         (unless (or (not replacement) (some? replacement)) (error "expected optional forwarded payload"))
+         (next (if replacement (validate-payload (some-value replacement)) current))) dispatch current)))
+     (lambda (current) (exhausted (list dispatch current))) methods) payload))
+;; Standard forwarding order. Around changes reach before/primary/after; primary
+;; changes affect only the remaining primary suffix. Raised failures stop effects.
+(def (forward-effective contributions args on-missing validate-payload)
+  (def dispatch (car args))
+  (call-forward-chain (group contributions 'around)
+    (lambda (current)
+      (for-each (cut apply <> current) (group contributions 'before))
+      (def result (call-forward-chain (group contributions 'primary) on-missing
+                     (car current) (cadr current) validate-payload))
+      (for-each (cut apply <> current) (reverse (group contributions 'after))) result)
+    dispatch (cadr args) validate-payload))
+;; BETA control: reverse resolved C4 methods, then reuse original-args next thunks.
+;; A superclass omitting inner stops descendants; missing descendants use terminal.
+(def (inner-chain methods args terminal) (call-chain (reverse methods) terminal args))
+;; Simula body Type keeps prefix/suffix callbacks as native extensible POO data.
+(define-type (SimulaBody @ Type.)
+  .element?: (lambda (value) (and (object? value) (.has? value .type)
+    (eq? (.@ value .type) @) (.has? value prefix-part) (.has? value suffix-part)
+    (procedure? (.@ value prefix-part)) (procedure? (.@ value suffix-part)))))
+;; Prefix/suffix representation corresponds directly to Lean SimulaBody fields.
+(define-type (SimulaBody. @ [] prefix-part suffix-part) .type: SimulaBody)
+;; Construct a validated body; prefix/suffix receive only the original arguments.
+(def (simula-body prefix suffix)
+  (unless (and (procedure? prefix) (procedure? suffix)) (error "Simula parts must be procedures"))
+  (.cc SimulaBody. prefix-part: prefix suffix-part: suffix))
+;; Carrier admission for Simula generics; validation does not execute either part.
+(def (simula-body? body) (element? SimulaBody body))
+;; Automatic inner: general-first prefixes, specific-first suffixes. Any exception
+;; stops the suffix; this is sequencing, not unwind-protect or effect rollback.
+(def (simula-effective methods args)
+  (for-each (lambda (body) (apply (.@ body prefix-part) args)) (reverse methods))
+  (for-each (lambda (body) (apply (.@ body suffix-part) args)) methods)
+  (void))

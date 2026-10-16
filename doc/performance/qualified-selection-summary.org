@@ -1,6 +1,10 @@
 #+title: Qualified service alignment and configured selector costs
 
-* Scope and reproducibility
+* Historical scope and reproducibility
+
+This is the preceding standard/simple run. Current forwarding/inner/Simula and
+cold-path controls are described in =control-combination-summary.org=; the
+measurements below retain their original source/version boundaries.
 
 This addition implements Appendix B standard/simple method combinations through
 the existing native Type, C4 sparse index, guard, negative-watch and publication

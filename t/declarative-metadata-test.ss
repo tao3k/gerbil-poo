@@ -69,6 +69,18 @@
       (check-exception (metadata.with-meaning second 'not-a-procedure) true)
       (def custom (.cc second .wrap: (lambda (_) (lambda (arg) (values arg 'custom)))))
       (check-equal? (first-value ((metadata.wrap custom #f) 9)) 9))
+    (test-case "cold specialization does not force a shared record and clears inherited checks"
+      (def input (metadata.predicate "positive" (lambda (n) (> n 0))))
+      (def template (metadata.contract input input (lambda (_ args result) (= result args)) (metadata.atom 'identity)))
+      (def fresh (metadata.with-meaning template (.@ template meaning) #f))
+      (check (eq? (.@ fresh checks) #f) => #t)
+      (check-equal? (first-value (metadata.invoke fresh (lambda (n) (values n 'current)) 2)) 2)
+      (def shared (metadata.with-meaning template (.@ template meaning)))
+      (check (eq? (.@ shared checks) #f) => #f)
+      (def cleared (metadata.with-meaning shared (lambda (_ __ ___) #f) #f))
+      (check (eq? (.@ cleared checks) #f) => #t)
+      (check-equal? (metadata.failure-phase (caught (cut metadata.invoke cleared (lambda (n) (values n 'current)) 2))) 'logic)
+      (check-exception (metadata.with-meaning shared (.@ template meaning) 'truthy) true))
     (test-case "wrapping preserves exact state and refusal order"
       (def input (metadata.predicate "positive" (lambda (x) (> x 0))))
       (def output (metadata.typed "integer" Integer))

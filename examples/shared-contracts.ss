@@ -1,6 +1,6 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
 ;;; Generalized-prototype future work: immutable closed inputs, native mixins.
-(export source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-cached-model expanded-cached-workflow-model budgeted-source budgeted-model budgeted-workflow-model shared-checks-source shared-checks-model shared-checks-workflow-model shared-checks-cached-model shared-checks-cached-workflow-model specialized-construct expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
+(export configured-source repeated-source selection-prices source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-cached-model expanded-cached-workflow-model budgeted-source budgeted-model budgeted-workflow-model shared-checks-source shared-checks-model shared-checks-workflow-model shared-checks-cached-model shared-checks-cached-workflow-model specialized-construct expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
 (import ../object (prefix-in ../contract-family family.) (prefix-in ../generic-family generics.)
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ./construction-workflow workflow.)
@@ -126,10 +126,10 @@
 (def expanded-cached-workflow-model (.cc expanded-workflow-model contract-source: cached-source))
 ;; Construct the same capacity/invoice descriptors while sharing invariant checks.
 ;; Unknown keys fail before a complete family can be published.
-(def (specialized-construct key input)
+(def (specialized-construct key input (share? #t))
   (case key
-    ((reserve) (service.specialized-reservation input))
-    ((cancel) (metadata.with-meaning cancellation-template (cancellation-meaning input)))
+    ((reserve) (service.specialized-reservation input share?))
+    ((cancel) (metadata.with-meaning cancellation-template (cancellation-meaning input) share?))
     (else (error "unknown contract" key))))
 ;; Dynamic projection choice plus stamped immutable descriptor-check reuse.
 (def shared-checks-source (.cc selected-source construct: specialized-construct))
@@ -147,11 +147,25 @@
 ;; Conservative one-miss budget: many workflow revisions may retain the closed
 ;; context, so they must not be counted as repeated selector savings. These explicit
 ;; operation weights are an illustrative model, not embedded measured timings.
-(def budgeted-source
-  (family.choose-source (.cc family.SelectionCacheCosts. setup: 2 guard: 1 calls: 1
-    collection-price: 1 extra-collections: 1) shared-checks-source (lambda () contract-keys)))
-;; Shared generic expansion/checks with budget-selected projection-choice reuse.
+;; Reusable immutable selection budget: callback validation is amortized across
+;; source configurations. These are illustrative operation weights, not timings.
+(def selection-prices (.cc family.SelectionCacheCosts. setup: 2 guard: 1 calls: 1
+  collection-price: 1 extra-collections: 1))
+;; Compile independent selector-entry and descriptor-use horizons into an existing
+;; source. Both counts are supplied premises, not learned timings. Invalid horizons
+;; raise through the existing cost protocols. A fresh source is the existing clone
+;; constructor; shared checks use the existing stamped invariant specialization.
+(def (configured-source selector-calls check-uses)
+  (let (mode (family.choose-checks (.cc family.TemplateCosts. setup: 2 specialize: 1 rebuild: 2) check-uses))
+    (family.choose-source (.cc selection-prices calls: selector-calls)
+      (if (eq? mode 'shared) shared-checks-source selected-source) (lambda () contract-keys))))
+;; One cold use chooses existing fresh checks and dynamic selection by exact source identity.
+(def budgeted-source (configured-source 1 1))
+;; A sustained service uses a separate supported horizon. With these weights,
+;; checks amortize but selector guards do not; the exact shared-checks source wins.
+(def repeated-source (configured-source 64 64))
+;; Shared generic expansion with independently budgeted checks and selector choice.
 (def budgeted-model (.cc shared-checks-model contract-source: budgeted-source))
 ;; Complete DAG workflow; cold/fallback/GC budgets are separate from descriptor
 ;; reconstruction, current-state binding and mandatory joint approval.
-(def budgeted-workflow-model (.cc shared-checks-workflow-model contract-source: budgeted-source))
+(def budgeted-workflow-model (.cc shared-checks-workflow-model contract-source: repeated-source))

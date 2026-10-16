@@ -1,5 +1,5 @@
 ;;; ContractFamily: closed contract inputs and late-bound invocation wrappers.
-(export Source. PreparationCosts. SelectionCache. SelectionCacheCosts. choose-selection choose-source choose-preparation cached-choice methods.inputs<-cached-selection methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
+(export Source. PreparationCosts. SelectionCache. SelectionCacheCosts. TemplateCosts. choose-checks choose-selection choose-source choose-preparation cached-choice methods.inputs<-cached-selection methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
         family-built family-bound family-reused family-prepared? family-preparation)
 (import :std/iter (only-in :std/func compose1) ./object (only-in ./mop define-type .defgeneric)
         (prefix-in ./declarative-metadata metadata.))
@@ -129,6 +129,19 @@
 (define-type (methods.inputs<-cached-selection @ [methods.inputs<-shared] selection-cache project-direct)
   .select: (.@ selection-cache .choose)
   .direct: project-direct)
+;; Invariant-check setup/specialization/rebuild weights correspond to Lean
+;; PreparationCosts.TemplateCosts. Compile a mode for an explicit use horizon;
+;; initial compilation is charged, and ties keep ordinary fresh checks.
+(define-type (TemplateCosts. @ [] setup specialize rebuild)
+  .choose:
+  (begin
+    (unless (andmap (lambda (n) (and (exact-integer? n) (>= n 0)))
+      (list setup specialize rebuild)) (error "invalid check preparation costs"))
+    (lambda (uses)
+      (unless (and (exact-integer? uses) (>= uses 0)) (error "invalid check use horizon"))
+      (if (< (+ setup (* uses specialize)) (* uses rebuild)) 'shared 'fresh))))
+;; Select immutable-check reuse under supplied costs; this is not a timing oracle.
+(.defgeneric (choose-checks prices uses) slot: .choose)
 ;; Explicit selector reuse budget, corresponding to Lean SelectionCacheCosts and
 ;; SelectionBudget. calls counts actual changed-input preparations, NOT all workflow
 ;; revisions; retained contexts never select. Extra GC is a supplied upper budget,
@@ -136,13 +149,17 @@
 (define-type (SelectionCacheCosts. @ [] setup guard calls)
   fallbacks: 0 collection-price: 0 extra-collections: 0
   .choose:
-  (lambda (selection-cost)
+  (begin
+    ;; Validate immutable weights once when the callback is built, matching the
+    ;; existing PreparationCosts protocol; each call validates only its argument.
     (unless (and (andmap (lambda (n) (and (exact-integer? n) (>= n 0)))
-      (list setup guard calls fallbacks collection-price extra-collections selection-cost))
+      (list setup guard calls fallbacks collection-price extra-collections))
       (<= fallbacks calls)) (error "invalid selection cache budget"))
-    (if (< (+ setup (* (+ 1 fallbacks) selection-cost) (* calls guard)
-              (* collection-price extra-collections)) (* calls selection-cost))
-      'cached 'dynamic)))
+    (let ((fixed (+ setup (* calls guard) (* collection-price extra-collections)))
+          (selections (+ 1 fallbacks)))
+      (lambda (selection-cost)
+        (unless (and (exact-integer? selection-cost) (>= selection-cost 0)) (error "invalid selection cost"))
+        (if (< (+ fixed (* selections selection-cost)) (* calls selection-cost)) 'cached 'dynamic)))))
 ;; Choose the cheaper supported selector mode under explicit counted/GC premises.
 ;; Strict comparison keeps dynamic on ties; the budget is a conditional model,
 ;; never proof of wall time or the future number of preparation misses.

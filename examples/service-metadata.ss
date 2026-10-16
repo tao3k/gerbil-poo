@@ -30,8 +30,8 @@
 (def (reservation available) (.cc reservation-template meaning: (reservation-meaning available)))
 ;; Reuse invariant native checks through the existing withMeaning specialization
 ;; protocol. Capacity remains the new dependent meaning, never a cached result.
-(def (specialized-reservation available)
-  (metadata.with-meaning reservation-template (reservation-meaning available)))
+(def (specialized-reservation available (share? #t))
+  (metadata.with-meaning reservation-template (reservation-meaning available) share?))
 ;; Declare quote, reserve and cancel implementations against this cooked service view.
 (def (declarations view)
   (list

@@ -15,10 +15,10 @@
 (def uncaptured-source (.cc shared.selected-source
   .select: (let (costs (.@ shared.selected-source preparation-costs))
     (lambda (keys) (contracts.choose-preparation costs (length keys))))))
-;; Construct all nine controls in fixed side order, even when measuring only one.
+;; Construct all ten controls in fixed side order, even when measuring only one.
 ;; Keep support, closed projections and publication semantics matched.
 (def sources (list shared.independent-source uncaptured-source shared.selected-source shared.cached-source shared.selected-source shared.cached-source
-  shared.shared-checks-source (.@ shared.shared-checks-cached-model contract-source) shared.budgeted-source))
+  shared.shared-checks-source (.@ shared.shared-checks-cached-model contract-source) shared.budgeted-source shared.budgeted-source))
 ;; Reserve/cancel test executor using only the passed current view; returns
 ;; result and unchanged view. Checked wrappers validate both service observations.
 (def (execute key args view)
@@ -44,16 +44,19 @@
        (map (lambda (source)
          (let (select (.@ source .select)) (lambda () (eq? (select keys) 'direct)))) (cdr sources)))))
     ;; Charge fresh source/input callback construction for every side. The budgeted
-    ;; side additionally creates/validates its policy and compiles mode selection;
-    ;; that one-time configuration is separate from repeated cold-family requests.
+    ;; cold-budget side additionally creates/validates its policy, while reused-policy
+    ;; shares an already validated callback. The first setup is charged by the cold
+    ;; side and remains separate from repeated cold-family requests.
     ((configure)
      (map (lambda (source index)
        (lambda ()
          (def current (.cc source))
-         (def configured (if (= index 8)
-           (contracts.choose-source (.cc contracts.SelectionCacheCosts. setup: 2 guard: 1 calls: 1
-             collection-price: 1 extra-collections: 1) current (lambda () '(reserve cancel))) current))
-         (procedure? (.@ configured .inputs)))) sources '(0 1 2 3 4 5 6 7 8)))
+         (def configured (cond
+           ((= index 8) (contracts.choose-source (.cc contracts.SelectionCacheCosts. setup: 2 guard: 1 calls: 1
+             collection-price: 1 extra-collections: 1) current (lambda () '(reserve cancel))))
+           ((= index 9) (contracts.choose-source shared.selection-prices current (lambda () '(reserve cancel))))
+           (else current)))
+         (procedure? (.@ configured .inputs)))) sources '(0 1 2 3 4 5 6 7 8 9)))
     ((inputs)
      (map (lambda (source)
        ;; Admit the complete projection/constructor composition before isolating inputs.
@@ -75,10 +78,10 @@
          (lambda ()
            (def parent (.cc template checks: #f))
            (def meaning (.@ parent meaning))
-           (def descriptor (if (>= index 6) (metadata.with-meaning parent meaning)
+           (def descriptor (if (>= index 6) (metadata.with-meaning parent meaning (< index 8))
                               (.cc parent meaning: meaning)))
            (def checked (metadata.wrap descriptor (lambda (args current) (execute 'reserve args current))))
-           (equal? (first-value (checked '(2) next-view)) '(ok 18 #t)))) '(0 1 2 3 4 5 6 7 8))))
+           (equal? (first-value (checked '(2) next-view)) '(ok 18 #t)))) '(0 1 2 3 4 5 6 7 8 9))))
     ((bind)
      (map (lambda (source)
        (def descriptors (map (.@ source construct) '(reserve cancel) '(20 "invoice:2")))
@@ -113,15 +116,18 @@
               (equal? (contracts.family-bound next) '(reserve cancel))
               (equal? (first-value ((contracts.family-invoker next 'reserve) '(2) next-view)) '(ok 18 #t))
               (equal? (first-value ((contracts.family-invoker next 'cancel) '("customer" #t) next-view)) '("customer" "invoice:2"))))) sources))
-    ((joint workflow generics approval standard simple)
+    ((joint workflow generics approval standard simple forwarding inner simula)
      (let ()
      (def workflow? (eq? scenario 'workflow))
-     (def qualified? (memq scenario '(standard simple)))
+     (def qualified? (memq scenario '(standard simple forwarding inner simula)))
      (def base (case scenario ((workflow) shared.workflow-model) ((standard) qualified.standard-model)
-                ((simple) qualified.simple-model) (else bundle.model)))
+                ((simple) qualified.simple-model) ((forwarding) qualified.forwarding-model)
+                ((inner) qualified.inner-model) ((simula) qualified.simula-model) (else bundle.model)))
+     ;; Complete publications reuse the same service templates; configure a
+     ;; repeated-use check budget rather than applying the single-parent cold mode.
      (def models (map (lambda (source index)
-       (.cc base contract-source: source
-         generics: (if (and (>= index 4) (not qualified?)) shared.expanded-generics (.@ base generics)))) sources '(0 1 2 3 4 5 6 7 8)))
+       (.cc base contract-source: (if (>= index 8) shared.repeated-source source)
+         generics: (if (and (>= index 4) (not qualified?)) shared.expanded-generics (.@ base generics)))) sources '(0 1 2 3 4 5 6 7 8 9)))
      (def specification (if workflow? (workflow.graph 30) (access.equations (access.config) #t)))
      (map (lambda (model)
        (defvalues (cold issue) (staged.prepare model specification policy))
@@ -170,7 +176,7 @@
   (def regime (string->symbol regime-text))
   ;; One-character side codes keep the argv allocation shape constant.
   (def side (string->number side-text))
-  (unless (and (memq scenario study.scenarios) (memq regime study.regimes) (memv side '(0 1 2 3 4 5 6 7 8)))
+  (unless (and (memq scenario study.scenarios) (memq regime study.regimes) (memv side '(0 1 2 3 4 5 6 7 8 9)))
     (error "invalid paired request"))
   (def actions (workload scenario))
   (for* ((_ (in-range study.warmups)) (action actions)) (unless (action) (error "paired prefix oracle")))
