@@ -33,10 +33,10 @@ further tuning of the corresponding workflow.
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
 | Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs; `t/method-combination-test.ss` and service examples | One extensible fragment macro spanning all records/functions and `.defgeneric` integration remain partial. |
-| General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss` | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Explicit constant-base self-hosting is implemented in `meta-prototype.ss`; arbitrary alternative orders and unrestricted recursive meta fixed points remain open. |
+| General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
 | User-selected storage and focused computation | Partial: explicit item raw form, prepared hooks, focused/nested construction | Arbitrary user storage strategies, primitive proxies/impersonators and automatic law discovery are open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
-| Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss` | Form specifications are captured sources; fresh membership needs fresh elaboration. Unrestricted lexical rewrites and callback I/O rollback remain outside this protocol. |
+| Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
 | Object keyword syntax / lexical slot bindings | Partial: current `.o`, `with-slots` and explicit self/supers bindings work | Proposed keyword grammar and independently configurable automatic slot bindings remain open. |
 | Prototype mutability discipline | Explicit invalidating protocol implemented: registered weak reverse edges, once-per-owner clearing across diamonds, topology preflight, active-evaluation rejection and optional sealing; original parent-mutation tests retained | Sequential supported APIs only; external callback dependencies must be registered. Raw struct setters are internal escape hatches. Sealing locks direct source/instance edits, not all unsealed ancestors. |
 | Data representation / usual object optimizations | Partial: explicit immutable preparations and compact method storage | General persistent prototype maps, shape/hashconsing/vector layout and inline-cache protocols remain open. Historical speed measurements do not close these. |
@@ -61,9 +61,32 @@ The concrete inherited-hook → invalidating source revision → declared reflec
 chain now has implementation, native controls and Lean laws (see
 [inheritance-hooks.md](inheritance-hooks.md)). Constant-base self-hosting and nonlocal declaration protocols are now implemented
 (see [meta-prototype.md](meta-prototype.md)). Remaining work includes unrestricted
-meta fixed points, alternative-order certification, global security policy and
+meta fixed points beyond finite positive Boolean equations, alternative-order certification, global security policy and
 arbitrary lexical rewriting; these are not marked complete by this chain.
 Performance tuning of the earlier factory workflow is paused for functional work.
+
+### Recursive metalevel and declaration closure
+
+`meta-prototype.ss` `close-protocol` reuses `closure.ss`: inherited `equations`
+are solved from false, then inherited `cook` receives that exact least solution
+and builds the ordinary kernel passed to `bootstrap-protocol`. Facts describe
+finite positive metalevel components; a supported mutual dependency is allowed,
+but an ungrounded cycle cannot invent or retain old metadata after revocation.
+
+`recursive-declaration.ss` inherits `Declaration.` and adds
+`expand-recursive-declaration`. Its explicit Interaction requests can refer to
+later fragments and share completed dependencies. A Reader/FUN action owns fresh
+memo for each current context, checks captured source revisions, then runs the
+existing finalizer and descriptor/catalog checks. No partial prefix is returned
+as an object on source failure, cycle, budget exhaustion or final admission error.
+
+The recursive service example combines cyclic metalevel feedback, two service
+branches, shared forward leaves, private revision annotations and a nonlocal
+computed total. Controls include seed removal, current approval refusal/recovery,
+stale metadata, source mutation rejection, root suffix suppression and isolation
+between contexts. Lean `RecursiveMetaprotocol` and `RecursiveDeclarations` prove
+the corresponding pure closure and source/publication laws. See
+[recursive-declarations.md](recursive-declarations.md) for exact premises.
 
 ## Meta-Object Protocol
 
@@ -483,7 +506,8 @@ self and `bind-observer` compose through native FUN with fresh seeds. The nested
 billing example preserves both audits and checks shared self. This closes a
 concrete functional-lens/computation path and part of direct subcomponent
 computation. Automatic `.lens` syntax, skipping full raw assembly, arbitrary
-lawful storage/migration and reflective bootstrapping remain open. Native phase
+lawful storage/migration remain open. The scoped constant-base and positive
+recursive metalevel paths are described in the current ledger above. Native phase
 measurements retain adverse binding/hook controls, separately from functional
 proofs and logical work-count bounds; see the current performance summary.
 

@@ -1,5 +1,6 @@
 ;;; Nonlocal declaration expansion uses ordinary inherited POO methods and Reader.
-(export Declaration. declaration-form declaration-action expand-declarations object<-declaration-forms .declare)
+(export Declaration. declaration-form declaration-action expand-declarations object<-declaration-forms
+        object<-expanded-declarations .declare)
 (import :std/iter 
         (only-in :std/list/list foldr) ./object ./mop ./reflection (only-in ./type element?)
         (prefix-in ./generalized-prototype gp.))
@@ -85,7 +86,11 @@
   (parameterize ((active-object-constructions
       (cons expander (cons context (active-object-constructions)))))
     (def entries (expand-declarations expander context forms))
-    (object<-declarations (catalog-declarations context entries) supers: supers protocol: protocol)))
+    (object<-expanded-declarations context entries supers: supers protocol: protocol)))
+;; Shared publication boundary for direct and safe recursive elaboration. Callers
+;; supply fully finalized entries; reserved catalog names still collide and refuse.
+(def (object<-expanded-declarations context entries supers: (supers []) protocol: (protocol #f))
+  (object<-declarations (catalog-declarations context entries) supers: supers protocol: protocol))
 ;; Static forms quote their kind/name; Scheme unquote-splicing admits computed
 ;; runtime forms. let sequences metadata expressions exactly once in source order.
 (defrules declaration-forms (unquote-splicing)

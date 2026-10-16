@@ -1,6 +1,6 @@
 ;;; Explicit constant-base bootstrapping for self-describing inheritance protocols.
-(export bootstrap-protocol bootstrap-protocol?)
-(import ./object)
+(export bootstrap-protocol bootstrap-protocol? close-protocol)
+(import ./object ./closure)
 ;; Recognize the explicit self-hosted root, not any object with a protocol cycle.
 ;; This is native representation provenance, not a proof seal or security predicate.
 (def (bootstrap-protocol? value)
@@ -24,3 +24,16 @@
   (object-protocol-set! root root)
   (instantiate-object! root)
   (seal-object! root))
+;; Close positive recursive METADATA equations from false before cooking the hook
+;; kernel. Reuse the existing finite least solver; no warm facts can self-support.
+;; The inherited cook callback builds an ordinary protocol source from this exact
+;; solution. Its result then goes through the same checked constant-base bootstrap.
+;; This covers finite Boolean meta components, not arbitrary recursive procedures.
+(def (close-protocol source)
+  (unless (object? source) (error "recursive protocol source required"))
+  (instantiate-object! source)
+  (parameterize ((active-object-constructions (cons source (active-object-constructions))))
+    (def facts (construct-closure (.ref source 'equations)))
+    (def cooked ((.ref source 'cook) facts))
+    (unless (object? cooked) (error "recursive protocol cook must return an object"))
+    (bootstrap-protocol (.+ cooked (object<-alist [(cons 'facts facts)])))))

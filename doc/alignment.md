@@ -864,3 +864,28 @@ asserted to be the paper's literal Racket API. Captured anchors need fresh boots
 for a kernel change, and compiled declaration actions refuse changed expander
 revisions. Ordinary cycles do not gain this base exception. See
 [meta-prototype.md](meta-prototype.md) for supported inputs and mutation boundaries.
+
+### Recursive metalevel and nonlocal fragments (future work)
+
+The Racket constant-base construction and TODO's proposed metalevel fixed point
+now have a finite positive Boolean realization. `MetaPrototype.closePositive`
+reuses `PositiveEquations.close`; native `close-protocol` reuses the existing
+closure solver before cooking/self-bootstrap. Fixedness, leastness, same-solution
+kernel provenance, reflection and the strict-advance bound have separate laws.
+
+`DeclarativeMetadata.collectRecursive` and `Resolved.sources` retain an actual
+finite evaluation of each root using the existing source-indexed memo machine.
+`elaborateRecursive_source` binds finalization to the complete ordered expansion
+at the current context. Native `RecursiveDeclaration.` lifts inherited expansion
+into Interaction and Reader/FUN composition; requests support forward/shared
+fragments while repeated active keys still refuse. Fresh memo per context prevents
+old approvals or descriptors crossing revisions. Existing catalog admission is
+shared by the direct and recursive paths.
+
+`Examples/RecursiveMetaprotocol.lean` and `examples/recursive-metaprotocol.ss`
+combine mutually dependent meta components, shared service declarations and a
+whole-object total. Native controls additionally check getter values, actual
+shared request counts, source mutation rejection and current refusal/recovery.
+Finite positive closure is not an unrestricted recursive procedure knot; local
+callback termination/purity, registered dependencies and immutable keys remain
+premises. See [recursive-declarations.md](recursive-declarations.md).
