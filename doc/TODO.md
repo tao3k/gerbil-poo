@@ -273,6 +273,15 @@ approval metadata changes still require freshly prepared lens checks; refusal
 retains the last publication. See [component-rounds.md](component-rounds.md) for the
 seven-state native/Lean scenario, repeated cycles and explicit proof premises.
 
+Competing staged component requests now use `component-publication` to arbitrate
+one authoritative current head. Final installation rechecks expected identity,
+refusing late candidates and returning current rival state rather than restoring
+a stale predecessor. Current-policy retry and fresh staging after topology changes
+reuse existing FUN revision/closure/approval. See
+[component-publication.md](component-publication.md) for native bounded-thread and
+interleaving controls, abstract Lean installation laws and explicit concurrency
+premises. This does not claim arbitrary mutable-object thread safety or rollback.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
