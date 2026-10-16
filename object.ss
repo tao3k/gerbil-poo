@@ -18,6 +18,7 @@
   (only-in :std/error deferror-class Exception)
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
+  ./object-state
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten)
   (only-in :std/string/symbol symbol<?)
@@ -76,20 +77,31 @@
    %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
    %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
-   %all-slots) ;; : (Listof Symbol) ; definition order for all slot keys
+   %all-slots
+   %state ;; mutation revision, sealed flag and weak dependency edges
+   %protocol ;; optional ordinary POO object supplying inheritance hooks
+   %overrides ;; explicit INSTANCE assignments, never inherited specifications
+   %declarations) ;; : (Listof Symbol) ; definition order for all slot keys
   constructor: :init!)
 (defmethod {:init! object}
   (lambda (self ;; : (Object A)
       supers: (supers '()) ;; : (Listof Objects) ;; Actually, can be a pair-tree of Object's and nulls.
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
-      defaults: (defaults '())) ;; : (Listof (Pair Symbol ?))
+      defaults: (defaults '())
+      protocol: (protocol #f) declarations: (declarations '())) ;; : (Listof (Pair Symbol ?))
     (set! (object-supers self) (flatten supers))
     (set! (object-%slots self) slots)
     (set! (object-%defaults self) defaults)
     (set! (object-%instance self) #f)
     (set! (object-%precedence-list self) #f)
     (set! (object-%slot-funs self) #f)
-    (set! (object-%all-slots self) #f)))
+    (set! (object-%all-slots self) #f)
+    (set! (object-%state self) (make-object-state))
+    (set! (object-%protocol self) protocol)
+    (set! (object-%overrides self) #f)
+    (set! (object-%declarations self) declarations)
+    (for-each (cut depend-on-object! self <>) (object-supers self))
+    (when protocol (depend-on-object! self protocol))))
 
 (def (object-slots self)
   (let (storage (object-%slots self))
@@ -99,31 +111,94 @@
   (let (storage (object-%defaults self))
     (if ($slot-store? storage) ($slot-store-list storage) storage)))
 
-(def (object-slots-set! self slots)
-  (set! (object-%slots self) slots))
-
-(def (object-defaults-set! self defaults)
-  (set! (object-%defaults self) defaults))
-
-(def (instantiate-object! self)
-  (if (object? self)
-    (unless (object-%instance self)
-      (set! (object-%instance self) (make-hash-table-symbolic))
-      (compute-precedence-list! self)
-      (compute-slot-funs! self)
-      #;(check-assertions! self)) ;; TODO: allow for instantiation-time assertions
-    (error "Not an object" self)))
-
+;; Track dependencies on prototypes, protocol objects and declaration descriptors.
+(def (depend-on-object! self source)
+  (unless (object? source) (error "object dependency required"))
+  (depend-on-state! (object-%state source) self (object-%state self)))
+;; Read-only revision identity for source-bound external caches.
+(def (object-revision self) (object-state-revision (object-%state self)))
+;; Active construction is separate from slot computation: no partial method table
+;; or instance is published when an inherited hook tries to read its own receiver.
+(def active-object-constructions (make-parameter []))
+;; Clear all derived state together. Explicit instance assignments remain separate.
+(def (clear-object-cache! self)
+  (set! (object-%instance self) #f)
+  (set! (object-%precedence-list self) #f)
+  (set! (object-%slot-funs self) #f)
+  (set! (object-%all-slots self) #f))
+;; Refuse mutation during evaluation anywhere in the affected dependency closure.
+(def (check-object-edit self state)
+  (when (or (memq self (active-object-constructions))
+            (any (lambda (entry) (eq? self (car entry))) (active-slot-computations)))
+    (error "object mutation during computation")))
+;; Explicit invalidation preserves specifications and reaches shared descendants once.
 (def (uninstantiate-object! self)
-  (when (object-%instance self)
-    (set! (object-%instance self) #f)
-    (set! (object-%precedence-list self) #f)
-    (set! (object-%slot-funs self) #f)
-    (set! (object-%all-slots self) #f)))
+  (invalidate-state! self (object-%state self) check-object-edit clear-object-cache!))
+;; Sealed sources reject all supported writes; invalidation alone remains allowed.
+(def (before-object-edit! self)
+  (when (object-state-sealed? (object-%state self)) (error "sealed prototype"))
+  (uninstantiate-object! self))
+;; Seal the current receiver's specifications and explicit instance assignments.
+;; Ancestors can still change through the invalidation protocol unless sealed too.
+(def (seal-object! self)
+  (check-object-edit self (object-%state self))
+  (set! (object-state-sealed? (object-%state self)) #t) self)
+;; Replace direct specifications, invalidating every retained dependent cache.
+(def (object-slots-set! self slots)
+  (before-object-edit! self)
+  (set! (object-%slots self) slots))
+;; Replace direct defaults through the same invalidation discipline.
+(def (object-defaults-set! self defaults)
+  (before-object-edit! self)
+  (set! (object-%defaults self) defaults))
+;; Install a new protocol; old dependency edges conservatively remain valid.
+(def (object-protocol-set! self protocol)
+  (unless (or (not protocol) (object? protocol)) (error "protocol object required"))
+  (before-object-edit! self)
+  (when protocol (depend-on-object! self protocol))
+  (set! (object-%protocol self) protocol))
+;; Replace parent topology only after C3 admission and cycle checks. Low-level
+;; generated struct setters are internal escape hatches, not this public protocol.
+(def (replace-object-supers! self supers)
+  (def parents (flatten supers))
+  (for-each (lambda (parent)
+    (unless (object? parent) (error "prototype parent required"))
+    (when (memq self (compute-precedence-list! parent)) (error "cyclic prototype revision"))) parents)
+  (compute-precedence-list! (make-object supers: parents))
+  (before-object-edit! self)
+  (for-each (cut depend-on-object! self <>) parents)
+  (set! (object-supers self) parents))
+;; Resolve the most-specific explicit protocol after checked C3 linearization.
+;; Protocol descriptors themselves inherit with the ordinary object mechanism.
+(def (object-protocol self)
+  (let find ((order (object-%precedence-list self)))
+    (and (pair? order) (or (object-%protocol (car order)) (find (cdr order))))))
+;; Invoke one optional inherited hook. The continuation is the existing engine,
+;; not a second evaluator; hook errors propagate and never install partial caches.
+(def (invoke-object-hook self name next . args)
+  (def protocol (object-protocol self))
+  (if (and protocol (.slot? protocol name))
+    (apply (.ref protocol name) self next args) (next)))
+;; Instantiate atomically with respect to native exceptions. Mutating callbacks and
+;; concurrent reads/writes are outside the sequential protocol, and are rejected
+;; for actively evaluated receivers rather than returning a partially built value.
+(def (instantiate-object! self)
+  (unless (object? self) (error "Not an object"))
+  (unless (object-%instance self)
+    (when (memq self (active-object-constructions)) (error "recursive object construction"))
+    (parameterize ((active-object-constructions (cons self (active-object-constructions))))
+      (try
+        (compute-precedence-list! self)
+        (compute-slot-funs! self)
+        (def instance (make-hash-table-symbolic))
+        (when (object-%overrides self)
+          (for (([key . value] (object-%overrides self))) (hash-put! instance key value)))
+        (set! (object-%instance self) instance)
+        (catch (cause) (clear-object-cache! self) (raise cause))))))
 
 (defclass (InvalidObject Exception) (slots) transparent: #t)
 (def (invalid-object-summary self)
-  (InvalidObject slots: (map car (append (object-slots self) (object-defaults self)))))
+  (InvalidObject slots: (map car (append (object-slots self) (object-defaults self) (object-%declarations self)))))
 
 (def (compute-precedence-list! self (heads '()))
   ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
@@ -137,7 +212,8 @@
       (error "Circular precedence graph" (member object heads)))
      (else
       (hash-put! active object #t)
-      (let (precedence-list
+      (parameterize ((active-object-constructions (cons object (active-object-constructions))))
+        (let (precedence-list
             (first-value
              (c4-linearize
               [object] (object-supers object)
@@ -147,21 +223,43 @@
               get-name: invalid-object-summary)))
         (hash-remove! active object)
         (set! (object-%precedence-list object) precedence-list)
-        precedence-list)))))
+        (try
+          (let (chosen (invoke-object-hook object 'compute-precedence-list (lambda () precedence-list)))
+            (unless (and (list? chosen) (= (length chosen) (length precedence-list))
+                         (andmap eq? chosen precedence-list))
+              (error "inheritance hook must preserve checked C3 order"))
+            chosen)
+          (catch (cause) (clear-object-cache! object) (raise cause)))))))))
 
+;; Compile declaration metadata through the existing Slot protocol on a fresh
+;; private receiver. Repeating this after descriptor edits cannot retain stale
+;; constant/default/compute specifications from the previous metadata revision.
+(def (declaration-specifications self)
+  (if (null? (object-%declarations self)) (cons [] [])
+    (let (scratch (make-object))
+      (for (([name . descriptor] (object-%declarations self)))
+        (def type (.@ descriptor .type))
+        (depend-on-object! self type)
+        (.call type .slot.define descriptor name scratch))
+      (cons (object-slots scratch) (object-defaults scratch)))))
+;; Assemble the ordinary inheritance chain, then let inherited hooks transform
+;; each effective thunk. Direct specification writes override their declaration.
 (def (compute-slot-funs! self)
   (def h (make-hash-table-symbolic))
-  (def supers (reverse (object-%precedence-list self)))
-  ;; Handle defaults
-  (for (super supers)
-    (for (([slot . value] (object-defaults super)))
+  (def sources (map (lambda (super) (cons super (declaration-specifications super)))
+                   (reverse (object-%precedence-list self))))
+  (for (([super . declarations] sources))
+    (for (([slot . value] (append (cdr declarations) (object-defaults super))))
       (hash-put! h slot (lambda _ value))))
-  ;; Handle methods
-  (for (super supers)
-    (for (([slot . spec] (object-slots super)))
+  (for (([super . declarations] sources))
+    (for (([slot . spec] (append (car declarations) (object-slots super))))
       (hash-ensure-modify! h slot
-                           (lambda () (cut no-applicable-method self slot))
-                           (cut apply-slot-spec self spec <>))))
+        (lambda () (cut no-applicable-method self slot))
+        (cut apply-slot-spec self spec <>))))
+  (for (([slot . standard] (hash->list h)))
+    (def compiled (invoke-object-hook self 'compute-slot (lambda () standard) slot))
+    (unless (procedure? compiled) (error "compute-slot must return a thunk" slot))
+    (hash-put! h slot compiled))
   (set! (object-%slot-funs self) h))
 
 ;; Given a list of list of keys, in precedence order,
@@ -284,10 +382,11 @@
   (instantiate-object! self)
   (or (object-%all-slots self)
       (let (esl (merge-super-slots
-                 (map (lambda (super) (map car (append (object-slots super) (object-defaults super))))
+                 (map (lambda (super) (map car (append (object-slots super) (object-defaults super) (object-%declarations super))))
                       (object-%precedence-list self))))
-        (set! (object-%all-slots self) esl)
-        esl)))
+        (def defined (filter (lambda (slot) (hash-key? (object-%slot-funs self) slot)) esl))
+        (set! (object-%all-slots self) defined)
+        defined)))
 
 ;; : Unit <- (Object A) (Fun _ <- s:Symbol (A s))
 (def (.for-each! self fun)
@@ -604,15 +703,19 @@
 (defrules .call ()
   ((_ object slot args ...) ((.get object slot) args ...)))
 
+;; Install a direct specification; all retained descendants lose derived caches.
 ;; : Unit <- (Object A) s:Symbol (SlotSpec A s)
 (def (.putslot! self slot slot-spec)
+  (before-object-edit! self)
   (let (storage (object-%slots self))
     (unless ($slot-store? storage)
       (set! storage (make-slot-store storage))
       (set! (object-%slots self) storage))
     ($slot-store-put! storage slot slot-spec)))
 
+;; Change a direct default and invalidate all derived inherited state.
 (def (.putdefault! self slot default)
+  (before-object-edit! self)
   (let (storage (object-%defaults self))
     (unless ($slot-store? storage)
       (set! storage (make-slot-store storage))
@@ -634,7 +737,11 @@
 ;; Side-effect the value of a field into an object.
 ;; Assumes the top-object-proto was used.
 ;; : Unit <- (Object A) s:Symbol (A s)
-(def (.put! self slot value) ;; TODO: check instance mutability status first (?)
+(def (.put! self slot value)
+  (before-object-edit! self)
+  (unless (object-%overrides self)
+    (set! (object-%overrides self) (make-hash-table-symbolic)))
+  (hash-put! (object-%overrides self) slot value)
   (hash-put! (object-instance self) slot value))
 
 (defrules .set! () ((_ object. slot value) (.put! object. 'slot value)))

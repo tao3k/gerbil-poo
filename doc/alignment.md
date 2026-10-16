@@ -820,3 +820,24 @@ type-system and library gaps visibly open. Earlier native timing receipts belong
 to their recorded source identities: the lifecycle changes alter core lookup and
 construction, so those receipts are historical, not measurements of this source.
 No new performance claim is made while closing these functional gaps.
+
+### Inherited hooks, invalidating revision and declaration reflection (future work)
+
+The concrete chain is documented in [inheritance-hooks.md](inheritance-hooks.md).
+It advances the paper's deferred generalized MOP, rather than retroactively making
+those hooks part of the paper's Racket implementation.
+
+| Racket / Lean | Gerbil native implementation |
+| --- | --- |
+| Metadata as ordinary objects; delayed inherited computations | `with-inheritance-hooks`; protocol methods use ordinary `.o` C3 inheritance and inherited thunks |
+| `InheritedMOP.composeHooks_assoc`, `checkedOrder_sound/error` | Existing C3 / effective-slot engine intercepted by `compute-precedence-list`, `compute-slot`; accepted order remains canonical |
+| Existing `Proof.invalidatedNodes` and descendant laws; `Object.invalidateCaches_descendant/once/frame` | Registered weak reverse source edges, all derived caches cleared together, diamonds visited once, unaffected owners retained |
+| `Object.guardedEdit`, `publishEdit_sealed` | Active-closure preflight, optional sealing and checked parent topology edits; sequential supported APIs |
+| Existing Slot/Descriptor validation; `DescriptorReflection.publicSlots_visible`, `readSlot_hidden`, `writeSlot_rejected/admitted` | `object<-declarations`, Class bridge, inherited public metadata, typed public reads/writes and metadata-driven recompile |
+| `Examples/InheritedHooks.lean` | `examples/inherited-services.ss`, `t/inheritance-hooks-test.ss` |
+
+Protocol source edits invalidate owners; descriptor/type edits recompile declaration
+specifications instead of retaining stale defaults/constants/computations. Reflected
+metadata does not force private values. Low-level raw access is trusted, not a
+security boundary; callback effects, undeclared external dependencies, concurrent
+mutation and arbitrary alternative linearizations have no blanket proof here.
