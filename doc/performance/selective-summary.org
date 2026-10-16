@@ -1,7 +1,8 @@
-#+TITLE: Native joint revision cost observations
+#+TITLE: Historical native joint revision cost observations
 
-Reproduce: just benchmark-metadata. This run uses binary/output basenames joint-final/joint-final.scm.
-Complete current-source matrix: 600 rows, 75 phases, four rotating rounds,
+These values qualify the recorded pre-paired source, not later selector changes.
+Reproduce that source with just benchmark-metadata. This run uses binary/output basenames joint-final/joint-final.scm.
+Historical matrix at Scheme commit af0fcbb: 600 rows, 75 phases, four rotating rounds,
 natural and pre-collected controls. Toolchain Gerbil/Gambit: (1cfb032 ea114fc).
 Native compile <=90s; measurement <=20s, 1-GiB heap; no simultaneous local Lean build/test.
 New stage/control pairs all use 128 operations equally on both sides.

@@ -1,6 +1,6 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
 ;;; Generalized-prototype future work: immutable closed inputs, native mixins.
-(export source independent-source selected-source model selected-model workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
+(export source independent-source selected-source planned-source model selected-model planned-model workflow-model planned-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
 (import ../object (prefix-in ../contract-family family.)
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ./construction-workflow workflow.)
@@ -27,8 +27,9 @@
 (def (construct key input)
   (case key ((reserve) (service.reservation input)) ((cancel) (cancellation input))
     (else (error "unknown contract" key))))
+(def contract-keys '(reserve cancel))
 (def independent-source
-  (.cc family.Source. keys: (lambda (_ __) '(reserve cancel))
+  (.cc family.Source. keys: (lambda (_ __) contract-keys)
     project: (lambda (key policy view) (project-shared key (prepare-shared (shared-input policy view))))
     construct: construct))
 (def source
@@ -53,3 +54,14 @@
 
 ;; Shared settlement DAG → cooked interface → selected contracts → joint approval.
 (def workflow-model (.cc workflow.model contract-source: selected-source))
+
+;; Stable support can plan its projection strategy once, before revision work.
+(def planned-source
+  (.mix (.cc family.methods.inputs<-plan
+          shared-input: shared-input prepare-shared: prepare-shared project-shared: project-shared
+          project-direct: project-direct
+          preparation-plan: (.cc family.PreparationPlan. keys: contract-keys
+            preparation-costs: (.@ selected-source preparation-costs)))
+    independent-source))
+(def planned-model (.cc bundle.model contract-source: planned-source))
+(def planned-workflow-model (.cc workflow.model contract-source: planned-source))

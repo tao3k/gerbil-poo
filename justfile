@@ -90,3 +90,11 @@ benchmark-metadata:
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "{{ closure-ld-options }}" -o .build/metadata/metadata-benchmark t/metadata-benchmark.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/metadata/metadata-benchmark -:max-heap=1G .build/metadata/metadata-benchmarks.scm .build/metadata/metadata-benchmark
     {{ platform-env }} gxi {{ test-runtime-options }} t/metadata-report.ss .build/metadata/metadata-benchmarks.scm
+
+benchmark-metadata-paired:
+    mkdir -p .build/metadata
+    printf '%s\n' '(metadata-paired (status incomplete))' > .build/metadata/metadata-paired.scm
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    just build
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "{{ closure-ld-options }}" -o .build/metadata/metadata-paired t/metadata-paired-benchmark.ss
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} t/metadata-paired-suite.ss .build/metadata/metadata-paired "{{ timeout-executable }}" .build/metadata/metadata-paired.scm

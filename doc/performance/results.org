@@ -13,3 +13,9 @@ observation per line. Allocation crossing collection or a negative native
 counter delta is unavailable. Source and binary digests bind a study to the run;
 old observations cannot qualify changed source. Reproduce results with the
 native toolchain and the unchanged timeout/heap bounds.
+
+The historical single-process study is summarized in [[file:selective-summary.org]].
+Fresh-process selector controls are summarized in [[file:paired-summary.org]];
+reproduce with ~just benchmark-metadata-paired~. Child and aggregate bounds are
+separate. Keep every paired difference and incoming GC counter, even when a
+strategy regresses or process histories do not match.

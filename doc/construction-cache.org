@@ -300,3 +300,47 @@ priced charge. An executable counterexample shows that one extra collection can
 reverse a primitive saving. Native GC observations cannot be dropped when using
 the model to recommend a strategy. These are conditional cost laws, not a collector
 or compiler verification, and no Lean results are embedded into this package.
+
+* Prepared selectors and fresh-process pairing
+
+~PreparationPlan.~ corresponds to Lean ~PreparationCosts.Plan~. It captures a
+choice for canonical immutable ~keys~, returns that result for matching size,
+and invokes the original selector for different arity. ~methods.inputs<-plan~
+composes it with the existing closed shared-input protocol. Dynamic selection
+captures the immutable choose function with ~std/func compose1~ (fixed arity);
+planned selection uses its bound function directly, avoiding repeated generic
+lookup. The example exports ~planned-source / planned-model / planned-workflow-model~
+as optional compositions, not a universal performance default.
+
+Support and duplicates are checked before cold planning is forced. Changing
+source/plan invalidates source-bound descriptors normally. Tests count real
+selector executions, handle removal/reintroduction, verify current interpretation
+and exercise the 15-node invoice/release/total revision, subsequent pricing,
+wrapper/warm-cache retention and actual budget refusal. Logical approvals and
+negative checks keep their original provenance requirements.
+
+Lean ~Plan.select_eq / hit / miss~ preserve every choice and count actual
+selection paths. ~PlanCosts.total_amortized~ charges setup, the first selector,
+support guards and fallback calls. A one-off plan may cost more. The collector
+budget is still an extra premise, and no native heap or compiler verification
+is asserted. ~paired_delta~ decomposes a single observed pair; independent
+medians do not have that algebraic identity.
+
+~just benchmark-metadata-paired~ uses four scenarios (selector, full contract
+family, atomic joint revision, shared settlement workflow) and adjacent controls:
+independent vs uncaptured, uncaptured vs captured dynamic, captured vs planned.
+Each side starts a new native process with one-character strategy codes, loads
+all four controls in the same order, runs four fixed warmup passes for every
+control, and measures only one side. The caller balances side order ABBA over
+four rounds and rotates pair positions. Both natural and collected controls keep
+all samples, GC CPU/counts, prefix counters and signed allocation diagnostics.
+
+This is 192 fresh child processes, each <=20s / 1 GiB; compilation <=90s and the
+aggregate driver <=90s. These are separate scope bounds, not a widened 20s
+single-child limit. Prefix GC differences are reported, not silently filtered;
+matching counts alone do not establish heap identity. CPU-minus-GC includes
+construction, dispatch and admission too. Report paired deltas before taking
+medians; never subtract arbitrary phase medians to estimate selector cost.
+Source/binary changes, missing pairs, wrong side/order, incorrect allocation
+admission, incomplete output and nonfinite metrics fail admission. Failed runs
+stay incomplete and ignored. No raw matrix, archive or versioned JSON is stored.

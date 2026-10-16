@@ -11,6 +11,27 @@
 (def (size version key) (multimethod.cache-size (dispatch.snapshot (publication.version-service version key))))
 (def construction-workflow-test
   (test-suite "selective shared settlement and cross-service publication"
+    (test-case "planned multi-level revisions keep current meaning and warm approvals"
+      (def model shared.planned-workflow-model)
+      (defvalues (old issue) (staged.prepare model (workflow.graph 30) policy))
+      (check-equal? issue #f)
+      (defvalues (_ warm) (publication.invoke old 'reserve 2))
+      (def revised (graph.define (publication.version-source warm) 'invoice (code.need 'settlement (cut + <> 9))))
+      (defvalues (next issue2) (staged.publish model warm revised policy))
+      (check-equal? issue2 #f)
+      (check-equal? (cache.cache-evaluated (publication.version-cache next)) '(invoice release total))
+      (check-equal? (length (cache.cache-reused (publication.version-cache next))) 12)
+      (check-equal? (contracts.family-preparation (publication.version-contract-family next)) 'direct)
+      (defvalues (value joint-warm) (publication.invoke next 'reserve 2))
+      (check-equal? value '(ok 39 #t))
+      (defvalues (priced issue3) (staged.publish model joint-warm (publication.version-source next) (.cc policy price: 4)))
+      (check-equal? issue3 #f)
+      (check-equal? (contracts.family-built (publication.version-contract-family priced)) [])
+      (check-equal? (size priced 'reserve) 1)
+      (check-equal? (first-value (publication.invoke priced 'cancel "customer" #t)) '("customer" "invoice:33"))
+      (defvalues (refused failure) (staged.publish model priced (publication.version-source priced) (.cc policy cache-limit: 0)))
+      (check (eq? refused priced) => #t)
+      (check-equal? (publication.failure-stage failure) 'admission))
     (test-case "shared settlement revisions specialize two contracts atomically"
       (def model shared.workflow-model)
       (defvalues (old issue) (staged.prepare model (workflow.graph 30) policy))

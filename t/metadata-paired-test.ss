@@ -1,0 +1,45 @@
+(export metadata-paired-test)
+(import :std/test :std/iter "closure-measure.ss"
+        (prefix-in "metadata-paired-cases.ss" study.)
+        (only-in "metadata-paired-suite.ss" check-study expected-order)
+        (only-in "metadata-paired-benchmark.ss" workload))
+;; Synthetic admission controls only; these are never published measurements.
+(def (header)
+  `(metadata-paired (scenarios ,@study.scenarios) (regimes ,@study.regimes)
+    (strategies ,@study.strategies) (pairs ,@study.pairs) (rounds ,study.rounds) (warmups ,study.warmups)
+    (prefix all-controls-in-fixed-order fresh-process-per-side)
+    (deadline 20) (heap "1G") (sources ,@(source-digests study.sources))
+    (binary ,@(source-digests '("t/metadata-paired-cases.ss")))))
+(def (rows)
+  (map (match <> ([scenario regime round pair-index position]
+    (def side (list-ref (study.side-order round (list-ref study.pairs pair-index)) position))
+    (vector scenario regime round pair-index position
+      (vector scenario regime side (study.repetitions scenario) (vector 1.0 1.0 0.0 0 7) 7 (vector 0 0 0))))) (expected-order)))
+(def metadata-paired-test
+  (test-suite "fresh-process paired protocol admission"
+    (test-case "all semantic controls implement the same public observations"
+      (for* ((scenario study.scenarios) (action (workload scenario))) (check (action) => #t)))
+    (test-case "missing duplicate swapped side stale and invalid metrics refuse"
+      (def data (rows))
+      (def complete (list 'complete (length data)))
+      (check-equal? (length (check-study (header) data complete)) 192)
+      (check-exception (check-study (header) (cdr data) complete) true)
+      (check-exception (check-study (header) (cons (car data) data) complete) true)
+      (check-exception (check-study (header) (reverse data) complete) true)
+      (check-exception (check-study (header) data '(incomplete)) true)
+      (def stale (header))
+      (set-cdr! (assq 'sources (cdr stale)) [])
+      (check-exception (check-study stale data complete) true)
+      (def first (car data))
+      (def child (vector-ref first 5))
+      (vector-set! child 2 2)
+      (check-exception (check-study (header) data complete) true)
+      (vector-set! child 2 0)
+      (def metrics (vector-ref child 4))
+      (vector-set! metrics 0 +inf.0)
+      (check-exception (check-study (header) data complete) true)
+      (vector-set! metrics 0 1.0)
+      (vector-set! metrics 3 1)
+      (check-exception (check-study (header) data complete) true)
+      (vector-set! metrics 4 #f)
+      (check-equal? (length (check-study (header) data complete)) 192))))

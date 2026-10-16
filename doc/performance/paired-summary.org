@@ -1,0 +1,102 @@
+#+TITLE: Fresh-process preparation selector controls
+
+* Scope and reproducibility
+This is local native Gerbil/Gambit evidence for generalized prototype protocol
+future work. Reproduce with =GERBIL_PATH="$PWD/.build/env" just benchmark-metadata-paired=
+after installing this package in a suitable isolated Gerbil environment. No Lean
+checkout, Python timing driver, checked-in raw matrix or compressed archive is
+required. Outputs stay under ignored =.build/metadata/=. The driver validates
+current source and binary digests, complete coverage and metric admission.
+
+The current study contains 192 fresh native child processes: four scenarios,
+natural/collected regimes, four rounds and three adjacent comparison pairs.
+Each process constructs all controls in the same order and executes four fixed
+warmup passes. Side order is ABBA and pair positions rotate. Natural does not
+force a collection; collected explicitly collects immediately before sampling.
+Children are capped at 20 seconds and 1 GiB; compilation and the aggregate
+study each have a separate 90-second bound. No local test/build ran during timing.
+
+Controls are independent preparation, uncaptured selection (the previous
+per-call generic lookup, retained only in the benchmark), captured dynamic
+selection and a reusable immutable preparation plan. Selector-only samples use
+4096 repetitions; family, joint publication and 15-node workflow samples use 128.
+Semantic checks include descriptor/binding reuse, current-snapshot invocation,
+atomic budget refusal, shared dependencies and selective rebuilding.
+
+* Diagnosis
+The historical [[file:selective-summary.org][single-process result]] had natural CPU medians of 255.750
+versus 222.422 microseconds (about 15%). Incoming GC history was uncontrolled;
+its per-round selector/independent collection counts were 1/0, 21/0, 31/31 and
+24/32. That comparison cannot isolate selector dispatch overhead.
+
+The fresh-process natural joint comparison independent -> uncaptured has a
+median paired CPU difference of -0.172 microseconds; the old 15% regression is
+not reproduced. Prefix collection counts match in all 96 pairs, while the full
+three-field prefix counters differ in 17 pairs. Equal collection counts do not
+establish identical heap contents or allocation history. The measurements do
+not prove that GC alone caused the historical difference.
+
+Selector-only natural marginal CPU medians are approximately 0.301 us for the
+uncaptured function, 0.252 us with its immutable callback captured using
+=:std/func compose1=, and 0.064 us with the plan callback. Capturing removes
+about 0.053 us per selector call in this local paired comparison. This does not
+imply an equivalent whole-publication speedup.
+
+* Paired results
+All numbers below are microseconds per operation. Negative means the second
+strategy is faster. Columns are separate medians of per-pair differences;
+independently computed medians must NOT be added. CPU minus GC CPU is an
+observed accounting residual, not a collector-independent instruction count.
+Each row has four pairs; these are finite local controls, not significance or
+universal performance claims.
+
+| Scenario | Regime | First -> second | CPU delta | GC CPU delta | CPU-GC delta |
+|----------+--------+-----------------+-----------+--------------+--------------|
+| selector | natural | uncaptured -> dynamic | -0.053 | 0.000 | -0.053 |
+| selector | natural | dynamic -> planned | -0.176 | 0.000 | -0.176 |
+| selector | collected | uncaptured -> dynamic | -0.046 | 0.000 | -0.046 |
+| selector | collected | dynamic -> planned | -0.177 | 0.000 | -0.177 |
+| family | natural | independent -> uncaptured | -4.676 | -3.594 | -1.082 |
+| family | natural | uncaptured -> dynamic | -1.184 | -0.660 | -0.602 |
+| family | natural | dynamic -> planned | -0.969 | -0.535 | -0.391 |
+| family | collected | independent -> uncaptured | -2.211 | -0.965 | -1.383 |
+| family | collected | uncaptured -> dynamic | -0.703 | -0.516 | -0.242 |
+| family | collected | dynamic -> planned | -0.316 | -0.078 | -0.238 |
+| joint | natural | independent -> uncaptured | -0.172 | -2.441 | +2.270 |
+| joint | natural | uncaptured -> dynamic | +0.027 | -0.090 | +0.117 |
+| joint | natural | dynamic -> planned | +7.055 | +3.809 | +3.246 |
+| joint | collected | independent -> uncaptured | -1.094 | -0.414 | -0.680 |
+| joint | collected | uncaptured -> dynamic | -6.492 | -3.254 | -2.840 |
+| joint | collected | dynamic -> planned | +3.891 | +2.070 | +1.820 |
+| workflow | natural | independent -> uncaptured | -0.480 | +0.609 | -1.090 |
+| workflow | natural | uncaptured -> dynamic | +2.781 | +1.191 | +1.129 |
+| workflow | natural | dynamic -> planned | -4.609 | -1.914 | -2.215 |
+| workflow | collected | independent -> uncaptured | -1.867 | -1.184 | -1.156 |
+| workflow | collected | uncaptured -> dynamic | -0.973 | +0.063 | -1.035 |
+| workflow | collected | dynamic -> planned | -6.758 | -3.125 | -3.633 |
+
+The plan remains optional. Joint publication still regresses versus captured
+dynamic selection in both regimes despite the selector microbenchmark saving;
+the larger workflow improves locally. The existing always-shared example
+source remains its default. Choose a plan only under stable immutable prices
+and measured workload/support; changed arity takes the ordinary selection path.
+Changed costs require a new plan. Existing source/support/approval checks apply.
+
+Lean proves selection equivalence, hit/fallback counts and conditional
+amortization including cold setup, first selection and every support guard.
+It also proves per-pair CPU/GC decomposition and cancellation of an additive
+ABBA position term. It does not prove a concrete compiler/collector cost model,
+identical heaps, arbitrary drift cancellation or an end-to-end speedup.
+
+* Local identities
+Gerbil =1cfb032=, Gambit =ea114fc=. Raw signed allocation counters are retained;
+allocation is unavailable when collection occurs or the delta is negative.
+An initial 128-child pre-capture study is also retained locally, including its
+adverse whole-joint plan result; it is historical and not current-source admission.
+
+SHA-256:
+- Runtime =contract-family.ss=: =544dba3464b7d07e70de7338d3744aa5f281948867390f09ae350abeec37834c=
+- Native binary: =051e689652763744133c04bb0cb6b2bea060966ba2259f0e36ef1b637f3ffa67=
+- Complete raw study: =05814ca49d97a9e043c9d37cd3bb5cbbf1addab4328f3825cea3fae581233cdb=
+The local native header records the remaining source digests. This summary is
+bounded evidence, not a portable guarantee of the same numerical results.

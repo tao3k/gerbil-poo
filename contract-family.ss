@@ -1,7 +1,7 @@
 ;;; ContractFamily: closed contract inputs and late-bound invocation wrappers.
-(export Source. PreparationCosts. choose-preparation methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
+(export Source. PreparationCosts. PreparationPlan. choose-preparation plan-choice methods.inputs<-plan methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
         family-built family-bound family-reused family-prepared? family-preparation)
-(import :std/iter ./object (only-in ./mop define-type .defgeneric)
+(import :std/iter (only-in :std/func compose1) ./object (only-in ./mop define-type .defgeneric)
         (prefix-in ./declarative-metadata metadata.))
 ;; Private tables/records never escape. Pure immutable source/input premises are
 ;; the same as GenericFamily; labels and sampled outputs cannot authorize reuse.
@@ -61,6 +61,15 @@
                    (list prepare-cost shared-cost direct-cost selection-cost)) (error "invalid preparation costs"))
     (lambda (count) (if (< (+ selection-cost (* count direct-cost)) (+ prepare-cost (* count shared-cost))) 'direct 'shared))))
 (.defgeneric (choose-preparation costs count) slot: .choose)
+;; Plan once for stable support; changed arity falls back to ordinary selection.
+(define-type (PreparationPlan. @ [] preparation-costs keys)
+  .choose:
+  (let* ((count (length keys)) (selected (choose-preparation preparation-costs count)))
+    (lambda (current)
+      (if (eq? current keys) selected
+        (let (size (length current))
+          (if (= size count) selected (choose-preparation preparation-costs size)))))))
+(.defgeneric (plan-choice plan keys) slot: .choose)
 (define-type (methods.inputs<-shared @ [] shared-input prepare-shared project-shared)
   .select: (lambda (_) 'shared)
   .direct: (lambda (_ __) (error "direct projection unavailable"))
@@ -74,7 +83,10 @@
         ((direct) (make-input-batch context (cut .direct <> context) #f 'direct))
         (else (error "invalid preparation strategy"))))))
 (define-type (methods.inputs<-selection @ [methods.inputs<-shared] preparation-costs project-direct)
-  .select: (lambda (keys) (choose-preparation preparation-costs (length keys)))
+  .select: (compose1 (.@ preparation-costs .choose) length)
+  .direct: project-direct)
+(define-type (methods.inputs<-plan @ [methods.inputs<-shared] preparation-plan project-direct)
+  .select: (.@ preparation-plan .choose)
   .direct: project-direct)
 (define-type (Source. @ [] keys project construct)
   .inputs: (lambda (_ policy view __) (make-input-batch #f (cut project <> policy view) #f 'independent))

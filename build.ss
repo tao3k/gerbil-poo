@@ -60,6 +60,7 @@
     "examples/construction-workflow"
     "examples/shared-contracts"
     "t/closure-measure"
+    "t/metadata-paired-cases"
     "t/closure-cases"
     "t/closure-benchmark-support"
     "t/closure-scale-benchmark"
