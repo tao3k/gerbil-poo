@@ -21,7 +21,7 @@
   (only-in ./support/repr repr pr)
   (only-in ./object object .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
-           NoApplicableMethod?
+           NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
            .alist object<-alist
            $constant-slot-spec $computed-slot-spec)
   (prefix-in (only-in :gerbil/core @method) @)
@@ -33,8 +33,8 @@
 ;;   for the generic function: the instance directly, or its .type field, respectively.
 ;; slot: slot-name can specify an alternate slot-name, which helps avoid with-slot shadowing
 ;;   when calling the gf from a method definition.
-;; TODO: add method combination, which requires integration with the recursion in .ref.
-;;   at some point, the information about the slot needs to be made available in the meta object.
+;; combination: optional (fragments arguments -> result) interpreter for the raw
+;; slot's inherited fragment list. Metadata assembly remains in ordinary .ref.
 ;; TODO: make this information somehow available at compile-time when possible,
 ;;   to enable inlining and partial evaluation.
 (defsyntax (.defgeneric stx) ;; define a generic function that invokes the prototype's slot
@@ -42,14 +42,18 @@
     (def slot-name #f)
     (def compute-default #f)
     (def from #f)
+    (def combination #f)
     (let loop ((options options))
       (match options
-        ([] (values slot-name compute-default (or from 'instance)))
+        ([] (values slot-name compute-default (or from 'instance) combination))
         ([kw val . rest]
          (match (syntax-e kw)
            (slot:
             (when slot-name (error "slot-name set twice" stx))
             (set! slot-name val))
+           (combination:
+            (when combination (error "combination set twice" stx))
+            (set! combination val))
            (from:
             (when from (error "from set twice" stx))
             (case (syntax-e val)
@@ -68,7 +72,7 @@
   (syntax-case stx ()
     ((.defgeneric (gf self . formals) options ...)
      (begin
-       (define-values (slot-name compute-default from) (parse-options (syntax->list #'(options ...))))
+       (define-values (slot-name compute-default from combination) (parse-options (syntax->list #'(options ...))))
        (with-syntax* ((slot-name (or slot-name (make-symbol "." (syntax->datum #'gf))))
                       (methods (case from
                                  ((instance) #'self)
@@ -77,13 +81,26 @@
                       (method (if compute-default
                                 (with-syntax ((compute-default compute-default))
                                   #'(try (.ref methods 'slot-name)
-                                         (catch (NoApplicableMethod? _) (compute-default self 'slot-name))))
+                                         (catch (NoApplicableMethod? cause)
+                                           (if (and (eq? (NoApplicableMethod-self cause) methods)
+                                                    (eq? (NoApplicableMethod-slot cause) 'slot-name))
+                                             (compute-default self 'slot-name) (raise cause)))))
                                 #'(.ref methods 'slot-name)))
+                      (invoker (if combination
+                                 (with-syntax ((combine combination)) #'(combine-method combine method))
+                                 #'method))
                       ((selfvar ...) (case from ((type) #'(self)) ((instance) #'())))
-                      (body (if (and (stx-null? #'formals) (eq? from 'instance))
+                      (body (if (and (stx-null? #'formals) (eq? from 'instance) (not combination))
                               #'method
-                              (call<-formals #'(method selfvar ...) #'formals))))
+                              (call<-formals #'(invoker selfvar ...) #'formals))))
            #'(def (gf self . formals) body))))))
+
+;; Adapt raw inherited fragments to the generic's normal argument forwarding.
+;; The combiner owns qualifier admission; body failures are not missing-slot defaults.
+;; Nothing memoizes a result or an approval, and from:type still forwards self once.
+(def (combine-method combine fragments)
+  (unless (procedure? combine) (error "generic combination must be a procedure"))
+  (lambda arguments (combine fragments arguments)))
 
 ;;(def (and-combination new-value old-value) (and (new-value dont-call-next-method) (old-value)))
 

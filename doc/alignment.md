@@ -889,3 +889,24 @@ shared request counts, source mutation rejection and current refusal/recovery.
 Finite positive closure is not an unrestricted recursive procedure knot; local
 callback termination/purity, registered dependencies and immutable keys remain
 premises. See [recursive-declarations.md](recursive-declarations.md).
+
+### Declaration fragments → method combination → receiver generics
+
+Racket's method-fragment and generalized-prototype sections motivate the
+future-work bridge in `method-declaration.ss`. `MethodDeclaration.` extends the
+same record declaration macro, coalesces local compatible contributions and emits
+ordinary inherited Slot computations. `.defgeneric` `combination:` invokes the
+existing standard/simple/forwarding/inner/Simula interpreter with the complete
+argument row. `from: type` resolves metadata on the class and invokes on the
+original instance. Recursive declaration roots reuse this same finalization.
+
+Lean `collectFragments_append/coalesce`, `fragmentSpecification_append` and
+`declaredGeneric_standard/fragments` prove source collection, coalescing,
+inherited block composition and standard invocation semantics. The paired
+`Examples/DeclaredMethods.lean` / `examples/declared-methods.ss` exercise a shared
+base, two branches, all standard qualifiers and current Reader data. Native
+controls additionally cover macro syntax, every adapter, mutable descriptor
+invalidation, rest/zero arguments, collision admission and nested error handling.
+The pure fragment model assumes correct C3 order and typed qualifiers; native
+admission/invalidation and macro/compiler behavior are distinct evidence. See
+[method-declarations.md](method-declarations.md) for remaining generality.

@@ -32,7 +32,7 @@ further tuning of the corresponding workflow.
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
-| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs; `t/method-combination-test.ss` and service examples | One extensible fragment macro spanning all records/functions and `.defgeneric` integration remain partial. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs. `MethodDeclaration.` now uses the same `.declare` stream for records and qualified method fragments, including recursive roots; `.defgeneric` has an explicit `combination:` bridge. `t/method-combination-test.ss`, `t/method-declaration-test.ss` and service examples. | The concrete record/method bridge is implemented. General fragments over arbitrary non-record carriers, compile-time specialization and a unified arbitrary multi-dispatch syntax remain future work. Optional generic formals retain their separate open TODO. |
 | General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
 | User-selected storage and focused computation | Partial: explicit item raw form, prepared hooks, focused/nested construction | Arbitrary user storage strategies, primitive proxies/impersonators and automatic law discovery are open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
@@ -89,6 +89,30 @@ the corresponding pure closure and source/publication laws. See
 [recursive-declarations.md](recursive-declarations.md) for exact premises.
 
 ## Meta-Object Protocol
+
+### Declared method fragments and receiver generics
+
+`method-declaration.ss` extends the ordinary inherited declaration protocol.
+The SAME `.declare` handles `public`, `private` and `method` forms; computed
+`method-fragment` names and recursive declaration roots share the finalizer.
+Same-name compatible method contributions coalesce in source order, while record
+collisions, malformed groups and conflicting visibility/admission policies refuse.
+Existing Slot computation prepends local methods to the delayed inherited group.
+Registered descriptor edits invalidate both the metadata and receiver caches.
+
+`.defgeneric` `combination:` receives the raw group and complete argument list;
+`from: type` still supplies the ORIGINAL instance exactly once. Standard, simple,
+forwarding, inner and Simula adapters reuse existing method interpreters. Empty
+raw groups can be explicit defaults; nested missing-slot errors are not treated
+as missing generic slots. No result or approval is cached by this bridge.
+
+`examples/declared-methods.ss` composes a shared base, two service branches,
+before/primary/after/around fragments and current-context Reader observation.
+Lean's `MethodDeclarations` proves source collection, coalescing, inherited block
+composition and equivalence to standard generic invocation. Native tests cover
+all adapters, descriptor edits, recursion, zero/rest arguments and failure effects.
+See [method-declarations.md](method-declarations.md). This concrete integration
+advances generalized-prototype future work; functional completion precedes tuning.
 
 Redefine POO using
 [a compositional MOP for Prototype Inheritance](https://github.com/fare/projects/issues/7),
