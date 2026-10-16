@@ -703,3 +703,28 @@ eleven-scenario native study (three complete 528-child runs; initial 480-child s
 requires supplied binding/cook/field/hook prices/count bounds; it does not infer
 allocator or GC prices from those measurements. This advances the generalized
 MOP future work, without claiming completion of the entire TODO list.
+
+
+### Focused local assembly (generalized-protocol future work)
+
+| Lean / Racket construction | Native Gerbil counterpart |
+| --- | --- |
+| Appendix B nested lens + local raw/cooked computation | `focus-protocol`, `prepare-focused` |
+| `FocusLaws`, `focusDelayed_compose`, `focusDelayed_assemble` | explicit pure extensional lens domain; no automatic native law checker |
+| `focusDelayed_lensGen` | existing composed Lens / method constructor interoperability |
+| `Protocol.prepareFocused_observe` | same ordered fragments/base/seed with one outer write per nonempty stage |
+| `focusedWrites_le` | logical write budget, independent of native allocation/GC |
+
+Nested POO `.cc` objects differ in physical identity/ancestry. The Lean carrier
+models immutable selector observations; no identity or introspective MOP
+equivalence is claimed. Use the general path for callbacks outside this domain.
+The billing envelope composes two surrounding lenses, approval/tenant revision,
+C3 shared ancestors, sum methods and FUN observations. Empty assembly bypasses
+the lens; refused approval uses the current configuration and retains old bindings.
+
+The three fixed 576-child native studies compare CURRENT fused/unfused paths,
+with fixed history perturbation, isolated construction/hook/cooking/binding and
+GC-free allocation controls. Their concise source-bound evidence is in
+`doc/performance/focused-assembly-summary.org`; old 73.313us data remain historical.
+This closes local assembly/write fusion, not arbitrary projection elimination,
+reflection, automatic law discovery or native compiler verification.

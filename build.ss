@@ -72,6 +72,7 @@
     "t/metadata-paired-benchmark"
     "t/recursive-cases"
     "t/generalized-cases"
+    "t/focused-cases"
     "t/generalized-observation-reference"
     "t/closure-cases"
     "t/closure-benchmark-support"

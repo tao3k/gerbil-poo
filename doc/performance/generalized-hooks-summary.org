@@ -1,6 +1,11 @@
 #+title: Generalized prototype hooks: finite future-work bridge
 
-* Final-source direct reuse control and bounded repeats
+* Current follow-up
+Focused assembly now has a separate source-bound three-run 576-child study in
+focused-assembly-summary.org. Everything below belongs to its recorded historical
+source; old records are not re-admitted or pooled as current measurements.
+
+* Historical c141bf8 direct reuse control and bounded repeats
 The final source adds an explicit SAME-NEW-IMPLEMENTATION reuse scenario: bound
 compiled reuse versus fresh compilation/preparation/one-off observation, with the
 same demand cook and actual price 33. This directly revisits the earlier

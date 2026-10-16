@@ -1,6 +1,6 @@
 ;;; Generalized prototype hooks advance Appendix B's explicitly deferred future work.
 (export Protocol. Prepared? prepare prepare-inheritance prepared-protocol prepared-fragments
-        lens-compiler focus-compiler sum-compiler reindex-self cook-fields bind-observer
+        lens-compiler focus-compiler focus-protocol prepare-focused prepare-focused-inheritance sum-compiler reindex-self cook-fields bind-observer
         assemble step approximate observe observation-action Observation.)
 (import (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type)
         (prefix-in ./fun fun.))
@@ -46,12 +46,38 @@
 ;; Capture the exact compiler and ordered declarations without running method bodies.
 (def (prepare protocol fragments)
   (make-prepared protocol fragments (assemble protocol fragments) (.@ protocol cook)))
-;; Reuse native checked C4/C3 precedence, including its cycle/inconsistency errors.
-;; Declaration callback returns local fragments only; a diamond ancestor occurs once.
-;; Mutating graph/declarations/protocol requires a fresh preparation.
+;; Capture native checked C4/C3 declarations once, retaining its exact order/errors.
+(def (inheritance-fragments root declarations)
+  (apply append (map declarations (compute-precedence-list! root))))
+;; Reuse checked inheritance for the general per-fragment construction path.
+;; Mutating graph/declarations/protocol requires fresh immutable source preparation.
 (def (prepare-inheritance protocol root declarations)
-  (def precedence (compute-precedence-list! root))
-  (prepare protocol (apply append (map declarations precedence))))
+  (prepare protocol (inheritance-fragments root declarations)))
+;; Lift one complete delayed local program into a surrounding raw focus. Getter,
+;; setter and public-self projection are captured once, not looked up per fragment.
+(def (focus-program focus view program)
+  (def getter (.@ focus .get)) (def setter (.@ focus .set))
+  (lambda (self parent)
+    (def raw (parent))
+    (setter (program (lambda () (view (self))) (lambda () (getter raw))) raw)))
+;; Reference semantics of a focused protocol: each local fragment updates the
+;; outer carrier. Callbacks must not inspect allocation identity or raw ancestry.
+(def (focus-protocol protocol focus view cook)
+  (def compiler (.@ protocol compile))
+  (.cc Protocol. cook: cook compile:
+    (lambda (fragment) (focus-program focus view (compiler fragment)))))
+;; Compose LOCAL fragments first and write the outer focus once per stage.
+;; Explicit opt-in requires pure extensional callbacks and get-put/put-get/put-put
+;; lens laws. Raw identities, inheritance ancestry and arbitrary effects are NOT
+;; preserved. Empty fragments retain the exact parent without calling the lens.
+(def (prepare-focused protocol focus view cook fragments)
+  (def outer (focus-protocol protocol focus view cook))
+  (def program (if (null? fragments) (lambda (_ parent) (parent))
+    (focus-program focus view (assemble protocol fragments))))
+  (make-prepared outer fragments program cook))
+;; Checked inheritance and focused assembly compose without a second C3 engine.
+(def (prepare-focused-inheritance protocol focus view cook root declarations)
+  (prepare-focused protocol focus view cook (inheritance-fragments root declarations)))
 ;; Construct a callable cooked interface from named raw -> field preparations.
 ;; Standard promises share only demanded fields, including #f results. No method
 ;; preparation runs here; exceptions in an unused field remain unobserved. This

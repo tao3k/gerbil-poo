@@ -436,3 +436,17 @@ computation. Automatic `.lens` syntax, skipping full raw assembly, arbitrary
 lawful storage/migration and reflective bootstrapping remain open. Native phase
 measurements retain adverse binding/hook controls, separately from functional
 proofs and logical work-count bounds; see the current performance summary.
+
+
+### Focused local assembly and surrounding writes
+
+`prepare-focused` and `prepare-focused-inheritance` now compose an entire local
+component before one surrounding lens write per nonempty stage. This advances
+the direct subcomponent construction item above: repeated outer `.cc` versions
+and their slot/precedence-cache preparation are avoided. Existing C3, lenses,
+method combinations and FUN observers are reused. Nested tenant/approval examples
+cover independent audits and fresh configuration binding. Pure lens laws and
+extensional observations are required; identity/ancestry inspection, arbitrary
+raw projection elimination, automatic hook-law checking and reflection remain
+open. See focused-assembly-summary.org for all phases, including adverse binding
+controls and the preserved historical natural-GC regression.
