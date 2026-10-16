@@ -1,5 +1,5 @@
 ;;; Asymmetric component lifecycles share one atomic approval/head bundle.
-(export Change. start stage-current value)
+(export Change. start stage-current value joint-approved?)
 (import ../object ../mop ../brace (prefix-in ../joint-publication joint.)
         (prefix-in ../construction-cache cache.) (prefix-in ./component-membership initial.)
         (prefix-in ./component-rounds service.))
@@ -8,9 +8,14 @@
 (define-type (Change. @ [] phase) inputs: [])
 ;; Observe current settlement from a single captured authoritative bundle.
 (def (value snapshot endpoint) (service.value (joint.head snapshot endpoint) 'settlement))
+;; Whole-family admission relates actual settlements under the proposed budget.
+;; Service-local admission remains separate and runs before this predicate.
+(def (joint-approved? snapshot)
+  (<= (+ (value snapshot 'a) (value snapshot 'b)) (.@ (joint.approval snapshot 'shared) budget)))
 ;; Both compact services initially settle 12; joint approval bounds their SUM,
 ;; allowing different supported component sets and SCC topologies at each endpoint.
-(def (start)
+;; A pure higher-order joint predicate can impose additional family relations.
+(def (start joint: (joint joint-approved?))
   (def shared (.o (allowed #t) (limit 12) (budget 24)))
   (def heads (map (lambda (key)
     (defvalues (graph failure) (initial.publish #f (service.source 3 4) shared (.cc cache.Builder.)))
@@ -19,8 +24,7 @@
                            (cons 'b (.o (allowed #t) (limit 30)))]
     (lambda (_) service.build-group)
     (lambda (lookup key old next) ((service.admit [(lookup 'shared) (lookup key)]) old next))
-    (lambda (_ candidate)
-      (<= (+ (value candidate 'a) (value candidate 'b)) (.@ (joint.approval candidate 'shared) budget)))))
+    (lambda (_ candidate) (joint candidate))))
 ;; Derive new shared approval values and each DIFFERENT endpoint phase from one
 ;; exact current snapshot. Existing declared batch/FUN closure handles all support
 ;; changes, SCC regrouping and dependency propagation; absent entries reapprove.

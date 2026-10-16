@@ -1,0 +1,96 @@
+(export joint-admission-test)
+(import :std/test ../object ../mop ../brace ../feedback-graph
+        (prefix-in ../joint-publication joint.) (prefix-in ../construction-cache cache.)
+        (prefix-in ../examples/component-rounds rounds.) (prefix-in ../examples/joint-topology service.))
+;; Independent feedback is clean across every competing lifecycle revision.
+(def builder (.cc cache.Builder. allow: (lambda (key) (not (eq? key 'stable)))))
+;; Native POO descriptors reuse the same declared phase streams as production.
+(def (change phase) (.cc service.Change. phase: phase))
+;; Diagnostic instrumentation captures the ACTUAL candidate after every endpoint
+;; has approved. Only this test observer mutates its log; production checks are pure.
+;; Reevaluate each endpoint's actual admission to distinguish local/joint refusal.
+(def (fixture)
+  (def reviews [])
+  (def owner (service.start joint: (lambda (snapshot)
+    (def local (andmap (lambda (key)
+      ((rounds.admit [(joint.approval snapshot 'shared) (joint.approval snapshot key)])
+        #f (joint.head snapshot key))) '(a b)))
+    (set! reviews (cons (cons snapshot local) reviews))
+    (service.joint-approved? snapshot))))
+  (values owner (lambda () reviews)))
+;; A failed joint predicate reached AFTER both local checks; neither the whole
+;; installed bundle nor its identity changes, so sibling requests remain fresh.
+(def (deny owner request reviews)
+  (def before (joint.current owner)) (def count (length (reviews)))
+  (defvalues (held failure) (joint.submit! owner request))
+  (check (eq? held before) => #t) (check (not (not failure)) => #t)
+  (check-equal? (length (reviews)) (+ count 1))
+  (check-equal? (cdar (reviews)) #t)
+  (check-equal? (service.joint-approved? (caar (reviews))) #f)
+  (check (eq? (joint.approval held 'shared) (joint.approval before 'shared)) => #t)
+  held)
+;; Late requests fail before local construction or joint observation, returning
+;; the whole CURRENT winner even after original values and policies return.
+(def (stale owner request reviews)
+  (def before (joint.current owner)) (def count (length (reviews)))
+  (defvalues (held failure) (joint.submit! owner request))
+  (check (eq? held before) => #t) (check (not (not failure)) => #t)
+  (check-equal? (length (reviews)) count))
+;; Successful requests expose the exact candidate seen by final joint admission.
+(def (commit owner request reviews)
+  (defvalues (next failure) (joint.submit! owner request))
+  (check-equal? failure #f) (check-equal? (cdar (reviews)) #t)
+  (check (eq? next (caar (reviews))) => #t)
+  next)
+;; Explicit stage operations always bind the current whole snapshot and policies.
+(def (stage owner changes ceiling budget)
+  (service.stage-current owner changes ceiling budget builder))
+;; Actual closure, support, identity and admission phases are checked together.
+(def joint-admission-test
+  (test-suite "local success joint refusal and competing atomic lifecycle requests"
+    (test-case "denied requests preserve siblings through split merge erasure and policy round trips"
+      (defvalues (owner reviews) (fixture)) (def original (joint.current owner))
+      (def a-merge [(cons 'a (change 'merge))])
+      (def denied (stage owner a-merge 24 35))
+      (def winner (stage owner a-merge 24 36))
+      (def sibling (stage owner [(cons 'b (change 'merge))] 24 36))
+      (deny owner denied reviews) (deny owner denied reviews)
+      (def first (commit owner winner reviews))
+      (stale owner sibling reviews) (stale owner denied reviews)
+      (check-equal? (service.value first 'a) 24) (check-equal? (service.value first 'b) 12)
+      (def crossed [(cons 'a (change 'replace)) (cons 'b (change 'merge))])
+      (def second-denied (stage owner crossed 24 39))
+      (def alternative (stage owner [(cons 'a (change 'replace))] 16 28))
+      (deny owner second-denied reviews)
+      ;; Explicitly prepare again from the still-current source after refusal.
+      (def second (commit owner (stage owner crossed 24 40) reviews))
+      (stale owner alternative reviews) (stale owner winner reviews) (stale owner second-denied reviews)
+      (check-exception (graph-cache-ref (joint.head second 'a) 'b) true)
+      (check-equal? (service.value second 'a) 16) (check-equal? (service.value second 'b) 24)
+      (def restored [(cons 'a (change 'restore)) (cons 'b (change 'replace))])
+      (def third-denied (stage owner restored 16 27))
+      (def third-ready (stage owner restored 16 28))
+      (deny owner third-denied reviews)
+      (def third (commit owner third-ready reviews))
+      (stale owner third-denied reviews) (stale owner alternative reviews)
+      (check-equal? (service.value third 'a) 12) (check-equal? (service.value third 'b) 16)
+      (def final (commit owner (stage owner [(cons 'b (change 'restore))] 12 24) reviews))
+      (for-each (lambda (request) (stale owner request reviews))
+        [denied winner sibling second-denied alternative third-denied third-ready])
+      (for-each (lambda (key)
+        (check-equal? (service.value final key) 12)
+        (check (eq? (graph-cache-ref (joint.head original key) 'stable)
+                    (graph-cache-ref (joint.head final key) 'stable)) => #t)
+        (for-each (lambda (removed) (check-exception (graph-cache-ref (joint.head final key) removed) true)) '(e f))) '(a b))
+      (def retry (commit owner (stage owner a-merge 24 36) reviews))
+      (check-equal? (service.value retry 'a) 24) (check-equal? (service.value retry 'b) 12))
+    (test-case "local refusal never reaches the joint predicate or consumes a valid sibling"
+      (defvalues (owner reviews) (fixture)) (def original (joint.current owner))
+      (def changes [(cons 'a (change 'merge))])
+      (def local-denied (stage owner changes 12 36))
+      (def valid (stage owner changes 24 36))
+      (def count (length (reviews)))
+      (defvalues (held failure) (joint.submit! owner local-denied))
+      (check (eq? held original) => #t) (check (not (not failure)) => #t)
+      (check-equal? (length (reviews)) count)
+      (commit owner valid reviews))))

@@ -324,6 +324,15 @@ failed total budgets require explicit fresh preparation. Dependent universe-
 polymorphic Lean replacements retain actual sources/graph/closure receipts. See
 [joint-topology.md](joint-topology.md) for exact scenarios and proof scope.
 
+Competing requests now explicitly distinguish local refusal from unanimous local
+success followed by joint budget refusal. Denied requests preserve same-round
+sibling freshness; successful rivals invalidate old requests across split/merge,
+component restoration and equal-valued approval round trips. Fresh preparation
+and retained independent feedback receipts are checked natively. Lean adds
+composable admission and refusal-prefix laws with actual certified topology heads.
+See [joint-admission.md](joint-admission.md); this remains generalized-prototype
+future work with explicit finite/purity/identity premises.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
