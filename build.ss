@@ -101,6 +101,7 @@
     "examples/joint-services"
     "examples/joint-topology"
     "examples/joint-receipts"
+    "examples/joint-concurrency"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"

@@ -350,6 +350,15 @@ feedback reuse are covered. Lean adds certified receipt traces, arbitrary-order
 validity, obsolete batches and drifted-attempt elimination. See
 [joint-receipts.md](joint-receipts.md); sequence-wide atomicity is not claimed.
 
+Already-approved receipts now also install on real Gerbil worker threads, with
+standard ready/release channels and bounded joins. Six SCC lifecycle rounds race
+shared-invalidated receipts against independently approved alternatives, including
+duplicate receipts and concurrent replay of prior rounds. Fresh policy-only
+publication restores original values, then all older receipts remain obsolete.
+Coordination failure and worker cleanup are covered. Lean proves either valid
+lock-order winner and replay refusal, with actual certified topology controls.
+See [joint-concurrency.md](joint-concurrency.md) for the native/formal bridge premises.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
