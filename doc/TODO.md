@@ -299,6 +299,15 @@ restaging on different topologies are covered in
 updates and installations; atomic multi-head publication or multi-object rollback
 is not claimed.
 
+Atomic shared policy replacement and consistent endpoint publication now use
+`joint-publication`: one immutable authoritative snapshot, all endpoint closure
+and approval, final joint consistency and one guarded pointer installation.
+Refusal preserves all old fields; stale work returns the current whole winner;
+fresh restaging reuses current graphs and proposed native policies. See
+[joint-publication.md](joint-publication.md) for heterogeneous Lean bundle laws,
+real native closure/thread controls and reader/immutability premises. This is a
+joint snapshot interface, not atomic mutation of old independent coordinator handles.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
