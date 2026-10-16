@@ -1,0 +1,164 @@
+#+title: Explicit recursive requests, source-bound memo and current admission
+
+
+* Final-source admitted result
+The source lists now include the recursive dependencies also reached by the old
+metadata workload; duplicates are removed using the standard list library. Focused
+metadata/recursive protocol tests pass after that change. Recompiled in a second
+fresh directory, under the same caps, then admitted 288 fresh children. The initial
+study below remains historical; results are NOT pooled or selected by favorable sign.
+
+Delta is memo minus fresh, microseconds per operation; N/C means natural/collected.
+
+| Scenario | CPU N/C | Recorded GC N/C | Residual CPU N/C | Faster pairs N/C |
+|----------+---------+-----------------+------------------+------------------|
+| Shared attestation | -9.219 / -6.453 | -3.039 / 0 | -6.184 / -6.453 | 4/4 / 4/4 |
+| Current typed catalog | -11.523 / -11.074 | -3.203 / -2.969 | -8.172 / -8.082 | 4/4 / 4/4 |
+| Completed source error | +0.184 / -0.344 | +0.480 / 0 | -0.297 / -0.344 | 2/4 / 4/4 |
+| Current output refusal | -11.391 / -11.012 | -3.055 / -2.984 | -8.328 / -7.828 | 4/4 / 4/4 |
+| Partial batch and resume | -7.578 / -7.500 | -3.117 / -3.137 | -4.426 / -4.363 | 4/4 / 4/4 |
+| Complete attested revision | -8.359 / -6.141 | -0.422 / +0.250 | -7.359 / -6.734 | 4/4 / 4/4 |
+
+The natural source-error regression is retained, not subtracted away using A/A:
+its paired range is -0.438..+0.734 us, while source-error A/A is +0.172 / +0.012.
+Catalog A/A is +0.266 / -0.070 (collected range -2.813..-0.016), and publication
+A/A -0.219 / +0.125 (collected range -8.719..+1.750). These are small samples,
+not confidence intervals or a universal speedup claim. Separately aggregated
+CPU/GC/residual medians need not sum. Matching prefix counters do not prove identical
+heaps. Setup/program/catalog/first-publication costs are outside these phase timings.
+
+Collected attestation/source-error each admit four GC-free allocation pairs,
+-10656 / -832 bytes per request. Other direct fresh/memo byte deltas are unavailable
+across GC; no estimate or zero is substituted. Admitted memo A/A byte deltas are zero.
+
+Final binary SHA256: dc0acfe7dd204047252bda598d2897bae46c5394e94d590b9905a28790f3c252
+Final receipt SHA256: 82ab3f61a9b7f528ab3e28c0f9bc8612a2db2e56e5a3d208da81cf41618eb475
+Final ignored basename: .build/recursive-complete/recursive-paired.
+
+* Correspondence and implementation
+This advances generalized-protocol future work, not completion of the whole paper.
+Racket pin: poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429. fix--1 at
+poof.scrbl 2355–2374 retains shared final-self construction; the memo sketch at
+1906–1940 is commented experimental material. The bounded/certified machine is
+an explicit Lean extension, not code claimed to occur in that Racket section.
+
+recursive.ss uses existing prototype composition and native FUN .ap/.bind/.map
+for explicit values, source errors and final-self requests. Source observation
+solve depth is different from Cached resolve/evaluate machine depth, which also
+bounds continuations. A source pending result is not a divergence decision.
+recursive-cache.ss uses a private standard equal-key table; a writing run copies
+it once and inserts only completed owned receipts. Cache owner is exact immutable
+Generator descriptor identity. Code changes must start a new memo; no certificate
+retagging or result-based source equality is allowed. Machine cycle/exhaustion
+returns the exact original memo, discarding all tentative children and counters.
+Completed explicit source errors are cached like values.
+
+recursive-handling.ss resolves the CURRENT POO registry/signature/native Types
+before memo lookup. Input/schema/signature refusal retains the exact session and
+unknown reuse. Direct reuse reports ROOT membership, not nested child hits. Every
+completed value still passes current output admission; output refusal and completed
+source errors retain completed memo. RequestAction. composes retained-state calls
+through FUN, and ordered batches stop at the first refusal without losing its
+completed state. Composed result reuse metadata can be unknown.
+
+examples/recursive-catalog.ss composes inherited head override, nested shared
+chain/callback requests, current output ceilings, callback removal, partial batch
+resume and typed multi-dispatch with an unchanged business ledger. Native function
+references use symbols in this concrete example; this is not a general port of
+Lean Dynamic descriptor factories, wire codecs or dependent evidence.
+
+examples/cyclic-access.ss now has start-attested/revise-attested/rebase-attested.
+An actual Boolean evaluation receipt seeds the original ten positive equations;
+least re-solving and existing joint publication remain authoritative. Completed
+false revokes release. Any recursive/source/publication refusal retains the exact
+old public wrapper AND old memo. Rebase explicitly discards memo under new code.
+Existing literal-seed functions remain low-level construction primitives.
+
+* Proof and verification boundary
+Existing Recursive / RecursiveCacheSemantics prove finite observation agreement,
+completed receipt soundness, monotonic source observations and the semantic cycle
+claim. RecursiveHandling proves current admission and retained batch state;
+CyclicAccess observed_source/revoked connects actual evaluation to least closure.
+New runCertified_hit proves exact receipt/entry/miss/step preservation and one extra
+hit at positive budget; runCertified_zero refuses even a warm root at zero budget.
+RecursiveSession.call_warm_current retains current registry admission after a hit.
+RecursiveMemoCosts.covered charges common admission on BOTH sides and requires
+source savings to pay setup and excess GC. Its example prices are illustrative,
+not native timing claims or constants embedded in Scheme.
+
+Native receipts are sealed runtime provenance, not serialized Lean proofs. The
+correspondence assumes immutable/extensional program, keys/results, pure callbacks
+and locally terminating generator/continuation code. Arbitrary Scheme callbacks can
+hang outside the machine's depth control. Fuel is not a total work or memory quota;
+cycle paths are operational diagnostics, not kernel divergence proofs in Scheme.
+No compiler, runtime, collector or arbitrary host termination validation is claimed.
+The package/tests/benchmarks require no Lean checkout.
+
+* Native controls and reproducibility
+All 30 native test modules passed, including unchanged strict metadata-harness
+controls. Tests exercise shared counters, exact old memo on late cycle after a
+completed child, source error memo, zero budget, false attestation, owner mismatch,
+current schema/input/output/callback rejection on a hit, restored registry, partial
+batch recovery, typed dispatch and atomic release-policy refusal/rebase.
+Lean library (272 jobs), AlignedServices and standard-foundation axiom reports pass.
+
+The existing native paired driver/worker now accept a POO study descriptor. The
+metadata defaults retain their strict admission tests. Recursive scope restoration
+is checked on success AND exception. This reuses process bounds, complete coverage,
+source/binary identity, fixed ABBA order, one datum/EOF, signed allocation admission
+and CPU/recorded-GC/residual reporting, rather than adding a second harness.
+Six scenarios: attestation, catalog, source-error, output-refusal, batch-resume,
+publication. Four controls (memo/fresh plus exact A/A duplicates), three direct
+pairs, four ABBA rounds and natural/collected regimes: 288 fresh children / 144
+pairs. Every child constructs/warms all four controls identically. Counts are fixed
+128 per request scenario and 32 per full publication; warmup is four per control.
+Fresh controls reset memo lifetime while retaining the same source and current
+Type checks. Initial module/program/catalog/first publication setup is outside
+phase timing; this is not whole-process cold-start evidence.
+
+The first attempt from the historical .build/metadata directory failed before any
+sample: stale static metadata worker lacked the new shared run-child entry point.
+That failure remains ignored locally and is not performance evidence. Rebuild in
+a FRESH output directory, keeping compiler/study deadline 90s, child 20s and heap
+1 GiB. No unchanged-route retry or widened deadline is admitted.
+
+Reproduction (standalone package, Gerbil/Gambit and GNU timeout):
+- GERBIL_PATH=$PWD/.build/env just build
+- GERBIL_PATH=$PWD/.build/env just test
+- Compile t/recursive-benchmark.ss with gxc -exe -d FRESH_DIRECTORY and normal
+  platform linker flags, under the same 90s watchdog.
+- Invoke gxi -:max-heap=1G,debug=q t/recursive-suite.ss BINARY TIMEOUT IGNORED.scm
+  under the 90s watchdog; require RECURSIVE-PAIRED-OK children=288.
+- read-study in t/recursive-suite.ss rechecks committed source/binary identity.
+Full native receipts/binaries/logs remain ignored; no JSON or archive is committed.
+
+* Initial admitted study before source-list completion
+Complete study: RECURSIVE-PAIRED-OK children=288. Delta is memo minus fresh;
+N/C means natural/collected. Units are paired CPU microseconds per operation.
+
+| Scenario | CPU N/C | Recorded GC N/C | Residual CPU N/C | Faster pairs N/C |
+|----------+---------+-----------------+------------------+------------------|
+| Shared attestation | -11.184 / -7.715 | -3.883 / 0 | -7.336 / -7.715 | 4/4 / 4/4 |
+| Current typed catalog | -13.523 / -13.906 | -3.816 / -3.922 | -9.922 / -9.992 | 4/4 / 4/4 |
+| Completed source error | -0.637 / -0.422 | -0.227 / 0 | -0.418 / -0.422 | 2/4 / 3/4 |
+| Current output refusal | -14.332 / -13.215 | -4.027 / -3.980 | -10.422 / -9.367 | 4/4 / 4/4 |
+| Partial batch and resume | -9.512 / -9.617 | -3.926 / -4.098 | -5.602 / -5.484 | 4/4 / 3/4 |
+| Complete attested revision | -14.406 / -9.828 | -1.547 / -1.078 | -12.859 / -8.750 | 4/4 / 4/4 |
+
+Separate medians need not sum. Prefix counters matched for every pair, but this
+alone does not prove identical heaps. A/A timing drift remains: memo publication
++0.141 / +5.219 us, with collected range -0.344..+15.844; natural catalog A/A
+reaches +8.047 us, and batch A/A medians -1.238 / -0.027 us. Source-error gains
+are small and mixed, with +0.211 / +1.906 us adverse pair maxima. Collected batch
+also has a +1.758 us adverse pair. No run/pair is dropped for its sign.
+
+GC-free allocation is admitted only when BOTH sides avoid collection and signed
+counters are nonnegative. Collected attestation has four admitted pairs, -10656
+bytes per request; collected source-error has four, -832 bytes. Other direct
+fresh/memo phases do not admit bytes and are reported unavailable, not zero or
+estimated from collected time. All admitted memo A/A byte deltas are zero.
+No universal wall-time, callback termination, retained-heap or all-workload claim.
+
+Binary SHA256: 38ae9db64dad2c525db6464eedea8f6d7ab58c77060157e057d510b3a5702811
+Receipt SHA256: 48c522cef7737d748fdd60dd9d9d6a86fa4c592864dbed87df6822e38ef53a33
+Current ignored basename: .build/recursive-native/recursive-paired.

@@ -33,6 +33,9 @@
     "cli"
     "debug"
     ,+gerbil-poo-fq-spec+
+    "recursive"
+    "recursive-cache"
+    "recursive-handling"
     "fun"
     (gxc: "io" ,@(include-gambit-sharp))
     "mop"
@@ -54,6 +57,7 @@
     "table"
     "trie"
     "type"
+    "examples/recursive-catalog"
     "examples/cyclic-access"
     "examples/protected-dispatch"
     "examples/service-metadata"
@@ -63,6 +67,8 @@
     "examples/service-combination"
     "t/closure-measure"
     "t/metadata-paired-cases"
+    "t/metadata-paired-benchmark"
+    "t/recursive-cases"
     "t/closure-cases"
     "t/closure-benchmark-support"
     "t/closure-scale-benchmark"

@@ -1,14 +1,29 @@
 ;;; Adjacent fresh-process controls, ABBA side order, complete lossless receipts.
-(export main read-study check-study report expected-order)
-(import :gerbil/runtime/gambit :std/iter (only-in :std/list/list-builder with-list-builder) "closure-benchmark-support.ss"
+(export main read-study check-study report expected-order with-study)
+(import ../object :gerbil/runtime/gambit :std/iter (only-in :std/list/list-builder with-list-builder) "closure-benchmark-support.ss"
         (prefix-in "metadata-paired-cases.ss" study.))
+;; Parameterize the existing strict native harness with a POO study descriptor.
+;; Dynamic scope restores the previous study even after exceptions; measurements
+;; remain in bounded child processes and no source/result admission is bypassed.
+(def active-study (make-parameter #f))
+;; Run one independent fixed study with the same coverage, identity and EOF checks.
+(def (with-study specification thunk) (parameterize ((active-study specification)) (thunk)))
+;; Read declared study metadata; the original metadata study remains the default.
+(def (setting name)
+  (if (active-study) (.ref (active-study) name)
+    (case name
+      ((scenarios) study.scenarios) ((regimes) study.regimes) ((strategies) study.strategies)
+      ((pairs) study.pairs) ((rounds) study.rounds) ((warmups) study.warmups)
+      ((repetitions) study.repetitions) ((sources) study.sources) ((side-order) study.side-order)
+      ((kind) 'metadata-paired) ((label) "METADATA-PAIRED-OK")
+      (else (error "unknown study setting" name)))))
 ;; Enumerate complete deterministic study keys: scenario/regime/round/pair/side.
 ;; Rotate pair positions by round; validation uses the same exact coverage/order.
 (def (expected-order)
   (with-list-builder (add)
-    (for* ((scenario study.scenarios) (regime study.regimes) (round (in-range study.rounds))
-           (pair-position (in-range (length study.pairs))) (position '(0 1)))
-      (add (list scenario regime round (modulo (+ round pair-position) (length study.pairs)) position)))))
+    (for* ((scenario (setting 'scenarios)) (regime (setting 'regimes)) (round (in-range (setting 'rounds)))
+           (pair-position (in-range (length (setting 'pairs)))) (position '(0 1)))
+      (add (list scenario regime round (modulo (+ round pair-position) (length (setting 'pairs))) position)))))
 ;; Admit finite real metrics only; comparisons also reject NaN and infinities.
 (def (finite? value) (and (real? value) (< -inf.0 value +inf.0)))
 ;; Validate dimensions, source/binary identity, exact pair coverage/order, side
@@ -18,13 +33,13 @@
 (def (check-study header rows complete)
   ;; Read one required header field; missing identities/limits must reject admission.
   (def (field key) (cdr (or (assq key (cdr header)) (error "missing paired field" key))))
-  (unless (and (pair? header) (eq? (car header) 'metadata-paired)
-               (equal? (field 'scenarios) study.scenarios) (equal? (field 'regimes) study.regimes)
-               (equal? (field 'strategies) study.strategies) (equal? (field 'pairs) study.pairs)
-               (equal? (field 'rounds) (list study.rounds)) (equal? (field 'warmups) (list study.warmups))
+  (unless (and (pair? header) (eq? (car header) (setting 'kind))
+               (equal? (field 'scenarios) (setting 'scenarios)) (equal? (field 'regimes) (setting 'regimes))
+               (equal? (field 'strategies) (setting 'strategies)) (equal? (field 'pairs) (setting 'pairs))
+               (equal? (field 'rounds) (list (setting 'rounds))) (equal? (field 'warmups) (list (setting 'warmups)))
                (equal? (field 'prefix) '(all-controls-in-fixed-order fresh-process-per-side))
                (equal? (field 'deadline) '(20)) (equal? (field 'heap) '("1G"))
-               (equal? (field 'sources) (source-digests study.sources))
+               (equal? (field 'sources) (source-digests (setting 'sources)))
                (= (length (field 'binary)) 1)
                (equal? (field 'binary) (source-digests (map car (field 'binary))))
                (equal? complete (list 'complete (length (expected-order)))))
@@ -35,12 +50,12 @@
     (error "missing/duplicate/reordered pair"))
   (for (row rows)
     (def scenario (vector-ref row 0)) (def regime (vector-ref row 1))
-    (def round (vector-ref row 2)) (def pair (list-ref study.pairs (vector-ref row 3)))
+    (def round (vector-ref row 2)) (def pair (list-ref (setting 'pairs) (vector-ref row 3)))
     (def position (vector-ref row 4)) (def datum (vector-ref row 5))
     (unless (and (vector? datum) (= (vector-length datum) 7)
                  (eq? (vector-ref datum 0) scenario) (eq? (vector-ref datum 1) regime)
-                 (= (vector-ref datum 2) (list-ref (study.side-order round pair) position))
-                 (= (vector-ref datum 3) (study.repetitions scenario))) (error "wrong paired child"))
+                 (= (vector-ref datum 2) (list-ref ((setting 'side-order) round pair) position))
+                 (= (vector-ref datum 3) ((setting 'repetitions) scenario))) (error "wrong paired child"))
     (def metrics (vector-ref datum 4)) (def raw (vector-ref datum 5)) (def prefix (vector-ref datum 6))
     (unless (and (vector? metrics) (= (vector-length metrics) 5) (exact-integer? raw)
                  (vector? prefix) (= (vector-length prefix) 3)
@@ -69,9 +84,9 @@
 ;; independent median columns need not add. Prefix GC-count matches are diagnostic
 ;; only and do not establish identical allocation history or heap contents.
 (def (report rows)
-  (def indices (for/collect (round (in-range study.rounds)) round))
-  (for* ((scenario study.scenarios) (regime study.regimes) (pair-index (in-range (length study.pairs))))
-    (def pair (list-ref study.pairs pair-index))
+  (def indices (for/collect (round (in-range (setting 'rounds))) round))
+  (for* ((scenario (setting 'scenarios)) (regime (setting 'regimes)) (pair-index (in-range (length (setting 'pairs)))))
+    (def pair (list-ref (setting 'pairs) pair-index))
     (def samples (filter (lambda (row) (and (eq? (vector-ref row 0) scenario)
       (eq? (vector-ref row 1) regime) (= (vector-ref row 3) pair-index))) rows))
     ;; Find this side within its exact adjacent pair, never a sample from another pair.
@@ -95,7 +110,7 @@
       (and (vector-ref (vector-ref (sample round (car pair)) 4) 4)
            (vector-ref (vector-ref (sample round (cadr pair)) 4) 4)
            (- (per-op (sample round (cadr pair)) 4) (per-op (sample round (car pair)) 4)))) indices)))
-    (displayln scenario "/" regime " " (map (cut list-ref study.strategies <>) pair)
+    (displayln scenario "/" regime " " (map (cut list-ref (setting 'strategies) <>) pair)
       " cpu-us=" (* 1e6 (med (car pair) 0)) "/" (* 1e6 (med (cadr pair) 0))
       " paired-delta-us=" (* 1e6 (delta 0)) " paired-gc-delta-us=" (* 1e6 (delta 2))
       " paired-core-delta-us=" (* 1e6 (median (map (lambda (round)
@@ -120,14 +135,14 @@
 ;; Stream every raw row/failure locally, recheck identities and complete coverage,
 ;; then report. Any child/oracle/identity failure aborts without a success receipt.
 (def (main binary timeout output)
-  (def identities (source-digests study.sources))
+  (def identities (source-digests (setting 'sources)))
   (def binaries (source-digests (list binary)))
   (call-with-output-file (list path: output truncate: #t)
     (lambda (port)
       ;; Flush each complete record so an interrupted child leaves an incomplete receipt.
       (def (emit value) (write value port) (newline port) (force-output port))
-      (emit `(metadata-paired (scenarios ,@study.scenarios) (regimes ,@study.regimes)
-        (strategies ,@study.strategies) (pairs ,@study.pairs) (rounds ,study.rounds) (warmups ,study.warmups)
+      (emit `(,(setting 'kind) (scenarios ,@(setting 'scenarios)) (regimes ,@(setting 'regimes))
+        (strategies ,@(setting 'strategies)) (pairs ,@(setting 'pairs)) (rounds ,(setting 'rounds)) (warmups ,(setting 'warmups))
         (prefix all-controls-in-fixed-order fresh-process-per-side)
         (sources ,@identities) (binary ,@binaries) (deadline 20) (heap "1G")
         (columns scenario regime round pair position child)
@@ -136,7 +151,7 @@
         (toolchain ,(gerbil-version-string) ,(system-version-string))))
       (for (key (expected-order))
         (match key ([scenario regime round pair-index position]
-          (def side (list-ref (study.side-order round (list-ref study.pairs pair-index)) position))
+          (def side (list-ref ((setting 'side-order) round (list-ref (setting 'pairs) pair-index)) position))
           (try
             (defvalues (status stdout) (run-bounded timeout (list binary "-:max-heap=1G"
               (symbol->string scenario) (symbol->string regime) (number->string side))))
@@ -149,4 +164,4 @@
       (emit `(complete ,(length (expected-order))))))
   (defvalues (_ rows) (read-study output))
   (report rows)
-  (displayln "METADATA-PAIRED-OK children=" (length rows)))
+  (displayln (setting 'label) " children=" (length rows)))

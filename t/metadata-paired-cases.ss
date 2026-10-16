@@ -30,7 +30,7 @@
   (if (memv round '(0 3)) pair (reverse pair)))
 ;; Bind all runtime/example/driver inputs used by this study. Changes make old
 ;; receipts historical; source identity is checked before and after the complete run.
-(def sources '("contract-family.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss"
+(def sources '("recursive.ss" "recursive-cache.ss" "fun.ss" "proto.ss" "contract-family.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss"
   "method-combination.ss" "examples/service-combination.ss" "declarative-metadata.ss" "dispatch-extension.ss" "multimethod.ss" "closure.ss"
   "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss"
   "object.ss" "mop.ss" "type.ss" "number.ss" "build.ss" "justfile"

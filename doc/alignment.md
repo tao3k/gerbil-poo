@@ -25,7 +25,7 @@ checks the runtime premises at its public boundary.
 | Costed preparation and invariant contract specialization | Contract.withMeaning / Contract.Checks.specialize_eq / SharedProjection.direct_source_eq / PreparationCosts / TemplateCosts | declarative-metadata.ss with-meaning; contract-family.ss PreparationCosts. / choose-source; examples/shared-contracts.ss budgeted-workflow-model | Direct/shared projection coherence, selector and initial validation costs, exact original contract semantics, 15-node shared settlement revision; finite native timing and allocation evidence only |
 | Shared heterogeneous contract preparation | ContractFamily.SharedProjection / Cache / refresh_project / cached_source_project | contract-family.ss methods.inputs<-shared / examples/shared-contracts.ss | Source-bound common preparation, unchanged-context lookup retention, per-key descriptor/wrapper invalidation and existing cross-service joint approval reuse; matched changed-input regression retained |
 | Projected contract construction and binding reuse | ContractFamily.Source / Family / bind / publish | contract-family.ss / staged-publication.ss / cyclic-publication.ss | Implemented; exact descriptor/wrapper retention, constructor/executor/support invalidation, fresh-state invocation and admission provenance; constructors run only on changed inputs/source |
-| Safe recursive attestation and certified recursive memo | RecursiveCacheSemantics / CyclicAccess | no equivalent bounded request program in this addition | Open; Boolean seed is currently supplied explicitly |
+| Safe recursive requests, current admission and source-bound memo | Recursive / RecursiveCache / RecursiveHandling / RecursiveDispatch / CyclicAccess | recursive.ss / recursive-cache.ss / recursive-handling.ss / examples/recursive-catalog.ss / access.start-attested | Explicit requests, source errors, depth/budget separation, cycle paths, sealed program-owned memo, current native Type admission, retained-state FUN actions and atomic attested publication implemented; evaluation proofs remain Lean-only; purity/immutable keys/local callback termination are correspondence premises |
 | General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | generalized-graph.ss / construction-cache.ss / staged-publication.ss | Finite inspectable DAG rebuilding and source-bound invalidation implemented; arbitrary adapters and dependent evidence remain separate |
 
 ## Current construction API
@@ -103,7 +103,7 @@ future work; its module/type names are not names claimed to occur in the paper.
 | Named operation on a version | `CyclicPublication.Version.invoke` | `cyclic-publication.invoke`; result plus updated version, per-service checked cache transport |
 | Access example module | `LeanPoo.Functional.CyclicAccess` | `:clan/poo/examples/cyclic-access` |
 | Access configuration / equations / cooked view | `CyclicAccess.Config`, `equations`, `cook` | `access.config`, `access.equations`, `access.cook` |
-| Access construction / revision | `CyclicAccess.start`, `revise` | `access.start`, `access.revise`; supplied Boolean seed, without recursive attestation/memo |
+| Access construction / revision | `CyclicAccess.start`, `revise` | `access.start-attested`, `revise-attested`, `rebase-attested`; actual evaluated Boolean, owner-bound memo, least re-solve and atomic refusal |
 | Multiple dispatch implementation | `Object.Multimethod`, `Specializer`, `MethodIndex` | `multimethod.ss`, private `specializer` / `method-index` records; `prototype`, `any` specializers |
 | Negative extension assumptions | `DispatchExtension.Watch`, `check`, `guard`, `Conflict` | `dispatch-extension.ss`: `shape` / `call` watches, `check`, `guard`, `conflict`; private runtime `certificate` is a checked receipt, not a Lean proof |
 
@@ -310,11 +310,10 @@ preserves the exact published version. Lean's `Examples/AlignedServices` proves
 the corresponding standard/simple arithmetic and refusal laws using existing
 combinators, plus complete conditional selector-budget bounds.
 
-Remaining executable alignment gaps are explicit: precompiled unconditional
-effective-method dispatch,
-general safe-recursive attestation/memo programs (the cyclic seed is still a
-supplied Boolean), and arbitrary cross-type lens/migration adapters. Native
-finite DAG rebuilding does not close those broader capabilities. Dependent
+The earlier effective-method and bounded recursive request/memo gaps are now
+covered by the explicit native APIs below. General MOP interception hooks, arbitrary
+cross-type lens/migration adapters and full dependent catalog/wire evidence remain
+separate. Native finite DAG rebuilding does not close those broader capabilities. Dependent
 proof evidence itself remains a Lean responsibility, not another Scheme wrapper.
 
 
@@ -599,3 +598,45 @@ duplicate keys. `EmptyStorageCosts.covered` charges interface setup and excess G
 against removed construction dispatch/staging/pruning, with binding and approval
 explicitly common. This advances concrete generalized-protocol future work; it
 does not close the remaining safe-recursion, general MOP hook or migration TODOs.
+
+## Explicit recursive requests and owned memo
+
+The Racket fix--1 construction delays final-self calls while retaining the shared
+instance; its memo sketch is in a commented experimental stanza (poof.scrbl
+1906–1940), not an automatic effect/result cache required by the paper. The bounded
+Interaction evaluator, source proofs and cycle reasoning are Lean extensions of
+that construction. This work advances generalized-protocol future work.
+
+`recursive.Interaction.` and `recursive-handling.RequestAction.` compose through
+native FUN .ap/.bind/.map; `recursive.close` reuses proto composition. The closed
+request nodes distinguish source value/error from pending observations and machine
+diagnostics. Source solve depth and memo machine depth are DIFFERENT budgets.
+`recursive-cache.run` checks exact descriptor owner, stores only completed sealed
+receipts, copies its private standard table once per writing run, and returns the
+exact old memo on cycle/exhaustion. Completed source errors are valid cached work.
+
+`call-slot` resolves current POO signature metadata and native Types before memo
+lookup; output admission runs again even on a one-step hit. Input/schema/signature
+refusal never enters memo. Completed errors/output refusals retain completed memo;
+FUN batch/actions stop with that actual state. `result-reused` describes direct root
+lookup, not the existence of shared nested hits; composed actions may report unknown.
+`examples/recursive-catalog` composes prototype override, shared nested requests and
+typed multi-dispatch. Native Type catalogs cover these concrete immutable values;
+full Lean Dynamic catalog factories, wire codecs and dependent evidence are not
+claimed to have been ported by this module.
+
+`start-attested` seeds the original positive equations from an actual Boolean
+evaluation receipt. `revise-attested` reuses only the same program memo and re-solves
+least closure; `rebase-attested` explicitly starts a fresh program memo. Any recursive,
+source or publication refusal returns the exact old public wrapper/memo. A completed
+false removes release. `invoke-attested` threads existing service-cache successors.
+
+Lean reuses RecursiveCacheSemantics, RecursiveHandling and CyclicAccess proofs.
+New `runCertified_hit`/`zero` expose exact warm work/budget behavior;
+`RecursiveSession.call_warm_current` keeps current registry admission on warm calls.
+`RecursiveMemoCosts.covered` charges identical boundary checks and supplied setup/GC
+costs; raw memo savings cannot justify skipping admission. Program/keys/results must
+be immutable, callbacks pure and locally terminating, and equality extensional.
+Native node tagging/provenance is not a kernel evaluation proof. A depth budget is
+not a total work/memory quota or termination guarantee for arbitrary Scheme callbacks.
+See performance/recursive-summary.org for native controls and explicit scope.

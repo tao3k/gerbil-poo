@@ -7,9 +7,10 @@ In the future, we may add the following features and optimizations.
 This design TODO is not a declaration that the whole paper or every Lean model
 has been implemented. `alignment.md` maps executable native counterparts separately
 from proofs. Multiple inheritance and the listed method combinations are available,
-but the unified extensible MOP remains future work. Bounded safe recursive request
-programs/certified recursive memo are still open in Scheme; related examples accept
-an explicit Boolean seed. General inheritance-hook equivalence, arbitrary lens
+but the unified extensible MOP remains future work. Bounded explicit recursive requests and program-owned memo now have native
+implementations, current Type admission and attested cyclic publication. Their
+purity/immutability/local termination premises and Lean-only evaluation proofs
+are explicit in alignment.md; a literal seed API alone is not the attestation path. General inheritance-hook equivalence, arbitrary lens
 adapters and cross-type migration also need further native coverage. Finite DAG,
 metadata, invalidation and joint-publication examples do not close these general
 items. Storage/binding performance progress below does not change their status.
@@ -366,7 +367,7 @@ and `multimethod.simple` with existing Type/guard/negative-watch publication.
 atomic multi-service revisions. This implements a concrete part of the above
 method-combination direction; the unified generalized MOP remains future work.
 See `alignment.md` for the Racket/Lean/Scheme correspondence and the remaining
-safe recursion and lens/migration gaps. Prepared effective methods and explicit
+general MOP, dependent catalog/wire and lens/migration boundaries. Prepared effective methods and explicit
 nested cache successor transport are now implemented; their horizon-dependent
 costs remain under native paired measurement. Forwarding,
 inner and Simula now have native constructors and joint-service examples; their
@@ -398,3 +399,15 @@ constructor dispatch and copy/stage/prune preparation. Every current owner cell
 is still constructed and checked. Binding is measured separately from first/later
 family and contract construction; full publication, GC and A/A controls remain
 required. See performance/simula-owner-summary.org for source-specific results.
+
+### Bounded recursive request and memo implementation
+
+`recursive.ss`, `recursive-cache.ss` and `recursive-handling.ss` now implement the
+explicit request/FUN chain, exact program-owner memo, separate source errors and
+cycle/exhaustion diagnostics, and repeated CURRENT Type admission. Native catalog
+examples cover shared subrequests, output-policy/callback revocation, partial batch
+completion and typed dispatch. `examples/cyclic-access` can now obtain its Boolean
+from an actual recursive receipt, revise from least closure and retain old memo on
+publication refusal. These bounded concrete cases close the earlier explicit-seed
+gap; they do not complete the general MOP or arbitrary callback termination/codec
+work. See performance/recursive-summary.org for reproduction and proof boundaries.
