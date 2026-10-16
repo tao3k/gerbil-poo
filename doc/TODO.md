@@ -32,9 +32,9 @@ further tuning of the corresponding workflow.
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
-| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs. `MethodDeclaration.` now uses the same `.declare` stream for records and qualified method fragments, including recursive roots; `.defgeneric` has an explicit `combination:` bridge. `t/method-combination-test.ss`, `t/method-declaration-test.ss` and service examples. | The concrete record/method bridge is implemented. General fragments over arbitrary non-record carriers, compile-time specialization and a unified arbitrary multi-dispatch syntax remain future work. Optional generic formals retain their separate open TODO. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream and `.defgeneric` `combination:` bridge. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and unified arbitrary multi-dispatch syntax remain future work. Optional generic formals retain their separate open TODO. |
 | General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
-| User-selected storage and focused computation | Partial: explicit item raw form, prepared hooks, focused/nested construction | Arbitrary user storage strategies, primitive proxies/impersonators and automatic law discovery are open. |
+| User-selected storage and focused computation | Explicit lens/wrapper protocol now accepts user-selected non-record raw/cooked storage; heterogeneous nested-vector and procedure controls in `t/generalized-declaration-test.ss`. Existing item raw form, prepared hooks and focused construction are reused. | Lawful custom adapters remain caller obligations. Automatic storage selection/layout synthesis, primitive proxies/impersonators and automatic law discovery are open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
 | Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
 | Object keyword syntax / lexical slot bindings | Partial: current `.o`, `with-slots` and explicit self/supers bindings work | Proposed keyword grammar and independently configurable automatic slot bindings remain open. |
@@ -89,6 +89,30 @@ the corresponding pure closure and source/publication laws. See
 [recursive-declarations.md](recursive-declarations.md) for exact premises.
 
 ## Meta-Object Protocol
+
+### General fragment protocol and non-record macro
+
+`generalized-declaration.ss` provides ordinary extensible `Fragment.` metadata:
+each descriptor chooses its own `focus`, `wrapper` and `method`, plus explicit
+extra `sources`. Compilation reuses the existing Appendix B lens compiler and
+generalized assembler. There is no closed tag enumeration of supported carriers.
+`.prototype` uses the SAME declaration-form grammar/Reader expansion/finalization
+as `.declare`, then admits and prepares the complete non-record fragment stream.
+Labels identify contributions, while lenses may target overlapping raw components.
+
+The concrete example combines heterogeneous scalar and method-group foci through
+native Lens composition on nested vectors, cooked final-self dependency, existing
+standard method combination and an independent audit frame. The same protocol and
+macro also construct a procedure carrier. Source versions and registered callback
+metadata are checked even for zero-depth/cooking observations. Changed source
+requires fresh preparation; previously returned cooked values remain snapshots.
+
+Lean generalizes the existing Reader expansion to arbitrary entry types, packages
+heterogeneous typed focus/method descriptors, proves exact lens compilation,
+membership-scoped frame preservation and complete-source finalization. Examples
+prove finite observations for both carriers and seed-independent charge after
+three stages for the triangular service. No general raw fixed-point or arbitrary
+callback/lens correctness follows. See [generalized-declarations.md](generalized-declarations.md).
 
 ### Declared method fragments and receiver generics
 

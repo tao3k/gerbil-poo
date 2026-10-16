@@ -910,3 +910,27 @@ invalidation, rest/zero arguments, collision admission and nested error handling
 The pure fragment model assumes correct C3 order and typed qualifiers; native
 admission/invalidation and macro/compiler behavior are distinct evidence. See
 [method-declarations.md](method-declarations.md) for remaining generality.
+
+### Generic fragments on non-record representations
+
+Racket `$lens-gen` and its raw/cooked/wrapper decomposition are implemented by
+the existing lens compiler. `generalized-declaration.ss` now layers ordinary
+`Fragment.` objects and `.prototype` over the same declaration grammar and
+Reader/FUN finalizer. Each fragment independently packages its focus, method
+and wrapper; nested vectors and procedure carriers are executable instances.
+Existing Lens composition and standard method preparation are reused.
+
+Lean `Generalized.Fragment.compile_eq` proves exact compilation;
+`compile_frame/fragments_frame` preserve an explicitly supplied frame condition.
+`elaborateFragments_source` binds the complete accepted descriptor stream to
+current-context expansion/finalization. Shared `expandForms` now abstracts the
+entry type, so record and generalized consumers have the same ordered Reader
+semantics. Existing source record/method proofs continue to compile.
+
+`Examples/DeclaredPrototypes.lean` matches native heterogeneous nested-vector
+and procedure examples using typed products and method groups. Universal
+seed-independent charge after three stages concerns this triangular observation,
+not a general raw fixed point. Native controls separately exercise the macro,
+copying setters, invalidation/refusal, ignored getters and registered-write guards.
+Custom callback termination and lens/compiler laws remain premises. See
+[generalized-declarations.md](generalized-declarations.md).

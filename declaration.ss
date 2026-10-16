@@ -1,6 +1,6 @@
 ;;; Nonlocal declaration expansion uses ordinary inherited POO methods and Reader.
 (export Declaration. declaration-form declaration-action expand-declarations object<-declaration-forms
-        object<-expanded-declarations .declare)
+        object<-expanded-declarations declaration-forms .declare)
 (import :std/iter 
         (only-in :std/list/list foldr) ./object ./mop ./reflection (only-in ./type element?)
         (prefix-in ./generalized-prototype gp.))
