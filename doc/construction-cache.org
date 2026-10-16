@@ -344,3 +344,33 @@ medians; never subtract arbitrary phase medians to estimate selector cost.
 Source/binary changes, missing pairs, wrong side/order, incorrect allocation
 admission, incomplete output and nonfinite metrics fail admission. Failed runs
 stay incomplete and ignored. No raw matrix, archive or versioned JSON is stored.
+
+* Shared closed generic expansion
+
+~generic-family.Projection.~ now owns the per-key ~.instantiate~ constructor
+protocol. Default behavior expands independently for seed/methods. The optional
+~methods.instantiate<-shared-expansion~ uses their common pure immutable closed
+environment once and passes it directly to the existing constructors. Model
+identity, projected-input equality, empty-seed validation and negative watches
+remain mandatory. The extra expansion callback retains registration provenance
+on failure. Identity-sensitive or mutating constructors must keep the default.
+
+~examples/shared-contracts~ exports ~expanded-generics / expanded-model /
+expanded-workflow-model~. They combine dynamic contract selection, shared generic
+expansion, cooked interfaces, warm siblings and joint approval. Native tests
+count real calls: three cold changed keys expand three times; invoice-only
+revision expands once and keeps reserve's warm certificate. Warm-budget and
+negative-watch refusals preserve the exact old publication.
+
+Lean ~GenericFamily.SharedExpansion~ proves constructor/registration/watch
+correspondence under pure value semantics. ~PreparationCosts.ExpansionCosts~
+charges expansion, saved adapters and the extra provenance guard, with a separate
+collection-excess budget. No Scheme runtime depends on the Lean checkout.
+
+The expanded ~just benchmark-metadata-paired~ study has ten scenarios and five
+controls, including identical-stage A/A pairs. The fixed four-round ABBA matrix
+has 640 fresh native children. It keeps raw signed allocation counters, pair
+spread/direction and prefix counters. CPU minus GC CPU is an accounting residual;
+isolated stages are not additive end-to-end attribution. Original 192-child
+receipts remain historical. See ~doc/performance/expansion-summary.org~ for the
+bounded current measurements and any adverse outcomes.

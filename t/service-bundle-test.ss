@@ -10,11 +10,70 @@
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../dispatch-extension dispatch.)
         (prefix-in ../multimethod multimethod.))
+;; Baseline policy for checked heterogeneous services and cache/approval refusal cases.
 (def policy (.cc bundle.Policy. capacity: 10 price: 3 invoice: "invoice:1"))
+;; Capture a raised condition for refusal assertions; never turn it into acceptance.
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
+;; Inspect the actual checked-dispatch cache for one published service.
 (def (size version key) (multimethod.cache-size (dispatch.snapshot (publication.version-service version key))))
+;; Exercise native composition, exact-candidate approval, shared-expansion work counts,
+;; current-state invocation and keyed registration/negative failures.
 (def service-bundle-test
   (test-suite "native composed family and exact-candidate admission"
+    (test-case "shared expansion counts actual changed generics and retains warm siblings"
+      (def original (.@ (.@ bundle.model generics) projection))
+      (def expansions 0)
+      (def expand (.@ original expand))
+      ;; Matched default executes the same immutable reconstruction twice per key.
+      (def baseline-calls 0)
+      (def reference (.cc bundle.model generics:
+        (.cc (.@ bundle.model generics) projection:
+          (.cc original expand: (lambda (key inputs)
+            (set! baseline-calls (+ baseline-calls 1)) (expand key inputs))))))
+      (defvalues (reference-cold reference-issue)
+        (staged.prepare reference (access.equations (access.config) #t) policy))
+      (check-equal? reference-issue #f)
+      (check-equal? baseline-calls 6)
+      (def counted (.mix family.methods.instantiate<-shared-expansion
+        (.cc original expand: (lambda (key inputs)
+          (set! expansions (+ 1 expansions)) (expand key inputs)))))
+      (def model (.cc bundle.model generics: (.cc (.@ bundle.model generics) projection: counted)))
+      (def equations (access.equations (access.config) #t))
+      (defvalues (cold issue) (staged.prepare model equations policy))
+      (check-equal? issue #f)
+      (check-equal? expansions 3)
+      (defvalues (_ warm) (publication.invoke cold 'reserve 2))
+      (set! expansions 0)
+      (defvalues (cancelled cancel-issue) (staged.publish model warm equations (.cc policy invoice: "invoice:2")))
+      (check-equal? cancel-issue #f)
+      (check-equal? expansions 1)
+      (check (eq? (publication.version-service cancelled 'reserve) (publication.version-service warm 'reserve)) => #t)
+      (check-equal? (size cancelled 'reserve) 1)
+      (check-equal? (first-value (publication.invoke cancelled 'cancel "customer" #t)) '("customer" "invoice:2"))
+      (set! expansions 0)
+      (def changed (.cc policy capacity: 20 price: 4 invoice: "invoice:3"))
+      (defvalues (joint accepted) (staged.publish model cancelled equations changed))
+      (check-equal? accepted #f)
+      (check-equal? expansions 3)
+      (check-equal? (first-value (publication.invoke joint 'reserve 2)) '(ok 18 #t))
+      (check-equal? (first-value (publication.invoke joint 'quote protected.invoice protected.card 10)) '(13 14))
+      (check-equal? (first-value (publication.invoke joint 'cancel "customer" #t)) '("customer" "invoice:3"))
+      (defvalues (warm-result joint-warm) (publication.invoke joint 'reserve 2))
+      (defvalues (held refused) (staged.publish model joint-warm equations (.cc changed cache-limit: 0)))
+      (check (eq? held joint-warm) => #t)
+      (check-equal? (publication.failure-stage refused) 'admission)
+      (defvalues (same negative) (staged.publish model joint-warm equations (.cc changed forbidden-quote: #t)))
+      (check (eq? same joint-warm) => #t)
+      (check-equal? (family.failure-stage (publication.failure-cause negative)) 'negative))
+    (test-case "shared expansion preserves keyed registration failure"
+      (def failing (.mix family.methods.instantiate<-shared-expansion
+        (.cc (.@ (.@ bundle.model generics) projection) expand: (lambda (_ __) (error "expansion refused")))))
+      (def model (.cc bundle.model generics: (.cc (.@ bundle.model generics) projection: failing)))
+      (defvalues (none issue) (staged.prepare model (access.equations (access.config) #t) policy))
+      (check-equal? none #f)
+      (check-equal? (publication.failure-stage issue) 'services)
+      (check-equal? (family.failure-key (publication.failure-cause issue)) 'quote)
+      (check-equal? (family.failure-stage (publication.failure-cause issue)) 'registration))
     (test-case "C4 contributions guards and heterogeneous metadata remain connected"
       (defvalues (old issue) (bundle.start policy))
       (check-equal? issue #f)

@@ -28,7 +28,7 @@
     (test-case "missing duplicate swapped side stale and invalid metrics refuse"
       (def data (rows))
       (def complete (list 'complete (length data)))
-      (check-equal? (length (check-study (header) data complete)) 192)
+      (check-equal? (length (check-study (header) data complete)) 640)
       (check-exception (check-study (header) (cdr data) complete) true)
       (check-exception (check-study (header) (cons (car data) data) complete) true)
       (check-exception (check-study (header) (reverse data) complete) true)
@@ -48,4 +48,4 @@
       (vector-set! metrics 3 1)
       (check-exception (check-study (header) data complete) true)
       (vector-set! metrics 4 #f)
-      (check-equal? (length (check-study (header) data complete)) 192))))
+      (check-equal? (length (check-study (header) data complete)) 640))))

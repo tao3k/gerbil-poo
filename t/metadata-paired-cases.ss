@@ -1,17 +1,19 @@
 ;;; One fixed native study definition, shared by child, driver and validator.
 (export scenarios regimes strategies pairs rounds warmups repetitions sources side-order)
 ;; Separate selector overhead from real family construction, joint publication
-;; and the existing 15-node shared-dependency workflow.
-(def scenarios '(selector family joint workflow))
+;; and the existing 15-node shared-dependency workflow. Isolated stage controls
+;; are real callbacks; their timings are not additive full-publication attribution.
+(def scenarios '(selector inputs construct bind rebind generics approval family joint workflow))
 ;; Natural preserves the child's heap history; collected explicitly collects
 ;; after the identical warmup prefix. Neither promises identical live heaps.
 (def regimes '(natural collected))
 ;; Fixed side numbering shared by child, driver and validator. Uncaptured is a
-;; benchmark-only previous callback; cached is the optional SelectionCache variant.
-(def strategies '(independent uncaptured dynamic cached))
+;; benchmark-only previous callback; cached reuses selection, expanded additionally
+;; shares pure generic expansion with the captured dynamic contract strategy.
+(def strategies '(independent uncaptured dynamic cached expanded))
 ;; Adjacent controls isolate preparation choice, function capture and choice reuse.
 ;; Each pair is measured directly; marginal medians are not a transitive cost proof.
-(def pairs '((0 1) (1 2) (2 3)))
+(def pairs '((0 1) (1 2) (2 3) (2 4)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping

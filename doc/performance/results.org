@@ -19,3 +19,9 @@ Fresh-process selector controls are summarized in [[file:paired-summary.org]];
 reproduce with ~just benchmark-metadata-paired~. Child and aggregate bounds are
 separate. Keep every paired difference and incoming GC counter, even when a
 strategy regresses or process histories do not match.
+
+* Shared generic expansion and isolated publication stages
+
+[[file:expansion-summary.org][Native paired stage and full-publication controls]] extend the earlier selector
+study with construction, binding, approval, A/A spread and optional shared
+closed generic reconstruction. Raw matrices and binaries remain local/ignored.

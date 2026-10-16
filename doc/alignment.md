@@ -264,3 +264,5 @@ protocols, shared settlement graph, reuse guarantees and measured scope.
 This is an implementation extension of the future work, not a term introduced
 by the paper. The paper uses DAG for dependency/inheritance edges and C3
 linearization; this cache contains no dependency edges.
+
+| Shared closed generic reconstruction | `GenericFamily.SharedExpansion.shared_eq / patch_eq / negative_eq`; `PreparationCosts.ExpansionCosts` | `generic-family.Projection.` / `methods.instantiate<-shared-expansion`; shared-contracts expanded models | Opt-in pure immutable reconstruction, unchanged registration/watches, explicit extra guard and GC budget; no fresh-identity or mutation equivalence claim |

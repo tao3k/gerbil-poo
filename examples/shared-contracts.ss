@@ -1,7 +1,7 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
 ;;; Generalized-prototype future work: immutable closed inputs, native mixins.
-(export source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
-(import ../object (prefix-in ../contract-family family.)
+(export source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
+(import ../object (prefix-in ../contract-family family.) (prefix-in ../generic-family generics.)
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ./construction-workflow workflow.)
         (prefix-in ./service-metadata service.) (prefix-in ./service-bundle bundle.))
@@ -104,3 +104,17 @@
 ;; Combine cached strategy choice with the existing multi-level shared-dependency
 ;; workflow. DAG rebuilding and application approval retain their own invalidation rules.
 (def cached-workflow-model (.cc workflow.model contract-source: cached-source))
+
+;; Share the closed immutable reconstruction for each changed heterogeneous generic.
+;; The existing seed/declarations inspect values only and permit sharing; keep their
+;; source, negative watches and per-key closed-context invalidation unchanged.
+(def expanded-generics
+  (let (original (.@ selected-model generics))
+    (.cc original projection:
+      (.mix generics.methods.instantiate<-shared-expansion (.@ original projection)))))
+;; Cross-service joint revision with dynamic contract selection and one expansion
+;; per changed generic. Contract construction/binding and approval are unchanged.
+(def expanded-model (.cc selected-model generics: expanded-generics))
+;; Combine the shared settlement DAG, cooked interface, shared generic expansion,
+;; checked contracts and joint approval. Warm siblings retain their certificates.
+(def expanded-workflow-model (.cc workflow-model generics: expanded-generics))

@@ -1,6 +1,10 @@
 #+TITLE: Fresh-process preparation selector controls
 
 * Scope and reproducibility
+The command now runs the expanded study documented in
+[[file:expansion-summary.org][shared-expansion controls]]; the 192-child observations below bind the
+recorded older sources.
+
 This is local native Gerbil/Gambit evidence for generalized prototype protocol
 future work. Reproduce with =GERBIL_PATH="$PWD/.build/env" just benchmark-metadata-paired=
 after installing this package in a suitable isolated Gerbil environment. No Lean
@@ -8,7 +12,7 @@ checkout, Python timing driver, checked-in raw matrix or compressed archive is
 required. Outputs stay under ignored =.build/metadata/=. The driver validates
 current source and binary digests, complete coverage and metric admission.
 
-The current study contains 192 fresh native child processes: four scenarios,
+The historical recorded study contains 192 fresh native child processes: four scenarios,
 natural/collected regimes, four rounds and three adjacent comparison pairs.
 Each process constructs all controls in the same order and executes four fixed
 warmup passes. Side order is ABBA and pair positions rotate. Natural does not
