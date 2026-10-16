@@ -308,6 +308,14 @@ fresh restaging reuses current graphs and proposed native policies. See
 real native closure/thread controls and reader/immutability premises. This is a
 joint snapshot interface, not atomic mutation of old independent coordinator handles.
 
+Multiple atomic joint requests now interleave across merge/split/restore rounds.
+`joint-publication.stage-at` binds explicit expected bundles and `stage-with`
+prepares contributions from one captured current snapshot without silent rebasing.
+Old batches remain stale after field-value round trips; fresh preparation after
+failure or a rival publication reuses current source and policy objects. See
+[joint-rounds.md](joint-rounds.md) for bounded native competing workers, six-round
+retry controls, arbitrary stale-batch and finite validity-preservation proofs.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

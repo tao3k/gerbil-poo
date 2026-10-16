@@ -1,5 +1,5 @@
 ;;; Atomic replacement of shared approval metadata and all endpoint heads.
-(export publication current head approval stage submit!)
+(export publication current head approval stage stage-at stage-with submit!)
 (import (only-in :gerbil/runtime/thread with-lock) (only-in :std/list/list delete-duplicates/hash)
         ./object ./mop ./lens-laws ./feedback-graph
         (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
@@ -47,8 +47,12 @@
 ;; All endpoints participate: omitted revisions are empty edits, reusing clean
 ;; construction receipts but still obtaining current approval under proposed policy.
 (def (stage owner policies revisions guards: (guards []) builder: (builder (.cc cache.Builder.)))
+  (stage-at owner (current owner) policies revisions guards: guards builder: builder))
+;; Bind preparation to an EXPLICIT bundle. Reject stale captures before inspecting
+;; edits; preparation computed against an old head must not silently target a new one.
+(def (stage-at owner expected policies revisions guards: (guards []) builder: (builder (.cc cache.Builder.)))
+  (unless (eq? expected (current owner)) (error "stale joint publication during staging"))
   (bindings! policies) (bindings! revisions)
-  (def expected (current owner))
   (for-each (lambda (entry)
     (lookup (%snapshot-approvals expected) (car entry))
     (unless (object? (cdr entry)) (error "native approval replacement required"))) policies)
@@ -56,6 +60,13 @@
   (def proposed (map (lambda (entry) (or (assq (car entry) policies) entry)) (%snapshot-approvals expected)))
   (make-%request owner expected proposed revisions
     (guards-for (append (%snapshot-approvals expected) proposed) (append (%publication-guards owner) guards)) builder))
+;; Compute both contribution streams from ONE current bundle, then validate that
+;; same expected bundle again. Standard call-with-values preserves the two streams;
+;; prepare is pure/locally total in production. No automatic retry or rebase occurs.
+(def (stage-with owner prepare guards: (guards []) builder: (builder (.cc cache.Builder.)))
+  (def expected (current owner))
+  (call-with-values (lambda () (prepare expected))
+    (lambda (policies revisions) (stage-at owner expected policies revisions guards: guards builder: builder))))
 ;; Close every endpoint using its exact old graph and PROPOSED approval values.
 ;; Then check joint consistency, recheck sources/head under lock, and replace ONE
 ;; bundle pointer. Failure returns actual current bundle; no installed object was

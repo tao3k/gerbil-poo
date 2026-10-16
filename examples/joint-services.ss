@@ -1,5 +1,5 @@
 ;;; Consistent multi-service deployment with atomic shared policy replacement.
-(export start stage value policy)
+(export start stage stage-current value policy)
 (import ../object ../mop ../brace (prefix-in ../joint-publication joint.)
         (prefix-in ../construction-cache cache.) (prefix-in ./component-membership initial.)
         (prefix-in ./component-rounds service.))
@@ -22,3 +22,11 @@
 ;; Empty per-endpoint edits remain available through the general joint API.
 (def (stage owner phase policies builder)
   (joint.stage owner policies (map (lambda (key) (cons key (service.contributions phase))) '(a b)) builder: builder))
+
+;; Reprepare a shared policy from the actual current native object, retaining its
+;; other fields, and stage both service phases against that SAME bundle. The caller
+;; explicitly chooses the phase after a refusal or competing publication.
+(def (stage-current owner phase ceiling builder)
+  (joint.stage-with owner (lambda (snapshot)
+    (values [(cons 'shared (.cc (joint.approval snapshot 'shared) limit: ceiling))]
+      (map (lambda (key) (cons key (service.contributions phase))) '(a b)))) builder: builder))
