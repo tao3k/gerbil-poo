@@ -31,7 +31,7 @@
 ;; Bind all runtime/example/driver inputs used by this study. Changes make old
 ;; receipts historical; source identity is checked before and after the complete run.
 (def sources '("recursive.ss" "recursive-cache.ss" "fun.ss" "proto.ss" "contract-family.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss"
-  "method-combination.ss" "method-declaration.ss" "generalized-declaration.ss" "generalized-closure.ss" "lens-laws.ss" "examples/closed-declarations.ss" "examples/generalized-declarations.ss" "examples/service-combination.ss" "examples/declared-methods.ss" "declarative-metadata.ss" "dispatch-extension.ss" "multimethod.ss" "closure.ss"
+  "method-combination.ss" "method-declaration.ss" "generalized-declaration.ss" "generalized-closure.ss" "focused-closure.ss" "lens-laws.ss" "examples/focused-services.ss" "examples/closed-declarations.ss" "examples/generalized-declarations.ss" "examples/service-combination.ss" "examples/declared-methods.ss" "declarative-metadata.ss" "dispatch-extension.ss" "multimethod.ss" "closure.ss"
   "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss"
   "object.ss" "object-state.ss" "inheritance-hooks.ss" "reflection.ss" "meta-prototype.ss" "declaration.ss" "recursive-declaration.ss" "mop.ss" "type.ss" "number.ss" "build.ss" "justfile"
   "examples/shared-contracts.ss" "examples/service-metadata.ss" "examples/service-bundle.ss"

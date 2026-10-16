@@ -1,5 +1,5 @@
 ;;; Comparable non-record raw state, controlled dependency closure and callable cooking.
-(export base rate-focus fee-focus reserve-focus checks prepare-service report)
+(export base vector-focus cook rate-focus fee-focus reserve-focus checks prepare-service report)
 (import (only-in :gerbil/runtime/gambit vector-copy) ../object ../mop ../brace
         ../generalized-declaration ../generalized-closure ../lens-laws
         (prefix-in ../method-combination combination.)

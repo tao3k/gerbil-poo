@@ -55,6 +55,11 @@ there is no implicit global capability revocation or external-I/O rollback.
   lens revision and explicit dependency revisions for repeated checks.
 - `run-lens-check check states`: reject stale sources and check actual states.
 
+`run-lens-check` also accepts `extra-values:` for actual computed replacements;
+these extend the captured finite domain. `lens-check-focus` exposes the captured
+lens while preserving private source/version storage. Focused component closure
+uses both under whole-chain source guards; see [focused-closure.md](focused-closure.md).
+
 The equations are `put(get(s),s)=s`, `get(put(a,s))=a`, and
 `put(b,put(a,s))=put(b,s)`. Failed checks retain the precise law name.
 An empty state domain in a direct check is vacuous; closure checks each actually

@@ -1,5 +1,5 @@
 ;;; Executable finite-domain get-put, put-get and put-put controls for native lenses.
-(export check-lens-laws lens-check lens-check? run-lens-check with-lens-checks
+(export check-lens-laws lens-check lens-check? lens-check-focus run-lens-check with-lens-checks
         lens-law-failure? lens-law-failure-law)
 (import :std/iter ./object ./mop)
 ;; A failed law retains its precise name; it is not a universal proof certificate.
@@ -24,6 +24,9 @@
 (defstruct law-check (focus values sources versions) final: #t)
 ;; Recognize only finite operational check descriptors made by this module.
 (def lens-check? law-check?)
+;; Inspect the captured lens for focused computation; dependency/version storage
+;; stays private and every use must remain inside with-lens-checks.
+(def lens-check-focus law-check-focus)
 ;; Register the native lens plus explicit dependencies; domain points are immutable
 ;; caller inputs. Empty value domains cannot exercise either put law and refuse.
 (def (lens-check focus values sources: (sources []))
@@ -32,14 +35,15 @@
   (def all (cons focus sources))
   (for-each instantiate-object! all)
   (make-law-check focus values all (map object-revision all)))
-;; Refuse changed lens metadata and supported writes while checking actual states.
-;; Raw mutation, effects and host nontermination are outside this pure check protocol.
-(def (run-lens-check check states)
+;; Refuse changed metadata and supported writes while checking actual states.
+;; Include actual computed replacement values in addition to the captured domain;
+;; dynamic coverage still does not prove universal laws or callback termination.
+(def (run-lens-check check states extra-values: (extra-values []))
   (unless (and (lens-check? check) (equal? (law-check-versions check)
                                         (map object-revision (law-check-sources check))))
     (error "stale or invalid lens check"))
   (parameterize ((active-object-constructions (append (law-check-sources check) (active-object-constructions))))
-    (check-lens-laws (law-check-focus check) states (law-check-values check))))
+    (check-lens-laws (law-check-focus check) states (append (law-check-values check) extra-values))))
 ;; Protect all check dependencies through a complete staged operation, including
 ;; raw steps and cooking between checks. This prevents a callback changing a lens
 ;; after admission and before the next check; supported writes refuse pre-mutation.

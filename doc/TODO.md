@@ -138,6 +138,31 @@ to the older freshly allocated method-closure representation. Arbitrary fresh
 procedure identities cannot be certified from sampled calls; budget exhaustion
 remains inconclusive about divergence. See [controlled-closure.md](controlled-closure.md).
 
+### Focused recursive components and final family admission
+
+`focused-closure.ss` now closes narrow components inside a wider non-record raw
+carrier, using captured outer lens checks and the existing bounded local closure.
+Actual old/new child values extend the finite law domain. Ordered stages compose
+with native FUN Reader `.map` and standard `foldr`; every source stays guarded
+through the whole chain, final equation validation and family cooking.
+All final projected equations are checked again: separate lawful lenses need not
+be independent. Conflicting overlap refuses the complete publication; compatible
+overlap can pass. Every final check costs one extra raw step beyond local search.
+
+`examples/focused-services.ss` closes two nested-vector services with distinct
+policies and existing primary/around methods, preserving sibling/shared audit
+data. Native controls cover actual replacement laws, overlap, budget, stale
+metadata, later source mutation, final cooking and Reader suffix suppression.
+Lean proves focused fixedness/frame preservation, final admission soundness,
+independent lens pairing and concrete family results. See
+[focused-closure.md](focused-closure.md).
+
+Still open: automatic proof/law discovery, mutually recursive feedback across
+arbitrary component boundaries, generic convergence for nonmonotone equations,
+arbitrary procedure equality and automatic dependent/cross-type adapters. The new
+protocol is explicit ordered local closure plus final admission, not a general
+global fixed-point solver. Functionality here precedes performance tuning.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

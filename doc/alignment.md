@@ -958,3 +958,24 @@ and FUN Reader suffix suppression. Pure local totality, immutable raw data and
 registered dependencies remain premises; unrestricted recursion/closure equality
 and compiler/runtime verification remain outside scope. See
 [controlled-closure.md](controlled-closure.md).
+
+### Focused recursive components in a wider raw computation
+
+Racket's `$lens-gen` discussion explicitly permits a narrow component of a wider
+raw computation, followed by representation cooking. `focused-closure.ss` now
+combines existing local closure, captured custom lenses, FUN Reader composition
+and final whole-family cooking. Sources for ALL stages remain guarded; actual
+replacement values extend finite law domains, and final admission checks every
+projected raw equation again. Individually lawful overlapping lenses are not
+assumed independent. A conflicting later update retains the entire old publication.
+
+Lean `LensIndependent` and `LensLaws.pair` state/prove the extra composition laws;
+`Generalized.closeFocused_fixed/frame`, `fixed_preserved` and
+`validateFocused_sound` prove local fixedness, explicit frame preservation and
+final admission. `Examples/ClosedPrototypes.lean` pairs two audited product
+services with `examples/focused-services.ss` vectors and existing effective methods.
+Native tests distinguish concrete finite lens checking from universal premises.
+Each final equation check adds one raw step beyond the local search budget.
+This advances future work: arbitrary mutual feedback, global convergence,
+automatic laws/layout discovery and compiler/runtime validation remain outside
+the construction. See [focused-closure.md](focused-closure.md).
