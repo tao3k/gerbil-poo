@@ -3,6 +3,7 @@
         forward-contribution? forward-effective inner-chain SimulaBody SimulaBody. simula-body simula-body? simula-effective
         Contribution Contribution. primary before after around item
         standard-contribution? simple-contribution? effective simple-effective
+        prepare-standard prepare-simple prepare-forwarding prepare-inner prepare-simula
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
 (import :std/iter (only-in :std/list/list foldr) ./object
         (only-in ./mop define-type Type. element?) ./support/option)
@@ -172,3 +173,72 @@
   (for-each (lambda (body) (apply (.@ body prefix-part) args)) (reverse methods))
   (for-each (lambda (body) (apply (.@ body suffix-part) args)) methods)
   (void))
+
+;; Compile the next-method skeleton once. Invocation supplies fresh arguments;
+;; each next thunk still permits zero, one or repeated calls with that SAME row.
+(def (prepare-chain methods exhausted)
+  (foldr (lambda (method next)
+    (lambda (args) (apply method (lambda () (next args)) args))) exhausted methods))
+;; Prepare the standard qualifier groups and continuation skeleton without running
+;; bodies. Current invocation arguments reach every before/primary/after/around.
+(def (prepare-standard contributions on-missing)
+  (def before (group contributions 'before))
+  (def primary (prepare-chain (group contributions 'primary) on-missing))
+  (def after (reverse (group contributions 'after)))
+  (prepare-chain (group contributions 'around)
+    (lambda (args)
+      (for-each (cut apply <> args) before)
+      (def result (primary args))
+      (for-each (cut apply <> args) after)
+      result)))
+;; Specialize a simple policy and group its items once. Reuse the existing exact
+;; first/stop/step/finish semantics; no item or predicate executes at preparation.
+(def (prepare-simple policy contributions)
+  (def items (group contributions 'item))
+  (def stop (.@ policy stop))
+  (def first (.@ policy first))
+  (def step (.@ policy step))
+  (def finish (.@ policy finish))
+  (prepare-chain (group contributions 'around)
+    (lambda (args)
+      (finish (if (null? items) (.@ policy empty)
+        (let loop ((acc (first (apply (car items) args))) (rest (cdr items)))
+          (if (null? rest) acc
+            (let (done (stop acc))
+              (unless (boolean? done) (error "simple stop must be Boolean"))
+              (if done acc (loop (step (apply (car rest) args) acc) (cdr rest)))))))))))
+;; Compile forwarding continuations while keeping dispatch and current payload
+;; as invocation parameters. Every explicit replacement retains Type validation.
+(def (prepare-forward-chain methods exhausted validate-payload)
+  (foldr (lambda (method next)
+    (lambda (args)
+      (def dispatch (car args))
+      (def payload (cadr args))
+      (method (lambda (replacement)
+        (unless (or (not replacement) (some? replacement)) (error "expected optional forwarded payload"))
+        (next (if replacement (list dispatch (validate-payload (some-value replacement))) args)))
+        dispatch payload))) exhausted methods))
+;; Prepare forwarding groups once; after observes the around-enriched entry row,
+;; while primary replacements affect only their remaining primary continuation.
+(def (prepare-forwarding contributions on-missing validate-payload)
+  (def before (group contributions 'before))
+  (def primary (prepare-forward-chain (group contributions 'primary) on-missing validate-payload))
+  (def after (reverse (group contributions 'after)))
+  (prepare-forward-chain (group contributions 'around)
+    (lambda (args)
+      (for-each (cut apply <> args) before)
+      (def result (primary args))
+      (for-each (cut apply <> args) after)
+      result) validate-payload))
+;; Reverse C4 only during preparation; superclass-controlled inner still receives
+;; fresh arguments and may omit or repeat the descendant continuation.
+(def (prepare-inner methods terminal) (prepare-chain (reverse methods) terminal))
+;; Extract native Simula prefix/suffix callbacks once rather than doing POO slot
+;; lookups and reversal on every invocation. Prefix failure still stops suffixes.
+(def (prepare-simula methods)
+  (def prefixes (map (cut .@ <> prefix-part) (reverse methods)))
+  (def suffixes (map (cut .@ <> suffix-part) methods))
+  (lambda (args)
+    (for-each (cut apply <> args) prefixes)
+    (for-each (cut apply <> args) suffixes)
+    (void)))

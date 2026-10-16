@@ -16,6 +16,7 @@ checks the runtime premises at its public boundary.
 | Ten-fact cyclic access and lossy view | CyclicAccess | examples/cyclic-access.ss | Implemented and tested over 32 configurations; active is a list of indices |
 | General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Existing Scheme implementation reused; generalized hook equivalence needs separate coverage |
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
+| Prepared effective methods and explicit nested cache owners | PreparedMultimethod; Multimethod.preparedStandard / preparedForwardingStandard / preparedSimple / preparedInner / preparedSimula; NestedMultimethod | multimethod.ss prepared-* / nested; method-combination.ss prepare-* | Implemented on the existing typed sparse dispatcher; one bounded resolution LRU, unconditional effective reuse, guarded reselection, joint invalidation and explicit multi-level child successor transport. Native owner checks definition AND invoker identity; performance remains horizon dependent |
 | Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
 | Selective generic construction and warm-cache retention | GenericFamily.Source / Projection / refresh; StagedPublication.stageRefresh | generic-family.ss / staged-publication.ss / cyclic-publication.ss | Implemented through native closed projections and atomic family refresh; changed source/inputs reconstruct and recheck negative watches; exact warm siblings retained; contract-family.ss now also retains projected contracts and late-bound wrappers |
 | Prepared selection and controlled cost comparison | PreparationCosts.SelectionCache / SelectionCacheCosts / Observation / paired_delta | contract-family.ss SelectionCache. / methods.inputs<-cached-selection; t/metadata-paired-* | Immutable prepared choice with arity fallback, first-class function capture, setup/guard amortization and per-pair GC decomposition; fresh-process source-bound native controls |
@@ -357,11 +358,31 @@ rebuild reserve/cancel and retain quote; other combinations keep their smaller
 original dependency support. Tests verify actual rebuild traces, current results,
 negative cancellation refusal and exact old-version identity.
 
-These complex examples keep nested generic ownership functional: the forwarding
-and preflight helper calls consume their result without mutating a hidden cache.
-Their complete workflow timings include nested cold resolution. General prepared
-effective methods and nested warm-cache transport remain separate optimization
-work; these examples do not claim optimal nested dispatch performance.
+The reference models deliberately discard nested helper successors as a measured
+control. `compiled-forwarding-model` / `compiled-simula-model` compile child
+combinations but retain that control; `prepared-forwarding-model` /
+`prepared-simula-model` additionally transport the child successor through
+`multimethod.nested`, the existing certificate, family and admitted version.
+`cached-*-model` isolates candidate-cache transport without child precompilation.
+The child may itself own a child. Every successful invocation returns both cache
+levels explicitly; failures return no tentative owner. No hidden body cache exists.
+
+`prepared-*` reuse current typed arguments, not invocation results. A cached
+resolution stores candidates and an effective method together in the existing
+8-entry LRU. Any guard prohibits effective reuse for that shape; edits empty the
+LRU. The open invoker descriptor specializes once to a compact private callback /
+state record. A successor carries that record, without rebuilding a lazy POO
+descriptor. Child definition and invoker callback identity must both remain equal
+before negative-watch certificates may be transported. An invoker replacement
+cannot disguise itself as a cache hit. The nested constructor is an explicit
+stateful calling convention, not an implicit effectful standard qualifier.
+
+Lean `call_correct`, `call_preserves`, fresh/edit invariant laws, the four prepared
+combination equality laws, and nested success/failure laws cover these operations.
+The native suite separately covers typed warm arguments, repeated next, prefix
+failure, three nested owners, changed-definition/invoker refusal and invoice/joint
+revision. Closed Lean request examples are executable checks; generic semantic
+and cache invariants are proofs. Neither establishes Scheme compiler correctness.
 
 For a single cold specialization, `with-meaning descriptor meaning #f` avoids
 forcing shared checks and clears a retained record if necessary. Changed invariant
@@ -383,6 +404,6 @@ flags remain unchanged. There are no new audit/benchmark JSON files or changes.
 horizons independent. Identity tests establish cold fresh source = selected-source,
 steady source = shared-checks-source under the example weights; no extra runtime
 source wrapper is introduced. A nonzero first policy fee still needs coverage;
-known single-use clients can directly use the ordinary source. The final native
-paired evidence and A/A variability are recorded in
-performance/control-combination-summary.org.
+known single-use clients can directly use the ordinary source. The historical control-horizon study is recorded in
+performance/control-combination-summary.org. Current prepared/nested controls,
+including regressions and A/A spread, are in performance/prepared-invocation-summary.org.

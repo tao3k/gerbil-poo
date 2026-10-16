@@ -1,5 +1,6 @@
 ;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
-(export standard-model simple-model forwarding-model inner-model simula-model forwarder preflight start revise)
+(export standard-model simple-model forwarding-model inner-model simula-model
+        cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model forwarder preflight start revise)
 (import ../object (only-in ../mop Any element?) (only-in :std/values first-value)
         (prefix-in ../dispatch-extension extension.) (only-in ../number IntegerRange)
         (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
@@ -24,8 +25,8 @@
 ;; Build a protected forwarding generic for request enrichment. Around installs
 ;; current invoice, primary adds an approval marker, and the inherited arithmetic
 ;; sees the updated payload while its dispatch identity stays fixed.
-(def (forwarder view)
-  (def seed (dispatch.forwarding-standard Any payload-type Any (lambda (_) '((Reserve Object)))))
+(def (forwarder view (prepared? #f))
+  (def seed ((if prepared? dispatch.prepared-forwarding-standard dispatch.forwarding-standard) Any payload-type Any (lambda (_) '((Reserve Object)))))
   (def generic (metadata.install seed
     (list
       (metadata.replace "payload.base" (list (dispatch.prototype 'Object))
@@ -44,8 +45,8 @@
   (extension.snapshot (extension.check generic (list (extension.shape '((Forbidden)))))))
 ;; Build a typed Simula preflight whose general/specific prefix/suffix checks all
 ;; use the current reconstructed view. A raised check aborts the remaining stages.
-(def (preflight view)
-  (def seed (dispatch.simula (list units-type) (lambda (_) '((Reserve Object)))))
+(def (preflight view (prepared? #f))
+  (def seed ((if prepared? dispatch.prepared-simula dispatch.simula) (list units-type) (lambda (_) '((Reserve Object)))))
   (def generic (metadata.install seed
     (list
       (metadata.replace "preflight.general" (list (dispatch.prototype 'Object))
@@ -57,19 +58,24 @@
   (extension.snapshot (extension.check generic (list (extension.shape '((Forbidden)))))))
 ;; Construct a typed standard/simple reserve seed, or the original sibling seed.
 ;; Native registration owns the method carrier; malformed qualifiers fail before bodies run.
-(def (seed mode key policy view)
+(def (seed mode prepared? transport? key policy view)
   (if (eq? key 'reserve)
     (case mode
-      ((standard forwarding simula) (dispatch.standard (list units-type) Any (lambda (_) '((Reserve Object)))))
-      ((inner) (dispatch.inner (list units-type) Any (lambda (_) '((Reserve Object)))
+      ((standard) ((if prepared? dispatch.prepared-standard dispatch.standard) (list units-type) Any (lambda (_) '((Reserve Object)))))
+      ((forwarding simula)
+       (if transport?
+         (dispatch.nested (list units-type) Any (lambda (_) '((Reserve Object)))
+           (if (eq? mode 'forwarding) (forwarder view prepared?) (preflight view prepared?)))
+         (dispatch.standard (list units-type) Any (lambda (_) '((Reserve Object))))))
+      ((inner) ((if prepared? dispatch.prepared-inner dispatch.inner) (list units-type) Any (lambda (_) '((Reserve Object)))
         (lambda (_) (error "missing reservation descendant"))))
-      ((simple) (dispatch.simple (list units-type) Any (lambda (_) '((Reserve Object))) remaining-policy))
+      ((simple) ((if prepared? dispatch.prepared-simple dispatch.simple) (list units-type) Any (lambda (_) '((Reserve Object))) remaining-policy))
       (else (error "unknown combination mode" mode)))
     (original key policy view)))
 ;; Reuse sibling declarations. Reserve's primary/around/side groups and simple
 ;; item/around groups stay in the existing declarative edit and negative-watch chain.
 ;; Callbacks observe only their reconstructed current immutable environment.
-(def (declarations mode key policy view)
+(def (declarations mode prepared? transport? key policy view)
   (if (not (eq? key 'reserve))
     ((.@ shared.expanded-generics methods) key policy view)
     (let ((exact (list (dispatch.prototype 'Reserve))) (base (list (dispatch.prototype 'Object))))
@@ -92,12 +98,20 @@
                  (unless (<= units (.@ view capacity)) (error "reservation capacity exceeded"))
                  (next))))))
           ((forwarding simula)
-           (let (protocol (if (eq? mode 'forwarding) (forwarder view) (preflight view)))
+           (if transport?
              (list (metadata.replace "reserve.protocol" exact
-               (combination.primary (lambda (_ units)
-                 (if (eq? mode 'forwarding)
-                   (first-value (dispatch.call protocol 'reserve (list units "pending" [])))
-                   (begin (dispatch.call protocol units) (list 'ok (- (.@ view capacity) units) #t)))))))))
+               (lambda (protocol units)
+                 (defvalues (result next)
+                   (if (eq? mode 'forwarding)
+                     (dispatch.call protocol 'reserve (list units "pending" []))
+                     (dispatch.call protocol units)))
+                 (values (if (eq? mode 'forwarding) result (list 'ok (- (.@ view capacity) units) #t)) next))))
+             (let (protocol (if (eq? mode 'forwarding) (forwarder view prepared?) (preflight view prepared?)))
+               (list (metadata.replace "reserve.protocol" exact
+                 (combination.primary (lambda (_ units)
+                   (if (eq? mode 'forwarding)
+                     (first-value (dispatch.call protocol 'reserve (list units "pending" [])))
+                     (begin (dispatch.call protocol units) (list 'ok (- (.@ view capacity) units) #t))))))))))
           ((inner)
            (list
              (metadata.replace "reserve.superclass" base
@@ -115,7 +129,8 @@
                  (unless (and (.@ view release) (<= units (.@ view capacity))) (error "reservation unavailable"))
                  (next))))))
           (else (error "unknown combination mode" mode)))))))
-;; Enrichment/preflight add a real invoice dependency to reserve. Extend the CLOSE;; projection and reconstruct only that extra field; do not capture the full view
+;; Enrichment/preflight add a real invoice dependency to reserve. Extend the closed
+;; projection and reconstruct only that extra field; do not capture the full view
 ;; or silently reuse a generic whose invoice changed. Sibling projections stay exact.
 (def enriched-projection
   (let* ((base (.@ shared.expanded-generics projection))
@@ -131,8 +146,8 @@
           (expand key inputs))))))
 ;; Compose a selected carrier into shared expansion, stamped contracts, preparation
 ;; budget, warm-cache transport and exact-successor joint admission. No new publisher.
-(def (model mode)
-  (let (generics (.cc shared.expanded-generics seed: (cut seed mode <> <> <>) methods: (cut declarations mode <> <> <>)))
+(def (model mode (prepared? #f) (transport? #f))
+  (let (generics (.cc shared.expanded-generics seed: (cut seed mode prepared? transport? <> <> <>) methods: (cut declarations mode prepared? transport? <> <> <>)))
     (.cc shared.budgeted-model contract-source: shared.repeated-source generics:
       (if (memq mode '(forwarding simula)) (.cc generics projection: enriched-projection) generics))))
 ;; Complete standard qualified service model; primary next retains the argument row.
@@ -145,6 +160,21 @@
 (def inner-model (model 'inner))
 ;; Automatic prefix/suffix preflight composes with the ordinary typed reserve service.
 (def simula-model (model 'simula))
+;; Cache-transport-only controls keep the reference combination uncompiled, so
+;; native pairs can distinguish saved lookup from saved effective construction.
+(def cached-forwarding-model (model 'forwarding #f #t))
+;; The uncompiled Simula child still returns its candidate-cache successor.
+(def cached-simula-model (model 'simula #f #t))
+;; Compilation-only controls retain the old value-only nested invocation. They
+;; expose compilation cost without falsely attributing cache transport savings.
+(def compiled-forwarding-model (model 'forwarding #t #f))
+;; Simula compilation-only control; its nested successor is deliberately discarded.
+(def compiled-simula-model (model 'simula #t #f))
+;; Prepared forwarding plus explicit child-cache transport through the existing
+;; certificate/family/version owner chain; changed invoice rebuilds both definitions.
+(def prepared-forwarding-model (model 'forwarding #t #t))
+;; Prepared Simula preflight uses the same atomic publication and negative watches.
+(def prepared-simula-model (model 'simula #t #t))
 ;; Prepare the selected model from existing finite access equations and policy.
 ;; Return version/failure using the same atomic lifecycle as the original bundle.
 (def (start selected policy) (staged.prepare selected (access.equations (access.config) #t) policy))

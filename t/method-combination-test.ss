@@ -1,6 +1,6 @@
 (export method-combination-test)
 (import :std/test :std/iter (only-in :std/values first-value)
-        ../object ../support/option (only-in ../mop Any Bool) (only-in ../number Integer)
+        ../object ../support/option (only-in ../mop Any Bool define-type) (only-in ../number Integer)
         (prefix-in ../method-combination combination.) (prefix-in ../multimethod dispatch.)
         (prefix-in ../dispatch-extension extension.) (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../cyclic-publication publication.) (prefix-in ../generic-family family.)
@@ -9,6 +9,8 @@
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 ;; The ordinary universal path selects all contributions in explicit insertion order.
 (def path (list dispatch.any))
+;; A lazy policy fixture detects eager evaluation of an unused empty result.
+(define-type (UnusedEmpty. @ combination.sum) empty: (error "unused empty forced"))
 ;; Complete carrier/qualifier/effect-order/short-circuit and joint revision controls.
 (def method-combination-test
   (test-suite "Appendix B native method combination alignment"
@@ -131,6 +133,119 @@
         (combination.simula-body (lambda (_) (note 'failure) (error "prefix failed")) (lambda (_) (error "suffix ran")))))
       (check-exception (dispatch.call failing 0) true)
       (check-equal? (reverse trace) '(parent-prefix failure)))
+    (test-case "prepared resolution reuses only unconditional effective methods"
+      (def preparations 0)
+      (def bodies 0)
+      (def seed (dispatch.make (list Integer) Integer (lambda (_) '((Object)))))
+      (def generic (dispatch.prepared
+        (dispatch.register seed path (lambda (n) (set! bodies (+ bodies 1)) (+ n 1)))
+        (lambda (methods)
+          (set! preparations (+ preparations 1))
+          (lambda (args) (apply (car methods) args)))))
+      (defvalues (first warm) (dispatch.call generic 2))
+      (check-equal? first 3)
+      (check-equal? preparations 1)
+      (check-equal? (dispatch.effective-cache-size warm) 1)
+      (defvalues (second hot) (dispatch.call warm 5))
+      (check-equal? second 6)
+      (check (eq? warm hot) => #t)
+      (check-equal? preparations 1)
+      (check-equal? bodies 2)
+      (check-exception (dispatch.call hot "bad") true)
+      (check-equal? bodies 2)
+      (def guarded (dispatch.register-when hot path (lambda (n) (> n 10)) (lambda (_) 99)))
+      (check-equal? (dispatch.effective-cache-size guarded) 0)
+      (defvalues (yes guarded-warm) (dispatch.call guarded 20))
+      (check-equal? yes 99)
+      (check-equal? (first-value (dispatch.call guarded-warm 1)) 2)
+      (check-equal? (dispatch.effective-cache-size guarded-warm) 0)
+      (check-equal? preparations 3)
+      (def erased (dispatch.erase hot path))
+      (check-equal? (dispatch.cache-size erased) 0)
+      (check-exception (dispatch.call erased 1) true)
+      (check-exception (extension.check hot (list (extension.shape '((Object))))) true))
+    (test-case "all prepared combinations preserve current arguments and effects"
+      (def reference (dispatch.standard (list Integer) Integer (lambda (_) '((Object)))))
+      (def compiled (dispatch.prepared-standard (list Integer) Integer (lambda (_) '((Object)))))
+      (def methods (list
+        (metadata.replace "primary" path (combination.primary (lambda (_ n) (+ n 1))))
+        (metadata.contribute "repeat" path (combination.around (lambda (next _) (+ (next) (next)))))))
+      (defvalues (value warm) (dispatch.call (metadata.install compiled methods) 3))
+      (check-equal? value 8)
+      (check-equal? (first-value (dispatch.call warm 7))
+                    (first-value (dispatch.call (metadata.install reference methods) 7)))
+      (def short (dispatch.prepared-simple (list Integer) Bool (lambda (_) '((Object))) combination.all-policy))
+      (def stop (dispatch.contribute
+        (dispatch.register short path (combination.item (lambda (_) (error "suffix executed"))))
+        path (combination.item (lambda (_) #f))))
+      (defvalues (stopped short-warm) (dispatch.call stop 1))
+      (check-equal? stopped #f)
+      (check-equal? (first-value (dispatch.call short-warm 2)) #f)
+      (def inherited (dispatch.prepared-inner (list Integer) Integer (lambda (_) '((Child Parent))) (lambda (args) (car args))))
+      (def descending (dispatch.register (dispatch.register inherited (list (dispatch.prototype 'Child))
+        (lambda (inner _) (+ 1 (inner)))) (list (dispatch.prototype 'Parent)) (lambda (inner _) (* 2 (inner)))))
+      (defvalues (old-value inherited-warm) (dispatch.call descending 3))
+      (check-equal? old-value 8)
+      (check-equal? (first-value (dispatch.call inherited-warm 5)) 12)
+      (def trace [])
+      ;; Test-local observer records exact current values and phase order.
+      (def (note value) (set! trace (cons value trace)))
+      (def simulation (dispatch.register (dispatch.prepared-simula (list Integer) (lambda (_) '((Object)))) path
+        (combination.simula-body (lambda (n) (note (list 'prefix n)) (when (< n 0) (error "prefix refused")))
+                                (lambda (n) (note (list 'suffix n))))))
+      (defvalues (unit simulation-warm) (dispatch.call simulation 1))
+      (dispatch.call simulation-warm 2)
+      (check-equal? (reverse trace) '((prefix 1) (suffix 1) (prefix 2) (suffix 2)))
+      (set! trace [])
+      (check-exception (dispatch.call simulation-warm -1) true)
+      (check-equal? trace '((prefix -1)))
+      (def forward (dispatch.contribute
+        (dispatch.register (dispatch.prepared-forwarding-standard Any Integer Integer (lambda (_) '((Object)))) path
+          (combination.forward-primary (lambda (_ __ n) n))) path
+        (combination.forward-around (lambda (next _ n) (next (some (+ n 2)))))))
+      (defvalues (enriched forward-warm) (dispatch.call forward 'request 3))
+      (check-equal? enriched 5)
+      (check-equal? (first-value (dispatch.call forward-warm 'request 9)) 11)
+      (def invalid (dispatch.contribute forward-warm path
+        (combination.forward-around (lambda (next _ __) (next (some "invalid"))))))
+      (check-exception (dispatch.call invalid 'request 1) true))
+    (test-case "prepared simple policy preserves lazy empty under items and skipped around"
+      (def seed (dispatch.prepared-simple (list Integer) Integer (lambda (_) '((Object))) UnusedEmpty.))
+      (def one (dispatch.register seed path (combination.item (lambda (n) n))))
+      (defvalues (result warm) (dispatch.call one 3))
+      (check-equal? result 3)
+      (check-equal? (first-value (dispatch.call warm 5)) 5)
+      (def skipped (dispatch.register seed path (combination.around (lambda (_ __) 42))))
+      (check-equal? (first-value (dispatch.call skipped 3)) 42)
+      (check-exception (dispatch.call seed 1) true))
+    (test-case "nested successors traverse multiple owners without editing definitions"
+      (def exact (list (dispatch.prototype 'Object)))
+      (def leaf (dispatch.register (dispatch.prepared-standard (list Integer) Integer (lambda (_) '((Object)))) path
+        (combination.primary (lambda (_ n) (+ n 1)))))
+      ;; Explicit functional child invocation composes values and cache successors.
+      (def (relay child n) (dispatch.call child n))
+      (def middle (dispatch.register (dispatch.nested (list Integer) Integer (lambda (_) '((Object))) leaf) exact relay))
+      (def outer (dispatch.register (dispatch.nested (list Integer) Integer (lambda (_) '((Object))) middle) exact relay))
+      (def protected (extension.check outer (list (extension.shape '((Forbidden))))))
+      (defvalues (result warm) (extension.invoke protected 2))
+      (def snapshot (extension.snapshot warm))
+      (check-equal? result 3)
+      (check-equal? (dispatch.effective-cache-size snapshot) 1)
+      (check-equal? (dispatch.effective-cache-size (dispatch.nested-state snapshot)) 1)
+      (check-equal? (dispatch.effective-cache-size (dispatch.nested-state (dispatch.nested-state snapshot))) 1)
+      (check (dispatch.index-shared? outer snapshot) => #t)
+      (defvalues (current hot) (extension.invoke warm 8))
+      (check-equal? current 9)
+      (check (eq? hot warm) => #t)
+      (check-equal? (dispatch.cache-size (dispatch.nested-state outer)) 0)
+      (def edited (dispatch.register snapshot path
+        (lambda (child n) (values n (dispatch.erase child path)))))
+      (check-exception (dispatch.call edited 1) true)
+      ;; Changing a child's invoker is a definition change even with the same index.
+      (def disguised (dispatch.register snapshot path
+        (lambda (child n) (values n (dispatch.prepared child (lambda (_) (lambda (_) 99)))))))
+      (check-exception (dispatch.call disguised 1) true)
+      (check-exception (extension.check snapshot (list (extension.shape '((Object))))) true))
     (test-case "negative checking inspects qualified data without invoking bodies"
       (def executed 0)
       (def generic (dispatch.standard (list Any) Any (lambda (_) '((Object)))))
@@ -140,7 +255,8 @@
       (check-equal? executed 0)
       (check-equal? (first-value (dispatch.call installed 7)) 7))
     (test-case "qualified standard and simple services compose with contract specialization and joint approval"
-      (for (model (list combined.standard-model combined.simple-model combined.forwarding-model combined.inner-model combined.simula-model))
+      (for (model (list combined.standard-model combined.simple-model combined.forwarding-model combined.inner-model combined.simula-model
+                    combined.compiled-forwarding-model combined.compiled-simula-model combined.prepared-forwarding-model combined.prepared-simula-model))
         (def policy (.cc bundle.Policy. capacity: 10 price: 3 invoice: "invoice:1"))
         (defvalues (old issue) (combined.start model policy))
         (check-equal? issue #f)
@@ -150,7 +266,8 @@
         ;; invoice-only revision must rebuild that generic, retaining quote.
         (defvalues (invoice-only invoice-issue) (combined.revise model warm (.cc policy invoice: "invoice:2")))
         (check-equal? invoice-issue #f)
-        (def enriched? (memq model (list combined.forwarding-model combined.simula-model)))
+        (def enriched? (memq model (list combined.forwarding-model combined.simula-model combined.compiled-forwarding-model combined.compiled-simula-model
+          combined.prepared-forwarding-model combined.prepared-simula-model)))
         (check-equal? (family.family-built (publication.version-family invoice-only))
           (if enriched? '(reserve cancel) '(cancel)))
         (check-equal? (first-value (publication.invoke invoice-only 'reserve 2)) '(ok 8 #t))

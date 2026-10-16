@@ -1,10 +1,11 @@
 ;;; Executable counterpart of Object.Multimethod and its sparse MethodIndex.
 (export make standard simple forwarding-standard inner simula multimethod? prototype any register contribute register-when erase
-        call reference-call cache-size cache-capacity index-shared? prototype-precedence
+        prepared prepared-standard prepared-simple prepared-forwarding-standard prepared-inner prepared-simula nested nested-state
+        call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
 (import :std/iter (only-in :std/list/list-builder with-list-builder)
-        (only-in ./mop Type validate)
+        (only-in ./mop Type validate define-type) ./object
         (only-in ./object compute-precedence-list!) (only-in ./type Unit)
         (prefix-in ./method-combination combination.))
 
@@ -26,7 +27,7 @@
 ;; Shared empty persistent method tree for fresh generics.
 (def empty-index (make-method-index [] []))
 ;; Private generic signature, carrier validator, persistent index and bounded candidate cache.
-(defstruct multimethod (arity inputs output precedence combine method-type index cache) final: #t)
+(defstruct multimethod (arity inputs output precedence combine method-type index cache invocation) final: #t)
 ;; Typed dispatch refusal with its expected/actual diagnostic values.
 (defstruct dispatch-error (kind expected actual) final: #t)
 ;; Raise dispatch refusal; callers retain the unpublished generic on failure.
@@ -40,7 +41,7 @@
   (unless (and (list? inputs) (exact-integer? arity) (<= 0 arity) (procedure? precedence) (procedure? combine) (procedure? method-type))
     (error "invalid multimethod signature"))
   (for-each (cut validate Type <>) (cons output inputs))
-  (make-multimethod arity (map identity inputs) output precedence combine method-type empty-index []))
+  (make-multimethod arity (map identity inputs) output precedence combine method-type empty-index [] #f))
 ;; Construct Appendix B standard qualified dispatch over the EXISTING sparse
 ;; index/cache/type/guard machinery. Contributions retain C4 order; missing primary
 ;; invokes on-missing with the original argument row. No parallel dispatcher exists.
@@ -109,7 +110,7 @@
   (make-multimethod (multimethod-arity generic) (multimethod-inputs generic) (multimethod-output generic)
     (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic)
     (alter (multimethod-index generic) (map specializer-name path)
-      (lambda (old) (if candidate (cons candidate (if replace? [] old)) []))) []))
+      (lambda (old) (if candidate (cons candidate (if replace? [] old)) []))) [] (multimethod-invocation generic)))
 ;; Validate the generic's actual method carrier before registration. Ordinary
 ;; generics require procedures; qualified constructors admit native contributions.
 ;; The predicate validates data only and must return Boolean, never execute a body.
@@ -152,8 +153,80 @@
 ;; Retain signature/carrier/index identity while replacing bounded candidate-cache state.
 (def (with-cache generic cache)
   (make-multimethod (multimethod-arity generic) (multimethod-inputs generic) (multimethod-output generic)
-    (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic) (multimethod-index generic) cache))
-;; Resolve a complete shape with bounded move-to-front caching; return candidates and updated generic.
+    (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic) (multimethod-index generic) cache (multimethod-invocation generic)))
+;; A cached resolution retains candidate data and, only for unconditional
+;; shapes, a compiled effective method. Both share one bounded LRU entry/key.
+(defstruct resolution (candidates effective) final: #t)
+;; Compact private execution state. Published definitions retain immutable callback
+;; identities; cache transport allocates this record rather than a new POO descriptor.
+(defstruct invocation (prepare invoke state) final: #t)
+;; Open native invoker descriptor, specialized at construction like FUN/IO wrapper
+;; methods. The two shared descriptors below own calling conventions; runtime
+;; successors carry only compiled callbacks and explicit state, not lazy slot maps.
+(define-type (Invocation. @ [] invoke)
+  .specialize: (lambda (prepare state) (make-invocation prepare invoke state)))
+;; Stateless effective-method invoker; shared by every prepared constructor.
+(def prepared-invocation (.cc Invocation.
+  invoke: (lambda (effective args state) (values (effective args) state))))
+;; Select the ordinary most-specific nested body, retaining missing-method refusal.
+(def (prepare-nested methods)
+  (if (null? methods) (lambda _ (fail 'no-applicable-method #f #f)) (car methods)))
+;; Child-cache transport accepts only the same definition and invoker callbacks.
+;; A child edit must pass ordinary negative-watch publication instead.
+(def (invoke-nested method args current)
+  (defvalues (result next) (apply method current args))
+  (unless (and (multimethod? next) (index-shared? current next))
+    (error "nested invocation changed method definitions"))
+  (values result next))
+;; Reusable stateful invoker descriptor; specialization binds only the child owner.
+(def nested-invocation (.cc Invocation. invoke: invoke-nested))
+;; Replace invocation state without changing definition/index identity. A hot
+;; nested hit returns the exact owner; no global or hidden mutable cache exists.
+(def (with-invocation generic invocation)
+  (make-multimethod (multimethod-arity generic) (multimethod-inputs generic) (multimethod-output generic)
+    (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic)
+    (multimethod-index generic) (multimethod-cache generic) invocation))
+;; Opt into precompiled effective methods over the existing typed sparse generic.
+;; prepare must be pure and agree with its combiner. Edits invalidate the shared
+;; resolution cache; guarded shapes reselect AND prepare for every invocation.
+(def (prepared generic prepare)
+  (unless (procedure? prepare) (error "effective preparation must be a procedure"))
+  (with-invocation (with-cache generic [])
+    (.call prepared-invocation .specialize prepare #f)))
+;; Standard qualified prepared constructor, corresponding to preparedStandard.
+(def (prepared-standard inputs output precedence
+                        (on-missing (lambda (_) (fail 'no-applicable-method #f #f))) (arity (length inputs)))
+  (prepared (standard inputs output precedence on-missing arity) (cut combination.prepare-standard <> on-missing)))
+;; Specialize the native simple policy once per unconditional shape.
+(def (prepared-simple inputs output precedence policy (arity (length inputs)))
+  (prepared (simple inputs output precedence policy arity) (cut combination.prepare-simple policy <>)))
+;; Forwarding preparation retains initial dispatch and validates every replacement.
+(def (prepared-forwarding-standard dispatch-type payload-type output precedence
+                                   (on-missing (lambda (_) (fail 'no-applicable-method #f #f))) (arity 1))
+  (prepared (forwarding-standard dispatch-type payload-type output precedence on-missing arity)
+    (cut combination.prepare-forwarding <> on-missing (cut validate payload-type <>))))
+;; Compile the reversed superclass-controlled continuation skeleton once.
+(def (prepared-inner inputs output precedence terminal (arity (length inputs)))
+  (prepared (inner inputs output precedence terminal arity) (cut combination.prepare-inner <> terminal)))
+;; Compile Simula prefix/suffix callbacks once per unconditional shape.
+(def (prepared-simula inputs precedence (arity (length inputs)))
+  (prepared (simula inputs precedence arity) combination.prepare-simula))
+;; A nested generic owns ONE child generic, which can itself own a child. Methods
+;; receive (child . current-args), return result/child-successor, and may compose
+;; arbitrary native calls with let-values. Only cache transport is accepted: a
+;; method edit to the child must instead pass the ordinary checked publication.
+;; This is an explicit stateful invoker, not a standard side-method combiner.
+(def (nested inputs output precedence child (arity (length inputs)))
+  (unless (multimethod? child) (error "nested state must be a generic"))
+  (with-invocation (make inputs output precedence first-method arity)
+    (.call nested-invocation .specialize prepare-nested child)))
+;; Read the immutable child snapshot for diagnostics/tests; ordinary generics have
+;; no child. Updating this value requires a successful call and owner successor.
+(def (nested-state generic)
+  (def invocation (multimethod-invocation generic))
+  (and invocation (invocation-state invocation)))
+;; Resolve a shape once. Preparation never executes method bodies or guards;
+;; any guarded candidate prohibits reuse of an effective method for the shape.
 (def (resolve generic args)
   (def shape (shape! generic ((multimethod-precedence generic) args)))
   (def cache (multimethod-cache generic))
@@ -161,25 +234,54 @@
   (cond
    ((and entry (eq? entry (car cache))) (values (cdr entry) generic))
    (else
-    (def candidates (if entry (cdr entry) (collect generic shape)))
+    (def resolved (if entry (cdr entry)
+      (let* ((candidates (collect generic shape)) (invocation (multimethod-invocation generic)))
+        (make-resolution candidates
+          (and invocation (andmap (lambda (candidate) (not (method-candidate-predicate candidate))) candidates)
+            ((invocation-prepare invocation) (map method-candidate-method candidates)))))))
     (def key (if entry (car entry) (map (lambda (order) (map identity order)) shape)))
-    (def recent (cons (cons key candidates) (filter (lambda (pair) (not (equal? (car pair) shape))) cache)))
-    (values candidates (with-cache generic (take recent (min cache-capacity (length recent))))))))
-;; Validate inputs, select current guards, combine and validate output; return result plus updated generic.
+    (def recent (cons (cons key resolved) (filter (lambda (pair) (not (equal? (car pair) shape))) cache)))
+    (values resolved (with-cache generic (take recent (min cache-capacity (length recent))))))))
+;; Invoke one resolved computation with current typed arguments. Child successors
+;; are installed only after successful output validation; failure leaves the old
+;; owner accessible, without promising rollback of external body effects.
+(def (invoke-resolved generic resolved checked)
+  (def invocation (multimethod-invocation generic))
+  (if invocation
+    (let* ((effective (or (resolution-effective resolved)
+             ((invocation-prepare invocation) (select (resolution-candidates resolved) checked))))
+           (state (invocation-state invocation)))
+      (defvalues (result next-state) ((invocation-invoke invocation) effective checked state))
+      (def valid (validate (multimethod-output generic) result))
+      (values valid (if (eq? state next-state) generic
+        (with-invocation generic (make-invocation (invocation-prepare invocation) (invocation-invoke invocation) next-state)))))
+    (values (validate (multimethod-output generic)
+      ((multimethod-combine generic) (select (resolution-candidates resolved) checked) checked)) generic)))
+;; Validate inputs before resolution or effective-cache hits, then return result
+;; and the complete immutable successor (outer resolution plus nested caches).
 (def (call generic . args)
   (def checked (arguments! generic args))
-  (defvalues (candidates next) (resolve generic checked))
-  (def result ((multimethod-combine generic) (select candidates checked) checked))
-  (values (validate (multimethod-output generic) result) next))
-;; Uncached semantic control: validate, collect, select and combine without retaining a cache.
+  (defvalues (resolved next) (resolve generic checked))
+  (invoke-resolved next resolved checked))
+;; Uncached semantic control: reselect/prepare with current args and retain no
+;; successor. For prepared generics this still compiles anew on each reference call.
 (def (reference-call generic . args)
   (def checked (arguments! generic args))
   (def shape (shape! generic ((multimethod-precedence generic) checked)))
-  (validate (multimethod-output generic) ((multimethod-combine generic) (select (collect generic shape) checked) checked)))
+  (let-values (((result _) (invoke-resolved generic (make-resolution (collect generic shape) #f) checked))) result))
 ;; Report current retained shape count, not hit rate or invocation-result count.
 (def (cache-size generic) (length (multimethod-cache generic)))
-;; Check persistent index identity across two generics, independent of shape-cache state.
-(def (index-shared? first second) (eq? (multimethod-index first) (multimethod-index second)))
+;; Count compiled shapes, independently of guarded candidate-only entries.
+(def (effective-cache-size generic)
+  (length (filter (lambda (entry) (resolution-effective (cdr entry))) (multimethod-cache generic))))
+;; Check definition AND invoker callback identity, independent of cache/child state.
+;; An arbitrary new preparer cannot borrow a prior negative-watch certificate.
+(def (index-shared? first second)
+  (def left (multimethod-invocation first))
+  (def right (multimethod-invocation second))
+  (and (eq? (multimethod-index first) (multimethod-index second))
+    (or (eq? left right)
+      (and left right (eq? (invocation-prepare left) (invocation-prepare right)) (eq? (invocation-invoke left) (invocation-invoke right))))))
 ;; Inspect current-definition candidates for negative watches; never invoke a body or combiner.
 ;; Call watches run guards; shape watches conservatively retain every registered guard.
 (def (inspect generic kind value)

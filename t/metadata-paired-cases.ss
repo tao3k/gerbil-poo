@@ -1,28 +1,32 @@
 ;;; One fixed native study definition, shared by child, driver and validator.
 (export scenarios regimes strategies pairs rounds warmups repetitions sources side-order)
-;; Separate selector overhead from real family construction, joint publication
-;; and the existing 15-node shared-dependency workflow. Isolated stage controls
-;; are real callbacks; their timings are not additive full-publication attribution.
-(def scenarios '(selector configure inputs construct cold-checks bind rebind generics approval cold-family family joint workflow standard simple forwarding inner simula))
+;; Focus this study on preparation, cold checked entry, warm checked invocation,
+;; joint revision with one call, and joint revision with eight calls. Historical
+;; selector studies retain their own source identities; timings are not additive.
+(def scenarios '(forwarding-configure forwarding-cold forwarding-warm forwarding-revision forwarding-repeated
+                 simula-configure simula-cold simula-warm simula-revision simula-repeated))
 ;; Natural preserves the child's heap history; collected explicitly collects
 ;; after the identical warmup prefix. Neither promises identical live heaps.
 (def regimes '(natural collected))
-;; Fixed side numbering shared by child, driver and validator. Uncaptured is a
-;; benchmark-only previous callback; cached reuses selection, expanded additionally
-;; shares pure generic expansion with the captured dynamic contract strategy.
-(def strategies '(independent uncaptured dynamic cached expanded expanded-cached shared-checks shared-checks-cached budgeted reused-policy))
-;; Focus current pairs on expansion, shared/fresh checks, selector caching and
-;; cold versus reused policy configuration. Earlier capture controls remain warmups.
+;; Fixed same-prefix sides distinguish compilation from explicit nested cache
+;; transport. Duplicate sides provide two A/A controls; every child builds all ten.
+(def strategies '(reference reference-control compiled-discard compiled-discard-control
+  prepared-transport prepared-transport-control prepared-transport-aa prepared-transport-aa-control
+  candidate-transport candidate-transport-control))
+;; Direct pairs isolate compilation-only, transport after compilation, their
+;; combined workflow, and transport with/without compilation; retain two A/A pairs.
 ;; Each pair is measured directly; marginal medians are not a transitive cost proof.
-(def pairs '((2 4) (4 6) (6 7) (6 8) (7 8) (8 9)))
+(def pairs '((0 1) (0 2) (2 4) (0 4) (4 6) (4 8)))
 ;; Four independent process pairs per comparison support the ABBA order control.
 (def rounds 4)
 ;; Execute every control this many times before measuring one side, keeping
 ;; the observable setup prefix independent of which side is selected.
 (def warmups 4)
-;; Return fixed operation counts: enough selector calls for micro-cost visibility,
-;; fewer full publications for bounded native children. Not adaptive best-of timing.
-(def (repetitions scenario) (if (eq? scenario 'selector) 4096 128))
+;; Fixed counts separate warm-call micro-costs from bounded complete publications.
+;; Configuration includes protected construction; no adaptive best-of timing.
+(def (repetitions scenario)
+  (case scenario ((forwarding-warm simula-warm) 1024)
+    ((forwarding-configure simula-configure) 128) (else 64)))
 ;; ABBA across four rounds; both sides are separate fresh processes.
 ;; Balance first/second position over four rounds as ABBA. Adjacent sides always
 ;; run in separate fresh processes; arbitrary temporal drift is not eliminated.

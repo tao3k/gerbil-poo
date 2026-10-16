@@ -354,6 +354,8 @@ and `multimethod.simple` with existing Type/guard/negative-watch publication.
 atomic multi-service revisions. This implements a concrete part of the above
 method-combination direction; the unified generalized MOP remains future work.
 See `alignment.md` for the Racket/Lean/Scheme correspondence and the remaining
-prepared-effective, safe recursion and lens/migration gaps. Forwarding,
+safe recursion and lens/migration gaps. Prepared effective methods and explicit
+nested cache successor transport are now implemented; their horizon-dependent
+costs remain under native paired measurement. Forwarding,
 inner and Simula now have native constructors and joint-service examples; their
 control semantics and explicit invoice dependencies are mapped in alignment.md.
