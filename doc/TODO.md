@@ -208,6 +208,32 @@ This closes the explicit shared-feedback revision workflow; generic convergence,
 selective cyclic recomputation, automatic dependencies/laws and unrestricted
 higher-order knots remain open. No performance or compiler/runtime claim follows.
 
+### Selective reconstruction of feedback groups
+
+`feedback-cache.ss` now combines whole feedback closure with the EXISTING DAG
+construction cache. Shared input/body edits invalidate transitive reader groups;
+unaffected groups reuse exact closed objects and skip their builders. Each cycle
+group is atomic, with all component residuals checked at construction. Stale
+retained group sources refuse final publication; rebuild them by explicit graph
+source edits. All required groups and registered approval sources stay protected
+through ALWAYS-fresh joint approval. Failed candidates never become reuse bases.
+
+`examples/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
+edge, an independent feedback group, source increases/decreases, joint refusal/
+retry and permission-only edits. Refusing builders and identity checks verify
+skipping. Native negative controls include removed inputs, illegal inter-group
+cycles, stale retained metadata, source writes and FUN suffix suppression.
+Lean `Functional.FeedbackCache` reuses ranked cache invalidation, proves retained
+reference equality/current approval and packages actual closed group equations.
+The reusable `Prototype.Generalized.CappedFeedback` supports both the earlier
+ring examples and new selective-vs-fresh construction controls. See
+[feedback-cache.md](feedback-cache.md) for hypotheses and functional boundaries.
+
+Still open: automatic SCC grouping/dependency discovery, cycle-interior selective
+reconstruction, general convergence/leastness and unrestricted higher-order knots.
+Only immutable/extensional DAG metadata and declared dependencies authorize reuse;
+no runtime speed, allocation or GC improvement follows from these controls.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

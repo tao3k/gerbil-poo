@@ -994,4 +994,5 @@ lens checks, extra residual work, staged cooking and remaining recursion limits.
 
 Shared-dependency warm revision and guarded joint approval now pair
 `FeedbackRevision` / `Examples/SharedFeedback.lean` with native FUN composition;
-see [feedback-revision.md](feedback-revision.md) for exact guarantees and controls.
+see [feedback-revision.md](feedback-revision.md) and [feedback-cache.md](feedback-cache.md)
+for exact revision/selective reconstruction guarantees, source guards and controls.
