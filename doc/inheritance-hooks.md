@@ -84,12 +84,17 @@ and invalid Slot descriptors refuse before publishing a receiver. Most-specific
 declaration metadata wins, including a private child overriding a public parent.
 The compiler calls the descriptor type's existing `.slot.define` method on a
 private scratch object, then uses those ordinary slot/default specifications.
+Direct merge (`.+`), cloning (`.cc`) and lens updates preserve direct protocol
+and declaration metadata, registering those sources independently when compiled.
 Descriptor/type edits invalidate and recompile this work; clearing a value cache
 alone would not update a changed constant/default/compute definition.
 
 Reflection demands metadata, not instance slot values. Optional absent declarations
 can be inspected but are excluded from `.all-slots`. Public reads reject hidden
-or undeclared slots. Writes use the existing `.slot.check` before editing, so an
+or undeclared slots and validate the demanded value against CURRENT metadata.
+This also covers cached instance assignments, defaults and hook-produced values;
+raw values may be cached, but previous approval is never reused. Reads and writes
+use the existing `.slot.check`; writes validate before editing, so an
 invalid value leaves revisions and derived caches intact. Direct raw `.ref` is
 trusted and can read private slots; this API is not a language security sandbox.
 The explicit `include-hidden?: #t` view is for trusted inspection.

@@ -833,7 +833,7 @@ those hooks part of the paper's Racket implementation.
 | `InheritedMOP.composeHooks_assoc`, `checkedOrder_sound/error` | Existing C3 / effective-slot engine intercepted by `compute-precedence-list`, `compute-slot`; accepted order remains canonical |
 | Existing `Proof.invalidatedNodes` and descendant laws; `Object.invalidateCaches_descendant/once/frame` | Registered weak reverse source edges, all derived caches cleared together, diamonds visited once, unaffected owners retained |
 | `Object.guardedEdit`, `publishEdit_sealed` | Active-closure preflight, optional sealing and checked parent topology edits; sequential supported APIs |
-| Existing Slot/Descriptor validation; `DescriptorReflection.publicSlots_visible`, `readSlot_hidden`, `writeSlot_rejected/admitted` | `object<-declarations`, Class bridge, inherited public metadata, typed public reads/writes and metadata-driven recompile |
+| Existing Slot/Descriptor validation; `DescriptorReflection.publicSlots_visible`, `readSlot_hidden/valid`, `writeSlot_rejected/admitted` | `object<-declarations`, Class bridge, inherited public metadata, typed public reads/writes and metadata-driven recompile |
 | `Examples/InheritedHooks.lean` | `examples/inherited-services.ss`, `t/inheritance-hooks-test.ss` |
 
 Protocol source edits invalidate owners; descriptor/type edits recompile declaration
@@ -841,3 +841,9 @@ specifications instead of retaining stale defaults/constants/computations. Refle
 metadata does not force private values. Low-level raw access is trusted, not a
 security boundary; callback effects, undeclared external dependencies, concurrent
 mutation and arbitrary alternative linearizations have no blanket proof here.
+
+Direct merge, clone and lens revision preserve protocol/declaration source fields
+and register copied descriptors on compilation. Public reads re-admit cached,
+default and hook values through the current Slot checker; an earlier successful
+read is never reused as approval. Negative controls reject malformed defaults and
+transformed values, then verify recovery after protocol correction.

@@ -40,13 +40,20 @@
 ;; low-level operation and is not claimed to enforce access control by itself.
 (def (public-slot self name)
   (or (assq name (reflect-slots self)) (error "slot is hidden or undeclared" name)))
-;; Read through the declared public surface, preserving ordinary lazy slot behavior.
-(def (read-slot self name)
-  (public-slot self name) (.ref self name))
-;; Validate a proposed value using the existing Slot checker before mutating source.
-;; An invalid value neither advances the source revision nor clears dependent caches.
-(def (write-slot! self name value)
-  (def descriptor (cdr (public-slot self name)))
+;; Admit a concrete value through the existing Slot checker. The private
+;; one-field receiver checks cached assignments and hook-produced values too;
+;; the descriptor's predicate never receives the caller's mutable cache table.
+(def (validate-slot-value descriptor name value)
   (unless (.call (.@ descriptor .type) .slot.check descriptor name (object<-alist [(cons name value)]))
     (error "declared slot value rejected" name))
+  value)
+;; Resolve current public metadata before demanding and validating the value.
+;; Only raw values are cached: earlier successful admission is never reused.
+(def (read-slot self name)
+  (def descriptor (cdr (public-slot self name)))
+  (validate-slot-value descriptor name (.ref self name)))
+;; Validate a proposed value before mutating source. Invalid input neither
+;; advances a revision nor clears caches; whole-class constraints are separate.
+(def (write-slot! self name value)
+  (validate-slot-value (cdr (public-slot self name)) name value)
   (.putslot! self name ($constant-slot-spec value)))

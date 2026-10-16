@@ -239,6 +239,7 @@
     (let (scratch (make-object))
       (for (([name . descriptor] (object-%declarations self)))
         (def type (.@ descriptor .type))
+        (depend-on-object! self descriptor)
         (depend-on-object! self type)
         (.call type .slot.define descriptor name scratch))
       (cons (object-slots scratch) (object-defaults scratch)))))
@@ -363,9 +364,12 @@
   (make-object supers: supers slots: slots defaults: defaults))
 (def (.extend self defaults: (defaults '()) . slots)
   (make-object slots: slots supers: [self] defaults: defaults))
+;; Merge direct specifications together with their direct protocol/declarations.
+;; Declaration compilation registers copied metadata sources before any cache exists.
 (def (.+ base override)
   (make-object slots: (object-slots override)
-               supers: [(object-supers override)... base] defaults: (object-defaults override)))
+               supers: [(object-supers override)... base] defaults: (object-defaults override)
+               protocol: (object-%protocol override) declarations: (object-%declarations override)))
 
 ;; : Bool <- (Object _) Symbol
 (def (.slot? self slot)
@@ -772,7 +776,9 @@
       (for (slot added)
         (awhen (spec (hash-get added-hash slot))
           (hash-remove! added-hash slot) (c [slot . spec])))))
-  (make-object slots: slots supers: (object-supers self) defaults: (object-defaults self)))
+  ;; Clone direct metadata with direct formulas; .cc does not inherit SELF.
+  (make-object slots: slots supers: (object-supers self) defaults: (object-defaults self)
+               protocol: (object-%protocol self) declarations: (object-%declarations self)))
 
 ;; TODO: find an efficient way to repeatedly override one field in a pure way without leaking memory,
 ;; in O(log n) rather than O(n)?
