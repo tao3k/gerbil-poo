@@ -367,6 +367,15 @@ continues component deletion/restore. Lean adds mixed-head/guard refusal and win
 laws plus all-order certified controls with historical receipts. See
 [joint-generations.md](joint-generations.md) for exact scenarios and premises.
 
+Cross-round preparation can now continue inside one scoped native worker group,
+while older approved receipts remain waiting. Six SCC phases retain a late worker
+across next-phase admission, shared-policy drift refusal and explicit restaging;
+old/new workers then install in either order before the next pending generation.
+The one-shot concurrent interface reuses the same standard-channel worker scope.
+Unobserved results, escaped operations and duplicate release refuse. Lean binds
+successful new preparation to the observed prefix head and proves late-attempt
+preservation. See [joint-restaging.md](joint-restaging.md) for precise boundaries.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
