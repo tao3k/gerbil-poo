@@ -975,7 +975,16 @@ combines initialization, refinement, FUN and exact evidence publication. Bootstr
 Type validation preserves descriptor identity. Lean `ClassValidation` proves the
 finite Slot, selected-metadata and initialization/refinement laws. This advances
 generalized-prototype future work; C3 and host correspondence are premises.
-Remaining work includes arbitrary computed-method rebinding, constant Function
+Receiver-bound computed dependencies now use `validation-rebinding.ss` shared
+by Class and ObjectContract, with inherited formula/override, hook mutation,
+computed Function lists, nested result Function and exact publication controls.
+Existing caches share checked dependencies; explicit instance assignments are
+retained without copying computed caches. Lean `ValidationRebinding` supplies
+request/validation and certified-memo laws, with a concrete checked-alias theorem
+and matching service example. This uses the paper's final-self rule and advances
+generalized MOP future work. Raw structural getter effects and arbitrary lexical
+captures are outside that closure.
+Remaining work includes lexical snapshot rebinding, constant Function
 canonicalization (equality-changing wrappers currently refuse), arbitrary external
 schema adapters, cyclic closure, wrapper deduplication,
 variadic/keyword Function arities, higher-order blame and general callback

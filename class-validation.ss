@@ -1,7 +1,8 @@
 ;;; Recursive Class validation through its current effective Slot protocols.
 (export class-diagnostics class-shape class-slot-shape class-slot-validate validate-class)
 (import (only-in :std/list/list append-map filter-map)
-        (only-in ./object .o .slot? .get .ref .call .all-slots object? object<-alist)
+        (only-in ./object .o .slot? .get .ref .call .all-slots object?)
+        (only-in ./validation-rebinding rebind-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
 
 ;; A standard Slot checks required/optional presence and constants before its
@@ -21,9 +22,9 @@
        (else '())))))
 
 ;; Only present fields reach this method; Class owns optional absence handling.
-;; Delegate actual normalization to the declared Type, preserving custom errors.
-(def (class-slot-validate slot name candidate)
-  (def original (.ref candidate name))
+;; The inherited raw value is explicit so custom validators can read other checked
+;; receiver fields without recursively demanding their own active field.
+(def (class-slot-validate slot _name original _receiver)
   (if (.slot? slot 'type) (.call (.get slot type) .validate original) original))
 
 ;; Inspect only inventory names for sealed extras; do not force unknown values.
@@ -48,21 +49,20 @@
         ((.call descriptor .element? candidate) '())
         (else [(.o kind: 'class-rejected path: location)])))
 
-;; Complete shape admission precedes every Slot validator. Build one persistent
-;; replacement only after the whole batch succeeds, inheriting original ancestry.
-;; Final current membership retains custom Slot checks and constant constraints.
+;; Complete shape admission precedes receiver-bound Slot normalization. All
+;; checks finish before final membership; computed dependencies use the rebound
+;; receiver and ordinary inherited specification/override/cache semantics.
 (def (validate-class descriptor candidate refuse)
   (def shape (diagnose-structure descriptor candidate '()))
   (unless (null? shape) (refuse descriptor candidate shape))
   (def slots (.get descriptor effective-slots))
-  (def updates
-    (append-map (lambda (name)
-                  (if (.slot? candidate name)
-                    (let* ((slot (.ref slots name))
-                           (original (.ref candidate name))
-                           (checked (.call (.get slot .type) .slot.validate slot name candidate)))
-                      (if (eq? original checked) '() (list (cons name checked)))) '()))
+  (def checks
+    (filter-map (lambda (name)
+                  (and (.slot? candidate name)
+                    (let (slot (.ref slots name))
+                      (cons name (lambda (original receiver)
+                        (.call (.get slot .type) .slot.validate slot name original receiver))))))
                 (.all-slots slots)))
-  (def checked (if (null? updates) candidate (object<-alist updates supers: (list candidate))))
+  (def checked (rebind-validation candidate checks))
   (unless (.call descriptor .element? checked) (refuse descriptor checked 'class-rejected))
   checked)

@@ -91,8 +91,8 @@
     (test-case "custom Slot normalization and final membership remain authoritative"
       (def visits 0)
       (define-type (CheckingSlot @ Slot)
-        .slot.validate: (lambda (_ name candidate)
-          (set! visits (+ visits 1)) (+ 1 (.ref candidate name)))
+        .slot.validate: (lambda (_ _name original _receiver)
+          (set! visits (+ visits 1)) (+ 1 original))
         .slot.check: (lambda (_ name candidate) (even? (.ref candidate name))))
       (def descriptor (.cc Class. slots: (.o n: (.new CheckingSlot type: Integer))))
       (def checked (validate descriptor (.o n: 1)))

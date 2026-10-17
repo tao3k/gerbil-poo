@@ -1036,10 +1036,31 @@ future work and retains the distinction between recognition and wrapping.
 | Full service and exact association | `Examples/ClassContracts.lean`, existing refinement/binding laws | `examples/class-publication.ss`, existing FUN `publication-action` / `bind-evidence` |
 
 Prototype defaults and C3 resolution are supplied to the finite model; lookup
-laws alone do not prove C3. Host identity correspondence, arbitrary computed-field
+laws alone do not prove C3. Host identity correspondence, arbitrary lexical-capture
 rebinding, cycles, callback termination and external effect rollback remain
 premises/open work. Constants retain strict equality and reject equality-changing
 normalization, including such Function wrappers. No runtime Lean dependency or
 wrapper canonicalization cache is introduced. Class structural inheritance does
 not assert nominal parent-prototype ancestry; normalization retains actual source
 ancestry. Bootstrap Type validation retains descriptor identity.
+
+
+## Computed dependencies after recursive validation
+
+| Responsibility | Paper / Lean | Gerbil |
+| --- | --- | --- |
+| Parent/child share final self | Paper section 2 late binding; `ValidationRebinding.inherited` uses existing `Prototype.compose` / recursive closure | Ordinary `$computed-slot-spec` and super thunk on the new receiver |
+| Computed alias sees checked dependency | `ValidationRebinding.step`, `dependency`, `alias_value`; concrete `ComputedContracts.captured_checked` | Shared `validation-rebinding.rebind-validation` used by Class and ObjectContract |
+| Custom validator reads checked siblings | Existing recursive `Interaction` permits final-self requests during validation | Slot `.slot.validate (slot name original receiver)` |
+| Shared memo, dependency/error refusal | Existing program-indexed `Cached.Receipt`; `memo_agrees`, dependency/source error laws and `batch_error` | Existing per-receiver caches and `CyclicSlot`; force all selected fields before final checks |
+| Hook revisions, higher-order result, refinement/binding | Existing Class/refinement/binding laws plus `Examples/ComputedContracts.lean` | `examples/computed-publication.ss`, FUN publication, exact `bind-evidence` |
+
+The source generator represents effective inherited specifications and explicit
+instance assignments; C3 resolution/assignment correspondence and host identity
+are supplied premises. The finite example uses function identity tokens and an
+explicit inherited run prototype, not implicit super behavior in Record metadata.
+Raw global-shape getters still execute before normalization. Side effects,
+lexically closed snapshots, arbitrary termination, mutable freshness and host
+GC/costs are not proved. General cyclic object closure and Function constant
+canonicalization remain separate work. The implementation advances generalized
+MOP future work without a Scheme dependency on the Lean checkout.

@@ -38,6 +38,7 @@
     "recursive-handling"
     "fun"
     (gxc: "io" ,@(include-gambit-sharp))
+    "validation-rebinding"
     "value-diagnostics"
     "class-validation"
     "mop"
@@ -96,6 +97,7 @@
     "examples/variant-publication"
     "examples/optional-publication"
     "examples/class-publication"
+    "examples/computed-publication"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"

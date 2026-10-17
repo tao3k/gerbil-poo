@@ -113,6 +113,14 @@
   (let (storage (object-%defaults self))
     (if ($slot-store? storage) ($slot-store-list storage) storage)))
 
+;; Expose only explicit instance assignments as constant specifications. Recursive
+;; validation can retain them on a fresh receiver without copying computed caches;
+;; ordinary prototype inheritance still does not inherit these assignments.
+(def (object-override-specifications self)
+  (if (object-%overrides self)
+    (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
+         (hash->list/sort (object-%overrides self) symbol<?)) '()))
+
 ;; Track dependencies on prototypes, protocol objects and declaration descriptors.
 (def (depend-on-object! self source)
   (unless (object? source) (error "object dependency required"))

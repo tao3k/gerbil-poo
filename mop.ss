@@ -381,7 +381,8 @@
   ;; final .slot.check after every changed field has been persistently installed.
   .slot.shape: (lambda (@@ name candidate location check-field)
                  (class-slot-shape @@ name candidate location check-field))
-  .slot.validate: (lambda (@@ name candidate) (class-slot-validate @@ name candidate))
+  .slot.validate: (lambda (@@ name original receiver)
+                    (class-slot-validate @@ name original receiver))
   .slot.define:
     (λ (@@ slot-name x)
        (with-slots (type constant compute default) @@

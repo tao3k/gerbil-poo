@@ -242,11 +242,12 @@ receiver. Validation has three stages:
 
 1. Recursively check object/prototype/inventory and leaf membership, without
    running nested whole-object obligations on raw procedure fields.
-2. Validate declared fields in order through their existing Type `.validate`.
+2. Validate inherited field results through their existing Type `.validate` on
+   one fresh receiver. Computed dependencies request checked siblings through the
+   ordinary slot cache; a dependency may force a later declared field first.
    Nested ObjectContracts recurse; Function Types supply their existing wrappers.
-   Only after the complete field batch succeeds, construct one derived object
-   containing changed fields. Inheriting the source preserves prototype ancestry.
-   If no field changes, return the original object. The source is not mutated.
+   Force every selected check before final admission. Inheriting the source
+   preserves ancestry; no changes return the original object.
 3. Run complete diagnostics, constraints and `refine` on the final object. Nested
    refinement therefore observes wrapped fields. A refusal returns no candidate.
 
@@ -430,8 +431,8 @@ capabilities/limitations, including executable value serialization, are unchange
 `class-validation.ss` reuses the effective Slot protocols and recursive structure
 visitor. `.slot.shape` checks required/optional fields and constants; the complete
 structure pass precedes all `.slot.validate` calls. Present fields normalize
-through their selected child Type, with changed values installed in one persistent
-derived object. Final Class membership retains custom Slot checks, sealing and
+through their selected child Type on one persistent derived receiver, retaining
+computed dependencies rather than installing frozen getter results. Final Class membership retains custom Slot checks, sealing and
 constant equality. Unknown sealed fields are rejected by inventory without forcing
 their getters. `value-diagnostics.ss` keeps this protocol below the MOP dependency.
 
@@ -454,9 +455,55 @@ These additions advance section 5 type descriptors and the generalized MOP futur
 work. The Lean companion proves finite pure Slot/initialization/refinement laws
 and executes a corresponding service workflow; Scheme has no Lean checkout
 requirement. Supplied C3 resolution, prototype defaults, host identity, arbitrary
-computed rebinding, cyclic closure, callback termination, GC and external effect
-rollback are not proved. The example's computed audit captures unchanged scalar
-state. Constants keep exact equality before and after normalization: if wrapping
+lexical capture rebinding, cyclic closure, callback termination, GC and external
+effect rollback are not proved. The original example's computed audit captures
+unchanged scalar state; the extension below covers final-self dependencies. Constants keep exact equality before and after normalization: if wrapping
 changes that equality, validation refuses (including such Function constants).
 Wrapper canonicalization/deduplication, arbitrary external adapters and optional/
 keyword Function arities remain open. Executable-value serialization is unchanged.
+
+
+## Receiver-bound computed validation
+
+`validation-rebinding.ss` now supplies one higher-order normalizer for Class and
+ObjectContract. Each selected field is an ordinary `$computed-slot-spec` layer:
+its inherited result is validated with the final receiver. Inherited formulas,
+computed closure capture and custom Slot dependencies all use checked siblings.
+Every selected field is forced before final membership/refinement; normal object
+caches share repeated reads and `CyclicSlot` rejects active cycles. No old computed
+cache is copied. Explicit `.put!` instance assignments are retained as constant
+specifications by `object-override-specifications`; ordinary inheritance semantics
+for those assignments is unchanged. Source ancestry is retained, and all-unchanged
+validation returns the source.
+
+Slot `.slot.validate` takes `(slot name original receiver)`: `original` is the
+inherited raw value, while `receiver` supplies checked siblings. This directly
+replaces its earlier candidate-read convention, which would recursively read the
+currently active slot. Custom Slot implementations in the tests use this protocol.
+Validators can run in dependency order, not necessarily declaration order.
+
+`examples/computed-publication.ss` composes Record metadata selection and an
+explicit inherited prototype/super formula, hook replacement of backend/bias,
+computed captured delegates and Function lists, a Function returning a Function,
+root `refine`, FUN and `bind-evidence`. Record metadata does not implicitly gain
+new super-thunk semantics. Controls cover source caches, inherited overrides,
+hook mutation, repeated admission, custom sibling reads, cycles, original context
+on callback refusal, repaired retry and raw/stale evidence refusal.
+
+Paper correspondence: section 2's shared final `self` / late binding supplies the
+receiver rule; section 5 supplies callable/typed-slot descriptors. This generalized
+MOP extension advances future work. The independent Lean module
+`Functional.ValidationRebinding` proves eleven request/validation, dependency,
+inheritance, memo and batch-refusal laws using existing recursive interactions and
+certified memo. `Examples/ComputedContracts.lean` proves its concrete alias law
+and executes the matching 46/8 workflow, nested Function guard and publication
+controls. Neither the Scheme build nor its tests require a Lean checkout.
+
+Limits: global structural getters still run on the raw source before wrapping.
+Getter/validator effects and general callback termination are caller obligations;
+a callback may retain its private receiver, and external effects do not roll back.
+Arbitrary lexical snapshots cannot be rebound. Existing constants retain strict
+equality; cyclic object closure and wrapper canonicalization are still open.
+Fresh immutable source/descriptor/context correspondence and finite terminating
+getters remain required. This is not mutable freshness after admission, automatic
+revalidation after revision, or a host/runtime/GC performance proof.
