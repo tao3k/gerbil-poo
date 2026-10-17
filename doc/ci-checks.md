@@ -5,11 +5,20 @@ its pinned SHA-256, and uses the release's activation entry point. The downloade
 archive is cached; its bytes are verified again before every extraction. The
 project uses `build.ss` and `just` directly.
 
-The build job compiles once into the isolated `GERBIL_PATH=.ci-library`. A
+The build job compiles into the isolated `GERBIL_PATH=.ci-library`. A
 short-lived Actions artifact transfers that output to each test group. Before
 testing, each runner checks the recorded producer revision against its actual
 checkout. Compiler version, platform and source revision agree within this run;
 this does not qualify cross-version or cross-platform binary reuse.
+
+The library cache requires an exact key: compiler release checksum, host C/linker
+identity, platform, Scheme source and build/configuration inputs. There is no
+prefix fallback. Standalone test bodies are not compilation inputs and remain
+freshly executed. A hit reuses identical compiled source, checks the stored source
+key, and retains the original producer revision separately from this run's checked
+revision. A source or build-input change recompiles. This avoids pretending that
+std/make's timestamp-based checks can safely accept a different source snapshot.
+All inventory, harness, semantic and error-path tests run on every CI attempt.
 
 `t/test-groups.ss` owns the functional groups as Scheme data and emits only the
 ephemeral matrix required by Actions. Missing classified tests and duplicate
