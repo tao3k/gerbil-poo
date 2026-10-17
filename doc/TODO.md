@@ -50,7 +50,8 @@ further tuning of the corresponding workflow.
 
 The contract interoperability pass delegates ordinary predicate/list/range checks
 to Gerbil core `using` and its contract rules, preserving POO-specific recursive
-normalization and refusal policy through one thin adapter. The integrated typed
+normalization and refusal policy in the existing support module, without a
+separate contract module or namespace. The integrated typed
 host consumer composes `refine` with exact `bind-evidence`. The broader mechanism
 reuse ledger covers inheritance, interfaces, collections, caches, concurrency,
 syntax, IO and testing; see [gerbil-mechanisms.md](gerbil-mechanisms.md).

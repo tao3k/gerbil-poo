@@ -1,7 +1,7 @@
 ;;; Structural value contracts over the existing POO Type protocol.
 ;;; No configuration domain, module publication or admission context belongs here.
 (export ObjectContract. TypeContract. diagnose as-value-contract refine)
-(import ./contract-adapter (only-in :std/list/list foldl append-map filter-map)
+(import (only-in ./support/base require-value) (only-in :std/list/list foldl append-map filter-map)
         (only-in ./value-diagnostics diagnose-structure)
         ./object-diagnostics
         ./object-contract-validation
@@ -138,6 +138,6 @@
               prepared-responsibilities prepared-constraints prepared-obligations
               prepared-validation .diagnose-shape))
     (error "Refinement requires an ObjectContract descriptor"))
-  (check-contract additional procedure? (lambda () (error "Refinement must be a diagnostic procedure")))
+  (require-value additional procedure? (lambda () (error "Refinement must be a diagnostic procedure")))
   (.o (:: @ descriptor)
     obligations: => (lambda (previous) (diagnostic-then previous additional))))

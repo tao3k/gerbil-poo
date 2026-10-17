@@ -1,6 +1,6 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
 (export prototype-type instantiate-prototype infer-prototype)
-(import ./contract-adapter :std/error (only-in :std/list/list delete-duplicates/hash)
+(import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash)
         ./object ./type-relation
         (prefix-in ./parameters positional.))
 
@@ -14,7 +14,7 @@
 ;; No mutable descriptor record is trusted as an enduring proof certificate.
 (def (prepare-prototype-type prototype variables expression bounds work)
   (bounded-type-data variables work)
-  (check-contract variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
+  (require-value variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
   (let ()
     (type-expression `(Tuple ,@variables) variables work)
     (unless (and (andmap symbol? variables)
@@ -90,7 +90,7 @@
          (scheme (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
                    (.get scheme expression) (.get scheme bounds) work)))
     (bounded-type-data candidates work)
-    (check-contract candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
+    (require-value candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
     (type-expression `(Tuple ,@candidates) [] work)
     (bounded-type-data queries work)
     (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))

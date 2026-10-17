@@ -8,7 +8,7 @@
 (def test-groups
   '((objects support object mop parameters inheritance-hooks)
     (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
-    (collections number polynomial rationaldict trie fq)
+    (collections library-reuse number polynomial rationaldict trie fq)
     (methods multimethod method-combination method-declaration)
     (declarations declarative-metadata generalized-declaration recursive-declaration meta-prototype)
     (closure closure closure-alignment component-closure)
@@ -16,7 +16,7 @@
     (components component-membership component-migration component-requests component-rounds)
     (feedback feedback-cache feedback-closure feedback-graph feedback-revision cyclic-access)
     (recursion recursive recursive-benchmark)
-    (contracts contract-adapter recursive-coordination recursive-recovery recursive-submissions recursive-competition recursive-approvals recursive-publication recursive-restaging recursive-staging recursive-topology recursive-migration recursive-revision recursive-validation computed-validation class-validation optional-validation variant-validation container-validation contract-family object-contract object-contract-flow object-contract-validation contract-publication evidence-binding protected-dispatch service-bundle service-metadata service-revisions shared-approvals)
+    (contracts contract-checks recursive-coordination recursive-recovery recursive-submissions recursive-competition recursive-approvals recursive-publication recursive-restaging recursive-staging recursive-topology recursive-migration recursive-revision recursive-validation computed-validation class-validation optional-validation variant-validation container-validation contract-family object-contract object-contract-flow object-contract-validation contract-publication evidence-binding protected-dispatch service-bundle service-metadata service-revisions shared-approvals)
     (publication joint-publication joint-admission joint-receipts joint-installation approval-revision)
     (revisions joint-topology joint-rounds joint-restaging joint-generations)
     (coordination joint-coordination joint-concurrency coordinator-recovery coordinator-rejoining)

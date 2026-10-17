@@ -1,6 +1,6 @@
 ;;; Structural Function admission below the Type bootstrap; validators are injected.
 (export decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function)
-(import ./contract-adapter (only-in :std/list/list map-in-order)
+(import (only-in ./support/base require-value) (only-in :std/list/list map-in-order)
         (only-in ./object .get))
 
 ;; Decode Gerbil's keyword escapes without executing defaults or validators.
@@ -57,7 +57,7 @@
 ;; Validate arguments before one body invocation, then validate every returned value.
 ;; Native body/default errors propagate exactly and cannot cause overload fallback.
 (def (wrap-function descriptor procedure signatures check refuse)
-  (check-contract procedure procedure? (lambda () (refuse descriptor procedure)))
+  (require-value procedure procedure? (lambda () (refuse descriptor procedure)))
   (let (keyword-mode? (ormap (lambda (signature) (pair? (.get signature keywords))) signatures))
     (lambda arguments
       (def signature (select-signature signatures arguments))

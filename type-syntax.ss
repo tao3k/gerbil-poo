@@ -1,7 +1,7 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body?)
-(import :std/error ./contract-adapter)
+(import :std/error (only-in ./support/base require-value))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -11,7 +11,7 @@
   (raise (TypeRefusal message irritants: (cons kind details))))
 ;; One request shares this counter across parsing, expansion, search and building.
 (def (type-work budget)
-  (check-contract budget (in-range-inclusive? 1 1048576)
+  (require-value budget (in-range-inclusive? 1 1048576)
     (lambda () (refuse-type 'malformed "Type work budget must be in 1..1048576" budget)))
   (let (remaining budget)
     (lambda ()

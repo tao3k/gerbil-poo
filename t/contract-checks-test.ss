@@ -1,7 +1,7 @@
 ;;; Real Gerbil using controls plus legacy failure and recursive wrapping parity.
-(export contract-adapter-test)
+(export contract-checks-test)
 (import :std/test :std/error ../object ../mop ../type-relation ../type-syntax ../prototype-types
-        ../contract-adapter ../object-contract ../object-contract-flow ../object-diagnostics
+        (only-in ../support/base require-value) ../object-contract ../object-contract-flow ../object-diagnostics
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../function-signature signatures.)
         (prefix-in ../examples/row-services rows.)
@@ -15,31 +15,32 @@
   (lambda (cause) (and (Error? cause) (not (contract-violation-error? cause))
                        (equal? (error-message cause) expected))))
 ;; All controls use the actual standard using macro from the active Gerbil prelude.
-(def contract-adapter-test
+(def contract-checks-test
   (test-suite "Gerbil contracts under POO boundaries"
     (test-case "standard using rejects false and accepts truthy predicate values"
       (check-exception (using (value 1 :~ procedure?) value) contract-violation-error?)
+      (check-exception (check-argument #f "a procedure" 1) contract-violation-error?)
       (let* ((value (list 'original)) (calls 0) (refusals 0)
-             (actual (check-contract value (lambda (_) (set! calls (+ calls 1)) 'accepted)
+             (actual (require-value value (lambda (_) (set! calls (+ calls 1)) 'accepted)
                        (lambda () (set! refusals (+ refusals 1)) (error "unexpected")))))
         (check (eq? actual value) => #t) (check-equal? calls 1) (check-equal? refusals 0)))
     (test-case "false translates exactly once through the original refusal policy"
       (let* ((cause (list 'legacy)) (calls 0) (refusals 0)
              (observed (caught (lambda ()
-               (check-contract 'value (lambda (_) (set! calls (+ calls 1)) #f)
+               (require-value 'value (lambda (_) (set! calls (+ calls 1)) #f)
                  (lambda () (set! refusals (+ refusals 1)) (raise cause)))))))
         (check (eq? observed cause) => #t) (check-equal? calls 1) (check-equal? refusals 1)))
     (test-case "a predicate ContractViolation is never mistaken for local guard refusal"
       (let* ((cause (caught (lambda () (using (x 1 :~ procedure?) x))))
              (mapped 0)
              (actual (caught (lambda ()
-               (check-contract 'value (lambda (_) (raise cause))
+               (require-value 'value (lambda (_) (raise cause))
                  (lambda () (set! mapped (+ mapped 1)) (error "wrong translation")))))))
         (check (contract-violation-error? cause) => #t)
         (check (eq? actual cause) => #t) (check-equal? mapped 0)))
     (test-case "host predicates and ranges reuse core contract rules"
-      (check-equal? (check-contract '(a b) (list-of? symbol?) (lambda () (error "bad"))) '(a b))
-      (check (check-contract 'closed (one-of open closed) (lambda () (error "bad"))) => 'closed)
+      (check-equal? (require-value '(a b) (list-of? symbol?) (lambda () (error "bad"))) '(a b))
+      (check (require-value 'closed (one-of open closed) (lambda () (error "bad"))) => 'closed)
       (check-exception (type-work 0) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'malformed))))
       (check-exception (type-work (expt 2 100)) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'malformed))))
       (let (work (type-work 1))
@@ -103,7 +104,7 @@
           (check-equal? refusal #f) (check (eq? (.get value subject) next) => #t)
           (check-equal? ((.get next handler) -3) 3))
         (check-equal? (interop.sink-count target) 2)))
-    (test-case "consumer ContractViolation and multiple values bypass the adapter handler"
+    (test-case "consumer ContractViolation and multiple values bypass the local guard handler"
       (let* ((cause (caught (lambda () (using (x #f :~ procedure?) x))))
              (action (checked-action Any (lambda (_) (raise cause)))))
         (check-exception (action 3) (lambda (actual) (eq? actual cause))))

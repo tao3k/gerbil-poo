@@ -1,7 +1,7 @@
 ;;; Finite recursive Type graphs; scalar samplers are supplied by the caller.
 (export compile-graph graph-nodes graph-sources graph-costs graph-stamps node-descriptor node-kind node-children node-sampler
         generation-refusal? generation-refusal-kind refuse-generation)
-(import ./contract-adapter :std/iter :std/error ./object
+(import (only-in ./support/base require-value) :std/iter :std/error ./object
         (only-in ./mop Type validate)
         (only-in ./type List. Tuple. Pair. Union. Maybe. OrFalse.))
 
@@ -20,10 +20,10 @@
 ;; These caps bound protocol bookkeeping, not arbitrary callback execution or bytes.
 (def (check-limits depth nodes descriptors search)
   (let (refuse (lambda () (error "invalid recursive generation limits" depth nodes descriptors search)))
-    (check-contract depth (in-range-inclusive? 0 64) refuse)
-    (check-contract nodes (in-range-inclusive? 0 65536) refuse)
-    (check-contract descriptors (in-range-inclusive? 1 1024) refuse)
-    (check-contract search (in-range-inclusive? 1 1048576) refuse)))
+    (require-value depth (in-range-inclusive? 0 64) refuse)
+    (require-value nodes (in-range-inclusive? 0 65536) refuse)
+    (require-value descriptors (in-range-inclusive? 1 1024) refuse)
+    (require-value search (in-range-inclusive? 1 1048576) refuse)))
 ;; Classify standard carrier constructors; explicit .generator overrides remain
 ;; opaque leaves with declared callback dependencies. Container semantics are reused.
 (def (describe descriptor scalar)

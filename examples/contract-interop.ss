@@ -1,6 +1,6 @@
 ;;; Gerbil typed consumers composed with recursively checked POO service rows.
 (export make-sink sink-count admit-to-sink publish-from-sink)
-(import ../contract-adapter ../object ../mop ../object-contract-flow
+(import (only-in ../support/base require-value) ../object ../mop ../object-contract-flow
         (prefix-in ./row-services rows.))
 
 ;; Ordinary host state uses Gerbil's generated struct/class machinery directly.
@@ -23,6 +23,6 @@
 ;; Build evidence from the current checked value; returning stale evidence preserves
 ;; old state. Observation is not rolled back if subsequent evidence publication fails.
 (def (publish-from-sink instance target maximum candidate context evidence-for old-state)
-  (check-contract evidence-for procedure? (lambda () (error "Evidence builder must be a procedure")))
+  (require-value evidence-for procedure? (lambda () (error "Evidence builder must be a procedure")))
   (let-values (((checked _count) ((admit-to-sink instance target maximum) candidate)))
     (rows.publish-service instance checked context (evidence-for checked context) old-state)))

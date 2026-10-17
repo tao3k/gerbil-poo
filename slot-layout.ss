@@ -1,7 +1,7 @@
 ;;; Shared shapes and receiver-local value vectors for guarded access sites.
 (export make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-put!
         make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind!)
-(import :std/iter (only-in :std/list/list delete-duplicates/hash))
+(import (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
@@ -14,10 +14,11 @@
 (def (make-slot-layout names initial missing)
   (def keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b)))
     (delete-duplicates/hash names table: (make-hash-table-eq))))
-  (def canonical (or (hash-get shapes keys)
-    (let (indices (make-hash-table-eq))
-      (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
-      (let (result (make-shape indices)) (hash-put! shapes keys result) result))))
+  (def canonical (hash-ensure-ref shapes keys
+    (lambda ()
+      (let (indices (make-hash-table-eq))
+        (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
+        (make-shape indices)))))
   (make-layout canonical (list->vector (map (lambda (name) (hash-ref initial name missing)) keys))))
 ;; Absence is false; zero is a valid index in Scheme.
 (def (slot-layout-index layout name) (hash-get (shape-indices (slot-layout-shape layout)) name))
@@ -37,11 +38,14 @@
   (make-access-cache name #f #f #f #f))
 ;; Guard receiver identity, monotone revision and exact receiver-local layout together.
 (def (slot-cache-hit? cache owner revision layout)
-  (and (eq? owner (access-cache-owner cache)) (eqv? revision (access-cache-revision cache))
-       (eq? layout (access-cache-layout cache)) (access-cache-index cache)))
+  (using (cache : access-cache)
+    (and (eq? owner cache.owner) (eqv? revision cache.revision)
+         (eq? layout cache.layout) cache.index)))
 ;; Read the current vector cell, not a retained value that could outlive invalidation.
-(def (slot-cache-read cache) (slot-layout-ref (access-cache-layout cache) (access-cache-index cache)))
+(def (slot-cache-read cache)
+  (using (cache : access-cache) (slot-layout-ref cache.layout cache.index)))
 ;; Bind only after successful computation; an absent index must never become a hit.
 (def (slot-cache-bind! cache owner revision layout index)
-  (set! (access-cache-owner cache) owner) (set! (access-cache-revision cache) revision)
-  (set! (access-cache-layout cache) layout) (set! (access-cache-index cache) index))
+  (using (cache : access-cache)
+    (set! cache.owner owner) (set! cache.revision revision)
+    (set! cache.layout layout) (set! cache.index index)))

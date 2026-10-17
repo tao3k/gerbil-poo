@@ -1,6 +1,6 @@
 ;;; Shared structural traversal and persistent validation for existing Types.
 (export list-shape tuple-shape validate-container validate-list validate-tuple)
-(import :std/iter
+(import (only-in :std/list/list-builder with-list-builder) :std/iter
         (only-in :std/list/list map-in-order)
         (only-in :std/vector/vector vector-for-each/index)
         ./value-diagnostics
@@ -11,9 +11,9 @@
 ;; all child diagnostics remain ordered and no malformed list tail is traversed.
 (def (list-shape descriptor type candidate location check-field)
   (if (list? candidate)
-    (apply append
-      (for/collect ((value candidate) (index (in-range (length candidate))))
-        (check-field type value (append location [index]))))
+    (with-list-builder (issue!)
+      (for ((value candidate) (index (in-range (length candidate))))
+        (for-each issue! (check-field type value (append location [index])))))
     [(.o kind: 'expected-list path: location expected: descriptor)]))
 
 ;; Tuple fields have heterogeneous Types and exact vector arity. No child is
@@ -24,19 +24,20 @@
     ((not (= (vector-length types) (vector-length candidate)))
      [(.o kind: 'tuple-arity path: location expected: (vector-length types))])
     (else
-     (apply append
-       (for/collect ((index (in-range (vector-length types))))
-         (check-field (vector-ref types index) (vector-ref candidate index)
-                      (append location [index])))))))
+     (with-list-builder (issue!)
+       (vector-for-each/index
+         (lambda (index value)
+           (for-each issue! (check-field (vector-ref types index) value
+                                        (append location [index])))) candidate)))))
 
 ;; Run a complete structural pass before normalization; final membership checks
 ;; the returned container. Custom validator/getter effects are not rolled back.
 (def (validate-container descriptor candidate normalize)
   (def failures (diagnose-structure descriptor candidate '()))
   (unless (null? failures) (raise-type-error descriptor candidate failures))
-  (def checked (normalize candidate))
-  (unless (element? descriptor checked) (raise-type-error descriptor checked))
-  checked)
+  (let (checked (normalize candidate))
+    (unless (element? descriptor checked) (raise-type-error descriptor checked))
+    checked))
 
 ;; Reuse the standard left-to-right map for child validation. Unchanged elements
 ;; preserve the original list identity; a changed batch returns only its full list.

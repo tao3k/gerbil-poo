@@ -5,7 +5,7 @@
         truth atom both either implies deny formula? holds check
         predicate typed predicate? contract contract? with-meaning bind-evidence wrap invoke publish
         failure? failure-phase failure-name failure-cause)
-(import ./contract-adapter :std/iter (only-in :std/func compose)
+(import (only-in ./support/base require-value) :std/iter (only-in :std/func compose)
         ./object (only-in ./mop define-type .defgeneric Type Type. validate element?)
         (prefix-in ./dispatch-extension dispatch-extension.))
 
@@ -17,10 +17,10 @@
 (def (refuse phase name cause) (raise (make-failure phase name cause)))
 ;; Require Boolean predicate/formula results; truthy arbitrary values cannot approve metadata.
 (def (boolean! value)
-  (check-contract value boolean? (lambda () (error "metadata decision must be Boolean"))))
+  (require-value value boolean? (lambda () (error "metadata decision must be Boolean"))))
 ;; Validate and privately copy a declaration/predicate name so callers cannot mutate its identity.
 (def (name! name)
-  (check-contract name string? (lambda () (error "metadata name must be a string")))
+  (require-value name string? (lambda () (error "metadata name must be a string")))
   (string-copy name))
 ;; Recognize native open metadata objects by their explicit type descriptor identity.
 (def (metadata? descriptor value)
@@ -183,7 +183,7 @@
 ;; is created. All references and their contents must remain immutable.
 (def (bind-evidence invocation subject descriptor context evidence-view)
   (validate Contract invocation)
-  (check-contract evidence-view procedure? (lambda () (error "Evidence view must be a procedure")))
+  (require-value evidence-view procedure? (lambda () (error "Evidence view must be a procedure")))
   (let ((binding-key (gensym 'evidence-binding))
         (previous-meaning (.@ invocation meaning)))
     (.cc
@@ -209,7 +209,7 @@
   (validate Predicate input-type)
   (validate Predicate output-type)
   (validate Formula formula)
-  (check-contract interpretation procedure? (lambda () (error "metadata meaning must be a procedure")))
+  (require-value interpretation procedure? (lambda () (error "metadata meaning must be a procedure")))
   (.cc Contract. input: input-type output: output-type meaning: interpretation rule: formula))
 ;; Invoke atomically at the value boundary: metadata refusal returns exact old state.
 ;; Other exceptions propagate; arbitrary external callback effects are not rolled back.
