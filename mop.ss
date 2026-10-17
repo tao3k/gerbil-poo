@@ -7,10 +7,11 @@
 
 (import
   ./value-diagnostics
+  ./function-signature
   ./class-validation
   (only-in :std/error deferror-class defraise/context)
   (only-in :std/list/list-builder with-list-builder)
-  (only-in :std/list/list pop! append-map foldr)
+  (only-in :std/list/list pop! append-map foldr delete-duplicates/hash)
   (only-in :std/list/walist walist)
   (only-in :std/values list->values)
   (only-in :std/func compose)
@@ -21,7 +22,7 @@
   (only-in ./support/json string<-json json<-string)
   (only-in ./support/syntax call<-formals)
   (only-in ./support/repr repr pr)
-  (only-in ./object object .def/ctx .cc .mix .ref .@ .get .has? .call
+  (only-in ./object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
            .alist object<-alist
@@ -223,33 +224,55 @@
 (def (map-object-values f object)
   (object<-alist (map (lambda (slot) (cons slot (f (.ref object slot)))) (.all-slots object))))
 
-;; TODO: support optional and keyword arguments in the input types, and multiple arities a la case-lambda
-;; TODO: support contract-checking validation wrapping that works well with tail-calls and continuations,
-;; by avoiding the accumulation of wrappers for the same types, instead having a single wrapper that
-;; accumulates and de-duplicates types to check, maybe in a weak-values hash-table.
-;; TODO: support validation in incremental amortized O(1) rather than O(n) for recursive data-structures,
-;; possibly with a weak-values hash-table for less trivial invariants.
+;; Function descriptors preserve supplied optional/keyword/rest values; the host
+;; target still owns its defaults and actual arity. Recognition remains procedure?.
+;; TODO: Deduplicate wrappers across contracts/continuations without changing tail calls.
+;; TODO: Incremental amortized O(1) recursive-data validation needs its own cache laws.
 (define-type (Function. @ Type. outputs inputs)
-  .element?: procedure? ;; we can't dynamically test that a function has the correct signature :-(
-  .validate: (lambda (f)
-               (unless (procedure? f) (raise-type-error Type @ Any f))
-               (def (validate-row kind types elems k)
-                 (unless (= (length elems) (length types))
-                   (raise-type-error @ f invalid-number-of: kind))
-                 (k (map (lambda (type elem) (validate type elem))
-                         types elems)))
-               (nest
-                (lambda ins)
-                (validate-row inputs: inputs ins) (lambda (vins))
-                (call/values (lambda () (apply f vins))) (lambda outs)
-                (validate-row outputs: outputs outs list->values)))
+  optional: [] keywords: [] required-keywords: [] rest: #f
+  signatures: (list @)
+  .element?: procedure?
+  .validate: (lambda (f) (wrap-function @ f signatures validate (lambda (type value) (raise-type-error type value))))
   arity: (length inputs))
 
-(def (Function outputs inputs)
-  (for-each (cut validate Type <>) outputs)
-  (for-each (cut validate Type <>) inputs)
-  {(:: @ Function.) (outputs) (inputs)
-   sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs)) (@list ,@(map (cut .@ <> sexp) inputs)))})
+;; Check every declaration before installing a wrapper; duplicate or missing keyword
+;; declarations are malformed descriptors, not target procedure failures.
+(def (Function outputs inputs optional: (optional []) keywords: (keywords [])
+               required-keywords: (required-keywords []) rest: (rest #f))
+  (for-each (lambda (row)
+    (unless (list? row) (error "Function types must form a proper list"))
+    (for-each (cut validate Type <>) row)) (list outputs inputs optional))
+  (unless (and (list? keywords) (every (lambda (entry) (and (pair? entry) (keyword? (car entry)))) keywords)
+               (list? required-keywords) (every keyword? required-keywords))
+    (error "invalid Function keyword declaration"))
+  (def names (map car keywords))
+  (unless (and (= (length names) (length (delete-duplicates/hash names)))
+               (= (length required-keywords) (length (delete-duplicates/hash required-keywords)))
+               (every (cut memq <> names) required-keywords))
+    (error "duplicate or undeclared Function keyword"))
+  (for-each (lambda (entry) (validate Type (cdr entry))) keywords)
+  (when rest (validate Type rest))
+  {(:: @ Function.) (outputs) (inputs) (optional) (keywords) (required-keywords) (rest)
+   sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs))
+                    (@list ,@(map (cut .@ <> sexp) inputs))
+                    ,@(if (and (null? optional) (null? keywords) (not rest)) []
+                      `(optional: (@list ,@(map (cut .@ <> sexp) optional))
+                        keywords: (@list ,@(map (lambda (entry)
+                          `(cons ,(car entry) ,(.@ (cdr entry) sexp))) keywords))
+                        required-keywords: (quote ,required-keywords)
+                        rest: ,(and rest (.@ rest sexp)))))})
+
+;; Ordered signature alternatives share the normal Function Type and recursive
+;; wrapping path. Structural first-match selection never probes a function body.
+(def (CaseFunction . cases)
+  (unless (and (pair? cases) (every (lambda (case)
+      (and (object? case) (element? Type case) (.has? case signatures)
+           (let (signatures (.get case signatures))
+             (and (= (length signatures) 1) (eq? (car signatures) case))))) cases))
+    (error "CaseFunction requires nonempty single-signature Functions"))
+  (.cc Function. outputs: [] inputs: [] signatures: cases
+       arity: (apply min (map (lambda (case) (.get case arity)) cases))
+       sexp: `(CaseFunction ,@(map (cut .@ <> sexp) cases))))
 
 ;; The expander complains "Syntax Error: Ambiguous pattern".
 ;; TODO: Use syntax-case, detect when there are opposite arrows, curry when there are multiple ones?
