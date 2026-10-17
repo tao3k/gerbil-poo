@@ -18,6 +18,7 @@ jobs:
       matrix: ${{ steps.groups.outputs.matrix }}
       source-key: ${{ steps.library-cache.outputs.cache-primary-key }}
       binary-key: ${{ steps.library-bytes.outputs.key }}
+      compiler-key: ${{ steps.compiler.outputs.identity }}
       test-key: ${{ steps.groups.outputs.test-key }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -103,6 +104,13 @@ jobs:
           path: .ci-library
       - name: Require this run's checked revision
         run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
+      - name: Require the shared library's C toolchain
+        env:
+          EXPECTED_COMPILER: ${{ needs.build.outputs.compiler-key }}
+        run: |
+          set -euo pipefail
+          actual="$( { cc --version; ld --version; uname -m; } | sha256sum | cut -d ' ' -f 1)"
+          test "$actual" = "$EXPECTED_COMPILER"
       - uses: actions/cache/restore@v4
         id: tests-cache
         with:

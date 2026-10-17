@@ -74,3 +74,8 @@ Independent group compilers may reload shared expansion metadata; this is
 additional runner work, not another source-module/backend compilation. Cold
 end-to-end time and warm cache reuse must be reported separately from the
 shared job alone. The symbolic cost inequality assumes the same supplied costs.
+
+Every test-compilation runner checks its host C/linker/architecture identity
+against the shared producer before restoring or producing a group cache. This
+keeps the cache key tied to the backend that actually compiled its bytes, even
+though the runner label remains `ubuntu-latest`.
