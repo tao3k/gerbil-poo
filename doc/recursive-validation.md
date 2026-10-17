@@ -109,3 +109,78 @@ fresh-owner evidence controls. Existing final-self, recursive cache, positive
 closure, refinement and binding proofs are reused. This does not certify Scheme
 compiler/runtime/GC behavior or end-to-end performance. Scheme requires no Lean
 checkout at build or runtime.
+
+## Selective invalidation and reclosure
+
+`validation-node name dependencies watches build` declares an immutable recipe.
+`dependencies` lists **all** named links, computed reads/captures and obligations;
+`watches` lists external POO inputs whose supported revisions affect this node.
+`build` receives `(reference source)` and returns `(descriptor raw-source)`.
+Both accessors reject undeclared targets. Delay cyclic raw-source reads in ordinary
+POO slot formulas until every builder has returned. For a retained target, `source`
+returns its already canonical receiver, so a new reader never installs its raw
+predecessor. Lists/recipes and untracked nested metadata must remain immutable.
+
+`revise-validation #f recipes` starts a revision family. Subsequent calls use its
+current `closed?` snapshot as the first argument. The protocol:
+
+1. Preflight distinct support and declared dependency targets before builders.
+2. Seed changes from new/replaced recipe identity, registered source/descriptor/
+   canonical/Reference revisions, and watched-input revisions.
+3. Propagate invalidation to every reader in the **new** dependency graph. A
+   changed footprint requires a new recipe, seeding its reader directly; a
+   dangling dependency refuses. Sharing and cycles participate in this closure.
+4. Reuse clean canonical receivers, Reference Types and computed caches without
+   builder invocation, shape replay, normalization or wrapper reconstruction.
+   Allocate/normalize all dirty receivers through the same closure engine as
+   `close-validation`; computed fields see their new final self and checked peers.
+5. Recheck **every** final node obligation, including clean nodes. A cache hit is
+   never final approval. On failure no candidate snapshot is returned or installed.
+   Retention preserves the original stamps: if a builder edits a clean source,
+   the candidate refuses rather than silently re-stamping its old cached value.
+6. After complete success, retire the previous graph-access capability and revoke
+   old Reference Types for dirty/removed nodes. A clean Reference survives unrelated
+   revisions; its own declared reachable stamps/final checks remain current.
+
+`closed-evaluated` and `closed-reused` report construction decisions (reuse order
+is unspecified). `revision-action recipes` is a FUN Reader-compatible action from
+the current graph to the completely admitted next graph. Ordinary `close-validation`
+still has its original all-node fresh-owner semantics. Revisions must start with
+`revise-validation`; an ordinary closed graph is not silently upgraded.
+
+A revision family shares ownership, but normalization/admission also checks the
+exact Reference Type selected for each name **in this attempt**. Reusing an old
+dirty descriptor cannot smuggle old canonical edges into the new graph. Revocation
+cells follow retained References across several rounds, so later replacement also
+rejects capabilities originating before an intervening clean round.
+
+`examples/recursive-revision.ss` combines a shared checked Function provider, two
+mutually recursive services, computed peer-method captures, a computed report and
+an independent node. A watched provider edit rebuilds four nodes (report 13→23),
+while a peer replacement rebuilds its SCC/report and retains provider/idle. Its
+FUN action composes root `refine` with existing exact `bind-evidence` publication.
+Controls include current/stale subject/context, failure/retry, removed targets,
+source/descriptor edits, old-Type injection, and a reentrant competing commit.
+
+The commit guard rejects an old snapshot already retired by a reentrant callback.
+This is a **sequential in-process protocol**, not thread synchronization. Complete
+read declarations, immutable untracked metadata, terminating callbacks, and no
+concurrent mutation are premises. External callback effects are not rolled back;
+if a callback edits an old source, failure cannot restore that mutation. Arbitrary
+previously retained Functions are not globally revoked. Graph revision completes
+before a separately requested FUN effect publication, with no cross-effect atomicity
+claim. Scoped checks revalidate reachable nodes, not unrelated global obligations;
+whole-graph obligations belong in the publication envelope and its dependency set.
+
+`Functional.RecursiveRevision` reuses `StrongComponents.Checked` reachability and
+`RecursiveValidation.close`: clean consumers cannot reach dirty dependencies,
+shared inputs invalidate all readers, clean construction is skipped, dirty
+construction uses its actual callback, node generations are monotone, old target
+references refuse (including across intervening clean rounds), every successful
+reclosure passes all final obligations, failure retains pure prior state, and
+current canonical-root evidence is exact. `Examples/RecursiveRevisions.lean`
+executes both invalidation cones, checked Function refusal, current refinement,
+old-reference/context refusal and retry. The proofs concern a finite consistently
+indexed catalog with supplied source/dependency/host-identity correspondence;
+Scheme membership edits are tested controls, not a proof of arbitrary index
+relowering. No Scheme runtime/compiler, GC or performance theorem is asserted.

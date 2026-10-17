@@ -100,6 +100,7 @@
     "examples/class-publication"
     "examples/computed-publication"
     "examples/recursive-validation"
+    "examples/recursive-revision"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"

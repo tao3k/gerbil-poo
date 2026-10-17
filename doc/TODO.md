@@ -1009,3 +1009,21 @@ Final Reference membership now requires canonical targets even after custom Slot
 normalization. Deferred nested checks switch to that admission phase before
 running. Active unannotated structural Type/value recurrence refuses with a
 `recursive-structure` diagnostic; ordinary alias sharing after return stays legal.
+
+Selective recursive graph revision is now available through `validation-node`,
+`revise-validation` and FUN-compatible `revision-action`. Recipe/source/descriptor/
+watched-input changes propagate through declared reader closure, including shared
+nodes and SCCs; clean canonical receivers and computed caches survive. Dirty
+receivers rebind computed dependencies through the existing closure engine. Final
+admission still checks every node; failed candidates do not retire the old graph.
+Retained caches keep their original evidence stamps, refusing edits during a
+rebuild rather than re-stamping stale values. Old dirty/removed Reference
+capabilities refuse across later rounds, and exact
+per-attempt Reference checking blocks transplantation of old dirty descriptors.
+`examples/recursive-revision.ss` connects these controls with `refine` and exact
+`bind-evidence`. Lean `Functional.RecursiveRevision` proves finite dependency,
+selective-construction, generation/refusal, final-admission and pure-failure laws.
+This advances generalized MOP future work. Complete declared reads, immutable
+untracked metadata and sequential mutation discipline remain premises; automatic
+callback-read discovery, concurrent installation and arbitrary retained-Function
+revocation remain open. See [recursive-validation.md](recursive-validation.md).

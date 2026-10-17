@@ -1085,3 +1085,17 @@ effects, unregistered recursion, arbitrary termination, raw setters and concurre
 mutation remain outside the model. Immediate computed cycles and incomplete
 recursive requests reject rather than manufacture a closed value. See
 [recursive-validation.md](recursive-validation.md); Scheme has no Lean dependency.
+
+### Recursive graph revision and computed dependency rebinding
+
+The Racket constructions in sections 2 and 5 supply shared final self, runtime Type
+descriptors and recursive recognition. Selective graph revision extends generalized
+MOP future work. Gerbil `recursive-validation.ss` reuses the existing closure,
+final-self rebinding, deferred checks and revision stamps; explicit node recipes
+add declared invalidation closure, retained canonical caches, current-reference
+checking and failure-safe sequential retirement. `examples/recursive-revision.ss`
+composes two cyclic services with shared checked Functions, computed reports,
+refinement and bound FUN evidence. Lean `Functional.RecursiveRevision` composes
+existing checked reachability and finite graph closure proofs. Source/read
+completeness and host stamp/identity correspondence are premises; runtime, GC,
+concurrent installation and arbitrary callback termination are not certified.
