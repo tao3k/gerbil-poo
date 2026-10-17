@@ -25,3 +25,36 @@ If you'd like to build your own object system, with its own optimized meta-objec
 to implement objects efficiently, come join the team!
 
 See the [doc/TODO.md](doc/TODO.md) document for projects.
+
+### Structural value contracts
+
+[`object-contract`](doc/object-contracts.md) adds structural responsibilities and
+diagnostics over existing POO Types, with optional prototype requirements and
+reuse of the existing checked invocation Contract. It is independent of any
+configuration framework; Schema adapters remain separate libraries.
+
+### Finite cyclic construction
+
+[`closure`](doc/closure.md) provides positive Boolean closure with private compiled
+metadata, owned byte state, allocation-aware queue selection, immutable public
+snapshots, retained-topology revisions, POO workflow controls and Scheme benchmarks.
+This advances generalized-prototype future work with a bounded Lean cost-model
+companion; it does not change ordinary prototype recursion.
+
+### Scheme CI
+
+`just build` compiles the declared `build.ss` modules. `just test-file` runs one
+module through the standard Scheme harness, with its own failure status and
+90-second limit. Seventeen functional groups run as independent GitHub jobs,
+with two independent module processes per group. `t/test-groups.ss` checks the
+inventory and includes new, unclassified tests in an additional group.
+
+One build job publishes this run's shared library. Seventeen compilation jobs
+verify that artifact and compile disjoint test roots. Independent semantic jobs
+and the complete single-process job then run concurrently against admitted
+artifacts. Exact shared/test caches skip compilation only; checks always run. See [CI checks](doc/ci-checks.md).
+Linux uses a SHA-256 pinned, already compiled gerbil-bazel release with verified
+upstream revision. Darwin development uses its compatible installed compiler.
+No compiler source build, companion Lean checkout or repository shell wrapper is
+required. Compiler downloads and build artifacts stay outside Git. A PR commit
+triggers one matrix run.

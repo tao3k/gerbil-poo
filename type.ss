@@ -6,6 +6,10 @@
 (import
   (only-in :std/assert assert!)
   :std/iter
+  ./value-diagnostics
+  ./type-validation
+  ./variant-validation
+  ./optional-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
@@ -45,6 +49,10 @@
 
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
+  .validate: (lambda (value) (validate-tuple @ types value))
+  .diagnose: (lambda (value location) (tuple-shape @ types value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (tuple-shape @ types value location check-field))
   .element?:
     (λ (x)
       (def l (vector-length types))
@@ -67,6 +75,10 @@
 
 (define-type (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)
   .Length: UInt
+  .validate: (lambda (value) (validate-list @ type value))
+  .diagnose: (lambda (value location) (list-shape @ type value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (list-shape @ type value location check-field))
   .element?: (λ (x) (and (list? x) (every (cut element? type <>) x)))
   .sexp<-: (lambda (v) ['@list (map (.@ type .sexp<-) v) ...])
   .json<-: (let (m (.@ type .json<-)) (cut map m <>))
@@ -246,6 +258,10 @@
 
 ;; Untagged union. Can be used for JSON, but no automatic marshaling.
 (define-type (Union. @ [methods.string&bytes&marshal<-json Type.] types)
+  .validate: (lambda (value) (validate-union @ types value))
+  .diagnose: (lambda (value location) (union-diagnostics @ types value location))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (union-shape @ types value location check-field))
   .element?: (λ (x) (any (cut element? <> x) types))
   .json<-: (lambda (v) (let/cc return
                     (for-each (λ (t) (when (element? t v) (return (json<- t v))))
@@ -255,10 +271,16 @@
                     (for-each (λ (t) (ignore-errors (return (<-json t j))))
                               types)
                     (error "invalid json for type" j sexp))))
-(def (Union . types) ;; type of tuples, heterogeneous arrays of given length and type
+;; Ordered alternatives keep recognition separate from committed normalization.
+(def (Union . types)
+  (for-each (cut validate Type <>) types)
   {(:: @ Union.) (types) sexp: `(Union ,@(map (cut .@ <> sexp) types))})
 
 (define-type (Pair. @ [methods.bytes<-marshal Type.] left right)
+  .validate: (lambda (value) (validate-pair @ left right value))
+  .diagnose: (lambda (value location) (pair-shape @ left right value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (pair-shape @ left right value location check-field))
   .element?: (lambda (v) (and (pair? v) (element? left (car v)) (element? right (cdr v))))
   .sexp<-: (lambda (v) `(cons ,(sexp<- left (car v)) ,(sexp<- right (cdr v))))
   .json<-: (lambda (v) [(json<- left (car v)) (json<- right (cdr v))])
@@ -274,9 +296,10 @@
 
 (define-type (TypeValuePair @ Type.)
   .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
-  .validate: (lambda (x)
-               (match x ([t . v] (validate Type t) (validate t x))
-                      (_ (raise-type-error @ x "not a type-value pair"))))
+  .validate: (lambda (value) (validate-type-value @ value))
+  .diagnose: (lambda (value location) (type-value-shape @ value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (type-value-shape @ value location check-field))
   .sexp<-: (match <> ([t . v] `(cons ,(.@ t sexp) ,(sexp<- t v))))
   .json<-: (match <> ([t . v] [(sexp<- Type t) (json<- t v)])) ;; supposes a simple enough type
   .<-json: invalid ;; maybe we should somehow register types that are valid for I/O into a table?
@@ -300,6 +323,10 @@
   .<-json: (compose .<-pair (.@ .Pair .<-json)))
 
 (define-type (Maybe. @ [methods.bytes<-marshal Type.] type)
+  .validate: (lambda (value) (validate-optional @ void? (lambda () type) value))
+  .diagnose: (lambda (value location) (optional-shape void? (lambda () type) value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (optional-shape void? (lambda () type) value location check-field))
   .element?: (lambda (x) (or (void? x) (element? type x)))
   .sexp<-: (lambda (v) (if (void? v) '(void) (sexp<- type v)))
   .json<-: (lambda (v) (if (void? v) v ((.@ type .json<-) v)))
@@ -310,6 +337,10 @@
 (def (Maybe type) {(:: @ Maybe.) (type) sexp: `(Maybe ,(.@ type sexp))})
 
 (define-type (OrFalse. @ [methods.bytes<-marshal Type.] type)
+  .validate: (lambda (value) (validate-optional @ not (lambda () type) value))
+  .diagnose: (lambda (value location) (optional-shape not (lambda () type) value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (optional-shape not (lambda () type) value location check-field))
   .element?: (lambda (x) (or (not x) (element? type x)))
   .sexp<-: (lambda (v) (and v (sexp<- type v)))
   .json<-: (lambda (v) (and v ((.@ type .json<-) v)))
@@ -320,6 +351,10 @@
 (def (OrFalse type) {(:: @ OrFalse.) (type) sexp: `(OrFalse ,(.@ type sexp))})
 
 (define-type (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)
+  .validate: (lambda (value) (validate-map @ Key Value value))
+  .diagnose: (lambda (value location) (map-shape @ Key Value value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (map-shape @ Key Value value location check-field))
   .element?: (lambda (x) (and (hash-table? x)
                          (let/cc return
                            (hash-for-each
@@ -334,16 +369,16 @@
                      sexp: `(Map ,(.@ Value sexp) <- ,(.@ Key sexp))})
   ((_ Key -> Value) (Map Value <- Key)))
 
+;; Normalize declared Record options into the existing effective Slot metadata.
 (def (RecordSlot type . options)
   (object<-alist
    (acons 'type type
           (map (match <> ([k . v] (cons (make-symbol k) v))) (plist->alist options)))))
 
-;; TODO: Generate a proto field that supports initialization-time defaults.
-;; TODO: Support single inheritance.
-;; TODO: Support multiple inheritance.
+;; Record inherits effective Class slots through existing C3 prototype composition.
+;; Initialization-time defaults/compute/optional policy remains owned by Slot.
 (def (Record . args)
-  (def supers (if (keyword? (car args)) [] (pop! args)))
+  (def supers (if (or (null? args) (keyword? (car args))) [] (pop! args)))
   {(:: @ (cons supers Class.))
    slots: =>.+ (object<-alist
                 (map (match <> ([kw type . options]
@@ -369,21 +404,12 @@
       variant-names: sum-variant-names
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
-      .validate:
-      (lambda (x)
-        (match x
-          ({tag value}
-           (unless (.slot? variants tag) (raise-type-error @ x ["invalid tag" tag]))
-           (validate (.ref variants tag) value)
-           x)
-          (_ (raise-type-error @ x "not a tag-value variant"))))
-      .element?:
-      (lambda (v)
-        (match v
-          ({(tag) (value)}
-           (and (.slot? variants tag)
-                (element? (.ref variants tag) value)))
-          (_ #f)))
+      .validate: (lambda (value) (validate-sum @ variants value))
+      .diagnose: (lambda (value location) (sum-shape @ variants value location diagnose-value))
+      .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                         (sum-shape @ variants value location check-field))
+      ;; Recognize tag before payload too; a record pattern would demand both.
+      .element?: (lambda (value) (null? (sum-shape @ variants value '() diagnose-value)))
       .sexp<-: (lambda (v)
                  (def tag (.@ v tag))
                  `(.call ,sexp make ',tag ,(sexp<- (.ref variants tag) (.@ v value))))

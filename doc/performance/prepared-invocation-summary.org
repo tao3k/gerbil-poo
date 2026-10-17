@@ -1,0 +1,138 @@
+#+title: Prepared effective methods and nested cache successors
+
+* Historical source boundary
+
+This study describes the recorded prepared-transport source, including its
+regressions. The active native study now isolates Simula declared-shape
+preparation, discarded probes, successor transport and complete joint publication;
+see simula-publication-summary.org. Prior full data/binaries remain ignored local
+diagnostics. Do not use this receipt as current-source admission.
+
+* Construction and proof boundary
+
+The reviewed Racket/Appendix B construction separates ordered labelled fragments
+from their effective method. The companion book's method-cache exercise requests
+an eight-entry effective-method LRU. This addition advances generalized-protocol
+future work; forwarding and Simula APIs remain explicit extensions of that basis.
+
+=multimethod.prepared-*= specializes standard, simple, forwarding, inner and Simula
+combinations through the existing typed sparse dispatcher. One eight-entry native
+resolution LRU stores candidates and unconditional effective methods together.
+Guarded shapes reselect/recompile each call; register/contribute/guard/erase empty
+the cache. Current arguments, forwarded payload validation, missing-method refusal
+and prefix failure remain observable. Results are never cached.
+
+=multimethod.nested= gives a first-class generic an explicit child owner. A method
+returns result/child-successor; the ordinary certificate/family/version chain
+transports both caches. A child may itself own a child. Child method-index AND
+invoker callback identities must match; edited children require checked publication.
+The nested calling convention is explicit and distinct from standard side methods.
+Two reusable native invoker descriptors specialize to compact private records;
+cache successors do not clone lazy POO descriptors or hide mutable body caches.
+
+Lean proves effective/candidate cache soundness from fresh creation through actual
+calls and register/contribute/registerWhen edits, per-call guarded fallback,
+current-definition agreement, prepared combination equality, nested success and
+failure, and optional concrete child-provenance admission. Native pointer identity
+is an implementation premise, not equality of arbitrary Lean functions. Closed
+Lean request examples are executable checks in addition to the generic proofs.
+
+=EffectiveCosts= reuses =TemplateCosts= and charges cold sparse resolution,
+unguarded misses, every guarded compilation, allocation, per-call transport and
+supplied excess-GC prices. Common construction/binding/approval remains in the
+base only when genuinely common. =chooseWorkflow= separately charges different
+fresh/prepared carrier-construction, binding and admission bases; a cold pipeline
+can save carrier work even when caching alone cannot amortize. Cold and
+configuration-fee laws prevent an unpaid setup claim. These are
+conditional operation budgets, not native compiler or GC predictions.
+
+* Current independent native protocol
+
+=GERBIL_PATH=<package-env> just benchmark-metadata-paired= builds/runs this package
+alone. No Lean checkout, generated Lean values or Python measurement dependency.
+Ten scenarios: forwarding/Simula protected child construction, first complete
+publication+call, warm checked call, joint capacity+invoice revision+one call, and
+that revision+eight calls. Revision also checks cancel's current invoice.
+
+Every fresh child constructs all ten sides and warms all four times in a fixed
+order. Sides are reference, compilation with discarded child successor, prepared
+compilation+transport, transport without child compilation, and duplicates.
+Six direct pairs include reference/reference and prepared/prepared A/A. Four ABBA
+rounds, natural/collected regimes, 128 configuration / 1024 warm / 64 full operations
+per child: 960 children, 480 pairs. Each child has 20s/1GiB, compile and study 90s.
+All oracles, exact order/coverage, source/binary hashes and completion/EOF passed.
+No heavy builds/tests overlapped measurement. Full data/binaries/logs remain local.
+
+* Current compact-invoker paired results
+
+Microseconds per operation, prepared transport minus reference. Negative saves
+CPU. GC and residual columns are separately computed within-pair medians and do
+not necessarily sum to the independent CPU median. Four pairs per row.
+
+| Workflow | Regime | CPU delta | GC delta | Residual delta | Faster pairs |
+|----------+--------+-----------+----------+----------------+--------------|
+| forwarding-cold | natural | -11.414 | -5.383 | -6.031 | 3/4 |
+| forwarding-cold | collected | -12.141 | -6.672 | -5.469 | 4/4 |
+| forwarding-warm | natural | -2.892 | -0.889 | -2.003 | 4/4 |
+| forwarding-warm | collected | -2.508 | -0.545 | -2.011 | 4/4 |
+| forwarding-revision | natural | +4.727 | +4.813 | -0.812 | 1/4 |
+| forwarding-revision | collected | -8.164 | -2.125 | -9.250 | 4/4 |
+| forwarding-repeated | natural | -30.844 | -8.039 | -22.805 | 4/4 |
+| forwarding-repeated | collected | -102.148 | -26.969 | -74.766 | 4/4 |
+| simula-cold | natural | +31.398 | +9.203 | +22.195 | 2/4 |
+| simula-cold | collected | -33.336 | -16.492 | -16.844 | 4/4 |
+| simula-warm | natural | -1.848 | -0.445 | -1.403 | 4/4 |
+| simula-warm | collected | -1.719 | -0.499 | -1.222 | 4/4 |
+| simula-revision | natural | -19.031 | -9.109 | -9.922 | 4/4 |
+| simula-revision | collected | +26.570 | +9.008 | +17.562 | 0/4 |
+| simula-repeated | natural | -17.477 | -7.047 | -10.430 | 3/4 |
+| simula-repeated | collected | -17.328 | -6.680 | -12.914 | 4/4 |
+Protected child construction shows no gain: forwarding CPU deltas +1.352/+0.031
+and Simula +0.434/+1.695 natural/collected. It is not amortized away. Simula warm
+prepared/prepared A/A medians are +0.065/+0.179, with respective ranges
+[-0.332,+0.254]/[-0.269,+2.214]; this remains finite controlled evidence rather
+than a significance claim.
+
+The exact-final-source study RETAINS regressions: forwarding natural single
+revision +4.727us (1/4 faster), Simula natural cold +31.398us (2/4), and Simula
+collected single revision +26.570us (0/4), including a +141.313us adverse pair.
+For Simula revision, prepared/prepared A/A medians are -0.687/+1.273 with ranges
+[-14.594,+11.219]/[-107.672,+32.328]. Natural eight-call prepared/prepared A/A has
++40.266us median and [-2.078,+140.828] range; its actual reference/prepared pair
+spans [-32.000,+5.750]. Large forwarding collected eight-call saving (-102.148)
+also coexists with major variability and is not a stable forecast. These results
+cannot separate all heap-history/system variation from strategy costs. The
+ordinary reference remains the default; prepared and candidate-only transport
+models are explicit choices, not an automatically enabled global replacement.
+
+All 480 paired prefix counter vectors match in the final study; that does not
+establish identical heaps. Every measured row crosses GC, so admitted allocation
+bytes are unavailable. Compact record construction is source-visible; these data
+do not quantify a byte saving or isolate GC causally from process history.
+
+* Retained adverse experiment
+
+The earlier descriptor-per-successor implementation completed the SAME 960-child
+protocol. Simula reference/prepared cold CPU delta was +13.164/+18.422,
+single revision +5.195/+13.656, eight calls +12.359/+11.305, despite warm savings
+-1.207/-1.199. Its source snapshots, binary, full receipt and logs remain ignored
+local diagnostics. The descriptor was replaced with a compact private runtime
+record and shared calling-convention descriptors. Comparisons between these two
+separate studies are not direct paired causal measurements; current claims use
+only the final study's within-binary reference/control pairs.
+
+A second compact-record study, before the final lazy-empty semantic repair,
+had favorable Simula revision medians (-15.750/-2.813) but still adverse pairs.
+It is historical, not substituted for the final mixed result. Its local binary /
+receipt hashes are =4eb59b0b698156f1438f7aa6de0b8dd184b67176fa54fd268b2ac57c3a655318= /
+=0579fe71d2848fa11a2dcef38d52aa0f6bdac5218148556afdc9d588347d9e60=.
+No unchanged-source retries were used to select a favorable final result.
+
+Local final binary SHA256:
+=e73eb2d936ff0228764536f1ca6ff1d8e2ec2676d43ded6cf7c7527319a0d136=.
+Final full receipt SHA256:
+=5c2c4f06cd2a16f90860f55f690d34a2d242b667940e1e667504b0c6395396a8=.
+Adverse binary/receipt SHA256:
+=e5a38b343db3679e6033c2f13dd13b60bf0d0546078cdbd701d447a1e2355c00= /
+=d3e2429c4a590035a8afd525b6004c1f9094abd73d69f9bed6d2d15781496f1d=.
+Only this concise summary is committed; no full data, JSON or compressed archive.

@@ -2,7 +2,507 @@
 
 In the future, we may add the following features and optimizations.
 
+## Current implementation boundary
+
+This design TODO is not a declaration that the whole paper or every Lean model
+has been implemented. `alignment.md` maps executable native counterparts separately
+from proofs. Multiple inheritance and the listed method combinations are available,
+but the unified extensible MOP remains future work. Bounded explicit recursive requests and program-owned memo now have native
+implementations, current Type admission and attested cyclic publication. Their
+purity/immutability/local termination premises and Lean-only evaluation proofs
+are explicit in alignment.md; a literal seed API alone is not the attestation path. Checked inherited C3/slot hooks and registered-source invalidation now have native
+controls. Unrestricted inheritance-hook equivalence, arbitrary lens
+adapters and cross-type migration also need further native coverage. Finite DAG,
+metadata, invalidation and joint-publication examples do not close these general
+items. Storage/binding performance progress below does not change their status.
+
+## Functional completion audit (2026-10-17)
+
+**No: this TODO is not fully implemented.** Performance studies below establish
+neither feature completion nor native implementation of every Lean abstraction.
+The following ledger takes priority over the historical optimization notes.
+“Implemented” means the concrete API in the stated scope; “partial” and “open”
+remain work to do. Proposed language/library projects are not silently removed
+from scope or marked complete by a small example. Feature closure comes before
+further tuning of the corresponding workflow.
+
+| Original TODO | Native status and evidence | Remaining acceptance boundary |
+| --- | --- | --- |
+| Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `class-validation.ss` recursively wraps effective Slot fields before and after hooks; `t/lifecycle-test.ss`, `t/class-validation-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
+| Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
+| Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
+| Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream and `.defgeneric` `combination:` bridge. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and unified arbitrary multi-dispatch syntax remain future work. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
+| General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
+| User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
+| Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
+| Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
+| Object keyword syntax / lexical slot bindings | Implemented: `.o` leading self/super/inherit/bind/bind-these options lower through the existing slot engine; legacy forms and match patterns retained; `t/parameters-test.ss` | Declared lexical grammar closed. Arbitrary lexical rewrites are not part of this grammar. See [parameters.md](parameters.md). |
+| Prototype mutability discipline | Explicit invalidating protocol implemented: registered weak reverse edges, once-per-owner clearing across diamonds, topology preflight, active-evaluation rejection and optional sealing; original parent-mutation tests retained | Sequential supported APIs only; external callback dependencies must be registered. Raw struct setters are internal escape hatches. Sealing locks direct source/instance edits, not all unsealed ancestors. |
+| Data representation / usual object optimizations | Implemented protocol: persistent ordered prototype maps, shared symbolic shapes, opt-in receiver-local vectors and guarded inline sites integrated into object reads/writes and descendant invalidation | Concrete protocol closed; full hash removal, small-map specialization, Patricia layouts and automatic JIT/PIC policy remain optimization work. See [representation.md](representation.md). Historical speed measurements do not close these. |
+| Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
+| Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `type-relation.ss` / `prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
+| Generic data structure library | Partial existing containers only | A general collection library with the proposed protocol and laws is open. |
+| Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
+| Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
+
+### Gerbil standard mechanism audit
+
+The contract interoperability pass delegates ordinary predicate/list/range checks
+to Gerbil core `using` and its contract rules, preserving POO-specific recursive
+normalization and refusal policy in the existing support module, without a
+separate contract module or namespace. The integrated typed
+host consumer composes `refine` with exact `bind-evidence`. The broader mechanism
+reuse ledger covers inheritance, interfaces, collections, caches, concurrency,
+syntax, IO and testing; see [gerbil-mechanisms.md](gerbil-mechanisms.md).
+The prepared method-chain follow-up proves a whole `std/func compose1`
+continuation assembly candidate equivalent, but rejects default adoption after
+paired construction/GC regressions. Live reflection retains current Slot
+admission across shared source revisions. The mechanism ledger records why direct host class reflection
+is not an equivalent replacement, the new FUN workflow and bounded paired study.
+This audit does not mark the open type/library/interpreter projects complete.
+
+### Consolidated acceptance, not scenario accumulation
+
+**The original TODO is still incomplete.** New graph topologies or timing reports
+must not be used to mark an original feature complete. Each feature needs one
+public composable protocol, refusal/retry behavior, an integrated example, native
+regressions and corresponding Lean laws with explicit premises. The original
+specifications below are retained; interpreter/library projects remain open.
+
+The recursive publication lifecycle now has one integrated acceptance chain:
+checked recursive closure → selective revision/SCC regrouping → complete source
+and approval guards → named incarnation fences → scoped submission/exit → explicit
+same-name recovery → current `refine` / exact `bind-evidence`. It is implemented
+by `recursive-validation`, `recursive-staging`, `recursive-publication`,
+`recursive-approvals` and `recursive-coordination`, not a separate engine per
+scenario. `examples/recursive-coordination.ss` covers two names repeatedly failing,
+recovering and exiting while a survivor remains live. Twelve Lean incarnation
+laws and 1112 checked attempts exercise the complete declared boundary; unchanged
+head/approval controls prevent lifecycle bugs being hidden by unrelated drift.
+See [recursive-coordination.md](recursive-coordination.md).
+
+The syntax/specialization workstream is now CLOSED for its declared acceptance:
+keyword grammar, independently selected lexical imports, current-slot inherited
+aliases, positional prefix closure and existing generic optional/keyword/rest
+forwarding. One C3/FUN checked service chain and eight acceptance cases accompany
+thirteen Lean semantic laws. See [parameters.md](parameters.md). The remaining
+original feature backlog is explicitly grouped as follows:
+
+| Workstream | Concrete remaining acceptance target | Current anchor |
+| --- | --- | --- |
+| Representation optimization | Qualify small-map/full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
+| Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
+| Collection protocol | Proposed generic incremental/isomorphism-aware collection library and its laws, beyond existing containers | Generic Data Structure Library below |
+| General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
+| Interpreter project | A real Jsonnet/Nix implementation and its language-level correspondence/acceptance, not object examples | Classes below |
+
+These rows remain OPEN/PARTIAL. The earlier lifecycle, reflection, computed
+normalization and finite declared closure APIs keep the scoped implemented status
+in the main ledger. No all-TODO completion or universal host-correctness claim is
+made. Complete each workstream against these acceptance targets before using
+optimization studies to claim functional closure.
+
+The first four rows form one tested functional chain in `examples/lifecycle.ss`:
+checked nested Account construction → persistent focused revision → fresh
+constraint admission → current-tenant Reader/FUN observation → lazy delegate.
+`doc/alignment.md` records the Racket/Lean/native correspondence and proof limits.
+The Lean model proves input refusal, successful output admission, absence versus
+stored values and active-key cycle selection; native tests separately check
+receiver sharing, dynamic unwinding and callback behavior.
+
+All generalized MOP extensions here advance the paper's **future work**. They
+are not claims that the paper's Racket implementation already specifies this
+complete class lifecycle, nor proofs of the Scheme compiler or runtime.
+The concrete inherited-hook → invalidating source revision → declared reflection
+chain now has implementation, native controls and Lean laws (see
+[inheritance-hooks.md](inheritance-hooks.md)). Constant-base self-hosting and nonlocal declaration protocols are now implemented
+(see [meta-prototype.md](meta-prototype.md)). Remaining work includes unrestricted
+meta fixed points beyond finite positive Boolean equations, alternative-order certification, global security policy and
+arbitrary lexical rewriting; these are not marked complete by this chain.
+Performance tuning of the earlier factory workflow is paused for functional work.
+
+### Recursive metalevel and declaration closure
+
+`meta-prototype.ss` `close-protocol` reuses `closure.ss`: inherited `equations`
+are solved from false, then inherited `cook` receives that exact least solution
+and builds the ordinary kernel passed to `bootstrap-protocol`. Facts describe
+finite positive metalevel components; a supported mutual dependency is allowed,
+but an ungrounded cycle cannot invent or retain old metadata after revocation.
+
+`recursive-declaration.ss` inherits `Declaration.` and adds
+`expand-recursive-declaration`. Its explicit Interaction requests can refer to
+later fragments and share completed dependencies. A Reader/FUN action owns fresh
+memo for each current context, checks captured source revisions, then runs the
+existing finalizer and descriptor/catalog checks. No partial prefix is returned
+as an object on source failure, cycle, budget exhaustion or final admission error.
+
+The recursive service example combines cyclic metalevel feedback, two service
+branches, shared forward leaves, private revision annotations and a nonlocal
+computed total. Controls include seed removal, current approval refusal/recovery,
+stale metadata, source mutation rejection, root suffix suppression and isolation
+between contexts. Lean `RecursiveMetaprotocol` and `RecursiveDeclarations` prove
+the corresponding pure closure and source/publication laws. See
+[recursive-declarations.md](recursive-declarations.md) for exact premises.
+
 ## Meta-Object Protocol
+
+### General fragment protocol and non-record macro
+
+`generalized-declaration.ss` provides ordinary extensible `Fragment.` metadata:
+each descriptor chooses its own `focus`, `wrapper` and `method`, plus explicit
+extra `sources`. Compilation reuses the existing Appendix B lens compiler and
+generalized assembler. There is no closed tag enumeration of supported carriers.
+`.prototype` uses the SAME declaration-form grammar/Reader expansion/finalization
+as `.declare`, then admits and prepares the complete non-record fragment stream.
+Labels identify contributions, while lenses may target overlapping raw components.
+
+The concrete example combines heterogeneous scalar and method-group foci through
+native Lens composition on nested vectors, cooked final-self dependency, existing
+standard method combination and an independent audit frame. The same protocol and
+macro also construct a procedure carrier. Source versions and registered callback
+metadata are checked even for zero-depth/cooking observations. Changed source
+requires fresh preparation; previously returned cooked values remain snapshots.
+
+Lean generalizes the existing Reader expansion to arbitrary entry types, packages
+heterogeneous typed focus/method descriptors, proves exact lens compilation,
+membership-scoped frame preservation and complete-source finalization. Examples
+prove finite observations for both carriers and seed-independent charge after
+three stages for the triangular service. No general raw fixed-point or arbitrary
+callback/lens correctness follows. See [generalized-declarations.md](generalized-declarations.md).
+
+### Controlled raw closure and custom lens laws
+
+`generalized-closure.ss` now closes a generalized declaration only after actual
+adjacent raw states compare equal, within a fixed raw-step budget. It reuses the
+existing source-guarded step/cook operations and returns a receipt bound to its
+prepared owner/base. Budget, finite law and source/cooking refusals expose no
+partial candidate; publication retains the exact old receipt. A native Reader/FUN
+action composes successful closure with downstream observation.
+
+`lens-laws.ss` checks get-put, put-get and put-put on supplied immutable states
+and focus values. Check sources stay protected across raw steps and final cooking.
+These are finite counterexample controls. Lean `LensLaws` states the universal
+laws, proves their composition and discharges custom nested-product examples.
+`Generalized.closeWithin` proves actual fixedness, the raw-step bound, origin in
+the original seed and stability of every later original-seed unfolding.
+
+`examples/closed-declarations.ss` places comparable data in nested vector raw
+state, closes a three-component dependency chain, then cooks existing standard
+method policy into a callable interface. Four raw evaluations include the final
+equality check. This does not assert equivalence of earlier finite observations
+to the older freshly allocated method-closure representation. Arbitrary fresh
+procedure identities cannot be certified from sampled calls; budget exhaustion
+remains inconclusive about divergence. See [controlled-closure.md](controlled-closure.md).
+
+### Focused recursive components and final family admission
+
+`focused-closure.ss` now closes narrow components inside a wider non-record raw
+carrier, using captured outer lens checks and the existing bounded local closure.
+Actual old/new child values extend the finite law domain. Ordered stages compose
+with native FUN Reader `.map` and standard `foldr`; every source stays guarded
+through the whole chain, final equation validation and family cooking.
+All final projected equations are checked again: separate lawful lenses need not
+be independent. Conflicting overlap refuses the complete publication; compatible
+overlap can pass. Every final check costs one extra raw step beyond local search.
+
+`examples/focused-services.ss` closes two nested-vector services with distinct
+policies and existing primary/around methods, preserving sibling/shared audit
+data. Native controls cover actual replacement laws, overlap, budget, stale
+metadata, later source mutation, final cooking and Reader suffix suppression.
+Lean proves focused fixedness/frame preservation, final admission soundness,
+independent lens pairing and concrete family results. See
+[focused-closure.md](focused-closure.md).
+
+Still open: automatic proof/law discovery, unrestricted recursive feedback beyond
+the controlled whole-carrier component equations below, generic convergence for nonmonotone equations,
+arbitrary procedure equality and automatic dependent/cross-type adapters. The new
+protocol is explicit ordered local closure plus final admission, not a general
+global fixed-point solver. Functionality here precedes performance tuning.
+
+### Controlled component feedback
+
+`feedback-closure.ss` now searches a single wider raw state so cyclic components
+read the same previous cooked global self. It reuses generalized declaration,
+bounded actual-raw closure, lens controls and FUN Reader composition. The complete
+declaration is finalized once. After whole-raw stabilization, EVERY named component
+equation is checked independently against that same cooked self and original base;
+cancelling overlapping updates cannot pass merely because the assembly is stable.
+One declared fragment denotes a complete component, with internal method policy
+grouped inside it or cooking. This does not change ordinary incremental inheritance.
+
+The capped three-service ring combines cyclic allocations, joint approval,
+primary/around methods and an independent audit. Lean proves concrete convergence
+and acceptance from every typed seed within five raw steps at cap=3, as well as
+generic conditional completeness, provenance, fixedness, component residuals,
+frame preservation and budget bounds. Native controls cover oscillation,
+cancellation, refusal/old publication, stale sources and nonlocal finalizer reuse.
+See [feedback-closure.md](feedback-closure.md) for API, residual costs and premises.
+
+Arbitrary convergence/leastness, unrestricted higher-order recursive knots,
+automatic dependency/law discovery and callback termination remain open. A finite
+budget is not a proof of divergence. Functional closure here precedes optimization.
+
+### Shared feedback and cross-service revision
+
+`feedback-revision.ss` composes fresh feedback closure with current joint approval
+inside one source guard. Old raw is only a seed; no old fixedness or approval is
+reused, even if the raw value is unchanged. Registered preparation/check sources
+stay protected until approval finishes. Strict Boolean approval and exact old
+publication retention cover closure, source, residual and callback failures.
+
+`examples/shared-feedback.ss` connects one shared quota node to two nested service
+branches in a four-node feedback ring, joint readiness, primary/around methods
+and current cross-service commitment/permission checks. Quota increases/decreases,
+approval rejection/retry and old snapshots have native controls and paired Lean
+examples. `reviseFeedback` proves new closure, exact-candidate approval, component
+equations, seed provenance and budget bounds; `admitted_joint` proves current
+permission/coherence/commitment for any accepted example revision. Product lens
+laws and explicit frame preservation are universal. See
+[feedback-revision.md](feedback-revision.md) for preparation/refusal boundaries.
+
+This closes the explicit shared-feedback revision workflow; generic convergence,
+selective cyclic recomputation, automatic dependencies/laws and unrestricted
+higher-order knots remain open. No performance or compiler/runtime claim follows.
+
+### Selective reconstruction of feedback groups
+
+`feedback-cache.ss` now combines whole feedback closure with the EXISTING DAG
+construction cache. Shared input/body edits invalidate transitive reader groups;
+unaffected groups reuse exact closed objects and skip their builders. Each cycle
+group is atomic, with all component residuals checked at construction. Stale
+retained group sources refuse final publication; rebuild them by explicit graph
+source edits. All required groups and registered approval sources stay protected
+through ALWAYS-fresh joint approval. Failed candidates never become reuse bases.
+
+`examples/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
+edge, an independent feedback group, source increases/decreases, joint refusal/
+retry and permission-only edits. Refusing builders and identity checks verify
+skipping. Native negative controls include removed inputs, illegal inter-group
+cycles, stale retained metadata, source writes and FUN suffix suppression.
+Lean `Functional.FeedbackCache` reuses ranked cache invalidation, proves retained
+reference equality/current approval and packages actual closed group equations.
+The reusable `Prototype.Generalized.CappedFeedback` supports both the earlier
+ring examples and new selective-vs-fresh construction controls. See
+[feedback-cache.md](feedback-cache.md) for hypotheses and functional boundaries.
+
+Automatic SCC grouping and merge/split invalidation are now implemented in
+`strong-components.ss` / `feedback-graph.ss`. Shared quota, two services, final
+settlement, an independent loop and current joint approval cover graph revisions
+through existing whole-group closure and DAG caching. See
+[strong-components.md](strong-components.md) for the Racket/Lean/native mapping,
+accepted-certificate proof scope and executable controls.
+
+Simultaneous split/merge, shared-input migration and cross-service joint batches
+now compose through `generalized-graph.revise`, native FUN revision bind and the
+reusable lens-based `component-closure` builder. The twelve-node service example
+checks unchanged monitors, equal-value migration, detached old inputs, new-source
+invalidation, current joint approval and retry after partial failure. See
+[service-revisions.md](service-revisions.md) for typed laws and functional scope.
+
+Component insertion/deletion now uses an explicit erasing `graph.reconfigure`
+batch before the same FUN graph revision chain. Bridge insertion merges several
+SCCs; removal plus rewiring splits them, clears providers and invalidates shared
+readers. Dangling reads, latent resurrection, removed representatives, isolated
+new nodes and current support-aware joint approval have controls and typed laws.
+See [component-membership.md](component-membership.md) for exact scope.
+
+Still open: automatic discovery of hidden callback dependencies, cycle-interior
+selective reconstruction, general convergence/leastness and unrestricted
+higher-order knots.
+Only immutable/extensional DAG metadata and declared dependencies authorize reuse;
+no runtime speed, allocation or GC improvement follows from these controls.
+
+Multi-service membership contributions now join through `component-revision` and
+existing support revision/FUN publication, rejecting conflicting or stale edits
+before construction. `examples/component-migration.ss` replaces endpoints in two
+SCCs, migrates their shared input and changes two inputs in one jointly approved
+source. It checks partial deployment, detached old dependencies, provider erasure,
+exact clean reuse, conflicts and refusal/retry. This is finite generalized-protocol
+future work; see [component-migration.md](component-migration.md) for correspondence
+and proof limits. It does not close unrestricted mutation/recursion TODOs.
+
+Multi-round component recreation, interleaved SCC merge/split and repeated shared
+input migration now reuse the same contributions and whole-group closure. Staged
+`component-revision.revision-action` binds to the exact expected publication,
+rejecting old requests even after supported names and values return. Cross-service
+approval metadata changes still require freshly prepared lens checks; refusal
+retains the last publication. See [component-rounds.md](component-rounds.md) for the
+seven-state native/Lean scenario, repeated cycles and explicit proof premises.
+
+Competing staged component requests now use `component-publication` to arbitrate
+one authoritative current head. Final installation rechecks expected identity,
+refusing late candidates and returning current rival state rather than restoring
+a stale predecessor. Current-policy retry and fresh staging after topology changes
+reuse existing FUN revision/closure/approval. See
+[component-publication.md](component-publication.md) for native bounded-thread and
+interleaving controls, abstract Lean installation laws and explicit concurrency
+premises. This does not claim arbitrary mutable-object thread safety or rollback.
+
+Approval metadata invalidation is now serialized with final installation via
+`component-publication.revise-approval!` and guard validation inside the same lock.
+Several paused requests, policy change-back, metadata-only drift and six rounds
+of fresh restaging compose with existing service closure and native versions.
+See [approval-revision.md](approval-revision.md) for same-coordinator write premises,
+abstract revision laws and bounded thread controls. Foreign-domain/raw metadata
+writes and arbitrary mutable-object transactions remain outside this protocol.
+
+Multiple endpoints can now share an explicit `approval-domain` while retaining
+independent graph heads and request ownership. Shared native object revisions
+invalidate all observing guards; local-only policy changes remain selective.
+Related shared/local revisions, two paused owners, independent domains and fresh
+restaging on different topologies are covered in
+[shared-approvals.md](shared-approvals.md). The domain orders individual policy
+updates and installations; atomic multi-head publication or multi-object rollback
+is not claimed.
+
+Atomic shared policy replacement and consistent endpoint publication now use
+`joint-publication`: one immutable authoritative snapshot, all endpoint closure
+and approval, final joint consistency and one guarded pointer installation.
+Refusal preserves all old fields; stale work returns the current whole winner;
+fresh restaging reuses current graphs and proposed native policies. See
+[joint-publication.md](joint-publication.md) for heterogeneous Lean bundle laws,
+real native closure/thread controls and reader/immutability premises. This is a
+joint snapshot interface, not atomic mutation of old independent coordinator handles.
+
+Multiple atomic joint requests now interleave across merge/split/restore rounds.
+`joint-publication.stage-at` binds explicit expected bundles and `stage-with`
+prepares contributions from one captured current snapshot without silent rebasing.
+Old batches remain stale after field-value round trips; fresh preparation after
+failure or a rival publication reuses current source and policy objects. See
+[joint-rounds.md](joint-rounds.md) for bounded native competing workers, six-round
+retry controls, arbitrary stale-batch and finite validity-preservation proofs.
+
+Atomic joint revisions now allow asymmetric endpoint phases: insertion/deletion,
+SCC merge/split and shared input migration at different services in the same
+bundle, with a shared total-budget policy instead of equal-settlement assumptions.
+Seven native rounds preserve independent cache receipts and reject old siblings;
+failed total budgets require explicit fresh preparation. Dependent universe-
+polymorphic Lean replacements retain actual sources/graph/closure receipts. See
+[joint-topology.md](joint-topology.md) for exact scenarios and proof scope.
+
+Competing requests now explicitly distinguish local refusal from unanimous local
+success followed by joint budget refusal. Denied requests preserve same-round
+sibling freshness; successful rivals invalidate old requests across split/merge,
+component restoration and equal-valued approval round trips. Fresh preparation
+and retained independent feedback receipts are checked natively. Lean adds
+composable admission and refusal-prefix laws with actual certified topology heads.
+See [joint-admission.md](joint-admission.md); this remains generalized-prototype
+future work with explicit finite/purity/identity premises.
+
+Post-admission installation now has an explicit native `approve` / `install!`
+boundary with private receipts; `submit!` composes both. Competing approved SCC
+changes, shared proposed-policy revision drift, equal-value revision round trips
+and their combination refuse before installation, then explicitly restage from the
+actual winner. Whole typed bundles reuse the Lean checked-installation laws. See
+[joint-installation.md](joint-installation.md) for native lifecycle controls,
+exact API failure conventions and the immutable-installed-policy boundary.
+
+Multiple already-approved receipts now compose through `install-sequence!`, with
+ordered per-attempt outcomes and independent guarded installations. Six native
+merge/delete/split/restore rounds invalidate two receipts sharing one proposed
+policy, allow an independent same-round winner, then replay all older receipts.
+Fresh approvals, equal-valued revision round trips, component erasure and stable
+feedback reuse are covered. Lean adds certified receipt traces, arbitrary-order
+validity, obsolete batches and drifted-attempt elimination. See
+[joint-receipts.md](joint-receipts.md); sequence-wide atomicity is not claimed.
+
+Already-approved receipts now also install on real Gerbil worker threads, with
+standard ready/release channels and bounded joins. Six SCC lifecycle rounds race
+shared-invalidated receipts against independently approved alternatives, including
+duplicate receipts and concurrent replay of prior rounds. Fresh policy-only
+publication restores original values, then all older receipts remain obsolete.
+Coordination failure and worker cleanup are covered. Lean proves either valid
+lock-order winner and replay refusal, with actual certified topology controls.
+See [joint-concurrency.md](joint-concurrency.md) for the native/formal bridge premises.
+
+Mixed-generation waves now release all historical and current approved receipts
+together, preserving receipt identity with a pure higher-order `report:` mapping.
+Six native SCC rounds directly reject each historical receipt while one independent
+current receipt wins; an entirely refused asymmetric wave explicitly restages and
+continues component deletion/restore. Lean adds mixed-head/guard refusal and winner
+laws plus all-order certified controls with historical receipts. See
+[joint-generations.md](joint-generations.md) for exact scenarios and premises.
+
+Cross-round preparation can now continue inside one scoped native worker group,
+while older approved receipts remain waiting. Six SCC phases retain a late worker
+across next-phase admission, shared-policy drift refusal and explicit restaging;
+old/new workers then install in either order before the next pending generation.
+The one-shot concurrent interface reuses the same standard-channel worker scope.
+Unobserved results, escaped operations and duplicate release refuse. Lean binds
+successful new preparation to the observed prefix head and proves late-attempt
+preservation. See [joint-restaging.md](joint-restaging.md) for precise boundaries.
+
+Independent native coordinators now own separate continuing worker scopes while
+concurrently preparing and publishing through one owner. Standard thread groups
+supervise both coordinators and their nested workers. Six SCC phases share a
+proposal, refuse its revision drift, then concurrently restage independent valid
+candidates while older siblings remain pending; exactly one primary publishes.
+Supervisor-failure recursive cleanup and original error propagation are covered.
+Lean proves competing same-prefix factories, superseded observations and source
+preservation after refused prefixes. See [joint-coordination.md](joint-coordination.md).
+
+Local normal exits and caught coordinator errors can now be isolated explicitly
+through `on-exit:` after per-coordinator child-group cleanup. The default still
+propagates the original exception and closes the scope. Two survivors continue
+shared-policy invalidation, explicit fresh approvals and six competing SCC phases
+while two other coordinators fail/return with pending nested installations. Shared
+workflow and assertion modules avoid duplicating the earlier scenario. Lean adds
+lifecycle projection, stop preservation, explicit preparation and validity laws.
+See [coordinator-recovery.md](coordinator-recovery.md) for controls and proof scope.
+
+A failed coordinator can explicitly rejoin the SAME supervisor via `restart:`
+after its old children are cleaned, parent joined and original outcome handled.
+Three recoveries interleave with six SCC phases and persistent competing peers;
+replacements replay/refuse old receipts, then freshly capture/construct/approve.
+Old replies cannot reach a replacement, unhandled errors prevent restart and final
+joins cannot launch unsupervised work. Lean records no-write rejoining, current-head
+preparation and head/guard-stale receipt rejection. See
+[coordinator-rejoining.md](coordinator-rejoining.md) for premises and native controls.
+
+Named recovery decisions now compose through `call-with-rejoining-coordinators`.
+Two failed names interleave five recoveries across six SCC phases, including both
+orders of a common exit wave, a delayed replacement while another fails again,
+four-way current competition and mixed historical receipt refusal. A later failed
+recovery handler cleans another name's live replacement and child. Lean adds
+arbitrary lifecycle-wave erasure, whole-owner preservation, historical refusal and
+fresh factory observation laws. See
+[coordinator-interleaving.md](coordinator-interleaving.md) for the exact scenario,
+callback contract and conditional proof scope.
+
+`rejoin-after` now composes fallible preparation with the existing service chain.
+Two recovering names fail four times BEFORE rejoining while persistent peers keep
+publishing across six SCC phases; three further failures occur after fresh service
+approval. Preparation resources clean on both paths, original errors retain identity,
+and only successful preparation enters the continuation with its whole value tuple.
+Shared checkpoint assertions use standard nonblocking channel reads and FIFO
+buffering. Lean adds fallible checked preparation, exact errors, failed-attempt
+projection and whole-state preservation/validity laws. See
+[coordinator-retry.md](coordinator-retry.md) for the exact scenario and premises.
+
+### Declared method fragments and receiver generics
+
+`method-declaration.ss` extends the ordinary inherited declaration protocol.
+The SAME `.declare` handles `public`, `private` and `method` forms; computed
+`method-fragment` names and recursive declaration roots share the finalizer.
+Same-name compatible method contributions coalesce in source order, while record
+collisions, malformed groups and conflicting visibility/admission policies refuse.
+Existing Slot computation prepends local methods to the delayed inherited group.
+Registered descriptor edits invalidate both the metadata and receiver caches.
+
+`.defgeneric` `combination:` receives the raw group and complete argument list;
+`from: type` still supplies the ORIGINAL instance exactly once. Standard, simple,
+forwarding, inner and Simula adapters reuse existing method interpreters. Empty
+raw groups can be explicit defaults; nested missing-slot errors are not treated
+as missing generic slots. No result or approval is cached by this bridge.
+
+`examples/declared-methods.ss` composes a shared base, two service branches,
+before/primary/after/around fragments and current-context Reader observation.
+Lean's `MethodDeclarations` proves source collection, coalescing, inherited block
+composition and equivalence to standard generic invocation. Native tests cover
+all adapters, descriptor edits, recursion, zero/rest arguments and failure effects.
+See [method-declarations.md](method-declarations.md). This concrete integration
+advances generalized-prototype future work; functional completion precedes tuning.
 
 Redefine POO using
 [a compositional MOP for Prototype Inheritance](https://github.com/fare/projects/issues/7),
@@ -137,11 +637,13 @@ The "object" reference would provide context for the lazy evaluation of whatever
 
 ## Syntax
 
-Maybe improve the object definition syntax using keywords, as in e.g.
-`(.o self: self super: super inherit: [supers ...] bind: (x y z) bind-these: #t (slot forms) ...)`
-To implement it with `syntax-case`, see e.g. these definitions for [defproto](https://github.com/vyzo/gerbil/blob/ee22de628a656ee59c6c72bc25d7b2e25a4ece2f/src/std/actor/proto.ss#L261) and [defhandler](https://github.com/belmarca/gerbil-fwd/blob/83120eac03fa39338c82993d3041ddad01432419/fwd/routing.ss#L65).
-
-Make it optional whether to include the currently-defined slots in the list of slots to be bound.
+The proposed keyword grammar is implemented, including independent local-slot
+binding selection. The legacy `::` grammar still lowers through the SAME engine.
+`super:` means the paper's delayed current-slot inherited computation, not a
+reified parent object. Prefix `.parameters` specialization is persistent and
+composable; default/keyword/rest generic forwarding is verified on the existing
+Gerbil formal parser. See [parameters.md](parameters.md) for the complete grammar,
+API, receiver/closure semantics, executable acceptance and proof correspondence.
 
 ## Simple Features
 
@@ -332,6 +834,15 @@ On top of Gerbil-POO, build an
 
 ## Property-based testing
 
+The finite protocol, including automatic guarded recursive container graphs
+(`generation-graph.ss` / `recursive-generation.ss`), is implemented in `property-testing.ss` and
+`function-testing.ss`, using Gambit's isolated SRFI-27 source, ordinary descriptor
+extensions and Reader/FUN composition. Acceptance tests cover actual optional and
+keyword invocation, nested callbacks, overlapping clauses, seeded replay, strict
+shrinking budgets, exceptions and descriptor revision refusal. See
+[generated-testing.md](generated-testing.md) for the supported families and
+remaining open scope; the broader inspiration below is retained.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
@@ -344,3 +855,9 @@ in the style of
 
 Other type descriptors
 [GNU Poke](http://www.jemarch.net/poke)
+
+## Implementation history
+
+Historical alignment, scenario and performance notes are preserved in
+[implementation-history.md](implementation-history.md). They do not override
+the functional completion ledger above.

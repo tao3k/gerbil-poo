@@ -1,0 +1,130 @@
+(export method-declaration-test)
+(import :std/test ../object ../mop ../brace ../declaration ../method-declaration ../reflection
+        ../recursive-declaration
+        ../support/option
+        (prefix-in ../method-combination combination.) (prefix-in ../examples/declared-methods service.))
+;; Combined instance methods preserve argument order through the existing generic macro.
+(.defgeneric (score self value) slot: .score combination: (simple-combination combination.sum))
+;; Explicit empty fragments provide the missing-slot default, not a method result cache.
+(.defgeneric (empty-score self value) slot: .score default: [] combination: (simple-combination combination.sum))
+;; A combined zero-argument function invokes its method; a legacy getter stays a getter.
+(.defgeneric (zero-score self) slot: .zero combination: (simple-combination combination.sum))
+;; A rest argument row, including false, reaches the item unchanged.
+(.defgeneric (collect-score self . args) slot: .collect combination: (simple-combination combination.collect))
+;; Legacy property access keeps its previous zero-argument semantics.
+(.defgeneric (label self) slot: label)
+;; Genuine absence gets a default; nested computation errors must propagate.
+(.defgeneric (fallback self) slot: .missing default: 'fallback)
+;; Mismatched combination qualifiers must refuse before executing any body.
+(.defgeneric (wrong-score self value) slot: .score combination: standard-combination)
+;; Forwarding replaces only payload; dispatch remains the original argument.
+(.defgeneric (forward-call self dispatch payload) slot: .forward combination: (forwarding-combination Any))
+;; Inner contribution lists contain ordinary next-thunk procedures.
+(.defgeneric (inner-call self value) slot: .inner combination: (inner-combination (lambda (_) 0)))
+;; Simula bodies retain their existing prefix/inner/suffix protocol.
+(.defgeneric (simula-call self value) slot: .simula combination: simula-combination)
+;; Standard around/primary semantics also apply to an instance-provided generic.
+(.defgeneric (standard-call self value) slot: .standard combination: standard-combination)
+;; Test actual assembled methods rather than expected constants injected into slots.
+(def method-declaration-test
+  (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "shared family preserves qualifier order receiver and current Reader data"
+      (def events [])
+      (def family (service.make-family (lambda (event) (set! events (cons event events)))))
+      (check-equal? events [])
+      (def action (service.observation family 2))
+      (check-equal? (action (.o (rate 10))) 46)
+      (check-equal? (reverse events)
+        '(around-enter billing-before risk-before billing-primary base risk-after billing-after around-exit))
+      ;; Effective reflection visits the branch's method before the base's label.
+      (check-equal? (.@ family .public-slots) '(.charge label))
+      (set! events [])
+      (check-equal? (action (.o (rate 20))) 86)
+      (check-equal? (length (filter (cut eq? <> 'base) events)) 1))
+    (test-case "static and computed fragments share public record declaration syntax"
+      (def value (.declare MethodDeclaration. (.o)
+        (public label (.o (constant 'mixed)))
+        (method .score (.o (admit combination.simple-contribution?)
+          (contributions [(combination.item identity)])))
+        ,@[(method-fragment '.score [(combination.item (lambda (value) (* 2 value)))] combination.simple-contribution?)]))
+      (check-equal? (label value) 'mixed)
+      (check-equal? (score value 4) 12)
+      (check-equal? (.@ value .public-slots) '(label .score))
+      (check-exception (wrong-score value 4) true)
+      (check-equal? (empty-score (.o) 4) 0))
+    (test-case "zero and rest argument combined calls preserve their conventions"
+      (def value (object<-declaration-forms MethodDeclaration. (.o)
+        (list (method-fragment '.zero [(combination.item (lambda () 7))] combination.simple-contribution?)
+          (method-fragment '.collect [(combination.item (lambda args args))] combination.simple-contribution?))))
+      (check-equal? (zero-score value) 7)
+      (check-equal? (collect-score value 1 #f 'three) '((1 #f three))))
+    (test-case "descriptor edits invalidate groups and detect revised visibility conflicts"
+      (def metadata (.o (admit combination.simple-contribution?) (contributions [(combination.item identity)])))
+      (def other (.o (admit combination.simple-contribution?) (contributions [(combination.item (lambda (_) 2))])))
+      (def value (.declare MethodDeclaration. (.o) (method .score metadata) (method .score other)))
+      (check-equal? (score value 3) 5)
+      (.putslot! metadata 'contributions ($constant-slot-spec [(combination.item (lambda (value) (* 10 value)))]))
+      (check-equal? (score value 3) 32)
+      (.putslot! other 'hidden ($constant-slot-spec #t))
+      (check-exception (.@ value .public-slots) true))
+    (test-case "collisions malformed fragments and inconsistent visibility refuse before effects"
+      (def called? #f)
+      (def body (combination.primary (lambda (_ value) (set! called? #t) value)))
+      (check-exception (.declare MethodDeclaration. (.o)
+        (method .score (.o (contributions [body]))) (public .score (.o (default 3)))) true)
+      (check-exception (object<-declaration-forms MethodDeclaration. (.o)
+        (list (method-fragment '.score [body]) (method-fragment '.score [body] combination.standard-contribution? #t))) true)
+      (check-exception (.declare MethodDeclaration. (.o)
+        (method .score (.o (contributions [(combination.item identity)])))) true)
+      (check-equal? called? #f))
+    (test-case "nested absence is not an empty inherited group or generic default"
+      (def missing (.o))
+      (check-equal? (fallback (.o)) 'fallback)
+      (def value (.o (.missing (.ref missing 'nested))))
+      (check-exception (fallback value) true)
+      (def parent (.o (.score (.ref missing 'nested))))
+      (def child (object<-declaration-forms MethodDeclaration. (.o)
+        [(method-fragment '.score [(combination.item identity)] combination.simple-contribution?)] supers: [parent]))
+      (check-exception (score child 3) true))
+    (test-case "recursive declaration roots finalize into the same generic method slot"
+      (def expander (.mix RecursiveDeclaration. MethodDeclaration.))
+      (def value (object<-recursive-declarations expander (.o)
+        (list (cons 'first (method-fragment '.score [(combination.item identity)] combination.simple-contribution?))
+          (cons 'second (method-fragment '.score [(combination.item (lambda (_) 2))] combination.simple-contribution?)))
+        '(first second) 50))
+      (check-equal? (score value 3) 5)
+      (check-equal? (.@ value .public-slots) '(.score)))
+    (test-case "forwarding inner and Simula declarations use their native interpreters"
+      (def events [])
+      (def value (object<-declaration-forms MethodDeclaration. (.o)
+        (list
+          (method-fragment '.forward
+            [(combination.forward-primary (lambda (next dispatch payload) (next (some (+ payload 1)))))
+             (combination.forward-primary (lambda (_ dispatch payload) (list dispatch payload)))]
+            combination.forward-contribution?)
+          (method-fragment '.inner
+            [(lambda (next value) (+ value (next))) (lambda (next value) (+ 10 (next)))] procedure?)
+          (method-fragment '.simula
+            [(combination.simula-body (lambda (_) (set! events (cons 'specific-prefix events)))
+               (lambda (_) (set! events (cons 'specific-suffix events))))
+             (combination.simula-body (lambda (_) (set! events (cons 'general-prefix events)))
+               (lambda (_) (set! events (cons 'general-suffix events))))]
+            combination.simula-body?))))
+      (check-equal? (forward-call value 'fixed 4) '(fixed 5))
+      (check-equal? (inner-call value 3) 13)
+      (simula-call value 1)
+      (check-equal? (reverse events) '(general-prefix specific-prefix specific-suffix general-suffix)))
+    (test-case "around omission and primary failure preserve effect boundaries"
+      (def events [])
+      (def skipped (.declare MethodDeclaration. (.o)
+        (method .standard (.o (contributions
+          [(combination.around (lambda (_ value) 7))
+           (combination.primary (lambda (_ value) (set! events '(primary)) value))])))))
+      (check-equal? (standard-call skipped 4) 7)
+      (check-equal? events [])
+      (def refused (.declare MethodDeclaration. (.o)
+        (method .standard (.o (contributions
+          [(combination.primary (lambda (_ value) (error "refused")))
+           (combination.after (lambda (value) (set! events '(after))))])))))
+      (check-exception (standard-call refused 4) true)
+      (check-equal? events []))))

@@ -1,0 +1,215 @@
+#+title: Focused local assembly and nested native cost controls
+
+* Final Boolean domain and current-source study
+The final review adds a demanded Boolean check for approval: Scheme's 0/string
+truthiness cannot stand in for Lean Bool. Fused and unfused examples both refuse
+0 and "yes"; true/false and current configuration semantics remain unchanged.
+The 33-module final-source suite passes. This source change invalidates current
+admission of the earlier bce6656 records; those three initial runs remain below.
+
+A fresh executable and THREE complete final-source runs were fixed before their
+measurement. Each admits 576 children with the same controls/caps, without any
+build/test overlap. No earlier and current runs are pooled or selected.
+CPU paired delta fused minus unfused, us; N/C denotes natural/collected:
+
+| Phase | Final run one N/C | Final run two N/C | Final run three N/C |
+|-------+-------------------+-------------------+---------------------|
+| nested | -54.344 / -48.891 | -60.785 / -53.695 | -54.664 / -51.219 |
+| nested-history | -53.895 / -51.953 | -51.168 / -49.453 | -49.629 / -55.246 |
+| cold | -59.594 / -41.281 | -58.000 / -47.312 | -61.594 / -43.063 |
+| construction | -51.418 / -51.016 | -53.430 / -53.078 | -51.457 / -54.020 |
+| hook | -26.859 / -25.145 | -27.172 / -27.184 | -26.656 / -27.609 |
+| cooking | -0.035 / +0.012 | +0.004 / +0.082 | +0.004 / -0.020 |
+| binding | +1.691 / -0.539 | -1.922 / -2.203 | -0.305 / +1.676 |
+| envelope | -150.344 / -149.594 | -148.062 / -148.672 | -149.828 / -151.938 |
+| revision | -148.016 / -155.406 | -140.422 / -155.891 | -143.219 / -151.969 |
+| nested-allocation | -24.500 / -26.000 | -25.000 / -25.000 | -25.500 / -23.000 |
+| construction-allocation | -29.500 / -24.000 | -30.000 / -25.500 | -29.000 / -26.500 |
+| envelope-allocation | -62.000 / -62.500 | -61.000 / -60.500 | -58.500 / -61.500 |
+
+Nested and fixed-history nested are faster in EVERY direct pair, four per
+regime/run. The historical +73.313us did not recur in these fixed samples; that
+is not an attribution of its cause or a universal GC-history guarantee. Full
+nested natural medians -54.344/-60.785/-54.664 and collected
+-48.891/-53.695/-51.219us are separate run results.
+
+Final-source cooking is still identical-code control; binding is mixed, including
++1.691us natural in run one and +1.676us collected in run three. These adverse
+values are not replaced with the favorable binding run. Source counters and
+phase controls identify repeated surrounding construction as the saving, not
+an independent cooking/binder speedup. Separate GC CPU/residual and A/A controls
+remain in the admitted native receipts; no CPU residual is labeled GC-free.
+
+All three final studies admit four GC-free direct pairs for each one-operation
+allocation control in both regimes: nested/raw construction -113824 bytes,
+double envelope -307712. All allocation A/A byte deltas are zero, prefix counters
+match; neither proves equal heaps or native allocation correctness. Batch byte
+deltas across collection are unavailable. See initial study below for detailed
+phase definitions, assumptions, historical diagnosis and reproduction commands.
+
+Final binary SHA256: d92052604e2499de536b4185f75ae1ed3db4d5d981affc48d91f57f3ade97ba7
+Final receipt one: 97729e5d1233c95b96fdff7fdc2e9539a8d84d0446d188931a4962fb4b95db1a
+Final receipt two: 8b124d945f8d1ed25b31c99f26178da17ab2b841f15db5d61be3f9978975b1be
+Final receipt three: 688bcec58a703769a9ff83c00ab6ec311ad2aca18981920b596cbdd9773072c5
+Ignored final directory .build/focused-boolean. Each final receipt is admitted
+again after commit. Initial .build/focused-assembly-final records are historical.
+Only this concise summary is committed, no full records/JSON/archive/binaries.
+
+* Scope: generalized-prototype future work
+Racket poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl
+2098–2134 explicitly defers a full generalized protocol. Its nested lens and
+raw/cooked construction motivate this opt-in focused assembly. It advances
+that future work; arbitrary MOP reflection, native identity/ancestry preservation
+and automatic hook-law discovery are not implemented or proven.
+
+* Historical 73.313us regression
+The c141bf8 predecessor retained all three 528-child studies. Reading its first
+receipt as historical DATA shows every compared natural-nested child has the
+same prefix #(7 9750912 208). The reference collected 7 times in every pair;
+the slower candidate collected 6. Matching counters do not establish equal
+heaps, and fewer collections do not imply less GC CPU. That study recorded
++37.359us GC CPU AND +35.953 residual alongside +73.313 total, with large A/A
+excursions. Neither GC history nor collection count alone explains the anomaly.
+The old receipt is not admitted as current source and is not pooled below.
+
+* Implementation and related TODO closure
+prepare-focused / prepare-focused-inheritance compose local fragments FIRST,
+then perform one outer lens write per nonempty raw stage. focus-protocol retains
+the per-fragment reference semantics. Both reuse native C3, existing Lens,
+method wrappers, demand cooking and FUN observations. No second object engine,
+manual slot-cache implementation or mutable global result cache is introduced.
+Empty fragments return the exact inherited carrier without touching the lens.
+
+Previously each of four local fragments performed a persistent POO outer write;
+subsequent getters prepare that new object's precedence/slot caches. Two stages
+therefore traverse eight outer versions. Focusing the assembled local program
+reduces logical writes to two, retaining all eight LOCAL fragment applications.
+This closes a concrete TODO path for direct local component construction; local
+fragment assembly still runs, and unrelated projection elimination remains open.
+
+The nested billing factory now selects focused assembly. prepare-nested-unfused
+retains the previous current-code path as the direct native control. An additional
+billing envelope composes TWO outer slot lenses, independent approval and tenant
+metadata, the shared C3 diamond, repeated cooked-self demands and existing sum
+methods. It produces 45/3/billing/eu/true. Tenant revision yields us; refusal
+uses the current configuration and leaves the old binding valid. Native tests
+cover both paths, independent audits, empty assembly and 8→2 writes.
+
+* Proof and correspondence boundaries
+FocusLaws states get-set, set-get and set-set laws. focusDelayed_compose and
+focusDelayed_assemble prove fusion under these laws; prepareFocused_observe
+covers every finite depth/base/seed. focusDelayed_lensGen connects this lift
+to the existing composed getter/setter method constructor. focusedWrites_le
+proves the logical surrounding-write bound. Pair-carrier examples discharge
+actual laws and retain 39/3/service metadata under arbitrary revised frames.
+
+Native POO objects with different .cc ancestry are NOT literally identical.
+Correspondence uses their immutable, extensional selector observations and the
+specified functional lens domain. Callbacks inspecting identity, raw ancestry,
+mutation or arbitrary host effects must use the general path; native callbacks
+are not automatically checked for these laws. Total Lean functions do not prove
+Scheme callback termination or exception-effect equivalence. No Scheme module
+reads a Lean checkout; no native compiler/runtime verification is claimed.
+Logical writes/operation budgets are separate from measured bytes/time/GC.
+
+* Initial bce6656 fair native study
+Three complete runs were fixed BEFORE measurement, each 576 children: twelve
+scenarios, natural/collected, direct pair plus two A/A controls, four balanced
+ABBA rounds. One setup creates immutable fused/unfused snapshots and both actions;
+each A/A duplicate is the EXACT same procedure. Every child warms all four
+controls in fixed order; the driver admits source/binary identity, exact coverage,
+EOF, signed GC-free allocation and prefix statistics. No build/test overlapped.
+Compiler/study caps 90s, each child20s/1GiB; caps were not widened.
+
+The baseline is the CURRENT unfused demand-cooked/shared-self path, not the older
+eager implementation. nested-history adds exactly 64 complete unfused observations
+before all warmups/timing, identically per child; natural does not force GC.
+Collected uses the shared driver's one pre-timing collection. History comparisons
+show sensitivity under a declared perturbation, not identical heaps or causal GC
+proof. All three receipts remain separate, with no selected/pool-adjusted run.
+
+nested includes construction, cooking and all price/rebate/service observations.
+construction excludes final cooking but checks real raw slots/cache/audit; hook
+is one stage of that same work. cooking uses a common already-constructed raw
+carrier and identical action on BOTH sides. binding uses the same fused snapshot
+and changes prebound versus one-off observation only. Cold includes C3-cached
+declaration capture, compilation, binding, construction and complete observation;
+initial graph/module initialization remains outside it. Revision includes fresh
+configuration preparation/binding; envelope uses an already compiled snapshot.
+Semantic oracles are inside timings on both sides; no discarded result is timed.
+Allocation scenarios fix ONE operation; small CPU samples include timer noise.
+
+CPU paired delta is fused minus unfused in us; N/C is natural/collected. Separate
+run medians are shown for ALL phases, including adverse binding/cooking:
+
+| Phase | Run one N/C | Run two N/C | Run three N/C |
+|-------+-------------+-------------+---------------|
+| nested | -56.828 / -53.375 | -52.734 / -52.992 | -57.676 / -54.043 |
+| nested-history | -51.133 / -48.352 | -51.559 / -49.453 | -53.684 / -53.992 |
+| cold | -56.250 / -50.547 | -63.750 / -49.922 | -68.734 / -51.703 |
+| construction | -53.184 / -49.363 | -52.328 / -55.586 | -53.137 / -55.426 |
+| hook | -28.723 / -26.957 | -30.070 / -27.586 | -27.035 / -24.875 |
+| cooking | +0.027 / -0.004 | -0.063 / +0.027 | -0.008 / -0.016 |
+| binding | -0.387 / +16.105 | -0.875 / +0.852 | -0.395 / +0.691 |
+| envelope | -162.063 / -166.766 | -148.219 / -144.188 | -148.141 / -144.469 |
+| revision | -136.344 / -151.703 | -142.359 / -147.156 | -135.891 / -154.734 |
+| nested-allocation | -26.000 / -25.000 | -26.500 / -27.500 | -25.500 / -27.500 |
+| construction-allocation | -29.000 / -26.000 | -30.000 / -26.000 | -30.500 / -24.500 |
+| envelope-allocation | -60.000 / -62.500 | -62.000 / -63.000 | -66.000 / -62.000 |
+
+All nested and nested-history pairs are faster (4/4 per regime/run). First-run
+nested GC CPU delta -30.258/-27.043us, residual -26.008/-26.332; construction
+-27.141/-24.496 GC and -26.043/-24.867 residual. Hook -15.563/-14.406 GC,
+-13.160/-12.516 residual. These are separate aggregates, not causal percentages;
+separately aggregated medians need not add. Full-path gains are not attributed
+to binding or cooking: cooking's identical control changes sign near zero, and
+binding collected is adverse in ALL three runs. Its first-run +16.105us includes
++6.297 GC and +6.281 residual; fused/unfused A/A +11.215/-13.766us. Retain that
+variance instead of subtracting it away or claiming independent binder speedup.
+
+Across all three runs, nested direct natural pair ranges stay negative; the
+worst history-collected pair is -5.266us. Nested A/A medians range -2.188..+0.820
+(fused) and -1.695..+3.238 (unfused); history A/A retains +7.063 collected on the
+unfused side. These are small fixed samples, not confidence bounds or universal
+stability guarantees. The historical +73.313us remains part of the record.
+
+GC-free one-operation direct allocation pairs: all four per regime in all runs.
+Nested AND raw construction each -113824 bytes; double envelope -307712 bytes.
+All allocation A/A byte deltas are zero. Batch bytes across GC are unavailable,
+not zero. Matching construction/full byte deltas support the source's outer-write
+saving; they are not a proof of allocator internals or live-heap reduction.
+All prefix counters match; this does not establish equal GC histories/heaps.
+The 33-module native suite, Lean library/examples and saved source audit pass.
+
+* Reproduction and identities
+Use a FRESH output directory. The shared native harness supplies process/I/O,
+metrics and admission; no Python benchmark, versioned JSON, complete data or
+compressed archive is committed. On Darwin:
+
+#+begin_src sh
+GERBIL_PATH="$PWD/.build/env" just build
+GERBIL_PATH="$PWD/.build/env" just test
+mkdir -p .build/focused-repro
+GERBIL_PATH="$PWD/.build/env" env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin \
+  gtimeout --signal=TERM --kill-after=3s 90s gxc -d .build/focused-repro -exe \
+  -ld-options '-L/opt/homebrew/opt/openssl@3/lib' -o .build/focused-repro/paired t/focused-benchmark.ss
+GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
+  gxi -:max-heap=1G,debug=q t/focused-suite.ss .build/focused-repro/paired \
+  /opt/homebrew/bin/gtimeout .build/focused-repro/one.scm
+#+end_src
+
+Repeat with two.scm and three.scm. Use platform timeout/linker equivalents on
+Linux. Require FOCUSED-PAIRED-OK children=576 for EACH complete run; exit0 alone
+is insufficient. The initial records were re-admitted at bce6656; use focused-suite.read-study on the FINAL-source receipts after commit.
+Ignored directory for this study: .build/focused-assembly-final.
+
+Binary SHA256: c4e65ed48a2c83028fdc8568b37de10045cce432464cdc4779a5241f43524bc1
+Receipt one: 933cd33ef2094618613996d0f6f5d3f151ef26d17fd49baaeca3d806bad5ab0d
+Receipt two: fc4b40e9f4a98299f6df13e9cb5164465a06e1f3e3604863459aab71d401378a
+Receipt three: 0a09660c9097b66ad654a249a55f638e475fa8c0b3110278f346c0cc5f28f2a5
+
+* Source succession: current-context observers
+The context-binding revision changes generalized-prototype.ss and the envelope
+example. All measurements above retain their original source identities; they
+are historical controls, not admission for the new source. See
+context-binding-summary.org for the current same-binary Reader/binding study.

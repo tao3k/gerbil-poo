@@ -1,0 +1,376 @@
+#+TITLE: Selective generalized component construction
+
+* Native composition
+
+This advances the generalized-prototype future work. Computation expressions
+(~dependency-analysis.ss~) infer dependencies from child expressions, including
+presence observations and both conditional branches. Declaration sources
+(~generalized-graph.ss~) support define/remove/set-base/support and reject cycles
+or unsupported reads before construction. Builder and materialized caches
+(~construction-cache.ss~) retain successes, source failures and real absences.
+
+~StagedPublication.methods.construction<-cache~ specializes the existing model's
+~.construct / .refresh~ hooks. The Boolean cyclic solver remains its default;
+general component graphs require a valid DAG schedule. Cooking, typed generics,
+negative watches, contracts and joint approval reuse one shared finish boundary.
+
+* Reuse and invalidation
+
+Reuse requires exact program/base identity and clean transitive dependencies.
+Equal outputs or version labels cannot authorize reuse. Changed support/order is
+conservative. A dependency-ordered pass materializes each shared node once; clean
+slots never invoke a builder or resolver. Source capture uses direct lookup tables
+for active keys while preserving latent code/base for later support edits.
+
+An identical captured source retains its lookup and schedule in constant source-
+level work (one private cache record and shared traces). Changed sources still
+capture and scan supported keys. ~reschedule~ reuses checked order/reads when
+support and every complete footprint agree; changed edges fall back to full
+cycle/unsupported validation. Value/program invalidation is independent: a new
+method body still rebuilds its cone even when its reads are unchanged. Private
+transient tables reuse the standard hash library. Values, source objects and
+callbacks must remain stable and pure. Open POO metadata and arbitrary extension
+callbacks do not carry dependent kernel proofs. Extensions must declare their
+reads; actual undeclared provider accesses are refused.
+
+Accepted releases refresh generics from closed per-service inputs. Equal inputs
+under the identical model retain exact warm certificates; changed inputs rebuild
+only that generic, including registration and completed-candidate negative checks.
+ContractFamily also projects descriptor inputs and retains wrappers with the same
+executor, while revalidating current service support.
+Calls retain the exact component cache and recheck the actual service-cache
+successor. A refused release retains the identical previous version, including
+its component values and warm service caches. External effects are outside this
+value rollback contract.
+
+* Shared settlement example
+
+~examples/construction-workflow.ss~ reuses ConstructionWorkflow's fifteen keys:
+input feeds freight/cover/audit, tax/risk merge at settlement, invoice/audit merge
+at release, and the absence of blocked feeds total. It composes the existing C4
+ServiceBundle and its quote/reserve/cancel metadata and negative-watch rules.
+
+- Input 30: 15 evaluated, total 32.
+- Invoice adjustment: 3 evaluated / 12 reused, total 41. Reservation, cancellation
+  and guarded Bank quotation all capture the revised component values.
+- Shared input 60 after that adjustment: 11 evaluated / 4 reused, total 67.
+- Discount presence change invalidates risk and all dependent joins.
+- Policy-only repricing: 0 evaluated / 15 reused, even with a builder refusing all
+  nodes. The family and contracts still rebuild and undergo joint approval.
+- Cycles, builder refusal, blocked capability, forbidden dispatch and late joint
+  refusal cannot publish a mixed version.
+
+The component arithmetic aligns with the Lean settlement example. Existing
+Scheme C4 quote policies are reused; full dependent-type or quote-policy parity
+is not claimed.
+
+* Evidence and output
+
+Tests exercise refusing builders, shared-node call counts, independent numerical
+expectations, cold/refresh comparisons, failed/absent reuse, latent source support,
+new same-result programs, cycles, undeclared reads and cross-service rollback.
+Lean adds ~Partial.step_reused_builder_independent~ and
+~Scheduled.invalidates_reader~ and checks shared-root revision under a builder
+rejecting every node outside its eleven-node cone.
+
+~just benchmark-metadata~ measures 75 phases / 600 observations. Component phases
+include source capture, scheduling and cache preparation; release phases include
+fresh services/contracts and admission. Existing 90-second compile, 20-second
+measurement and 1-GiB heap limits remain. Allocation is unavailable across GC or
+negative counter deltas; signed diagnostics are retained.
+
+Complete raw results stay under ignored ~.build/metadata/~, with concise source-
+bound repository summaries. See [[file:performance/results.org][benchmark output policy]] for native result storage and reproduction. No new versioned JSON
+or Lean checkout dependency is introduced.
+
+* Stable and dynamic joint approval
+
+The native model's ~.readmit~ method defaults to full ~admit~. ServiceBundle
+specializes it to ~cache-admit~: every new publication runs all three business
+probes, release/ceiling checks and the budget; each call checks the actual
+successor budget. Methods, contracts, cooked view and policy remain immutable
+through dispatch-cache insertion. Stable probes therefore retain their meaning.
+Custom overrides must justify every omitted check; an arbitrary cache-dependent
+or effectful predicate must continue to use full admission.
+
+Differential controls run identical cold/hit/cross-service calls under full and
+factored approval, comparing results, refusals and all cache sizes. A second
+service exceeding the joint budget still refuses without leaking tentative state.
+Schedule controls cover equal footprints with new bodies, changed edges, cycles
+and unsupported reads. Lean's ~Scheduled.rebase~, ~Cache.retain~, family definition
+and observation preservation, and ~Snapshot.invokeRetaining~ state the respective
+proof obligations. They do not constitute compiler/runtime refinement.
+
+Native same-process controls include full/retained scheduling, recaptured/same-
+source zero-builder preparation and full/factored cold/warm joint admission.
+Release measurements include construction, generic rebuilding, contract binding
+and full fresh approval. These finite observations do not prove universal speed.
+
+* Selective service-family revision
+
+~GenericFamily.Projection~ captures a finite immutable input value per generic;
+~expand~ constructs its closed policy/view environment. Native
+~methods.refresh<-projection~ derives build/prepare/refresh using those inputs
+and the existing seed/method/watch callbacks. Source/model identity is mandatory.
+A changed source reconstructs everything even when input values compare equal.
+The private family carries warm certificates and source contexts; only invoke
+can create a warm successor. Context/prototype values and callbacks remain pure
+and stable. Context equality is an optimization premise, not a version stamp.
+
+The staged model now calls family prepare/refresh in its existing atomic chain.
+Unchanged entries share their original cache; the service table is copied only
+on the first changed entry. New generic registration/negative refusal or late
+joint refusal returns the identical old version. Cold construction uses the same
+projected environments. Default models conservatively reconstruct all services.
+
+ServiceBundle projects quote capacity/price/extension flags, reserve
+capacity/release/shift/signature, and cancel invoice/shift/negative flags. A price
+revision rebuilds quote while retaining exact warm reserve/cancel objects. An
+invoice revision rebuilds cancel only. A no-op revision retains all three. Joint
+cache approval counts retained warm caches; tightening a limit can refuse even
+when no generic was rebuilt. Negative assumptions are checked on every changed
+generic. Changing the approval program falls back to full approval.
+
+Stable quote/cancel business conclusions can transfer only from the identical
+admission source, identical actual service and identical contract descriptor
+(absence included), with matching expected view inputs. Current ceiling/release
+and exact successor cache budget are always checked. Reservation contracts/wrappers now retain through ContractFamily when their
+source/inputs and executor agree; exact service/contract identity permits retaining
+the reservation business conclusion as well. Arbitrary custom admission
+or contract changes cannot inherit this shortcut.
+
+Runtime controls compare projected and direct constructors over 36 view settings
+and six actual calls each, preserve sibling cache identity, and test changed code,
+new budgets, changed admission, negative conflicts and atomic refusal. Native
+matched release controls compare selective versus forced cold preparation for
+no-op, price-only and invoice-only revisions. Complete 400-row data remains in
+ignored build output. Lean has Source.asModel/projection, Certified.transport,
+Partial.refresh_retained, and stageRefresh/publishRefresh with refusal identity.
+This is executable alignment with explicit premises, not compiler refinement.
+
+* Contract-family preparation
+
+~contract-family.ss~ supplies native ~Source.~ with keys/project/construct and
+derived ~.prepare / .refresh~. Only projected inputs reach construction. Source
+identity changes force reconstruction; equal names/results cannot authorize reuse.
+Every requested key is checked against current service support before projection
+or construction; duplicate names and invalid descriptors refuse preparation.
+
+Private contract and invoker tables share unchanged entries, with independent
+copy-on-write on first descriptor/binding change. An executor change reuses the
+descriptor but binds a new wrapper; key removal rebuilds finite support and cannot
+leave stale invokers. Wrappers receive the current publication snapshot as an
+argument and resolve services there, including freshly replaced generics. Custom
+legacy contract callbacks fall back to ordinary preparation rather than being
+ignored by the projection mixin.
+
+ServiceBundle projects the reservation contract on capacity. Price/invoice-only
+revisions retain both descriptor and wrapper. Existing joint admission transfers
+the reserve observation only from the same admitted source and same actual
+service/contract identities with unchanged expected capacity. New ceilings,
+release conditions and the actual cache budget are still checked. Normal calls
+always enforce input/output/relational predicates; retained wrappers never bypass
+checks. Contract removal, changed constructor, missing service and late refusal
+retain the previous version on failure. Source exceptions remain distinct from
+business error values through the existing metadata wrapper.
+
+Native tests count actual construction/wrapping/probe calls, exercise input and
+logic refusal, replacement services through retained wrappers, independent
+executor rebinding, contract add/remove, duplicate/missing keys and legacy
+contract overrides. Lean ContractFamily certifies origins/bindings and exact
+zero-build/zero-bind retained traces, current-state invocation, missing-service
+refusal and atomic joint refusal; its reserve/cancel example changes invoice
+while retaining reserve. Matched native phases isolate cold/retained preparation,
+changed inputs, rebind-only work, and complete no-op/price releases with cold
+versus retained contracts. These are finite observations, not verified Scheme
+allocation/compiler/runtime claims. Complete data/binaries remain ignored outputs.
+
+Contract release pairs use 128 operations on both sides after an initial 8-op
+natural-GC price regression. The concise performance summary retains that
+negative observation; initial data/log/source and final measurements stay ignored.
+The follow-up changed batch size only, preserving production source and all
+compile/time/heap bounds. It does not establish a universal performance guarantee.
+
+* Shared heterogeneous contract contexts
+
+~ContractFamily.methods.inputs<-shared~ derives ~.inputs~ from ~shared-input~,
+~prepare-shared~ and ~project-shared~. Only the closed immutable shared context
+reaches preparation. A private source-bound batch retains the prepared lookup
+when that complete context is equal; changed contexts prepare once for the whole
+family. Independent ~Source.~ implementations keep ordinary per-key projections.
+The ~family-prepared?~ trace reports actual shared preparation, not skipped calls
+for sources that do not implement the shared protocol. An empty/default source
+still has the original semantics. Current support and duplicates are checked for
+all keys before any shared preparation, descriptor construction or wrapper binding.
+
+~examples/shared-contracts.ss~ composes this mixin with existing reserve/cancel
+constructors, typed generic projections and staged publication. Price revisions
+retain both contracts and wrappers and skip both stable business probes. Capacity
+and invoice changes jointly rebuild affected descriptors; invoice-only changes
+retain reserve. Missing service, changed source, shared preparation failure and
+joint admission refusal are checked by native tests. Old snapshots and warmed
+certificates remain intact after refusal. Ordinary invocation always checks metadata;
+dynamic cache/ceiling/release approval is not transferred by the shared context.
+
+Lean ~ContractFamily.SharedProjection~ uses the corresponding structure for closed input,
+preparation and projection. ~refresh_project / cached_source_project~ establish
+fresh-input equivalence for every heterogeneous key, ~refresh_retained~ proves
+zero prepare calls on unchanged input, ~refresh_cost~ bounds calls by one, and
+~retain_origin~ preserves contract origin when only sibling inputs change.
+These laws reuse existing binding/publication laws and assume immutable pure
+sources. They do not verify Scheme allocation or runtime execution.
+
+The native matrix now has 56 phases / 448 rows. Shared/independent input and
+complete price/joint publication pairs use 128 operations equally on both sides,
+including preparation, construction, binding, admission and actual checked calls.
+The small two-contract joint changed-input case regressed (348.684 versus 338.934
+microseconds under natural GC); this negative result remains in the concise
+summary. An initial new benchmark oracle incorrectly omitted quote from the
+capacity dirty set and refused the run; only that expectation was corrected.
+No incomplete/oracle-failed run is admitted as a performance result.
+
+* Costed selection and invariant contract prototypes
+
+The isolated pre-change study measured descriptor construction at about 95 us per
+reserve/cancel pair, wrapper creation at 0.16 us, generic refresh at 114 us and
+joint approval at 14 us (natural GC). These are separate batch medians, not additive
+parts of one timed request. Shared/independent joint publication differed only
+about 0.3 percent in this sample; the prior 2.9 percent difference remains recorded.
+
+Reservation and cancellation now derive from private native Contract prototypes
+using ~.cc~ and a fresh ~meaning~ closure. Invariant input/output Type predicates and
+Formula nodes are reused; changed capacity/invoice never retains old interpretation.
+Ordinary metadata checks and negative dispatch watches still run. Tests check shared
+predicate/formula identities, distinct descriptor identities, changed interpretations,
+invalid arguments, source replacement and dynamic warm-cache refusal.
+
+~ContractFamily.PreparationCosts.~ mirrors Lean ~PreparationCosts~. Native prices
+~prepare-cost / shared-cost / direct-cost / selection-cost~ are nonnegative integers.
+~choose-preparation~ selects direct only if its modeled saving covers selection;
+ties use shared. ~methods.inputs<-selection~ derives the existing closed-input
+protocol, and ~family-preparation~ records direct/shared/retained/independent.
+The existing shared protocol remains available. Prices affect performance choice,
+not support checks or admission. The direct callback must equal shared projection
+for all closed inputs; Lean ~direct_source_eq~ establishes that equality for the
+model, and the native heterogeneous controls check the corresponding functions.
+
+The selected example uses the two-field context directly instead of allocating
+an index. Its ~workflow-model~ composes the existing 15-node settlement DAG,
+cooked interface, typed generic projections, two contracts and joint admission.
+An invoice dependency revision evaluates 3 nodes and retains 12, then rebuilds
+both affected contracts. A price-only follow-up retains both bound wrappers and
+warm reservation; a zero cache budget still refuses that actual successor.
+
+Lean ~Contract.withMeaning~ preserves input/output/rule, and both example
+specializations equal the original contracts for every parameter.
+~PreparationCosts.direct_covered / publication_direct_bound~ include selection
+alongside unchanged construction/binding/generic/probe counts. The fallback bound
+charges selection overhead explicitly. ~template_amortized~ includes once-only
+validation and needs an explicit break-even premise; it does not declare cold
+process startup free or prove native compiler/runtime performance.
+
+The final native matrix has 75 phases / 600 rows. It adds stage isolation,
+selector/direct/shared controls, original unfactored constructors and a full
+settlement-DAG matched pair. All new pairs use 128 operations on both sides,
+four rotating rounds and both GC regimes under the existing 90s compile/20s
+measurement/1-GiB bounds. Initial profiling and earlier regressions stay ignored
+and are described in the concise summary. No raw results or archives are committed.
+
+Final matched controls show invariant specialization reducing descriptor construction
+from 105.441 to 17.223 us (natural), and from 95.922 to 19.402 us (collected).
+Complete binding isolation, including current-state adapters, costs 0.395/0.402 us;
+joint admission costs 13.754/15.926 us. These standalone phases are not additive.
+The shared settlement pair improves 380.461 -> 290.941 us (natural) and
+358.344 -> 272.215 us (collected), with identical construction/admission work.
+
+The dynamic selector is experimental, not the default source strategy. Its final
+natural complete-joint median is 255.750 vs independent 222.422 us (~15 percent
+regression); collected is 249.598 vs 248.648 us (~0.4 percent regression).
+Per-round selected/independent GC counts are 1/0, 21/0, 31/31 and 24/32; the raw
+CPU median includes those different GC histories. This is not evidence that
+selector arithmetic causes the full gap, nor evidence that direct is uniformly
+faster. The initial 584-row optimized study and all negative controls remain
+ignored and described in the summary. The robust gain is invariant descriptor
+specialization; actual runtime strategy still needs matched workload measurements.
+
+Lean now makes this restriction explicit with ~withCollections~ and
+~publication_collection_bound~: collection-count budgets accompany the core-cost
+bound. ~collection_budget_bound~ allows an excess only if core savings cover its
+priced charge. An executable counterexample shows that one extra collection can
+reverse a primitive saving. Native GC observations cannot be dropped when using
+the model to recommend a strategy. These are conditional cost laws, not a collector
+or compiler verification, and no Lean results are embedded into this package.
+
+* Prepared selectors and fresh-process pairing
+
+~SelectionCache.~ corresponds to Lean ~PreparationCosts.SelectionCache~. It captures a
+choice for canonical immutable ~keys~, returns that result for matching size,
+and invokes the original selector for different arity. ~methods.inputs<-cached-selection~
+composes it with the existing closed shared-input protocol. Dynamic selection
+captures the immutable choose function with ~std/func compose1~ (fixed arity);
+cached selection uses its bound function directly, avoiding repeated generic
+lookup. The example exports ~cached-source / cached-model / cached-workflow-model~
+as optional compositions, not a universal performance default.
+
+Support and duplicates are checked before cold cache construction is forced. Changing
+source/cache invalidates source-bound descriptors normally. Tests count real
+selector executions, handle removal/reintroduction, verify current interpretation
+and exercise the 15-node invoice/release/total revision, subsequent pricing,
+wrapper/warm-cache retention and actual budget refusal. Logical approvals and
+negative checks keep their original provenance requirements.
+
+Lean ~SelectionCache.select_eq / hit / miss~ preserve every choice and count actual
+selection paths. ~SelectionCache.total_amortized~ charges setup, the first selector,
+support guards and fallback calls. A one-off cache may cost more. The collector
+budget is still an extra premise, and no native heap or compiler verification
+is asserted. ~paired_delta~ decomposes a single observed pair; independent
+medians do not have that algebraic identity.
+
+~just benchmark-metadata-paired~ uses four scenarios (selector, full contract
+family, atomic joint revision, shared settlement workflow) and adjacent controls:
+independent vs uncaptured, uncaptured vs captured dynamic, captured vs cached.
+Each side starts a new native process with one-character strategy codes, loads
+all four controls in the same order, runs four fixed warmup passes for every
+control, and measures only one side. The caller balances side order ABBA over
+four rounds and rotates pair positions. Both natural and collected controls keep
+all samples, GC CPU/counts, prefix counters and signed allocation diagnostics.
+
+This is 192 fresh child processes, each <=20s / 1 GiB; compilation <=90s and the
+aggregate driver <=90s. These are separate scope bounds, not a widened 20s
+single-child limit. Prefix GC differences are reported, not silently filtered;
+matching counts alone do not establish heap identity. CPU-minus-GC includes
+construction, dispatch and admission too. Report paired deltas before taking
+medians; never subtract arbitrary phase medians to estimate selector cost.
+Source/binary changes, missing pairs, wrong side/order, incorrect allocation
+admission, incomplete output and nonfinite metrics fail admission. Failed runs
+stay incomplete and ignored. No raw matrix, archive or versioned JSON is stored.
+
+* Shared closed generic expansion
+
+~generic-family.Projection.~ now owns the per-key ~.instantiate~ constructor
+protocol. Default behavior expands independently for seed/methods. The optional
+~methods.instantiate<-shared-expansion~ uses their common pure immutable closed
+environment once and passes it directly to the existing constructors. Model
+identity, projected-input equality, empty-seed validation and negative watches
+remain mandatory. The extra expansion callback retains registration provenance
+on failure. Identity-sensitive or mutating constructors must keep the default.
+
+~examples/shared-contracts~ exports ~expanded-generics / expanded-model /
+expanded-workflow-model~. They combine dynamic contract selection, shared generic
+expansion, cooked interfaces, warm siblings and joint approval. Native tests
+count real calls: three cold changed keys expand three times; invoice-only
+revision expands once and keeps reserve's warm certificate. Warm-budget and
+negative-watch refusals preserve the exact old publication.
+
+Lean ~GenericFamily.SharedExpansion~ proves constructor/registration/watch
+correspondence under pure value semantics. ~PreparationCosts.ExpansionCosts~
+charges expansion, saved adapters and the extra provenance guard, with a separate
+collection-excess budget. No Scheme runtime depends on the Lean checkout.
+
+The expanded ~just benchmark-metadata-paired~ study has ten scenarios and five
+controls, including identical-stage A/A pairs. The fixed four-round ABBA matrix
+has 640 fresh native children. It keeps raw signed allocation counters, pair
+spread/direction and prefix counters. CPU minus GC CPU is an accounting residual;
+isolated stages are not additive end-to-end attribution. Original 192-child
+receipts remain historical. See ~doc/performance/expansion-summary.org~ for the
+bounded current measurements and any adverse outcomes.

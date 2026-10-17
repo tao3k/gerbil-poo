@@ -1,0 +1,223 @@
+#+title: Simula owner handoff, prepared context and private storage
+
+
+* Current follow-up: standard empty-table interface
+This is generalized-protocol future work, not completion of the whole paper or
+all Scheme TODOs. The original Racket reference and remaining semantic gaps below
+remain unchanged. New native method: methods.refresh<-empty-storage; example:
+empty-storage-simula-model. Both compose the existing FUN/IO Model/projection chain.
+
+Gerbil runtime/hash.ss defines make-hash-table-eq through variadic apply and the
+general make-hash-table constructor. Its HashTable.new interface already accepts
+positional size and creates independent empty same-kind storage. One private empty
+eq descriptor supplies that method; no runtime code, custom hash implementation,
+copy of old entries, pending-cell list or pruning pass is needed. Method declaration,
+registration, negative watches and joint approval still run in their original order.
+Later same-owner service updates retain ordinary copy-on-write and warm siblings.
+The descriptor's module setup is explicitly priced, not a free cold-start result.
+
+Lean Partial.rebuild sequences the original certified Partial.build.
+build_lookup_eq / rebuild_lookup_eq / rebuild_empty_reference preserve successful
+lookups and the FIRST EXACT typed refusal for arbitrary ordered supports, including
+duplicates. EmptyStorageCosts.covered charges fixed interface setup and supplied
+excess collections against removed constructor dispatch/staging/pruning; binding
+and approval stay common. AlignedServices reconstructs real heterogeneous
+reserve/cancel/quote services with repeated reserve, capacity 0/64, current policy
+shifts and forbidden cancellation. Native 25-key tests compare both storage modes,
+replace support, contract to empty and retain old versions on negative refusal.
+All 28 native modules and the Lean library/examples passed.
+
+** Current admitted protocol and results
+The fixed study still admits 1248 children / 624 direct process pairs: 13 scenarios,
+6 pairs, 4 ABBA rounds and natural/collected regimes. The earlier eight-request and
+probe scenarios remain historical above; current coverage adds isolated typed
+binding and later generic construction instead. All ten controls initialize/warm
+in fixed order in every fresh child. Both prior bound and original staged owners,
+pure compiled context and exact A/A duplicates share the binary. No heavy local
+build/test ran during measurement. Compiler/study caps remain 90s, child cap 20s,
+heap 1 GiB. Module loading/setup is outside measured phases and charged separately.
+
+N/C means natural/collected; deltas are target empty-storage minus direct control.
+All byte comparisons below admit four GC-free pairs in EACH regime; A/A byte
+deltas are zero. No bytes are inferred across collections or negative counters.
+
+| Allocation phase | Versus prior bound | Versus staged | Versus pure compiled context |
+|------------------+--------------------+---------------+------------------------------|
+| First complete owner handoff | -2544 B | -3968 B | -1776 B |
+| Later complete revision | -1952 B | -1920 B | -1920 B |
+| First generic construction only | -2544 B | -3776 B | -1584 B |
+| Later generic construction only | -1952 B | -1728 B | -1728 B |
+| Typed child binding only | 0 B | +320 B | +320 B |
+| Contract binding only | 0 B | 0 B | 0 B |
+| Switched-owner hot call | 0 B | -96 B | -96 B |
+
+Thus the preceding +768-byte first-owner difference is eliminated for this trace:
+current direct comparison is -1776 B. Binding itself still allocates +320 B versus
+the no-binding shared template; its cost was NOT removed. The isolated phase inputs
+are precomputed and differ from complete publication. Do NOT add their medians
+into a claimed causal byte/time decomposition. Bytes saved do NOT prove speed.
+
+| Complete phase, paired CPU us | Versus prior bound N/C | Versus staged N/C |
+|------------------------------+------------------------+-------------------|
+| First handoff, no request | -0.391 / -17.711 | +1.547 / -1.852 |
+| First revision, one request and cancel | +22.867 / -6.289 | +23.695 / +1.422 |
+| Later revision, one request and cancel | -5.188 / -6.227 | +0.531 / +1.797 |
+| 256-request publication | +7.000 / -10.875 | -52.188 / -35.781 |
+| Switched-owner hot call | -0.124 / -0.188 | -0.255 / -0.052 |
+| Unchanged publication | +1.430 / -0.445 | -1.594 / +0.195 |
+
+Later-revision improvement versus prior bound is 2/4 and 3/4 faster pairs; recorded
+GC deltas +0.242 / -2.305 us and residual CPU deltas -5.430 / -3.922 us. This is
+not solely a reduction in recorded collection time, but remains a small sample
+with range -50.500..+10.141 / -12.141..+5.781 us. Against staged the target remains
+slower (+0.531 / +1.797 us), so the prior +2.6/+2.4 report is historical context,
+not a pooled estimate or proof of a universally closed regression.
+
+Natural first-revision regression is material: versus staged +23.695 us, recorded
+GC +9.258 and residual +17.320 (separately aggregated medians do not sum). Its
+1/4 faster pairs and range -1.375..+173.156 remain admitted. New A/A in that phase
+is +7.047 / +3.336 us; it does not authorize subtracting away the regression.
+Natural 256-request target also loses +7 us versus prior bound, despite beating
+staged in all four pairs in both regimes. New A/A burst is -9.031 / -29.938 us,
+with natural range -695.188..+28.688. Post-warm A/A is +0.019 / +0.221 us. The
+one-shot collected first-allocation A/A time range reaches +441 us while its byte
+delta remains zero. Timing drift, adverse signs and outliers are not discarded.
+Prefix GC counts match; full-prefix counters frequently differ. Identical heap
+history, general elapsed-time acceleration, equal cache-budget admission and
+compiler/collector correctness are NOT established. The strategy remains opt-in.
+
+Binary SHA256: e20e784298e58600673e02bff9f0dc224247a4ae44ab1ca3d14e4366e0bc8810
+Native receipt SHA256: f25fc444e3cbd815fb343f6fb1c1ea94dfb0b2a8baebed6572e439b0e376d6b8
+Reproduce with the commands below, naming a fresh ignored executable/receipt.
+Current local executable/receipt basename is metadata-paired-empty-storage.
+Only this concise summary is committed; full records/binaries remain ignored.
+
+* Preceding bound-owner implementation and evidence
+
+** Three-way correspondence and scope
+This advances generalized-protocol future work. Racket reference: poof revision
+9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl 2040–2099: negative
+assumptions, method fragments and effective methods. No successful invocation
+result is memoized. The Scheme package has no Lean checkout dependency.
+
+Native prepared-context uses the existing Invocation. specialization protocol.
+compile-simula-context compiles prefix/suffix callbacks once using foldr/foldl;
+bind-context validates each immutable current Object and retains the exact method
+index, signature, precedence and candidate/effective caches. Current units, guards,
+business checks and Unit output still execute at every call. Context-sensitive
+applicability belongs in Args. Nested cache transport rejects context replacement;
+new data enters through checked reconstruction and publication.
+
+methods.refresh<-sized-projection keeps the original native eq backend, using its
+ordinary size hint as Gerbil's expander does. On owner handoff it stages ALL freshly
+constructed, registered and negative-checked cells. Comparable nonempty service
+storage is privately copied, old-only keys pruned and every current cell overwritten.
+Expansion/contraction/empty support uses fresh sized storage. Old storage confers
+no certificate; failed staging publishes nothing. Initial construction, same-owner
+reuse and approvals retain the existing protocols. No global selector is installed.
+
+* Proof and semantic controls
+Lean compileParts_contramap / bindSimula_correct preserve arbitrary lists and
+lawful effects, including callback order and refusal. PreparedContextMultimethod
+proves program preservation, both cache invariants, reference-call equivalence,
+warm owner retention and current context preservation. The nested context-change
+law refuses a changed context on cache-only transport.
+
+GenericFamily.emptyWithCapacity_lookup proves capacity supplies no entries.
+overwriteStorage_current / rebuiltLookup_reference prove fully overwritten,
+masked/pruned storage has the fresh reference lookup. rebuiltLookup_certified
+constructs authority only from the freshly checked reference. This typed model
+does not verify native hash copying, compiler code generation or the collector.
+
+SimulaBindingBudget charges one-time setup, every reconstruction/binding, calls
+and excess collections. binding_covered requires hot saving to pay the whole
+horizon; tables_covered combines only independently supplied favorable table prices.
+The illustrative prices are not embedded in Scheme and prove no elapsed time.
+
+Native tests exercise three-level Simula traces, repeated/current units, old/current
+capacity and release refusal, typed context rejection, guarded calls, forbidden
+shape rejection and attempted nested context replacement. Family tests cover 25
+keys, duplicates, same-size support replacement, subset/empty support, symbol
+validation, complete first-owner rebuilding, later exact reuse and atomic refusal.
+All 28 native test modules passed, with focused final storage/burst controls too.
+Lean library build (272 jobs) and AlignedServices examples passed; no new axioms.
+
+* Fixed native paired protocol
+13 scenarios, six direct pairs, four ABBA rounds, natural and collected regimes:
+1248 fresh children / 624 pairs. Every child initializes and warms the same ten
+controls in the same order before timing one side. First handoff, later revision,
+eight-request publication, 256-request publication, actual switched-owner hot calls,
+unchanged reuse and GC-free one-shot allocations are separate scenarios.
+The 256-request horizon uses 16 fixed repetitions; hot scenarios use 1024; ordinary
+publication phases use 64. No timing-dependent adaptation or best-run admission.
+Every reserve executes the contract, body and actual cache-budget readmission.
+Prefix counters, A/A controls, completion, source/binary digests and EOF are checked.
+Admission requires both sides GC-free for byte deltas; all admitted byte pairs
+below have four pairs per regime. Different phase medians are NOT additive: the
+isolated generic/contract controls receive precomputed inputs, unlike full publication.
+
+The preceding bound-source study completed 1248 children. Delta is second minus first;
+N/C means natural/collected. Against staged, bound used 1424 fewer bytes on first
+handoff, 32 more on later revision and 96 fewer on each switched-owner hot call.
+Against pure compiled-context, first-owner excess fell from the preceding 2192-byte
+report to 768 bytes. Generic-only allocation fell 1232 bytes against staged;
+contract-only allocation delta was zero. A/A allocation deltas were zero.
+
+| Paired CPU delta, microseconds | N | C |
+|-------------------------------+---+---|
+| First handoff, staged to bound | -13.328 | +3.172 |
+| Changed revision              | +1.359 | -3.984 |
+| Eight-request publication     | +4.125 | -5.695 |
+| Later revision                | +2.633 | +2.414 |
+| 256-request publication       | -19.000 | -43.375 |
+| Switched-owner hot call       | -0.413 | -0.200 |
+| Hot call, compiled-context to bound | -0.210 | -0.275 |
+| Bound A/A hot call            | +0.062 | -0.134 |
+
+Natural burst improved 3/4 pairs; collected burst improved 4/4. Its natural GC
+delta was +18.813 us and residual delta -36.969 us (separate medians need not sum).
+Hot staged-to-bound comparison improved 4/4 in both regimes; pure-context-to-bound
+improved 4/4 natural and 3/4 collected. Full publication still has adverse cases
+and A/A drift; collected hot A/A ranged -1.309 to +0.136 us. One-shot collected
+post-call timing regressed +1.500 us despite saving 96 bytes; isolated generic CPU
+regressed +39 us with a -159 to +301 us range. Byte savings do not prove CPU speed.
+Prefix GC counts matched, but some full-prefix counters differed. This is not
+proof of identical heap history, universal acceleration, or equal resource-budget
+admission for alternative cache representations. Module setup is outside these
+phase timings and remains charged explicitly in the whole-horizon model.
+
+* Adverse experiments retained as separate evidence
+The symbolic-table trial allocated +4000 bytes (sizing) / +10272 (bound) against
+staged on first handoff. Fixed-seed symbolic storage with shared prepared context
+still cost +4576 / +4704. Both backend choices were rejected. Returning to original
+eq tables with size hints reduced these to -192 / -64, but left +2128 against pure
+compiled-context. Isolated controls located that difference in generic construction,
+not contract binding. Private checked-cell staging and workspace copying then
+reduced pure-context excess to +768. No timings from different sources are pooled.
+The earlier workspace study's eight-request publication was adverse in BOTH
+regimes (+22.344 / +6.703 us); this remains evidence against a universal default.
+The first 1248-child burst study (before correcting an explanatory comment only)
+reported eight-request -5.422 / +2.023 us, burst -89.406 / -1.563 us and hot
+-0.227 / -0.310 us against staged. Its collected burst improved only 2/4 pairs.
+A separately compiled final-comment identity is reported above; the change was
+required to describe reference-call preparation accurately. No results are pooled
+or discarded because of sign, and no favorable run is promoted over the final one.
+
+Receipt SHA256 prefixes (binary / lossless native receipt, kept ignored locally):
+- symbolic: d9e9879a73d72c48 / 58182597d1ce4068
+- fixed-seed/shared context: 9cbec1a33fd9e3d9 / b8386b15147632b0
+- original eq/sizing: e36a5064c9ae4d82 / 595b404853679c9f
+- isolated phases: 23673968f7a8a8cd / 311174ced5c8a84e
+- workspace, before burst coverage: 2f1b29485cf7c580 / c0323e20e31f5c35
+- burst coverage, before comment correction: c883a5d25327042c / 62d358c95deab434
+- final source: df1ab9f6374221a82 / 99d5e79c110d46aa
+
+* Reproduction
+Use the package alone, with Gerbil/Gambit and timeout available. Build/test with
+GERBIL_PATH=$PWD/.build/env just build and just test. Compile the benchmark with
+gxc -d .build/metadata -exe, the platform's ordinary linker flags, and
+t/metadata-paired-benchmark.ss. Invoke t/metadata-paired-suite.ss with the executable,
+absolute timeout path and an ignored .scm receipt path. Compiler and complete-study
+deadlines are 90 seconds; each native child has 20 seconds and 1 GiB heap.
+Require METADATA-PAIRED-OK children=1248. Source admission must match the checkout.
+Full records, generated binaries, JSON and compressed archives are not committed.

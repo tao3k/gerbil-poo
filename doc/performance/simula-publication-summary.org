@@ -1,0 +1,122 @@
+#+title: Simula joint publication: declared shapes and shared definitions
+
+* Scope and implementation
+This advances the generalized protocol future work. Reference: poof revision
+9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl 2040–2099
+(labelled method fragments, effective methods and negative assumptions), and
+ltuo_10_efficient_object_implementation.scrbl 1406–1420 (bounded method cache).
+It does not claim a verbatim Racket API or compiler/runtime verification.
+
+~prepare-shape~ compiles an explicitly declared C4 shape only when every selected
+candidate is unconditional. It runs no method, guard or invented argument.
+Actual calls retain typed argument/current C4 validation. Guarded definitions
+stay on the ordinary path; edits invalidate preparation. Negative certificates
+transport private witnesses through cache-only successors. The cache stays
+bounded at eight shapes. Preparing entries can cause an initially empty
+zero-budget publication to refuse earlier; resource admission is not equivalent.
+
+~context-preflight~ separates stable Simula method code from current view data.
+The typed view argument is checked on every call. A shared immutable child can
+survive capacity/invoice joint revision, while the outer projection, contracts,
+negative checking and publication/readmission chain retain current semantics.
+No successful result, old view, or mutable cache cell is shared. Every new def
+has a contract comment; implementation uses existing FUN/IO and POO composition.
+
+Tests count compilation and body execution separately, check exact child/cache
+owner retention across revisions, larger current versus old capacity, revoked
+release, malformed invoice, invalid Object arguments, invalidated definitions,
+guarded preparation refusal and late budget failure retaining the warm version.
+All 28 native test modules passed. Lean proves preparation preserves both cache
+invariants/current method semantics, discarded-successor probe equivalence,
+nested owner retention, and universal context/captured-view Simula equivalence.
+ShapePreparationBudget and ContextPreparationBudget include cold setup, binding,
+all calls, added context validation/representation costs and supplied excess GC.
+Their selection bounds are conditional cost inequalities, not timing proofs.
+
+* Fair native protocol
+Current executable: metadata-paired-simula-context. Ten phase scenarios, six
+direct strategy pairs, four ABBA rounds and natural/collected GC regimes:
+960 fresh children, 480 pairs. Each child initializes and warms the same ten
+controls in a fixed order. Pair positions rotate. Child cap: 20 seconds/1 GiB;
+compile/study cap: 90 seconds. No build/test overlapped measurement. Strict
+source/binary identity, coverage, order, counter, completion and EOF admission
+passed. All pair prefixes match allocation/GC counters; this is not heap identity.
+
+The cold context control constructs a fresh child definition AND model binding
+on every operation before complete publication and first call. Steady revisions
+reuse the immutable definition. These phases exclude process startup. Configure
+constructs a fresh protected child on both sides; generics refreshes the changed
+heterogeneous family without body invocation. Probe drops successors; transfer
+checks publication invocation and successor readmission; stage includes admission;
+revision adds reserve/cancel; repeated adds eight reserve calls/cancel. Allocation
+uses one complete revision operation and admits bytes only when both sides have
+no GC and nonnegative native counters. No Python timing/measurement engine.
+
+* Current matched results
+Values are median paired differences, context-prepared minus previous
+prepared-transport, microseconds/operation. Negative saves. N/C denote natural
+and collected regimes; each cell has four pairs. Residual is CPU minus recorded
+GC time, not a causal GC experiment. Independently computed medians need not add.
+
+| Phase | CPU N/C | GC N/C | Residual N/C | Faster pairs N/C |
+|-------+---------+--------+--------------+------------------|
+| configure | +0.473 / +2.422 | +0.219 / +0.703 | +0.332 / +1.719 | 2/4, 0/4 |
+| generics | -40.953 / -30.813 | -16.492 / -11.922 | -24.391 / -18.891 | 4/4, 4/4 |
+| probe | -1.694 / -1.305 | -0.811 / -0.403 | -0.884 / -0.882 | 4/4, 4/4 |
+| transfer | -1.667 / -1.181 | -0.733 / -0.367 | -0.920 / -0.887 | 4/4, 4/4 |
+| cold incl. factory | +43.180 / +53.852 | +16.281 / +23.977 | +27.852 / +29.875 | 0/4, 1/4 |
+| warm | +0.197 / +0.154 | +0.051 / -0.044 | +0.143 / +0.198 | 2/4, 1/4 |
+| stage | -34.258 / -37.375 | -12.523 / -13.141 | -22.742 / -23.984 | 4/4, 4/4 |
+| revision | -38.375 / -38.852 | -15.109 / -17.086 | -23.266 / -21.766 | 4/4, 4/4 |
+| repeated | -48.445 / -43.719 | -20.617 / -19.195 | -27.828 / -24.523 | 4/4, 4/4 |
+| allocation (one op) | -24.000 / -24.500 | 0 / 0 | -24.000 / -24.500 | 4/4, 4/4 |
+
+Revision CPU ranges: N [-49.500,-30.391], C [-43.750,-22.781].
+Cold ranges: N [+42.188,+76.750], C [-105.047,+61.062]; the collected
+outlier remains admitted. Warm ranges: N [-0.111,+0.461], C [-0.188,+2.642].
+GC-free one-operation allocation saves 91,504 bytes in both regimes, all four
+pairs each. This is allocated work, not retained heap. Context/context A/A
+allocation differences are exactly zero. Other timing phases cross GC and have
+no admitted byte-saving claim.
+
+Context/context A/A CPU differences remain nonzero: stage +0.063/-5.320,
+revision +0.688/+2.336, repeated -8.875/+0.477. Repeated natural A/A has four
+negative pairs (range [-11.750,-3.438]); systematic drift is not erased by ABBA.
+Collected revision A/A spans [-56.375,+9.844]. No claim that all noise is removed.
+
+Same-executable comparisons: original reference to context revision saves
+48.258/49.508 us (4/4 each). Shape-prepared to context revision saves
+36.039/46.148 us (4/4 each), isolating shared definitions beyond declaration
+preparation. These independently paired estimates are not additive.
+
+* Retained adverse first experiment
+Declaration preparation alone (previous prepared-transport to both-level
+shape-prepared) did not resolve full publication: stage +4.727/+9.961 us
+(1/4 faster each), revision +5.336/-5.109 (1/4,3/4). Probe and transfer saved
+about 1–2 us, but per-view rebuilding dominated. That separate 960-child study
+is historical, not pooled with current measurements. Its executable SHA256:
+924d0f672c1e16a939ac97656e15793aae4677001a7c1ddbe68acb3d70660176;
+receipt SHA256:
+84594425469c783d525878b417eb0ad92fa175b0369e050fd1ebd199a01c2103.
+
+* Reproduction and limits
+Current executable SHA256:
+e0816949874de9439ee90218d1e2f0099c54a4305b79962f17da18c4f845cc01
+Current receipt SHA256:
+079d8a5aaae04d61539ffd2d5504a7e2123700f15f9667b3cb7e6c67d33ca784
+
+Use the repository's native metadata paired benchmark/suite with the ten
+simula-* scenarios and sides 0..9; source identity is enforced by read-study.
+Cold/hot regressions require explicit workload choice: neither shared context
+nor shape preparation is a universal default. Conditional Lean costs admit
+ordinary captured-view fallback for cold, call-heavy or excess-GC horizons.
+Full publication phases are measured directly, not reconstructed by adding
+isolated medians. No Scheme dependency on a Lean checkout is introduced.
+Only this concise summary is committed; full receipts, binaries, source
+snapshots and logs remain ignored local artifacts. No versioned JSON or archive.
+
+* Historical source boundary
+The follow-up changes source inputs and adds callback compilation, fused factory
+binding and staged lifecycle composition. This receipt remains historical evidence;
+it is not current-source re-admission. See simula-factory-summary.org for the new
+paired study, including adverse direct-construction results and full owner handoff.

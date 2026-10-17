@@ -1,0 +1,141 @@
+#+title: Simula factory construction, callback compilation and lifecycle composition
+
+* Correspondence and implementation
+This advances generalized-protocol future work. Racket reference: poof revision
+9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl 2040–2099: negative
+assumptions, method fragments/effective methods and no implicit result memoization.
+Native compile-simula uses standard foldr/foldl to compile ordered side callbacks.
+Lean compileParts_correct / compileSimula_correct prove equivalence for arbitrary
+lists and lawful effects. Current arguments, prefix refusal and suffix order stay
+unchanged. Native three-level/repeated-argument tests compare original traces.
+
+context-simula-template fuses seed/declaration/projection installation; optional
+immutable-template reuse binds the actual child while preserving native projection,
+contracts and admission callbacks. Pure compiled context did not reliably remove
+cold/hot regression, so it remains an explicit alternative rather than a default.
+
+simula-workflow-model composes native Model methods: .prepare delegates to the
+existing captured-view prepared model; .publish performs the existing checked
+publication with a compiled shared child. Warm calls execute their current version
+without consulting a selector. FIRST handoff changes family owner, so ALL generics
+are rebuilt/rechecked, including equal contexts. Later unchanged contexts reuse
+exact certificates. No retagging of old owner proofs. Tests cover this boundary,
+independent child bindings, capacity/invoice changes, retained old capacity refusal,
+shared later children and atomic negative-watch refusal. All 28 modules passed.
+
+Lean stagedPreflight_equivalent and stagedPreflight_stream prove every phase and
+request stream retains its current view, argument and success/error computation.
+SimulaFactoryBudget charges setup, every child/binding/callback, calls and excess
+GC. ContextPreparationBudget.staged_bound additionally requires later saving to
+cover the workflow wrapper, with full owner handoff in setup. These conditional
+operation bounds do not prove native timing/compiler correctness or identical
+resource-budget admission timing. Initial captured work stays in explicit base.
+
+* Current native protocol
+11 scenarios, six direct strategy pairs, four ABBA rounds, natural/collected
+regimes: 1056 fresh children / 528 pairs. Each child builds/warms the same ten
+controls; pair positions rotate. 20s/1GiB child and 90s compile/study caps unchanged.
+All tests/builds completed before measurement. Source/binary/order/coverage/counter/
+completion/EOF admission passed; all prefix counter comparisons match. This is
+not heap identity. Full rows/binaries/logs remain ignored local artifacts.
+
+Cold includes a NEW workflow wrapper, actual initial child construction, complete
+publication and first checked call. Pure context controls construct their child
+and factory too. Bind isolates their reusable-template binding, while staged
+uses its same cold path. Configure constructs the ACTUAL initial child for each
+strategy. Generics/probe/transfer/stage/revision/repeated separate construction,
+discarded successors, readmission and complete joint changes (one/eight calls).
+Warm threads the initial published successor; after handoff the shared context
+argument costs apply again. Allocation uses one complete first joint revision.
+Module loading and the identical control setup prefix are outside phase timings;
+these are NOT whole-process startup timings. Whole-horizon costs must charge them.
+
+* Current matched results
+Median PAIRED differences in us/operation, staged minus previous context-prepared.
+Negative saves. N/C = natural/collected; four pairs each. Residual = CPU minus
+recorded GC, not a causal GC claim. Independently computed medians need not add.
+
+| Phase | CPU N/C | GC N/C | Residual N/C | Faster N/C |
+|-------+---------+--------+--------------+------------|
+| configure | -1.523 / +0.457 | -0.094 / +0.785 | -1.344 / -0.328 | 4/4, 2/4 |
+| generics | +0.125 / -2.023 | +0.688 / -0.211 | -0.445 / -1.813 | 2/4, 3/4 |
+| probe | +0.116 / -0.429 | +0.046 / -0.030 | +0.070 / -0.404 | 0/4, 2/4 |
+| transfer | -0.084 / +0.086 | -0.042 / +0.027 | -0.042 / +0.059 | 2/4, 0/4 |
+| cold | -35.773 / -26.781 | -11.555 / -11.195 | -24.219 / -15.586 | 4/4, 4/4 |
+| bind | -31.445 / -31.062 | -12.266 / -12.766 | -19.180 / -18.297 | 3/4, 3/4 |
+| initial warm | -0.171 / -0.310 | -0.022 / -0.048 | -0.135 / -0.253 | 4/4, 4/4 |
+| stage | +1.687 / +2.031 | +0.469 / +1.555 | +1.523 / +0.477 | 1/4, 2/4 |
+| revision | +6.133 / -5.969 | +1.781 / +0.062 | +4.352 / -4.703 | 1/4, 3/4 |
+| repeated | +1.633 / -1.273 | -1.273 / -1.289 | +0.969 / -0.133 | 2/4, 2/4 |
+| allocation | -3.500 / -5.500 | 0 / 0 | -3.500 / -5.500 | 2/4, 3/4 |
+
+Cold ranges N [-64.500,-2.172], C [-36.688,-17.125]. Initial warm ranges
+N [-0.283,-0.015], C [-0.346,-0.180]. Stage/revision/repeated do NOT uniformly
+improve on previous context. GC-free one-operation allocation is +2192 bytes
+for staged versus context, all four pairs each regime: full owner handoff has
+real cost. A/A allocated-byte difference is zero. No retained-heap assertion.
+
+Same-binary captured prepared-transport comparison remains mixed: cold
+-48.836/+18.242 us (3/4,0/4), initial warm +0.174/-0.053 (0/4,4/4).
+Warm executes the same captured implementation, yet process histories differ;
+GC component is +0.104/-0.043 and residual +0.053/-0.021 us. No claim to be
+uniformly faster than that original cold baseline. First full revision saves
+51.359/53.594 us (3/4,4/4); allocation saves 89,312 bytes each regime, 4/4 each.
+
+Staged A/A CPU deltas: cold +4.750/-3.531, warm +0.015/-0.013,
+revision +6.008/-9.133 us. Cold A/A ranges N [-2.297,+69.703],
+C [-159.609,+54.469]; systematic drift/outliers remain. Captured A/A warm
++0.050/-0.108, cold -16.125/+33.281 us. No pooling across pairs or studies.
+Pure compiled to staged cold also mixed: +38.500/-27.063 (2/4,4/4);
+its warm -0.114/-0.165 (3/4,4/4). Preserve all adverse comparisons.
+
+* Retained unsuccessful controls
+First callback-chain/reused-template study (1056 children) still charged a newly
+created template followed by binding on cold: versus old context +30.422/+35.203
+us. Bind -10.008/-10.422; warm -0.006/-1.386, with substantial collected drift.
+Binary SHA256 c70a0ce554ef6aa387997836d4e2d2bbd0c848b9115976a57c2ab42975995358;
+receipt d76e3db640043a5e7f256a220da27599d11605c6abae1d332933a09860e601b5.
+An earlier driver preflight failed because linking had not yet produced the
+executable; no child sample was admitted. The admitted run began after compilation.
+
+Fusing fresh wrapper construction (another 1056 children) did not solve the
+regression: cold +4.070/+78.617, warm -0.011/+0.017 versus old context.
+Bind -12.180/-9.969; revision +1.602/+6.766. Cold collected A/A +27.219 us
+and wide ranges remain. No claim these studies causally isolate compiler or GC.
+Binary aa85c08cf5efd1c5032e6be45c50aca5d7af162eba1217af9835f886006c9bac;
+receipt 10d29f424bf12cff32e96953584e78dc221ff89f8539db285d3b1c4462dbf3e6.
+Both are historical source identities, not current-source re-admission.
+
+* Reproduction and evidence boundary
+Current binary SHA256:
+9efff67b2b8c6dedf875c396407a6ed2d563e3b8cbd3d04f037e318c9a17430c
+Current receipt SHA256:
+2c89f67ae0c067c9fd148c1652e0e2fa4af44ffbcddf052021bdaef38ef5e22f
+
+Run from this checkout, no companion Lean checkout required:
+#+begin_src sh
+export GERBIL_PATH="$PWD/.build/env"
+just build
+mkdir -p .build/metadata
+env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH \
+  -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin \
+  timeout --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe \
+  -ld-options '-L/opt/homebrew/opt/openssl@3/lib' \
+  -o .build/metadata/metadata-paired-simula-staged t/metadata-paired-benchmark.ss
+timeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
+  t/metadata-paired-suite.ss .build/metadata/metadata-paired-simula-staged \
+  "$(command -v timeout)" .build/metadata/metadata-paired-simula-staged.scm
+#+end_src
+
+Choose platform linker options as in justfile on non-macOS systems. Runtime and
+measurement use native Scheme only. No empirical constants or Lean output are
+embedded in Scheme. Optional strategies remain explicit. No universal speedup,
+full-process startup reduction, post-handoff hot-call elimination, identical GC
+history or all-budget admission equivalence is asserted. Only concise summaries
+are committed; no versioned JSON, full data, binaries or compressed archives.
+
+* Historical source boundary
+The next study adds opt-in symbol-sized family tables and context binding, and
+measures post-handoff calls explicitly. This receipt remains historical rather
+than current-source re-admission. See simula-owner-summary.org; no timing or byte
+medians are pooled across these source identities.
