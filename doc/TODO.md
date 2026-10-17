@@ -43,7 +43,7 @@ further tuning of the corresponding workflow.
 | Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
 | Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | General prototype polymorphism/subtyping/inference remains open; recognition alone does not prove host arity. See [generated-testing.md](generated-testing.md). |
 | Generic data structure library | Partial existing containers only | A general collection library with the proposed protocol and laws is open. |
-| Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Built-in Bool/Integer/UInt/String/List/Tuple/Pair and Function call rows; explicit generators for other/refined Types and Function values. Automatic recursive generators and universal verification remain open. See [generated-testing.md](generated-testing.md). |
+| Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
 ### Consolidated acceptance, not scenario accumulation
@@ -76,7 +76,7 @@ original feature backlog is explicitly grouped as follows:
 | Workstream | Concrete remaining acceptance target | Current anchor |
 | --- | --- | --- |
 | Representation optimization | Qualify small-map/full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
-| Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Open: prototype polymorphism/subtyping/inference and automatic recursive generator synthesis | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
+| Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Open: prototype polymorphism/subtyping/inference and unrestricted recursive carrier generation | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
 | Collection protocol | Proposed generic incremental/isomorphism-aware collection library and its laws, beyond existing containers | Generic Data Structure Library below |
 | General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
 | Interpreter project | A real Jsonnet/Nix implementation and its language-level correspondence/acceptance, not object examples | Classes below |
@@ -818,7 +818,8 @@ On top of Gerbil-POO, build an
 
 ## Property-based testing
 
-The finite protocol is now implemented in `property-testing.ss` and
+The finite protocol, including automatic guarded recursive container graphs
+(`generation-graph.ss` / `recursive-generation.ss`), is implemented in `property-testing.ss` and
 `function-testing.ss`, using Gambit's isolated SRFI-27 source, ordinary descriptor
 extensions and Reader/FUN composition. Acceptance tests cover actual optional and
 keyword invocation, nested callbacks, overlapping clauses, seeded replay, strict

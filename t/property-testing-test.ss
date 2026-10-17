@@ -55,7 +55,19 @@
       (check-equal? (.get (check-property Integer false sampler: (fixed-integer 5 (lambda (_) '(0)) (lambda (_) -1))) status) 'error)
       (check-exception (check-property Integer true cases: 0) Error?)
       (check-exception (generator Any) Error?)
-      (check-exception (generator (List Integer) 1) Error?))
+      (check-equal? (.get (check-property (List Integer) null? depth: 1) status) 'passed)
+      (check-equal? (.get (check-property (Tuple Integer) true depth: 1) status) 'exhausted))
+    (test-case "a later draw exception cannot report the previous successful candidate"
+      (let* ((calls 0) (cause (Error "later draw"))
+             (sampler (make-generator Integer
+               (lambda (_random _size) (set! calls (+ calls 1)) (if (= calls 1) 7 (raise cause)))
+               (lambda (_) []) abs))
+             (report (check-property Integer true cases: 3 sampler: sampler)))
+        (check-equal? (.get report status) 'error)
+        (check-equal? (.get report trial) 2)
+        (check (.get report original) => #f)
+        (check (.get report counterexample) => #f)
+        (check (eq? (.get report cause) cause) => #t)))
     (test-case "descriptor revision invalidates results and replay"
       (let* ((descriptor (.o inherit: [Type.] .element?: exact-integer?))
              (sampler (make-generator descriptor (lambda (_random _size) 1) (lambda (_) []) abs))
