@@ -1,6 +1,6 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export make-generator generator product-generator check-property replay-property property-action)
-(import :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
+(import ./contract-adapter :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
         ./object ./mop (only-in ./type String Exactly. Enum.)
         ./generation-graph ./recursive-generation
         (only-in ./number Integer UInt)
@@ -12,9 +12,9 @@
 ;; or callback object captured by this sampler; ambient mutable state is excluded.
 (def (make-generator descriptor draw shrink measure dependencies: (dependencies []))
   (validate Type descriptor)
-  (unless (and (procedure? draw) (procedure? shrink) (procedure? measure)
-               (list? dependencies) (every object? dependencies))
-    (error "invalid generator protocol"))
+  (check-contract (list draw shrink measure) (list-of? procedure?)
+    (lambda () (error "invalid generator protocol")))
+  (check-contract dependencies (list-of? object?) (lambda () (error "invalid generator protocol")))
   (.o bind-these: #f descriptor: descriptor draw: draw shrink: shrink measure: measure
       sources: (cons descriptor dependencies)))
 
@@ -111,7 +111,7 @@
     (let loop ((best original) (remaining budget) (attempts 0) (steps 0))
       (unless (current? sources sampler) (return (list 'stale best attempts steps #f)))
       (def candidates (.call sampler shrink best))
-      (unless (list? candidates) (error "shrinker must return a finite proper list"))
+      (check-contract candidates list? (lambda () (error "shrinker must return a finite proper list")))
       (let scan ((rest candidates) (remaining remaining) (attempts attempts))
         (unless (current? sources sampler) (return (list 'stale best attempts steps #f)))
         (cond

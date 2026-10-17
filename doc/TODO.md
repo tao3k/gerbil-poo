@@ -46,6 +46,16 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### Gerbil standard mechanism audit
+
+The contract interoperability pass delegates ordinary predicate/list/range checks
+to Gerbil core `using` and its contract rules, preserving POO-specific recursive
+normalization and refusal policy through one thin adapter. The integrated typed
+host consumer composes `refine` with exact `bind-evidence`. The broader mechanism
+reuse ledger covers inheritance, interfaces, collections, caches, concurrency,
+syntax, IO and testing; see [gerbil-mechanisms.md](gerbil-mechanisms.md).
+This audit does not mark the open type/library/interpreter projects complete.
+
 ### Consolidated acceptance, not scenario accumulation
 
 **The original TODO is still incomplete.** New graph topologies or timing reports

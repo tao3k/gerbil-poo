@@ -1,7 +1,7 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body?)
-(import :std/error)
+(import :std/error ./contract-adapter)
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -11,8 +11,8 @@
   (raise (TypeRefusal message irritants: (cons kind details))))
 ;; One request shares this counter across parsing, expansion, search and building.
 (def (type-work budget)
-  (unless (and (exact-integer? budget) (<= 1 budget 1048576))
-    (refuse-type 'malformed "Type work budget must be in 1..1048576" budget))
+  (check-contract budget (in-range-inclusive? 1 1048576)
+    (lambda () (refuse-type 'malformed "Type work budget must be in 1..1048576" budget)))
   (let (remaining budget)
     (lambda ()
       (when (zero? remaining) (refuse-type 'exhausted "Type work budget exhausted"))
@@ -48,7 +48,7 @@
   (let check ((value term) (variables variables))
     (work)
     (cond
-     ((memq value '(Any Never Bool Integer UInt)) value)
+     (((one-of Any Never Bool Integer UInt) value) value)
      ((memq value variables) value)
      ((and (list? value) (pair? value))
       (case (car value)
@@ -72,7 +72,7 @@
              (check (cadar todo) variables)
              (fields (cdr todo) (cons (caar todo) seen))))
          (let (tail (caddr value))
-           (unless (memq tail '(open closed))
+           (unless ((one-of open closed) tail)
              (unless (and (list? tail) (= (length tail) 2) (eq? (car tail) 'Row))
                (refuse-type 'malformed "Invalid Object row tail" tail))
              (check (cadr tail) variables))))
