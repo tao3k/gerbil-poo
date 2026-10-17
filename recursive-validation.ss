@@ -69,12 +69,15 @@
     (hash-ensure-ref types name
       (lambda ()
         (.cc Type.
+          ;; Raw identities are for source checking; final recognition requires
+          ;; the canonical target even when a custom Slot supplies the value.
           .element?: (lambda (value)
             (check-owner owner)
             (check-stamps stamps)
             (and (memq phase '(shape allocation normalization admission closed))
                  (hash-key? sources name)
-                 (or (eq? value (hash-ref sources name))
+                 (or (and (memq phase '(shape allocation normalization))
+                          (eq? value (hash-ref sources name)))
                      (and (hash-key? nodes name) (eq? value (hash-ref nodes name))))))
           .validate: (lambda (value)
             (check-owner owner)
@@ -119,8 +122,9 @@
     (set! stamps (append stamps (map (lambda (node) (cons node (object-revision node))) (hash-values nodes))))
     (set! phase 'normalization)
     (with-deferred-validation (lambda ()
-      (for-each (lambda (batch) (force-rebinding (hash-ref nodes (car batch)) (cdr batch))) batches)))
-    (set! phase 'admission)
+      (for-each (lambda (batch) (force-rebinding (hash-ref nodes (car batch)) (cdr batch))) batches)
+      ;; Deferred checks must reject unnormalized raw links too.
+      (set! phase 'admission)))
     (admit)
     ;; Supported direct writes to canonical nodes refuse. Parent/source revisions
     ;; are checked at graph access/Reference validation, not arbitrary retained calls.

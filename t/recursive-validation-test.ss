@@ -68,6 +68,14 @@
         (list (list 'x (Record peer: [(reference 'missing)]) (.o peer: #f))))) (phase? 'missing-reference))
       (check-exception (graph.close-validation (lambda (_)
         (list (list 'x Any (.o))))) (phase? 'protocol)))
+    (test-case "custom Slot cannot leave a raw recursive target in the final graph"
+      (define-type (RawSlot @ Slot)
+        .slot.validate: (lambda (_ _name original _receiver) original))
+      (check-exception (graph.close-validation (lambda (reference)
+        (def left-type (.cc Class. slots: (.o peer: (.new RawSlot type: (reference 'right)))))
+        (def right-type (Record peer: [(reference 'left)]))
+        (def left (.o peer: right)) (def right (.o peer: left))
+        (list (list 'left left-type left) (list 'right right-type right)))) (phase? 'admission)))
     (test-case "distinct graph owners cannot mix canonical references"
       (def first (graph.close-validation cyclic-build))
       (def second (graph.close-validation cyclic-build))
@@ -153,6 +161,13 @@
           (lambda (_ location) [(.o kind: 'remote-refusal path: location)])))
         (list (car entries) (list 'right rejected (caddr (cadr entries)))))) (phase? 'admission))
       (check (graph.closed? (graph.close-validation cyclic-build)) => #t))
+    (test-case "unannotated structural object recursion refuses before normalization"
+      (check-exception (graph.close-validation (lambda (_reference)
+        (def descriptor (.cc ObjectContract. responsibilities: (.o next: descriptor)))
+        (def source (.o next: source))
+        (list (list 'root descriptor source))))
+        (lambda (cause) (and ((phase? 'shape) cause)
+                            (eq? (.get (car (graph.validation-failure-cause cause)) kind) 'recursive-structure)))))
     (test-case "unproductive eager computed cycle still refuses"
       (check-exception (graph.close-validation (lambda (_)
         (def descriptor (Record first: [Integer] second: [Integer]))

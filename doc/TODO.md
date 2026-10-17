@@ -996,7 +996,7 @@ Finite recursive object validation now has an explicit named-catalog closure:
 checks every node, defers nested whole-value obligations until all batches finish,
 and refuses foreign owners/stale revisions. Productive computed Function backedges
 compose with the existing safe recursive memo and positive least closure in
-`examples/recursive-validation.ss`. The 17 new controls cover shared targets,
+`examples/recursive-validation.ss`. The 19 new controls cover shared targets,
 cyclic identity, nested refinement, failed queue unwinding, owner/stale rejection,
 eager cycles, finite-budget refusal, FUN/refine/evidence and retry. The Lean model
 proves catalog/graph admission and reference laws; host correspondence and callback
@@ -1004,3 +1004,8 @@ termination remain explicit. See [recursive-validation.md](recursive-validation.
 This advances future work; it does not close arbitrary coinductive Type checking,
 automatic graph discovery, unrestricted recursive containers or retained-call
 revocation/concurrent mutation.
+
+Final Reference membership now requires canonical targets even after custom Slot
+normalization. Deferred nested checks switch to that admission phase before
+running. Active unannotated structural Type/value recurrence refuses with a
+`recursive-structure` diagnostic; ordinary alias sharing after return stays legal.

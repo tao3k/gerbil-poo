@@ -13,7 +13,9 @@ a nonempty list of `(name descriptor source)` triples. Names are distinct symbol
 every Reference target must be declared. Sources are ordinary POO objects;
 descriptors implement the Class/ObjectContract `.validation-fields` protocol.
 Reference Types can occur inside existing List/Tuple/optional/variant Types.
-They recognize the exact named source or canonical target, not an arbitrary object.
+Source checking recognizes the exact named source; final membership requires
+the canonical target, including values supplied by custom Slot normalizers.
+Explicit validation of a known source can resolve its already admitted target.
 
 ```scheme
 (close-validation
@@ -81,7 +83,9 @@ object backedges. `examples/recursive-validation.ss` combines this with:
 - Reader/FUN decoding, complete graph closure, root `refine` and exact
   `bind-evidence`, including raw/stale evidence refusal and current retry.
 
-Immediate cyclic getter demands still raise `CyclicSlot`; arbitrary eager
+Active unannotated structural Type/value pairs return a `recursive-structure`
+diagnostic rather than receiving coinductive acceptance. Repeated shared pairs
+after return remain legal. Immediate cyclic getter demands still raise `CyclicSlot`; arbitrary eager
 fixed-point equations are not solved. Machine cycle/budget diagnostics are not
 values or successful admission. The graph node-count limit does not bound host
 getter/validator execution time. Unregistered recursive Type paths, cyclic raw
