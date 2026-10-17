@@ -527,3 +527,16 @@ value. Scope, API and Racket/Lean/Gerbil correspondence are documented in
 [recursive-validation.md](recursive-validation.md). This advances generalized MOP
 future work; unregistered/coinductive recursion, arbitrary callback termination,
 external effects and concurrent mutation remain outside the proof.
+
+
+## Continuing request admission during publication
+
+`recursive-approvals.call-with-submissions` now admits fresh explicitly staged
+requests while older requests remain queued, using the standard queue and existing
+per-attempt publication/receipt path. Eight actual SCC/provider/computed rounds
+exercise 64 attempts, repeated installed/proposed approval ABA, joint refusal,
+stale competitors, dirty old references and effect-only refine/bind-evidence retry.
+Scope controls reject reentrancy, escaped operations and unconsumed normal exit;
+exceptions retain installed prefixes. Eight Lean FIFO/monotonicity/staleness laws
+and the matching finite fixture cover this serialized generalized MOP future work.
+See [recursive-submissions.md](recursive-submissions.md) for API and proof limits.

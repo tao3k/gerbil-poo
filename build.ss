@@ -113,6 +113,7 @@
     "examples/recursive-publication"
     "examples/recursive-approvals"
     "examples/recursive-competition"
+    "examples/recursive-submissions"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"

@@ -1113,3 +1113,16 @@ false from normal false/zero values; observer failures retain installed heads.
 Eight Lean sequence laws and matching finite graph examples advance this sequential
 future-work scope under complete guards, identity correspondence and terminating
 callbacks; concurrent installation and external-effect rollback remain open.
+
+
+## Continuing request admission during publication
+
+`recursive-approvals.call-with-submissions` now admits fresh explicitly staged
+requests while older requests remain queued, using the standard queue and existing
+per-attempt publication/receipt path. Eight actual SCC/provider/computed rounds
+exercise 64 attempts, repeated installed/proposed approval ABA, joint refusal,
+stale competitors, dirty old references and effect-only refine/bind-evidence retry.
+Scope controls reject reentrancy, escaped operations and unconsumed normal exit;
+exceptions retain installed prefixes. Eight Lean FIFO/monotonicity/staleness laws
+and the matching finite fixture cover this serialized generalized MOP future work.
+See [recursive-submissions.md](recursive-submissions.md) for API and proof limits.

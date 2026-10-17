@@ -1,7 +1,7 @@
 ;;; Joint revisions of one recursive graph and shared approval metadata.
-(export stage-with submit! observe! submit-sequence!
+(export stage-with submit! observe! submit-sequence! call-with-submissions
         attempt-request attempt-snapshot attempt-values attempt-failed? attempt-failure)
-(import (only-in :std/list/list foldl) ./object ./mop ./lens-laws
+(import (only-in :std/list/list foldl) (prefix-in :std/struct/queue queue.) ./object ./mop ./lens-laws
         (prefix-in ./recursive-publication publication.))
 
 ;; Capture native supported revisions of installed/proposed metadata. Existing
@@ -84,3 +84,46 @@
     (cons (car submission) (cdr submission))) submissions))
   (reverse (foldl (lambda (submission outcomes)
     (cons (submit-attempt owner submission) outcomes)) [] queue)))
+
+;; Supply scoped enqueue!, advance! and pending? procedures to one coordinator.
+;; Standard FIFO storage allows new arrivals and explicit restaging between
+;; attempts without draining older work. Only advance! installs; each call returns
+;; the existing lossless receipt, or #f for an empty queue. Requests are never
+;; refreshed implicitly. Caller serialization and complete guards remain premises.
+;; Normal return requires a drained queue; exceptional exit releases pending work,
+;; closes escaped operations and keeps every already installed prefix. A scope
+;; cannot be reentered through a captured continuation after cleanup.
+(def (call-with-submissions owner coordinate)
+  (def pending (queue.make-Queue))
+  (def phase 'new)
+  ;; Callbacks cannot consume or extend the queue while its current attempt runs.
+  (def (check-open)
+    (unless (eq? phase 'open) (error "recursive submission scope is not open")))
+  ;; Copy one checked pair before admitting it; no caller-owned list is retained.
+  (def (enqueue! request observer)
+    (check-open)
+    (unless (and (procedure? request) (procedure? observer))
+      (error "recursive submission requires request and observer procedures"))
+    (queue.enqueue! pending (cons request observer)))
+  ;; Remove exactly one request and reuse ordinary guarded publication/receipts.
+  (def (advance!)
+    (check-open)
+    (if (queue.queue-empty? pending) #f
+      (dynamic-wind
+        (lambda () (check-open) (set! phase 'advancing))
+        (lambda () (submit-attempt owner (queue.dequeue! pending)))
+        (lambda () (set! phase 'open)))))
+  ;; Querying the queue also requires the active, non-reentrant coordinator scope.
+  (def (pending?)
+    (check-open)
+    (not (queue.queue-empty? pending)))
+  (dynamic-wind
+    (lambda ()
+      (unless (eq? phase 'new) (error "recursive submission scope cannot be resumed"))
+      (set! phase 'open))
+    (lambda ()
+      (call-with-values (lambda () (coordinate enqueue! advance! pending?))
+        (lambda returned
+          (unless (queue.queue-empty? pending) (error "unconsumed recursive submissions"))
+          (apply values returned))))
+    (lambda () (set! phase 'closed) (set! pending (queue.make-Queue)))))
