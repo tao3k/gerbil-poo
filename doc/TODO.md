@@ -55,6 +55,11 @@ separate contract module or namespace. The integrated typed
 host consumer composes `refine` with exact `bind-evidence`. The broader mechanism
 reuse ledger covers inheritance, interfaces, collections, caches, concurrency,
 syntax, IO and testing; see [gerbil-mechanisms.md](gerbil-mechanisms.md).
+The prepared method-chain follow-up proves a whole `std/func compose1`
+continuation assembly candidate equivalent, but rejects default adoption after
+paired construction/GC regressions. Live reflection retains current Slot
+admission across shared source revisions. The mechanism ledger records why direct host class reflection
+is not an equivalent replacement, the new FUN workflow and bounded paired study.
 This audit does not mark the open type/library/interpreter projects complete.
 
 ### Consolidated acceptance, not scenario accumulation

@@ -14,6 +14,51 @@
 ;; Complete carrier/qualifier/effect-order/short-circuit and joint revision controls.
 (def method-combination-test
   (test-suite "Appendix B native method combination alignment"
+    (test-case "continuation preparation captures Simula metadata in original order without bodies"
+      (for (compiler (list combination.compile-simula combination.compile-simula-context))
+        (def events [])
+        (def cause (list 'metadata-refused))
+        ;; Lazy descriptors make construction order observable independently of calls.
+        (def (body name refuse?)
+          (.o (suffix-part (begin (set! events (cons (list 'suffix name) events))
+                 (lambda _ (set! events (cons (list 'run-suffix name) events)))))
+              (prefix-part (begin (set! events (cons (list 'prefix name) events))
+                 (when refuse? (raise cause))
+                 (lambda _ (set! events (cons (list 'run-prefix name) events)))))))
+        (def compiled (compiler (map (cut body <> #f) '(specific middle general))))
+        (check-equal? (reverse events)
+          '((suffix general) (suffix middle) (suffix specific)
+            (prefix specific) (prefix middle) (prefix general)))
+        (set! events [])
+        (if (eq? compiler combination.compile-simula) (compiled '(4 current)) (compiled 'current '(4)))
+        (check-equal? (reverse events)
+          '((run-prefix general) (run-prefix middle) (run-prefix specific)
+            (run-suffix specific) (run-suffix middle) (run-suffix general)))
+        (set! events [])
+        (check-exception (compiler (list (body 'specific #f) (body 'middle #t) (body 'general #f)))
+          (lambda (actual) (eq? actual cause)))
+        (check-equal? (reverse events)
+          '((suffix general) (suffix middle) (suffix specific) (prefix specific) (prefix middle)))))
+    (test-case "prepared methods preserve repeated next skipping and failure identity"
+      (def visits [])
+      (def cause (list 'body-refused))
+      (def methods (list
+        (combination.primary (lambda (next value) (list (next) (next))))
+        (combination.primary (lambda (_ value) (set! visits (cons value visits)) value))))
+      (def compiled (combination.prepare-standard methods (lambda (_) (raise cause))))
+      (check-equal? visits [])
+      (check-equal? (compiled '(4)) '(4 4))
+      (check-equal? visits '(4 4))
+      (def skipped (combination.prepare-standard
+        (cons (combination.around (lambda (_ value) 'skipped)) methods) (lambda (_) (raise cause))))
+      (check-equal? (skipped '(5)) 'skipped)
+      (check-equal? visits '(4 4))
+      (def refused (combination.prepare-standard
+        (list (combination.primary (lambda (_ value) (raise cause)))
+          (combination.after (lambda _ (set! visits (cons 'unreachable visits)))))
+        (lambda (_) 'missing)))
+      (check-exception (refused '(6)) (lambda (actual) (eq? actual cause)))
+      (check-equal? visits '(4 4)))
     (test-case "homogeneous items share policy order laziness and failure semantics"
       (def effects [])
       (def methods (list (lambda (x) (set! effects (cons 'first effects)) x)

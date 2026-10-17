@@ -1,10 +1,59 @@
 (export inheritance-hooks-test)
-(import :std/test ../object ../mop ../brace ../number
+(import :std/test ../object ../mop ../brace ../number (only-in ../type String)
         ../inheritance-hooks ../reflection
         (prefix-in ../examples/inherited-services services.))
 ;; Exercise actual native protocol composition, not serialized model constants.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
+    (test-case "compiled FUN combination rechecks shared current reflection after revisions"
+      (def events [])
+      ;; The action records only actual callback observations, never preparation.
+      (def action (services.combined-action 7 (lambda (event) (set! events (cons event events)))))
+      (def family (services.make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
+      (def other (services.make-services (lambda (_) (void)) (lambda () (error "other private body forced"))))
+      (check-equal? events [])
+      (check-equal? (action family) '(10 10 10))
+      (check-equal? (map cadr (reverse events)) '(join risk billing billing risk join))
+      (.put! (.@ family amount) 'default 20)
+      (set! events [])
+      (check-equal? (action family) '(20 20 20))
+      (check-equal? (map cadddr (reverse events)) '(20 20 20 20 20 20))
+      (check-equal? (action other) '(10 10 10))
+      (.put! (.@ family amount) 'hidden #t)
+      (set! events [])
+      (check-exception (action family) true)
+      (check-equal? events [])
+      (.put! (.@ family amount) 'hidden #f)
+      (.put! (.@ family amount) 'type String)
+      (check-exception (action family) true)
+      (check-equal? events [])
+      (.put! (.@ family amount) 'type Integer)
+      (check-equal? (action family) '(20 20 20)))
+    (test-case "compiled FUN refusal stops settlement and retry uses repaired shared source"
+      (def events [])
+      (def family (services.make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
+      ;; Preserve the same compiled code through a refusal and successful retry.
+      (def action (services.combined-action 12 (lambda (event) (set! events (cons event events)))))
+      (check-exception (action family) true)
+      (check-equal? events [])
+      (.put! (.@ family amount) 'default 15)
+      (check-equal? (action family) '(15 15 15))
+      (check-equal? (length events) 6))
+    (test-case "public reads retain complete current metadata evaluation before cached values"
+      (def cause (list 'catalog-refused))
+      (def probes 0)
+      (def amount (instance Slot type: Integer default: 10))
+      (def other (instance Slot type: Integer default: 20))
+      (def source (object<-declarations [(cons 'amount amount) (cons 'other other)]))
+      (check-equal? (read-slot source 'amount) 10)
+      ;; An unrelated visibility getter must not be skipped by an early assq hit.
+      (.putslot! other 'hidden ($thunk-slot-spec (lambda ()
+        (set! probes (+ probes 1)) (raise cause))))
+      (check-exception (read-slot source 'amount) (lambda (actual) (eq? actual cause)))
+      (check-equal? probes 1)
+      (.put! other 'hidden #t)
+      (check-equal? (read-slot source 'amount) 10)
+      (check-equal? (map car (reflect-slots source)) '(amount)))
     (test-case "core ormap returns the first payload and stops before suffix effects"
       (let ((visited []) (payload (list 'protocol)) (cause (list 'suffix)))
         (check (eq? (ormap (lambda (name)

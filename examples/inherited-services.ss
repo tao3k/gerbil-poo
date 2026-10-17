@@ -1,7 +1,8 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action protocol-action)
+(export make-services report revision-action protocol-action combined-action)
 (import ../object ../mop ../number ../brace ../reflection ../inheritance-hooks
-        (prefix-in ../generalized-prototype gp.))
+        (prefix-in ../generalized-prototype gp.)
+        (prefix-in ../method-combination combination.))
 ;; Derive an audited protocol using ordinary inherited method continuations.
 ;; Compilation is lazy with respect to slot bodies; the log runs only on demand.
 (def (service-protocol log)
@@ -39,3 +40,21 @@
 (def (protocol-action protocol)
   (.call gp.Observation. .map report
     (lambda (services) (object-protocol-set! (.@ services billing) protocol) services)))
+
+;; Prepare one Simula program, then reuse it as a FUN action across service
+;; families. Callbacks read CURRENT public metadata; only code is retained.
+;; General-first checks precede specific-first settlement. Refusal stops the
+;; remaining callbacks; previously emitted observations are not rolled back.
+(def (combined-action units emit)
+  (def program (combination.compile-simula-context
+    (map (lambda (name)
+      (combination.simula-body
+        (lambda (requested services)
+          (def amount (read-slot (.ref services name) 'amount))
+          (unless (>= amount requested) (error "insufficient service capacity" name))
+          (emit (list 'check name requested amount)))
+        (lambda (requested services)
+          (emit (list 'settle name requested (read-slot (.ref services name) 'amount))))))
+      '(billing risk join))))
+  (.call gp.Observation. .map report
+    (lambda (services) (program services (list units)) services)))
