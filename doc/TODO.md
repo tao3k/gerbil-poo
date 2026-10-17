@@ -944,6 +944,12 @@ binds evidence to the final normalized subject; raw/stale/mismatched evidence
 is rejected. Multiple values, higher-order inputs/results, derived validators,
 ancestry preservation and failure/retry have executable controls and pure Lean
 laws. See `examples/function-publication.ss` and [object-contracts.md](object-contracts.md).
-Remaining Function/container work includes wrapper deduplication, variadic and
-keyword arities, arbitrary container recursion and higher-order blame. These
-are not closed by this finite declared-object protocol.
+List/Tuple containers now recursively normalize their elements, preserve exact
+tuple arity and give indexed diagnostics. Finite named-field schemas reuse
+ObjectContract, including schema-in-container and container-in-schema refinement.
+`examples/container-publication.ss` adds nested batch dispatch/transforms and exact
+normalized-subject binding with refusal/retry. Lean `ContainerValidation` proves
+ordered position, length, arity, refusal and final refinement laws.
+Remaining work includes other container families, arbitrary external schema
+adapters, cyclic closure, wrapper deduplication, variadic/keyword arities and
+higher-order blame. These are not closed by the finite container protocol.

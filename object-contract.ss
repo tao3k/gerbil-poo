@@ -2,6 +2,7 @@
 ;;; No configuration domain, module publication or admission context belongs here.
 (export ObjectContract. TypeContract. diagnose as-value-contract refine)
 (import (only-in :std/list/list foldl append-map filter-map)
+        (only-in ./type-validation diagnose-structure)
         ./object-diagnostics
         ./object-contract-validation
         (only-in ./object .o .cc .get .ref .slot? .all-slots object?
@@ -17,6 +18,8 @@
 (define-type (TypeContract. @ Type. expected-type)
   .element?: (cut element? expected-type <>)
   .validate: (cut validate expected-type <>)
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (check-field expected-type value location))
   .diagnose:
   (lambda (value location)
     (if (element? expected-type value)

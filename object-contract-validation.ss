@@ -1,6 +1,7 @@
 ;;; Persistent field validation through the existing POO Type protocol.
 (export prepare-validation validate-object)
-(import (only-in :std/list/list foldl)
+(import (only-in ./type-validation diagnose-structure)
+        (only-in :std/list/list foldl)
         (only-in ./object .all-slots .ref .get object<-alist .slot?)
         (only-in ./mop validate raise-type-error))
 
@@ -19,13 +20,6 @@
                  (cons (cons (car entry) checked) reversed)))
              '() entries))
     (if (null? replacements) candidate (object<-alist (reverse replacements) supers: (list candidate)))))
-
-;; Recurse through structural descriptors without running their whole-object
-;; obligations on raw functions. Leaf Types keep their ordinary diagnostics.
-(def (diagnose-structure descriptor candidate location)
-  (if (.slot? descriptor '.diagnose-shape)
-    ((.get descriptor .diagnose-shape) candidate location diagnose-structure)
-    ((.get descriptor .diagnose) candidate location)))
 
 ;; Gate wrapping on structural success, then recheck the final checked object.
 ;; Constraints/refinements observe wrapped fields, never an intermediate copy.

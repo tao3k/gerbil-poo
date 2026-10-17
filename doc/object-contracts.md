@@ -271,7 +271,54 @@ it does not verify the JSON parser or host runtime.
 This advances the generalized-prototype future work using the paper's section 5
 recognizer/validator distinction and existing Function descriptors. It does not
 provide general higher-order blame, wrapper deduplication, variadic/keyword
-Function descriptors, recursive cyclic object closure, or recursive validation
-inside arbitrary List/Tuple/Schema containers. Custom validators/getters retain
+Function descriptors, recursive cyclic object closure, or automatic validation
+inside every possible container family. Custom validators/getters retain
 their effects and termination obligations. Revalidation may wrap again; no
 accepted-value cache is added. Nested obligations may be checked more than once.
+
+## List, Tuple and finite named-field schemas
+
+Existing `type.List` and `type.Tuple` now supply `.validate`, `.diagnose` and
+`.diagnose-shape`. Their public constructors and representations are unchanged:
+List uses proper Scheme lists; Tuple uses vectors with exact heterogeneous arity.
+`type-validation` shares recursive structural traversal with ObjectContract.
+Diagnostics append zero-based indices to field paths, including across nested
+containers and schemas. Recognition never installs wrappers.
+
+Explicit validation first checks the complete reachable structure, then validates
+children in order using their existing Type methods, then checks final membership.
+List uses the standard `map-in-order`; Tuple uses the existing indexed vector
+iterator and a private vector. Source carriers are not mutated. A changed batch
+returns its complete normalized container; unchanged children retain the source
+container identity. There is no returned prefix on failure. Prepared descriptor
+methods remain receiver-local, including after parent preparation.
+
+A finite named-field schema is the existing ObjectContract responsibilities map,
+not a second schema language or registry. Its whole-object obligations and `refine`
+run after its nested container fields are normalized. Schema descriptors can also
+appear inside List and Tuple; structural traversal defers their whole-object
+obligations until wrapping. External schema Types must provide their own validation
+and structural traversal adapters; this does not implement an external Schema DSL.
+
+`examples/container-publication.ss` composes JSON input with List → TaskSchema →
+Tuple → List of Function transforms, multiple callback results, cross-task tenant
+refinement, and FUN publication bound to the actual normalized root. Tests cover
+deep paths, empty containers, improper lists, wrong tuple carrier/arity, complete
+shape gating, first exception identity/order, higher-order results, raw/stale
+binding refusal and repair/retry. Custom callback effects are not rolled back.
+
+Lean `ContainerValidation` proves ordered per-position normalization, preserved
+length, unchanged-value preservation, arity refusal before zip/validation, exact
+tuple positions, final-check acceptance, child refusal and schema refinement.
+It reuses `Validation`, `ObjectContractValidation` and existing binding laws.
+`Examples/ContainerContracts.lean` runs a matching nested dispatch/transform batch
+and refusal/retry controls. The tagged finite model uses rows for vectors and IDs
+for Scheme identities; it does not prove host representation, GC, parser or runtime.
+
+The paper's section 5 Racket `ListOf` supplies recursive membership, while its
+more elaborate Type discussion covers functions and objects with typed slots.
+Recursive wrapping here advances the generalized-prototype future work. Remaining
+work includes other container families (Pair/Map/Sum/Union), arbitrary external
+schema adapters, cyclic object/container closure, wrapper deduplication, optional
+or keyword arities and higher-order blame. Caller immutability and custom Type
+agreement/termination remain required. No persistent validation cache is added.

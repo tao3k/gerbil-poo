@@ -6,6 +6,7 @@
 (import
   (only-in :std/assert assert!)
   :std/iter
+  ./type-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
@@ -45,6 +46,10 @@
 
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
+  .validate: (lambda (value) (validate-tuple @ types value))
+  .diagnose: (lambda (value location) (tuple-shape @ types value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (tuple-shape @ types value location check-field))
   .element?:
     (λ (x)
       (def l (vector-length types))
@@ -67,6 +72,10 @@
 
 (define-type (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)
   .Length: UInt
+  .validate: (lambda (value) (validate-list @ type value))
+  .diagnose: (lambda (value location) (list-shape @ type value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (list-shape @ type value location check-field))
   .element?: (λ (x) (and (list? x) (every (cut element? type <>) x)))
   .sexp<-: (lambda (v) ['@list (map (.@ type .sexp<-) v) ...])
   .json<-: (let (m (.@ type .json<-)) (cut map m <>))
