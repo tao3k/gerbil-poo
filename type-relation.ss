@@ -1,96 +1,75 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression)
-(import :std/error (only-in ./mop Any Bool Function)
+(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type)
+(import ./type-syntax ./recursive-types ./object
+        (only-in ./mop Any Bool Function Type. Object)
+        (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
-        (only-in ./type List Tuple))
+        (only-in ./type List Tuple Maybe))
 
-;; Typed protocol refusal retains a machine-readable failure category. Consumer
-;; callback/validation exceptions propagate unchanged and never become no-solution.
-(deferror-class TypeRefusal () type-refusal?)
-;; Inspect exhaustion/unsupported/malformed/bounds without matching printed text.
-(def (type-refusal-kind cause) (car (Error-irritants cause)))
-;; Raise before returning any descriptor, candidate or partially bound receiver.
-(def (refuse-type kind message . details)
-  (raise (TypeRefusal message irritants: (cons kind details))))
+;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
+;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
+(def Never (.cc Type. sexp: 'Never .element?: (lambda (_) #f)))
 
-;; Each public request owns one quota. Unsupported syntax and exhaustion raise
-;; before a descriptor or substitution is admitted; neither means subtype false.
-(def (type-work budget)
-  (unless (and (exact-integer? budget) (<= 1 budget 1048576))
-    (refuse-type 'malformed "Type work budget must be in 1..1048576" budget))
-  (let (remaining budget)
-    (lambda ()
-      (when (zero? remaining) (refuse-type 'exhausted "Type work budget exhausted"))
-      (set! remaining (- remaining 1)))))
-
-;; Preflight arbitrary input spines before list?/length/map; cycles and excessive
-;; nesting fail under the same quota without invoking descriptor callbacks.
-(def (bounded-type-data term work)
-  (let walk ((value term) (depth 64))
-    (work)
-    (when (zero? depth) (refuse-type 'exhausted "Type expression depth exhausted"))
-    (when (pair? value) (walk (car value) (- depth 1)) (walk (cdr value) (- depth 1)))))
-
-;; Bound every pair traversal before list predicates, including malformed/cyclic
-;; syntax. Maximum tree depth 64 also bounds host stack use independently of work.
-(def (type-expression term variables work)
-  (bounded-type-data term work)
-  (let check ((value term))
-    (work)
-    (cond
-     ((memq value '(Any Bool Integer UInt)) value)
-     ((memq value variables) value)
-     ((and (list? value) (pair? value))
-      (case (car value)
-        ((List) (unless (= (length value) 2) (refuse-type 'malformed "List Type needs one argument"))
-                (check (cadr value)))
-        ((Tuple) (for-each check (cdr value)))
-        ((Function)
-         (unless (and (= (length value) 3) (list? (cadr value)) (list? (caddr value)))
-           (refuse-type 'malformed "Function Type needs output/input lists"))
-         (for-each check (cadr value)) (for-each check (caddr value)))
-        (else (refuse-type 'unsupported "Unsupported Type constructor" value))))
-     (else (refuse-type 'unsupported "Unsupported Type expression" value))))
-  term)
-
-;; Substitute declared variables only. Callers check the complete finite term and
-;; ground assignments first; undeclared symbols never turn into implicit Any.
-(def (substitute-type term substitution work)
+;; Expand only explicit guarded Mu and splice explicit Object row substitutions.
+;; Disjointness/kind failures invalidate an assignment; exhaustion always escapes.
+(def (normalize-type term work)
   (work)
-  (let (binding (and (symbol? term) (assq term substitution)))
-    (cond (binding (cdr binding))
-          ((pair? term) (cons (substitute-type (car term) substitution work)
-                             (substitute-type (cdr term) substitution work)))
-          (else term))))
+  (cond ((not (pair? term)) term)
+        ((eq? (car term) 'Mu) (normalize-type (unfold-type term work) work))
+        ((eq? (car term) 'Object)
+         (let* ((fields (map (lambda (field) (list (car field) (normalize-type (cadr field) work))) (cadr term)))
+                (tail (caddr term)))
+           (if (memq tail '(open closed)) (list 'Object fields tail)
+             (let (row (normalize-type (cadr tail) work))
+               (unless (and (pair? row) (eq? (car row) 'Object))
+                 (refuse-type 'bounds "Row substitution requires an Object Type"))
+               (when (ormap (lambda (field) (assq (car field) fields)) (cadr row))
+                 (refuse-type 'bounds "Row substitution overlaps explicit fields"))
+               (list 'Object (append fields (cadr row)) (caddr row))))))
+        ((eq? (car term) 'Function)
+         (cons 'Function (map (lambda (types) (map (cut normalize-type <> work) types)) (cdr term))))
+        (else (cons (car term) (map (cut normalize-type <> work) (cdr term))))))
 
 ;; Decide derivability in the closed algebra: UInt <: Integer <: Any; Bool <: Any;
 ;; covariant List/Tuple observations; fixed-arity Function inputs contravariant,
 ;; outputs covariant, with exact multiple-value counts. False means no rule here,
 ;; not a counterexample to arbitrary predicate inclusion or mutable-slot writes.
 (def (subtype-expression? source target (budget 8192))
-  (let (work (type-work budget))
-    (type-expression source [] work) (type-expression target [] work)
-    (subtype/checked? source target work)))
+  (subtype/checked? source target (type-work budget)))
 
 ;; Recursive comparisons share their caller's quota, including inference search.
 ;; This is exported only through the main judgment above; no active-pair success
 ;; shortcut admits recursive types, CaseFunction shadowing or opaque predicates.
 (def (subtype/checked? source target work)
+  ;; Substitution can introduce new Mu nesting: recheck the complete ground terms.
+  (type-expression source [] work) (type-expression target [] work)
+  (compare-types (normalize-type source work) (normalize-type target work) work))
+
+;; Compare normalized finite terms; every required target field must be present.
+;; Open source rows promise no undeclared field; closed targets require exact keys.
+(def (compare-types source target work)
   (work)
   (cond
    ((equal? source target) #t)
-   ((eq? target 'Any) #t)
+   ((or (eq? target 'Any) (eq? source 'Never)) #t)
    ((and (eq? source 'UInt) (eq? target 'Integer)) #t)
    ((and (pair? source) (pair? target) (eq? (car source) (car target)))
     (case (car source)
-      ((List Tuple)
+      ((List Maybe Tuple)
        (and (= (length source) (length target))
-            (andmap (lambda (s t) (subtype/checked? s t work)) (cdr source) (cdr target))))
+            (andmap (lambda (s t) (compare-types s t work)) (cdr source) (cdr target))))
+      ((Object)
+       (and (or (eq? (caddr target) 'open)
+                (and (eq? (caddr source) 'closed)
+                     (andmap (lambda (field) (work) (assq (car field) (cadr target))) (cadr source))))
+            (andmap (lambda (field)
+                      (let (found (assq (car field) (cadr source)))
+                        (and found (compare-types (cadr found) (cadr field) work)))) (cadr target))))
       ((Function)
        (and (= (length (cadr source)) (length (cadr target)))
             (= (length (caddr source)) (length (caddr target)))
-            (andmap (lambda (s t) (subtype/checked? s t work)) (cadr source) (cadr target))
-            (andmap (lambda (s t) (subtype/checked? t s work)) (caddr source) (caddr target))))
+            (andmap (lambda (s t) (compare-types s t work)) (cadr source) (cadr target))
+            (andmap (lambda (s t) (compare-types t s work)) (caddr source) (caddr target))))
       (else #f)))
    (else #f)))
 
@@ -105,12 +84,18 @@
 ;; Internal checked compiler shares its caller's work counter. Only finite terms
 ;; already admitted by type-expression may enter this lower-level operation.
 (def (compile-expression expression work)
-  (let build ((term expression))
+  (let build ((term (normalize-type expression work)))
     (work)
     (case term
-      ((Any) Any) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt)
+      ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt)
       (else
        (case (car term)
+         ((Object)
+          (let (fields (object<-alist (map (lambda (field) (cons (car field) (build (cadr field)))) (cadr term))))
+            (if (eq? (caddr term) 'closed)
+              (.cc ObjectContract. responsibilities: fields)
+              (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+         ((Maybe) (Maybe (build (cadr term))))
          ((List) (List (build (cadr term))))
          ((Tuple) (apply Tuple (map build (cdr term))))
          ((Function) (Function (map build (cadr term)) (map build (caddr term)))))))))

@@ -112,7 +112,7 @@
         (check-equal? (.get report solutions) '(()))
         (check (eq? (.get report instance prototype) prototype) => #t)))
     (test-case "unsupported syntax and work exhaustion are never subtype false"
-      (check-exception (subtype-expression? '(Maybe UInt) '(Maybe Integer))
+      (check-exception (subtype-expression? '(Union UInt) '(Union Integer))
                        (type-message? "Unsupported Type constructor"))
       (check-exception (subtype-expression? '(List UInt) '(List Integer) 1)
                        (type-message? "Type work budget exhausted"))

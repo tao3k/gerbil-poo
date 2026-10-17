@@ -7,7 +7,7 @@
 ;; tested in an additional group until their author assigns a functional group.
 (def test-groups
   '((objects support object mop parameters inheritance-hooks)
-    (representations prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
+    (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
     (collections number polynomial rationaldict trie fq)
     (methods multimethod method-combination method-declaration)
     (declarations declarative-metadata generalized-declaration recursive-declaration meta-prototype)

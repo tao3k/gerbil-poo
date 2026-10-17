@@ -1,6 +1,6 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
 (export prototype-type instantiate-prototype infer-prototype)
-(import (only-in :std/list/list delete-duplicates/hash)
+(import :std/error (only-in :std/list/list delete-duplicates/hash)
         ./object ./type-relation
         (prefix-in ./parameters positional.))
 
@@ -18,7 +18,7 @@
   (let ()
     (type-expression `(Tuple ,@variables) variables work)
     (unless (and (andmap symbol? variables)
-                 (not (ormap (cut memq <> '(Any Bool Integer UInt List Tuple Function)) variables))
+                 (not (ormap (cut memq <> '(Any Never Bool Integer UInt List Maybe Tuple Function Object Row Mu)) variables))
                  (= (length variables) (length (delete-duplicates/hash variables)))
                  (equal? variables (positional.parameters prototype)))
       (refuse-type 'malformed "Type variables must match unique prototype parameters" variables))
@@ -48,6 +48,9 @@
     (refuse-type 'malformed "Type substitution arity mismatch"))
   (for-each (lambda (term) (type-expression term [] work)) arguments)
   (let (substitution (map cons (.get scheme variables) (map copy-type arguments)))
+    (let (ground (substitute-type (.get scheme expression) substitution work))
+      (type-expression ground [] work)
+      (normalize-type ground work))
     (unless (andmap
              (lambda (bound)
                (subtype/checked?
@@ -103,10 +106,16 @@
           (let* ((ordered (reverse arguments))
                  (substitution (map cons (.get scheme variables) ordered))
                  (constraints (append (.get scheme bounds) queries)))
-            (when (andmap (lambda (bound)
-                            (subtype/checked?
-                              (substitute-type (car bound) substitution work)
-                              (substitute-type (cadr bound) substitution work) work)) constraints)
+            (when (try
+                    (let (ground (substitute-type (.get scheme expression) substitution work))
+                      (type-expression ground [] work)
+                      (normalize-type ground work))
+                    (andmap (lambda (bound)
+                              (subtype/checked?
+                                (substitute-type (car bound) substitution work)
+                                (substitute-type (cadr bound) substitution work) work)) constraints)
+                    (catch (cause)
+                      (if (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'bounds)) #f (raise cause))))
               (set! solutions (cons ordered solutions))))))
       (let* ((ordered (reverse solutions))
              (status (cond ((null? ordered) 'no-solution)
