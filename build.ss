@@ -102,6 +102,7 @@
     "examples/joint-topology"
     "examples/joint-receipts"
     "examples/joint-coordination"
+    "examples/coordinator-rejoining"
     "examples/joint-coordination-rounds"
     "examples/joint-workers"
     "examples/joint-concurrency"

@@ -22,7 +22,7 @@
   results)
 
 ;; Assert complete states across six real SCC rounds. The callback may defer
-;; releasing the two fresh workers until an independently observed local exit.
+;; releasing fresh workers until independently observed local exits.
 (def (check-revisions owner next
        before-release: (before-release (lambda (_ release) (release)))
        participants: (participants (lambda (_ __) '(a b))))
@@ -32,7 +32,7 @@
     (for-each (lambda (entry) ((checkpoint-reply entry) (list (car row) shared))) (collect next 'next (participants row 'next)))
     (def approved (collect next 'approved (participants row 'approved)))
     (check (eq? before (joint.current owner)) => #t)
-    ;; Both coordinator admissions returned; only uninstalled metadata drifts.
+    ;; All participant admissions returned; only uninstalled metadata drifts.
     (.putslot! shared 'budget ($constant-slot-spec (+ (caddr row) 1)))
     (.putslot! shared 'budget ($constant-slot-spec (caddr row)))
     (for-each (lambda (entry) ((checkpoint-reply entry) 'install)) approved)

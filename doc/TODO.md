@@ -403,6 +403,16 @@ joins cannot launch unsupervised work. Lean records no-write rejoining, current-
 preparation and head/guard-stale receipt rejection. See
 [coordinator-rejoining.md](coordinator-rejoining.md) for premises and native controls.
 
+Named recovery decisions now compose through `call-with-rejoining-coordinators`.
+Two failed names interleave five recoveries across six SCC phases, including both
+orders of a common exit wave, a delayed replacement while another fails again,
+four-way current competition and mixed historical receipt refusal. A later failed
+recovery handler cleans another name's live replacement and child. Lean adds
+arbitrary lifecycle-wave erasure, whole-owner preservation, historical refusal and
+fresh factory observation laws. See
+[coordinator-interleaving.md](coordinator-interleaving.md) for the exact scenario,
+callback contract and conditional proof scope.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
