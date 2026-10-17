@@ -376,6 +376,15 @@ Unobserved results, escaped operations and duplicate release refuse. Lean binds
 successful new preparation to the observed prefix head and proves late-attempt
 preservation. See [joint-restaging.md](joint-restaging.md) for precise boundaries.
 
+Independent native coordinators now own separate continuing worker scopes while
+concurrently preparing and publishing through one owner. Standard thread groups
+supervise both coordinators and their nested workers. Six SCC phases share a
+proposal, refuse its revision drift, then concurrently restage independent valid
+candidates while older siblings remain pending; exactly one primary publishes.
+Supervisor-failure recursive cleanup and original error propagation are covered.
+Lean proves competing same-prefix factories, superseded observations and source
+preservation after refused prefixes. See [joint-coordination.md](joint-coordination.md).
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

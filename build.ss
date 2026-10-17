@@ -101,6 +101,7 @@
     "examples/joint-services"
     "examples/joint-topology"
     "examples/joint-receipts"
+    "examples/joint-coordination"
     "examples/joint-workers"
     "examples/joint-concurrency"
     "examples/cyclic-access"
