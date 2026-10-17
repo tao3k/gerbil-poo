@@ -12,7 +12,7 @@ env:
   GERBIL_PATH: ${{ github.workspace }}/.ci-library
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
       matrix: ${{ steps.groups.outputs.matrix }}
@@ -76,7 +76,7 @@ jobs:
   test:
     name: ${{ matrix.group }}
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -95,7 +95,7 @@ jobs:
         run: printf '%s\n' ${{ matrix.modules }} | xargs -P 2 -n 1 just test-file
   single-process:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
