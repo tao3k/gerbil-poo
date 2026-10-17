@@ -19,11 +19,23 @@ jobs:
           bazelisk-cache: true
           repository-cache: true
       - name: Compile the Scheme modules once
-        run: bazel build //:library --disk_cache=${{ runner.temp }}/scheme-build-cache
+        run: bazel build //:library
+      - name: Package this run's compiled library
+        run: |
+          mkdir -p .ci-library
+          cp -a bazel-bin/library.project .ci-library/ci-library.project
+          tar -cf .ci-library/library.tar -C .ci-library ci-library.project
+          cp bazel-bin/library.receipt.json bazel-bin/library.log .ci-library/
+          git rev-parse HEAD > .ci-library/revision
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: scheme-build-cache
-          path: ${{ runner.temp }}/scheme-build-cache
+          name: scheme-library-${{ github.sha }}
+          path: |
+            .ci-library/library.tar
+            .ci-library/library.receipt.json
+            .ci-library/library.log
+            .ci-library/revision
+          include-hidden-files: true
           retention-days: 1
           compression-level: 0
           if-no-files-found: error
@@ -63,10 +75,12 @@ jobs:
           cache-save: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: scheme-build-cache
-          path: ${{ runner.temp }}/scheme-build-cache
+          name: scheme-library-${{ github.sha }}
+          path: .ci-library
+      - name: Require this run's exact producer revision
+        run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
       - name: Run independent Scheme module tests
-        run: bazel test //:${{ matrix.group }} --disk_cache=${{ runner.temp }}/scheme-build-cache --local_test_jobs=2
+        run: bazel test //:${{ matrix.group }} --define=scheme_shared_build=1 --local_test_jobs=2
       - name: Retain failed module diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

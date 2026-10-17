@@ -50,8 +50,9 @@ and 90-second limit. Seventeen functional groups run as independent GitHub jobs;
 selects a single module. The declaration checks that every test belongs to exactly
 one group, so new modules cannot silently escape CI.
 
-One build job publishes the Bazel action cache to the dependent test jobs. Bazel
-reuses compiled outputs only when their action keys match; a cache miss rebuilds.
+One build job publishes this run's compiled library to the dependent test jobs.
+Each job verifies the producer revision and restores that declared artifact;
+test jobs contain no library compilation action. See [CI checks](doc/ci-checks.md).
 Linux uses a SHA-256 pinned, already compiled gerbil-bazel release with verified
 upstream revision. Darwin development uses its compatible installed compiler.
 No compiler source build, companion Lean checkout or repository shell wrapper is
