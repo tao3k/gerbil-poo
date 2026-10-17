@@ -935,5 +935,15 @@ admission and the existing exact-reference `declarative-metadata.bind-evidence`
 helper. Stale context refusal, prior-rule preservation, nested binding and retry
 from the current template have Scheme controls and corresponding Lean laws.
 This advances the generalized-prototype future work. The finite identity model
-does not authenticate result fields, infer subtypes, wrap nested Function fields,
-detect in-place mutation or roll back external effects.
+does not authenticate result fields, infer subtypes, detect in-place mutation
+or roll back external effects.
+
+Declared nested ObjectContract responsibilities now validate and persistently
+wrap Function fields before whole-object obligations/refinement. The FUN chain
+binds evidence to the final normalized subject; raw/stale/mismatched evidence
+is rejected. Multiple values, higher-order inputs/results, derived validators,
+ancestry preservation and failure/retry have executable controls and pure Lean
+laws. See `examples/function-publication.ss` and [object-contracts.md](object-contracts.md).
+Remaining Function/container work includes wrapper deduplication, variadic and
+keyword arities, arbitrary container recursion and higher-order blame. These
+are not closed by this finite declared-object protocol.

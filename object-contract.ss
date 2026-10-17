@@ -3,6 +3,7 @@
 (export ObjectContract. TypeContract. diagnose as-value-contract refine)
 (import (only-in :std/list/list foldl append-map filter-map)
         ./object-diagnostics
+        ./object-contract-validation
         (only-in ./object .o .cc .get .ref .slot? .all-slots object?
                  compute-precedence-list!)
         (only-in ./mop Type Type. define-type .defgeneric element? validate))
@@ -52,7 +53,7 @@
 
 ;; Inspect names before unknown values. Only declared fields and explicit
 ;; constraints demand values; ancestry refusal never demands candidate fields.
-(def (object-issues descriptor-value value location)
+(def (object-shape-issues descriptor-value value location check-field)
   (cond
     ((not (object? value)) (list (issue 'expected-object location)))
     ((let (prototype (.get descriptor-value required-prototype))
@@ -74,13 +75,11 @@
                 (lambda (name)
                   (let (field-path (append location (list name)))
                     (if (.slot? value name)
-                      (checked-issues (diagnose (.ref fields name) (.ref value name) field-path))
+                      (checked-issues (check-field (.ref fields name) (.ref value name) field-path))
                       (list (issue 'missing-field field-path)))))
                 names))
             (structural-errors (append extra-errors field-errors)))
-       (if (pair? structural-errors)
-         structural-errors
-         ((.get descriptor-value prepared-obligations) value location))))))
+       structural-errors))))
 
 ;; Responsibilities are required fields. Optional/default policy can instead be
 ;; owned by a Schema Type in constraints; it is not guessed from absent slots.
@@ -89,7 +88,8 @@
 (define-type (ObjectContract. @ Type.
                             identity responsibilities required-prototype
                             extra-fields constraints obligations
-                            prepared-responsibilities prepared-constraints prepared-obligations .diagnose)
+                            prepared-responsibilities prepared-constraints prepared-obligations
+                            prepared-validation .diagnose-shape .diagnose)
   identity: 'object
   responsibilities: (.o)
   required-prototype: #f
@@ -98,13 +98,15 @@
   obligations: (lambda (_value _path) '())
   prepared-responsibilities: (prepare-responsibilities responsibilities)
   prepared-constraints: (prepare-constraints constraints)
+  prepared-validation: (prepare-validation prepared-responsibilities)
   prepared-obligations:
   (diagnostic-then
     (diagnostic-all (map (lambda (constraint) (cut diagnose constraint <> <>)) prepared-constraints))
     obligations)
   .element?: (lambda (value) (null? (.diagnose value '())))
-  .diagnose:
-  (lambda (value location)
+  .validate: (lambda (value) (validate-object @ value))
+  .diagnose-shape:
+  (lambda (value location (check-field diagnose))
     (unless (list? location) (error "Diagnostic path must be a list"))
     (unless (or (not required-prototype) (object? required-prototype))
       (error "Required prototype must be a POO object or false" identity))
@@ -112,7 +114,11 @@
                  (or (eq? extra-fields 'reject)
                      (and (eq? extra-fields 'delegate) (pair? prepared-constraints))))
       (error "Invalid object contract policy" identity))
-    (object-issues @ value location)))
+    (object-shape-issues @ value location check-field))
+  .diagnose:
+  (lambda (value location)
+    (def failures (.diagnose-shape value location))
+    (if (pair? failures) failures (prepared-obligations value location))))
 
 ;; Strengthen the effective obligations without overriding the parent checks.
 ;; The inherited-computation syntax keeps the parent callback receiver-aware:
@@ -124,7 +130,8 @@
   ;; structural descriptor protocol without forcing its prepared callbacks.
   (unless (andmap (cut .slot? descriptor <>)
             '(responsibilities required-prototype extra-fields constraints obligations
-              prepared-responsibilities prepared-constraints prepared-obligations))
+              prepared-responsibilities prepared-constraints prepared-obligations
+              prepared-validation .diagnose-shape))
     (error "Refinement requires an ObjectContract descriptor"))
   (unless (procedure? additional) (error "Refinement must be a diagnostic procedure"))
   (.o (:: @ descriptor)

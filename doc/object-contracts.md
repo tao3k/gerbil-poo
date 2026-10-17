@@ -56,9 +56,10 @@ decisions agree; supplying a method cannot prove its correctness.
 
 `TypeContract.` delegates `.element?` **and `.validate`** to its `expected-type`.
 For a Function Type, membership can only recognize a procedure; validation keeps
-the existing checked input/output wrapper. Structural object admission does not
-silently replace procedure-valued fields with wrappers. Install checked calls at
-the explicit callable boundary.
+the existing checked input/output wrapper. `diagnose` and `.element?` remain
+recognizers. Explicit `validate` recursively validates declared ObjectContract
+responsibilities and installs any changed fields in a persistent derived object;
+consumers must use that returned value. Untouched scalar objects keep identity.
 
 The existing `declarative-metadata` invocation Contract composes directly:
 
@@ -233,3 +234,44 @@ original-rule preservation, exact reference association and old-state retention
 on mismatch, assuming identity carriers and a total pure projection. These are
 future-work extensions of the paper's descriptor constructions, not claims that
 the original Racket API contained these helpers.
+
+## Nested Function fields, refinement and publication
+
+`object-contract-validation` prepares the effective field validators once per
+receiver. Validation has three stages:
+
+1. Recursively check object/prototype/inventory and leaf membership, without
+   running nested whole-object obligations on raw procedure fields.
+2. Validate declared fields in order through their existing Type `.validate`.
+   Nested ObjectContracts recurse; Function Types supply their existing wrappers.
+   Only after the complete field batch succeeds, construct one derived object
+   containing changed fields. Inheriting the source preserves prototype ancestry.
+   If no field changes, return the original object. The source is not mutated.
+3. Run complete diagnostics, constraints and `refine` on the final object. Nested
+   refinement therefore observes wrapped fields. A refusal returns no candidate.
+
+`examples/function-publication.ss` composes JSON service input, a nested engine,
+multiple returned values, a callback factory, cross-object refinement and FUN
+publication. `bind-evidence` receives the actual normalized root. An evidence
+record naming the raw source, a different descriptor or an old context fails;
+retry starts from the current invocation template. Callback errors preserve the
+old returned state, without undoing effects that the callback already performed.
+`t/object-contract-validation-test.ss` includes these negative controls, input
+and output arity, higher-order inputs/results, original exception identity,
+prototype preservation and derived-descriptor preparation.
+
+The corresponding Lean modules are `FunctionValidation` and
+`ObjectContractValidation`. They prove pure input/source/output gating, exact
+error retention, all-or-error field batching, normalized final refinement and
+composition with exact-reference evidence. Representation lookup laws and the
+mapping from model references to immutable Scheme identities are explicit
+premises. The executable example models dynamic scalar rows and checked callbacks;
+it does not verify the JSON parser or host runtime.
+
+This advances the generalized-prototype future work using the paper's section 5
+recognizer/validator distinction and existing Function descriptors. It does not
+provide general higher-order blame, wrapper deduplication, variadic/keyword
+Function descriptors, recursive cyclic object closure, or recursive validation
+inside arbitrary List/Tuple/Schema containers. Custom validators/getters retain
+their effects and termination obligations. Revalidation may wrap again; no
+accepted-value cache is added. Nested obligations may be checked more than once.
