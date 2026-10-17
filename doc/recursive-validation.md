@@ -184,3 +184,58 @@ old-reference/context refusal and retry. The proofs concern a finite consistentl
 indexed catalog with supplied source/dependency/host-identity correspondence;
 Scheme membership edits are tested controls, not a proof of arbitrary index
 relowering. No Scheme runtime/compiler, GC or performance theorem is asserted.
+
+## Multi-round membership and dependency migration
+
+`reconfigure-validation current added removed replacements` checks one complete
+catalog edit before calling `revise-validation`; `reconfiguration-action` supplies
+the same operation as a FUN Reader action. Added/replacement entries are ordinary
+`validation-node` recipes; removals are names. Survivors preserve recipe identity
+and order, and additions are appended. All write names must be distinct: additions
+must be new, removals must exist, replacements must survive. Removing/readding
+one name in a single batch refuses; resubmission after a later round is supported.
+The final nonempty/size/dependency checks run before any builder. This is catalog
+membership publication, not a cross-effect or concurrent transaction.
+
+`examples/recursive-migration.ss` exposes reusable provider, peer and summary recipe
+constructors, plus stable report/meter/idle recipes. The matching Lean and Scheme
+workflow is:
+
+| Round | Edit | Construction decision | Report |
+| --- | --- | --- | --- |
+| 0 | Start provider a, cyclic peers, left summary, report and idle | Close all | 19 |
+| 1 | Add b; migrate both shared links; summary chooses right | Rebuild peers/summary/report/b; retain a/idle | 35 |
+| 2 | Remove unread a; add downstream meter | Build meter only, despite shifted directory positions | 35 |
+| 3 | Remove b; re-add the exact original a recipe; migrate back | Rebuild readers/a/meter; retain idle | 19 |
+| 4 | Change left weight and summary; late refusal, then retry | Failed candidate leaves current graph; retry retains a/idle | 27 |
+| 5 | Switch only computed summary reader | Rebuild summary/report/meter; retain provider/peer SCC/idle | 33 |
+
+Old a references never become valid again after resubmitting that same name and
+recipe. A separate equal-output control switches summary from left to right when
+both return 6: summary/report still rebuild, old summary references refuse, and
+peer receivers remain shared. Root refinement checks the actual chosen reader,
+shared aliases and checked method capture; existing FUN publication binds exact
+current subject/descriptor/context and rejects stale-context evidence.
+
+`Functional.RecursiveMigration` extends the earlier fixed-index proof with checked
+**named** catalogs. Ordered lowering preserves repeated reference aliases; names
+resolve to actual current rows, and injectivity prevents accidental row merging.
+Clean named identities survive index shifts. A logical per-name generation ledger
+retains tombstones across removal/readdition, proving cross-gap refusal. Gerbil
+implements this boundary with fresh canonical/Type identities and permanently
+revoked old capabilities; it does not serialize Lean numeric generations.
+
+Named body/new-node/footprint seeds feed the existing positive Boolean least fixed
+point. Its equations, leastness, finite height bound and reader/clean-dependency
+laws cover shared nodes and SCCs. Removing edges starts from the least solution,
+without keeping unsupported old dirty bits. Named reclosure refuses dangling
+lowering before callbacks, never reuses an outside-support fallback for additions,
+and composes every final obligation with exact bound-root evidence.
+
+These are finite explicit-dependency constructions advancing generalized MOP future
+work. Mathematical named/index lowering is now proved; correspondence to actual
+Scheme object identity, complete callback reads, immutable metadata, custom Type
+laws and sequential mutation remains required. Positive invalidation equations do
+not solve arbitrary eager computed getters. Graph commit and FUN effect admission
+remain separate boundaries; no cross-effect rollback, arbitrary retained-Function
+revocation, concurrent isolation or runtime/compiler/GC certification is claimed.

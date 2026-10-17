@@ -1099,3 +1099,17 @@ refinement and bound FUN evidence. Lean `Functional.RecursiveRevision` composes
 existing checked reachability and finite graph closure proofs. Source/read
 completeness and host stamp/identity correspondence are premises; runtime, GC,
 concurrent installation and arbitrary callback termination are not certified.
+
+### Named recursive catalog migration
+
+Racket sections 2/5 supply the shared final-self and recursive Type constructions;
+whole graph revision is generalized MOP future work. Gerbil's checked batch
+`reconfigure-validation` composes the existing recursive closure, supported source
+stamps and per-attempt Reference directory, with FUN Reader/evidence publication.
+The six-round fixture migrates both shared links, removes/re-adds an identical
+recipe, changes computed readers, and retries late final refusal. Lean
+`Functional.RecursiveMigration` now proves named/index lowering, sharing/order,
+clean identity under row shifts, tombstone/refusal and positive least invalidation
+laws, plus current all-node admission and bound evidence. Numeric epochs are the
+logical identity model, not a Scheme checkout/runtime dependency. Untracked reads,
+external effects, custom Type laws and concurrent installation remain boundaries.

@@ -1,7 +1,8 @@
 ;;; Finite recursive object graph closure over the existing Type and Slot protocols.
 (export close-validation validation-action closed? closed-ref closed-type closed-names
         validation-failure? validation-failure-kind validation-failure-cause
-        validation-node revise-validation revision-action closed-evaluated closed-reused)
+        validation-node revise-validation revision-action closed-evaluated closed-reused
+        reconfigure-validation reconfiguration-action)
 (import (only-in :std/list/list delete-duplicates/hash filter find)
         (only-in :std/hash/misc hash-ensure-ref)
         ./object (only-in ./mop Type. Type validate raise-type-error)
@@ -302,3 +303,40 @@
 ;; FUN Reader action: thread the current graph through one complete revision.
 (def (revision-action specifications (limit 256))
   (lambda (current) (revise-validation current specifications limit)))
+
+;; Reconfigure final catalog membership and recipes in one checked batch. Additions
+;; cannot overwrite an existing name; replacements target surviving names only.
+;; Remove/re-add is a later-round operation, so no ambiguous same-batch revival
+;; can bypass reference retirement. All edit checks precede every builder, and
+;; revise-validation checks final dependency support before rebuilding anything.
+(def (reconfigure-validation previous added removed replacements (limit 256))
+  (unless (and (closed? previous) (closed-dependencies previous)
+               (not (vector-ref (closed-retired previous) 0)))
+    (raise (make-validation-failure 'stale #f)))
+  (unless (and (list? added) (andmap node-spec? added)
+               (list? replacements) (andmap node-spec? replacements)
+               (list? removed) (andmap symbol? removed))
+    (raise (make-validation-failure 'edit #f)))
+  (def old (closed-specifications previous))
+  (def names (closed-names previous))
+  (def additions (map node-spec-name added))
+  (def updates (map node-spec-name replacements))
+  ;; Distinct writes and surviving targets are validated together; equal recipes
+  ;; do not excuse duplicate contributions from separate services.
+  (def (distinct? keys) (= (length keys) (length (delete-duplicates/hash keys))))
+  (unless (and (distinct? (append additions updates)) (distinct? removed)
+               (andmap (lambda (name) (not (memq name names))) additions)
+               (andmap (cut memq <> names) removed)
+               (andmap (lambda (name) (and (memq name names) (not (memq name removed)))) updates)
+               (andmap (lambda (name) (not (memq name removed))) additions))
+    (raise (make-validation-failure 'edit #f)))
+  (def survivors (filter (lambda (spec) (not (memq (node-spec-name spec) removed))) old))
+  (revise-validation previous
+    (append (map (lambda (spec)
+      (or (find (lambda (replacement) (eq? (node-spec-name spec) (node-spec-name replacement))) replacements)
+          spec)) survivors) added) limit))
+
+;; FUN Reader action from the actual current snapshot to the complete final graph.
+;; Publication/evidence effects remain the existing caller-owned next action.
+(def (reconfiguration-action added removed replacements (limit 256))
+  (lambda (current) (reconfigure-validation current added removed replacements limit)))

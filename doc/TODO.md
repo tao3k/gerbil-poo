@@ -1027,3 +1027,17 @@ This advances generalized MOP future work. Complete declared reads, immutable
 untracked metadata and sequential mutation discipline remain premises; automatic
 callback-read discovery, concurrent installation and arbitrary retained-Function
 revocation remain open. See [recursive-validation.md](recursive-validation.md).
+
+Multi-round recursive catalog edits now have `reconfigure-validation` and the
+FUN-compatible `reconfiguration-action`. Distinct additions/removals/replacements
+are validated before construction; survivors keep recipes, final dangling targets
+refuse, and same-name resubmission after removal cannot revive old References.
+`examples/recursive-migration.ss` covers six rounds of provider add/remove/shared
+migration, downstream addition, computed-footprint change, late refusal/retry and
+refine/bound-evidence publication, including equal-output reader replacement.
+Lean `Functional.RecursiveMigration` fills mathematical named catalog/index lowering
+and cross-gap generation laws, reusing finite collection, recursive reclosure and
+positive least invalidation. This advances future work. Complete declared reads,
+Scheme source/identity correspondence, callback termination and sequential mutation
+remain premises; automatic read discovery and concurrent/cross-effect transactions
+remain open. See [recursive-validation.md](recursive-validation.md).
