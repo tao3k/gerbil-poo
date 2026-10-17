@@ -307,6 +307,9 @@
                  (.all-slots effective-slots))
           (or (not sealed) ;; sealed means only defined slots can be present.
               (every (cut .slot? effective-slots <>) (.all-slots x)))))
+  ;; Finite graph closure uses the same selected field normalizers without
+  ;; invoking initialization hooks or forcing a partly allocated peer receiver.
+  .validation-fields: (lambda (value) (class-validation-fields class value))
   ;; Class validation wraps effective typed fields before final membership.
   .validate: (lambda (value) (validate-class class value
                         (lambda (descriptor candidate details)

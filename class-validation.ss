@@ -1,8 +1,8 @@
 ;;; Recursive Class validation through its current effective Slot protocols.
-(export class-diagnostics class-shape class-slot-shape class-slot-validate validate-class)
+(export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class)
 (import (only-in :std/list/list append-map filter-map)
         (only-in ./object .o .slot? .get .ref .call .all-slots object?)
-        (only-in ./validation-rebinding rebind-validation)
+        (only-in ./validation-rebinding rebind-validation finish-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
 
 ;; A standard Slot checks required/optional presence and constants before its
@@ -49,20 +49,25 @@
         ((.call descriptor .element? candidate) '())
         (else [(.o kind: 'class-rejected path: location)])))
 
+;; Expose receiver-bound checks for ordinary validation and finite graph closure.
+;; Only present effective fields participate; optional absence remains untouched.
+(def (class-validation-fields descriptor candidate)
+  (def slots (.get descriptor effective-slots))
+  (filter-map (lambda (name)
+                (and (.slot? candidate name)
+                  (let (slot (.ref slots name))
+                    (cons name (lambda (original receiver)
+                      (.call (.get slot .type) .slot.validate slot name original receiver))))))
+              (.all-slots slots)))
+
 ;; Complete shape admission precedes receiver-bound Slot normalization. All
 ;; checks finish before final membership; computed dependencies use the rebound
 ;; receiver and ordinary inherited specification/override/cache semantics.
 (def (validate-class descriptor candidate refuse)
   (def shape (diagnose-structure descriptor candidate '()))
   (unless (null? shape) (refuse descriptor candidate shape))
-  (def slots (.get descriptor effective-slots))
-  (def checks
-    (filter-map (lambda (name)
-                  (and (.slot? candidate name)
-                    (let (slot (.ref slots name))
-                      (cons name (lambda (original receiver)
-                        (.call (.get slot .type) .slot.validate slot name original receiver))))))
-                (.all-slots slots)))
+  (def checks (class-validation-fields descriptor candidate))
   (def checked (rebind-validation candidate checks))
-  (unless (.call descriptor .element? checked) (refuse descriptor checked 'class-rejected))
+  (finish-validation (lambda ()
+    (unless (.call descriptor .element? checked) (refuse descriptor checked 'class-rejected))))
   checked)

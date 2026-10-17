@@ -272,7 +272,7 @@ it does not verify the JSON parser or host runtime.
 This advances the generalized-prototype future work using the paper's section 5
 recognizer/validator distinction and existing Function descriptors. It does not
 provide general higher-order blame, wrapper deduplication, variadic/keyword
-Function descriptors, recursive cyclic object closure, or automatic validation
+Function descriptors, unregistered recursive cyclic object closure, or automatic validation
 inside every possible container family. Custom validators/getters retain
 their effects and termination obligations. Revalidation may wrap again; no
 accepted-value cache is added. Nested obligations may be checked more than once.
@@ -319,7 +319,7 @@ for Scheme identities; it does not prove host representation, GC, parser or runt
 The paper's section 5 Racket `ListOf` supplies recursive membership, while its
 more elaborate Type discussion covers functions and objects with typed slots.
 Recursive wrapping here advances the generalized-prototype future work. Remaining
-work includes arbitrary external schema adapters, cyclic object/container closure, wrapper deduplication, optional
+work includes arbitrary external schema adapters, unregistered cyclic object/container closure, wrapper deduplication, optional
 or keyword arities and higher-order blame. Caller immutability and custom Type
 agreement/termination remain required. No persistent validation cache is added.
 
@@ -375,7 +375,7 @@ certify the host hash implementation or portable hash traversal order.
 
 These normalizers advance the paper's generalized-prototype future work using
 its section 5 Type/recognizer and dict/object/function constructions. Other Type
-families, arbitrary external schema adapters, cyclic closure, wrapper deduplication,
+families, arbitrary external schema adapters, unregistered cyclic closure, wrapper deduplication,
 optional/keyword arities, higher-order blame and effect rollback remain open.
 
 ## Maybe, OrFalse and dependent TypeValuePair
@@ -421,7 +421,7 @@ and reference tokens are supplied interpretations; host identity and allocation,
 JSON parsing, the runtime and external effect rollback are not proved.
 
 This advances the paper's section 5 descriptor/generalized-prototype future work.
-Arbitrary external schema adapters, cyclic closure, wrapper deduplication, optional/keyword Function arities,
+Arbitrary external schema adapters, unregistered cyclic closure, wrapper deduplication, optional/keyword Function arities,
 higher-order blame and general callback termination remain open. Existing I/O
 capabilities/limitations, including executable value serialization, are unchanged.
 
@@ -455,7 +455,7 @@ These additions advance section 5 type descriptors and the generalized MOP futur
 work. The Lean companion proves finite pure Slot/initialization/refinement laws
 and executes a corresponding service workflow; Scheme has no Lean checkout
 requirement. Supplied C3 resolution, prototype defaults, host identity, arbitrary
-lexical capture rebinding, cyclic closure, callback termination, GC and external
+lexical capture rebinding, unregistered cyclic closure, callback termination, GC and external
 effect rollback are not proved. The original example's computed audit captures
 unchanged scalar state; the extension below covers final-self dependencies. Constants keep exact equality before and after normalization: if wrapping
 changes that equality, validation refuses (including such Function constants).
@@ -503,7 +503,27 @@ Limits: global structural getters still run on the raw source before wrapping.
 Getter/validator effects and general callback termination are caller obligations;
 a callback may retain its private receiver, and external effects do not roll back.
 Arbitrary lexical snapshots cannot be rebound. Existing constants retain strict
-equality; cyclic object closure and wrapper canonicalization are still open.
+equality; unregistered cyclic object closure and wrapper canonicalization are still open.
 Fresh immutable source/descriptor/context correspondence and finite terminating
 getters remain required. This is not mutable freshness after admission, automatic
 revalidation after revision, or a host/runtime/GC performance proof.
+
+
+## Controlled recursive graph closure
+
+Finite explicitly named recursive object graphs now use `recursive-validation.ss`:
+Class and ObjectContract share field preparation, all receiver identities are
+allocated before edge normalization, and nested whole-value obligations wait for
+all node batches. Canonical references preserve named sharing/backedges; all nodes,
+including unobserved targets, must finally pass. Later Reference validation retains
+canonical identity and rechecks admission/current revision stamps. Ordinary
+validation outside this explicit scope remains immediate.
+
+`examples/recursive-validation.ss` combines productive computed peer Functions,
+existing positive least closure, safe recursive memo, FUN, root refinement and exact
+evidence. Immediate eager getter cycles still reject. Cross-owner descriptors,
+missing targets, failed deferred queues and stale graphs cannot return a closed
+value. Scope, API and Racket/Lean/Gerbil correspondence are documented in
+[recursive-validation.md](recursive-validation.md). This advances generalized MOP
+future work; unregistered/coinductive recursion, arbitrary callback termination,
+external effects and concurrent mutation remain outside the proof.

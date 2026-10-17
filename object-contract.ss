@@ -102,6 +102,8 @@
   prepared-responsibilities: (prepare-responsibilities responsibilities)
   prepared-constraints: (prepare-constraints constraints)
   prepared-validation: (prepare-validation prepared-responsibilities)
+  ;; Finite recursive graph closure shares this exact effective field selection.
+  .validation-fields: (lambda (_value) (validation-fields prepared-responsibilities))
   prepared-obligations:
   (diagnostic-then
     (diagnostic-all (map (lambda (constraint) (cut diagnose constraint <> <>)) prepared-constraints))

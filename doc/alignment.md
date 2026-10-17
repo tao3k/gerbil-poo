@@ -1064,3 +1064,24 @@ lexically closed snapshots, arbitrary termination, mutable freshness and host
 GC/costs are not proved. General cyclic object closure and Function constant
 canonicalization remain separate work. The implementation advances generalized
 MOP future work without a Scheme dependency on the Lean checkout.
+
+
+## Controlled recursive object and computed-cycle closure
+
+| Responsibility | Racket / Lean | Gerbil |
+| --- | --- | --- |
+| Complete final receiver and typed-slot semantics | Paper sections 2 and 5; existing final-self request semantics | Existing computed Slot layers with finite owner-scoped Reference Types |
+| Complete named catalog before recursive edges | `Functional.RecursiveValidation.checkCatalog`, `catalog_success`; supplied named-to-Fin lowering | Nonempty bounded catalog, unique names, all targets registered |
+| Canonical cycles, aliases and distinct nodes | `assemble`, `edge_preserved`, `shared_target`, `distinct_targets` | Allocate all receivers before normalization; one target per named Reference |
+| All nodes normalized before whole-graph obligations | `collect_apply`, `collect_complete`, phase error laws and `requirements` | Shared `.validation-fields`, split rebinding and isolated deferred nested obligations |
+| Productive computed work and Boolean cycles | Existing certified recursive memo and `PositiveEquations.least`; concrete backedge theorem | Existing Interaction/memo/current Type boundary and `closure` least closure |
+| Root refinement and exact publication | Existing refinement/binding laws, `bound_root`, `Examples/RecursiveContracts.lean` | `examples/recursive-validation.ss`, FUN and `bind-evidence` |
+
+The graph protocol advances future work; it is not already present wholesale in
+the paper's Racket code. Named catalog/host identity/receiver preparation and
+revision/deferred-check correspondence are explicit adapter boundaries. Source
+mutations invalidate access, not every arbitrary retained Function. Custom callback
+effects, unregistered recursion, arbitrary termination, raw setters and concurrent
+mutation remain outside the model. Immediate computed cycles and incomplete
+recursive requests reject rather than manufacture a closed value. See
+[recursive-validation.md](recursive-validation.md); Scheme has no Lean dependency.

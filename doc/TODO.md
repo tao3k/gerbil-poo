@@ -986,6 +986,21 @@ generalized MOP future work. Raw structural getter effects and arbitrary lexical
 captures are outside that closure.
 Remaining work includes lexical snapshot rebinding, constant Function
 canonicalization (equality-changing wrappers currently refuse), arbitrary external
-schema adapters, cyclic closure, wrapper deduplication,
+schema adapters, unregistered cyclic closure, wrapper deduplication,
 variadic/keyword Function arities, higher-order blame and general callback
 termination. These are not closed by the finite container protocol.
+
+
+Finite recursive object validation now has an explicit named-catalog closure:
+`recursive-validation.ss` allocates canonical receivers before normalizing edges,
+checks every node, defers nested whole-value obligations until all batches finish,
+and refuses foreign owners/stale revisions. Productive computed Function backedges
+compose with the existing safe recursive memo and positive least closure in
+`examples/recursive-validation.ss`. The 17 new controls cover shared targets,
+cyclic identity, nested refinement, failed queue unwinding, owner/stale rejection,
+eager cycles, finite-budget refusal, FUN/refine/evidence and retry. The Lean model
+proves catalog/graph admission and reference laws; host correspondence and callback
+termination remain explicit. See [recursive-validation.md](recursive-validation.md).
+This advances future work; it does not close arbitrary coinductive Type checking,
+automatic graph discovery, unrestricted recursive containers or retained-call
+revocation/concurrent mutation.
