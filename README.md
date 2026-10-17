@@ -30,17 +30,23 @@ See the [doc/TODO.md](doc/TODO.md) document for projects.
 
 [`closure`](doc/closure.md) provides positive Boolean closure with private compiled
 metadata, owned byte state, allocation-aware queue selection, immutable public
-snapshots, retained-topology revisions, POO workflow controls and native benchmarks.
+snapshots, retained-topology revisions, POO workflow controls and Scheme benchmarks.
 This advances generalized-prototype future work with a bounded Lean cost-model
 companion; it does not change ordinary prototype recursion.
 
-### Native CI
+### Scheme CI
 
-`bazel test //:test` builds the declared `build.ss` modules and runs the standard
-Scheme harness through `t/ci.ss`, forwarding its failure status to the process.
+`bazel test //:test` builds the declared `build.ss` modules and runs every test
+module in a separate standard Scheme harness process, with its own failure status
+and 90-second limit. Seventeen functional groups run as independent GitHub jobs;
+`bazel test //:recovery` selects one group, and `bazel test //:coordinator-prepared_test`
+selects a single module. The declaration checks that every test belongs to exactly
+one group, so new modules cannot silently escape CI.
+
+One build job publishes the Bazel action cache to the dependent test jobs. Bazel
+reuses compiled outputs only when their action keys match; a cache miss rebuilds.
 Linux uses a SHA-256 pinned, already compiled gerbil-bazel release with verified
-upstream revision; no compiler source build or companion Lean checkout is needed.
-Darwin development resolves the installed compatible native compiler. The workflow
-and Bazel declarations contain no repository shell wrapper. Generated action
-outputs and dependency lockfiles are ignored; release artifacts are downloaded
-into Bazel's external cache, never committed here.
+upstream revision. Darwin development uses its compatible installed compiler.
+No compiler source build, companion Lean checkout or repository shell wrapper is
+required. Generated outputs and dependency lockfiles are ignored; toolchain and
+build caches stay outside Git. A PR commit triggers one matrix run.

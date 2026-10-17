@@ -7,7 +7,7 @@ git_override(
     commit = "9b5900d187e7fbb2a50f8e917ec05ba919158d58",
 )
 
-# Linux CI consumes the published compiler; Darwin development uses its native
+# Linux CI consumes the published compiler; Darwin development uses its
 # installation. Neither provider builds a compiler or accesses a Lean checkout.
 gerbil = use_extension("@gerbil_bazel//gerbil:extensions.bzl", "gerbil")
 gerbil.auto(

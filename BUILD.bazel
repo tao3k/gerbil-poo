@@ -1,7 +1,7 @@
-load("@gerbil_bazel//gerbil:defs.bzl", "gerbil_project_compile", "gerbil_project_test")
+load("@gerbil_bazel//gerbil:defs.bzl", "gerbil_project_compile")
+load(":scheme-tests.bzl", "scheme_test_groups")
 
-# build.ss owns the native module order. Tests and Scheme fixtures are declared
-# inputs; benchmark output, local builds and companion checkouts are excluded.
+# build.ss owns module order. Report validation also reads source identities.
 SOURCES = glob(["*.ss", "support/*.ss", "examples/*.ss", "t/*.ss"]) + ["gerbil.pkg", "justfile"]
 
 gerbil_project_compile(
@@ -10,13 +10,29 @@ gerbil_project_compile(
     srcs = SOURCES,
 )
 
-# ci.ss delegates to the standard harness and explicitly exits with its result.
-# It is not named *-test.ss, so recursive discovery cannot import it again.
-gerbil_project_test(
-    name = "test",
+# Every file has its own Bazel process/result; CI schedules functional groups.
+# Exact partition checking prevents missing or accidentally duplicated modules.
+scheme_test_groups(
     project = ":library",
-    tests = ["t/ci.ss"],
     srcs = SOURCES,
-    test_args = ["-v", "5"],
-    timeout = "long",
+    cases = glob(["t/*-test.ss"]),
+    groups = {
+        "objects": ["support", "object", "mop", "inheritance-hooks"],
+        "representations": ["type", "type-performance", "tuple-json-performance", "tuple-unmarshal-performance"],
+        "collections": ["number", "polynomial", "rationaldict", "trie", "fq"],
+        "methods": ["multimethod", "method-combination", "method-declaration"],
+        "declarations": ["declarative-metadata", "generalized-declaration", "recursive-declaration", "meta-prototype"],
+        "closure": ["closure", "closure-alignment", "component-closure"],
+        "construction": ["construction-cache", "construction-workflow", "focused-closure"],
+        "components": ["component-membership", "component-migration", "component-requests", "component-rounds"],
+        "feedback": ["feedback-cache", "feedback-closure", "feedback-graph", "feedback-revision", "cyclic-access"],
+        "recursion": ["recursive", "recursive-benchmark"],
+        "contracts": ["contract-family", "protected-dispatch", "service-bundle", "service-metadata", "service-revisions", "shared-approvals"],
+        "publication": ["joint-publication", "joint-admission", "joint-receipts", "joint-installation", "approval-revision"],
+        "revisions": ["joint-topology", "joint-rounds", "joint-restaging", "joint-generations"],
+        "coordination": ["joint-coordination", "joint-concurrency", "coordinator-recovery", "coordinator-rejoining"],
+        "recovery": ["coordinator-interleaving", "coordinator-retry", "coordinator-prepared"],
+        "generalized": ["binding-benchmark", "factory-benchmark", "focused-benchmark", "generalized-benchmark", "generalized-closure", "generalized-prototype"],
+        "tools": ["cli", "debug", "lifecycle", "metadata-paired", "metadata-report"],
+    },
 )

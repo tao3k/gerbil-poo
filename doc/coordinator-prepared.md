@@ -24,5 +24,5 @@ The companion model proves stale continuation exclusion, exact receipt preservat
 on fresh checks, and refusal if another change occurs after observation. Its scope
 is finite traces of atomic checked installation, fresh head identities, registered
 guards and pure/locally total callbacks. It does not prove process-crash recovery,
-fair scheduling, eventual success or the native runtime memory model. This project
+fair scheduling, eventual success or the Gerbil memory model. This project
 runs independently; the companion checkout is not a build/test dependency.
