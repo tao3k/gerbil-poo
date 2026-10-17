@@ -35,6 +35,37 @@
 ;; Use actual ordered callbacks, not only final container equality, as acceptance evidence.
 (def library-reuse-test
   (test-suite "Gerbil classes containers and lazy caches"
+    (test-case "core receiver scopes preserve nested and inherited method ownership through FUN"
+      (let* ((events []) (family (declared.make-reporting-family
+                          (lambda (event) (set! events (cons event events)))))
+             (action (declared.scoped-action family 2)))
+        (check-equal? events [])
+        (check-equal? (call/values (lambda () (action (.o rate: 10))) list) '(10 7 46))
+        (check-equal? (reverse events)
+          '(around-enter billing-before risk-before billing-primary base risk-after billing-after around-exit))
+        (set! events [])
+        (check-equal? (call/values (lambda () (action (.o rate: 20))) list) '(20 7 86))
+        (check-equal? (length (filter (cut eq? <> 'base) events)) 1)
+        (check-exception (reflection.read-slot family 'label) Error?)))
+    (test-case "retained nested readers keep owners across clones revisions and independent local changes"
+      (let* ((family (declared.make-family (lambda (_) (void))))
+             (first (declared.make-scoped-account family 10))
+             (copy (.cc first rate: 20))
+             (old-nested (.@ first nested)) (copy-nested (.@ copy nested))
+             (old-reader (.@ old-nested outer)))
+        (check-equal? (old-reader) 10)
+        (check-equal? (call/values (lambda () (.call copy-nested run 2)) list) '(20 7 86))
+        (.putslot! first 'rate ($constant-slot-spec 30))
+        (check-equal? (old-reader) 30)
+        (check-equal? (call/values (lambda () (.call old-nested run 2)) list) '(30 7 126))
+        (.putslot! old-nested 'rate ($constant-slot-spec 9))
+        (check-equal? (call/values (lambda () (.call old-nested run 2)) list) '(30 9 126))
+        (check-equal? (call/values (lambda () (.call copy-nested run 2)) list) '(20 7 86))))
+    (test-case "standard receiver parameter rejects unbound scope and field assignment during expansion"
+      (check (rejects? (%with-shared-slot-bindings (field) (parameter) field)) => #t)
+      (check (rejects? (.o (field 1) (change (lambda () (set! field 2))))) => #t)
+      (check (rejects? (.o (field 1) (read (lambda () field)))) => #f)
+      (check-equal? (.get (.o (receiver 3) (field 7) (read (+ receiver field))) read) 10))
     (test-case "standard alternating lists preserve order false and payload identity"
       (let* ((payload (list 'shared)) (entries (list (cons label: #f) (cons callback: payload)))
              (encoded (alist->plist entries)) (decoded (plist->alist encoded)))

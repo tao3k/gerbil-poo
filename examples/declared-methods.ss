@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action)
+(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.))
 ;; Type-provided methods receive the original account exactly once, then units.
@@ -67,3 +67,24 @@
   (.call gp.Observation. .map
     (lambda (account) (checked account required #f label: 'review #!rest payload: #f))
     (lambda (context) (make-account family (.@ context rate)))))
+
+;; A nested object shadows rate locally while retaining a callable lexical read
+;; of its enclosing account. Both closures use the public core binding mechanism;
+;; inherited qualified methods still receive the exact final outer account.
+(def (make-scoped-account family current-rate)
+  (.o self: account
+    (.type family)
+    (rate current-rate)
+    (read-rate (lambda () rate))
+    (nested (.o
+      (rate 7)
+      (outer read-rate)
+      (local (lambda () rate))
+      (run (lambda (units) (values (outer) (local) (charge account units))))))))
+
+;; FUN creates independent receiver scopes from current contexts and preserves
+;; all three observations. No method body runs while this action is assembled.
+(def (scoped-action family units)
+  (.call gp.Observation. .map
+    (lambda (account) (.call (.@ account nested) run units))
+    (lambda (context) (make-scoped-account family (.@ context rate)))))

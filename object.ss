@@ -6,9 +6,7 @@
 ;; TODO: see Future Features and the Internals TODO sections in document above.
 
 ;; Reexport renamed version of core things we shadow
-(export #t @object? @make-object
-        (for-syntax %make-object-slot-self-parameter
-                    %make-object-slot-identifier-expander))
+(export #t @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -529,20 +527,6 @@
 ;; declarations.  Syntax bindings only need one entry for identifiers that
 ;; denote the same lexical slot.
 (begin-syntax
-  (def (%make-object-slot-self-parameter)
-    (make-syntax-parameter key: (gensym 'slot-self) default: #f))
-
-  (def (%make-object-slot-identifier-expander self-parameter slot ref)
-    (lambda (stx)
-      (let (self (syntax-parameter-value self-parameter))
-        (unless self
-          (raise-syntax-error #f "slot reference outside object method scope" stx))
-        (with-syntax ((self self) (slot slot) (ref ref))
-          (if (identifier? stx)
-            #'(ref self 'slot)
-            (syntax-case stx ()
-              ((_ . args) #'((ref self 'slot) . args))))))))
-
   ;; Identifier equality includes lexical scope. A constant hash is deliberate:
   ;; no datum-based hash may equate hygienically different identifiers. The standard
   ;; deduplicator retains the first syntax object; collision cost stays quadratic.
@@ -640,22 +624,21 @@
      (with-syntax (((slot ...) (deduplicate-slot-identifiers #'(slots ...))))
        #'(let-id-rule ((slot (.@ self slot)) ...) body ...)))))
 
+;; Core syntax parameters own receiver scope and its unbound-scope error. Core
+;; identifier-rules owns field identifier/application expansion and lexical binding.
+;; The shared parameter is rebound only while expanding a particular method body;
+;; no custom transformer factory or syntax-tree substitution remains in this path.
 (defsyntax (%with-shared-slot-bindings stx)
   (syntax-case stx ()
     ((_ (slots ...) (slot-self) body ...)
-     (let* ((slot-self-id (genident 'slot-self))
-            (body (stx-substitute [[#'slot-self . slot-self-id]]
-                                  #'(begin body ...))))
-       (with-syntax (((slot ...) (deduplicate-slot-identifiers #'(slots ...)))
-                     (slot-self slot-self-id)
-                     (body body))
-         #'(let-syntax ((slot-self (%make-object-slot-self-parameter)))
-             (let-syntax ((slot
-                           (%make-object-slot-identifier-expander
-                            (quote-syntax slot-self)
-                            (quote-syntax slot)
-                            (quote-syntax .ref))) ...)
-               body)))))))
+     (with-syntax (((slot ...) (deduplicate-slot-identifiers #'(slots ...))))
+       #'(let ()
+           (defsyntax-parameter* receiver slot-self "slot reference outside object method scope")
+           (let-syntax ((slot (identifier-rules (set!)
+                               ((set! _ value) (syntax-error "slot binding is read-only"))
+                               ((_ . args) ((.ref receiver 'slot) . args))
+                               (_ (.ref receiver 'slot)))) ...)
+             body ...))))))
 
 (defrule (%with-shared-slots slot-self _ self body ...)
   (syntax-parameterize ((slot-self (quote-syntax self))) body ...))
