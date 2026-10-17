@@ -950,6 +950,15 @@ ObjectContract, including schema-in-container and container-in-schema refinement
 `examples/container-publication.ss` adds nested batch dispatch/transforms and exact
 normalized-subject binding with refusal/retry. Lean `ContainerValidation` proves
 ordered position, length, arity, refusal and final refinement laws.
-Remaining work includes other container families, arbitrary external schema
-adapters, cyclic closure, wrapper deduplication, variadic/keyword arities and
-higher-order blame. These are not closed by the finite container protocol.
+Pair/Map/Sum/Union now recursively validate and install their checked children
+through `variant-validation`. Maps preserve their source comparison/hash policy
+and reject normalized-key collisions. Sum keeps its selected tag and checked
+payload. Union normalization commits to the first structural alternative and
+cannot retry a permissive fallback after selected validation failure; ordinary
+Union recognition remains existential. The routing example composes all four,
+root refinement and exact binding. Scheme controls and Lean `VariantValidation`
+laws cover collision, tag/branch selection, errors and full refusal/retry.
+Remaining work includes other Type families (Maybe/OrFalse/TypeValuePair and
+class-specific policies), arbitrary external schema adapters, cyclic closure,
+wrapper deduplication, variadic/keyword arities and higher-order blame. These
+are not closed by the finite container protocol.

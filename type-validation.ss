@@ -1,5 +1,5 @@
 ;;; Shared structural traversal and persistent validation for existing Types.
-(export diagnose-value diagnose-structure list-shape tuple-shape validate-list validate-tuple)
+(export diagnose-value diagnose-structure list-shape tuple-shape validate-container validate-list validate-tuple)
 (import :std/iter
         (only-in :std/list/list map-in-order)
         (only-in :std/vector/vector vector-for-each/index)

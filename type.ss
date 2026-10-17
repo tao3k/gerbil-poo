@@ -7,6 +7,7 @@
   (only-in :std/assert assert!)
   :std/iter
   ./type-validation
+  ./variant-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
@@ -255,6 +256,10 @@
 
 ;; Untagged union. Can be used for JSON, but no automatic marshaling.
 (define-type (Union. @ [methods.string&bytes&marshal<-json Type.] types)
+  .validate: (lambda (value) (validate-union @ types value))
+  .diagnose: (lambda (value location) (union-diagnostics @ types value location))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (union-shape @ types value location check-field))
   .element?: (λ (x) (any (cut element? <> x) types))
   .json<-: (lambda (v) (let/cc return
                     (for-each (λ (t) (when (element? t v) (return (json<- t v))))
@@ -264,10 +269,16 @@
                     (for-each (λ (t) (ignore-errors (return (<-json t j))))
                               types)
                     (error "invalid json for type" j sexp))))
-(def (Union . types) ;; type of tuples, heterogeneous arrays of given length and type
+;; Ordered alternatives keep recognition separate from committed normalization.
+(def (Union . types)
+  (for-each (cut validate Type <>) types)
   {(:: @ Union.) (types) sexp: `(Union ,@(map (cut .@ <> sexp) types))})
 
 (define-type (Pair. @ [methods.bytes<-marshal Type.] left right)
+  .validate: (lambda (value) (validate-pair @ left right value))
+  .diagnose: (lambda (value location) (pair-shape @ left right value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (pair-shape @ left right value location check-field))
   .element?: (lambda (v) (and (pair? v) (element? left (car v)) (element? right (cdr v))))
   .sexp<-: (lambda (v) `(cons ,(sexp<- left (car v)) ,(sexp<- right (cdr v))))
   .json<-: (lambda (v) [(json<- left (car v)) (json<- right (cdr v))])
@@ -329,6 +340,10 @@
 (def (OrFalse type) {(:: @ OrFalse.) (type) sexp: `(OrFalse ,(.@ type sexp))})
 
 (define-type (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)
+  .validate: (lambda (value) (validate-map @ Key Value value))
+  .diagnose: (lambda (value location) (map-shape @ Key Value value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (map-shape @ Key Value value location check-field))
   .element?: (lambda (x) (and (hash-table? x)
                          (let/cc return
                            (hash-for-each
@@ -378,21 +393,12 @@
       variant-names: sum-variant-names
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
-      .validate:
-      (lambda (x)
-        (match x
-          ({tag value}
-           (unless (.slot? variants tag) (raise-type-error @ x ["invalid tag" tag]))
-           (validate (.ref variants tag) value)
-           x)
-          (_ (raise-type-error @ x "not a tag-value variant"))))
-      .element?:
-      (lambda (v)
-        (match v
-          ({(tag) (value)}
-           (and (.slot? variants tag)
-                (element? (.ref variants tag) value)))
-          (_ #f)))
+      .validate: (lambda (value) (validate-sum @ variants value))
+      .diagnose: (lambda (value location) (sum-shape @ variants value location diagnose-value))
+      .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                         (sum-shape @ variants value location check-field))
+      ;; Recognize tag before payload too; a record pattern would demand both.
+      .element?: (lambda (value) (null? (sum-shape @ variants value '() diagnose-value)))
       .sexp<-: (lambda (v)
                  (def tag (.@ v tag))
                  `(.call ,sexp make ',tag ,(sexp<- (.ref variants tag) (.@ v value))))

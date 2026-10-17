@@ -318,7 +318,62 @@ for Scheme identities; it does not prove host representation, GC, parser or runt
 The paper's section 5 Racket `ListOf` supplies recursive membership, while its
 more elaborate Type discussion covers functions and objects with typed slots.
 Recursive wrapping here advances the generalized-prototype future work. Remaining
-work includes other container families (Pair/Map/Sum/Union), arbitrary external
+work includes other container families (such as Maybe/OrFalse/TypeValuePair), arbitrary external
 schema adapters, cyclic object/container closure, wrapper deduplication, optional
 or keyword arities and higher-order blame. Caller immutability and custom Type
 agreement/termination remain required. No persistent validation cache is added.
+
+## Pair, Map, Sum and ordered Union normalization
+
+`variant-validation` reuses the shared structural/Type validation protocol;
+`type.Pair`, `Map`, `Sum` and `Union` keep their existing representations.
+
+- Pair accepts proper or improper cons cells. It checks the full reachable
+  structure before validating car then cdr; changed components produce one cons.
+- Map checks every key/value shape before wrapping. Each snapshot entry validates
+  key before value. `hash-new` retains the source table's comparison/hash policy.
+  Changed keys are installed only if none collide under that policy. Failure
+  exposes no replacement table and never overwrites the source. Validation order
+  across entries is the host snapshot order, not a portable scheduling guarantee.
+  Paths use snapshot index then `key`/`value`, without retaining raw keys.
+- Sum checks carrier and symbol tag before demanding payload. Only that tag's
+  Type validates the payload, and the returned value is actually installed. A
+  replacement inherits the source, retaining ancestry and other lazy fields.
+  The selected tag is frozen alongside the checked payload so a computed tag
+  cannot silently reselect a different branch after wrapping.
+- Union retains existential membership for recognition. Validation commits to
+  the first structurally matching alternative in declaration order; whole-object
+  refinement is deferred until wrapping. After selection, an exception or Type
+  refusal cannot fall through to Any or another branch. The normalized result
+  must satisfy the selected branch, even if a later branch would accept it.
+
+Thus Union recognition and validation have deliberately different roles: raw
+membership does not imply successful committed normalization. Broad alternatives
+should be declared after specific ones when checked wrapping is desired. This
+also handles overlapping Function branches deterministically; it does not infer
+which future call signature the caller intended. Union JSON conversion retains
+its existing separate dispatch; this change does not serialize executable values.
+
+`examples/variant-publication.ss` composes Pair → Map → Sum → Union → refined
+named Function schema, a separate approval Function, data-only JSON configuration,
+root tenant refinement and FUN/bind-evidence publication. Explicit route names
+control execution order. Tests cover improper Pairs, Function keys/values, custom
+table comparison, normalized-key collisions, unknown/non-symbol tags without
+payload demand, Sum ancestry, ordered Union overlap, selected-error preservation,
+selected-result rejection, complete structural gating, raw/stale binding refusal
+and callback repair/retry. No accepted-value or branch-choice cache is introduced.
+
+Lean `VariantValidation` proves Pair components/errors, collision exclusion and
+position/length preservation for normalized map snapshots, Sum tag retention and
+payload errors, ordered Union selection, no-match refusal and no failure fallback.
+The existing final-refinement and exact-reference binding laws compose with these
+normalizers. `Examples/VariantContracts.lean` exercises the corresponding routing
+batch, data variants, collisions, committed refusal, output failure and publication
+retry. Its fixed configuration uses tenant `api`; table equality and immutable
+reference correspondence remain adapter premises. The snapshot model does not
+certify the host hash implementation or portable hash traversal order.
+
+These normalizers advance the paper's generalized-prototype future work using
+its section 5 Type/recognizer and dict/object/function constructions. Other Type
+families, arbitrary external schema adapters, cyclic closure, wrapper deduplication,
+optional/keyword arities, higher-order blame and effect rollback remain open.
