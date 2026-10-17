@@ -1,5 +1,5 @@
 ;;; Per-name recovery decisions compose with the existing scoped supervisor.
-(export call-with-rejoining-coordinators rejoin-after)
+(export call-with-rejoining-coordinators rejoin-after rejoin-checked)
 (import (prefix-in ./joint-coordination coordination.))
 ;; recover receives a completed name and its original outcome thunk. It handles
 ;; that outcome and returns an operation to run as a fresh instance, or #f.
@@ -26,3 +26,14 @@
   (lambda (exchange)
     (call-with-values (lambda () (prepare exchange))
       (lambda prepared (apply continue exchange prepared)))))
+
+;; Revalidate successful preparation before entering the service continuation.
+;; validate receives exchange and the original prepared values, and raises its
+;; original refusal on staleness. It may rendezvous with peers before checking.
+;; No snapshot is rebound, no retry is implicit, and installation checks remain
+;; necessary because another publisher can win after this observation.
+(def (rejoin-checked prepare validate continue)
+  (rejoin-after prepare
+    (lambda (exchange . prepared)
+      (apply validate exchange prepared)
+      (apply continue exchange prepared))))

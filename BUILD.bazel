@@ -1,0 +1,22 @@
+load("@gerbil_bazel//gerbil:defs.bzl", "gerbil_project_compile", "gerbil_project_test")
+
+# build.ss owns the native module order. Tests and Scheme fixtures are declared
+# inputs; benchmark output, local builds and companion checkouts are excluded.
+SOURCES = glob(["*.ss", "support/*.ss", "examples/*.ss", "t/*.ss"]) + ["gerbil.pkg", "justfile"]
+
+gerbil_project_compile(
+    name = "library",
+    build_script = "build.ss",
+    srcs = SOURCES,
+)
+
+# ci.ss delegates to the standard harness and explicitly exits with its result.
+# It is not named *-test.ss, so recursive discovery cannot import it again.
+gerbil_project_test(
+    name = "test",
+    project = ":library",
+    tests = ["t/ci.ss"],
+    srcs = SOURCES,
+    test_args = ["-v", "5"],
+    timeout = "long",
+)

@@ -912,3 +912,10 @@ native controls and typed semantic laws. See alignment.md and the item-factory
 study for actual phase/GC evidence; no unconditional timing theorem is claimed.
 Automatic mixed-family specialization, arbitrary lawful storage discovery,
 reflection and whole-program native cost/GC verification remain open.
+
+Successful recovery preparation now has an explicit rejoining check through
+`rejoin-checked` and `joint-publication.check-approved`. Competing publication and
+shared approval ABA reject prepared results without rebinding or entering the
+service continuation. Installation still checks independently. Six SCC revision
+rounds cover two live names, interleaved retries and old receipts in both release
+orders. See [coordinator-prepared.md](coordinator-prepared.md) for proof boundaries.

@@ -1,0 +1,25 @@
+module(name = "gerbil_poo", version = "0.1.1")
+
+bazel_dep(name = "gerbil_bazel", version = "0.1.0")
+git_override(
+    module_name = "gerbil_bazel",
+    remote = "https://github.com/tao3k/gerbil-bazel.git",
+    commit = "9b5900d187e7fbb2a50f8e917ec05ba919158d58",
+)
+
+# Linux CI consumes the published compiler; Darwin development uses its native
+# installation. Neither provider builds a compiler or accesses a Lean checkout.
+gerbil = use_extension("@gerbil_bazel//gerbil:extensions.bzl", "gerbil")
+gerbil.auto(
+    name = "gerbil",
+    expected_version_prefixes = ["Gerbil 1cfb032"],
+    linux_prebuilt_arch = "x86_64",
+    linux_prebuilt_manifest_path = "gerbil-toolchain-release.json",
+    linux_prebuilt_release_revision = "1cfb032c7a1612637da6205f5f8a15683eba3ba0",
+    linux_prebuilt_sha256 = "143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee",
+    linux_prebuilt_strip_prefix = "gerbil-v0.19-linux-x86_64",
+    linux_prebuilt_urls = ["https://github.com/tao3k/gerbil-bazel/releases/download/gerbil-v0.19-1cfb032c7a1612637da6205f5f8a15683eba3ba0-linux-x86_64-portable-full-single-host-unlimited-multiple-vms-patch9599b09b82f8/gerbil-v0.19-1cfb032c7a1612637da6205f5f8a15683eba3ba0-linux-x86_64-portable-full-single-host-unlimited-multiple-vms-patch9599b09b82f8.tar.gz"],
+    project_root_marker = "//:gerbil.pkg",
+)
+use_repo(gerbil, "gerbil")
+register_toolchains("@gerbil//:registered_toolchain")

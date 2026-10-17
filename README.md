@@ -33,3 +33,14 @@ metadata, owned byte state, allocation-aware queue selection, immutable public
 snapshots, retained-topology revisions, POO workflow controls and native benchmarks.
 This advances generalized-prototype future work with a bounded Lean cost-model
 companion; it does not change ordinary prototype recursion.
+
+### Native CI
+
+`bazel test //:test` builds the declared `build.ss` modules and runs the standard
+Scheme harness through `t/ci.ss`, forwarding its failure status to the process.
+Linux uses a SHA-256 pinned, already compiled gerbil-bazel release with verified
+upstream revision; no compiler source build or companion Lean checkout is needed.
+Darwin development resolves the installed compatible native compiler. The workflow
+and Bazel declarations contain no repository shell wrapper. Generated action
+outputs and dependency lockfiles are ignored; release artifacts are downloaded
+into Bazel's external cache, never committed here.

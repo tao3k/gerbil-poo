@@ -1,5 +1,5 @@
 ;;; Atomic replacement of shared approval metadata and all endpoint heads.
-(export publication current head approval stage stage-at stage-with approve install! install-sequence! submit!)
+(export publication current head approval stage stage-at stage-with approve check-approved install! install-sequence! submit!)
 (import (only-in :gerbil/runtime/thread with-lock) (only-in :std/list/list delete-duplicates/hash foldl)
         ./object ./mop ./lens-laws ./feedback-graph
         (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
@@ -96,22 +96,31 @@
         next)))
     (values (make-%approved request candidate) #f)
     (catch (failure) (values #f failure))))
-;; Install only a private approved receipt belonging to this owner. The short
-;; critical section rechecks EVERY registered source/policy guard and expected
-;; whole snapshot; failure returns the actual current winner, never an old head.
+;; Reuse the owner's short critical section for both observation and installation.
+;; The action receives the private candidate only after owner/head/guard checks;
+;; callers cannot refresh a receipt or run an arbitrary callback inside the lock.
+(def (with-approved owner receipt action)
+  (unless (and (%approved? receipt)
+    (eq? owner (%request-owner (%approved-request receipt)))) (error "foreign joint approval receipt"))
+  (def request (%approved-request receipt))
+  (with-lock (%publication-lock owner) (lambda ()
+    (with-lens-checks (%request-guards request) (lambda ()
+      (unless (eq? (%publication-snapshot owner) (%request-expected request))
+        (error "stale joint publication at installation"))
+      (action (%approved-candidate receipt)))))))
+;; Check prepared recovery without writing or repeating construction/approval.
+;; Success is a point-in-time observation, not a reservation: install! must still
+;; recheck the receipt after rejoining. Refusal returns the actual current bundle.
+(def (check-approved owner receipt)
+  (try
+    (values (with-approved owner receipt (lambda (_) (%publication-snapshot owner))) #f)
+    (catch (failure) (values (current owner) failure))))
+;; Install only a private approved receipt after the SAME owner/head/guard check.
 ;; Approval receipts are not refreshable: metadata drift requires fresh staging.
 (def (install! owner receipt)
   (try
-    (unless (and (%approved? receipt)
-      (eq? owner (%request-owner (%approved-request receipt)))) (error "foreign joint approval receipt"))
-    (def request (%approved-request receipt))
-    (def candidate (%approved-candidate receipt))
-    (with-lock (%publication-lock owner) (lambda ()
-      (with-lens-checks (%request-guards request) (lambda ()
-        (unless (eq? (%publication-snapshot owner) (%request-expected request))
-          (error "stale joint publication at installation"))
-        (%publication-snapshot-set! owner candidate)))))
-    (values candidate #f)
+    (values (with-approved owner receipt (lambda (candidate)
+      (%publication-snapshot-set! owner candidate) candidate)) #f)
     (catch (failure) (values (current owner) failure))))
 ;; Install in explicit input order and retain EVERY (snapshot . failure) outcome.
 ;; Standard foldl sequences attempts, including after a refusal; no implicit retry,

@@ -11,3 +11,7 @@ build-deps
 
 # Generated executables, raw benchmark matrices and extracted historical data.
 /.build/
+
+# Bazel action outputs and generated dependency resolution.
+/bazel-*
+/MODULE.bazel.lock
