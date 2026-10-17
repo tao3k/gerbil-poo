@@ -29,6 +29,8 @@
     (test-case "live equal shapes share mapping but never receiver values"
       (let ((a (.o x: 1 disabled: #f)) (b (.o disabled: #f x: 2)) (site (make-slot-cache 'x)))
         (check-equal? (.ref/inline a site) 1)
+        (check (and (slot-cache-hit? site a (object-revision a) (object-layout a)) #t) => #t)
+        (check (slot-cache-hit? site b (object-revision b) (object-layout b)) => #f)
         (check-equal? (.ref/inline b site) 2)
         (check (eq? (slot-layout-shape (object-layout a)) (slot-layout-shape (object-layout b))) => #t)
         (check-equal? (.ref/inline a site) 1)
@@ -41,6 +43,7 @@
         (check-equal? (.ref/inline child site) 5)
         (.putslot! root 'x ($constant-slot-spec 7))
         (check-equal? (object-revision child) (+ before 1))
+        (check (slot-cache-hit? site child (object-revision child) (object-layout child)) => #f)
         (check-equal? (.ref/inline child site) 10)
         (check-equal? (.get child sum) 10)
         (.putslot! root 'x ($constant-slot-spec 2))

@@ -13,7 +13,7 @@
 ;; Computation uses the final receiver; persistent copies rebind its field reads.
 (def Service (.o self: self inherit: [left right]
   (total (+ (* (.get self capacity) (.get self tariff)) (.get self fee) (.get self surcharge)))))
-;; Reuse the native ObjectContract/refine boundary before allowing a consumer effect.
+;; Reuse the existing ObjectContract/refine boundary before allowing a consumer effect.
 (def ValidService (contract.refine
   (.cc contract.ObjectContract. responsibilities: (.o capacity: Integer tariff: Integer)
        extra-fields: 'delegate constraints: (list Object))
