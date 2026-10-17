@@ -385,6 +385,15 @@ Supervisor-failure recursive cleanup and original error propagation are covered.
 Lean proves competing same-prefix factories, superseded observations and source
 preservation after refused prefixes. See [joint-coordination.md](joint-coordination.md).
 
+Local normal exits and caught coordinator errors can now be isolated explicitly
+through `on-exit:` after per-coordinator child-group cleanup. The default still
+propagates the original exception and closes the scope. Two survivors continue
+shared-policy invalidation, explicit fresh approvals and six competing SCC phases
+while two other coordinators fail/return with pending nested installations. Shared
+workflow and assertion modules avoid duplicating the earlier scenario. Lean adds
+lifecycle projection, stop preservation, explicit preparation and validity laws.
+See [coordinator-recovery.md](coordinator-recovery.md) for controls and proof scope.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.
