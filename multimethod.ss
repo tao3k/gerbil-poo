@@ -4,7 +4,7 @@
         prepared-context bind-context prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
-(import :std/iter (only-in :std/list/list-builder with-list-builder)
+(import (only-in ./support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
         (only-in ./mop Type validate define-type) ./object
         (only-in ./object compute-precedence-list!) (only-in ./type Unit)
         (prefix-in ./method-combination combination.))
@@ -143,7 +143,7 @@
   (def predicate (method-candidate-predicate candidate))
   (if (not predicate) #t
     (let (accepted (apply predicate args))
-      (unless (boolean? accepted) (error "method predicate must return a Boolean"))
+      (require-value accepted boolean? (lambda () (error "method predicate must return a Boolean")))
       accepted)))
 ;; Filter ordered candidates by current guards, preserving their carrier data and order.
 (def (select candidates args)

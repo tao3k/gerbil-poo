@@ -5,7 +5,7 @@
         standard-contribution? simple-contribution? effective simple-effective
         prepare-standard prepare-simple prepare-simple-items prepare-forwarding prepare-inner prepare-simula compile-simula bind-simula compile-simula-context
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
-(import :std/iter (only-in :std/list/list foldr) ./object
+(import (only-in ./support/base require-value) :std/iter (only-in :std/list/list foldr) ./object
         (only-in ./mop define-type Type. element?) ./support/option)
 
 ;; Public extensible qualifier descriptor; each body follows its qualifier's calling
@@ -19,7 +19,7 @@
 (define-type (Contribution. @ [] qualifier body) .type: Contribution)
 ;; Construct one validated native qualifier/body pair; invalid bodies raise now.
 (def (contribution qualifier body)
-  (unless (procedure? body) (error "method body must be a procedure"))
+  (require-value body procedure? (lambda () (error "method body must be a procedure")))
   (.cc Contribution. qualifier: qualifier body: body))
 ;; Primary method: next retains this invocation's original complete argument row.
 (def (primary body) (contribution 'primary body))
@@ -76,7 +76,7 @@
         (let loop ((acc (first (apply (car methods) current))) (rest (cdr methods)))
           (if (null? rest) acc
             (let (done (stop acc))
-              (unless (boolean? done) (error "simple stop must be Boolean"))
+              (require-value done boolean? (lambda () (error "simple stop must be Boolean")))
               (if done acc (loop (step (apply (car rest) current) acc) (cdr rest))))))))) args))
 ;; Sum all items in selected order; empty sum is zero.
 (def sum (.cc SimplePolicy. stop: (lambda (_) #f) empty: 0 first: identity
@@ -89,7 +89,7 @@
 ;; Require Boolean item values for the two Boolean policies, even when a caller
 ;; chooses a wider output Type. Truthy arbitrary data must not short-circuit approval.
 (def (boolean-value value)
-  (unless (boolean? value) (error "simple Boolean item required")) value)
+  (require-value value boolean? (lambda () (error "simple Boolean item required"))))
 ;; Boolean conjunction; false stops later item bodies. Empty group is true.
 (def all-policy (.cc SimplePolicy. stop: not empty: #t first: boolean-value
                      step: (lambda (value acc) (and acc (boolean-value value))) finish: identity))
@@ -116,7 +116,7 @@
 (define-type (ForwardContribution. @ [] qualifier body) .type: ForwardContribution)
 ;; Validate and construct a forwarding body; no body executes at registration.
 (def (forward-contribution qualifier body)
-  (unless (procedure? body) (error "forward method must be a procedure"))
+  (require-value body procedure? (lambda () (error "forward method must be a procedure")))
   (.cc ForwardContribution. qualifier: qualifier body: body))
 ;; Forward primary receives (next dispatch payload); next preserves dispatch.
 (def (forward-primary body) (forward-contribution 'primary body))
@@ -163,7 +163,8 @@
 (define-type (SimulaBody. @ [] prefix-part suffix-part) .type: SimulaBody)
 ;; Construct a validated body; prefix/suffix receive only the original arguments.
 (def (simula-body prefix suffix)
-  (unless (and (procedure? prefix) (procedure? suffix)) (error "Simula parts must be procedures"))
+  (require-value prefix procedure? (lambda () (error "Simula parts must be procedures")))
+  (require-value suffix procedure? (lambda () (error "Simula parts must be procedures")))
   (.cc SimulaBody. prefix-part: prefix suffix-part: suffix))
 ;; Carrier admission for Simula generics; validation does not execute either part.
 (def (simula-body? body) (element? SimulaBody body))
@@ -205,7 +206,7 @@
       (let loop ((acc (first (apply (car items) args))) (rest (cdr items)))
         (if (null? rest) acc
           (let (done (stop acc))
-            (unless (boolean? done) (error "simple stop must be Boolean"))
+            (require-value done boolean? (lambda () (error "simple stop must be Boolean")))
             (if done acc (loop (step (apply (car rest) args) acc) (cdr rest))))))))))
 ;; Resolve extensible qualifiers once, then use the SAME homogeneous item loop.
 ;; Around wrappers retain next/argument semantics and may skip the whole reduction.

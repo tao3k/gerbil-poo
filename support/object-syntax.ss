@@ -25,7 +25,7 @@
            (unless (identifier? self) (raise-syntax-error #f "self must be an identifier" ctx self))
            (unless (or (eq? (syntax-e super) #f) (identifier? super))
              (raise-syntax-error #f "super must be an identifier" ctx super))
-           (unless (and (stx-list? bindings) (andmap identifier? (syntax->list bindings)))
+           (unless (identifier-list? bindings)
              (raise-syntax-error #f "bind must be an identifier list" ctx bindings))
            (unless (boolean? (syntax-e include?))
              (raise-syntax-error #f "bind-these must be a literal boolean" ctx include?))

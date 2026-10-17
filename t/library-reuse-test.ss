@@ -1,6 +1,14 @@
 ;;; Actual Gerbil interfaces and containers under POO source/validation discipline.
 (export library-reuse-test)
 (import :std/test :std/iter :std/error
+        (for-syntax :gerbil/expander)
+        (only-in :gerbil/runtime/gambit string->uninterned-symbol)
+        (only-in :gerbil/runtime/c3 c4-linearize c4-linearize*)
+        (prefix-in ../reflection reflection.)
+        (prefix-in ../examples/declared-methods declared.)
+        (prefix-in ../method-combination method.)
+        (prefix-in ../multimethod dispatch.)
+        (prefix-in ../dispatch-extension extension.)
         (only-in :std/hash/misc hash-ref/default hash-ensure-ref)
         ../object ../mop ../number ../object-contract ../object-contract-flow ../support/option ../slot-layout
         (only-in ../type Record List Tuple)
@@ -9,6 +17,14 @@
         (prefix-in ../dependency-analysis code.)
         (prefix-in ../generalized-graph graph.)
         (prefix-in ../construction-cache cache.))
+
+;; Exercise actual scoped expansion rather than serializing identifier names.
+(defsyntax (rejects? stx)
+  (syntax-case stx ()
+    ((_ form) (try (core-expand #'form) #'#f (catch (_cause) #'#t)))))
+;; The two value identifiers have the same spelling and distinct lexical bindings.
+(defrule (two-scopes outer)
+  (let (value 99) (with-slots (value outer) (.o value: 7) (+ value outer))))
 
 ;; Decode only completed successes, retaining the difference between absence and false.
 (def (cached-value snapshot key) (code.success-value (some-value (cache.cache-ref snapshot key))))
@@ -123,4 +139,89 @@
             (lambda (checked) (set! calls (+ calls 1))
               (if (= (.get checked value) 2) (raise cause) (.get checked value))))
           (lambda (actual) (eq? actual cause)))
-        (check-equal? calls 2)))))
+        (check-equal? calls 2)))
+    (test-case "direct core C4 retains the shared diamond and hook order"
+      (let* ((root (.o base: 1)) (left (.o inherit: [root] left: 2))
+             (right (.o inherit: [root] right: 3)) (child (.o inherit: [left right] leaf: 4)))
+        (let-values (((native suffix) (c4-linearize* [child] (list (object-supers child))
+                       suffix: (lambda (_) #f) get-precedence-list: compute-precedence-list!))
+                     ((wrapper _) (c4-linearize [child] (object-supers child)
+                       get-precedence-list: compute-precedence-list!)))
+          (check-equal? suffix #f)
+          (check-equal? native (list child left right root))
+          (check-equal? wrapper native)
+          (check-equal? (compute-precedence-list! child) native))
+        (check-equal? (.all-slots child) '(base right left leaf))))
+    (test-case "standard first-occurrence merge retains slot order and symbol identity"
+      (let* ((a (string->uninterned-symbol "same")) (b (string->uninterned-symbol "same"))
+             (groups (list (list 'child a) (list 'base b 'child) (list 'base a))))
+        (check-equal? (merge-super-slots groups) (list 'base a b 'child))
+        (check (eq? a b) => #f)
+        (check-equal? (merge-super-slots []) [])))
+    (test-case "private child declaration shadows public ancestor before visibility filtering"
+      (let* ((forced 0)
+             (root (reflection.object<-declarations
+                     (list (cons 'label (instance Slot constant: 'public)))))
+             (metadata (instance Slot hidden: #t compute: (lambda (_ _next) (set! forced (+ forced 1)) 'private)))
+             (child (reflection.object<-declarations (list (cons 'label metadata)) supers: [root])))
+        (check-equal? (reflection.reflect-slots child) [])
+        (check-equal? forced 0)
+        (check-equal? (length (reflection.reflect-slots child include-hidden?: #t)) 1)
+        (check-exception (reflection.read-slot child 'label) Error?)
+        (check-equal? forced 0)
+        (.putslot! metadata 'hidden ($constant-slot-spec #f))
+        (check (eq? (cdr (car (reflection.reflect-slots child))) metadata) => #t)
+        (check-equal? (reflection.read-slot child 'label) 'private)
+        (check-equal? forced 1)))
+    (test-case "lexical identifiers deduplicate by binding rather than printed datum"
+      (let (value 3) (check-equal? (two-scopes value) 14))
+      (check-equal? (with-slots (value value) (.o value: 8) (+ value value)) 16))
+    (test-case "standard identifier-list admission rejects malformed bind syntax"
+      (check (rejects? (.o bind: () value: 1)) => #f)
+      (check (rejects? (.o bind: (x x) value: 1)) => #f)
+      (check (rejects? (.o bind: (x . rest) value: 1)) => #t)
+      (check (rejects? (.o bind: (x 1) value: 1)) => #t))
+    (test-case "method constructor and Boolean refusals retain the original error family"
+      (for-each (lambda (action)
+                  (let (cause (caught action))
+                    (check (Error? cause) => #t)
+                    (check (contract-violation-error? cause) => #f)))
+        (list (lambda () (method.primary #f)) (lambda () (method.forward-primary #f))
+              (lambda () (method.simula-body values #f))
+              (lambda () (method.simple-effective method.all-policy [(method.item (lambda () 'truthy))] []))))
+      (let (cause (caught (lambda () (method.simple-effective method.all-policy
+                                      [(method.item (lambda () 'truthy))] []))))
+        (check-equal? (error-message cause) "simple Boolean item required")))
+    (test-case "cached dispatch rechecks Boolean guards and negative assumptions per invocation"
+      (let* ((calls 0) (path (list (dispatch.prototype 'Service)))
+             (generic (dispatch.register-when
+                        (dispatch.make [Any] Any (lambda (_) '((Service)))
+                          (lambda (methods args) (map (lambda (body) (apply body args)) methods)))
+                        path (lambda (value) (set! calls (+ calls 1)) (> value 0)) identity)))
+        (let-values (((low warm) (dispatch.call generic 0)))
+          (let-values (((high _warmer) (dispatch.call warm 2)))
+            (check-equal? low []) (check-equal? high '(2)) (check-equal? calls 2))
+          (extension.check warm [(extension.call 0)])
+          (check-exception (extension.check warm [(extension.call 2)]) extension.conflict?)
+          (check-equal? calls 4))))
+    (test-case "guard exceptions retain identity and do not invoke a method body"
+      (let* ((cause (caught (lambda () (using (x #f :~ procedure?) x)))) (bodies 0)
+             (generic (dispatch.register-when
+                        (dispatch.make [Any] Any (lambda (_) '((Service))))
+                        [(dispatch.prototype 'Service)] (lambda (_) (raise cause))
+                        (lambda (value) (set! bodies (+ bodies 1)) value))))
+        (check-exception (dispatch.call generic 1) (lambda (actual) (eq? actual cause)))
+        (check-equal? bodies 0)))
+    (test-case "inherited reflection keyword forwarding and FUN observations compose"
+      (let* ((events []) (family (declared.make-reporting-family (lambda (event) (set! events (cons event events)))))
+             (action (declared.summary-action family 2)))
+        (check (memq 'label (.get family .public-slots)) => #f)
+        (check (not (not (memq 'label (.get family .private-slots)))) => #t)
+        (check-equal? events [])
+        (let-values (((charge rows) (action (.o rate: 10))))
+          (check-equal? charge 46)
+          (check-equal? rows '((10 2 #f review (audit)))))
+        (let-values (((charge rows) (action (.o rate: 20))))
+          (check-equal? charge 86)
+          (check-equal? rows '((20 2 #f review (audit)))))
+        (check-equal? (length (filter (lambda (event) (eq? event 'base)) events)) 2)))))

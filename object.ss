@@ -14,7 +14,7 @@
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
   (only-in ./support/object-syntax parse-object-options)
   (for-syntax :std/iter
-              (only-in :std/list/list push!)
+              (only-in :std/list/list push! delete-duplicates/hash)
               (only-in :std/list/list-builder with-list-builder))
   (only-in :std/error deferror-class Exception)
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
@@ -23,11 +23,11 @@
   ./prototype-map
   ./slot-layout
   (only-in :std/list/list-builder with-list-builder)
-  (only-in :std/list/list flatten)
+  (only-in :std/list/list flatten delete-duplicates/hash)
   (only-in :std/string/symbol symbol<?)
   :std/stxparam
   (only-in :std/values first-value)
-  (only-in :gerbil/runtime/c3 c4-linearize)
+  (only-in :gerbil/runtime/c3 c4-linearize*)
   (only-in ./support/base λ let-id-rule defonce awhen))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
@@ -182,6 +182,7 @@
 (def (invalid-object-summary self)
   (InvalidObject slots: (map car (append (object-slots self) (object-defaults self) (object-%declarations self)))))
 
+;; Delegate ordering directly to core C4 while retaining POO cycles, hooks and caches.
 (def (compute-precedence-list! self (heads '()))
   ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
   ;; as private implementation state at this abstraction boundary.
@@ -197,8 +198,8 @@
       (parameterize ((active-object-constructions (cons object (active-object-constructions))))
         (let (precedence-list
             (first-value
-             (c4-linearize
-              [object] (object-supers object)
+             (c4-linearize*
+              [object] (list (object-supers object)) suffix: (lambda (_) #f)
               get-precedence-list:
               (lambda (super) (compute super [object . heads]))
               eq: eq?
@@ -251,13 +252,8 @@
 ;; return a list of keys from containing from left to right
 ;; all the keys from tail to head of the precedence list, skipping repetitions.
 (def (merge-super-slots super-slots)
-  (def h (make-hash-table-symbolic))
-  (with-list-builder (c)
-    (for-each (lambda (l)
-    (for-each (lambda (k)
-      (unless (hash-key? h k)
-        (hash-put! h k #t) (c k)))
-    l)) (reverse super-slots))))
+  (delete-duplicates/hash (apply append (reverse super-slots))
+    table: (make-hash-table-symbolic) from-end?: #t))
 
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
@@ -547,14 +543,13 @@
             (syntax-case stx ()
               ((_ . args) #'((ref self 'slot) . args))))))))
 
+  ;; Identifier equality includes lexical scope. A constant hash is deliberate:
+  ;; no datum-based hash may equate hygienically different identifiers. The standard
+  ;; deduplicator retains the first syntax object; collision cost stays quadratic.
   (def (deduplicate-slot-identifiers slots)
-    (let loop ((rest (syntax->list slots)) (seen []) (result []))
-      (match rest
-        ([] (reverse result))
-        ([slot . tail]
-         (if (find (cut bound-identifier=? slot <>) seen)
-           (loop tail seen result)
-           (loop tail [slot . seen] [slot . result]))))))
+    (delete-duplicates/hash (syntax->list slots)
+      table: (make-hash-table test: bound-identifier=? hash: (lambda (_) 0))
+      from-end?: #t))
 
   (def (prepare-shared-slot-specs specs)
     (let loop ((rest specs) (bindings []) (result []))

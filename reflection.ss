@@ -28,14 +28,12 @@
 ;; The explicit full view is for trusted inspection, not a capability boundary.
 (def (reflect-slots self include-hidden?: (include-hidden? #f))
   (instantiate-object! self)
-  (def seen (make-hash-table-symbolic))
   (foldr (lambda (entry rest)
     (def descriptor (cdr entry))
     (if (or include-hidden? (not (.@ descriptor hidden))) (cons entry rest) rest)) []
-    (filter (lambda (entry)
-      (if (hash-key? seen (car entry)) #f
-        (begin (hash-put! seen (car entry) #t) #t)))
-      (apply append (map object-%declarations (object-%precedence-list self))))))
+    (delete-duplicates/hash
+      (apply append (map object-%declarations (object-%precedence-list self)))
+      key: car table: (make-hash-table-symbolic) from-end?: #t)))
 ;; Resolve a PUBLIC declaration before reading or writing. Raw .ref is a trusted
 ;; low-level operation and is not claimed to enforce access control by itself.
 (def (public-slot self name)
