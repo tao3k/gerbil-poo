@@ -1077,3 +1077,15 @@ Lean `Functional.RecursiveRestaging` supplies six preparation/interleaving laws
 and matching actual graph examples. This advances future work under immutable
 metadata, complete reads/watches, terminating preparation and sequential mutation;
 concurrent installation and atomic graph/effect transactions remain open.
+
+
+Multiple entry points now share one recursive graph through `recursive-publication`:
+current-head preparation and guarded submission compose existing restaging Readers
+and entry-specific refine/bind-evidence observers. Successful closure installs the
+head before later observer refusal; fresh observation retries without rebuilding.
+Three-entry, eight-round controls cover SCC regrouping, provider restoration,
+computed changes, historical request/reference rejection, cross-entry evidence
+transplants and failure retry. Lean supplies eight state/entry-isolation laws and
+matching actual graph examples. This remains generalized-prototype future work
+under complete declared dependencies, immutable metadata and sequential access;
+concurrent installation and atomic graph/external effects remain open.
