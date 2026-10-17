@@ -41,7 +41,7 @@ further tuning of the corresponding workflow.
 | Prototype mutability discipline | Explicit invalidating protocol implemented: registered weak reverse edges, once-per-owner clearing across diamonds, topology preflight, active-evaluation rejection and optional sealing; original parent-mutation tests retained | Sequential supported APIs only; external callback dependencies must be registered. Raw struct setters are internal escape hatches. Sealing locks direct source/instance edits, not all unsealed ancestors. |
 | Data representation / usual object optimizations | Partial: explicit immutable preparations and compact method storage | General persistent prototype maps, shape/hashconsing/vector layout and inline-cache protocols remain open. Historical speed measurements do not close these. |
 | Positional parameter specialization | Open: `.parameters` note in `mop.ss` | Define and implement specialization/closure semantics and controls. |
-| Type system for POO | Partial: executable Type descriptors and guarded publication | General prototype polymorphism/subtyping/inference described below is open. |
+| Type system for POO | Partial: executable Type descriptors, structural value contracts and guarded publication | General prototype polymorphism/subtyping/inference described below is open. |
 | Generic data structure library | Partial existing containers only | A general collection library with the proposed protocol and laws is open. |
 | Type-driven property-based testing | Open | Native generators, shrinkers and reproducible failures derived from descriptors. |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
@@ -919,3 +919,11 @@ shared approval ABA reject prepared results without rebinding or entering the
 service continuation. Installation still checks independently. Six SCC revision
 rounds cover two live names, interleaved retries and old receipts in both release
 orders. See [coordinator-prepared.md](coordinator-prepared.md) for proof boundaries.
+
+
+Structural value contracts now compose ordered diagnostics, gated whole-value
+constraints/obligations and checked FUN consumers. The JSON → shape check → lens
+revision → relation check → consumer example preserves input keys and current
+candidate identity. See [object-contracts.md](object-contracts.md). Lean proves the
+finite checker laws with explicit custom-Type agreement; general polymorphism,
+subtype inference, generators and arbitrary callback proofs remain open.

@@ -28,6 +28,19 @@ checks the runtime premises at its public boundary.
 | Safe recursive requests, current admission and source-bound memo | Recursive / RecursiveCache / RecursiveHandling / RecursiveDispatch / CyclicAccess | recursive.ss / recursive-cache.ss / recursive-handling.ss / examples/recursive-catalog.ss / access.start-attested | Explicit requests, source errors, depth/budget separation, cycle paths, sealed program-owned memo, current native Type admission, retained-state FUN actions and atomic attested publication implemented; evaluation proofs remain Lean-only; purity/immutable keys/local callback termination are correspondence premises |
 | General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | generalized-graph.ss / construction-cache.ss / staged-publication.ss | Finite inspectable DAG rebuilding and source-bound invalidation implemented; arbitrary adapters and dependent evidence remain separate |
 
+## Structural value contracts
+
+`ObjectDiagnostics` and `ObjectContract` correspond to `object-diagnostics.ss`,
+`object-contract.ss` and `object-contract-flow.ss`. They establish ordered
+accumulation, phase refusal, finite field inventory/existence, explicit checker
+coherence and admission before a FUN consumer. The executable Json/lens scenario
+is `examples/object-contracts.ss`; the finite companion is
+`Examples/ObjectContracts.lean`. Immutable descriptor declarations, truthful slot
+views, lawful custom diagnostics and locally terminating callbacks are premises.
+Function wrapping remains at the existing Type validation boundary. General
+subtyping/inference and descriptor-driven test generators are not implemented by
+this chain; section 5 and Appendix B are its source boundaries.
+
 ## Current construction API
 
 `compile-closure`, `prepare-closure`, `reconfigure-closure`, `construct-closure`

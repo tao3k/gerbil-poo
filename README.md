@@ -26,6 +26,13 @@ to implement objects efficiently, come join the team!
 
 See the [doc/TODO.md](doc/TODO.md) document for projects.
 
+### Structural value contracts
+
+[`object-contract`](doc/object-contracts.md) adds structural responsibilities and
+diagnostics over existing POO Types, with optional prototype requirements and
+reuse of the existing checked invocation Contract. It is independent of any
+configuration framework; Schema adapters remain separate libraries.
+
 ### Finite cyclic construction
 
 [`closure`](doc/closure.md) provides positive Boolean closure with private compiled
