@@ -1,7 +1,7 @@
 ;;; Nonlocal method fragments use ordinary Slot metadata and inherited computation.
 (export MethodDeclaration. method-fragment standard-combination simple-combination
         forwarding-combination inner-combination simula-combination)
-(import :std/iter (only-in :std/list/list foldr) ./object ./mop ./declaration
+(import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop ./declaration
         (prefix-in ./method-combination combination.))
 ;; A private marker distinguishes method metadata from arbitrary user Slot fields.
 ;; Public descriptors remain extensible POO objects; no second declaration AST exists.
@@ -41,6 +41,8 @@
        (eq? (.@ descriptor method-fragment) method-marker)))
 ;; Combine duplicate method names in first-occurrence order. Ordinary slot collisions,
 ;; mixed policies or conflicting visibility refuse before receiver construction.
+;; The fold accumulator has distinct keys: standard aremq therefore removes its
+;; only previous entry, preserving all unrelated pairs and their relative order.
 (def (merge-method-fragments entries)
   (foldr (lambda (entry rest)
     (def previous (assq (car entry) rest))
@@ -58,7 +60,7 @@
             (.@ left hidden)))))
         (depend-on-object! metadata left) (depend-on-object! metadata right)
         (cons (cons (car entry) (method-slot (car entry) metadata))
-          (filter (lambda (other) (not (eq? (car other) (car entry)))) rest))))) [] entries))
+          (aremq (car entry) rest))))) [] entries))
 ;; The SAME .declare syntax expands public/private record slots and method groups.
 ;; Other kinds use inherited expansion; inherited finalization still sees all groups.
 (define-type (MethodDeclaration. @ Declaration.)

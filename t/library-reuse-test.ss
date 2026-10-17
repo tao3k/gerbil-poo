@@ -10,6 +10,8 @@
         (prefix-in ../multimethod dispatch.)
         (prefix-in ../dispatch-extension extension.)
         (only-in :std/hash/misc hash-ref/default hash-ensure-ref)
+        (only-in :std/list/plist alist->plist)
+        (only-in :std/list/alist plist->alist aremq arem)
         ../object ../mop ../number ../object-contract ../object-contract-flow ../support/option ../slot-layout
         (only-in ../type Record List Tuple)
         (prefix-in ../type-validation containers.)
@@ -33,6 +35,31 @@
 ;; Use actual ordered callbacks, not only final container equality, as acceptance evidence.
 (def library-reuse-test
   (test-suite "Gerbil classes containers and lazy caches"
+    (test-case "standard alternating lists preserve order false and payload identity"
+      (let* ((payload (list 'shared)) (entries (list (cons label: #f) (cons callback: payload)))
+             (encoded (alist->plist entries)) (decoded (plist->alist encoded)))
+        (check-equal? encoded (list label: #f callback: payload))
+        (check-equal? (map car decoded) '(label: callback:))
+        (check (eq? (cdadr decoded) payload) => #t)
+        (check-equal? (alist->plist []) [])
+        (check-exception (plist->alist '(label:)) Error?)))
+    (test-case "standard first-key removal needs distinct-key protocol invariants"
+      (let* ((payload (list 'shared)) (kept (cons 'keep payload))
+             (entries (list (cons 'first #f) kept (cons 'last 7))))
+        (check-equal? (aremq 'first entries) (cdr entries))
+        (check (eq? (car (aremq 'first entries)) kept) => #t)
+        (check (eq? (aremq 'absent entries) entries) => #t)
+        (check (eq? (cdr (car (arem '(shape) (list (cons '(shape) 1) kept)))) payload) => #t)
+        ;; Deliberate negative control: standard removal is NOT remove-all.
+        (check-equal? (aremq 'first '((first . 1) (first . 2))) '((first . 2)))))
+    (test-case "checked FUN generic preserves escaped rest across both validation and dispatch"
+      (let* ((events []) (family (declared.make-reporting-family
+                         (lambda (event) (set! events (cons event events)))))
+             (action (declared.checked-summary-action family 2)))
+        (check-equal? (action (.o rate: 10)) '((10 2 #f review (payload: #f))))
+        (check-equal? (action (.o rate: 20)) '((20 2 #f review (payload: #f))))
+        (check-equal? (reverse events) '(summary summary))
+        (check-exception (reflection.read-slot family 'label) Error?)))
     (test-case "standard lazy defaults preserve false and call fallback only on absence"
       (let ((table (make-hash-table-eq)) (calls 0))
         (hash-put! table 'false #f)

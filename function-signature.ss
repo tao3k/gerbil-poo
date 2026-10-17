@@ -1,6 +1,7 @@
 ;;; Structural Function admission below the Type bootstrap; validators are injected.
 (export decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function)
 (import (only-in ./support/base require-value) (only-in :std/list/list map-in-order)
+        (only-in :std/list/plist alist->plist)
         (only-in ./object .get))
 
 ;; Decode Gerbil's keyword escapes without executing defaults or validators.
@@ -35,12 +36,12 @@
   (def keyword-mode? (ormap (lambda (signature) (pair? (.get signature keywords))) signatures))
   (def row (decode-arguments arguments keyword-mode?))
   (find (lambda (signature) (row-shape? signature row)) signatures))
-;; Canonical keyword forwarding uses Gerbil's own #!rest escape, so a keyword-valued
-;; positional argument cannot be reinterpreted by the target's keyword dispatcher.
+;; Standard alist->plist preserves supplied keyword order and exact payloads.
+;; Gerbil's #!rest escape prevents keyword-valued positional arguments from being
+;; reinterpreted by the target's keyword dispatcher.
 (def (encode-arguments positionals keywords keyword-mode?)
   (if keyword-mode?
-    (append (apply append (map (lambda (entry) (list (car entry) (cdr entry))) keywords))
-            (cons #!rest positionals)) positionals))
+    (append (alist->plist keywords) (cons #!rest positionals)) positionals))
 ;; Omitted defaults stay omitted and execute in the target; only supplied positions
 ;; acquire checks. Nested Function validators return wrappers through the same map.
 (def (normalize-arguments signature arguments keyword-mode? check)

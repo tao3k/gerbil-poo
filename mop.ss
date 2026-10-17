@@ -13,6 +13,8 @@
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list pop! append-map foldr delete-duplicates/hash)
   (only-in :std/list/walist walist)
+  (for-syntax (only-in :std/list/plist plist?)
+              (only-in :std/list/alist plist->alist))
   (only-in :std/values list->values)
   (only-in :std/func compose)
   (only-in ./support/base λ nest invalid)
@@ -41,15 +43,19 @@
 ;; TODO: make this information somehow available at compile-time when possible,
 ;;   to enable inlining and partial evaluation.
 (defsyntax (.defgeneric stx) ;; define a generic function that invokes the prototype's slot
+  ;; Admit syntax shape with standard plist operations, then apply POO policy.
   (def (parse-options options)
     (def slot-name #f)
     (def compute-default #f)
     (def from #f)
     (def combination #f)
-    (let loop ((options options))
-      (match options
-        ([] (values slot-name compute-default (or from 'instance) combination))
-        ([kw val . rest]
+    ;; Gerbil owns alternating-list structure. POO only interprets option names,
+    ;; duplicate/alias policy and syntax bindings; no value expression executes.
+    (unless (plist? options)
+      (error "invalid options" options (syntax->datum options)))
+    (for-each (lambda (entry)
+      (match entry
+        ([kw . val]
          (match (syntax-e kw)
            (slot:
             (when slot-name (error "slot-name set twice" stx))
@@ -69,9 +75,8 @@
            (default:
             (when compute-default (error "default set twice" stx))
             (set! compute-default (with-syntax ((expr val)) #'(lambda (_1 _2) expr))))
-           (x (error "invalid option" x stx)))
-         (loop rest))
-        (_ (error "invalid options" options (syntax->datum options))))))
+           (x (error "invalid option" x stx)))))) (plist->alist options))
+    (values slot-name compute-default (or from 'instance) combination))
   (syntax-case stx ()
     ((.defgeneric (gf self . formals) options ...)
      (begin

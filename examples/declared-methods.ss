@@ -1,6 +1,6 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize make-reporting-family summary-action)
-(import ../object ../mop ../brace ../declaration ../method-declaration
+(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action)
+(import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.))
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)
@@ -56,4 +56,14 @@
     (lambda (account)
       (values (charge account required)
               (summarize account required #f label: 'review 'audit)))
+    (lambda (context) (make-account family (.@ context rate)))))
+
+;; Compose descriptor admission with type-provided combined dispatch and FUN.
+;; The keyword token in rest is data across BOTH wrappers, while label stays a
+;; real keyword binding. The generic's omitted default is still owned by lambda.
+(def (checked-summary-action family required)
+  (def checked (validate (Function [Any] [Object Integer] optional: [Any]
+                          keywords: (list (cons label: Any)) rest: Any) summarize))
+  (.call gp.Observation. .map
+    (lambda (account) (checked account required #f label: 'review #!rest payload: #f))
     (lambda (context) (make-account family (.@ context rate)))))

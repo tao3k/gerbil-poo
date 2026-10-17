@@ -4,7 +4,7 @@
         prepared-context bind-context prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
-(import (only-in ./support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
+(import (only-in :std/list/alist arem) (only-in ./support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
         (only-in ./mop Type validate define-type) ./object
         (only-in ./object compute-precedence-list!) (only-in ./type Unit)
         (prefix-in ./method-combination combination.))
@@ -265,6 +265,8 @@
 ;; Resolve an already validated shape. Explicit preparation refuses guarded or
 ;; ordinary nonprepared shapes without evaluating a guard/body or changing state.
 ;; Ordinary calls still retain guarded candidates and select with current args.
+;; Private cache construction keeps shape keys unique. Standard arem removes the
+;; sole old entry on promotion; the retained key and untouched payloads are shared.
 (def (resolve-shape generic shape (prepare-only? #f))
   (def cache (multimethod-cache generic))
   (def entry (assoc shape cache))
@@ -279,7 +281,7 @@
           (make-resolution candidates
             (and unconditional? ((invocation-prepare invocation) (map method-candidate-method candidates))))))))
     (def key (if entry (car entry) (map (lambda (order) (map identity order)) shape)))
-    (def recent (cons (cons key resolved) (filter (lambda (pair) (not (equal? (car pair) shape))) cache)))
+    (def recent (cons (cons key resolved) (arem shape cache)))
     (values resolved (if resolved (with-cache generic (take recent (min cache-capacity (length recent)))) generic)))))
 ;; Ordinary resolution derives/validates C4 from current typed arguments before
 ;; reusing the shared shape resolver. No declared shape substitutes for this step.

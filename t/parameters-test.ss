@@ -29,6 +29,34 @@
 ;; Exercise complete public APIs, receiver sharing, mutation discipline and effects.
 (def parameters-test
   (test-suite "object syntax and positional specialization"
+    (test-case "generic option lists delegate structure but retain duplicate and alias refusal"
+      (check (rejects? (.defgeneric (option-control self x) slot: collect from: instance)) => #f)
+      (check (rejects? (.defgeneric (bad self) slot:)) => #t)
+      (check (rejects? (.defgeneric (bad self) strange: 1)) => #t)
+      (check (rejects? (.defgeneric (bad self) slot: first slot: second)) => #t)
+      (check (rejects? (.defgeneric (bad self) from: type from: instance)) => #t)
+      (check (rejects? (.defgeneric (bad self) default: #f compute-default: identity)) => #t)
+      (check (rejects? (.defgeneric (bad self) compute-default: identity default: #f)) => #t)
+      (check (rejects? (.defgeneric (bad self) combination: identity combination: identity)) => #t)
+      (check (rejects? (.defgeneric (bad self) from: invalid)) => #t))
+    (test-case "generic forwarding preserves keyword-valued positions and rest through core escape"
+      (let* ((receiver (.o collect: (lambda (required optional tag: tag . rest)
+                            (list required optional tag rest))))
+             (descriptor (.o collect: (lambda (self required optional tag: tag . rest)
+                            (list self required optional tag rest))))
+             (typed-self (.o .type: descriptor))
+             (parts (.o parts: (list (combination.item
+                       (lambda (required optional tag: tag . rest)
+                         (list required optional tag rest)))))))
+        (check-equal? (collect receiver tag: #f #!rest payload: other: #f)
+                      '(payload: other: #f (#f)))
+        (check-equal? (cdr (typed typed-self tag: 'label #!rest payload: #f trailing: #f))
+                      '(payload: #f label (trailing: #f)))
+        (check-equal? (combined parts tag: #f #!rest payload: #f trailing: #f)
+                      '((payload: #f #f (trailing: #f))))
+        (check-equal? (collect receiver #!key payload:) '(payload: #f default ()))
+        (check-equal? (collect receiver 1 #f tag: 'ok #!rest dangling:)
+                      '(1 #f ok (dangling:)))))
     (test-case "construction option errors refuse during actual macro expansion"
       (check (rejects? (.o self: receiver x: 1)) => #f)
       (check (rejects? (.o self: 1 x: 2)) => #t)

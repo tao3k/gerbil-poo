@@ -83,3 +83,14 @@ keyword surface and positional API develop the paper's extensible-prototype futu
 work; they are not claimed as literal APIs in its Racket implementation. General
 polymorphism/inference, typed optional `Fun` signatures, layout/cache protocols,
 collections and interpreter projects remain open. Scheme has no Lean dependency.
+
+### Escaped keyword data
+
+For keyword-bearing generics, `call<-formals` forwards the already resolved
+bindings in Gerbil's canonical application format: the standard `alist->plist`
+keyword prefix, `#!rest`, then the receiver/positional bindings and rest data.
+Consequently `#!key` and `#!rest` at the public call boundary can safely protect
+keyword-valued data through type methods and method combinations. Defaults still
+run once in the enclosing core lambda. A custom `combination:` interpreter
+receives an application row for `apply`, not a positional-only list. Without
+keyword formals the generic keeps its existing plain positional call format.
