@@ -20,6 +20,8 @@
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   ./object-state
+  ./prototype-map
+  ./slot-layout
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten)
   (only-in :std/string/symbol symbol<?)
@@ -28,53 +30,12 @@
   (only-in :gerbil/runtime/c3 c4-linearize)
   (only-in ./support/base λ let-id-rule defonce awhen))
 
-;; A slot list is still exposed as an immutable-in-practice snapshot.  Writes
-;; accumulate behind that view and are materialized only when a reader asks for
-;; the list, so repeated .putslot! calls do not repeatedly copy its prefix.
-(defstruct $slot-store (snapshot pending values dirty?))
-
-(def (make-slot-store snapshot)
-  (make-$slot-store snapshot '() #f #f))
-
-(def ($slot-store-put! store name value)
-  (unless ($slot-store-values store)
-    (let (values (make-hash-table-symbolic))
-      (for (([key . old-value] ($slot-store-snapshot store)))
-        (unless (hash-key? values key)
-          (hash-put! values key old-value)))
-      (set! ($slot-store-values store) values)))
-  (unless (hash-key? ($slot-store-values store) name)
-    (set! ($slot-store-pending store)
-          (cons name ($slot-store-pending store))))
-  (hash-put! ($slot-store-values store) name value)
-  (set! ($slot-store-dirty? store) #t))
-
-(def ($slot-store-list store)
-  (if (not ($slot-store-dirty? store))
-    ($slot-store-snapshot store)
-    (let ((seen (make-hash-table-symbolic))
-          (values ($slot-store-values store)))
-      (def result
-        (with-list-builder (add)
-          (for (([name . old-value] ($slot-store-snapshot store)))
-            (if (hash-key? seen name)
-              (add (cons name old-value))
-              (begin
-                (hash-put! seen name #t)
-                (add (cons name (hash-ref values name))))))
-          (for (name (reverse ($slot-store-pending store)))
-            (add (cons name (hash-ref values name))))))
-      (set! ($slot-store-snapshot store) result)
-      (set! ($slot-store-pending store) '())
-      (set! ($slot-store-values store) #f)
-      (set! ($slot-store-dirty? store) #f)
-      result)))
-
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
   (supers ;; : (Listof (Object ?))
-   %slots ;; : direct slot method list, or $slot-store after mutation
-   %defaults ;; : direct slot default list, or $slot-store after mutation
+   %slots ;; : persistent ordered direct specifications
+   %defaults ;; : persistent ordered defaults
+   %layout ;; : optional shared shape and receiver-local value vector
    %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
    %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
@@ -92,9 +53,10 @@
       defaults: (defaults '())
       protocol: (protocol #f) declarations: (declarations '()) bootstrap: (bootstrap #f)) ;; : (Listof (Pair Symbol ?))
     (set! (object-supers self) (flatten supers))
-    (set! (object-%slots self) slots)
-    (set! (object-%defaults self) defaults)
+    (set! (object-%slots self) (prototype-map slots))
+    (set! (object-%defaults self) (prototype-map defaults))
     (set! (object-%instance self) #f)
+    (set! (object-%layout self) #f)
     (set! (object-%precedence-list self) #f)
     (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)
@@ -106,14 +68,10 @@
     (for-each (cut depend-on-object! self <>) (object-supers self))
     (when protocol (depend-on-object! self protocol))))
 
-(def (object-slots self)
-  (let (storage (object-%slots self))
-    (if ($slot-store? storage) ($slot-store-list storage) storage)))
-
-(def (object-defaults self)
-  (let (storage (object-%defaults self))
-    (if ($slot-store? storage) ($slot-store-list storage) storage)))
-
+;; Reflection preserves contribution order without exposing the persistent storage.
+(def (object-slots self) (prototype-map-list (object-%slots self)))
+;; Reflection returns an owned list while the persistent map remains shareable.
+(def (object-defaults self) (prototype-map-list (object-%defaults self)))
 ;; Expose only explicit instance assignments as constant specifications. Recursive
 ;; validation can retain them on a fresh receiver without copying computed caches;
 ;; ordinary prototype inheritance still does not inherit these assignments.
@@ -134,6 +92,7 @@
 ;; Clear all derived state together. Explicit instance assignments remain separate.
 (def (clear-object-cache! self)
   (set! (object-%instance self) #f)
+  (set! (object-%layout self) #f)
   (set! (object-%precedence-list self) #f)
   (set! (object-%slot-funs self) #f)
   (set! (object-%all-slots self) #f))
@@ -156,12 +115,14 @@
   (set! (object-state-sealed? (object-%state self)) #t) self)
 ;; Replace direct specifications, invalidating every retained dependent cache.
 (def (object-slots-set! self slots)
+  (def next (prototype-map slots))
   (before-object-edit! self)
-  (set! (object-%slots self) slots))
+  (set! (object-%slots self) next))
 ;; Replace direct defaults through the same invalidation discipline.
 (def (object-defaults-set! self defaults)
+  (def next (prototype-map defaults))
   (before-object-edit! self)
-  (set! (object-%defaults self) defaults))
+  (set! (object-%defaults self) next))
 ;; Install a new protocol; old dependency edges conservatively remain valid.
 (def (object-protocol-set! self protocol)
   (unless (or (not protocol) (object? protocol)) (error "protocol object required"))
@@ -341,8 +302,28 @@
                       (hash-ref/default (object-%slot-funs self) slot
                         (cut cut no-applicable-method self slot))))
           (hash-put! instance slot value)
+          (when (object-%layout self) (slot-layout-put! (object-%layout self) slot value))
           value)
         value))))
+
+;; Prepare a shared symbolic shape lazily. Ordinary lookup retains its hash API;
+;; opting into an access site adds a coherent receiver-local vector, not a new evaluator.
+(def (object-layout self)
+  (def instance (object-instance self))
+  (or (object-%layout self)
+    (let (layout (make-slot-layout
+      (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) instance absent-value))
+      (set! (object-%layout self) layout) layout)))
+;; Guarded access sites reuse only an index, never another receiver's slot value.
+;; Failed computations publish no new guard; absence never becomes a cached index.
+(def (.ref/inline self cache)
+  (def layout (object-layout self))
+  (def revision (object-revision self))
+  (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
+    (let* ((slot (slot-cache-name cache)) (index (slot-layout-index layout slot))
+           (value (.ref self slot)))
+      (slot-cache-bind! cache self revision layout index)
+      value)))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))
@@ -765,21 +746,24 @@
 ;; Install a direct specification; all retained descendants lose derived caches.
 ;; : Unit <- (Object A) s:Symbol (SlotSpec A s)
 (def (.putslot! self slot slot-spec)
+  (def next (prototype-map-put (object-%slots self) slot slot-spec))
   (before-object-edit! self)
-  (let (storage (object-%slots self))
-    (unless ($slot-store? storage)
-      (set! storage (make-slot-store storage))
-      (set! (object-%slots self) storage))
-    ($slot-store-put! storage slot slot-spec)))
-
-;; Change a direct default and invalidate all derived inherited state.
+  (set! (object-%slots self) next))
+;; Change a default persistently through the same descendant invalidation protocol.
 (def (.putdefault! self slot default)
+  (def next (prototype-map-put (object-%defaults self) slot default))
   (before-object-edit! self)
-  (let (storage (object-%defaults self))
-    (unless ($slot-store? storage)
-      (set! storage (make-slot-store storage))
-      (set! (object-%defaults self) storage))
-    ($slot-store-put! storage slot default)))
+  (set! (object-%defaults self) next))
+;; Remove every direct method contribution; inherited methods/defaults can reappear.
+(def (.removeslot! self slot)
+  (def next (prototype-map-remove (object-%slots self) slot))
+  (before-object-edit! self)
+  (set! (object-%slots self) next))
+;; Remove a direct fallback without removing inherited or explicit instance values.
+(def (.removedefault! self slot)
+  (def next (prototype-map-remove (object-%defaults self) slot))
+  (before-object-edit! self)
+  (set! (object-%defaults self) next))
 
 (defrules .setslot! () ((_ object. slot slot-spec) (.putslot! object. 'slot slot-spec)))
 
@@ -821,22 +805,16 @@
           ([(? symbol? s) v . r] (add-slot! s v) (loop r))
           ([(? keyword? k) v . r] (add-slot! (make-symbol k) v) (loop r))
           (else (error "invalid object overrides" overrides))))))
-  (def slots
-    (with-list-builder (c)
-      (for ((ss (object-slots self)))
-        (def slot (car ss))
-        (cond
-         ((hash-get added-hash slot) => (lambda (spec) (hash-remove! added-hash slot) (c [slot . spec])))
-         (else (c ss))))
-      (for (slot added)
-        (awhen (spec (hash-get added-hash slot))
-          (hash-remove! added-hash slot) (c [slot . spec])))))
+  ;; Persistent path copies preserve direct contribution order and share all
+  ;; unaffected tree branches. No evaluated receiver or cache is inherited.
+  (def slots (foldl (lambda (slot source)
+    (prototype-map-put source slot (hash-ref added-hash slot))) (object-%slots self) added))
   ;; Clone direct metadata with direct formulas; .cc does not inherit SELF.
-  (make-object slots: slots supers: (object-supers self) defaults: (object-defaults self)
+  (make-object slots: slots supers: (object-supers self) defaults: (object-%defaults self)
                protocol: (object-%protocol self) declarations: (object-%declarations self)))
 
-;; TODO: find an efficient way to repeatedly override one field in a pure way without leaking memory,
-;; in O(log n) rather than O(n)?
+;; Persistent direct overrides now copy balanced-tree paths; allocation and end-to-end
+;; workflow performance still require measurement before selecting a faster policy.
 ;; TODO: maybe have explicitly distinct variants of stateful vs pure object?
 ;; Could one convert from the other, with some freezing and thawing or copying operations?
 ;; When overriding a field, should we invalidate all the cached values for all fields?
