@@ -141,10 +141,10 @@
   (for-each (cut depend-on-object! self <>) parents)
   (set! (object-supers self) parents))
 ;; Resolve the most-specific explicit protocol after checked C3 linearization.
-;; Protocol descriptors themselves inherit with the ordinary object mechanism.
+;; Core ormap returns the exact first protocol and never visits the suffix.
+;; Select ONE protocol object: a missing hook there does not search other branches.
 (def (object-protocol self)
-  (let find ((order (object-%precedence-list self)))
-    (and (pair? order) (or (object-%protocol (car order)) (find (cdr order))))))
+  (ormap object-%protocol (object-%precedence-list self)))
 ;; The explicit metalevel base exposes only its pinned hook values. Ordinary
 ;; objects and arbitrary cycles retain the normal construction/slot guards.
 (def (bootstrap-anchor self name)

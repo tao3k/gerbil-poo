@@ -1,5 +1,5 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action)
+(export make-services report revision-action protocol-action)
 (import ../object ../mop ../number ../brace ../reflection ../inheritance-hooks
         (prefix-in ../generalized-prototype gp.))
 ;; Derive an audited protocol using ordinary inherited method continuations.
@@ -32,3 +32,10 @@
 (def (revision-action amount)
   (.call gp.Observation. .map report
     (lambda (services) (write-slot! (.@ services source) 'amount amount) services)))
+
+;; Reconfigure the billing branch through the checked mutation boundary, then
+;; observe all services through FUN. The join selects billing's current complete
+;; protocol; risk keeps its own protocol. Refusal never reaches report.
+(def (protocol-action protocol)
+  (.call gp.Observation. .map report
+    (lambda (services) (object-protocol-set! (.@ services billing) protocol) services)))
