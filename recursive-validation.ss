@@ -2,7 +2,7 @@
 (export close-validation validation-action closed? closed-ref closed-type closed-names
         validation-failure? validation-failure-kind validation-failure-cause
         validation-node revise-validation revision-action closed-evaluated closed-reused
-        reconfigure-validation reconfiguration-action closed-reads)
+        reconfigure-validation reconfiguration-action closed-reads validation-checkpoint)
 (import (only-in :std/list/list delete-duplicates/hash filter find)
         (only-in :std/hash/misc hash-ensure-ref)
         ./object (only-in ./mop Type. Type validate raise-type-error)
@@ -340,6 +340,22 @@
 ;; Publication/evidence effects remain the existing caller-owned next action.
 (def (reconfiguration-action added removed replacements (limit 256))
   (lambda (current) (reconfigure-validation current added removed replacements limit)))
+
+;; Capture a current declared graph and proposed recipe watches without building
+;; anything. Invocation requires the exact same current graph AND unchanged input
+;; versions. Even an unrelated successful revision invalidates this request;
+;; selective Reference survival does not grant whole-snapshot publication rights.
+;; Complete watches and immutable recipe metadata remain caller obligations.
+(def (validation-checkpoint previous specifications)
+  (unless (and (closed? previous) (closed-dependencies previous)
+               (list? specifications) (andmap node-spec? specifications))
+    (raise (make-validation-failure 'protocol #f)))
+  ((closed-fresh previous))
+  (def watched (snapshot (apply append (map node-spec-watches specifications))))
+  (lambda (current)
+    (unless (eq? previous current) (raise (make-validation-failure 'stale #f)))
+    ((closed-fresh previous))
+    (check-stamps watched)))
 
 ;; Reflect only the explicitly declared footprint of a current revision catalog.
 ;; Copy the list spine: editing the returned metadata cannot rewrite this graph's

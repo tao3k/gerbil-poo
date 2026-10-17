@@ -1127,3 +1127,15 @@ totals and group transitions. The Lean common name universe reserves inactive
 providers for comparison and guards their exposure by actual membership; it is
 not a host allocation model. Named support/index correspondence, declared-read
 completeness and sequential source discipline remain explicit.
+
+
+### Deferred recursive revisions
+
+Gerbil `recursive-staging` corresponds to Lean `Functional.RecursiveStaging`;
+`examples/recursive-staging.ss` and `Examples/RecursiveStaging.lean` interleave
+requests over the same seven topology/migration/computed states. Exact host graph
+identity corresponds to monotone logical revisions, complete watch stamps to the
+explicit stamp parameter. Both reuse existing all-node closure and selective cache
+laws. Stale requests refuse before construction; failure preserves the old state.
+This is generalized-prototype future work, with sequential publication and no
+cross-effect atomicity or automatic read discovery. Scheme imports no Lean files.

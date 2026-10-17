@@ -1055,3 +1055,14 @@ membership preservation and merge/split invalidation from existing footprint/bod
 seeds, with no mandatory SCC pass. This advances future work under a common finite
 name embedding and the prior named support/index laws. Complete callback reads,
 host identity/source correspondence and sequential mutation remain boundaries.
+
+
+Deferred recursive requests now use `recursive-staging.stage-reconfiguration` over
+existing selective closure. Exact graph identity and proposed-input watch versions
+are checked before construction. Seven-round competing requests cover SCC edits,
+shared migration, computed changes, old snapshot/Reference refusal and explicit
+re-staging after late closure failure. FUN/refine/bind-evidence compose with graph
+commit and effect admission kept as separate sequential boundaries. Lean supplies
+eight publication laws and matching actual graph controls. This advances MOP future
+work under complete reads/watches and sequential mutation; concurrent installation
+and atomic graph/effect transactions remain open. See `recursive-validation.md`.
