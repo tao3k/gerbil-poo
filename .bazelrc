@@ -1,5 +1,0 @@
-# All direct inputs are pinned in MODULE.bazel; no generated lockfile is tracked.
-common --lockfile_mode=off
-test --test_timeout=90
-test --test_output=errors
-test --keep_going

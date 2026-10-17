@@ -1,31 +1,27 @@
 # Independent Scheme checks
 
-CI compiles `//:library` once, then runs every `t/*-test.ss` module in its own
-Bazel test process across the existing seventeen functional groups. The exact
-partition check rejects missing or duplicate modules. Failed groups do not cancel
-their siblings; the harness exit status, per-module timeout and diagnostics remain
-in force.
+CI downloads the already compiled Linux Gerbil release from gerbil-bazel, checks
+its pinned SHA-256, and uses the release's activation entry point. The downloaded
+archive is cached; its bytes are verified again before every extraction. The
+project uses `build.ss` and `just` directly.
 
-Test runners consume the successful build job's compiled project, build receipt
-and log through an ephemeral artifact named for the checked commit. Before Bazel
-analysis, each runner verifies the producer revision against its actual checkout.
-`scheme-build.bzl` supplies the existing `GerbilProjectInfo` provider by extracting
-that declared archive input. The test graph contains no compiler action in this
-mode; a missing artifact fails instead of silently recompiling. All runners use
-the same pinned Linux compiler artifact and Ubuntu platform. This is per-run
-artifact transport, not cross-revision admission or a portable binary release.
+The build job compiles once into the isolated `GERBIL_PATH=.ci-library`. A
+short-lived Actions artifact transfers that output to each test group. Before
+testing, each runner checks the recorded producer revision against its actual
+checkout. Compiler version, platform and source revision agree within this run;
+this does not qualify cross-version or cross-platform binary reuse.
 
-The previous disk-cache transport could miss because the upstream compile action
-includes host environment and toolchain receipts (including host capacity). A
-cache miss therefore cannot reliably mean that project source changed. Passing
-the successful producer's output directly removes that repeated compilation
-without falsifying host metadata or weakening the upstream resource guard.
+`t/test-groups.ss` owns the functional groups as Scheme data and emits only the
+ephemeral matrix required by Actions. Missing classified tests and duplicate
+registrations fail preparation. Every new `*-test.ss` module is also included,
+in an additional group until classified. No generated matrix is committed.
 
-Local `bazel test //:test` still compiles normally. Compilation inputs exclude
-standalone `*-test.ss` files; compiled test-support modules declared by `build.ss`
-remain inputs. Test runfiles retain all source files used by report validation
-and examples. Thus changing a test still reruns its test action without forcing
-library recompilation.
+The existing seventeen groups run independently; within each group, standard
+`xargs -P 2` starts a separate `just test-file` process for every module. Each
+keeps its 90-second deadline, standard harness, error-marker checks and exit
+status. A failure does not cancel sibling groups, and xargs still attempts
+the other modules before returning failure. Test jobs never invoke `build.ss`.
 
-The downloaded `.ci-library/` directory is ignored. Archives, generated receipts
-and full logs are short-lived Actions artifacts and are never committed.
+The downloaded `.ci-library/` directory is ignored. Generated artifacts, compiler
+archives and full logs remain outside Git. Local development uses the same
+`just build`, `just test`, and `just test-file` commands with its installed Gerbil.

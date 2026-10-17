@@ -8,33 +8,31 @@ permissions:
 concurrency:
   group: scheme-${{ github.ref }}
   cancel-in-progress: true
+env:
+  GERBIL_PATH: ${{ github.workspace }}/.ci-library
 jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.groups.outputs.matrix }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
-        with:
-          bazelisk-cache: true
-          repository-cache: true
-      - name: Compile the Scheme modules once
-        run: bazel build //:library
-      - name: Package this run's compiled library
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+      - name: Validate every test module and emit its functional group
+        id: groups
         run: |
-          mkdir -p .ci-library
-          cp -a bazel-bin/library.project .ci-library/ci-library.project
-          tar -cf .ci-library/library.tar -C .ci-library ci-library.project
-          cp bazel-bin/library.receipt.json bazel-bin/library.log .ci-library/
-          git rev-parse HEAD > .ci-library/revision
+          matrix="$(gxi t/test-groups.ss)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+      - name: Compile the Scheme modules once
+        run: just build
+      - name: Record the actual producer revision
+        run: git rev-parse HEAD > .ci-library/revision
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: scheme-library-${{ github.sha }}
-          path: |
-            .ci-library/library.tar
-            .ci-library/library.receipt.json
-            .ci-library/library.log
-            .ci-library/revision
+          path: .ci-library
           include-hidden-files: true
           retention-days: 1
           compression-level: 0
@@ -47,32 +45,11 @@ jobs:
     timeout-minutes: 10
     strategy:
       fail-fast: false
-      matrix:
-        group:
-          - objects
-          - representations
-          - collections
-          - methods
-          - declarations
-          - closure
-          - construction
-          - components
-          - feedback
-          - recursion
-          - contracts
-          - publication
-          - revisions
-          - coordination
-          - recovery
-          - generalized
-          - tools
+      matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
-        with:
-          bazelisk-cache: true
-          repository-cache: true
-          cache-save: false
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: scheme-library-${{ github.sha }}
@@ -80,13 +57,4 @@ jobs:
       - name: Require this run's exact producer revision
         run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
       - name: Run independent Scheme module tests
-        run: bazel test //:${{ matrix.group }} --define=scheme_shared_build=1 --local_test_jobs=2
-      - name: Retain failed module diagnostics
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: test-${{ matrix.group }}
-          path: bazel-testlogs/**/test.log
-          retention-days: 3
-          if-no-files-found: ignore
-          overwrite: true
+        run: printf '%s\n' ${{ matrix.modules }} | xargs -P 2 -n 1 just test-file

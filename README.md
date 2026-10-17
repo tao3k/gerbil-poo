@@ -43,18 +43,17 @@ companion; it does not change ordinary prototype recursion.
 
 ### Scheme CI
 
-`bazel test //:test` builds the declared `build.ss` modules and runs every test
-module in a separate standard Scheme harness process, with its own failure status
-and 90-second limit. Seventeen functional groups run as independent GitHub jobs;
-`bazel test //:recovery` selects one group, and `bazel test //:coordinator-prepared_test`
-selects a single module. The declaration checks that every test belongs to exactly
-one group, so new modules cannot silently escape CI.
+`just build` compiles the declared `build.ss` modules. `just test-file` runs one
+module through the standard Scheme harness, with its own failure status and
+90-second limit. Seventeen functional groups run as independent GitHub jobs,
+with two independent module processes per group. `t/test-groups.ss` checks the
+inventory and includes new, unclassified tests in an additional group.
 
 One build job publishes this run's compiled library to the dependent test jobs.
-Each job verifies the producer revision and restores that declared artifact;
-test jobs contain no library compilation action. See [CI checks](doc/ci-checks.md).
+Each job verifies the producer revision and restores that artifact; test jobs
+do not compile the library. See [CI checks](doc/ci-checks.md).
 Linux uses a SHA-256 pinned, already compiled gerbil-bazel release with verified
 upstream revision. Darwin development uses its compatible installed compiler.
 No compiler source build, companion Lean checkout or repository shell wrapper is
-required. Generated outputs and dependency lockfiles are ignored; toolchain and
-build caches stay outside Git. A PR commit triggers one matrix run.
+required. Compiler downloads and build artifacts stay outside Git. A PR commit
+triggers one matrix run.
