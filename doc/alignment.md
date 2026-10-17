@@ -1113,3 +1113,17 @@ clean identity under row shifts, tombstone/refusal and positive least invalidati
 laws, plus current all-node admission and bound evidence. Numeric epochs are the
 logical identity model, not a Scheme checkout/runtime dependency. Untracked reads,
 external effects, custom Type laws and concurrent installation remain boundaries.
+
+### Interleaved recursive SCC topology
+
+The Racket final-self and descriptor constructions remain the source basis;
+interleaved graph lifecycle is generalized MOP future work. Gerbil reuses existing
+recipes, Tuple wrapping, checked SCC analysis and FUN evidence. SCC analysis is
+optional reflection, not a new cost on ordinary revision. Lean
+`Functional.RecursiveTopology` proves that footprint seeds also propagate along
+old paths when edges disappear, giving both old-split and new-merged group
+atomicity and dirty membership-change participants. The seven-round fixtures share
+totals and group transitions. The Lean common name universe reserves inactive
+providers for comparison and guards their exposure by actual membership; it is
+not a host allocation model. Named support/index correspondence, declared-read
+completeness and sequential source discipline remain explicit.

@@ -1041,3 +1041,17 @@ positive least invalidation. This advances future work. Complete declared reads,
 Scheme source/identity correspondence, callback termination and sequential mutation
 remain premises; automatic read discovery and concurrent/cross-effect transactions
 remain open. See [recursive-validation.md](recursive-validation.md).
+
+Interleaved multiple-SCC reclosure now has seven-round controls covering two
+simultaneous merges, simultaneous splits into new pairs, crossed merges with late
+refusal/retry, restored grouping with old-reference rejection, computed-only edits
+and a single-SCC body edit retaining three independent SCCs. Reused provider/peer/
+summary/meter and Tuple/FUN/refine/bind-evidence constructs remain the execution
+path. `closed-reads` and on-demand `recursive-topology.partition` expose declared
+footprints and checked group receipts without replaying computations; historical
+set comparison ignores row/representative order. Lean `Functional.RecursiveTopology`
+proves old-path propagation across removed edges, old/new SCC atomicity, clean
+membership preservation and merge/split invalidation from existing footprint/body
+seeds, with no mandatory SCC pass. This advances future work under a common finite
+name embedding and the prior named support/index laws. Complete callback reads,
+host identity/source correspondence and sequential mutation remain boundaries.

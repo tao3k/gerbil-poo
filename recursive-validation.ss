@@ -2,7 +2,7 @@
 (export close-validation validation-action closed? closed-ref closed-type closed-names
         validation-failure? validation-failure-kind validation-failure-cause
         validation-node revise-validation revision-action closed-evaluated closed-reused
-        reconfigure-validation reconfiguration-action)
+        reconfigure-validation reconfiguration-action closed-reads)
 (import (only-in :std/list/list delete-duplicates/hash filter find)
         (only-in :std/hash/misc hash-ensure-ref)
         ./object (only-in ./mop Type. Type validate raise-type-error)
@@ -340,3 +340,11 @@
 ;; Publication/evidence effects remain the existing caller-owned next action.
 (def (reconfiguration-action added removed replacements (limit 256))
   (lambda (current) (reconfigure-validation current added removed replacements limit)))
+
+;; Reflect only the explicitly declared footprint of a current revision catalog.
+;; Copy the list spine: editing the returned metadata cannot rewrite this graph's
+;; invalidation directory. Ordinary fresh-owner closure has no declared footprint.
+(def (closed-reads graph name)
+  ((closed-fresh graph))
+  (unless (closed-dependencies graph) (raise (make-validation-failure 'protocol name)))
+  (append (hash-ref (closed-dependencies graph) name) []))

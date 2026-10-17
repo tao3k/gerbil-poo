@@ -239,3 +239,51 @@ laws and sequential mutation remains required. Positive invalidation equations d
 not solve arbitrary eager computed getters. Graph commit and FUN effect admission
 remain separate boundaries; no cross-effect rollback, arbitrary retained-Function
 revocation, concurrent isolation or runtime/compiler/GC certification is claimed.
+
+## Interleaved SCC merges and splits
+
+`closed-reads graph name` returns a copied declared footprint after the normal
+current-graph check. `recursive-topology.partition` adapts these reads to the
+existing checked `strong-components.partition`; it never runs node builders,
+normalizers, computed getters or computation evaluators. Analysis is on demand,
+with freshness checked before/after. Ordinary reclosure performs no SCC discovery.
+An ordinary `close-validation` graph cannot invent this metadata: it must originate
+from the explicit revision-catalog protocol.
+
+`recursive-topology.changed-members before after` compares immutable historical
+partition receipts by membership sets, including added/removed keys. Reordering
+rows or changing a representative alone does not report changed membership. A
+receipt is structural information, not permission to reuse a cached node or skip
+current approval. Obtaining a new receipt from a retired snapshot refuses.
+
+`examples/recursive-topology.ss` reuses the provider/peer/summary/meter recipes,
+Tuple reference normalization and FUN publication. Eight services form four pairs;
+both pairs of SCCs merge simultaneously into quartets, split into different pairs,
+and merge across the original quartet boundary. Shared dependencies migrate to a
+new provider; the unused provider is removed. A late final refusal keeps the old
+partitions/capabilities, and retry completes the crossed merge. Restoring the
+original grouping never revives old References. A computed-only switch rebuilds
+summary/report/meter; a later single-member body edit rebuilds only its pair and
+downstream report/meter, retaining the other three SCCs, provider and computed
+reader. Root refinement checks actual canonical peers/providers/reader and checked
+Function captures before bound evidence. Totals are 82→108→128→132→127→134→135.
+
+`Functional.RecursiveTopology` proves fourteen laws over a common finite name
+embedding. A removed edge itself seeds its consumer, so every old path still
+propagates invalidation: surviving edges propagate to an already dirty target,
+and deleted edges dirty the consumer directly. Consequently both old split groups
+and new merged groups are atomic with respect to current dirtiness. A clean node
+has unchanged reads, preserves paths in both directions and retains exactly its
+checked SCC membership. Every merge/split participant is therefore dirty using
+body/footprint seeds alone. Existing positive least invalidation still supplies
+minimality and finite closure; no extra partition pass is required for correctness.
+
+`Examples/RecursiveTopologies.lean` executes matching rounds, exact checked SCC
+receipts, refusal/retry, named epoch guards, refinement and stale subject/context
+binding. Its common comparison universe reserves inactive provider vertices;
+current membership guards hide them. It is not an allocation/cost model. Actual
+support changes and index lowering use the preceding named-catalog laws. Complete
+reads, immutable metadata, host source/identity correspondence, custom Type laws
+and sequential mutation remain premises. These constructions advance generalized
+MOP future work, without solving arbitrary eager computed fixed points, callback
+termination, concurrent installation or atomic graph/effect publication.
