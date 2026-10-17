@@ -927,3 +927,13 @@ revision → relation check → consumer example preserves input keys and curren
 candidate identity. See [object-contracts.md](object-contracts.md). Lean proves the
 finite checker laws with explicit custom-Type agreement; general polymorphism,
 subtype inference, generators and arbitrary callback proofs remain open.
+
+Explicit structural strengthening now uses `object-contract.refine`, preserving
+the full parent report and gating additional obligations through receiver-aware
+inherited computation. `examples/contract-publication.ss` combines this with FUN
+admission and the existing exact-reference `declarative-metadata.bind-evidence`
+helper. Stale context refusal, prior-rule preservation, nested binding and retry
+from the current template have Scheme controls and corresponding Lean laws.
+This advances the generalized-prototype future work. The finite identity model
+does not authenticate result fields, infer subtypes, wrap nested Function fields,
+detect in-place mutation or roll back external effects.

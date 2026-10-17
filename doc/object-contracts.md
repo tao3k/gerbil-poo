@@ -5,6 +5,10 @@
 They have no dependency on POO Flow, module publication, graphs, provider schemas
 or an admission-receipt framework.
 
+For binding an existing invocation result to a subject, descriptor and context,
+see [invocation evidence binding](evidence-binding.md). That operation belongs to
+`declarative-metadata`; structural object contracts remain context-independent.
+
 ## Ordinary fields first
 
 ```scheme
@@ -200,3 +204,32 @@ The companion service fixture uses all five fields, Int-valued capacity/use and
 the exact 1–65535 port interval. A separate port-recognizer equivalence theorem
 and paired lower/upper-bound and negative-use controls prevent the worked examples
 from silently accepting different domains. These do not prove the JSON parser.
+
+## Explicitly strengthen an effective descriptor
+
+`(refine descriptor additional-diagnostics)` retains the original structural
+contract and adds a gated obligation phase. Unlike ordinary override, it cannot
+admit a value the original contract refused. Existing issue lists are retained
+exactly; the new callback sees the same value and path only after success. The
+callback can use `diagnostic-all` to accumulate independent new obligations.
+
+The implementation uses the existing `=>` inherited-computation syntax. It does
+not capture a prepared parent's callback; later receiver-dependent declarations
+remain effective. `.cc` metadata copies are supported through the existing
+structural descriptor slots, without assuming nominal ancestry. Arbitrary custom
+`.diagnose` overrides must obey this protocol; no runtime subtype inference is
+provided. Added callbacks remain pure and descriptors immutable during use.
+
+`examples/contract-publication.ss` combines explicit capacity strengthening,
+`checked-action` FUN admission and the existing `bind-evidence` / `publish`
+protocol. Invalid input suppresses the producer; stale context refuses the
+tentative result and returns the old state; a newly bound current invocation can
+retry. A producer's external effects are not undone. See
+[evidence-binding.md](evidence-binding.md) for identity and authority boundaries.
+
+Lean `ObjectContractRefinement` proves exact phase composition, acceptance
+conjunction, rejection preservation and associativity. `EvidenceBinding` proves
+original-rule preservation, exact reference association and old-state retention
+on mismatch, assuming identity carriers and a total pure projection. These are
+future-work extensions of the paper's descriptor constructions, not claims that
+the original Racket API contained these helpers.

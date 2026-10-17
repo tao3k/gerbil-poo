@@ -84,6 +84,7 @@
     "examples/generalized-checkout"
     "object-contract-flow"
     "examples/object-contracts"
+    "examples/contract-publication"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"

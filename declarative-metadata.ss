@@ -3,7 +3,7 @@
         methods.check<-holds methods.invoke<-wrap
         replace contribute guarded remove of-edit named declaration? declaration-name compile install family
         truth atom both either implies deny formula? holds check
-        predicate typed predicate? contract contract? with-meaning wrap invoke publish
+        predicate typed predicate? contract contract? with-meaning bind-evidence wrap invoke publish
         failure? failure-phase failure-name failure-cause)
 (import :std/iter (only-in :std/func compose)
         ./object (only-in ./mop define-type .defgeneric Type Type. validate element?)
@@ -178,6 +178,27 @@
 ;; used at invocation. Derived invariant changes still take the fresh-check path.
 ;; share? false avoids initial shared-record preparation for a single cold call.
 (.defgeneric (with-meaning contract meaning (share? #t)) slot: .with-meaning)
+;; Add an exact subject/descriptor/context relation to an existing invocation
+;; Contract. The view projects an existing result; no receipt type or authority
+;; is created. All references and their contents must remain immutable.
+(def (bind-evidence invocation subject descriptor context evidence-view)
+  (validate Contract invocation)
+  (unless (procedure? evidence-view)
+    (error "Evidence view must be a procedure"))
+  (let ((binding-key (gensym 'evidence-binding))
+        (previous-meaning (.@ invocation meaning)))
+    (.cc
+      (with-meaning invocation
+        (lambda (key request evidence)
+          (if (eq? key binding-key)
+            (and (eq? request subject)
+                 (let (view (evidence-view evidence))
+                   (and (eq? subject (.@ view subject))
+                        (eq? descriptor (.@ view descriptor))
+                        (eq? context (.@ view context)))))
+            (previous-meaning key request evidence)))
+        #f)
+      rule: (both (.@ invocation rule) (atom binding-key)))))
 ;; Bind the current executor to a descriptor's checked wrapper; state remains an invocation argument.
 (.defgeneric (wrap contract execute) slot: .wrap)
 ;; Execute through the descriptor's native checked invocation method.

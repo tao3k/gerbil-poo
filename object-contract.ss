@@ -1,6 +1,6 @@
 ;;; Structural value contracts over the existing POO Type protocol.
 ;;; No configuration domain, module publication or admission context belongs here.
-(export ObjectContract. TypeContract. diagnose as-value-contract)
+(export ObjectContract. TypeContract. diagnose as-value-contract refine)
 (import (only-in :std/list/list foldl append-map filter-map)
         ./object-diagnostics
         (only-in ./object .o .cc .get .ref .slot? .all-slots object?
@@ -113,3 +113,19 @@
                      (and (eq? extra-fields 'delegate) (pair? prepared-constraints))))
       (error "Invalid object contract policy" identity))
     (object-issues @ value location)))
+
+;; Strengthen the effective obligations without overriding the parent checks.
+;; The inherited-computation syntax keeps the parent callback receiver-aware:
+;; later descriptor derivation does not capture a previously prepared parent.
+;; Existing refusals gate the added callback and retain their exact issue list.
+(def (refine descriptor additional)
+  (validate Type descriptor)
+  ;; .cc copies metadata rather than adding nominal ancestry. Check the existing
+  ;; structural descriptor protocol without forcing its prepared callbacks.
+  (unless (andmap (cut .slot? descriptor <>)
+            '(responsibilities required-prototype extra-fields constraints obligations
+              prepared-responsibilities prepared-constraints prepared-obligations))
+    (error "Refinement requires an ObjectContract descriptor"))
+  (unless (procedure? additional) (error "Refinement must be a diagnostic procedure"))
+  (.o (:: @ descriptor)
+    obligations: => (lambda (previous) (diagnostic-then previous additional))))

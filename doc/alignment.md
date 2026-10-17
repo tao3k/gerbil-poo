@@ -1009,3 +1009,11 @@ Shared-dependency warm revision and guarded joint approval now pair
 `FeedbackRevision` / `Examples/SharedFeedback.lean` with native FUN composition;
 see [feedback-revision.md](feedback-revision.md) and [feedback-cache.md](feedback-cache.md)
 for exact revision/selective reconstruction guarantees, source guards and controls.
+
+Explicit structural strengthening pairs `object-contract.refine` with Lean
+`Functional.ObjectContractRefinement`; exact invocation association pairs the
+existing `declarative-metadata.bind-evidence` with `Functional.EvidenceBinding`.
+`examples/contract-publication.ss` / `Examples/ObjectContracts.lean` cover current
+binding, stale contexts, original policy refusal, nested bindings and fresh retry.
+These extend the paper's future work under immutable reference interpretation and
+lawful diagnostic hooks; they do not establish authentication or effect rollback.

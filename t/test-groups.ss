@@ -16,7 +16,7 @@
     (components component-membership component-migration component-requests component-rounds)
     (feedback feedback-cache feedback-closure feedback-graph feedback-revision cyclic-access)
     (recursion recursive recursive-benchmark)
-    (contracts contract-family object-contract object-contract-flow protected-dispatch service-bundle service-metadata service-revisions shared-approvals)
+    (contracts contract-family object-contract object-contract-flow contract-publication evidence-binding protected-dispatch service-bundle service-metadata service-revisions shared-approvals)
     (publication joint-publication joint-admission joint-receipts joint-installation approval-revision)
     (revisions joint-topology joint-rounds joint-restaging joint-generations)
     (coordination joint-coordination joint-concurrency coordinator-recovery coordinator-rejoining)
