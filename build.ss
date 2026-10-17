@@ -107,6 +107,7 @@
     "examples/recursive-migration"
     "examples/recursive-topology"
     "examples/recursive-staging"
+    "examples/recursive-restaging"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"

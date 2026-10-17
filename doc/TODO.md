@@ -1066,3 +1066,14 @@ commit and effect admission kept as separate sequential boundaries. Lean supplie
 eight publication laws and matching actual graph controls. This advances MOP future
 work under complete reads/watches and sequential mutation; concurrent installation
 and atomic graph/effect transactions remain open. See `recursive-validation.md`.
+
+
+Explicit cross-round preparation now uses `recursive-staging.restaging-action`:
+current-catalog edit preparation returns a fresh guarded request without rebasing
+historical requests. Eight-round controls cover repeated SCC merge/split, provider
+removal/reintroduction and computed changes while old requests remain pending,
+late admission refusal, explicit re-preparation and refine/bind-evidence publishing.
+Lean `Functional.RecursiveRestaging` supplies six preparation/interleaving laws
+and matching actual graph examples. This advances future work under immutable
+metadata, complete reads/watches, terminating preparation and sequential mutation;
+concurrent installation and atomic graph/effect transactions remain open.
