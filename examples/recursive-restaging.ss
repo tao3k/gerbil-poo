@@ -10,7 +10,8 @@
 ;; preparation, including reintroduction of a formerly removed provider. The
 ;; returned FUN Reader prepares a request, not a graph; later publication still
 ;; checks that exact snapshot. No closure, refinement or approval is cached here.
-(def (transition-action targets providers chosen (accept? #t) (weight 2))
+(def (transition-action targets providers chosen (accept? #t) (weight 2)
+                        admit: (admit-result (lambda (_) #t)))
   (staging.restaging-action
     (lambda (current)
       (def present (graph.closed-names current))
@@ -23,4 +24,5 @@
           (map cons keys recipes)))
         (filter (lambda (key) (and (memq key present) (not (memq key wanted)))) keys)
         (append (service.peer-recipes targets providers weight)
-          [(migration.summary chosen accept?)])))))
+          [(migration.summary chosen accept?)])))
+    admit: admit-result))

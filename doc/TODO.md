@@ -1089,3 +1089,15 @@ transplants and failure retry. Lean supplies eight state/entry-isolation laws an
 matching actual graph examples. This remains generalized-prototype future work
 under complete declared dependencies, immutable metadata and sequential access;
 concurrent installation and atomic graph/external effects remain open.
+
+
+Shared recursive graph/approval revision now uses one whole snapshot plus existing
+lens revision guards (`recursive-approvals`). Final `admit:` runs after local closure
+and before predecessor retirement: local success/joint refusal preserves the old
+pair and rejects failed-candidate capabilities. Three entries span eight graph
+rounds and an approval-only no-rebuild round, with installed/proposed ABA drift,
+explicit restaging, old request/reference rejection and refine/bind-evidence retry.
+Eight Lean composition laws and matching actual finite graph examples cover this
+sequential future-work scope. Complete guards/dependencies, immutable-in-use metadata
+and terminating callbacks remain premises; concurrent installation and atomic
+graph/external effects remain open.

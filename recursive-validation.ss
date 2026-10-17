@@ -82,7 +82,8 @@
 
 ;; Shared closure engine: revision callers may retain only dependency-closed clean
 ;; nodes. Ordinary callers keep the original whole-graph Reference discipline.
-(def (close-catalog build limit previous dependencies dirty specifications watches)
+(def (close-catalog build limit previous dependencies dirty specifications watches
+                    (admit-result (lambda (_) #t)))
   (unless (and (exact-integer? limit) (> limit 0)) (error "positive graph limit required"))
   (def owner (if previous (closed-owner previous) (gensym 'validation)))
   (def sources (make-hash-table-eq))
@@ -219,13 +220,22 @@
     ;; Supported direct writes to canonical nodes refuse. Parent/source revisions
     ;; are checked at graph access/Reference validation, not arbitrary retained calls.
     (for-each seal-object! (append (hash-values nodes) (hash-values types)))
-    (set! phase 'closed)
-    (make-closed names nodes types (lambda ()
+    ;; Joint graph/metadata obligations run before this attempt becomes a closed
+    ;; graph or retires its predecessor. Failed-attempt References stay unusable
+    ;; through the existing phase guard; clean predecessor References still work.
+    (def result (make-closed names nodes types (lambda ()
+      (unless (memq phase '(admission closed)) (raise (make-validation-failure 'stale #f)))
       (when (vector-ref retired 0) (raise (make-validation-failure 'stale #f)))
       (check-stamps stamps)
       (when watches (for-each (lambda (name) (check-stamps (hash-ref watches name))) names)))
       owner declarations local-stamps dependencies revoked retired specifications
       (filter (lambda (name) (not (memq name reused))) names) reused))
+    (unless (eq? (admit-result result) #t) (raise (make-validation-failure 'joint-admission #f)))
+    ;; Admission may inspect watched inputs: recheck every captured source/version
+    ;; before retiring the predecessor, even when the callback returned true.
+    ((closed-fresh result))
+    (set! phase 'closed)
+    result)
     (catch (cause) (set! phase 'failed) (raise cause))))
 
 ;; Reader/FUN-compatible closure action. Build sources for this input, and only
@@ -239,7 +249,7 @@
 ;; it, including complete cycles. Unaffected canonical receivers and cached fields
 ;; survive. Final admission is never reused, and failure does not retire the old
 ;; snapshot. This is an in-process sequential publication protocol, not a lock.
-(def (revise-validation previous specifications (limit 256))
+(def (revise-validation previous specifications (limit 256) admit: (admit-result (lambda (_) #t)))
   (unless (and (list? specifications) (pair? specifications)
                (andmap node-spec? specifications) (<= (length specifications) limit))
     (raise (make-validation-failure 'catalog #f)))
@@ -290,7 +300,7 @@
             (raise (make-validation-failure 'catalog name)))
           (hash-put! sources name (cadr pair))
           (cons name pair)))) specifications))
-    limit previous dependencies dirty specifications watches))
+    limit previous dependencies dirty specifications watches admit-result))
   ;; Commit only after normalization and every final obligation. Reentrant callers
   ;; may have retired this snapshot during a callback: refuse instead of installing.
   (when previous
@@ -309,7 +319,8 @@
 ;; Remove/re-add is a later-round operation, so no ambiguous same-batch revival
 ;; can bypass reference retirement. All edit checks precede every builder, and
 ;; revise-validation checks final dependency support before rebuilding anything.
-(def (reconfigure-validation previous added removed replacements (limit 256))
+(def (reconfigure-validation previous added removed replacements (limit 256)
+                            admit: (admit-result (lambda (_) #t)))
   (unless (and (closed? previous) (closed-dependencies previous)
                (not (vector-ref (closed-retired previous) 0)))
     (raise (make-validation-failure 'stale #f)))
@@ -334,12 +345,12 @@
   (revise-validation previous
     (append (map (lambda (spec)
       (or (find (lambda (replacement) (eq? (node-spec-name spec) (node-spec-name replacement))) replacements)
-          spec)) survivors) added) limit))
+          spec)) survivors) added) limit admit: admit-result))
 
 ;; FUN Reader action from the actual current snapshot to the complete final graph.
 ;; Publication/evidence effects remain the existing caller-owned next action.
-(def (reconfiguration-action added removed replacements (limit 256))
-  (lambda (current) (reconfigure-validation current added removed replacements limit)))
+(def (reconfiguration-action added removed replacements (limit 256) admit: (admit-result (lambda (_) #t)))
+  (lambda (current) (reconfigure-validation current added removed replacements limit admit: admit-result)))
 
 ;; Capture a current declared graph and proposed recipe watches without building
 ;; anything. Invocation requires the exact same current graph AND unchanged input

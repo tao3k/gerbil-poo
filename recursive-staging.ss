@@ -8,14 +8,15 @@
 ;; Stale attempts refuse before construction; failed closure leaves the previous
 ;; graph valid. Re-stage against the actual current graph after a competing commit
 ;; or watched-input change. This is not a concurrent compare-and-swap operation.
-(def (stage-reconfiguration previous added removed replacements (limit 256))
+(def (stage-reconfiguration previous added removed replacements (limit 256)
+                               admit: (admit-result (lambda (_) #t)))
   (unless (and (list? added) (list? removed) (list? replacements))
     (error "recursive edit lists required"))
   (def additions (append added []))
   (def removals (append removed []))
   (def updates (append replacements []))
   (def checkpoint (validation.validation-checkpoint previous (append additions updates)))
-  (def action (validation.reconfiguration-action additions removals updates limit))
+  (def action (validation.reconfiguration-action additions removals updates limit admit: admit-result))
   (lambda (current)
     (checkpoint current)
     (action current)))
@@ -26,8 +27,8 @@
 ;; this action explicitly re-stages, including fresh proposed-input watches.
 ;; Old returned requests keep their original checkpoint; none is silently rebased.
 ;; Preparation must be locally terminating and must not mutate/publish the graph.
-(def (restaging-action edits (limit 256))
+(def (restaging-action edits (limit 256) admit: (admit-result (lambda (_) #t)))
   (lambda (current)
     (call-with-values (lambda () (edits current))
       (lambda (added removed replacements)
-        (stage-reconfiguration current added removed replacements limit)))))
+        (stage-reconfiguration current added removed replacements limit admit: admit-result)))))
