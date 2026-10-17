@@ -92,8 +92,15 @@
 ;; refreshed implicitly. Caller serialization and complete guards remain premises.
 ;; Normal return requires a drained queue; exceptional exit releases pending work,
 ;; closes escaped operations and keeps every already installed prefix. A scope
-;; cannot be reentered through a captured continuation after cleanup.
-(def (call-with-submissions owner coordinate)
+;; cannot be reentered through a captured continuation after cleanup. on-exit
+;; follows the existing coordinator outcome-thunk convention: after cleanup it
+;; receives a thunk returning all values or raising the exact original payload.
+;; Its default propagates that outcome. An explicit handler may open a new scope;
+;; handler failures propagate once and do not trigger this handler recursively.
+(def (call-with-submissions owner coordinate
+       on-exit: (on-exit (lambda (outcome) (outcome))))
+  (unless (and (procedure? coordinate) (procedure? on-exit))
+    (error "recursive submission coordinator and exit handler must be procedures"))
   (def pending (queue.make-Queue))
   (def phase 'new)
   ;; Callbacks cannot consume or extend the queue while its current attempt runs.
@@ -117,13 +124,20 @@
   (def (pending?)
     (check-open)
     (not (queue.queue-empty? pending)))
-  (dynamic-wind
-    (lambda ()
-      (unless (eq? phase 'new) (error "recursive submission scope cannot be resumed"))
-      (set! phase 'open))
-    (lambda ()
-      (call-with-values (lambda () (coordinate enqueue! advance! pending?))
-        (lambda returned
-          (unless (queue.queue-empty? pending) (error "unconsumed recursive submissions"))
-          (apply values returned))))
-    (lambda () (set! phase 'closed) (set! pending (queue.make-Queue)))))
+  ;; Complete cleanup before capturing the outcome or invoking recovery policy.
+  (def (run)
+    (dynamic-wind
+      (lambda ()
+        (unless (eq? phase 'new) (error "recursive submission scope cannot be resumed"))
+        (set! phase 'open))
+      (lambda ()
+        (call-with-values (lambda () (coordinate enqueue! advance! pending?))
+          (lambda returned
+            (unless (queue.queue-empty? pending) (error "unconsumed recursive submissions"))
+            (apply values returned))))
+      (lambda () (set! phase 'closed) (set! pending (queue.make-Queue)))))
+  ;; Catch only the completed coordinator. Never catch an error from on-exit.
+  (def outcome
+    (try (call-with-values run (lambda returned (lambda () (apply values returned))))
+      (catch (cause) (lambda () (raise cause)))))
+  (on-exit outcome))

@@ -114,6 +114,7 @@
     "examples/recursive-approvals"
     "examples/recursive-competition"
     "examples/recursive-submissions"
+    "examples/recursive-recovery"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"
