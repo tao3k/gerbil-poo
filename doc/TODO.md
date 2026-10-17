@@ -394,6 +394,15 @@ workflow and assertion modules avoid duplicating the earlier scenario. Lean adds
 lifecycle projection, stop preservation, explicit preparation and validity laws.
 See [coordinator-recovery.md](coordinator-recovery.md) for controls and proof scope.
 
+A failed coordinator can explicitly rejoin the SAME supervisor via `restart:`
+after its old children are cleaned, parent joined and original outcome handled.
+Three recoveries interleave with six SCC phases and persistent competing peers;
+replacements replay/refuse old receipts, then freshly capture/construct/approve.
+Old replies cannot reach a replacement, unhandled errors prevent restart and final
+joins cannot launch unsupervised work. Lean records no-write rejoining, current-head
+preparation and head/guard-stale receipt rejection. See
+[coordinator-rejoining.md](coordinator-rejoining.md) for premises and native controls.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

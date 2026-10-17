@@ -59,8 +59,8 @@
               (if (eq? name 'failed)
                 (check-exception (outcome) (lambda (caught) (eq? caught failure)))
                 (check-equal? (call-with-values outcome list) '(retired 2)))
-              ;; Nested workers are already terminated; the current exiting parent
-              ;; may finish its terminal notification immediately after this callback.
+              ;; Local descendants are terminated and the parent is joined before
+              ;; the exit callback can release any surviving installation.
               (check (andmap terminated? (cddr (assq name retiring-groups))) => #t)
               (let ((release resume)) (set! resume #f) (release)))
             (else (outcome)))))

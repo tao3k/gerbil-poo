@@ -12,6 +12,8 @@
 (defstruct observation (receipt snapshot failure) final: #t)
 ;; Every coordinator owns its own installation scope and counter/receive channel.
 ;; It retains a late worker across concurrent next-round construction and retry.
+;; A ready checkpoint accepts 'install; any other reply is an explicit failure
+;; raised inside this coordinator, exercising its ordinary scoped cleanup path.
 (def (coordinate-revisions owner exchange)
   (workers.call-with-installations owner (lambda (start receive)
     (let loop ((old-go #f) (old-receipt #f))
@@ -25,7 +27,8 @@
       ;; Both coordinators explicitly capture CURRENT sources again after refusal.
       (def fresh (receipts.approve-revisions owner [changes changes] fresh-policy builder))
       (def primary-go (start (car fresh))) (def later-go (start (cadr fresh)))
-      (exchange (list 'ready (car fresh)))
+      (def release (exchange (list 'ready (car fresh))))
+      (unless (eq? release 'install) (raise release))
       (when old-go (old-go)) (primary-go)
       (def results (if old-go [(receive) (receive)] [(receive)]))
       (def decision (exchange (list 'published (car fresh) old-receipt results)))
