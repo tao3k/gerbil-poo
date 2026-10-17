@@ -28,7 +28,7 @@ further tuning of the corresponding workflow.
 
 | Original TODO | Native status and evidence | Remaining acceptance boundary |
 | --- | --- | --- |
-| Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `t/lifecycle-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
+| Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `class-validation.ss` recursively wraps effective Slot fields before and after hooks; `t/lifecycle-test.ss`, `t/class-validation-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
@@ -965,7 +965,18 @@ the cdr (fixing whole-pair validation), retains its exact Type and installs the
 checked payload. `examples/optional-publication.ss` combines optional typed plugin
 lists, optional fallback, root refinement and exact binding with refusal/retry.
 Lean `OptionalValidation` proves the selected-child and dependent-payload laws.
-Remaining work includes class-specific initialization/inheritance policies,
-arbitrary external schema adapters, cyclic closure, wrapper deduplication,
+Class initialization now recursively validates effective inherited Slot Types,
+including callable defaults, computed methods and nested containers. Checked
+factories validate before and after initialization hooks; same-object hook returns
+do not bypass the final check. Record metadata composition has single/multiple
+inheritance and diamond controls with pre-observed parent prototypes. Custom Slot
+normalization and final membership are retained. `examples/class-publication.ss`
+combines initialization, refinement, FUN and exact evidence publication. Bootstrap
+Type validation preserves descriptor identity. Lean `ClassValidation` proves the
+finite Slot, selected-metadata and initialization/refinement laws. This advances
+generalized-prototype future work; C3 and host correspondence are premises.
+Remaining work includes arbitrary computed-method rebinding, constant Function
+canonicalization (equality-changing wrappers currently refuse), arbitrary external
+schema adapters, cyclic closure, wrapper deduplication,
 variadic/keyword Function arities, higher-order blame and general callback
 termination. These are not closed by the finite container protocol.

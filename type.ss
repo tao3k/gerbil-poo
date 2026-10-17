@@ -6,6 +6,7 @@
 (import
   (only-in :std/assert assert!)
   :std/iter
+  ./value-diagnostics
   ./type-validation
   ./variant-validation
   ./optional-validation
@@ -368,16 +369,16 @@
                      sexp: `(Map ,(.@ Value sexp) <- ,(.@ Key sexp))})
   ((_ Key -> Value) (Map Value <- Key)))
 
+;; Normalize declared Record options into the existing effective Slot metadata.
 (def (RecordSlot type . options)
   (object<-alist
    (acons 'type type
           (map (match <> ([k . v] (cons (make-symbol k) v))) (plist->alist options)))))
 
-;; TODO: Generate a proto field that supports initialization-time defaults.
-;; TODO: Support single inheritance.
-;; TODO: Support multiple inheritance.
+;; Record inherits effective Class slots through existing C3 prototype composition.
+;; Initialization-time defaults/compute/optional policy remains owned by Slot.
 (def (Record . args)
-  (def supers (if (keyword? (car args)) [] (pop! args)))
+  (def supers (if (or (null? args) (keyword? (car args))) [] (pop! args)))
   {(:: @ (cons supers Class.))
    slots: =>.+ (object<-alist
                 (map (match <> ([kw type . options]

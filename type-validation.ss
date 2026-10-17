@@ -1,25 +1,11 @@
 ;;; Shared structural traversal and persistent validation for existing Types.
-(export diagnose-value diagnose-structure list-shape tuple-shape validate-container validate-list validate-tuple)
+(export list-shape tuple-shape validate-container validate-list validate-tuple)
 (import :std/iter
         (only-in :std/list/list map-in-order)
         (only-in :std/vector/vector vector-for-each/index)
+        ./value-diagnostics
         (only-in ./object .o .slot? .get)
         (only-in ./mop element? validate raise-type-error))
-
-;; Dispatch ordinary diagnostics without wrapping a value. Leaf Types preserve
-;; membership recognition; custom diagnostic exceptions propagate unchanged.
-(def (diagnose-value descriptor candidate location)
-  (cond
-    ((.slot? descriptor '.diagnose) ((.get descriptor .diagnose) candidate location))
-    ((element? descriptor candidate) '())
-    (else [(.o kind: 'type-rejected path: location expected: descriptor)])))
-
-;; Structural traversal skips whole-object obligations until recursive wrapping
-;; finishes, including inside containers. Leaf Types retain ordinary diagnostics.
-(def (diagnose-structure descriptor candidate location)
-  (if (.slot? descriptor '.diagnose-shape)
-    ((.get descriptor .diagnose-shape) candidate location diagnose-structure)
-    (diagnose-value descriptor candidate location)))
 
 ;; Shape/arity refusal precedes child checks. Container indices are zero-based;
 ;; all child diagnostics remain ordered and no malformed list tail is traversed.

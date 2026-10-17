@@ -6,6 +6,8 @@
 (export #t)
 
 (import
+  ./value-diagnostics
+  ./class-validation
   (only-in :std/error deferror-class defraise/context)
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list pop! append-map foldr)
@@ -305,6 +307,13 @@
                  (.all-slots effective-slots))
           (or (not sealed) ;; sealed means only defined slots can be present.
               (every (cut .slot? effective-slots <>) (.all-slots x)))))
+  ;; Class validation wraps effective typed fields before final membership.
+  .validate: (lambda (value) (validate-class class value
+                        (lambda (descriptor candidate details)
+                          (raise-type-error descriptor candidate details))))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (class-shape class value location check-field))
+  .diagnose: (lambda (value location) (class-diagnostics class value location))
   slots: ? {}
   sealed: ? #f
   ;;slots: {.type: {type: Type default: class hidden: #t}} ;; should it be optional?
@@ -368,6 +377,11 @@
               (or (not (.has? @@ type)) (element? type value))
               (or (not (.has? @@ constant)) (equal? constant value))))
           (and (.has? @@ optional) optional))))
+  ;; Shape and validation are separate overridable Slot methods. Class checks
+  ;; final .slot.check after every changed field has been persistently installed.
+  .slot.shape: (lambda (@@ name candidate location check-field)
+                 (class-slot-shape @@ name candidate location check-field))
+  .slot.validate: (lambda (@@ name candidate) (class-slot-validate @@ name candidate))
   .slot.define:
     (λ (@@ slot-name x)
        (with-slots (type constant compute default) @@
@@ -462,6 +476,9 @@
   slots: {sexp: {type: Any}
           .element?: {type: (Fun Bool <- Any)}}
   .element?: (λ (x) (and (object? x) (.has? x sexp) (.has? x .element?)))
+  ;; Type bootstrap validation recognizes descriptor structure and retains its
+  ;; identity; it must not recursively wrap the descriptor's own .element? method.
+  .validate: (lambda (value) (if (.element? value) value (raise-type-error @ value)))
   .sexp<-: (lambda (x) (.@ x sexp)) ;; : SEXP <- @
   proto: Type.)
 

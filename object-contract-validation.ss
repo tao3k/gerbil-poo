@@ -1,6 +1,6 @@
 ;;; Persistent field validation through the existing POO Type protocol.
 (export prepare-validation validate-object)
-(import (only-in ./type-validation diagnose-structure)
+(import (only-in ./value-diagnostics diagnose-structure)
         (only-in :std/list/list foldl)
         (only-in ./object .all-slots .ref .get object<-alist .slot?)
         (only-in ./mop validate raise-type-error))

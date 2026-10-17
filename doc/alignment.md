@@ -1017,3 +1017,29 @@ existing `declarative-metadata.bind-evidence` with `Functional.EvidenceBinding`.
 binding, stale contexts, original policy refusal, nested bindings and fresh retry.
 These extend the paper's future work under immutable reference interpretation and
 lawful diagnostic hooks; they do not establish authentication or effect rollback.
+
+
+## Recursive Record/Class field validation
+
+The paper section 5 defines classes as prototypes for Type descriptors; its
+Racket `ListOf` demonstrates recursive recognition, and “More Elaborate Types”
+discusses callable and typed-slot descriptors. It does not supply this whole
+initialization/publication pipeline. The extension advances generalized MOP
+future work and retains the distinction between recognition and wrapping.
+
+| Responsibility | Lean | Gerbil |
+| --- | --- | --- |
+| Selected effective Slot optional/constant policy and child normalization | `Functional.ClassValidation.Slot`, `normalize` | `class-validation.ss`, Slot `.slot.shape` / `.slot.validate` |
+| Global structure, complete field batch, final membership/refinement | `Functional.ObjectContract.validateObject`, `validateFields`, `ClassValidation.initialized_membership`, `initialized_refinement` | Class `.validate`, `.diagnose-shape`, `.diagnose`; persistent derived replacement |
+| Inherited descriptor choice | `ClassValidation.resolve`, override/inherited selection laws, with supplied linearization | Existing Record/C3 effective-slots; single/multiple/diamond controls |
+| Checked hook lifecycle | `ClassValidation.instantiate` and hook sequencing/error/final laws | Existing `instantiate`, `make-instance`, `.new/checked`; same-reference mutation control |
+| Full service and exact association | `Examples/ClassContracts.lean`, existing refinement/binding laws | `examples/class-publication.ss`, existing FUN `publication-action` / `bind-evidence` |
+
+Prototype defaults and C3 resolution are supplied to the finite model; lookup
+laws alone do not prove C3. Host identity correspondence, arbitrary computed-field
+rebinding, cycles, callback termination and external effect rollback remain
+premises/open work. Constants retain strict equality and reject equality-changing
+normalization, including such Function wrappers. No runtime Lean dependency or
+wrapper canonicalization cache is introduced. Class structural inheritance does
+not assert nominal parent-prototype ancestry; normalization retains actual source
+ancestry. Bootstrap Type validation retains descriptor identity.

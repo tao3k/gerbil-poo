@@ -5,7 +5,8 @@
         (only-in :std/list/list append-map map-in-order)
         (only-in ./object .o .get .ref .slot? object? object<-alist)
         (only-in ./mop validate element? raise-type-error)
-        (only-in ./type-validation diagnose-value diagnose-structure validate-container))
+        (only-in ./value-diagnostics diagnose-value diagnose-structure)
+        (only-in ./type-validation validate-container))
 
 ;; A Pair may have an improper tail. Both positions retain symbolic paths, and
 ;; non-pairs refuse before either child recognizer can demand a value.

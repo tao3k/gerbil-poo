@@ -318,8 +318,7 @@ for Scheme identities; it does not prove host representation, GC, parser or runt
 The paper's section 5 Racket `ListOf` supplies recursive membership, while its
 more elaborate Type discussion covers functions and objects with typed slots.
 Recursive wrapping here advances the generalized-prototype future work. Remaining
-work includes class-specific policies and arbitrary external
-schema adapters, cyclic object/container closure, wrapper deduplication, optional
+work includes arbitrary external schema adapters, cyclic object/container closure, wrapper deduplication, optional
 or keyword arities and higher-order blame. Caller immutability and custom Type
 agreement/termination remain required. No persistent validation cache is added.
 
@@ -421,7 +420,43 @@ and reference tokens are supplied interpretations; host identity and allocation,
 JSON parsing, the runtime and external effect rollback are not proved.
 
 This advances the paper's section 5 descriptor/generalized-prototype future work.
-Class-specific initialization/inheritance validation, arbitrary external schema
-adapters, cyclic closure, wrapper deduplication, optional/keyword Function arities,
+Arbitrary external schema adapters, cyclic closure, wrapper deduplication, optional/keyword Function arities,
 higher-order blame and general callback termination remain open. Existing I/O
 capabilities/limitations, including executable value serialization, are unchanged.
+
+
+## Record / Class recursive initialization
+
+`class-validation.ss` reuses the effective Slot protocols and recursive structure
+visitor. `.slot.shape` checks required/optional fields and constants; the complete
+structure pass precedes all `.slot.validate` calls. Present fields normalize
+through their selected child Type, with changed values installed in one persistent
+derived object. Final Class membership retains custom Slot checks, sealing and
+constant equality. Unknown sealed fields are rejected by inventory without forcing
+their getters. `value-diagnostics.ss` keeps this protocol below the MOP dependency.
+
+`make-instance` / `.new/checked` receive prototype defaults and overrides, validate
+them, invoke `.instantiate` with the checked instance, then validate its result.
+Returning the same object does not skip validation: a hook may have mutated it.
+`instance` / `.new` remain lazy constructors. Type's bootstrap validation preserves
+the original descriptor identity and does not wrap its metalevel `.element?`.
+Record's existing single/multiple C3 metadata composition is reused; overrides,
+diamonds and parent-prototype-first observations have executable controls. This
+is structural inheritance, not an additional nominal ancestry guarantee.
+
+`examples/class-publication.ss` combines inherited callable defaults, a computed
+audit, optional Function plugin lists, initialization replacement, root refinement
+and FUN publication with exact `bind-evidence`. Tests include nested List/Tuple/
+TypeValuePair defaults, refined nested schemas, custom Slot dispatch, same-object
+hook mutation, wrong Function rows, raw/stale evidence refusal and repaired retry.
+
+These additions advance section 5 type descriptors and the generalized MOP future
+work. The Lean companion proves finite pure Slot/initialization/refinement laws
+and executes a corresponding service workflow; Scheme has no Lean checkout
+requirement. Supplied C3 resolution, prototype defaults, host identity, arbitrary
+computed rebinding, cyclic closure, callback termination, GC and external effect
+rollback are not proved. The example's computed audit captures unchanged scalar
+state. Constants keep exact equality before and after normalization: if wrapping
+changes that equality, validation refuses (including such Function constants).
+Wrapper canonicalization/deduplication, arbitrary external adapters and optional/
+keyword Function arities remain open. Executable-value serialization is unchanged.
