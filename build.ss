@@ -4,7 +4,8 @@
 
 (import
   (only-in :std/build-script defbuild-script)
-  (only-in :std/make include-gambit-sharp))
+  (only-in :std/make include-gambit-sharp)
+  (only-in "t/test-groups.ss" test-files))
 
 ;; Keep the package build graph explicit. V19 std/make owns dependency
 ;; scheduling and native compilation; this file only declares package inputs.
@@ -152,6 +153,20 @@
     "t/closure-cases"
     "t/closure-benchmark-support"
     "t/closure-scale-benchmark"
-    "t/table-testing"))
+    "t/table-testing"
+    "t/recursive-benchmark"
+    "t/metadata-benchmark"
+    "t/metadata-report"
+    "t/metadata-paired-suite"
+    "t/generalized-benchmark"
+    "t/focused-benchmark"
+    "t/factory-benchmark"
+    "t/binding-benchmark"
+    "t/test-groups"
+    "t/test-runner"))
 
-(defbuild-script +gerbil-poo-build-spec+)
+;; Compile the exact checked test inventory once with the production libraries.
+;; Loading all expanded source modules together exhausts the bounded
+;; interpreter heap; compiled interfaces retain the same tests without that AST.
+;; std/make owns dependencies, incremental rebuilds and compiler job scheduling.
+(defbuild-script (append +gerbil-poo-build-spec+ (map path-strip-extension (test-files))))

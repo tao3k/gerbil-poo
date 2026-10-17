@@ -1,5 +1,5 @@
 ;;; One inventory for independent Scheme tests and the Actions matrix.
-(export main test-groups)
+(export main test-groups test-files)
 (import :gerbil/runtime/gambit :std/encoding/json
         (only-in :std/list/list append-map delete-duplicates/hash))
 
@@ -48,3 +48,8 @@
                 (checked-groups)))
   (display (json->string (hash ("include" (list->vector rows)))))
   (newline))
+
+;; Share the checked source inventory with compilation and single-process tests.
+;; Preserve the release harness's source preparation order, independent of groups.
+(def (test-files)
+  (list-sort string<? (append-map cdr (checked-groups))))

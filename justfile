@@ -14,7 +14,7 @@ test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
 closure-ld-options := env_var_or_default("GERBIL_CLOSURE_LD_OPTIONS", if os() == "macos" { "-L/opt/homebrew/opt/openssl@3/lib" } else { "" })
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
-test:
+test: build
     just _test t 300
 
 test-atomic name:
@@ -30,7 +30,7 @@ _test target max-seconds:
     if test -z "{{ timeout-executable }}"; then echo "GNU timeout is required (install Homebrew coreutils on macOS)" >&2; exit 127; fi
     test_log="$(mktemp "${TMPDIR:-/tmp}/gerbil-poo-test.XXXXXX")"
     trap 'rm -f "$test_log"' EXIT
-    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s {{ max-seconds }}s gerbil {{ test-runtime-options }} test -v 5 "{{ target }}" 2>&1 | tee "$test_log"
+    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s {{ max-seconds }}s gxi {{ test-runtime-options }} t/test-runner.ss "{{ target }}" 2>&1 | tee "$test_log"
     grep -q '^MODULE-OK ' "$test_log"
     grep -q '^HARNESS-OK ' "$test_log"
     grep -qx 'OK' "$test_log"

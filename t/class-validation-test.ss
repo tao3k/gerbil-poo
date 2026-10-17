@@ -5,7 +5,8 @@
         (prefix-in ../examples/class-publication service.)
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../examples/contract-publication publication.)
-        (prefix-in ../examples/object-contracts config.))
+        (prefix-in ../examples/object-contracts config.)
+        (prefix-in ../recursive-validation graph.))
 
 ;; Authorization policy and exact subject binding remain separate gates.
 (def Call (metadata.contract (metadata.predicate "object" object?)
@@ -13,6 +14,41 @@
 
 ;; The JSON side has no executable code; plugins enter through checked factories.
 (def request "{\"host\":\"api\",\"port\":443,\"capacity\":10,\"used\":2,\"secure\":true}")
+
+;; Reuse warmed inherited metadata across failed recursive admission and retry.
+;; Collecting is a separate control, never a prerequisite of normal validation.
+;; The whole-suite integration gate additionally keeps every test in one process
+;; under the unchanged heap limit, catching source-context retention regressions.
+(def (check-inheritance-history collect?)
+  (def parent (Record run: [service.Transform default: values]))
+  (def proto (.get parent proto)) (def slots (.get parent effective-slots))
+  (def left (Record [parent] left: [Integer default: 1]))
+  (def right (Record [parent] right: [Integer default: 2]))
+  (def child (Record [left right] run: [(Fun Bool <- Integer) default: positive?]))
+  ;; Late refusal follows actual cyclic linking and Function normalization.
+  (def (close accept?)
+    (graph.close-validation (lambda (reference)
+      (def base (Record peer: [(reference 'root)] run: [service.Transform]))
+      (def descriptor (if accept? base (.cc base .element?: (lambda (_) #f))))
+      (def source (.o peer: source run: values))
+      (list (list 'root descriptor source)))))
+  (let loop ((round 0))
+    (when (< round 16)
+      (check-exception (close #f)
+        (lambda (cause) (and (graph.validation-failure? cause)
+          (eq? 'admission (graph.validation-failure-kind cause)))))
+      (when collect? (##gc))
+      (let ((checked (make-instance child)))
+        (check-equal? (.get checked left) 1) (check-equal? (.get checked right) 2)
+        (check-equal? ((.get checked run) 2) #t)
+        (check-exception ((.get checked run) #f) TypeError?)
+        (check (eq? (.get parent proto) proto) => #t)
+        (check (eq? (.get parent effective-slots) slots) => #t)
+        (check-equal? ((.get (make-instance parent) run) 2) 2))
+      (let* ((fresh (close #t)) (root (graph.closed-ref fresh 'root)))
+        (check (eq? (.get root peer) root) => #t)
+        (check-exception ((.get root run) #f) TypeError?))
+      (loop (+ round 1)))))
 
 ;; Exercise the CURRENT effective Slot protocol at each construction boundary.
 (def class-validation-test
@@ -162,4 +198,8 @@
         ((service.service-action Call context-value (void)) request))
       (check-equal? next-refusal #f)
       (check-equal? (.get result total) 5)
-      (check-equal? (.get next-state commits) 1))))
+      (check-equal? (.get next-state commits) 1))
+    (test-case "warmed diamond metadata survives recursive refusal and retry"
+      (check-inheritance-history #f))
+    (test-case "collection history does not alter inherited defaults or recursive retry"
+      (check-inheritance-history #t))))

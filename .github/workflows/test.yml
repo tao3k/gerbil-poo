@@ -37,7 +37,7 @@ jobs:
             .ci-library/lib
             .ci-library/build-source-key
             .ci-library/producer-revision
-          key: scheme-library-${{ runner.os }}-${{ runner.arch }}-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee-${{ steps.compiler.outputs.identity }}-${{ hashFiles('*.ss', 'support/**/*.ss', 'examples/**/*.ss', 't/**/*.ss', '!t/**/*-test.ss', 'gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
+          key: scheme-library-${{ runner.os }}-${{ runner.arch }}-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee-${{ steps.compiler.outputs.identity }}-${{ hashFiles('*.ss', 'support/**/*.ss', 'examples/**/*.ss', 't/**/*.ss', 'gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
       - name: Compile the Scheme modules once
         if: steps.library-cache.outputs.cache-hit != 'true'
         run: just build
@@ -93,3 +93,19 @@ jobs:
         run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
       - name: Run independent Scheme module tests
         run: printf '%s\n' ${{ matrix.modules }} | xargs -P 2 -n 1 just test-file
+  single-process:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: .ci-library
+      - name: Require this run's exact producer revision
+        run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
+      - name: Run the entire suite in one bounded process
+        run: just _test t 300
