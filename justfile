@@ -55,6 +55,10 @@ clean:
 build:
     {{ build-env }} gxi build.ss
 
+# Compile disjoint test roots into a separate artifact, retaining the shared imports.
+build-group group:
+    GERBIL_BUILD_SCOPE=tests GERBIL_BUILD_TEST_GROUP={{ group }} GERBIL_BUILD_LIBDIR="$PWD/.ci-tests/{{ group }}/lib" {{ build-env }} gxi build.ss
+
 # Standalone native Scheme matrix; no companion checkout is required.
 benchmark-closure: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }

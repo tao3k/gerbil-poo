@@ -1,36 +1,76 @@
-# Independent Scheme checks
+# Shared compilation and disjoint test artifacts
 
-CI downloads the already compiled Linux Gerbil release from gerbil-bazel, checks
-its pinned SHA-256, and uses the release's activation entry point. The downloaded
-archive is cached; its bytes are verified again before every extraction. The
-project uses `build.ss` and `just` directly.
+The preceding complete Scheme CI run built 281 distinct modules and executed 627 distinct
+backend jobs. No repeated module or backend job was found. In the timestamped
+log, compilation spent about 42 seconds before the first module, 36 seconds
+lowering modules, then 168 seconds executing backend jobs. The released Linux
+compiler drains backend jobs after graph construction, so those phases did not
+overlap. The complete build job took 262 seconds; its compilation step took about
+246 seconds. These are different timing boundaries.
 
-The build job compiles into the isolated `GERBIL_PATH=.ci-library`. A
-short-lived Actions artifact transfers that output to each test group. Before
-testing, each runner checks the recorded producer revision against its actual
-checkout. Compiler version, platform and source revision agree within this run;
-this does not qualify cross-version or cross-platform binary reuse.
+The repository consumes the verified, already compiled Gerbil release. It neither
+builds that compiler nor adds Bazel. `std/make` continues to own dependency order,
+module compilation and backend scheduling. This change splits the existing work:
 
-The library cache requires an exact key: compiler release checksum, host C/linker
-identity, platform, Scheme source and build/configuration inputs. There is no
-prefix fallback. Standalone test bodies are not compilation inputs and remain
-freshly executed. A hit reuses identical compiled source, checks the stored source
-key, and retains the original producer revision separately from this run's checked
-revision. A source or build-input change recompiles. This avoids pretending that
-std/make's timestamp-based checks can safely accept a different source snapshot.
-All inventory, harness, semantic and error-path tests run on every CI attempt.
+1. Compile the full shared non-test graph once and publish the current run's
+   source-bound artifact.
+2. Compile each disjoint functional test group on a separate CI runner against
+   that shared graph. Each writes only its own test roots to a separate output
+   directory. All previous source inputs and all tests remain covered.
+3. Publish the completed group artifacts, then start independent semantic test
+   jobs and the complete single-process job concurrently. A failed semantic
+   group never prevents the complete single-process check from being attempted.
+4. Require the complete group inventory and current revision stamps before
+   merging outputs for the single-process run.
 
-`t/test-groups.ss` owns the functional groups as Scheme data and emits only the
-ephemeral matrix required by Actions. Missing classified tests and duplicate
-registrations fail preparation. Every new `*-test.ss` module is also included,
-in an additional group until classified. No generated matrix is committed.
+Shared compilation has an exact cache key for the release, host compiler/linker,
+platform and every non-test/build input. Test-only changes preserve this key.
+Group caches additionally bind the exact shared-library byte generation, the
+complete test-source snapshot and group source key. Gerbil generates timestamped
+internal binding identities, so a rebuild of identical source is not assumed to
+match an older compiled group. This deliberately invalidates all test groups on any test edit, covering
+possible cross-group macro dependencies without assuming independence of source
+semantics. Compilation ownership is disjoint; semantic dependencies need not be.
+No prefix fallback, timestamp repair or approval based only on producer SHA is
+used. A hit skips compilation, never test execution. Original producer and current
+admitted revision remain distinct.
 
-The existing seventeen groups run independently; within each group, standard
-`xargs -P 2` starts a separate `just test-file` process for every module. Each
-keeps its 90-second deadline, standard harness, error-marker checks and exit
-status. A failure does not cancel sibling groups, and xargs still attempts
-the other modules before returning failure. Test jobs never invoke `build.ss`.
+`Functional/BuildCache.lean`, in the existing ConstructionCache namespace, proves
+source/revision admission, test/shared identity separation, complete and unique
+assembly, and a symbolic parallel critical-path inequality. `Examples/BuildCache.lean`
+is in the top-level example inventory. Identities are supplied exact-source keys;
+these laws do not establish hash collision resistance, Actions storage trust,
+compiler correctness, actual worker overlap, memory bounds or measured speed.
+Queueing, artifact transfer and process startup must be measured separately.
 
-The downloaded `.ci-library/` directory is ignored. Generated artifacts, compiler
-archives and full logs remain outside Git. Local development uses the same
-`just build`, `just test`, and `just test-file` commands with its installed Gerbil.
+Native Scheme controls exercise group coverage, changed source identities,
+malformed receipts, missing interfaces, stale run stamps and unexpected artifact
+groups. Temporary admission fixtures are not executable artifacts. Full cold and
+warm CI receipts, rather than a subset build's duration alone, qualify any speedup.
+
+## Commands and limits
+
+`just build` still builds the entire original inventory. CI uses
+`GERBIL_BUILD_SCOPE=library just build`, then `just build-group GROUP` with an
+isolated `GERBIL_BUILD_LIBDIR`. Standard Gerbil load paths supply shared imports.
+`test-files` rejects unknown groups and validates complete, duplicate-free source
+coverage before the ephemeral Actions matrix is emitted. No matrix JSON is
+source-controlled.
+
+Seventeen compilation jobs own disjoint test roots. The existing seventeen
+semantic test jobs retain `xargs -P 2`, separate module processes,
+90-second deadlines, 1 GiB test heaps, real harness progress and typed failure
+markers. `fail-fast: false` attempts all groups. The complete single-process gate
+retains its 300-second deadline and 1 GiB heap, after group compilation artifacts are available. It is attempted even if an
+independent semantic test fails; missing compilation artifacts refuse assembly. Existing
+20/10-minute CI job ceilings remain unchanged. Compilation emits standard make
+progress and cache hits emit actual source-admission records. No synthetic
+heartbeat is used.
+
+All compiler archives, caches, full logs and generated artifacts remain ignored
+or in Actions storage. Local development does not depend on a Lean checkout.
+
+Independent group compilers may reload shared expansion metadata; this is
+additional runner work, not another source-module/backend compilation. Cold
+end-to-end time and warm cache reuse must be reported separately from the
+shared job alone. The symbolic cost inequality assumes the same supplied costs.

@@ -14,3 +14,6 @@ build-deps
 
 # Per-run CI artifacts; never source-controlled or reused across revisions.
 /.ci-library/
+
+# Disjoint compiled test-group caches and current-run artifacts.
+/.ci-tests/

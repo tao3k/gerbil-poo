@@ -5,6 +5,7 @@
 (import
   (only-in :std/build-script defbuild-script)
   (only-in :std/make include-gambit-sharp)
+  (only-in :gerbil/runtime/system gerbil-path)
   (only-in "t/test-groups.ss" test-files))
 
 ;; Keep the package build graph explicit. V19 std/make owns dependency
@@ -196,11 +197,21 @@
     "t/focused-benchmark"
     "t/factory-benchmark"
     "t/binding-benchmark"
+    "t/build-artifacts"
     "t/test-groups"
     "t/test-runner"))
 
-;; Compile the exact checked test inventory once with the production libraries.
-;; Loading all expanded source modules together exhausts the bounded
-;; interpreter heap; compiled interfaces retain the same tests without that AST.
-;; std/make owns dependencies, incremental rebuilds and compiler job scheduling.
-(defbuild-script (append +gerbil-poo-build-spec+ (map path-strip-extension (test-files))))
+;; The default local build retains the complete inventory. CI builds the shared
+;; graph once, then each functional group compiles only its disjoint test roots.
+;; std/make still owns import dependencies and compiler jobs within each process.
+(def scope (getenv "GERBIL_BUILD_SCOPE" "all"))
+(unless (member scope '("all" "library" "tests")) (error "unknown build scope" scope))
+(def selected-tests
+  (cond ((equal? scope "library") [])
+    ((equal? scope "tests")
+      (test-files (or (getenv "GERBIL_BUILD_TEST_GROUP" #f) (error "test group required"))))
+    (else (test-files))))
+(defbuild-script
+  (append (if (equal? scope "tests") [] +gerbil-poo-build-spec+)
+    (map path-strip-extension selected-tests))
+  libdir: (or (getenv "GERBIL_BUILD_LIBDIR" #f) (path-expand "lib" (gerbil-path))))

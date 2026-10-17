@@ -1,7 +1,8 @@
 ;;; One inventory for independent Scheme tests and the Actions matrix.
-(export main test-groups test-files)
+(export main test-groups test-files checked-groups group-source-key)
 (import :gerbil/runtime/gambit :std/encoding/json
-        (only-in :std/list/list append-map delete-duplicates/hash))
+        (only-in :std/list/list append-map delete-duplicates/hash)
+        :std/crypto/digest :std/encoding/hex :std/misc/ports)
 
 ;; Keep existing modules classified by responsibility. New modules are still
 ;; tested in an additional group until their author assigns a functional group.
@@ -22,7 +23,7 @@
     (coordination joint-coordination joint-concurrency coordinator-recovery coordinator-rejoining)
     (recovery coordinator-interleaving coordinator-retry coordinator-prepared)
     (generalized binding-benchmark factory-benchmark focused-benchmark generalized-benchmark generalized-closure generalized-prototype)
-    (tools cli debug lifecycle metadata-paired metadata-report)))
+    (tools build cli debug lifecycle metadata-paired metadata-report)))
 
 ;; Convert the existing module names to repository-owned harness inputs.
 (def (module-file name) (string-append "t/" (symbol->string name) "-test.ss"))
@@ -44,12 +45,22 @@
 ;; encoder. The registry remains Scheme data; no generated JSON is kept in Git.
 (def (main)
   (def rows (map (lambda (group)
-                  (hash ("group" (car group)) ("modules" (string-join (cdr group) " "))))
+                  (hash ("group" (car group)) ("modules" (string-join (cdr group) " ")) ("source-key" (group-source-key (car group)))))
                 (checked-groups)))
   (display (json->string (hash ("include" (list->vector rows)))))
   (newline))
 
 ;; Share the checked source inventory with compilation and single-process tests.
 ;; Preserve the release harness's source preparation order, independent of groups.
-(def (test-files)
-  (list-sort string<? (append-map cdr (checked-groups))))
+(def (test-files (group #f))
+  (def groups (checked-groups))
+  (list-sort string<? (if group
+    (cdr (or (assoc group groups) (error "unknown test group" group)))
+    (append-map cdr groups))))
+
+;; Hash an unambiguous filename/digest sequence for this group. CI additionally
+;; binds shared inputs and the complete test snapshot, including cross-group macros.
+(def (group-source-key group)
+  (hex-encode (sha256 (string->utf8 (call-with-output-string (lambda (port) (write
+    (map (lambda (file) (cons file (hex-encode
+      (sha256 (call-with-input-file file read-all-as-u8vector))))) (test-files group)) port)))))))
