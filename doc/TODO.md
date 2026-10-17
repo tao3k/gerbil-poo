@@ -958,7 +958,14 @@ cannot retry a permissive fallback after selected validation failure; ordinary
 Union recognition remains existential. The routing example composes all four,
 root refinement and exact binding. Scheme controls and Lean `VariantValidation`
 laws cover collision, tag/branch selection, errors and full refusal/retry.
-Remaining work includes other Type families (Maybe/OrFalse/TypeValuePair and
-class-specific policies), arbitrary external schema adapters, cyclic closure,
-wrapper deduplication, variadic/keyword arities and higher-order blame. These
-are not closed by the finite container protocol.
+Maybe/OrFalse now preserve their distinct void/#f sentinels and bypass child Type
+lookup on absence. Present values recursively wrap and must satisfy the selected
+child Type even when normalization returns a sentinel. TypeValuePair now validates
+the cdr (fixing whole-pair validation), retains its exact Type and installs the
+checked payload. `examples/optional-publication.ss` combines optional typed plugin
+lists, optional fallback, root refinement and exact binding with refusal/retry.
+Lean `OptionalValidation` proves the selected-child and dependent-payload laws.
+Remaining work includes class-specific initialization/inheritance policies,
+arbitrary external schema adapters, cyclic closure, wrapper deduplication,
+variadic/keyword Function arities, higher-order blame and general callback
+termination. These are not closed by the finite container protocol.

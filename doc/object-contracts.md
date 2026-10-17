@@ -318,7 +318,7 @@ for Scheme identities; it does not prove host representation, GC, parser or runt
 The paper's section 5 Racket `ListOf` supplies recursive membership, while its
 more elaborate Type discussion covers functions and objects with typed slots.
 Recursive wrapping here advances the generalized-prototype future work. Remaining
-work includes other container families (such as Maybe/OrFalse/TypeValuePair), arbitrary external
+work includes class-specific policies and arbitrary external
 schema adapters, cyclic object/container closure, wrapper deduplication, optional
 or keyword arities and higher-order blame. Caller immutability and custom Type
 agreement/termination remain required. No persistent validation cache is added.
@@ -377,3 +377,51 @@ These normalizers advance the paper's generalized-prototype future work using
 its section 5 Type/recognizer and dict/object/function constructions. Other Type
 families, arbitrary external schema adapters, cyclic closure, wrapper deduplication,
 optional/keyword arities, higher-order blame and effect rollback remain open.
+
+## Maybe, OrFalse and dependent TypeValuePair
+
+`optional-validation` reuses shared structural traversal and the existing Type
+methods. `Maybe` keeps `(void)` as absence; `OrFalse` keeps `#f`. Their absent
+branches return the original sentinel without even looking up the child Type.
+Maybe Bool therefore retains `#f` as a present Boolean; OrFalse's representation
+cannot distinguish a false payload from absence. No new tagged representation
+or serialization format is introduced.
+
+Present branches recursively validate their selected child and recheck THAT
+child's returned membership before outer admission. A broken Function validator
+cannot return void/#f and thereby escape into outer absence. A child that itself
+accepts such a sentinel may intentionally normalize to it; presence preservation
+is not asserted for arbitrary custom normalizers. Original child exceptions remain
+unchanged. Void and false branches do not call custom validators; effects from previously
+executed callbacks are not undone.
+
+TypeValuePair previously validated the whole pair as its carried Type. It now
+checks the Type before payload traversal, validates the cdr, and returns a pair
+with the exact original Type and actual normalized value. An unchanged payload
+keeps pair identity. Invalid Types gate payload work; diagnostics retain car/cdr
+paths. Nested refinements receive checked callback fields, including when the
+carried Type is itself an ObjectContract or another container. TypeValuePair has
+no global catalog of permitted Types: each consumer owns its accepted interface.
+
+`examples/optional-publication.ss` composes Maybe → List → Tuple → TypeValuePair
+plugins with OrFalse → Maybe fallback, JSON configuration, root `refine`, ordered
+FUN execution and `bind-evidence` on the exact final root. The worked consumer
+explicitly allows its Transform interface, independently of generic Type validity.
+Tests cover sentinel distinction and lazy child bypass, bad-result erasure,
+original exceptions, complete shape gating, higher-order/multiple outputs, refined
+carried schemas, unknown interfaces, raw/stale evidence refusal and repaired retry.
+
+Lean `OptionalValidation` proves absent identity, present shape/error gating,
+selected-child membership and acceptance, invalid-Type refusal, exact descriptor
+retention and successful/failed dependent payload normalization. Existing final
+refinement and binding laws compose with it. `Examples/OptionalContracts.lean`
+executes the corresponding pipeline and no-plugin/fallback paths, including
+unchanged reference IDs when no known Function wrapper is introduced. Descriptor
+and reference tokens are supplied interpretations; host identity and allocation,
+JSON parsing, the runtime and external effect rollback are not proved.
+
+This advances the paper's section 5 descriptor/generalized-prototype future work.
+Class-specific initialization/inheritance validation, arbitrary external schema
+adapters, cyclic closure, wrapper deduplication, optional/keyword Function arities,
+higher-order blame and general callback termination remain open. Existing I/O
+capabilities/limitations, including executable value serialization, are unchanged.

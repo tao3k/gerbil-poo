@@ -8,6 +8,7 @@
   :std/iter
   ./type-validation
   ./variant-validation
+  ./optional-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
@@ -294,9 +295,10 @@
 
 (define-type (TypeValuePair @ Type.)
   .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
-  .validate: (lambda (x)
-               (match x ([t . v] (validate Type t) (validate t x))
-                      (_ (raise-type-error @ x "not a type-value pair"))))
+  .validate: (lambda (value) (validate-type-value @ value))
+  .diagnose: (lambda (value location) (type-value-shape @ value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (type-value-shape @ value location check-field))
   .sexp<-: (match <> ([t . v] `(cons ,(.@ t sexp) ,(sexp<- t v))))
   .json<-: (match <> ([t . v] [(sexp<- Type t) (json<- t v)])) ;; supposes a simple enough type
   .<-json: invalid ;; maybe we should somehow register types that are valid for I/O into a table?
@@ -320,6 +322,10 @@
   .<-json: (compose .<-pair (.@ .Pair .<-json)))
 
 (define-type (Maybe. @ [methods.bytes<-marshal Type.] type)
+  .validate: (lambda (value) (validate-optional @ void? (lambda () type) value))
+  .diagnose: (lambda (value location) (optional-shape void? (lambda () type) value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (optional-shape void? (lambda () type) value location check-field))
   .element?: (lambda (x) (or (void? x) (element? type x)))
   .sexp<-: (lambda (v) (if (void? v) '(void) (sexp<- type v)))
   .json<-: (lambda (v) (if (void? v) v ((.@ type .json<-) v)))
@@ -330,6 +336,10 @@
 (def (Maybe type) {(:: @ Maybe.) (type) sexp: `(Maybe ,(.@ type sexp))})
 
 (define-type (OrFalse. @ [methods.bytes<-marshal Type.] type)
+  .validate: (lambda (value) (validate-optional @ not (lambda () type) value))
+  .diagnose: (lambda (value location) (optional-shape not (lambda () type) value location diagnose-value))
+  .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+                     (optional-shape not (lambda () type) value location check-field))
   .element?: (lambda (x) (or (not x) (element? type x)))
   .sexp<-: (lambda (v) (and v (sexp<- type v)))
   .json<-: (lambda (v) (and v ((.@ type .json<-) v)))
