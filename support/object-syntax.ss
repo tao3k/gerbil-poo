@@ -1,0 +1,32 @@
+;;; Construction option parsing is independent of slot normalization and evaluation.
+(export (for-syntax parse-object-options))
+(begin-syntax
+  ;; Parse only the reserved leading option prefix; parenthesized slots can still
+  ;; use reserved names. Options are lexical declarations, not runtime keywords.
+  (def (parse-object-options ctx arguments)
+    (def options (make-hash-table-eq))
+    (let loop ((rest arguments))
+      (syntax-case rest ()
+        ((key value . tail)
+         (memq (syntax-e #'key) '(self: super: inherit: bind: bind-these:))
+         (let ((key (syntax-e #'key)))
+           (when (hash-key? options key) (raise-syntax-error #f "duplicate object option" ctx #'key))
+           (hash-put! options key #'value)
+           (loop #'tail)))
+        ((key)
+         (memq (syntax-e #'key) '(self: super: inherit: bind: bind-these:))
+         (raise-syntax-error #f "missing object option value" ctx #'key))
+        (_
+         (let* ((self (hash-ref options self: #'self))
+                (super (hash-ref options super: #'#f))
+                (parents (hash-ref options inherit: #'[]))
+                (bindings (hash-ref options bind: #'()))
+                (include? (hash-ref options bind-these: #'#t)))
+           (unless (identifier? self) (raise-syntax-error #f "self must be an identifier" ctx self))
+           (unless (or (eq? (syntax-e super) #f) (identifier? super))
+             (raise-syntax-error #f "super must be an identifier" ctx super))
+           (unless (and (stx-list? bindings) (andmap identifier? (syntax->list bindings)))
+             (raise-syntax-error #f "bind must be an identifier list" ctx bindings))
+           (unless (boolean? (syntax-e include?))
+             (raise-syntax-error #f "bind-these must be a literal boolean" ctx include?))
+           (values self super parents bindings include? rest)))))))

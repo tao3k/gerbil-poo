@@ -12,6 +12,7 @@
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
+  (only-in ./support/object-syntax parse-object-options)
   (for-syntax :std/iter
               (only-in :std/list/list push!)
               (only-in :std/list/list-builder with-list-builder))
@@ -450,15 +451,19 @@
 
 ;; the ctx argument exists for macro-scope purposes
 ;; TODO: use a syntax-parameter for self instead of the ctx argument?
-(defrules .o/ctx ()
-  ((_ ctx (:: self) slot-spec ...)
-   (object/slots ctx self [] () slot-spec ...))
-  ((_ ctx (:: self super slots ...) slot-spec ...)
-   (object/slots ctx self super (slots ...) slot-spec ...))
-  ((_ ctx () slot-spec ...)
-   (object/slots ctx self [] () slot-spec ...))
-  ((_ ctx slot-spec ...)
-   (object/slots ctx self [] () slot-spec ...)))
+;; Parse the lexical option prefix or legacy :: form before shared slot lowering.
+(defsyntax (.o/ctx stx)
+  (syntax-case stx ()
+    ((_ ctx (:: self) specs ...) #'(object/slots ctx self [] () specs ...))
+    ((_ ctx (:: self parents slots ...) specs ...)
+     #'(object/slots ctx self parents (slots ...) specs ...))
+    ((_ ctx () specs ...) #'(object/slots ctx self [] () specs ...))
+    ((_ ctx specs ...)
+     (let-values (((self super parents bindings include? rest)
+                   (parse-object-options #'ctx #'(specs ...))))
+       (with-syntax ((self self) (super super) (parents parents)
+                     (bindings bindings) (include? include?) (rest rest))
+         #'(object/configured ctx self parents bindings include? super . rest))))))
 
 (begin-syntax
   ;; TODO: is there a better option than (stx-car stx) to introduce correct identifier scope?
@@ -584,19 +589,44 @@
            (_ (loop tail bindings [spec . result]))))))))
 
 ;; the ctx argument exists for macro-scope purposes
-(defsyntax (object/slots stx)
+(defrule (object/slots ctx self parents bindings specs ...)
+  (object/configured ctx self parents bindings #t #f specs ...))
+
+;; Lower all construction syntax to the same slot/default/inheritance engine.
+;; The optional super name denotes the current slot's inherited computation,
+;; matching $slot-gen, and never reifies another slot's super-instance.
+(defsyntax (object/configured stx)
   (syntax-case stx ()
-    ((_ ctx self super (slots ...) . slot-specs)
+    ((_ ctx self parents (bindings ...) include? super . slot-specs)
      (let* ((normalized (normalize-slot-specs #'ctx #'slot-specs))
-            (slot-methods (car normalized))
-            (defaults (cadr normalized))
-            (prepared (prepare-shared-slot-specs slot-methods)))
-       (with-syntax ((((slot spec ...) ...) slot-methods)
+            (methods (car normalized)) (defaults (cadr normalized))
+            (names (append (map stx-car defaults) (map stx-car methods)))
+            (selected (append (syntax->list #'(bindings ...))
+                              (if (syntax-e #'include?) names []))))
+       (when (and (identifier? #'super) (bound-identifier=? #'self #'super))
+         (raise-syntax-error #f "self and super must be distinct" stx))
+       (for-each (lambda (name)
+         (when (or (bound-identifier=? name #'self)
+                   (and (identifier? #'super) (bound-identifier=? name #'super)))
+           (raise-syntax-error #f "slot binding conflicts with self or super" stx name))) selected)
+       ;; Preserve lexical shorthand capture; only actual computed formulas need
+       ;; the inherited computation alias. Explicit per-slot names keep working.
+       (def transformed (if (eq? (syntax-e #'super) #f) methods
+         (map (lambda (spec)
+           (with-syntax ((super #'super))
+             (syntax-case spec (=> =>.+)
+               ((name) spec)
+               ((name => form args ...) #'(name (super) (form (super) args ...)))
+               ((name =>.+ args ...) #'(name (super) (.+ (super) args ...)))
+               ((name (next) form) #'(name (next) (let ((super next)) form)))
+               ((name form) #'(name (super) form))))) methods)))
+       (def prepared (prepare-shared-slot-specs transformed))
+       (with-syntax (((selected ...) selected)
                      (((default-slot . default-value) ...) defaults)
                      (((constant-id constant-value) ...) (car prepared))
                      (((prepared-slot prepared-spec ...) ...) (cadr prepared)))
          #'(let ((constant-id constant-value) ...)
-             (object/init self super (slots ... default-slot ... slot ...)
+             (object/init self parents (selected ...)
                           ((default-slot . default-value) ...)
                           (prepared-slot prepared-spec ...) ...)))))))
 

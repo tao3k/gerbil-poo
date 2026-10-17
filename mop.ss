@@ -176,7 +176,8 @@
 (defraise/context (raise-type-error where irritants ...)
   (TypeError "type error" irritants: [irritants ...]))
 
-;; TODO: teach .defgeneric about optional arguments.
+;; Optional positional/keyword defaults and rest forwarding use support/syntax;
+;; defaults resolve at the generic boundary before any method/combiner invocation.
 ;; TODO: use macro that leaves source info by default, returns a function when passed as argument.
 (def (validate type x) (.call type .validate x))
 
@@ -555,4 +556,5 @@
 ;; Static slot path syntax expands only to the existing dynamic constructor.
 (defrule (.lens slot ...) (slots-lens '(slot ...)))
 
-;; TODO: a special slot .parameters, and a function that specialized a object on its positional parameters?
+;; Explicit .parameters metadata and persistent prefix binding are implemented in
+;; parameters.ss; validation/effect execution remains a separate checked consumer.

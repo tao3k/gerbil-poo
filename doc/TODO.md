@@ -32,15 +32,15 @@ further tuning of the corresponding workflow.
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
-| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream and `.defgeneric` `combination:` bridge. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and unified arbitrary multi-dispatch syntax remain future work. Optional generic formals retain their separate open TODO. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream and `.defgeneric` `combination:` bridge. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and unified arbitrary multi-dispatch syntax remain future work. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
 | General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
 | User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
 | Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
-| Object keyword syntax / lexical slot bindings | Partial: current `.o`, `with-slots` and explicit self/supers bindings work | Proposed keyword grammar and independently configurable automatic slot bindings remain open. |
+| Object keyword syntax / lexical slot bindings | Implemented: `.o` leading self/super/inherit/bind/bind-these options lower through the existing slot engine; legacy forms and match patterns retained; `t/parameters-test.ss` | Declared lexical grammar closed. Arbitrary lexical rewrites are not part of this grammar. See [parameters.md](parameters.md). |
 | Prototype mutability discipline | Explicit invalidating protocol implemented: registered weak reverse edges, once-per-owner clearing across diamonds, topology preflight, active-evaluation rejection and optional sealing; original parent-mutation tests retained | Sequential supported APIs only; external callback dependencies must be registered. Raw struct setters are internal escape hatches. Sealing locks direct source/instance edits, not all unsealed ancestors. |
 | Data representation / usual object optimizations | Partial: explicit immutable preparations and compact method storage | General persistent prototype maps, shape/hashconsing/vector layout and inline-cache protocols remain open. Historical speed measurements do not close these. |
-| Positional parameter specialization | Open: `.parameters` note in `mop.ss` | Define and implement specialization/closure semantics and controls. |
+| Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
 | Type system for POO | Partial: executable Type descriptors, structural value contracts and guarded publication | General prototype polymorphism/subtyping/inference described below is open. |
 | Generic data structure library | Partial existing containers only | A general collection library with the proposed protocol and laws is open. |
 | Type-driven property-based testing | Open | Native generators, shrinkers and reproducible failures derived from descriptors. |
@@ -66,13 +66,17 @@ laws and 1112 checked attempts exercise the complete declared boundary; unchange
 head/approval controls prevent lifecycle bugs being hidden by unrelated drift.
 See [recursive-coordination.md](recursive-coordination.md).
 
-The remaining original feature backlog is explicitly grouped as follows:
+The syntax/specialization workstream is now CLOSED for its declared acceptance:
+keyword grammar, independently selected lexical imports, current-slot inherited
+aliases, positional prefix closure and existing generic optional/keyword/rest
+forwarding. One C3/FUN checked service chain and eight acceptance cases accompany
+thirteen Lean semantic laws. See [parameters.md](parameters.md). The remaining
+original feature backlog is explicitly grouped as follows:
 
 | Workstream | Concrete remaining acceptance target | Current anchor |
 | --- | --- | --- |
-| Syntax and specialization | Proposed object keyword grammar/configurable lexical slot binding; optional generic formals; positional `.parameters` specialization semantics and controls | Syntax below; `mop.ss` `.parameters`; Method-combination below |
 | Representation | Persistent prototype maps and shape/inline-cache protocols with coherent supported mutation/invalidation, not just prepared methods | Data representation below; existing `construction-cache.ss` / `lens-laws.ss` |
-| Types and generated tests | Prototype polymorphism/subtyping/inference; descriptor-driven generators, shrinking and reproducible counterexamples | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
+| Types and generated tests | Prototype polymorphism/subtyping/inference; optional/keyword/case-lambda Fun Type signatures; descriptor-driven generators, shrinking and reproducible counterexamples | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
 | Collection protocol | Proposed generic incremental/isomorphism-aware collection library and its laws, beyond existing containers | Generic Data Structure Library below |
 | General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
 | Interpreter project | A real Jsonnet/Nix implementation and its language-level correspondence/acceptance, not object examples | Classes below |
@@ -617,11 +621,13 @@ The "object" reference would provide context for the lazy evaluation of whatever
 
 ## Syntax
 
-Maybe improve the object definition syntax using keywords, as in e.g.
-`(.o self: self super: super inherit: [supers ...] bind: (x y z) bind-these: #t (slot forms) ...)`
-To implement it with `syntax-case`, see e.g. these definitions for [defproto](https://github.com/vyzo/gerbil/blob/ee22de628a656ee59c6c72bc25d7b2e25a4ece2f/src/std/actor/proto.ss#L261) and [defhandler](https://github.com/belmarca/gerbil-fwd/blob/83120eac03fa39338c82993d3041ddad01432419/fwd/routing.ss#L65).
-
-Make it optional whether to include the currently-defined slots in the list of slots to be bound.
+The proposed keyword grammar is implemented, including independent local-slot
+binding selection. The legacy `::` grammar still lowers through the SAME engine.
+`super:` means the paper's delayed current-slot inherited computation, not a
+reified parent object. Prefix `.parameters` specialization is persistent and
+composable; default/keyword/rest generic forwarding is verified on the existing
+Gerbil formal parser. See [parameters.md](parameters.md) for the complete grammar,
+API, receiver/closure semantics, executable acceptance and proof correspondence.
 
 ## Simple Features
 
