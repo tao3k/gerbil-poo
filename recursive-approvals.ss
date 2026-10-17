@@ -1,6 +1,7 @@
 ;;; Joint revisions of one recursive graph and shared approval metadata.
-(export stage-with submit! observe!)
-(import ./object ./mop ./lens-laws
+(export stage-with submit! observe! submit-sequence!
+        attempt-request attempt-snapshot attempt-values attempt-failed? attempt-failure)
+(import (only-in :std/list/list foldl) ./object ./mop ./lens-laws
         (prefix-in ./recursive-publication publication.))
 
 ;; Capture native supported revisions of installed/proposed metadata. Existing
@@ -45,3 +46,41 @@
 (def (observe! owner observer)
   (publication.observe-joint! owner
     (lambda (state) (observe-state state observer))))
+
+;; One immutable observation belongs to its exact request. Returned effect refusal
+;; remains in values; failure records only an exception, including observer errors.
+(defstruct %attempt (request snapshot values failed? failure) final: #t)
+;; Retain request identity so historical attempts can be attributed across rounds.
+(def attempt-request %attempt-request)
+;; Each attempt records its own post-attempt snapshot, not the batch's final head.
+(def attempt-snapshot %attempt-snapshot)
+;; Preserve all observer values, including #f and ordinary returned policy refusal.
+(def attempt-values %attempt-values)
+;; Separate normal #f/zero values from an exception whose original payload is #f.
+(def attempt-failed? %attempt-failed?)
+;; Preserve the original exception payload; consult attempt-failed? for its presence.
+(def attempt-failure %attempt-failure)
+
+;; Observe one existing submission without inventing a success or a new request.
+;; An observer exception can follow installation: capture the actual current pair
+;; AFTER guard cleanup, so the receipt never pretends that graph was rolled back.
+(def (submit-attempt owner submission)
+  (try
+    (call-with-values (lambda () (submit! owner (car submission) (cdr submission)))
+      (lambda returned
+        (make-%attempt (car submission) (publication.snapshot owner) returned #f #f)))
+    (catch (cause)
+      (make-%attempt (car submission) (publication.snapshot owner) [] #t cause))))
+
+;; Preflight/copy the entire ordered (request . observer) stream before publishing.
+;; Standard foldl continues after refusal and retains every per-attempt outcome.
+;; No automatic restaging/reapproval or transaction across the sequence occurs;
+;; callers explicitly prepare fresh work between sequences against the current pair.
+(def (submit-sequence! owner submissions)
+  (unless (list? submissions) (error "proper recursive submission list required"))
+  (def queue (map (lambda (submission)
+    (unless (and (pair? submission) (procedure? (car submission)) (procedure? (cdr submission)))
+      (error "recursive submission requires request and observer procedures"))
+    (cons (car submission) (cdr submission))) submissions))
+  (reverse (foldl (lambda (submission outcomes)
+    (cons (submit-attempt owner submission) outcomes)) [] queue)))

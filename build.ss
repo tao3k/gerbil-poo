@@ -112,6 +112,7 @@
     "examples/recursive-restaging"
     "examples/recursive-publication"
     "examples/recursive-approvals"
+    "examples/recursive-competition"
     "examples/lifecycle"
     "examples/inherited-services"
     "examples/metaprotocol-services"

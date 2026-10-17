@@ -1101,3 +1101,15 @@ Eight Lean composition laws and matching actual finite graph examples cover this
 sequential future-work scope. Complete guards/dependencies, immutable-in-use metadata
 and terminating callbacks remain premises; concurrent installation and atomic
 graph/external effects remain open.
+
+
+Interleaved joint submissions now use `recursive-approvals.submit-sequence!`, with
+preflight/copied request rows and one lossless per-attempt observation. Eight actual
+rounds re-stage losing future proposals, invalidate proposed and installed approval
+metadata in separate ABA windows, retry local-success/joint-failure requests and
+interleave historical requests with a winner and stale challengers. Existing
+refine/bind-evidence supplies effect-only retry. Exception flags distinguish raised
+false from normal false/zero values; observer failures retain installed heads.
+Eight Lean sequence laws and matching finite graph examples advance this sequential
+future-work scope under complete guards, identity correspondence and terminating
+callbacks; concurrent installation and external-effect rollback remain open.
