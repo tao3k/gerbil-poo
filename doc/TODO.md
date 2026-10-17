@@ -413,6 +413,16 @@ fresh factory observation laws. See
 [coordinator-interleaving.md](coordinator-interleaving.md) for the exact scenario,
 callback contract and conditional proof scope.
 
+`rejoin-after` now composes fallible preparation with the existing service chain.
+Two recovering names fail four times BEFORE rejoining while persistent peers keep
+publishing across six SCC phases; three further failures occur after fresh service
+approval. Preparation resources clean on both paths, original errors retain identity,
+and only successful preparation enters the continuation with its whole value tuple.
+Shared checkpoint assertions use standard nonblocking channel reads and FIFO
+buffering. Lean adds fallible checked preparation, exact errors, failed-attempt
+projection and whole-state preservation/validity laws. See
+[coordinator-retry.md](coordinator-retry.md) for the exact scenario and premises.
+
 ### Declared method fragments and receiver generics
 
 `method-declaration.ss` extends the ordinary inherited declaration protocol.

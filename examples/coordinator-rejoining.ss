@@ -1,5 +1,5 @@
 ;;; Per-name recovery decisions compose with the existing scoped supervisor.
-(export call-with-rejoining-coordinators)
+(export call-with-rejoining-coordinators rejoin-after)
 (import (prefix-in ./joint-coordination coordination.))
 ;; recover receives a completed name and its original outcome thunk. It handles
 ;; that outcome and returns an operation to run as a fresh instance, or #f.
@@ -17,3 +17,12 @@
     restart: (lambda (name)
       (def operation (hash-ref replacements name #f))
       (hash-remove! replacements name) operation)))
+
+;; Run recovery preparation inside the new coordinator's own scoped operation.
+;; Only success invokes continue with exchange followed by all prepared values.
+;; Exceptions retain their identity and follow the supervisor's ordinary exit/
+;; recovery path; no fallback, publication, retry or exception wrapping is added.
+(def (rejoin-after prepare continue)
+  (lambda (exchange)
+    (call-with-values (lambda () (prepare exchange))
+      (lambda prepared (apply continue exchange prepared)))))
