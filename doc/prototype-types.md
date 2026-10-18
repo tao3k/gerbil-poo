@@ -168,7 +168,7 @@ laws and final identity/revision admission under the supplied source model.
 Finite expressions also accept Function optional/keyword/rest options and ordered
 CaseFunction clauses. Prefix specialization and finite inference traverse every
 Type position while preserving literal keyword metadata. Call-language inclusion now admits different required/optional/rest regions and
-ordered case layouts under a common keyword wire mode, with exact covariant
+ordered case layouts under shared or certified cross-mode keyword interpretation, with exact covariant
 outputs and contravariant supplied inputs. Arbitrary host signature/default
 inference remains outside scope.
 See [the declaration protocol](method-declarations.md#rich-declared-function-signatures)
@@ -367,7 +367,7 @@ Root Record remains a data Type rather than a certified method catalog.
 ## Ordered case call-language coverage and replacement
 
 `(function-covers? source target [budget])` decides whether the source covers
-the target's complete declared shape language within the shared wire domain.
+the target's complete declared shape language within the admitted wire domain.
 `subtype-expression?` additionally checks safe replacement. Both ordinary Function
 and ordered CaseFunction terms can occur on either side, including nested Type
 positions. For example, one `(Function (UInt) (Integer) rest: Integer)` safely
@@ -390,13 +390,35 @@ as supplied values. A shadowed later clause imposes no independent obligation
 and cannot repair a failed earlier one. Disjoint cases may safely reorder, and a
 source may accept additional calls. The ordering of overlapping cases is retained.
 
-The two descriptors must agree on whether **any** clause declares keyword input.
-Different wire modes conservatively return false: raw keyword-valued positionals
-and Gerbil escapes otherwise lack a common decoded interpretation. Within the
-shared mode, key order does not change structural admission; no claim is made
-about effectful recognizer/default ordering, host arity or totality. Type relations
-remain the explicit finite structural algebra; arbitrary predicates, higher ranks,
-effects and unrestricted recursive language inclusion remain outside scope.
+Keyword mode is determined by whether **any** clause declares a keyword. Shared
+modes retain the original path. Different modes now have two sufficient rules:
+
+- Keyword source / positional target: every **supplied** Type of the first selected
+  target clause must exclude outer keyword, `#!key` and `#!rest` tokens. UInt,
+  Integer and Bool are stable. List/Tuple/Pair/Map/Sum/Object/Record/Function carriers
+  are stable even with Any payloads; Maybe exposes its payload (plus ordinary void),
+  and Union requires every exposed alternative to be stable. Any is unsafe.
+  Ordinary input contravariance and exact-count output covariance still apply.
+- Positional source / keyword target: the **first source clause** must have only
+  Any required/optional positions, unbounded Any rest, and no keys. At every target
+  region its required count must be at most `positions + 2 * supplied-keys`.
+  This is the minimum length of **any** original raw spelling: the encoder's
+  optional `#!rest` cannot count toward the minimum. Every raw token is admitted
+  unchanged, and exact-count result covariance is checked against the actual first
+  selected target clause. Non-universal prefixes/later transport clauses refuse.
+
+Neither rule rewrites an incoming row or makes a keyword optional by dropping it.
+Gerbil's existing decoder, normalizer, keyword lambda and case selection remain
+responsible for runtime calls. Direct-source wrapper controls test all token rows
+up to length four, independently of the finite partition algorithm; positive
+examples exercise keyword order and both escape markers. A target wrapper is not
+inserted ahead of the source to conceal an interpretation difference.
+
+The decision is conservative, not maximal inclusion for arbitrary raw languages.
+Key order does not change structural admission; no claim is made about effectful
+recognizer/default ordering, host arity or totality. Type relations remain the
+explicit finite structural algebra; arbitrary predicates, higher ranks, effects
+and unrestricted recursive language inclusion remain outside scope.
 
 Malformed/unsupported syntax and exhausted work raise their existing TypeRefusal
 causes. The public coverage entry refuses non-Function kinds with `bounds`. False
@@ -412,3 +434,21 @@ Existing source/negative/sibling admission remains mandatory. `CoveredServiceTyp
 and `infer-covered-service` demonstrate a prefix-bound scalar and inferred callback,
 qualified method invocation, recursive wrapping, FUN/refine and exact evidence
 publication through `catalog-service-action`. See `t/function-coverage-test.ss`.
+
+
+`PositionalCallbackServiceType` / `infer-positional-callback-service` and
+`KeywordCallbackServiceType` / `infer-keyword-callback-service` use the same fixed
+Value prefix, candidate inference, whole declaration builder and
+`catalog-service-action` FUN/refine/bind-evidence chain. Runtime callbacks retain
+ordinary default execution and exact raw-row identity respectively. See
+`t/keyword-coverage-test.ss`, including no-solution/exhaustion before builder calls,
+outer-versus-exposed carriers, shadowing, required keys and raw-minimum controls.
+
+Lean's `Functional/KeywordArguments.lean` uses the existing
+`Functional.FunctionSignature` namespace. It proves ordinary-row decoding agreement,
+the minimum raw length, first transport selection for every successful target raw
+spelling, output variance, and finite-to-unbounded supplied-position stability.
+The positional-to-keyword theorem requires the explicit runtime carrier law and
+input recognition premise; finite Type projection, host behavior and arbitrary
+recognizers are not verified. This advances the article's hypothetical type-system
+future work, not a claim that its Racket implementation has these static checks.

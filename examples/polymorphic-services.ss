@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -350,4 +350,28 @@
 (def (infer-covered-service candidates procedure (record void))
   (infer-declared-calls (specialize-prototype-type CoveredServiceType '(UInt)) candidates
     '((() (UInt) (UInt (CaseFunction (Function (UInt) (UInt)) (Function (UInt) (UInt UInt))))))
+    (cut signature-service-declarations <> procedure record)))
+
+;; Callers require an ordinary callback. A candidate may expose optional keywords
+;; when every required caller input remains an outer-token-stable Type.
+(def PositionalCallbackServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    '(Function (Value Callback) (Value)) '((Callback (Function (Value) (Value))))))
+;; Reuse existing prefix binding, joint call inference and qualified declarations.
+;; The callback's own keyword defaults remain deferred until actual invocation.
+(def (infer-positional-callback-service candidates procedure (record void))
+  (infer-declared-calls (specialize-prototype-type PositionalCallbackServiceType '(UInt)) candidates
+    '((() (UInt) (UInt (Function (UInt) (UInt)))))
+    (cut signature-service-declarations <> procedure record)))
+;; A keyword caller may use a positional raw-row transport. Required arity is
+;; checked against every decoded target minimum, not its normalized escape row.
+(def KeywordCallbackServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    '(Function (Value Callback) (Value))
+    '((Callback (Function (Value) (Value) keywords: ((scale: . Value)))))))
+;; Existing construction preserves the callback's raw row through FUN/refinement
+;; and exact evidence publication; no translation wrapper or secondary registry.
+(def (infer-keyword-callback-service candidates procedure (record void))
+  (infer-declared-calls (specialize-prototype-type KeywordCallbackServiceType '(UInt)) candidates
+    '((() (UInt) (UInt (Function (UInt) (UInt) keywords: ((scale: . UInt))))))
     (cut signature-service-declarations <> procedure record)))

@@ -74,38 +74,41 @@
         (lambda results
           (apply values (check-results descriptor signature results check refuse)))))))
 
-;; Compare complete ordered call languages under a shared keyword-wire mode.
-;; Arity acceptance and selected clauses stabilize beyond the maximum fixed
-;; prefix. The extra representative checks each repeated rest Type once. Keyword
-;; subsets stream under the caller's quota instead of allocating a powerset.
-;; `related` checks the selected pair for this supplied row, not all clause pairs.
-;; Different wire modes conservatively refuse: raw keyword values/escapes do not
-;; have a shared decoded language. No defaults, validators or bodies run here.
-(def (covers-signatures? source target work related)
+;; Compare ordered languages using their actual global keyword interpretations.
+;; `wire-related` must certify cross-mode raw-row safety before `related` checks
+;; selected-clause obligations. Same-mode selection retains the existing path.
+;; A positional source replacing a keyword target must use its FIRST clause:
+;; its witness must establish universal raw-row admission, not pick a favorable
+;; clause using the target's decoded arity. No argument row is rewritten here.
+(def (covers-signatures? source target work related wire-related)
   (def source-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) source) #t))
   (def target-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) target) #t))
-  (and (eq? source-mode? target-mode?)
-    (let* ((signatures (append source target))
-           (maximum (foldl (lambda (s largest)
-             (work) (max largest (+ (length (.get s inputs)) (length (.get s optional))))) 0 signatures))
-           (keys (delete-duplicates/hash
-             (apply append (map-in-order (lambda (s) (work) (map car (.get s keywords))) target)))))
-      ;; Canonical key order only represents presence. Value checks use the
-      ;; original supplied order at runtime; effectful recognizers are not modeled.
-      (def (row-covered? count keys)
-        (work)
-        (def arguments (encode-arguments (make-list count 'Any)
-          (map (lambda (key) (cons key 'Any)) keys) target-mode?))
-        (def expected (select-signature target arguments))
-        (or (not expected)
-          (let (actual (select-signature source arguments))
-            (and actual (related actual expected arguments target-mode?)))))
-      ;; Visit every key subset for each representative count. False is a complete
-      ;; failed obligation; exhaustion raises without claiming prefix coverage.
-      (let counts ((count 0))
-        (and (let subsets ((remaining keys) (supplied []))
-               (work)
-               (if (null? remaining) (row-covered? count (reverse supplied))
-                 (and (subsets (cdr remaining) supplied)
-                      (subsets (cdr remaining) (cons (car remaining) supplied)))))
-             (or (= count (+ maximum 1)) (counts (+ count 1))))))))
+  (def same-mode? (eq? source-mode? target-mode?))
+  (let* ((signatures (append source target))
+         (maximum (foldl (lambda (s largest)
+           (work) (max largest (+ (length (.get s inputs)) (length (.get s optional))))) 0 signatures))
+         (keys (delete-duplicates/hash
+           (apply append (map-in-order (lambda (s) (work) (map car (.get s keywords))) target)))))
+    ;; Canonical masks describe presence only. Cross-mode universal admission
+    ;; must handle every raw key order and escape arrangement, not just this row.
+    (def (row-covered? count keys)
+      (work)
+      (def arguments (encode-arguments (make-list count 'Any)
+        (map (lambda (key) (cons key 'Any)) keys) target-mode?))
+      (def expected (select-signature target arguments))
+      (or (not expected)
+        (let (actual (if (and (not source-mode?) target-mode?)
+                      (and (pair? source) (car source))
+                      (select-signature source arguments)))
+          (and actual
+            (or same-mode? (wire-related actual expected arguments source-mode? target-mode?))
+            (related actual expected arguments source-mode? target-mode?)))))
+    ;; Arity partitions include the stationary rest tail. Subsets stream under
+    ;; the shared quota; exhaustion cannot return a successful prefix certificate.
+    (let counts ((count 0))
+      (and (let subsets ((remaining keys) (supplied []))
+             (work)
+             (if (null? remaining) (row-covered? count (reverse supplied))
+               (and (subsets (cdr remaining) supplied)
+                    (subsets (cdr remaining) (cons (car remaining) supplied)))))
+           (or (= count (+ maximum 1)) (counts (+ count 1)))))))

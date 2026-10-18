@@ -468,3 +468,15 @@ field/row layouts before invoking the same declaration builder. Alternatives kee
 their own queries and normalized catalog, and complete sibling/source admission
 is unchanged. See [prototype-types.md](prototype-types.md#candidate-dependent-signatures-and-field-layouts)
 and `t/candidate-inference-test.ss` for finite scope and failure categories.
+
+
+Cross-mode callback bounds now use the same two controlled coverage witnesses as
+shared-mode inference: stable supplied outer Types for keyword source / positional
+target, or first-clause Any raw transport above the true minimum raw length for
+positional source / keyword target. Candidate comparison neither constructs a
+wrapper nor changes the original call row. Exact result count/variance, complete
+search, prefix specialization, sibling/source admission and cache-owner gates
+remain mandatory. See [prototype-types.md](prototype-types.md#ordered-case-call-language-coverage-and-replacement)
+and `t/keyword-coverage-test.ss` for FUN/refine/bind-evidence examples and refusal,
+shadowing, escape and no-builder controls. General mixed-wire inclusion is outside
+this conservative finite decision. This is hypothetical type-system future work.

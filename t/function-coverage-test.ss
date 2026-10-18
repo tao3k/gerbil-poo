@@ -51,11 +51,11 @@
         (Function (Bool) (Integer) keywords: ((mode: . Integer)) required-keywords: (mode:))
         (Function (UInt) (Integer) keywords: ((mode: . Integer)))))
       (check (subtype-expression? wrong target) => #f))
-    (test-case "keyword wire modes are an explicit conservative boundary"
+    (test-case "cross-mode coverage requires raw-row safety witnesses"
       (check (function-covers? '(Function (UInt) (Any) rest: Any)
-        '(Function (UInt) (UInt) keywords: ((mode: . UInt)))) => #f)
+        '(Function (UInt) (UInt) keywords: ((mode: . UInt)))) => #t)
       (check (function-covers? '(Function (UInt) (UInt) keywords: ((mode: . UInt)))
-        '(Function (UInt) (UInt))) => #f))
+        '(Function (UInt) (UInt))) => #t))
     (test-case "supplied input positions and keys are contravariant"
       (check (subtype-expression? '(Function (UInt) (UInt) optional: (UInt))
         '(Function (Integer) (Integer) optional: (Integer))) => #f)
@@ -109,7 +109,7 @@
       (def work 0) (def admitted 0)
       (check-exception (signature.covers-signatures? (function-signatures broad) (function-signatures split)
         (lambda () (set! work (1+ work)) (when (> work 10) (refuse-type 'exhausted "cell quota")))
-        (lambda _ (set! admitted (1+ admitted)) #t)) (refusal 'exhausted))
+        (lambda _ (set! admitted (1+ admitted)) #t) (lambda _ #f)) (refusal 'exhausted))
       (check-equal? admitted 1))
     (test-case "prefix inference and unified declarations select the covering callback"
       (def events [])
