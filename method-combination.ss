@@ -1,7 +1,7 @@
 ;;; Appendix B method combination; executable counterpart of Object.MethodCombination.
 (export ForwardContribution ForwardContribution. forward-primary forward-before forward-after forward-around
         forward-contribution? forward-effective inner-chain SimulaBody SimulaBody. simula-body simula-body? simula-effective
-        Contribution Contribution. primary before after around item
+        Contribution Contribution. contribution primary before after around item
         standard-contribution? simple-contribution? effective simple-effective
         prepare-standard prepare-simple prepare-simple-items prepare-forwarding prepare-inner prepare-simula compile-simula bind-simula compile-simula-context
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
@@ -15,12 +15,34 @@
   .element?: (lambda (value) (and (object? value) (.has? value .type)
     (eq? (.@ value .type) @) (.has? value qualifier) (.has? value body)
     (procedure? (.@ value body)))))
-;; Native contribution prototype; registration validates the admitted qualifier set.
+;; Contribution prototype; registration validates the admitted qualifier set.
 (define-type (Contribution. @ [] qualifier body) .type: Contribution)
-;; Construct one validated native qualifier/body pair; invalid bodies raise now.
+;; Evidence stores only a revision and symbol, never its weak key or body closure.
+(defstruct contribution-evidence (revision qualifier))
+;; Default constructor/Type revisions identify the known constant-slot protocol.
+(def contribution-constructor-revision (object-revision Contribution.))
+;; Type protocol edits disable evidence reuse and retain current Type validation.
+(def contribution-type-revision (object-revision Contribution))
+;; Weak keys let discarded contribution graphs and callback cycles be collected.
+(def contribution-evidence-table (make-hash-table test: eq? weak-keys: #t))
+;; Reuse only constructor evidence with an unchanged Type and receiver revision.
+;; Grouping and bodies are still evaluated by the ordinary current interpreter.
+(def (registered-contribution value)
+  (and (= (object-revision Contribution) contribution-type-revision)
+    (let (evidence (hash-get contribution-evidence-table value))
+      (and evidence (= (contribution-evidence-revision evidence) (object-revision value)) evidence))))
+;; Construct a checked body and constant qualifier using the current POO prototype.
+;; Record evidence only for known symbols under the default constructor/Type;
+;; custom prototypes and later mutations use the same current validation protocol.
 (def (contribution qualifier body)
   (require-value body procedure? (lambda () (error "method body must be a procedure")))
-  (.cc Contribution. qualifier: qualifier body: body))
+  (def value (.cc Contribution. qualifier: qualifier body: body))
+  (when (and (= (object-revision Contribution.) contribution-constructor-revision)
+             (= (object-revision Contribution) contribution-type-revision)
+             (memq qualifier '(primary before after around item)))
+    (hash-put! contribution-evidence-table value
+      (make-contribution-evidence (object-revision value) qualifier)))
+  value)
 ;; Primary method: next retains this invocation's original complete argument row.
 (def (primary body) (contribution 'primary body))
 ;; Before side method: no next; execution follows most-specific-first order.
@@ -33,10 +55,16 @@
 (def (item body) (contribution 'item body))
 ;; Standard registration admits only the four Appendix B standard qualifiers.
 (def (standard-contribution? value)
-  (and (element? Contribution value) (memq (.@ value qualifier) '(primary before after around)) #t))
+  (def evidence (registered-contribution value))
+  (if evidence
+    (and (memq (contribution-evidence-qualifier evidence) '(primary before after around)) #t)
+    (and (element? Contribution value) (memq (.@ value qualifier) '(primary before after around)) #t)))
 ;; Simple registration admits items and around wrappers; side/primary groups differ.
 (def (simple-contribution? value)
-  (and (element? Contribution value) (memq (.@ value qualifier) '(item around)) #t))
+  (def evidence (registered-contribution value))
+  (if evidence
+    (and (memq (contribution-evidence-qualifier evidence) '(item around)) #t)
+    (and (element? Contribution value) (memq (.@ value qualifier) '(item around)) #t)))
 ;; Extract one qualifier group in already-resolved C4/index order. Guards have
 ;; already filtered candidates; grouping never invokes a method or changes order.
 (def (group contributions qualifier)
@@ -62,7 +90,7 @@
 ;; result may differ. stop is tested only AFTER the first item; empty has no method.
 (define-type (SimplePolicy. @ [] stop empty first step finish))
 ;; Fold methods most-specific-first with exact short-circuiting of the suffix.
-;; Around methods enclose the complete reduction. Captured callbacks are native
+;; Around methods enclose the complete reduction. Captured callbacks are Gerbil
 ;; procedures; stop must return Boolean. Errors propagate without invoking later items.
 (def (simple-effective policy contributions args)
   (def stop (.@ policy stop))
@@ -154,7 +182,7 @@
 ;; BETA control: reverse resolved C4 methods, then reuse original-args next thunks.
 ;; A superclass omitting inner stops descendants; missing descendants use terminal.
 (def (inner-chain methods args terminal) (call-chain (reverse methods) terminal args))
-;; Simula body Type keeps prefix/suffix callbacks as native extensible POO data.
+;; Simula body Type keeps prefix/suffix callbacks as extensible POO data.
 (define-type (SimulaBody @ Type.)
   .element?: (lambda (value) (and (object? value) (.has? value .type)
     (eq? (.@ value .type) @) (.has? value prefix-part) (.has? value suffix-part)
@@ -239,7 +267,7 @@
 ;; Reverse C4 only during preparation; superclass-controlled inner still receives
 ;; fresh arguments and may omit or repeat the descendant continuation.
 (def (prepare-inner methods terminal) (prepare-chain (reverse methods) terminal))
-;; Extract native Simula prefix/suffix callbacks once rather than doing POO slot
+;; Extract Simula prefix/suffix callbacks once rather than doing POO slot
 ;; lookups and reversal on every invocation. Prefix failure still stops suffixes.
 (def (prepare-simula methods)
   (def prefixes (map (cut .@ <> prefix-part) (reverse methods)))

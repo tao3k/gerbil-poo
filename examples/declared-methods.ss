@@ -6,24 +6,24 @@
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)
 ;; Two branches refine one shared base through ordinary inherited fragment slots.
-;; No method body executes when the declarations are assembled.
-(def (make-family record)
+;; The contribution builder is shared across branches; construction executes no body.
+(def (make-family record (contribute combination.contribution))
   (def base (.declare MethodDeclaration. (.o)
     (public label (.o (constant 'shared)))
-    (method .charge (.o (contributions [(combination.primary (lambda (_ account units)
+    (method .charge (.o (contributions [(contribute 'primary (lambda (_ account units)
       (record 'base) (* (.@ account rate) units)))])))))
   (def billing (object<-declaration-forms MethodDeclaration. (.o)
     (list
-      (method-fragment '.charge [(combination.before (lambda (_ units) (record 'billing-before)))])
-      (method-fragment '.charge [(combination.primary (lambda (next account units)
+      (method-fragment '.charge [(contribute 'before (lambda (_ units) (record 'billing-before)))])
+      (method-fragment '.charge [(contribute 'primary (lambda (next account units)
         (record 'billing-primary) (+ 3 (next))))])
-      (method-fragment '.charge [(combination.after (lambda (_ units) (record 'billing-after)))])
-      (method-fragment '.charge [(combination.around (lambda (next account units)
+      (method-fragment '.charge [(contribute 'after (lambda (_ units) (record 'billing-after)))])
+      (method-fragment '.charge [(contribute 'around (lambda (next account units)
         (record 'around-enter) (let (result (next)) (record 'around-exit) (* 2 result))))]))
     supers: [base]))
   (def risk (object<-declaration-forms MethodDeclaration. (.o)
-    (list (method-fragment '.charge [(combination.before (lambda (_ units) (record 'risk-before)))])
-          (method-fragment '.charge [(combination.after (lambda (_ units) (record 'risk-after)))]))
+    (list (method-fragment '.charge [(contribute 'before (lambda (_ units) (record 'risk-before)))])
+          (method-fragment '.charge [(contribute 'after (lambda (_ units) (record 'risk-after)))]))
     supers: [base]))
   (.mix billing risk))
 ;; Independent receivers share fragments while retaining separate instance data.
@@ -171,16 +171,17 @@
        (call/values (lambda () ((typed-summary-action family units) current)) list))) context)))
 
 ;; Extend the shared diamond with one fragment and a private override of label.
-;; Reflection must select this override before checking visibility, hiding the base.
-(def (make-reporting-family record)
+;; Reflection selects the override before visibility; the shared builder also
+;; constructs the summary item, allowing audited registration across the diamond.
+(def (make-reporting-family record (contribute combination.contribution))
   (object<-declaration-forms MethodDeclaration. (.o)
     (list (declaration-form 'private 'label (.o (constant 'restricted)))
       (method-fragment '.summary
-        [(combination.item
+        [(contribute 'item
            (lambda (account required (optional #f) label: (label 'default) . rest)
              (record 'summary) (list (.@ account rate) required optional label rest)))]
         combination.simple-contribution?))
-    supers: [(make-family record)]))
+    supers: [(make-family record contribute)]))
 
 ;; One FUN observation resolves a fresh account, then returns both actual dispatch
 ;; results. Neither methods nor reflection cache a previous context's observation.

@@ -13,7 +13,7 @@
 (define-type (UnusedEmpty. @ combination.sum) empty: (error "unused empty forced"))
 ;; Complete carrier/qualifier/effect-order/short-circuit and joint revision controls.
 (def method-combination-test
-  (test-suite "Appendix B native method combination alignment"
+  (test-suite "Appendix B method combination alignment"
     (test-case "continuation preparation captures Simula metadata in original order without bodies"
       (for (compiler (list combination.compile-simula combination.compile-simula-context))
         (def events [])
@@ -658,4 +658,20 @@
         (check (eq? protected warm) => #t)
         (check-equal? (publication.failure-stage negative) 'services)
         (check-equal? (family.failure-key (publication.failure-cause negative)) 'cancel)
-        (check-equal? (family.failure-stage (publication.failure-cause negative)) 'negative)))))
+        (check-equal? (family.failure-stage (publication.failure-cause negative)) 'negative)))
+    (test-case "Type revision invalidates constructor evidence without memoizing predicate effects"
+      (def part (combination.primary (lambda (_ value) value)))
+      (def original (.@ combination.Contribution .element?))
+      (def calls 0)
+      (check (combination.standard-contribution? part) => #t)
+      (unwind-protect
+        (begin
+          (.set! combination.Contribution .element? (lambda (_)
+            (set! calls (+ calls 1)) #f))
+          (check (combination.standard-contribution? part) => #f)
+          (check (combination.standard-contribution? part) => #f)
+          (check-equal? calls 2))
+        (.set! combination.Contribution .element? original))
+      (check (combination.standard-contribution? part) => #t)
+      (check (combination.standard-contribution? (combination.primary (lambda (_ value) value))) => #t)
+)))

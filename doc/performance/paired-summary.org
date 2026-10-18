@@ -455,3 +455,116 @@ final executable and methods rebuilds retain their original 90s/180s bounds.
 Lean's full regular/stress gate after current-design naming cleanup passed all
 340 units/eight phases in 134.943s with automatic 14 jobs. Its laws remain finite
 semantic/cost-model results, not Gerbil runtime or compiler proofs.
+
+* Revision-checked contribution admission (2026-10-18)
+
+** Change and comparison boundary
+
+The default ~contribution~ constructor records only a revision and finite qualifier
+symbol in a standard weak-key table. A hit requires the unchanged Contribution
+Type and receiver revisions. Descriptor/prototype/Type edits use current validation;
+callback grouping, rest rows, FUN composition and current reflection are unchanged.
+Evidence contains neither key nor body, avoiding a weak-key/value retention cycle.
+Only the original constructor/Type protocol can register evidence. Arbitrary custom
+Type effects or computed fields are not memoized. This is MOP future-work integration.
+
+Workflow controls now use the *same current* ~typed-summary-action~, generic calls,
+contracts and declaration family. The control supplies the ordinary descriptor
+constructor without registration evidence; it is benchmark-only. Earlier Reader,
+apply/list and compose1 comparisons remain historical/separate scopes and are not
+pooled with the admission comparison. The shared higher-order builder spans the C3
+base, both branches and summary item. Audited registration, current visibility
+refusal/retry and post-success review are executable controls.
+
+** Protocol and admitted observations
+
+One source-frozen study: 21 scopes, natural/collected regimes, four ABBA rounds,
+main and two duplicate A/A pairs, 1008 fresh children. All result oracles passed.
+Each child retains the fixed all-control prefix, 20-second deadline and 1-GiB heap;
+the parent retains its 300-second fence. Strict replay validated complete coverage,
+order, finite/signed counters, EOF, source/binary identities and admitted bytes.
+All 306 tracked Scheme sources remained byte-identical across timing.
+
+Gerbil 1cfb032 / Gambit ea114fc, installed compiled release. Binary SHA-256:
+~6a7adb7bd34abf552ff5d5bc6daba4ce9f4fc92011705a6c99e48c111fff50a6~.
+The 306-source manifest SHA-256 is
+~88ef809fe52a53170ec7d3a8108571141879435bbf42936034fa0280db3d2fe7~.
+Raw rows remain ignored under ~.build/combination/contribution-results.scm~;
+complete data, generated objects, JSON receipts and archives are not committed.
+
+No own Lean/Scheme build ran during timing. Endpoint snapshots showed no compiler
+workers; the first snapshot had one other gxi process and the last had none.
+These endpoints do not establish continuous host isolation. Module loading and
+global table initialization precede measurement. A fresh-family scope measures
+first realization/invocation of each new family after the fixed warm-module prefix,
+not complete application process startup.
+
+Selected CPU deltas below are *production minus control*, microseconds per operation;
+negative is improvement. CPU, GC and non-GC columns are medians of each pair's own
+difference. Their separately computed medians need not add exactly. A/A is the
+maximum absolute CPU difference across both duplicate pairs, not a correction.
+
+| Scope / regime | CPU delta | GC delta | non-GC delta | max A/A | slower rounds |
+|----------------+-----------+----------+--------------+---------+---------------|
+| eight descriptor admissions / natural | -16.337 | -3.567 | -12.770 | 0.114 | 0/4 |
+| one descriptor construction / natural | +0.503 | +0.104 | +0.398 | 0.479 | 4/4 |
+| fresh realized family / natural | -220.227 | -111.289 | -108.938 | 92.906 | 0/4 |
+| fresh family + full call / natural | -68.180 | +15.086 | -84.406 | 54.078 | 0/4 |
+| fresh family + full call / collected | -53.102 | +25.734 | -80.453 | 125.500 | 0/4 |
+| retained complete workflow / natural | -7.997 | +5.108 | -13.390 | 2.633 | 0/4 |
+| retained complete workflow / collected | -7.349 | +5.975 | -13.324 | 3.410 | 1/4 |
+| action construction + workflow / natural | -9.014 | +5.269 | -14.282 | 18.852 | 0/4 |
+| conditioned retained workflow / natural | -4.993 | +6.401 | -11.349 | 6.401 | 1/4 |
+| conditioned action + workflow / natural | -8.427 | +5.598 | -13.901 | 23.354 | 1/4 |
+
+The retained natural workflow's median CPU was 70.598 versus 78.595 us (~10.2%
+lower). All four paired deltas (-9.037 to -7.893 us) exceeded the duplicate noise
+in this study. Independent admission work also improved; the parameter-transport
+code is identical across these workflow controls. It is incorrect to attribute
+this gain to another forwarding/Reader optimization or to allocation alone.
+
+** Remaining regressions and GC attribution
+
+Registration has a real construction charge: +0.503 us natural and +0.403 us
+collected for one fresh descriptor. Realized-family and full fresh-family results
+include this setup rather than hiding it in a retained-family microbenchmark.
+Cold/full and conditioned A/A differences are sometimes larger than median gains;
+no universal cold or complete-workflow speedup is established.
+
+In the collected retained workflow, round 2 regressed +32.621 us: +20.281 us GC
+and +12.340 us non-GC, with 64 versus 51 collections. Both starting prefix counters
+were identical, so this cannot be described solely as unequal starting GC counts;
+those counters also do not identify complete heaps. The conditioned natural
+workflow's adverse round was +13.133 us: +12.854 us GC and +0.278 us non-GC,
+65 versus 52 collections. An identical-action A/A round also differed +18.852 us
+(+4.818 GC, +14.033 non-GC), despite identical prefix counters and collection counts.
+Consequently neither all residual variation nor the collected outlier can be
+assigned to GC alone. Weak-table/heap-policy effects remain a separate investigation;
+no specific collector cause is proved by these observations.
+
+Collection-free single-operation controls admitted exactly 14,592 fewer bytes for
+workflow invocation on every round in both regimes. Action factory bytes were
+unchanged, and identical receiver construction had no admitted CPU improvement.
+One-shot timings and noisy A/A values are not end-to-end acceptance. Allocation
+reduction therefore supports the mechanism but does not discharge the remaining
+GC/worst-round gate. Phase medians must not be subtracted to invent an exact split
+of one complete invocation.
+
+** Semantic and complete-check receipts
+
+Current-body/qualifier edits, before-to-primary replacement during invocation,
+Type predicate effects, unknown qualifiers, false values, C3 shared-base effect
+count, current reflection refusal and retry passed. Final AOT admission covered
+652 intermediates with zero missing/stale/shadow outputs. An earlier local test
+misused ~.slots~; it was corrected to the existing ~reflect-slots~ protocol, and
+the failed run remains in /tmp. The final complete single-process gate passed all
+103 modules / 753 cases, zero errors/warnings, natural exit 0, real 19.28 seconds.
+No checks or resource limits were removed. Complete Lean gate: 340 units / eight
+phases / 14 workers, 146.550 seconds, every phase exit 0.
+
+Lean proves admission substitution, revision miss, ordered results and unchanged
+subsequent effects under constructor/revision-stability premises. Its cost law
+keeps setup, guard/check costs and supplied GC history separate. It does not prove
+weak-table GC, host mutation, compiler behavior or machine timing. Restoring old
+field values cannot re-enable an old revision. No previous call chain compatibility
+path is added to production.

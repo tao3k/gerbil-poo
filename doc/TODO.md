@@ -887,3 +887,13 @@ standard list/apply lowering, removing the temporary per-call variadic relay.
 Current metadata, boundary order, full Reader/C3 retry and paired cost controls
 are documented in [gerbil-mechanisms.md](gerbil-mechanisms.md). This bounded
 bridge replacement does not close the general extensible-MOP TODO.
+
+### Current contribution-admission cost study
+
+Default method contributions may reuse revision-checked constructor admission via
+Gerbil weak-key tables; current interpreters, Type edits, reflection and callbacks
+retain their existing semantics. The complete-chain reuse, mutation controls and
+explicit proof premises are recorded in `gerbil-mechanisms.md`. The paired study
+now compares the same current FUN/generic implementation with and without that
+evidence, including cold registration/family construction. This cost study does
+not close any of the open feature rows above.

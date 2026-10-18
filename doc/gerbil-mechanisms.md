@@ -854,3 +854,38 @@ command. A global just backtick was found to execute even for an unrelated scrip
 recipe; the shell assignment now queries pkg-config only at linking and fails
 before starting gxc when metadata is unavailable. Explicit empty/nonempty link
 options remain valid. `build.ss` continues to use standard `pkg-config-libs`.
+
+### Revision-checked contribution admission
+
+The next complete-chain reuse delegates evidence lifetime to Gerbil's standard
+weak-key hash table and freshness to the existing object revision protocol. The
+ordinary `contribution` builder is shared by public qualifier helpers and by the
+higher-order shared-C3 service example. It registers only the default constructor,
+default Contribution Type and finite qualifier symbols. Values in the table contain
+only a revision and symbol; they never retain the weak key or callback.
+
+The standard/simple interpreters reuse this admission only while both receiver
+and Type revisions match. An object/prototype edit invalidates the receiver;
+a Type edit forces the ordinary current predicate, including its effects. Returning
+field values to their old values does not reset revisions. Unregistered descriptors
+use the same current validation protocol. No effective method, method result,
+reflection approval, source list, grouping or callback is cached. A before method
+may still replace a primary body before primary grouping during the same call.
+Unsupported direct mutation bypassing object invalidation is outside this discipline.
+
+The current workflow study supersedes the previous Reader comparison: **both sides
+now use the same current FUN Observation and generic lowering**, while only the
+contribution builder differs. Historical apply/list and compose1 controls remain
+separate scopes. Construction, eight-descriptor admission, realized family
+construction and complete fresh-family invocation have their own scopes, including
+evidence setup. Natural/collected regimes, four ABBA rounds and two duplicate A/A
+pairs retain adverse results. A/A variability is reported, never subtracted away.
+Independent phase medians cannot identify one invocation's exact additive split.
+
+The Lean stamp makes the constructor's shared Type revision explicit; the runtime
+weak-table payload stores only the receiver revision and qualifier symbol.
+Lean's revision/admission laws require explicit constructor soundness and revision
+stability, and its amortization law requires supplied cost/GC inputs. They prove
+neither hash-table implementation nor unconditional elapsed-time improvement.
+The integrated declaration/reflection/FUN workflow advances the article's MOP
+future work; this optimization does not mark open TODO features complete.

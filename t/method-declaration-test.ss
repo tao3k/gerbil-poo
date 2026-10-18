@@ -58,6 +58,58 @@
 ;; Test actual assembled methods rather than expected constants injected into slots.
 (def method-declaration-test
   (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "constructor evidence follows current bodies and qualifier revisions"
+      (def primary (combination.primary (lambda (_ value) (+ value 1))))
+      (def before (combination.before (lambda (_) (.set! primary body (lambda (_ value) (+ value 10))))))
+      (check (combination.standard-contribution? primary) => #t)
+      ;; Before runs before primary grouping: admission must not freeze callbacks.
+      (check-equal? (standard-combination [before primary] [3]) 13)
+      (.set! primary qualifier 'item)
+      (check (combination.standard-contribution? primary) => #f)
+      (check (combination.simple-contribution? primary) => #t)
+      (.set! primary body #f)
+      (check (combination.simple-contribution? primary) => #f)
+      (check-exception (standard-combination [primary] [3]) true)
+      (.set! primary body (lambda (value) (+ value 20)))
+      (check-equal? ((simple-combination combination.sum) [primary] [3]) 23)
+      (check-exception (combination.contribution 'primary #f) true)
+      (check (combination.standard-contribution? (combination.contribution 'unknown identity)) => #f)
+      (check (combination.standard-contribution? #f) => #f))
+    (test-case "audited diamond registration composes current FUN review refusal and retry"
+      (def registered [])
+      ;; Share one builder through declaration assembly; no method body runs here.
+      (def (register qualifier body)
+        (set! registered (cons qualifier registered))
+        (combination.contribution qualifier body))
+      (def events [])
+      ;; The complete effect trace catches duplicated shared-base contributions.
+      (def (record event) (set! events (cons event events)))
+      (def family (service.make-reporting-family record register))
+      (def action (service.typed-summary-action family 2))
+      (check-equal? events [])
+      (check-equal? (length registered) 8)
+      (check-equal? (call/values (lambda () (action (.o rate: 10))) list)
+        '(46 ((10 2 2 #f (payload: #f)))))
+      (check-equal? (reverse events)
+        '(summary around-enter billing-before risk-before billing-primary base risk-after billing-after around-exit))
+      (set! events [])
+      (check-equal? (call/values (lambda () (action (.o rate: 20))) list)
+        '(86 ((20 2 2 #f (payload: #f)))))
+      (check-equal? (length events) 9)
+      ;; Retained evidence does not bypass current visibility or post-success review.
+      (def reviews [])
+      (def reviewed (service.reviewed-summary-action family 2
+        (lambda (amount _) (set! reviews (cons amount reviews)))))
+      (def descriptor (cdr (assq (quote .summary) (reflect-slots family))))
+      (.setslot! descriptor hidden ($constant-slot-spec #t))
+      (set! events [])
+      (check-exception (reviewed (.o rate: 30)) true)
+      (check-equal? events [])
+      (check-equal? reviews [])
+      (.setslot! descriptor hidden ($constant-slot-spec #f))
+      (check-equal? (call/values (lambda () (reviewed (.o rate: 30))) list)
+        (quote (126 ((30 2 2 #f (payload: #f))))))
+      (check-equal? reviews (quote (126))))
     (test-case "fused Reader reviews reenter with fresh receivers and retry current metadata"
       (def events [])
       (def reviews [])

@@ -1,6 +1,6 @@
 ;;; Same-binary original-algorithm controls for continuation preparation.
 (export main)
-(import ../object ../mop ../method-declaration
+(import (only-in ../support/base require-value) ../object ../mop ../method-declaration
   (prefix-in ../examples/declared-methods service.) (prefix-in ../generalized-prototype gp.)
   (only-in ../reflection read-slot) :std/iter (only-in :std/list/list foldr) (only-in :std/func compose1)
   (prefix-in ../method-combination combination.) "combination-cases.ss"
@@ -43,24 +43,11 @@
 ;; append only; append's final empty list makes the callback's rest spine private.
 (def (direct-transport rest)
   (row-combination 'parts (cons label: (cons #f (cons #!rest (cons 3 (cons #f (append rest '()))))))))
-;; The immediately preceding Reader chain uses the SAME current generic lowering
-;; and core predicate contracts on both sides. Only continuation materialization differs;
-;; keeping the core callees static avoids keyword/default redispatch adapters.
-(defrules reference-summary-observation ()
- ((_ family units)
-  (let ((owner family) (count units))
-    (.call gp.Observation. .bind
-      (lambda (context) (service.make-account owner (.@ context rate)))
-      (lambda (account)
-        (.call gp.Observation. .map
-          (lambda (summary) (values (service.charge account count) summary))
-          (lambda (_context)
-            (read-slot owner '.summary)
-            (read-slot owner '.charge)
-            (service.checked-summarize account count label: #f #!rest payload: #f))))))))
-;; Match the production named factory boundary; both retain family and units once.
-(def (reference-summary-action family units)
-  (reference-summary-observation family units))
+;; Benchmark control: ordinary current descriptors without constructor evidence.
+;; This is not a production API or an alternative argument/Reader protocol.
+(def (unregistered-contribution qualifier body)
+  (require-value body procedure? (lambda () (error "method body must be a procedure")))
+  (.cc combination.Contribution. qualifier: qualifier body: body))
 ;; Measure only the bridge or the complete Reader/reflection/C3 workflow. Each
 ;; fresh child constructs and warms all four controls in the same order. No setup,
 ;; GC count or callback history is chosen after seeing the measured side.
@@ -75,11 +62,12 @@
   (def calls 0)
   ;; A bounded counter forces callbacks; each complete operation resets it.
   (def (record _) (set! calls (+ calls 1)))
-  (def family (service.make-reporting-family record))
+  (def families (map (cut service.make-reporting-family record <>)
+    (list unregistered-contribution combination.contribution)))
+  (def family (cadr families))
   (def context (.o rate: 10))
   (def makers
-    (list (lambda () (reference-summary-action family 2))
-          (lambda () (service.typed-summary-action family 2))))
+    (map (lambda (owner) (lambda () (service.typed-summary-action owner 2))) families))
   (def held #f)
   (def actions
     (if (eq? kind 'generic-transport)
@@ -112,6 +100,45 @@
       (unless (action) (error "conditioning oracle"))))
   (list (car actions) (cadr actions) (car actions) (cadr actions)))
 
+;; Include evidence setup, lazy declaration realization, first reflection and FUN
+;; invocation. Both sides share constructors, call rows and current method bodies.
+(def (registration-workload scenario)
+  ;; Count callback effects independently of registration and reflection.
+  (def calls 0)
+  ;; Reset per complete request, retaining an exact body-count oracle.
+  (def (record _) (set! calls (+ calls 1)))
+  ;; Both constructions receive the same immutable input context.
+  (def context (.o rate: 10))
+  ;; Retain constructed objects across the measured boundary.
+  (def held #f)
+  ;; Lift the same request over ordinary and registered descriptor constructors.
+  (def actions
+    (map (lambda (construct)
+      ;; Admission-only work uses an equal fixed-size descriptor group.
+      (def parts (map (lambda (_) (construct 'primary (lambda (_ value) value)))
+                     '(1 2 3 4 5 6 7 8)))
+      (lambda ()
+        (case scenario
+          ((registration-admission)
+           (andmap combination.standard-contribution? parts))
+          ((registration-construction)
+           (set! held (construct 'primary (lambda (_ value) value)))
+           (object? held))
+          (else
+           (let (owner (service.make-reporting-family record construct))
+             (read-slot owner '.summary)
+             (read-slot owner '.charge)
+             (if (eq? scenario 'registration-family)
+               (begin (set! held owner) #t)
+               (begin
+                 (set! calls 0)
+                 (let (answer (call/values
+                       (lambda () ((service.typed-summary-action owner 2) context)) list))
+                   (and (= calls 9)
+                        (equal? answer '(46 ((10 2 2 #f (payload: #f))))))))))))))
+      (list unregistered-contribution combination.contribution)))
+  (list (car actions) (cadr actions) (car actions) (cadr actions)))
+
 ;; Both implementations share callback identities and fully demanded return oracles.
 ;; A bounded mutable sink ensures AOT cannot erase Simula callback execution.
 (def (combination-workload scenario)
@@ -137,8 +164,10 @@
 ;; The shared study retains the earlier continuation candidates as historical
 ;; controls; new generic scenarios compare the complete production bridge only.
 (def (workload scenario)
+  (if (memq scenario '(registration-admission registration-construction registration-family registration-complete))
+    (registration-workload scenario)
   (if (memq scenario '(generic-account generic-workflow-allocation generic-factory generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation))
-    (generic-workload scenario) (combination-workload scenario)))
+    (generic-workload scenario) (combination-workload scenario))))
 ;; Validate CLI dimensions before using the shared 1GiB/fresh-process protocol.
 (def (main scenario-text regime-text side-text)
   (def scenario (string->symbol scenario-text))

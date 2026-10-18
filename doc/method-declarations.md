@@ -135,11 +135,11 @@ the same complete receiver and established qualifier interpreter.
 current receiver result, around omission, primary refusal and missing-primary
 behavior. It assumes a supplied correct C3 owner order; existing C3 proofs handle
 linearization separately. It does not prove Gerbil macro expansion or all custom
-policy callbacks. Native `examples/declared-methods.ss` and
+policy callbacks. Gerbil `examples/declared-methods.ss` and
 `t/method-declaration-test.ss` separately execute shared C3, descriptor invalidation,
 actual `.defgeneric` syntax, recursive roots, every adapter, and negative admission.
 No Lean checkout, serialized proof constant or compiler/runtime verification is
-part of native execution. No benchmark data or performance claim accompanies
+part of Scheme execution. No benchmark data or performance claim accompanies
 this functional integration.
 
 ### Current combination selection and direct calls
@@ -156,3 +156,14 @@ relay per call. Combiner selection precedes raw lookup, and raw lookup precedes
 procedure admission even for a nonprocedure. The combiner receives the same
 canonical keyword/rest application row and may return multiple values. Body and
 lookup exceptions are never converted into missing-method defaults.
+
+## Constructor admission and current callbacks
+
+The exported existing `contribution` builder accepts a qualifier and procedure;
+`make-family` and `make-reporting-family` accept it as a shared higher-order
+builder for audited registration across the C3 diamond. Its revision-checked
+admission uses standard weak-key tables. Current body grouping, Type/prototype
+mutation and reflection refusal/retry remain observable; see
+[the mechanism ledger](gerbil-mechanisms.md#revision-checked-contribution-admission).
+The current workflow benchmark uses the same FUN action and generic on both
+sides; its control constructs ordinary descriptors without registration evidence.

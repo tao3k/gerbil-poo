@@ -2,10 +2,14 @@
 (export specification scenarios repetitions)
 (import ../object (prefix-in "metadata-paired-cases.ss" base.))
 ;; Keep construction and reused calls distinct; both include a result oracle.
-(def scenarios '(prepare-inner call-inner prepare-simula call-simula generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-factory generic-account generic-workflow-allocation))
+(def scenarios '(registration-admission registration-construction registration-family registration-complete
+  prepare-inner call-inner prepare-simula call-simula generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-factory generic-account generic-workflow-allocation))
 ;; Fixed counts, chosen before measurement; no adaptive best-of selection.
 (def (repetitions scenario)
-  (case scenario ((generic-allocation generic-factory-allocation generic-construction-allocation generic-workflow-allocation) 1) ((generic-hot generic-hot-conditioned generic-transport) 131072)
+  (case scenario
+    ((registration-family registration-complete) 64)
+    ((registration-construction) 1024)
+    ((generic-allocation generic-factory-allocation generic-construction-allocation generic-workflow-allocation) 1) ((generic-hot generic-hot-conditioned generic-transport) 131072)
     ((generic-workflow generic-construction generic-workflow-conditioned generic-construction-conditioned) 1024) ((generic-account prepare-inner prepare-simula) 1024) (else 16384)))
 ;; Balance adjacent fresh process sides; duplicate controls expose residual noise.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))
