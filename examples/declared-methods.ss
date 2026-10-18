@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action)
+(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
         (only-in ../reflection read-slot))
@@ -32,6 +32,23 @@
 (def (observation family units)
   (.call gp.Observation. .map (lambda (account) (charge account units))
     (lambda (context) (make-account family (.@ context rate)))))
+
+;; Snapshot the initial rate once, but retain lexical aliases for current receiver
+;; fields. FUN admission precedes current public method reflection and combined
+;; dispatch. Capturing this action caches neither approval nor method metadata;
+;; refusal has no method effects and the same action can be retried after edits.
+(def (prefixed-action account units)
+  (with-prefixed-slots (account- rate .type) account
+    (def-prefixed-slots (initial- rate) account)
+    (.call gp.Observation. .bind
+      (lambda (context)
+        (with-prefixed-slots (approval- approved) context
+          (unless approval-approved (error "current approval refused"))
+          account))
+      (lambda (current)
+        (lambda (_)
+          (read-slot account-.type '.charge)
+          (values initial-rate account-rate (charge current units)))))))
 
 ;; Core lambda evaluates defaults/keyword conventions; the generic forwards each
 ;; resolved value and the original receiver into the existing item combination.

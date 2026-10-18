@@ -28,6 +28,25 @@
 ;; Test actual assembled methods rather than expected constants injected into slots.
 (def method-declaration-test
   (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "prefixed FUN workflow separates snapshots live aliases and current reflection"
+      (def events [])
+      (def family (service.make-family (lambda (event) (set! events (cons event events)))))
+      (def account (service.make-account family 10))
+      (def action (service.prefixed-action account 2))
+      (check-equal? events [])
+      (check-equal? (call/values (lambda () (action (.o approved: #t))) list) '(10 10 46))
+      (set! events [])
+      (.setslot! account rate ($constant-slot-spec 20))
+      (check-exception (action (.o approved: #f)) Error?)
+      (check-equal? events [])
+      (def descriptor (cdr (assq '.charge (reflect-slots family))))
+      (.setslot! descriptor hidden ($constant-slot-spec #t))
+      (check-exception (action (.o approved: #t)) Error?)
+      (check-equal? events [])
+      (.setslot! descriptor hidden ($constant-slot-spec #f))
+      (check-equal? (call/values (lambda () (action (.o approved: #t))) list) '(10 20 86))
+      (check-equal? (reverse events)
+        '(around-enter billing-before risk-before billing-primary base risk-after billing-after around-exit)))
     (test-case "prepared whole-batch declarations finalize before inherited combined dispatch"
       (def events [])
       (def record (lambda (event) (set! events (cons event events))))

@@ -655,32 +655,35 @@
     (def object self)
     (defvalues (slot ...) (values (.@ object slot) ...))))
 
-;; TODO: have it called with-slots in both cases, but autodetect
-;; that the first argument is a keyword or string?
+;; Lower the whole prefixed lexical binding group at once. Gerbil owns syntax
+;; traversal and foldr retains nested identifier scopes, including repeated
+;; names. Only the explicit context determines generated identifiers. The receiver
+;; expression remains lazy and is reevaluated at each use, as before.
 (defsyntax (with-prefixed-slots input)
-  (let (stx (syntax-local-introduce input))
-    (syntax-local-introduce
-     (syntax-case stx ()
-       ((_ (prefix slot ...) self body ...)
-        #'(with-prefixed-slots prefix (prefix slot ...) self body ...))
-       ((_ ctx (prefix) self body ...) #'(begin body ...))
-       ((_ ctx (prefix slot slots ...) self body ...)
-        (with-syntax ((var (stx-identifier #'ctx #'prefix #'slot)))
-          #'(let-id-rule (var (.@ self slot))
-              (with-prefixed-slots ctx (prefix slots ...) self body ...))))))))
+  (syntax-case input ()
+    ((_ (prefix slot ...) self body ...)
+     #'(with-prefixed-slots prefix (prefix slot ...) self body ...))
+    ((_ ctx (prefix slot ...) self body ...)
+     (foldr (lambda (slot tail)
+       (with-syntax ((var (stx-identifier #'ctx #'prefix slot))
+                     (slot slot) (tail tail))
+         #'(let-syntax ((var (identifier-rules ()
+                              ((_ . args) ((.@ self slot) . args))
+                              (_ (.@ self slot))))) tail)))
+       #'(begin body ...) (syntax->list #'(slot ...))))))
 
+;; Snapshot prefixed fields with one core definition sequence. Template ellipsis
+;; replaces recursive macro invocations; definitions still read in source order,
+;; reevaluate the receiver per field and stop at the first failure. These bindings
+;; retain their captured values after the receiver's source or metadata changes.
 (defsyntax (def-prefixed-slots input)
-  (let (stx (syntax-local-introduce input))
-    (syntax-local-introduce
-     (syntax-case stx ()
-       ((_ (prefix slot ...) self)
-        #'(def-prefixed-slots prefix (prefix slot ...) self))
-       ((_ ctx (prefix) self) #'(void))
-       ((_ ctx (prefix slot slots ...) self)
-        (with-syntax ((var (stx-identifier #'ctx #'prefix #'slot)))
-          #'(begin
-              (def var (.@ self slot))
-              (def-prefixed-slots ctx (prefix slots ...) self))))))))
+  (syntax-case input ()
+    ((_ (prefix slot ...) self)
+     #'(def-prefixed-slots prefix (prefix slot ...) self))
+    ((_ ctx (prefix slot ...) self)
+     (with-syntax (((var ...) (stx-map (lambda (slot)
+                      (stx-identifier #'ctx #'prefix slot)) #'(slot ...))))
+       #'(begin (def var (.@ self slot)) ...)))))
 
 ;; TODO: use defsyntax-for-match, and in the pattern use (? test :: proc => pattern) to do the job
 (defsyntax-for-match .o

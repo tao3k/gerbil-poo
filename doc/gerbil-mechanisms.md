@@ -543,3 +543,53 @@ method examples connect whole-batch approval to the existing qualifier interpret
 Immutable finite lists and supplied callback semantics are proof premises; mutable
 Scheme spine/capture behavior, host expansion and registered invalidation have
 separate runtime controls. No speedup or unrelated TODO completion is claimed.
+
+### Complete prefixed lexical and snapshot binding lowering
+
+Prefixed aliases are existing Gerbil convenience syntax, not an additional
+construct attributed to the article's Racket implementation.
+
+`with-prefixed-slots` and `def-prefixed-slots` no longer recursively invoke their
+own macros once per field. After the existing optional-context normalization,
+the complete lexical group lowers with the standard right fold to core
+`let-syntax` / `identifier-rules`; the complete snapshot group uses core syntax
+mapping and one template-generated `begin` of definitions. The lexical path no
+longer routes through the package's `let-id-rule` helper. Ordinary hygienic
+expansion retains the core bindings; the explicit syntax context continues to
+control generated field identifiers. No new binding namespace or expander is
+introduced.
+
+Nested scopes are intentional: duplicate aliases still select the inner binding,
+and retained outer closures keep their original receiver. A lexical alias is a
+current read, including when applied to keyword/rest or multiple-result methods;
+a snapshot definition reads once, in order. The receiver expression is not
+implicitly memoized. Empty groups perform no read, and a failed snapshot leaves
+earlier read effects intact without selecting the suffix. Macro-time alias
+construction does not approve visibility or freeze a method family.
+
+The existing declared-methods `prefixed-action` composes current approval through
+FUN with a retained initial-rate snapshot, live account aliases, current public
+method reflection and inherited C3 before/primary/after/around dispatch. Refused
+approval or hidden metadata has no method effects; edits and restoration permit
+retry through the same action, with the old snapshot and new live rate. Tests
+also cover empty groups, repeated aliases, lexical shadowing, nested closures,
+receiver evaluation counts, failure identity, core-binding shadowing and actual
+expansion acceptance/refusal. This remains sequential registered-source behavior,
+not a capability or concurrent snapshot protocol.
+
+`Functional.Parameters.withSlotBindings` in the existing `SlotScope.lean` models
+the standard fold over already resolved alias/key pairs. Six laws prove empty and
+cons equations, equivalence to recursive nesting, composition, duplicate shadowing
+and unused-field behavior. Four additional snapshot laws establish sequential
+binding, recursive equivalence and exact refusal. Top-level Parameters examples distinguish delayed
+revision-indexed reads from a retained snapshot. Host hygiene, mutable caches,
+physical definition installation on failure and callback/continuation behavior remain
+runtime obligations; the laws do not verify the Gerbil expander. This advances
+the article's generalized prototype/MOP future work. No speedup or unrelated TODO
+completion is claimed.
+
+A further reduction-loop replacement with standard `foldl` was not adopted:
+Gerbil captures a list cell's tail before invoking its fold callback, whereas the
+existing prepared simple-item reducer reads that tail after the method/step.
+Callbacks can mutate the caller-owned method-list spine. Short-circuiting alone
+does not establish equivalence for that protocol, so its existing loop remains.

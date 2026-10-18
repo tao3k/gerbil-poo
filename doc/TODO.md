@@ -68,6 +68,10 @@ The complete declaration driver now delegates ordered expansion to standard
 `map-in-order` and delayed flattening to `foldr append`, retaining FUN finalization,
 captured forms, refusal/retry and current reflection. Whole-batch inherited method
 examples and effectful traversal laws cover this replacement in the same ledger.
+The prefixed binding follow-up lowers entire lexical/snapshot groups through core
+binding and definition forms, retaining nested aliases, current reads and ordered
+snapshots. The same ledger records the whole FUN/reflection/combination workflow,
+regressions and ten binding/sequence laws, plus a rejected mutable-spine fold substitution.
 This audit does not mark the open type/library/interpreter projects complete.
 
 ### Consolidated acceptance, not scenario accumulation

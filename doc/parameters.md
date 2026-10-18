@@ -94,3 +94,18 @@ keyword-valued data through type methods and method combinations. Defaults still
 run once in the enclosing core lambda. A custom `combination:` interpreter
 receives an application row for `apply`, not a positional-only list. Without
 keyword formals the generic keeps its existing plain positional call format.
+
+## Prefixed lexical reads and snapshots
+
+`with-prefixed-slots (account- rate .type) account ...` creates lazy lexical
+aliases. Each use reads the current receiver field; a callable field keeps the
+normal argument and result conventions. `def-prefixed-slots (initial- rate)
+account` instead defines an initial snapshot at that point. Neither form adds
+public-reflection admission to raw field access. Use the existing `read-slot`
+boundary before public method invocation when current metadata is required.
+
+The existing `examples/declared-methods.ss` `prefixed-action` demonstrates that
+whole chain with FUN approval, shared inheritance, method qualifiers, metadata
+refusal and retry. The implementation lowers whole groups through Gerbil core
+binding/definition forms; repeated lexical aliases retain nested shadowing,
+receiver expressions are not silently cached, and empty groups do not read.

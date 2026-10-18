@@ -58,6 +58,10 @@
         (check-equal? (collect receiver 1 #f tag: 'ok #!rest dangling:)
                       '(1 #f ok (dangling:)))))
     (test-case "construction option errors refuse during actual macro expansion"
+      (check (rejects? (with-prefixed-slots (field- rate) (.o rate: 10) field-rate)) => #f)
+      (check (rejects? (let () (def-prefixed-slots (field- rate) (.o rate: 10)) field-rate)) => #f)
+      (check (rejects? (with-prefixed-slots (field- rate . tail) (.o rate: 10) field-rate)) => #t)
+      (check (rejects? (def-prefixed-slots (field- rate . tail) (.o rate: 10))) => #t)
       (check (rejects? (.o self: receiver x: 1)) => #f)
       (check (rejects? (.o self: 1 x: 2)) => #t)
       (check (rejects? (.o self: a self: b x: 2)) => #t)
