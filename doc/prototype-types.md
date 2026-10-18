@@ -126,3 +126,33 @@ Lean's fuel bounds derivation depth / abstract assignment scans; Gerbil addition
 charges syntax, search and compilation visits. No Scheme test or library imports a
 Lean checkout. Full existing single-process tests and Lean resource-guarded checks
 remain required; focused controls do not replace either gate.
+
+## Residual prefix schemas
+
+`specialize-prototype-type scheme prefix [budget]` binds only a ground ordered
+Type prefix using the existing positional `specialize`. It substitutes that
+prefix into the expression and **each side** of every bound, preserving field
+labels and binders through existing capture-free substitution. Remaining names
+must still match the specialized prototype's `.parameters`.
+
+A partial schema is a residual obligation, not an approved instance: constraints
+that still depend on the suffix are enforced by complete instantiation/inference.
+A complete prefix checks all bounds before binding. Residual queries use remaining
+variable names or ground syntax; fixed parameter names remain receiver fields,
+but are no longer free variables in the residual syntax. An empty variable list
+has one empty assignment, even with an empty candidate universe.
+
+Schemas and completed instances retain `bound-parameters` metadata. Private
+binding records store each assigned descriptor identity and direct revision;
+`bound-parameters(instance)` returns copied names after current checks. Every
+later specialization/inference rechecks the binding snapshots. Supported changes
+of a bound field or its descriptor reject as stale bounds rather than borrowing
+an earlier type derivation. Direct raw setters and arbitrary transitive callback
+semantics are outside this source discipline.
+
+The complete declaration bridge is documented in
+[method-declarations.md](method-declarations.md). Its finite search has no
+principal-type or unrestricted predicate/recursive inference claim. Lean proves
+prefix environment preservation, original-constraint entailment, suppression on
+incomplete/nonunique searches, successful builder provenance, positional frame
+laws and final identity/revision admission under the supplied source model.

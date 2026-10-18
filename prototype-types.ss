@@ -1,8 +1,40 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
-(export prototype-type instantiate-prototype infer-prototype)
-(import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash)
-        ./object ./type-relation
+(export prototype-type specialize-prototype-type instantiate-prototype infer-prototype bound-parameters)
+(import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop)
+        ./object ./type-relation (only-in ./mop Type validate)
         (prefix-in ./parameters positional.))
+
+;; A bound descriptor carries its direct source revision. The private immutable
+;; record is transport for ordinary metadata, not an arbitrary Type inclusion proof.
+(defstruct type-binding (descriptor revision) final: #t)
+;; Preserve field identity and descriptor revision for each newly bound parameter.
+(def (capture-bindings names descriptors)
+  (map (lambda (name descriptor) (cons name (make-type-binding descriptor (object-revision descriptor))))
+    names descriptors))
+
+;; Check the current parameter fields and direct descriptor revisions under one
+;; quota. These snapshots do not certify transitive callback/Type behavior.
+(def (check-bindings prototype bound variables work)
+  (bounded-type-data bound work)
+  (unless (and (list? bound)
+               (andmap (lambda (binding) (and (pair? binding) (symbol? (car binding)) (type-binding? (cdr binding)))) bound)
+               (= (length bound) (length (delete-duplicates/hash (map car bound))))
+               (not (ormap (lambda (binding) (or (eq? (car binding) '.parameters)
+                                                (memq (car binding) variables))) bound)))
+    (refuse-type 'malformed "Invalid bound parameter snapshot"))
+  (for-each (lambda (binding)
+    (def snapshot (cdr binding))
+    (def descriptor (type-binding-descriptor snapshot))
+    (validate Type descriptor)
+    (unless (and (eq? (.ref prototype (car binding)) descriptor)
+                 (= (object-revision descriptor) (type-binding-revision snapshot)))
+      (refuse-type 'bounds "Bound type parameter changed" (car binding)))) bound)
+  bound)
+
+;; Return copied bound names after rechecking the current receiver and Type
+;; descriptors. The same check guards residual inference and final publication.
+(def (bound-parameters instance (budget 8192))
+  (map car (check-bindings (.get instance prototype) (.get instance bound-parameters) [] (type-work budget))))
 
 ;; Capture an immutable syntax snapshot before any specialization or computed
 ;; prototype field executes. Variable names are exactly existing .parameters;
@@ -12,9 +44,10 @@
 
 ;; Revalidate and snapshot public schema metadata for every inference/instance.
 ;; No mutable descriptor record is trusted as an enduring proof certificate.
-(def (prepare-prototype-type prototype variables expression bounds work)
+(def (prepare-prototype-type prototype variables expression bounds work (bound []))
   (bounded-type-data variables work)
   (require-value variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
+  (check-bindings prototype bound variables work)
   (let ()
     (type-expression `(Tuple ,@variables) variables work)
     (unless (and (andmap symbol? variables)
@@ -31,9 +64,32 @@
     ;; otherwise a later first observation would copy already-mutated source data.
     (let ((captured-variables (map identity variables))
           (captured-expression (copy-type expression))
-          (captured-bounds (map copy-type bounds)))
+          (captured-bounds (map copy-type bounds))
+          (captured-bindings (map (lambda (binding) (cons (car binding) (cdr binding))) bound)))
       (.o bind-these: #f prototype: prototype variables: captured-variables
-          expression: captured-expression bounds: captured-bounds))))
+          expression: captured-expression bounds: captured-bounds bound-parameters: captured-bindings))))
+
+;; Bind a ground Type prefix through the existing persistent positional protocol.
+;; Remaining expressions/bounds stay explicit residual obligations, not approvals.
+;; A complete prefix checks all bounds before cloning; partial bounds are checked
+;; by later complete instantiation/inference. Every syntax/copy/build shares work.
+(def (specialize-prototype-type schema arguments (budget 8192))
+  (def work (type-work budget))
+  (def scheme (prepare-prototype-type (.get schema prototype) (.get schema variables)
+    (.get schema expression) (.get schema bounds) work (.get schema bound-parameters)))
+  (bounded-type-data arguments work)
+  (unless (and (list? arguments) (<= (length arguments) (length (.get scheme variables))))
+    (refuse-type 'malformed "Type prefix exceeds prototype parameters"))
+  (for-each (cut type-expression <> [] work) arguments)
+  (def count (length arguments))
+  (when (= count (length (.get scheme variables))) (checked-substitution scheme arguments work))
+  (def substitution (map cons (take (.get scheme variables) count) (map copy-type arguments)))
+  (def expression (substitute-type (.get scheme expression) substitution work))
+  (def bounds (map (lambda (bound) (map (cut substitute-type <> substitution work) bound)) (.get scheme bounds)))
+  (def bound-values (map (cut compile-expression <> work) arguments))
+  (def receiver (apply positional.specialize (.get scheme prototype) bound-values))
+  (prepare-prototype-type receiver (drop (.get scheme variables) count) expression bounds work
+    (append (.get scheme bound-parameters) (capture-bindings (take (.get scheme variables) count) bound-values))))
 
 ;; Copy finite checked syntax so caller list mutation cannot alter admitted laws.
 ;; Descriptor objects are compiled later and are not cached across publication.
@@ -70,14 +126,15 @@
 ;; Metadata is an explicit caller-owned schema, not an authenticated proof token.
 (def (instantiate/checked scheme arguments work)
   (let* ((scheme (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-                   (.get scheme expression) (.get scheme bounds) work))
+                   (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
          (substitution (checked-substitution scheme arguments work))
          (expression (substitute-type (.get scheme expression) substitution work))
          (descriptor (compile-expression expression work))
-         (receiver (apply positional.specialize (.get scheme prototype)
-                          (map (cut compile-expression <> work) arguments))))
+         (bound-values (map (cut compile-expression <> work) arguments))
+         (receiver (apply positional.specialize (.get scheme prototype) bound-values))
+         (bindings (append (.get scheme bound-parameters) (capture-bindings (.get scheme variables) bound-values))))
     (.o bind-these: #f prototype: receiver descriptor: descriptor
-        expression: expression substitution: substitution)))
+        expression: expression substitution: substitution bound-parameters: bindings)))
 
 ;; Exhaustively check a finite caller-supplied ground candidate universe. Queries
 ;; are (actual expected) constraints, where expected may contain schema variables.
@@ -88,7 +145,7 @@
 (def (infer-prototype scheme candidates queries (budget 8192))
   (let* ((work (type-work budget))
          (scheme (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-                   (.get scheme expression) (.get scheme bounds) work)))
+                   (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters))))
     (bounded-type-data candidates work)
     (require-value candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
     (type-expression `(Tuple ,@candidates) [] work)

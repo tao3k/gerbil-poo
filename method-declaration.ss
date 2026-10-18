@@ -1,8 +1,14 @@
 ;;; Nonlocal method fragments use ordinary Slot metadata and inherited computation.
 (export MethodDeclaration. method-fragment standard-combination simple-combination
         forwarding-combination inner-combination simula-combination
-        typed-method-fragment invoke-declared declared-snapshot)
+        typed-method-fragment invoke-declared declared-snapshot
+        instantiate-declared infer-declared instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop ./declaration
+        (only-in ./reflection reflect-slots)
+        (only-in ./prototype-types instantiate-prototype infer-prototype bound-parameters)
+        (prefix-in ./parameters positional.)
+        (only-in ./type-relation type-work type-expression normalize-type compile-expression refuse-type)
+        (prefix-in ./multimethod dispatch.)
         (prefix-in ./method-combination combination.)
         (prefix-in ./declarative-metadata metadata.) (prefix-in ./dispatch-extension extension.))
 ;; A private marker distinguishes method metadata from arbitrary user Slot fields.
@@ -151,3 +157,65 @@
 ;; Simula descriptors keep superclass-first prefixes and reverse suffix unwinding.
 (def (simula-combination parts arguments)
   (combination.simula-effective (admit-contributions combination.simula-body? parts) arguments))
+
+;; Recompile checked ground syntax, rather than trusting a caller-owned instance's
+;; descriptor field as a proof token. Existing dispatch has one Result carrier:
+;; only fixed Function rows with exactly one output enter this bridge. Other
+;; expression shapes refuse explicitly. Policy/carrier admission stays supplied
+;; by the existing method interpreters; an optional preparer retains their caches.
+(def (instance-signature instance precedence watches
+       (combine standard-combination) (accept combination.standard-contribution?) (prepare #f) (budget 8192))
+  (def work (type-work budget))
+  (def expression (.get instance expression))
+  (type-expression expression [] work)
+  (def ground (normalize-type expression work))
+  (unless (and (pair? ground) (eq? (car ground) 'Function) (= (length (cadr ground)) 1))
+    (refuse-type 'unsupported "Declared dispatch needs one-output fixed Function syntax" ground))
+  (def descriptor (compile-expression ground work))
+  (def seed (dispatch.make (.get descriptor inputs) (car (.get descriptor outputs)) precedence
+    combine (length (.get descriptor inputs)) accept))
+  (extension.check (if prepare (dispatch.prepared seed prepare) seed) watches))
+
+;; Build from an already complete specialization under existing construction
+;; guards. Freeze its receiver/context during the builder, normal declaration
+;; elaboration and typed installation. Force typed groups only, including hidden
+;; ones; unrelated ordinary/computed slots stay lazy. Errors return no published
+;; instance; arbitrary earlier callback effects are not rolled back.
+(def (declare-instance instance build)
+  (using (build :~ procedure?)
+    (def source (.get instance prototype))
+    (instantiate-object! source)
+    (parameterize ((active-object-constructions
+                    (cons instance (cons source (active-object-constructions)))))
+      (def forms (build instance))
+      (def entries (expand-declarations MethodDeclaration. instance forms))
+      (def bound-names (bound-parameters instance))
+      (when (ormap (lambda (entry) (or (eq? (car entry) '.parameters) (memq (car entry) bound-names))) entries)
+        (refuse-type 'bounds "Declarations cannot replace bound type parameters"))
+      (def receiver (object<-expanded-declarations instance entries supers: [source]))
+      (instantiate-object! receiver)
+      (parameterize ((active-object-constructions (cons receiver (active-object-constructions))))
+        (for (entry (reflect-slots receiver include-hidden?: #t))
+          (def descriptor (cdr entry))
+          (when (and (method-slot? descriptor) (.@ descriptor signature))
+            (declared-snapshot (.ref receiver (car entry)))))
+        (unless (null? (positional.parameters receiver))
+          (refuse-type 'bounds "Declarations reopened positional parameters"))
+        (def published (.cc instance prototype: receiver))
+        (bound-parameters published)
+        published))))
+
+;; Complete explicit binding precedes all declaration builders and installation.
+;; Existing type refusal and declaration failure objects propagate unchanged.
+(def (instantiate-declared scheme arguments build (budget 8192))
+  (using (build :~ procedure?)
+    (declare-instance (instantiate-prototype scheme arguments budget) build)))
+
+;; The existing bounded exhaustive search owns classification. Ambiguous/no-solution
+;; reports are returned untouched, without calling build. Only a unique complete
+;; assignment enters guarded declaration elaboration and typed installation.
+(def (infer-declared scheme candidates queries build (budget 8192))
+  (using (build :~ procedure?)
+    (def report (infer-prototype scheme candidates queries budget))
+    (if (eq? (.get report status) 'unique)
+      (.cc report instance: (declare-instance (.get report instance) build)) report)))

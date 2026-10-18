@@ -231,3 +231,57 @@ These are generalized-prototype **future work**, not a claim that the article's
 Racket code already supplies this declaration syntax. General carrier inference,
 arbitrary compile-time multi-dispatch specialization and runtime/compiler
 verification remain outside this closure.
+
+## Type inference and parameter specialization
+
+`instantiate-declared scheme arguments build [budget]` and
+`infer-declared scheme candidates queries build [budget]` use the existing
+prototype type constructors. Only a complete ground binding or a uniquely
+completed finite search calls `build(instance)`. That ordinary higher-order
+callback returns existing declaration forms; the usual MethodDeclaration
+expander/finalizer elaborates them over the specialized prototype. No extra DSL
+or independent inference engine is added.
+
+`instance-signature instance precedence watches [combine accept prepare budget]`
+derives the actual dispatch input/output Types from checked ground Function
+syntax. It recompiles that finite syntax instead of treating a caller-owned
+`descriptor` field as authority. The default policy is existing standard method
+combination; other existing combiners/carrier checks and optional preparers are
+passed directly to the same dispatcher. This bridge accepts fixed Function rows
+with **one Result carrier**, including higher-order Function/container/row Types.
+Zero/multiple outputs and non-Function outer syntax refuse as `unsupported`.
+It does not infer keyword/rest/case-lambda host signatures from procedures.
+
+After expansion, finalized declarations cannot replace bound type-parameter
+names or `.parameters`. The entry points prepare every typed group, including
+hidden ones, without invoking method bodies or forcing unrelated computed fields.
+The existing construction guard freezes context, source and completed receiver
+during this work. Before returning, the entry points check that positional
+parameters remain closed and every bound descriptor still has its captured
+identity and direct revision. Compile callbacks therefore cannot silently change
+the Types whose constraints were admitted. These checks do not certify arbitrary
+transitive Type/callback dependencies; existing purity/stability premises remain.
+
+Failure boundaries:
+
+| Phase | Result |
+| --- | --- |
+| Type syntax/bounds/work | Existing `TypeRefusal`: malformed, unsupported, bounds or exhausted; no published declaration instance |
+| Complete search | Existing no-solution/ambiguous report with `instance = #f`; builder is not called |
+| Unique assignment | Builder runs once, after existing positional specialization |
+| Expansion/registration/negative admission | Existing cause/phase propagates; no partially returned report or candidate |
+| Bound field/descriptor revision or parameter reopening | `bounds` refusal before publication |
+| Invocation | Existing current input/output validation, guard checks and complete cache successor |
+
+Type requests retain their shared existing work counter. Prefix specialization,
+residual inference and `instance-signature` are separately bounded requests,
+with explicit budgets on each; arbitrary builder/validator/compile callback costs
+are not claimed to be bounded by type-work units. Process heap/deadline limits
+remain in the test/check harness. Earlier external callback/IO effects are not
+rolled back on refusal.
+
+`examples/polymorphic-services.ss` adds prefix/residual inference, prepared
+qualified dispatch, FUN approval and an IO consumer. The focused regression
+module covers nonunique/exhausted suppression, higher-order wrappers, literal
+field labels, full/empty parameter suffixes, stale bindings, nonlocal overrides,
+compile-time Type revisions, eager typed admission and ordinary laziness.

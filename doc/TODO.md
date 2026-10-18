@@ -500,6 +500,27 @@ buffering. Lean adds fallible checked preparation, exact errors, failed-attempt
 projection and whole-state preservation/validity laws. See
 [coordinator-retry.md](coordinator-retry.md) for the exact scenario and premises.
 
+### Inference and specialization in the declaration protocol
+
+Explicit ground/prefix Type binding now feeds the same declared generic protocol.
+`specialize-prototype-type` produces residual syntax/bounds using the existing
+positional specialization; `instantiate-declared` and `infer-declared` call the
+ordinary builder only after complete binding or uniquely completed finite search.
+`instance-signature` derives the actual dispatch Types from checked one-output
+fixed Function syntax, retaining existing policies and optional preparation.
+Typed groups are installed/negatively checked before returning an instance.
+Finalized declarations cannot overwrite bound parameters or reopen `.parameters`;
+current descriptor identities/revisions are checked before inference and again
+before publication. No-solution, ambiguity, exhaustion and builder/registration
+failure remain distinct. See method-declarations.md and prototype-types.md.
+
+The bridge is complete for explicit finite candidate schemas and ground ordered
+prefixes in the existing algebra. Arbitrary principal types, host signature
+inference, unrestricted recursion/effects and transitive Type semantic discovery
+remain outside this boundary. Lean proves prefix/constraint, builder-provenance,
+phase/refusal, positional-frame and final source-admission laws. Tests cover the
+complete FUN/IO chain and stale/override/retry controls, not only added examples.
+
 ### Certified typed method declaration closure
 
 The existing `method` form now admits a certified `signature` plus existing
