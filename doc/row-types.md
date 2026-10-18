@@ -134,3 +134,10 @@ Racket motivation, Lean semantic premises and Gerbil execution are separate
 receipts. This is not proof of the Gerbil compiler or all recursive/row type
 inference. No Scheme source, example or test requires a Lean checkout. Full existing
 checks are retained alongside the focused protocol suite.
+
+## Optional Record fields share named-row coverage
+
+The same finite static protocol handles Object's required fields and Record's
+explicit required/optional Slot metadata. See [prototype-types.md](prototype-types.md#shared-named-field-replacement).
+Runtime Class/Slot and ObjectContract retain their respective validation behavior;
+no cross-constructor subtype or mutable-write variance is introduced.

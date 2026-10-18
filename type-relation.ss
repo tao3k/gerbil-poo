@@ -123,8 +123,38 @@
          (ormap (cut flat-subtype? source <> work) (cdr target)))
         (else (and (eq? source 'UInt) (eq? target 'Integer)))))
 
+;; Object fields are required; Record fields carry explicit presence metadata.
+;; Syntax admission already rejects duplicate names and unknown presence markers.
+(def (field-required? field)
+  (or (null? (cddr field)) (eq? (caddr field) 'required)))
+
+;; Standard symbol-keyed tables index admitted immutable field declarations.
+;; Charge the shared quota before inserting each name; never evaluate a Slot.
+(def (field-index fields work)
+  (list->hash-table-eq (map-in-order (lambda (field)
+    (work) (cons (car field) field)) fields)))
+
+;; One observational protocol for Object rows and required/optional Record slots.
+;; Closed targets require a closed source with no extra declared key. Missing
+;; optional targets are safe only for closed sources: an open source could hide
+;; that name with an incompatible value. Supplied fields retain readable variance;
+;; this rule grants neither mutable writes nor arbitrary callback implication.
+(def (row-related? source target relate work)
+  (def left (field-index (cadr source) work))
+  (def right (field-index (cadr target) work))
+  (def closed? (eq? (caddr source) 'closed))
+  (and (or (eq? (caddr target) 'open)
+           (and closed? (andmap (lambda (field) (work) (hash-key? right (car field))) (cadr source))))
+    (andmap (lambda (expected)
+      (work)
+      (cond ((hash-get left (car expected)) =>
+             (lambda (actual)
+               (and (or (not (field-required? expected)) (field-required? actual))
+                    (relate (cadr actual) (cadr expected)))))
+            (else (and closed? (not (field-required? expected)))))) (cadr target))))
+
 ;; Compare normalized finite terms; every required target field must be present.
-;; Open source rows promise no undeclared field; closed targets require exact keys.
+;; Open source rows leave undeclared fields unconstrained; closed targets exclude extras.
 (def (compare-types source target work)
   (work)
   (cond
@@ -158,25 +188,9 @@
       ;; Union equality was handled above. No widening, sorting, deduplication or
       ;; branchwise covariance may change committed first-match normalization.
       ((Union) #f)
-      ;; Conservative observational record relation: exact ordered field names,
-      ;; no optional-to-required strengthening, readable field covariance. Open
-      ;; source metadata cannot justify a sealed target or mutable writes.
-      ((Record)
-       (and (or (eq? (caddr target) 'open) (eq? (caddr source) 'closed))
-            (= (length (cadr source)) (length (cadr target)))
-            (andmap (lambda (s t)
-                      (work)
-                      (and (eq? (car s) (car t))
-                           (or (eq? (caddr s) 'required) (eq? (caddr t) 'optional))
-                           (compare-types (cadr s) (cadr t) work)))
-                    (cadr source) (cadr target))))
-      ((Object)
-       (and (or (eq? (caddr target) 'open)
-                (and (eq? (caddr source) 'closed)
-                     (andmap (lambda (field) (work) (assq (car field) (cadr target))) (cadr source))))
-            (andmap (lambda (field)
-                      (let (found (assq (car field) (cadr source)))
-                        (and found (compare-types (cadr found) (cadr field) work)))) (cadr target))))
+      ;; Class/Slot and ObjectContract keep their distinct runtime validators;
+      ;; their finite field-coverage judgment uses the same named-row protocol.
+      ((Record Object) (row-related? source target (cut compare-types <> <> work) work))
       (else #f)))
    (else #f)))
 

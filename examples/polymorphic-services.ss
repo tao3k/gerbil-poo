@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -269,6 +269,16 @@
       (def descriptor (record-service-class instance record))
       (signature-service-declarations instance
         (lambda (_input) (make-instance descriptor)) record))))
+
+;; An open read view reorders fields and forgets internal limits/optional hooks.
+;; The callback contract remains precise; no Any or runtime Type discovery is used.
+(def RecordServiceView
+  '(Record ((bias Integer optional) (run (Function (UInt) (Integer)) required)) open))
+;; Prefix-bind Self, infer Super from one shared call/output obligation, then use
+;; the original declaration builder and inherited Class initialization protocol.
+(def (infer-record-view-service (record void))
+  (infer-record-service '(UInt) '(UInt Integer)
+    (list (list [] '(Integer) (list RecordServiceView))) record))
 
 ;; FUN sequences current approval and the declared factory. The existing checked
 ;; publication combines recursive Class wrapping, whole-object refinement and

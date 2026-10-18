@@ -268,13 +268,17 @@ failures retain Class validation behavior. Recursive Function wrappers remain in
 the returned fields. A positive inference does not supply defaults, execute
 computed getters/hooks, certify host arity or allow mutable covariant writes.
 
-Replacement is conservative: exact ordered field names/counts, covariant readable
-Types, and required-to-optional weakening only. An optional source cannot promise
-a required target; an open source cannot replace a closed target. Width/permutation
-inclusions and Record/Object cross-constructor relations are not guessed, and
-Record field lists are not sorted or erased during normalization. This rule is
-complete only for the documented finite derivability relation, not every possible
-semantic record inclusion or Class inheritance relation.
+Replacement uses one named-field protocol for Record and Object, with standard
+Gerbil symbol-keyed hash tables. Readable fields are covariant and independent of
+field order; an open target permits additional declared source fields. Optional
+source fields cannot promise required target fields. A missing optional target
+field is safe only when the source is closed: an open source could contain that
+undeclared name with an incompatible value. Closed targets require closed sources
+and forbid all extra declared source fields, including optional ones. A closed
+source may omit optional target fields. Record/Object cross-constructor relations
+remain unsupported. Neither normalization nor Class construction sorts field lists
+or changes validator/default/hook order. These are observational derivations,
+not mutable-write permission or effectful validator equivalence.
 
 `RecordServiceType` in `examples/polymorphic-services.ss` returns a Record containing
 required run/limit/bias and an optional callback. After fixing Self as a parameter
@@ -605,3 +609,29 @@ of live-set ordering and duplicates when membership agrees. This is not a proof
 of Gerbil's hash implementation or of the concrete graph producer's completeness.
 The keyword/rest regression repeats false, exhausted and successful requests to
 check that an interrupted traversal cannot poison subsequent inference.
+
+## Shared named-field replacement
+
+`RecordServiceView` and `infer-record-view-service` use the original Record factory
+with a fixed Self prefix and finite Super candidates. A narrower, reordered open
+view fixes Super through the nested callback while hiding internal fields. The
+original declaration builder, inherited Class initialization and
+`record-service-action` carry recursive wrapping through FUN/refine/bind-evidence;
+no additional declaration, container or effect protocol is introduced.
+
+`t/record-inference-test.ss` checks required/optional presence, both closed-key
+directions, hidden incompatible optional values, Function input contravariance,
+Map value covariance and key invariance. An independent oracle compares nine
+layouts and sixteen concrete observations (including absent fields); it uses
+actual Class validators rather than the field-index implementation. This finite
+oracle supplements the universal conditional record observation theorem in
+`Functional/RowTypes.lean`, `recordCheck_sound`. `recordFieldCheck_missing` proves
+that an accepted absent field requires both a closed source and an optional target.
+`inferred_record_sound` reuses complete finite inference, and the top-level
+`inferredRecordView_sound` connects the original specialization/declaration builder
+to that observation law under existing scalar/Function interpretation premises.
+ClassValidation and RowTypes also share the original `(key, Type, optional)`
+metadata and one `slotAdmits`/`slot_replacement` law. Class structural replacement
+uses the same named checker; only ordered value-snapshot pairing retains a
+separate positional rule. These extend Appendix C/D future work; host effects and
+mutable writes remain outside the proved relation. Shared work refusal still aborts before publication.
