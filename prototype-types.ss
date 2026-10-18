@@ -1,8 +1,9 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
-(export prototype-type specialize-prototype-type instantiate-prototype infer-prototype bound-parameters)
-(import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop)
+(export prototype-type specialize-prototype-type instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
+(import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop map-in-order)
         ./object ./type-relation (only-in ./mop Type validate)
-        (prefix-in ./parameters positional.))
+        (prefix-in ./parameters positional.)
+        (prefix-in ./function-signature signature.))
 
 ;; A bound descriptor carries its direct source revision. The private immutable
 ;; record is transport for ordinary metadata, not an arbitrary Type inclusion proof.
@@ -91,11 +92,6 @@
   (prepare-prototype-type receiver (drop (.get scheme variables) count) expression bounds work
     (append (.get scheme bound-parameters) (capture-bindings (take (.get scheme variables) count) bound-values))))
 
-;; Copy finite checked syntax so caller list mutation cannot alter admitted laws.
-;; Descriptor objects are compiled later and are not cached across publication.
-(def (copy-type term)
-  (if (pair? term) (cons (copy-type (car term)) (copy-type (cdr term))) term))
-
 ;; Validate ordered substitutions and all declared bounds before touching the
 ;; prototype. Rejection returns no partially specialized receiver or descriptor.
 (def (checked-substitution scheme arguments work)
@@ -137,15 +133,21 @@
         expression: expression substitution: substitution bound-parameters: bindings)))
 
 ;; Exhaustively check a finite caller-supplied ground candidate universe. Queries
-;; are (actual expected) constraints, where expected may contain schema variables.
+;; are (source target) constraints; either side may contain schema variables.
 ;; The shared budget counts visited assignments AND structural comparisons. Search
 ;; never chooses the first of several solutions or generalizes observed values.
 ;; Only a unique complete search instantiates the prototype; callbacks are not
 ;; executed during candidate enumeration, and an exhausted search raises.
 (def (infer-prototype scheme candidates queries (budget 8192))
-  (let* ((work (type-work budget))
-         (scheme (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-                   (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters))))
+  (def work (type-work budget))
+  (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
+    (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
+  (infer/checked captured candidates queries work))
+
+;; The same finite solver accepts bounds on BOTH sides of a call constraint.
+;; All callers pass one captured schema and one shared quota through construction.
+(def (infer/checked scheme candidates queries work)
+  (let ()
     (bounded-type-data candidates work)
     (require-value candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
     (type-expression `(Tuple ,@candidates) [] work)
@@ -153,7 +155,7 @@
     (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))
       (refuse-type 'malformed "Inference queries need actual/expected pairs"))
     (for-each (lambda (query)
-                (type-expression (car query) [] work)
+                (type-expression (car query) (.get scheme variables) work)
                 (type-expression (cadr query) (.get scheme variables) work)) queries)
     (let ((solutions []) (domain (map copy-type (delete-duplicates/hash candidates))))
       (let search ((variables (.get scheme variables)) (arguments []))
@@ -179,3 +181,62 @@
                            ((null? (cdr ordered)) 'unique) (else 'ambiguous)))
              (instance (and (eq? status 'unique) (instantiate/checked scheme (car ordered) work))))
         (.o bind-these: #f status: status solutions: ordered instance: instance)))))
+
+;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
+;; These temporary objects are shape views, not new Types or dispatch certificates.
+(def (signature-view term)
+  (def options (function-options term))
+  ;; Constructor defaults are literal metadata, never optional value expressions.
+  (def (option name default) (cond ((assq name options) => cdr) (else default)))
+  (.o bind-these: #f outputs: (cadr term) inputs: (caddr term)
+    optional: (option optional: []) keywords: (option keywords: [])
+    required-keywords: (option required-keywords: []) rest: (option rest: #f)))
+
+;; One observation is (field-path supplied-Type-arguments expected-output-Types).
+;; #f outputs means no return obligation; () requires zero user values. Reuse the
+;; runtime's first structural clause and keyword escapes, without invoking bodies,
+;; defaults or Type validators. An input contributes actual <: formal; an expected
+;; output contributes formal <: expected, including nested Function variance.
+(def (call-constraints scheme observation work)
+  (unless (and (list? observation) (= (length observation) 3) (list? (cadr observation))
+               (or (not (caddr observation)) (list? (caddr observation))))
+    (refuse-type 'malformed "Call observation needs path, arguments and optional outputs" observation))
+  (def term (function-expression (.get scheme expression) (car observation) work))
+  (def clauses (map signature-view (if (eq? (car term) 'Function) (list term) (cdr term))))
+  (def arguments (cadr observation))
+  (def selected (signature.select-signature clauses arguments))
+  (unless selected (refuse-type 'bounds "No declared case accepts the supplied call shape" observation))
+  (def constraints [])
+  (signature.normalize-arguments selected arguments
+    (ormap (lambda (clause) (pair? (.get clause keywords))) clauses)
+    (lambda (formal actual)
+      (work)
+      (type-expression actual [] work)
+      (set! constraints (cons (list (copy-type actual) (copy-type formal)) constraints))
+      actual))
+  (def expected (caddr observation))
+  (when expected
+    (unless (= (length expected) (length (.get selected outputs)))
+      (refuse-type 'bounds "Expected output count differs from the selected case" observation))
+    (for-each (lambda (formal actual)
+      (work)
+      (type-expression actual [] work)
+      (set! constraints (cons (list (copy-type formal) (copy-type actual)) constraints)))
+      (.get selected outputs) expected))
+  (reverse constraints))
+
+;; Jointly infer one shared assignment from any finite collection of named calls.
+;; Capture schema/observations before search; extraction, Cartesian enumeration,
+;; subtype checks and successful construction consume the SAME request budget.
+;; Unsupported paths/shapes refuse before a builder; inconsistent constraints are
+;; no-solution, multiple assignments stay ambiguous, and exhaustion never admits.
+(def (infer-prototype-calls scheme candidates observations (budget 8192))
+  (def work (type-work budget))
+  (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
+    (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
+  (bounded-type-data observations work)
+  (unless (list? observations) (refuse-type 'malformed "Call observations must form a list"))
+  (def calls (map copy-type observations))
+  (def constraints (apply append (map-in-order (cut call-constraints captured <> work) calls)))
+  (def report (infer/checked captured candidates constraints work))
+  (.cc report calls: calls queries: constraints))

@@ -2,12 +2,12 @@
 (export MethodDeclaration. method-fragment standard-combination simple-combination
         forwarding-combination inner-combination simula-combination
         typed-method-fragment invoke-declared declared-snapshot
-        instantiate-declared infer-declared instance-signature)
+        instantiate-declared infer-declared infer-declared-calls instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop ./declaration
         (only-in ./reflection reflect-slots)
-        (only-in ./prototype-types instantiate-prototype infer-prototype bound-parameters)
+        (only-in ./prototype-types instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
         (prefix-in ./parameters positional.)
-        (only-in ./type-relation type-work type-expression normalize-type compile-expression refuse-type)
+        (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression copy-type refuse-type)
         (prefix-in ./multimethod dispatch.)
         (prefix-in ./method-combination combination.)
         (prefix-in ./declarative-metadata metadata.) (prefix-in ./dispatch-extension extension.))
@@ -22,17 +22,25 @@
   contributions)
 ;; A compiled group retains the exact certified seed, its declaration source and
 ;; immutable cache owner. It is private transport, not another declaration AST.
-(defstruct declared-methods (signature declarations certificate) final: #t)
+(defstruct declared-methods (signature declarations certificate source) final: #t)
 ;; Return only the existing dispatch certificate for explicit revision/publication.
-(def (declared-snapshot group) (force (declared-methods-certificate group)))
+(def (declared-snapshot group)
+  (def source (declared-methods-source group))
+  (def certificate (begin (check-signature-source! source) (force (declared-methods-certificate group))))
+  ;; A cold promise may execute deferred edit-compilation hooks. Recheck after
+  ;; successful forcing before exposing that certificate, including at construction.
+  (check-signature-source! source)
+  certificate)
 ;; Invoke the established typed dispatcher. Transfer the complete cache successor
 ;; only after success; do not mutate the receiver or cache approval/body results.
 (def (invoke-declared group arguments)
   (def current (declared-snapshot group))
   (defvalues (result next) (apply extension.invoke current arguments))
-  (def successor (if (eq? next current) group
-    (make-declared-methods (declared-methods-signature group)
-      (declared-methods-declarations group) (delay next))))
+  (def successor (begin
+    (check-signature-source! (declared-methods-source group))
+    (if (eq? next current) group
+      (make-declared-methods (declared-methods-signature group)
+        (declared-methods-declarations group) (delay next) (declared-methods-source group)))))
   (if (dispatch.function-signature (extension.snapshot next))
     (apply values (append result (list successor)))
     (values result successor)))
@@ -58,7 +66,8 @@
   (make-declared-methods signature declarations
     (delay (let-values (((certificate failure)
                         (extension.publish signature (map metadata.compile declarations))))
-      (when failure (raise failure)) certificate))))
+      (when failure (raise failure)) certificate))
+    (declared-source signature)))
 ;; Each compiled Slot combines its local source-ordered block with the SAME
 ;; final receiver's delayed inherited group. Slot metadata edits recompile normally.
 (def (method-slot name metadata)
@@ -162,23 +171,111 @@
 (def (simula-combination parts arguments)
   (combination.simula-effective (admit-contributions combination.simula-body? parts) arguments))
 
+;; Private source stamp binds the checked field expression/path to its exact
+;; compiled Function descriptor and direct revision. This is factory provenance,
+;; not a proof of arbitrary Type callbacks or transitive global metadata stability.
+(defstruct signature-origin (expression path descriptor revision) final: #t)
+;; Read a factory stamp once while assembling a group. Runtime owners retain
+;; that exact private record, so public metadata replacement cannot forge it.
+(def (declared-source signature)
+  (def descriptor (dispatch.function-signature (extension.snapshot signature)))
+  (def source (and descriptor (.has? descriptor .declaration-source) (.get descriptor .declaration-source)))
+  (when (signature-origin? source)
+    (unless (eq? descriptor (signature-origin-descriptor source))
+      (refuse-type 'bounds "Signature source names a different descriptor")))
+  (and (signature-origin? source) source))
+;; Direct revision checks surround successful invocation and snapshot access.
+;; Failure returns no result/cache successor; callback effects are not rolled back.
+;; Transitive Type/global callback stability remains an explicit model premise.
+(def (check-signature-source! source)
+  (when source
+    (unless (= (object-revision (signature-origin-descriptor source)) (signature-origin-revision source))
+      (refuse-type 'bounds "Declared Function descriptor was revised" (signature-origin-path source)))))
+;; Extend the newly compiled Type through the existing MOP before publishing it.
+;; Its lazy source slot captures one private stamp AFTER the supported edit, so
+;; the exact final descriptor/revision is known and clones cannot borrow identity.
+(def (signature-descriptor descriptor expression path)
+  (def origin #f)
+  (.setslot! descriptor .declaration-source ($computed-slot-spec (lambda (_self _inherited) origin)))
+  (set! origin (make-signature-origin (copy-type expression) (map identity path)
+                 descriptor (object-revision descriptor)))
+  descriptor)
 ;; Recompile the checked finite Function/CaseFunction expression. Required,
 ;; optional, keyword, rest and exact output rows use the existing validator;
 ;; clause order remains observable. Dispatch axes are fixed independently of
 ;; variable call length (default: first clause's required positional count).
 (def (instance-signature instance precedence watches
-       (combine standard-combination) (accept combination.standard-contribution?) (prepare #f) (budget 8192) (arity #f))
+       (combine standard-combination) (accept combination.standard-contribution?) (prepare #f) (budget 8192) (arity #f) (path []))
   (def work (type-work budget))
   (def expression (.get instance expression))
   (type-expression expression [] work)
-  (def ground (normalize-type expression work))
-  (unless (and (pair? ground) (memq (car ground) '(Function CaseFunction)))
-    (refuse-type 'unsupported "Declared dispatch needs Function or CaseFunction syntax" ground))
-  (def descriptor (compile-expression ground work))
+  (def ground (function-expression (normalize-type expression work) path work))
+  (def descriptor (signature-descriptor (compile-expression ground work) ground path))
   (def first (car (.get descriptor signatures)))
   (def axes (or arity (length (.get first inputs))))
   (def seed (dispatch.make-function descriptor precedence combine axes accept))
   (extension.check (if prepare (dispatch.prepared seed prepare) seed) watches))
+
+;; Only explicit Object paths ending at Function/CaseFunction are declaration
+;; requirements. Other data Types remain under ordinary contract validation; their
+;; computed values are not forced by method installation.
+(def (signature-catalog? term work)
+  (work)
+  (and (pair? term)
+    (case (car term)
+      ((Function CaseFunction) #t)
+      ((Object) (ormap (lambda (field) (signature-catalog? (cadr field) work)) (cadr term)))
+      (else #f))))
+;; Admit EVERY required named method, not only groups the builder chose to return.
+;; Source/path/descriptor/revision mismatch refuses before publication. Nested
+;; carriers reuse object construction guards; finite syntax/work bounds the walk.
+(def (admit-signatures instance receiver captured-expression captured-bindings (budget 8192))
+  (def work (type-work budget))
+  (def expression (.get instance expression))
+  (type-expression expression [] work)
+  (def bindings (.get instance bound-parameters))
+  (bounded-type-data bindings work)
+  (unless (and (equal? expression captured-expression) (equal? bindings captured-bindings))
+    (refuse-type 'bounds "Declaration builder changed captured type metadata"))
+  (def catalog (normalize-type expression work))
+  (when (and (pair? catalog) (memq (car catalog) '(Function CaseFunction)))
+    (let (found? #f)
+      (for (entry (reflect-slots receiver include-hidden?: #t))
+        (def slot (cdr entry))
+        (when (and (method-slot? slot) (.@ slot signature))
+          (let* ((group (.ref receiver (car entry))) (origin (declared-methods-source group)))
+            (when origin
+              (unless (and (null? (signature-origin-path origin))
+                           (equal? (signature-origin-expression origin) catalog))
+                (refuse-type 'bounds "Root declared signature differs from its captured expression" (car entry)))
+              (set! found? #t)))))
+      (unless found? (refuse-type 'bounds "No typed method implements the root Function signature"))))
+  (when (and (pair? catalog) (eq? (car catalog) 'Object))
+    (let walk ((term catalog) (owner receiver) (path []))
+      (work)
+      (unless (object? owner) (refuse-type 'bounds "Named signature carrier must be an Object" path))
+      (instantiate-object! owner)
+      (parameterize ((active-object-constructions (cons owner (active-object-constructions))))
+        (for-each (lambda (field)
+          (when (signature-catalog? (cadr field) work)
+            (let* ((name (car field)) (location (append path (list name))))
+            (unless (.slot? owner name) (refuse-type 'bounds "Missing declared signature" location))
+            (def value (.ref owner name))
+            (if (eq? (car (cadr field)) 'Object)
+              (walk (cadr field) value location)
+              (begin
+                (unless (declared-methods? value) (refuse-type 'bounds "Signature field needs a typed method group" location))
+                (let* ((snapshot (extension.snapshot (declared-snapshot value)))
+                       (descriptor (dispatch.function-signature snapshot))
+                       (origin (declared-methods-source value)))
+                  (unless (and (signature-origin? origin)
+                    (equal? (signature-origin-path origin) location)
+                    (equal? (signature-origin-expression origin) (cadr field))
+                    (eq? (signature-origin-descriptor origin) descriptor)
+                    (= (signature-origin-revision origin) (object-revision descriptor)))
+                    (refuse-type 'bounds "Declared signature source changed or differs from its catalog" location))))))))
+          (cadr term)))))
+  receiver)
 
 ;; Build from an already complete specialization under existing construction
 ;; guards. Freeze its receiver/context during the builder, normal declaration
@@ -191,9 +288,16 @@
     (instantiate-object! source)
     (parameterize ((active-object-constructions
                     (cons instance (cons source (active-object-constructions)))))
+      (def source-work (type-work 8192))
+      (def expression (.get instance expression))
+      (type-expression expression [] source-work)
+      (def bound-names (bound-parameters instance))
+      (def bindings (.get instance bound-parameters))
+      (bounded-type-data bindings source-work)
+      (def captured-expression (copy-type expression))
+      (def captured-bindings (copy-type bindings))
       (def forms (build instance))
       (def entries (expand-declarations MethodDeclaration. instance forms))
-      (def bound-names (bound-parameters instance))
       (when (ormap (lambda (entry) (or (eq? (car entry) '.parameters) (memq (car entry) bound-names))) entries)
         (refuse-type 'bounds "Declarations cannot replace bound type parameters"))
       (def receiver (object<-expanded-declarations instance entries supers: [source]))
@@ -207,6 +311,7 @@
           (refuse-type 'bounds "Declarations reopened positional parameters"))
         (def published (.cc instance prototype: receiver))
         (bound-parameters published)
+        (admit-signatures published receiver captured-expression captured-bindings)
         published))))
 
 ;; Complete explicit binding precedes all declaration builders and installation.
@@ -221,5 +326,14 @@
 (def (infer-declared scheme candidates queries build (budget 8192))
   (using (build :~ procedure?)
     (def report (infer-prototype scheme candidates queries budget))
+    (if (eq? (.get report status) 'unique)
+      (.cc report instance: (declare-instance (.get report instance) build)) report)))
+
+;; Joint call constraints feed the SAME uniquely completed inference/declaration
+;; driver. The whole receiver's typed groups must install before any instance is
+;; returned; a failed sibling group exposes no partially declared receiver.
+(def (infer-declared-calls scheme candidates observations build (budget 8192))
+  (using (build :~ procedure?)
+    (def report (infer-prototype-calls scheme candidates observations budget))
     (if (eq? (.get report status) 'unique)
       (.cc report instance: (declare-instance (.get report instance) build)) report)))

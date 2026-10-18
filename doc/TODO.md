@@ -26,7 +26,7 @@ remain work to do. Proposed language/library projects are not silently removed
 from scope or marked complete by a small example. Feature closure comes before
 further tuning of the corresponding workflow.
 
-| Original TODO | Native status and evidence | Remaining acceptance boundary |
+| Original TODO | Implementation status and evidence | Remaining acceptance boundary |
 | --- | --- | --- |
 | Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `class-validation.ss` recursively wraps effective Slot fields before and after hooks; `t/lifecycle-test.ss`, `t/class-validation-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
@@ -525,6 +525,25 @@ phase/refusal, positional-frame and final source-admission laws. `FunctionSignat
 additionally proves shape preservation under Type substitution, ordered selection,
 conservative rich variance and exact all-or-error output/cache-owner completion. Tests cover the
 complete FUN/IO chain and stale/override/retry controls, not only added examples.
+
+### Concentrated declaration/type/specialization acceptance
+
+| Priority | Audited protocol gap | Current acceptance |
+| --- | --- | --- |
+| P0 | Inputs/expected results had to be lowered to handwritten inequalities | Closed within explicit finite syntax: `infer-prototype-calls` / `infer-declared-calls` reuse Function first-shape selection and argument normalization, generating supplied input and reversed output obligations under one quota. |
+| P0 | Named generics could not infer one shared assignment from their calls | Closed for known explicit Object signature paths: all observations share original bounds, one complete search and one whole declaration builder. `instance-signature` projects the same completed catalog. |
+| P0 | A builder could omit required siblings or bind a different signature | Closed at declaration admission: all named Function leaves (and a root Function's implementation) require matching factory expression/path/descriptor sources; source metadata is captured before callbacks, and original bound names cannot be dropped. |
+| P1 | Direct Function revision could outlive a declared cache owner | Closed for factory-owned direct descriptors: immutable source stamps are retained by owners and checked before snapshot/call and after successful work. Original exceptions/effects retain their defined semantics. |
+| P1 | Joint inference lacked captured call/query diagnostics | Closed: success/nonunique/no-solution reports retain the captured observations and derived inequalities in order. |
+| P2 | Inference grammar is narrower than the runtime Type/container library | OPEN: the current algebra admits its documented scalar/List/Maybe/Tuple/Object/Mu/Function families. Pair/Map/Sum/Union and Record/Class-specific inference need explicit kind, variance, normalization/collision and mutation laws before admission; existing runtime wrappers alone do not establish those inference rules. |
+| P2 | Candidate-dependent signature kinds/fields and wider case-language replacement | OPEN: projection still needs explicit known Function paths; unresolved row/signature-kind variables cannot select methods. Subtyping compares equal structural call languages/ordered cases; arbitrary case coverage is not inferred. |
+| Outside current decidable boundary | Implicit host/principal/higher-rank/effect inference, arbitrary predicates, unrestricted recursive types and transitive callback semantic discovery | OPEN; explicit finite candidate inference and runtime wrappers do not certify these. |
+
+This closes the integrated finite interface protocol, not every type-system TODO.
+The source/descriptor checks are bounded admission and direct revision discipline,
+not global security or atomic concurrent Type revocation. Data fields stay under
+existing contract validation. See method-declarations.md for exact failure phases
+and prototype-types.md for the finite algebra; resources/full checks are retained.
 
 ### Certified typed method declaration closure
 

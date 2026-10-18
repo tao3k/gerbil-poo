@@ -242,7 +242,7 @@ callback returns existing declaration forms; the usual MethodDeclaration
 expander/finalizer elaborates them over the specialized prototype. No extra DSL
 or independent inference engine is added.
 
-`instance-signature instance precedence watches [combine accept prepare budget arity]`
+`instance-signature instance precedence watches [combine accept prepare budget arity path]`
 derives the actual dispatch input/output Types from checked ground Function
 syntax. It recompiles that finite syntax instead of treating a caller-owned
 `descriptor` field as authority. The default policy is existing standard method
@@ -356,3 +356,108 @@ Host decoding, compiler expansion, arbitrary callback termination and transitive
 Type stability remain premises; there is no Scheme dependency on a Lean checkout.
 This advances the article's type-system/generalized-prototype future work, based
 on Appendix B method combinations and Appendix C Self/Super constraints.
+
+## Joint call inference and complete interface admission
+
+`infer-prototype-calls scheme candidates observations [budget]` and
+`infer-declared-calls scheme candidates observations build [budget]` collect
+constraints from ordinary Function/CaseFunction syntax, then reuse the same
+complete finite search and whole-receiver declaration driver. An observation is:
+
+```scheme
+(field-path supplied-Type-arguments expected-output-Types)
+```
+
+For example, the shared service in `examples/polymorphic-services.ss` uses:
+
+```scheme
+'(((.report) (Integer Integer scale: UInt Integer)
+      (UInt (Function (UInt) (Integer))))
+  ((.recover) (UInt UInt) (Integer Integer)))
+```
+
+The signature catalog is an existing `Object` Type expression whose explicit
+fields contain Function/CaseFunction expressions. The empty path selects a root
+Function; nested paths select explicit Object fields. The same `instance-signature`
+accepts a final optional `path` after `arity`, so a builder can derive both typed
+groups from the one completed instance and its shared bound parameters.
+
+Gerbil's existing argument decoder, first structural selector and normalization
+visitor handle required/optional/keyword/rest positions. Each supplied input Type
+produces `actual <: formal`; each expected user result produces
+`formal <: expected`. Missing optional arguments insert no defaults/constraints.
+`#f` expected outputs means no return obligation; `()` requires exactly zero
+outputs. Multiple outputs and higher-order Function variance use existing rules.
+Actual/expected observations are explicit ground Type expressions, not inferred
+from arbitrary values or host procedure bodies. Low-level `infer-prototype`
+queries now allow declared variables on either side of an inequality.
+
+All observations share ONE assignment and original subtype bounds. The selected
+case is fixed by structural shape before candidate Type checks; rejection does
+not try a later overlapping case. Signature projection needs an explicit known
+Function kind/field path before binding: a root signature variable or a field
+available only through an unresolved row tail is unsupported. Observation parsing,
+constraint extraction, candidate enumeration, checking, Type compilation and
+parameter binding consume one shared inference work counter. Declaration builders
+retain their own existing admission budgets and the full watchdog/heap limits.
+
+Successful, ambiguous and no-solution reports retain captured `calls` and generated
+`queries`, in call order, with positional inputs, supplied keywords and expected
+outputs ordered within each call. These are diagnostic snapshots,
+not mutable proof authority. Changes to caller-owned lists after capture cannot
+change the chosen assignment or recorded obligations.
+
+### Whole interface, not just supplied fragments
+
+In a declaration constructor, Function/CaseFunction leaves reached through Object
+fields are REQUIRED typed method slots, including unobserved, nested and inherited
+ones. A root Function requires a matching factory-derived typed group. Publishing
+an Object catalog does not validate its ordinary data fields; those values remain
+under the existing contract/recursive validation protocol and stay lazy here.
+
+`instance-signature` stamps the newly compiled Function through the existing Type
+MOP before publication. A private immutable record retains checked expression,
+field path, exact descriptor identity and its final direct revision. No global
+weak table or additional public namespace is used. A receiver is returned only
+when every required group has the corresponding factory source, expression/path
+and descriptor/revision. Missing siblings, plain procedures in typed method slots,
+wrong paths, copied origin metadata and descriptor edits refuse as bounds.
+
+The constructor captures expression and bound-parameter metadata BEFORE the
+builder, retains the original bound-name frame, and rechecks the capture after
+installation. Dropping a public snapshot entry cannot authorize overwriting its
+parameter. Changing syntax temporarily while compiling, even if restored later,
+cannot justify a method with a different private factory source.
+
+Factory-owned groups retain the exact stamp across cache successors. Both
+`declared-snapshot` and `invoke-declared` reject a directly revised descriptor.
+Snapshot access rechecks after forcing its certificate too: deferred edit-compilation
+hooks cannot revise a signature during cold admission and still expose a certificate.
+A successful invocation rechecks before exposing user values/owner. A change
+inside successful work therefore returns bounds, with no result/cache successor.
+Body/validator exceptions keep their original cause. A retry must construct a
+fresh checked group. External callback effects are not rolled back. These checks
+do not certify transitive global Type/callback semantics or atomic revocation
+against unsynchronized concurrent writes; those remain explicit premises.
+
+### Acceptance and proof boundary
+
+The worked service shares Self/Super across rich report and ordered recovery
+signatures, derives the Integer/Super and return/Self inequalities automatically,
+then composes both generics through FUN approval and IO consumption, retaining
+both cache owners. Regression controls cover conflicting siblings, output-directed
+inference, nested paths, ambiguity, refusal/exhaustion, incomplete catalogs, source
+forgery/revision, callback-side mutation, inherited reuse and fresh reconstruction.
+
+`Functional.FunctionSignature` proves no supplied input/result disappears from
+collected obligations, first-case selection and complete joint collection.
+`Functional.DeclarativeMetadata` proves unique builder provenance, original and
+call-derived constraints under one environment, no contradictory accepted joint
+solution, complete catalog coverage via the existing Parameters snapshot law,
+captured source preservation and exact pre/post revision refusal/result transport.
+Top-level `Examples/TypedMethodDeclarations.lean` combines actual specialization,
+finite inference and two certified generic installations/invocations with these
+admissions. Parser/descriptor projection, genuine host identities and faithful
+revision observations are premises; there is no compiler or runtime proof or
+end-to-end speed claim. This advances the article's type-system/generalized-
+prototype future work from Appendix B combinations and Appendix C constraints.

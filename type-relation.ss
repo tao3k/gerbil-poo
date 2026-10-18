@@ -1,5 +1,5 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options)
+(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression copy-type)
 (import ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object)
         (only-in ./object-contract ObjectContract.)
@@ -29,6 +29,25 @@
         ((eq? (car term) 'Function)
          (map-function-types term (cut normalize-type <> work)))
         (else (cons (car term) (map (cut normalize-type <> work) (cdr term))))))
+
+;; Select a declared Function through explicit Object fields. An unresolved row
+;; tail or Type variable cannot invent a named signature before substitution.
+;; Callers validate syntax with their own variable set before this shared walk.
+(def (function-expression expression path work)
+  (bounded-type-data path work)
+  (unless (and (list? path) (andmap symbol? path))
+    (refuse-type 'malformed "Signature path must contain field names" path))
+  (let walk ((term expression) (path path))
+    (work)
+    (def current (if (and (pair? term) (eq? (car term) 'Mu)) (normalize-type term work) term))
+    (if (null? path)
+      (begin
+        (unless (and (pair? current) (memq (car current) '(Function CaseFunction)))
+          (refuse-type 'unsupported "Signature path does not name a concrete Function" path))
+        current)
+      (let (field (and (pair? current) (eq? (car current) 'Object) (assq (car path) (cadr current))))
+        (unless field (refuse-type 'unsupported "Signature path needs explicit Object fields" path))
+        (walk (cadr field) (cdr path))))))
 
 ;; Decide derivability in the closed algebra: UInt <: Integer <: Any; Bool <: Any;
 ;; covariant List/Tuple observations; fixed-arity Function inputs contravariant,

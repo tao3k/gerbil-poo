@@ -1,5 +1,6 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export invoke-signature-service invoke-report-service SignatureServiceType
+(export SharedServiceType report-service recover-service shared-service-declarations
+        infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
         (prefix-in ../declarative-metadata metadata.) ../method-declaration
@@ -135,3 +136,53 @@
       (defvalues (answer callback next) (apply invoke-signature-service receiver arguments))
       (consume answer callback)
       (values answer callback next)))))
+
+;; The existing Object row grammar is a named catalog of callable signatures.
+;; Both generics share the SAME bound descriptors and Self <: Super obligation.
+(def SharedServiceType
+  (prototype-type (.o .parameters: '(Self Super) service-name: 'shared) '(Self Super)
+    '(Object
+      ((.report (Function (Self (Function (Self) (Super))) (Super)
+                   optional: (Super) keywords: ((scale: . Self)) rest: Super))
+       (.recover (CaseFunction (Function (Super) (Self)) (Function (Super Super) (Self Self)))))
+      closed)
+    '((Self Super))))
+;; Core formal binding supplies report defaults; the named catalog describes user
+;; outputs only. invoke-declared always retains the separate trailing cache owner.
+(.defgeneric (report-service service value (extra 0) scale: (scale 1) . rest)
+  slot: .report combination: invoke-declared)
+;; The same rest-forwarding entry admits every ordered case without custom macros.
+(.defgeneric (recover-service service . arguments) slot: .recover combination: invoke-declared)
+;; Install every named group under one receiver admission. These ordinary method
+;; fragments reuse typed dispatch, completed negative checks and standard qualifiers.
+(def (shared-service-declarations instance report recover (record void))
+  ;; Field paths select existing explicit Object fields after complete substitution.
+  (def (certified name)
+    (instance-signature instance (lambda (_) [['Service]]) [(extension.shape [['Blocked]])]
+      standard-combination combination.standard-contribution?
+      (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing shared service"))))
+      8192 1 (list name)))
+  (def path [(dispatch.prototype 'Service)])
+  [(typed-method-fragment '.report (certified '.report)
+    [(metadata.replace "report" path (combination.primary (lambda (_next . args) (apply report args))))
+     (metadata.contribute "report-audit" path (combination.before (lambda _ (record 'report))))])
+   (typed-method-fragment '.recover (certified '.recover)
+    [(metadata.replace "recover" path (combination.primary (lambda (_next . args) (apply recover args))))
+     (metadata.contribute "recover-audit" path (combination.before (lambda _ (record 'recover))))])])
+;; Observe several named calls before any builder runs. One residual assignment
+;; must satisfy all input and expected-output constraints plus the original bounds.
+(def (infer-shared-service prefix candidates observations report recover (record void))
+  (infer-declared-calls (specialize-prototype-type SharedServiceType prefix) candidates observations
+    (cut shared-service-declarations <> report recover record)))
+;; Reader/FUN approval precedes both generics; IO observes only their completed
+;; checked user values. Each evolving cache owner remains an explicit result.
+(def (shared-service-action instance value consume)
+  (.call observation.Observation. .bind
+    (lambda (context)
+      (unless (eq? (.get context approved) #t) (error "shared service approval refused"))
+      (.get instance prototype))
+    (lambda (receiver) (lambda (_context)
+      (defvalues (answer callback report-owner) (report-service receiver value 1 scale: 2))
+      (defvalues (recovered recovery-owner) (recover-service receiver answer))
+      (consume answer recovered callback)
+      (values answer recovered report-owner recovery-owner)))))

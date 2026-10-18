@@ -1,6 +1,6 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
-        type-expression substitute-type guarded-body? function-options map-function-types function-input-types)
+        type-expression substitute-type guarded-body? copy-type function-options map-function-types function-input-types)
 (import :std/error (only-in :std/list/list delete-duplicates/hash) (only-in ./support/base require-value))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -23,6 +23,11 @@
     (work)
     (when (zero? depth) (refuse-type 'exhausted "Type expression depth exhausted"))
     (when (pair? value) (walk (car value) (- depth 1)) (walk (cdr value) (- depth 1)))))
+;; Copy finite checked syntax so caller list mutation cannot alter admitted laws.
+;; Descriptor objects are compiled later and are not cached across publication.
+(def (copy-type term)
+  (if (pair? term) (cons (copy-type (car term)) (copy-type (cdr term))) term))
+
 ;; Read the existing Function constructor options as literal metadata. Omitted
 ;; options keep constructor defaults; duplicates and unknown options refuse.
 (def (function-options term)

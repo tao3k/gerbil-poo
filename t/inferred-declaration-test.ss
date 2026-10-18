@@ -14,6 +14,18 @@
 ;; Exercise the complete installed row instead of bypassing .defgeneric forwarding.
 (def (invoke instance value)
   (service.convert (.get instance prototype) value))
+;; Build the full named interface for admission controls. Optional certificate
+;; overrides exercise provenance failures without executing either method body.
+(def (shared-forms instance (report #f) (recover #f))
+  ;; Catalog paths are explicit fields in the existing Object Type expression.
+  (def (signature path)
+    (instance-signature instance (lambda (_) [['Service]]) []
+      standard-combination combination.standard-contribution? #f 8192 1 path))
+  (def path [(dispatch.prototype 'Service)])
+  [(typed-method-fragment '.report (or report (signature '(.report)))
+     [(metadata.replace "report" path (combination.primary (lambda _ (values 1 abs))))])
+   (typed-method-fragment '.recover (or recover (signature '(.recover)))
+     [(metadata.replace "recover" path (combination.primary (lambda (_next . args) (apply values args))))])])
 ;; These controls cover staging and failures as well as ordinary successful calls.
 (def inferred-declaration-test
   (test-suite "inference positional specialization and one declaration protocol"
@@ -382,6 +394,349 @@
       (check-equal? calls 1)
       (check-exception (invoke-declared owner [abs abs (lambda (_) #f)]) TypeError?)
       (check-equal? calls 2))
+    (test-case "joint named call inference installs one shared fully checked receiver"
+      (def events [])
+      (def builds 0)
+      ;; Report preserves rich argument binding and returns a recursively checked callback.
+      (def (report value (extra 0) scale: (scale 1) . rest)
+        (values (* scale (abs (+ value extra (apply + rest)))) abs))
+      ;; The host case-lambda implements the same source-ordered shapes as the catalog.
+      (def recover (case-lambda ((value) (+ 100 value)) ((a b) (values (+ 100 a) (+ 100 b)))))
+      ;; No method is called while the complete named receiver is being installed.
+      (def (build instance)
+        (set! builds (+ builds 1))
+        (service.shared-service-declarations instance report recover
+          (lambda (event) (set! events (cons event events)))))
+      (def observations
+        '(((.report) (Integer Integer scale: UInt Integer) (UInt (Function (UInt) (Integer))))
+          ((.recover) (UInt UInt) (Integer Integer))))
+      (def inferred (infer-declared-calls service.SharedServiceType '(UInt Integer) observations build))
+      (check-equal? (.get inferred status) 'unique)
+      (check-equal? (.get inferred solutions) '((UInt Integer)))
+      (check-equal? (.get inferred calls) observations)
+      (check (and (member '(Self UInt) (.get inferred queries)) #t) => #t)
+      (check (and (member '(Integer Super) (.get inferred queries)) #t) => #t)
+      (check-equal? builds 1)
+      (check-equal? events [])
+      (def instance (.get inferred instance))
+      (check-equal? (bound-parameters instance) '(Self Super))
+      (check-equal? (.get instance prototype service-name) 'shared)
+      (def consumed [])
+      (def action (service.shared-service-action instance -4
+        (lambda (answer recovered callback) (set! consumed (list answer recovered (callback -7))))))
+      (check-exception (action (.o approved: #f)) Error?)
+      (check-equal? events [])
+      (defvalues (answer recovered report-owner recovery-owner) (action (.o approved: #t)))
+      (check-equal? consumed '(6 106 7))
+      (check-equal? (reverse events) '(report recover))
+      (check-equal? (list answer recovered) '(6 106))
+      (defvalues (a b warm) (invoke-declared recovery-owner [2 3]))
+      (check-equal? (list a b) '(102 103))
+      (check (eq? warm recovery-owner) => #t)
+      (defvalues (a2 callback warm2) (invoke-declared report-owner [-5]))
+      (check-equal? a2 5)
+      (check-equal? (callback -6) 6)
+      (check (eq? warm2 report-owner) => #t))
+    (test-case "result-directed constraints bind variables on the subtype source side"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result) '(Function (Result) ()) []))
+      (def plain (infer-prototype schema '(UInt Integer) '((Result UInt))))
+      (check-equal? (.get plain solutions) '((UInt)))
+      (def inferred (infer-declared-calls schema '(UInt Integer) '((() () (UInt)))
+        (cut service.signature-service-declarations <> (lambda () 3) void)))
+      (check-equal? (.get inferred solutions) '((UInt)))
+      (defvalues (answer _) (service.invoke-signature-service (.get inferred instance prototype)))
+      (check-equal? answer 3))
+    (test-case "partial specialization and joint call inference retain original bounds"
+      (def partial (specialize-prototype-type service.SharedServiceType '(UInt)))
+      (def result (infer-prototype-calls partial '(UInt Integer)
+        '(((.report) (Integer) (UInt (Function (UInt) (Integer)))))))
+      (check-equal? (.get result solutions) '((Integer)))
+      (check-equal? (bound-parameters (.get result instance)) '(Self Super))
+      (check (eq? (.get result instance prototype Self) UInt) => #t)
+      (check (eq? (.get result instance prototype Super) Integer) => #t))
+    (test-case "optional keyword and rest inputs all constrain the same finite assignment"
+      (def schema (prototype-type (.o .parameters: '(Input Result)) '(Input Result)
+        '(Function (Result) (Input) optional: (Input)
+          keywords: ((gate: . Result)) required-keywords: (gate:) rest: Input) []))
+      (def good (infer-prototype-calls schema '(UInt Integer)
+        '((() (Integer Integer gate: UInt Integer) (UInt)))))
+      (check-equal? (.get good solutions) '((Integer UInt)))
+      (for-each (lambda (arguments)
+        (check-equal? (.get (infer-prototype-calls schema '(UInt Integer)
+          (list (list [] arguments '(UInt)))) status) 'no-solution))
+        '((Integer Bool gate: UInt) (Integer gate: Bool) (Integer Integer gate: UInt Bool)))
+      (check-exception (infer-prototype-calls schema '(UInt Integer) '((() (Integer) (UInt)))) (refusal 'bounds))
+      (check-exception (infer-prototype-calls schema '(UInt Integer)
+        '((() (Integer gate: UInt gate: UInt) (UInt)))) (refusal 'bounds))
+      (check-exception (infer-prototype-calls schema '(UInt Integer)
+        '((() (Integer other: UInt) (UInt)))) (refusal 'bounds)))
+    (test-case "ordered call inference never falls through after first-shape type failure"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result)
+        '(CaseFunction (Function (Result) (UInt)) (Function (Result) (Integer))
+                       (Function (Result) (Integer Integer))) []))
+      (def refused (infer-declared-calls schema '(UInt Integer) '((() (Integer) (UInt))) forbidden-builder))
+      (check-equal? (.get refused status) 'no-solution)
+      (check-equal? (.get refused instance) #f)
+      (def selected (infer-prototype-calls schema '(UInt Integer) '((() (Integer Integer) (UInt)))))
+      (check-equal? (.get selected solutions) '((UInt))))
+    (test-case "individually admissible named calls may have no joint solution"
+      (def first '((.report) (Integer) (UInt (Function (UInt) (Integer)))))
+      (def second '((.recover) (UInt) (UInt)))
+      (check-equal? (.get (infer-prototype-calls service.SharedServiceType '(UInt Integer) [first]) solutions)
+        '((UInt Integer)))
+      (check-equal? (.get (infer-prototype-calls service.SharedServiceType '(UInt Integer) [second]) solutions)
+        '((UInt UInt)))
+      (def joint (infer-declared-calls service.SharedServiceType '(UInt Integer) [first second] forbidden-builder))
+      (check-equal? (.get joint status) 'no-solution)
+      (check-equal? (.get joint instance) #f))
+    (test-case "absent return obligations differ from explicit zero outputs"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result) '(Function (Result) ()) []))
+      (def ambiguous (infer-declared-calls schema '(UInt Integer) '((() () #f)) forbidden-builder))
+      (check-equal? (.get ambiguous status) 'ambiguous)
+      (check-equal? (.get ambiguous instance) #f)
+      (check-exception (infer-prototype-calls schema '(UInt Integer) '((() () ()))) (refusal 'bounds))
+      (def zero (prototype-type (.o .parameters: []) [] '(Function () ()) []))
+      (def unique (infer-declared-calls zero [] '((() () ()))
+        (cut service.signature-service-declarations <> (lambda () (values)) void)))
+      (check-equal? (.get unique solutions) '(()))
+      (def owner (service.invoke-signature-service (.get unique instance prototype)))
+      (check-equal? (dispatch.cache-size (extension.snapshot (declared-snapshot owner))) 1))
+    (test-case "nested explicit signature paths reuse Object fields rather than a new catalog grammar"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result)
+        '(Object ((api (Object ((run (Function (Result) (Integer)))) closed))) closed) []))
+      ;; The builder installs the nested Object carrier at the exact catalog path;
+      ;; full publication checks its group as well as top-level typed fields.
+      (def (build instance)
+        (def certified (instance-signature instance (lambda (_) [['Value]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(api run)))
+        (def api (object<-declaration-forms MethodDeclaration. instance
+          [(typed-method-fragment 'run certified
+            [(metadata.replace "run" [(dispatch.prototype 'Value)] (combination.primary (lambda (_ x) (abs x))))])]))
+        [(declaration-form 'public 'api (.o (constant api)))])
+      (def result (infer-declared-calls schema '(UInt Integer) '(((api run) (Integer) (UInt))) build))
+      (defvalues (answer _) (invoke-declared (.get result instance prototype api run) [-9]))
+      (check-equal? answer 9)
+      (check-exception (infer-prototype-calls schema '(UInt Integer) '(((api missing) (Integer) (UInt)))) (refusal 'unsupported)))
+    (test-case "invalid observations and unresolved signature kinds refuse before building"
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
+        '(((.report) (Integer))) forbidden-builder) (refusal 'malformed))
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
+        '((.report (Integer) #f)) forbidden-builder) (refusal 'malformed))
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
+        '(((.report) (Unknown) #f)) forbidden-builder) (refusal 'unsupported))
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
+        '(((.report) (Integer) (UInt))) forbidden-builder) (refusal 'bounds))
+      (def schema (prototype-type (.o .parameters: '(Signature)) '(Signature) 'Signature []))
+      (check-exception (infer-declared-calls schema '((Function (UInt) (UInt)))
+        '((() (UInt) (UInt))) forbidden-builder) (refusal 'unsupported)))
+    (test-case "unique joint inference refuses a forbidden sibling without exposing an instance"
+      (def bodies 0)
+      ;; First group is valid; the second fails completed negative admission.
+      ;; Arbitrary builder effects are not rolled back, but no receiver is returned.
+      (def (build instance)
+        (def report-signature (instance-signature instance (lambda (_) [['Service]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(.report)))
+        (def recovery-signature (instance-signature instance (lambda (_) [['Service]]) [(extension.shape [['Blocked]])]
+          standard-combination combination.standard-contribution? #f 8192 1 '(.recover)))
+        [(typed-method-fragment '.report report-signature
+          [(metadata.replace "valid" [(dispatch.prototype 'Service)] (combination.primary (lambda _ (set! bodies (+ bodies 1)) (values 1 abs))))])
+         (typed-method-fragment '.recover recovery-signature
+          [(metadata.replace "forbidden" [(dispatch.prototype 'Blocked)] (combination.primary (lambda _ (set! bodies (+ bodies 1)) 1)))])])
+      (def issue (caught (cut infer-declared-calls service.SharedServiceType '(UInt Integer)
+        '(((.report) (Integer) (UInt (Function (UInt) (Integer))))) build)))
+      (check (extension.failure? issue) => #t)
+      (check-equal? (extension.failure-stage issue) 'negative)
+      (check-equal? bodies 0)
+      (def retry (service.infer-shared-service '(UInt) '(UInt Integer)
+        '(((.report) (Integer) (UInt (Function (UInt) (Integer)))))
+        (lambda (n (extra 0) scale: (scale 1) . rest) (values (abs n) abs)) (lambda (n) n)))
+      (check-equal? (.get retry status) 'unique))
+    (test-case "call inference retains builder causes and bounded exhaustive refusal"
+      (def cause (list 'builder-refused))
+      ;; A complete unique search reaches one ordinary builder; its cause survives.
+      (def (build _) (raise cause))
+      (def observations '(((.report) (Integer) (UInt (Function (UInt) (Integer))))))
+      (check (eq? (caught (cut infer-declared-calls service.SharedServiceType '(UInt Integer) observations build)) cause) => #t)
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer) observations forbidden-builder 1)
+        (refusal 'exhausted))
+      (def partial (specialize-prototype-type service.SharedServiceType '(UInt)))
+      (.setslot! (.get partial prototype) Self ($constant-slot-spec Bool))
+      (check-exception (infer-declared-calls partial '(Integer) observations forbidden-builder) (refusal 'bounds)))
+    (test-case "call diagnostics retain the captured request after builder-side list changes"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result) '(Function (Result) (Integer)) []))
+      (def observations (list (list [] (list 'Integer) (list 'UInt))))
+      ;; Request capture precedes the builder. Mutating the caller-owned input
+      ;; afterwards cannot change the chosen assignment or its diagnostic query.
+      (def (build instance)
+        (set-car! (cadr (car observations)) 'Bool)
+        (service.signature-service-declarations instance abs void))
+      (def report (infer-declared-calls schema '(UInt Integer) observations build))
+      (check-equal? (.get report calls) '((() (Integer) (UInt))))
+      (check-equal? (.get report queries) '((Integer Integer) (Result UInt)))
+      (check-equal? (.get report solutions) '((UInt)))
+      (defvalues (answer _) (service.invoke-signature-service (.get report instance prototype) -4))
+      (check-equal? answer 4))
+    (test-case "catalog completeness includes unobserved required siblings"
+      ;; A unique call solution is not sufficient when the builder omits recover.
+      (def (build instance) (list (car (shared-forms instance))))
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
+        '(((.report) (Integer) (UInt (Function (UInt) (Integer))))) build) (refusal 'bounds)))
+    (test-case "catalog methods cannot be replaced by unchecked procedures or wrong paths"
+      ;; A plain callable is not the completed typed group promised by the catalog.
+      (def (plain instance)
+        (list (declaration-form 'public '.report (.o (constant (lambda _ (values 1 abs)))))
+              (cadr (shared-forms instance))))
+      (check-exception (instantiate-declared service.SharedServiceType '(UInt Integer) plain) (refusal 'bounds))
+      ;; Even an otherwise valid typed certificate names a different field/case set.
+      (def (wrong instance)
+        (def signature (instance-signature instance (lambda (_) [['Service]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(.recover)))
+        (shared-forms instance signature signature))
+      (check-exception (instantiate-declared service.SharedServiceType '(UInt Integer) wrong) (refusal 'bounds)))
+    (test-case "catalog admission rejects descriptor revision and copied source stamps"
+      ;; Direct supported metadata changes cannot reuse a factory's earlier stamp.
+      (def (revised instance)
+        (def signature (instance-signature instance (lambda (_) [['Service]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(.report)))
+        (def descriptor (dispatch.function-signature (extension.snapshot signature)))
+        (.setslot! descriptor outputs ($constant-slot-spec [Any]))
+        (shared-forms instance signature))
+      (check-exception (instantiate-declared service.SharedServiceType '(UInt Integer) revised) (refusal 'bounds))
+      ;; Extensible public Type metadata can be copied, but its private origin still
+      ;; names the original exact descriptor. No global weak registry is necessary.
+      (def (copied instance)
+        (def signature (instance-signature instance (lambda (_) [['Service]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(.report)))
+        (def descriptor (dispatch.function-signature (extension.snapshot signature)))
+        (def forged (.cc descriptor outputs: [Any]))
+        (def replacement (extension.check
+          (dispatch.make-function forged (lambda (_) [['Service]]) standard-combination 1 combination.standard-contribution?) []))
+        (shared-forms instance replacement))
+      (check-exception (instantiate-declared service.SharedServiceType '(UInt Integer) copied) (refusal 'bounds)))
+    (test-case "a signature from another ground assignment cannot close the new catalog"
+      (def old (instantiate-prototype service.SharedServiceType '(UInt Integer)))
+      (def previous (instance-signature old (lambda (_) [['Service]]) []
+        standard-combination combination.standard-contribution? #f 8192 1 '(.report)))
+      ;; Matching field names do not justify borrowing a different substituted Type.
+      (def (build instance) (shared-forms instance previous))
+      (check-exception (instantiate-declared service.SharedServiceType '(UInt UInt) build) (refusal 'bounds)))
+    (test-case "inherited complete catalog groups retain their exact admitted source"
+      (def original (instantiate-declared service.SharedServiceType '(UInt Integer) shared-forms))
+      (def source (.cc (.get original prototype) .parameters: []))
+      (def schema (prototype-type source [] (.get original expression) []))
+      (def inherited (instantiate-declared schema [] (lambda (_) [])))
+      (defvalues (one two _) (service.recover-service (.get inherited prototype) 2 3))
+      (check-equal? (list one two) '(2 3))
+      (check-equal? (.get inherited prototype service-name) 'shared))
+    (test-case "catalog admission does not force unrelated declared data fields"
+      (def demanded 0)
+      (def schema (prototype-type (.o .parameters: []) []
+        '(Object ((.run (Function (UInt) (Integer))) (unused Integer)) closed) []))
+      ;; The callable catalog and ordinary data contracts retain separate demand;
+      ;; unused is not certified as Integer merely by publishing this method group.
+      (def (build instance)
+        (def signature (instance-signature instance (lambda (_) [['Value]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(.run)))
+        [(typed-method-fragment '.run signature
+           [(metadata.replace "run" [(dispatch.prototype 'Value)] (combination.primary (lambda (_ n) (abs n))))])
+         (declaration-form 'public 'unused (.o
+           (compute (lambda (_self _super) (set! demanded (+ demanded 1)) (error "not demanded")))))])
+      (def result (instantiate-declared schema [] build))
+      (check-equal? demanded 0)
+      (defvalues (answer _) (invoke-declared (.get result prototype .run) [-3]))
+      (check-equal? answer 3)
+      (check-equal? demanded 0))
+    (test-case "cyclic observation data refuses under the existing depth budget"
+      (def cycle (list [] [] #f))
+      (set-cdr! cycle cycle)
+      (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer) [cycle] forbidden-builder)
+        (refusal 'exhausted)))
+    (test-case "builder mutation of inferred syntax or bound snapshots refuses publication"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result) '(Function (Result) (Integer)) []))
+      ;; Source getters are extensible, but changing the returned mutable AST
+      ;; cannot silently turn the already inferred contract into a different one.
+      (def (changed-expression instance)
+        (set-car! (cadr (.get instance expression)) 'Integer)
+        (service.signature-service-declarations instance abs void))
+      (check-exception (infer-declared-calls schema '(UInt Integer) '((() (Integer) (UInt))) changed-expression)
+        (refusal 'bounds))
+      ;; The pre-builder frame includes every bound name; removing a snapshot
+      ;; cannot authorize overriding an already specialized parameter field.
+      (def (dropped-bindings instance)
+        (set-cdr! (.get instance bound-parameters) [])
+        [(declaration-form 'public 'Super (.o (constant Bool)))])
+      (check-exception (instantiate-declared service.SharedServiceType '(UInt Integer) dropped-bindings)
+        (refusal 'bounds)))
+    (test-case "published factory groups reject directly revised descriptors before invocation"
+      (def descriptor #f)
+      (def bodies 0)
+      (def schema (prototype-type (.o .parameters: []) [] '(Function (UInt) (UInt)) []))
+      ;; The published group retains its own immutable factory source stamp.
+      (def (build instance)
+        (def signature (instance-signature instance (lambda (_) [['Value]]) []))
+        (set! descriptor (dispatch.function-signature (extension.snapshot signature)))
+        [(typed-method-fragment '.invoke signature
+          [(metadata.replace "run" [(dispatch.prototype 'Value)]
+            (combination.primary (lambda (_ n) (set! bodies (+ bodies 1)) n)))])])
+      (def instance (instantiate-declared schema [] build))
+      (def group (.get instance prototype .invoke))
+      (.setslot! descriptor audit ($constant-slot-spec 'changed))
+      (check-exception (invoke-declared group [1]) (refusal 'bounds))
+      (check-exception (declared-snapshot group) (refusal 'bounds))
+      (check-equal? bodies 0))
+    (test-case "descriptor changes during a successful body discard its values and owner"
+      (def descriptor #f)
+      (def changed? #f)
+      (def bodies 0)
+      (def schema (prototype-type (.o .parameters: []) [] '(Function (UInt) (UInt)) []))
+      ;; The first body deliberately changes its signature metadata. Effects stay,
+      ;; but no user result/cache successor may escape; retry rebuilds a fresh source.
+      (def (build instance)
+        (def signature (instance-signature instance (lambda (_) [['Value]]) []))
+        (set! descriptor (dispatch.function-signature (extension.snapshot signature)))
+        [(typed-method-fragment '.invoke signature
+          [(metadata.replace "run" [(dispatch.prototype 'Value)]
+            (combination.primary (lambda (_ n)
+              (set! bodies (+ bodies 1))
+              (unless changed? (set! changed? #t) (.setslot! descriptor audit ($constant-slot-spec 'changed)))
+              n)))])])
+      (def instance (instantiate-declared schema [] build))
+      (def old (.get instance prototype .invoke))
+      (check-exception (invoke-declared old [1]) (refusal 'bounds))
+      (check-equal? bodies 1)
+      (check-exception (invoke-declared old [1]) (refusal 'bounds))
+      (def fresh (instantiate-declared schema [] build))
+      (defvalues (answer _) (service.invoke-signature-service (.get fresh prototype) 2))
+      (check-equal? answer 2)
+      (check-equal? bodies 2))
+    (test-case "anonymous Function declarations require their captured factory signature"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result) '(Function (Result) (Integer)) []))
+      (check-exception (instantiate-declared schema '(UInt) (lambda (_) [])) (refusal 'bounds))
+      ;; Changing a public AST only while compiling, then restoring it, still leaves
+      ;; a mismatched private signature and cannot evade the root admission check.
+      (def (build instance)
+        (def outputs (cadr (.get instance expression)))
+        (set-car! outputs 'Integer)
+        (def forms (service.signature-service-declarations instance abs void))
+        (set-car! outputs 'UInt)
+        forms)
+      (check-exception (instantiate-declared schema '(UInt) build) (refusal 'bounds)))
+    (test-case "deferred edit compilation cannot revise a signature during cold snapshot admission"
+      (def calls 0)
+      (def schema (prototype-type (.o .parameters: []) [] '(Function (UInt) (UInt)) []))
+      ;; Unlike an eager .cc argument, this .compile slot really executes only
+      ;; when the completed certificate promise compiles its metadata edits.
+      (def (build instance)
+        (def signature (instance-signature instance (lambda (_) [['Value]]) []))
+        (def descriptor (dispatch.function-signature (extension.snapshot signature)))
+        (def declaration (.o inherit: [metadata.Declaration.] bind-these: #f name: "deferred-revision"
+          (.compile (begin
+            (set! calls (+ calls 1))
+            (.setslot! descriptor audit ($constant-slot-spec 'revised-during-compilation))
+            (extension.register [(dispatch.prototype 'Value)] (combination.primary (lambda (_ n) n)))))))
+        [(typed-method-fragment '.invoke signature [declaration])])
+      (check-exception (instantiate-declared schema [] build) (refusal 'bounds))
+      (check-equal? calls 1))
     (test-case "revised bound prefixes refuse before inference and can be restored"
       (def partial (specialize-prototype-type service.ServiceType '(UInt)))
       (def source (.get partial prototype))

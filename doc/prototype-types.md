@@ -50,8 +50,8 @@ Inherited/computed fields continue to use the final specialized receiver.
 
 `infer-prototype scheme candidates queries [budget]` enumerates the Cartesian
 product of a **finite, explicit ground universe**, deduplicating equal candidates.
-Queries are `(actual expected)` inequalities; actual is ground and expected may
-contain declared variables. These join the scheme's bounds. Only complete unique
+Queries are `(source target)` inequalities; either side may contain declared
+variables. These join the scheme's bounds. Only complete unique
 inference constructs an instance. Several valid assignments remain ambiguous;
 there is no first-match guess, sample-based inference, principal-type assertion,
 implicit widening, or inference of arbitrary predicate implication.
@@ -167,3 +167,14 @@ ordered cases admit covariant exact outputs and contravariant argument Types;
 arbitrary host signature/default inference and case coverage stay outside scope.
 See [the declaration protocol](method-declarations.md#rich-declared-function-signatures)
 for grammar, failure phases, full examples, cache transport and Lean boundaries.
+
+## Calls and shared declarations
+
+`infer-prototype-calls` derives bidirectional subtype obligations from a finite
+batch of explicit ground-Type call observations and an existing Function/Object
+signature expression. `infer-declared-calls` admits the resulting whole named
+interface only after a unique complete assignment, required signature coverage,
+captured source preservation and current factory descriptors. The report retains
+captured `calls` and generated `queries`; no source/default/method body executes
+during constraint collection. See [joint call inference](method-declarations.md#joint-call-inference-and-complete-interface-admission)
+for grammar, failure kinds, shared quotas, source discipline and proof premises.
