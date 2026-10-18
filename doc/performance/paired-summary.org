@@ -149,3 +149,50 @@ SHA-256:
 - Complete raw study: =05814ca49d97a9e043c9d37cd3bb5cbbf1addab4328f3825cea3fae581233cdb=
 The local native header records the remaining source digests. This summary is
 bounded evidence, not a portable guarantee of the same numerical results.
+
+* Direct combined-generic transport (2026-10-18)
+
+The final source-bound ~benchmark-combination~ study passed 480 fresh children:
+ten scenarios, natural/collected GC, four ABBA rounds, and exact A/A controls.
+Both full-workflow sides use named factories and the same native FUN expansion;
+all nine method events and the complete keyword/rest result are demanded. The
+initial inline-versus-named construction comparison was rejected and retained
+locally; a later named comparison also had adverse natural-GC construction
+samples. Neither is replaced with a claimed historical speedup.
+
+The strict receipt replayer admitted the current source and binary identities,
+complete coverage/order/EOF, then checked every adjacent allocation pair:
+
+| Single-operation scope | Production minus reference bytes | Admitted pairs |
+|------------------------+---------------------------------+----------------|
+| Complete generic row transport | -48 | 8/8, no GC |
+| Action factory alone | 0 | 8/8, no GC |
+| Factory plus Reader/reflection/C3 invocation | -64 | 8/8, no GC |
+
+These are allocated work in this fixture, not retained-heap bounds or a compiler
+allocation theorem. The model in Lean proves monadic relay equivalence and a
+nonnegative weighted source-operation saving, not these host byte constants.
+
+Final paired CPU differences below are production minus reference, in us/op.
+Negative is faster. Separate medians of CPU and GC/residual deltas need not add.
+
+| Scope | Natural CPU | Collected CPU | Latency admission |
+|-------+-------------+---------------+-------------------|
+| Hot generic calls | +0.06855 | -0.02539 | Inconclusive; A/A median magnitudes reach 0.08834/0.04393 |
+| Retained complete workflow | +2.90430 | -13.06836 | Inconclusive; A/A deltas include -9.90625 and +16.20703 |
+| Factory plus complete invocation | -0.75195 | -4.26367 | Inconclusive; A/A magnitudes exceed both apparent gains |
+
+Natural hot/workflow regressions and earlier adverse construction samples remain
+reported. Prefix counters match, but this does not establish identical heap
+contents or GC histories; no causal attribution or stable end-to-end speedup is
+admitted. The final host snapshot also contained an external Lean compiler;
+no claim of host isolation is made. Throughput allocation deltas are unavailable across collection and are
+not converted into savings. The allocation improvement is accepted at the three
+measured boundaries; latency remains a separate measurement problem.
+
+Raw receipts for all three studies and the current measurement binary remain
+ignored local artifacts. No complete benchmark data or compressed archive is committed. The
+shared measurement entry now lives in ~t/closure-measure.ss~, so six consumers
+avoid importing the unrelated metadata publication workload solely to measure.
+The standard ~std/make~ executable scope passed within the unchanged 90-second
+fence after that dependency closure was reduced; failed builds remain failures.

@@ -206,13 +206,21 @@
 ;; graph once, then each functional group compiles only its disjoint test roots.
 ;; std/make still owns import dependencies and compiler jobs within each process.
 (def scope (getenv "GERBIL_BUILD_SCOPE" "all"))
-(unless (member scope '("all" "library" "tests")) (error "unknown build scope" scope))
+(unless (member scope '("all" "library" "tests" "combination")) (error "unknown build scope" scope))
 (def selected-tests
-  (cond ((equal? scope "library") [])
+  (cond ((member scope '("library" "combination")) [])
     ((equal? scope "tests")
       (test-files (or (getenv "GERBIL_BUILD_TEST_GROUP" #f) (error "test group required"))))
     (else (test-files))))
+;; std/make also owns executable dependency scheduling and its bounded compiler
+;; pool. The benchmark scope reuses compiled modules instead of a serial gxc link
+;; path; all functional test scopes and their complete inventories stay unchanged.
 (defbuild-script
-  (append (if (equal? scope "tests") [] +gerbil-poo-build-spec+)
-    (map path-strip-extension selected-tests))
+  (if (equal? scope "combination")
+    `((exe: "t/combination-benchmark"
+        "-ld-options" ,(getenv "GERBIL_CLOSURE_LD_OPTIONS"
+          (cond-expand (darwin "-L/opt/homebrew/opt/openssl@3/lib") (else "")))))
+    (append (if (equal? scope "tests") [] +gerbil-poo-build-spec+)
+      (map path-strip-extension selected-tests)))
+  bindir: (path-expand ".build/combination")
   libdir: (or (getenv "GERBIL_BUILD_LIBDIR" #f) (path-expand "lib" (gerbil-path))))

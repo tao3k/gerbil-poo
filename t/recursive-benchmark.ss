@@ -1,7 +1,7 @@
 ;;; Native matched controls: same full setup, different explicit memo lifetimes.
 (export main workload)
 (import :std/iter (only-in :std/values first-value) ../object
-        (only-in "metadata-paired-benchmark.ss" run-child)
+        (only-in "closure-measure.ss" run-child)
         (prefix-in "recursive-cases.ss" study.) (prefix-in ../recursive recursive.)
         (prefix-in ../recursive-cache cached.) (prefix-in ../recursive-handling handling.)
         (prefix-in ../examples/recursive-catalog catalog.) (prefix-in ../examples/cyclic-access access.)

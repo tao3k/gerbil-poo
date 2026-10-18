@@ -1,6 +1,6 @@
 (export main workload)
 (import ../object (prefix-in ../examples/generalized-checkout checkout.)
-        (only-in "metadata-paired-benchmark.ss" run-child) (prefix-in "generalized-cases.ss" study.)
+        (only-in "closure-measure.ss" run-child) (prefix-in "generalized-cases.ss" study.)
         (prefix-in "generalized-observation-reference.ss" reference.)
         (prefix-in ../generalized-prototype gp.))
 ;; Use actual old/new public interfaces; phase ablations change one construction

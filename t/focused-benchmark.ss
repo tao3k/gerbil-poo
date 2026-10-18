@@ -1,7 +1,7 @@
 (export main workload)
 (import :std/iter ../object (prefix-in ../examples/generalized-checkout checkout.)
         (prefix-in ../generalized-prototype gp.) (prefix-in "focused-cases.ss" study.)
-        (only-in "metadata-paired-benchmark.ss" run-child))
+        (only-in "closure-measure.ss" run-child))
 ;; Lift the real public result oracle through native FUN map, then bind its seed.
 (def (checked-action action seed fields expected)
   (def checked ((.@ gp.Observation. .map)

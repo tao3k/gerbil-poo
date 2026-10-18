@@ -141,3 +141,18 @@ actual `.defgeneric` syntax, recursive roots, every adapter, and negative admiss
 No Lean checkout, serialized proof constant or compiler/runtime verification is
 part of native execution. No benchmark data or performance claim accompanies
 this functional integration.
+
+### Current combination selection and direct calls
+
+`configured-summary-action` supplies the existing typed Reader workflow with
+`configured-summary`, whose `combination:` expression reads the current public
+`.summary-combination` slot. Hiding it refuses before method effects; restoring
+or revising it permits the same retained action to retry using fresh context.
+The normal fragment lookup and POO qualifier interpreters are unchanged.
+
+The generic macro now lowers the whole transport directly through Gerbil's core
+formal projection and `list`/`apply`, without constructing a temporary variadic
+relay per call. Combiner selection precedes raw lookup, and raw lookup precedes
+procedure admission even for a nonprocedure. The combiner receives the same
+canonical keyword/rest application row and may return multiple values. Body and
+lookup exceptions are never converted into missing-method defaults.

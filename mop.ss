@@ -95,21 +95,23 @@
                                                     (eq? (NoApplicableMethod-slot cause) 'slot-name))
                                              (compute-default self 'slot-name) (raise cause)))))
                                 #'(.ref methods 'slot-name)))
-                      (invoker (if combination
-                                 (with-syntax ((combine combination)) #'(combine-method combine method))
-                                 #'method))
                       ((selfvar ...) (case from ((type) #'(self)) ((instance) #'())))
-                      (body (if (and (stx-null? #'formals) (eq? from 'instance) (not combination))
-                              #'method
-                              (call<-formals #'(invoker selfvar ...) #'formals))))
+                      (body
+                       (if combination
+                         (with-syntax ((combine combination)
+                                       (row (call<-formals #'(list selfvar ...) #'formals)))
+                           ;; Core list/apply constructs the complete resolved row
+                           ;; directly. Preserve combine-expression, lookup and
+                           ;; procedure-check order before invoking the combiner;
+                           ;; no per-call variadic forwarding procedure is needed.
+                           #'(let* ((combiner combine) (fragments method))
+                               (unless (procedure? combiner)
+                                 (error "generic combination must be a procedure"))
+                               (combiner fragments row)))
+                         (if (and (stx-null? #'formals) (eq? from 'instance))
+                           #'method
+                           (call<-formals #'(method selfvar ...) #'formals)))))
            #'(def (gf self . formals) body))))))
-
-;; Adapt raw inherited fragments to the generic's normal argument forwarding.
-;; The combiner owns qualifier admission; body failures are not missing-slot defaults.
-;; Nothing memoizes a result or an approval, and from:type still forwards self once.
-(def (combine-method combine fragments)
-  (unless (procedure? combine) (error "generic combination must be a procedure"))
-  (lambda arguments (combine fragments arguments)))
 
 ;;(def (and-combination new-value old-value) (and (new-value dont-call-next-method) (old-value)))
 

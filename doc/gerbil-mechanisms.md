@@ -694,3 +694,65 @@ reducer are exercised by Scheme controls, not proved by those list laws. The
 Except-based examples do not assert rollback or retain an error-state trace.
 This continues the article's generalized MOP future work without closing its
 unrelated TODO projects. No end-to-end performance claim is made.
+
+### Combined generic calls lower directly through core row construction
+
+The next whole bridge was `mop.combine-method`: every combined generic selected
+its combiner and raw inherited fragments, allocated a variadic relay, applied it
+to the core-projected bindings, then relayed that captured row to the combiner.
+`.defgeneric` now uses the same `call<-formals` projection with standard `list` /
+`apply` to construct the complete row and directly invoke the selected combiner.
+The temporary runtime bridge is removed; no new dispatcher, namespace or grammar
+is introduced. Core lambda still owns contracts/defaults. Noncombined property
+and method paths retain their existing lowering.
+
+Evaluation remains combiner expression, fragment lookup, procedure admission,
+row construction, combiner invocation. An invalid combiner must still demand the
+fragment slot first; lookup/selection exceptions preserve identity. The canonical
+keyword/`#!rest` boundary, receiver exactly once, optional defaults, explicit
+false, zero arguments and multiple results remain observable obligations.
+Current public metadata is read afresh; no combiner or successful admission is
+cached. The recipe does not substitute host class reflection or next-method rules.
+
+`configured-summary-action` reuses the existing Reader/reflection/C3 workflow with
+a current declared `.summary-combination`. Regression tests hide/restore that
+metadata, revise its callable value, refuse a nonprocedure, and retry against
+fresh receiver data. Separate controls expose selector/lookup/procedure ordering,
+complete escaped rows and multiple values, including exact thrown lookup objects.
+
+Eight laws in the existing Lean `Functional.FunctionSignature` namespace prove
+monadic relay elimination, boundary refusals and success. `CombinationWork` is an
+explicit source-operation model: supplied row cells stay equal, while one relay
+closure and call disappear at arbitrary nonnegative prices. Host optimization,
+actual allocation bytes, CPU and GC behavior are not conclusions of those laws.
+The top-level declared-method examples check the exact combined frame and trace.
+The original article's lines 2063–2089 motivate the separate mixing function;
+this generic/MOP integration continues its future work, not whole-TODO closure.
+
+The existing `benchmark-combination` study now includes `generic-allocation`,
+`generic-hot`, `generic-workflow`, `generic-construction`,
+`generic-factory-allocation` and `generic-construction-allocation`: the historical and production lowerings
+share one binary, matched formals, callbacks and semantic oracles. The single-call
+sample admits signed bytes only without GC; hot calls and full Reader/reflection/
+C3 calls remain separate. All controls are constructed/warmed before selection,
+with fresh children, natural/collected regimes, ABBA and exact A/A controls.
+Raw data remains ignored and source-bound. Results, including regressions, are
+reported separately; a source-operation saving alone is not a speedup claim.
+
+The shared higher-order boundary is the native `summary-observation` defrule,
+which binds owner/units once and retains the statically known contracted call. Passing
+the generic itself through an indirect optional/keyword/rest call failed the
+payload/default regression and was rejected; defaults are not emulated by POO.
+The original typed action and the configured action share this Reader pipeline.
+Benchmark executables now use the release's `std/make` dependency/worker pool
+via the `combination` build scope. The preceding serial compiler attempt hit its
+90-second fence and is retained as a failure; that deadline was not increased.
+
+The complete shared child-measurement entry lives in the existing
+`closure-measure` module; all six benchmark consumers import it directly instead
+of importing the metadata publication workloads just for measurement. Counters,
+GC admission, warmup order and oracles are unchanged. Final source/AOT freshness
+is checked after executable construction, since that compiler route regenerates
+Scheme intermediates without refreshing their separately loaded module objects.
+The indirect-optional-call regression, executable build timeouts and initial
+asymmetric-constructor study are retained locally.

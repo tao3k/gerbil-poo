@@ -881,3 +881,9 @@ Other type descriptors
 Historical alignment, scenario and performance notes are preserved in
 [implementation-history.md](implementation-history.md). They do not override
 the functional completion ledger above.
+
+Direct combined-generic transport now reuses the core formal projection and
+standard list/apply lowering, removing the temporary per-call variadic relay.
+Current metadata, boundary order, full Reader/C3 retry and paired cost controls
+are documented in [gerbil-mechanisms.md](gerbil-mechanisms.md). This bounded
+bridge replacement does not close the general extensible-MOP TODO.

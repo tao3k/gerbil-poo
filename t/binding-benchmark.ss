@@ -2,7 +2,7 @@
 (export main workload)
 (import :std/iter ../object (prefix-in ../generalized-prototype gp.)
   (prefix-in ../examples/generalized-checkout checkout.)
-  (prefix-in "binding-cases.ss" study.) (only-in "metadata-paired-benchmark.ss" run-child))
+  (prefix-in "binding-cases.ss" study.) (only-in "closure-measure.ss" run-child))
 ;; Parent Reader map used bind/pure: allocate a reader around each projected value.
 ;; Keep the actual algorithm available to AOT; do not force artificial allocation.
 (def (reference-map transform action)

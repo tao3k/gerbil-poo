@@ -1,6 +1,6 @@
 ;;; Each child builds every control in the same order, warms every control a fixed
 ;;; number of times, then measures ONE side. Nothing from another sample survives.
-(export main workload run-child)
+(export main workload)
 (import :gerbil/runtime/gambit :std/iter (only-in :std/values first-value)
         ../object "closure-measure.ss" (prefix-in "metadata-paired-cases.ss" study.)
         (prefix-in ../contract-family contracts.) (prefix-in ../generic-family generics.)
@@ -111,17 +111,3 @@
   (unless (and (memq scenario study.scenarios) (memq regime study.regimes) (memv side '(0 1 2 3 4 5 6 7 8 9)))
     (error "invalid paired request"))
   (run-child scenario regime side (workload scenario) (study.repetitions scenario) study.warmups))
-;; Shared fixed-prefix native measurement, parameterized by semantic workload only.
-;; Both metadata and recursive studies retain identical signed allocation/GC rules.
-(def (run-child scenario regime side actions count warmups)
-  (for* ((_ (in-range warmups)) (action actions)) (unless (action) (error "paired prefix oracle")))
-  (when (eq? regime 'collected) (##gc))
-  (def prefix (##process-statistics))
-  (unless (= (f64vector-length prefix) 20) (error "unsupported statistics"))
-  (defvalues (ok metrics) (measure (list-ref actions side) count))
-  (unless ok (error "paired measured oracle"))
-  (def raw (vector-ref metrics 4))
-  (unless (and (= (vector-ref metrics 3) 0) (>= raw 0)) (vector-set! metrics 4 #f))
-  (write (vector scenario regime side count metrics raw
-    (vector (f64vector-ref prefix 6) (f64vector-ref prefix 7) (f64vector-ref prefix 9))))
-  (newline))

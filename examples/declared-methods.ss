@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
+(export configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
         (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
@@ -62,20 +62,40 @@
     (optional required :~ fixnum?) label: (label #f) . rest)
   from: type slot: .summary combination: (simple-combination combination.collect))
 
-;; One current Reader context selects a fresh account. Public reflection precedes
-;; the typed generic; its successful summary then binds through FUN to the C3
-;; standard charge. Neither admission nor method results survive a later call;
-;; refusal stops the suffix, and restoring current metadata permits a fresh retry.
+;; Core defrule keeps the generic callee statically known, preserving its native
+;; default/keyword lowering without an additional runtime forwarding closure.
+;; Capture family and units exactly once before building the ordinary FUN chain.
+;; Reflection is current on every call; refusal prevents summary and charge bodies.
+(defrule (summary-observation family units generic)
+  (let ((owner family) (count units))
+    (.call gp.Observation. .bind
+      (lambda (context) (make-account owner (.@ context rate)))
+      (lambda (account)
+        (.call gp.Observation. .map
+          (lambda (summary) (values (charge account count) summary))
+          (lambda (_context)
+            (read-slot owner '.summary)
+            (read-slot owner '.charge)
+            (generic account count label: #f #!rest payload: #f)))))))
+
+;; Bind the statically known contracted call before crossing the Reader boundary.
+;; The native macro adds no runtime adapter or reimplementation of defaults.
 (def (typed-summary-action family units)
-  (.call gp.Observation. .bind
-    (lambda (context) (make-account family (.@ context rate)))
-    (lambda (account)
-      (.call gp.Observation. .map
-        (lambda (summary) (values (charge account units) summary))
-        (lambda (_context)
-          (read-slot family '.summary)
-          (read-slot family '.charge)
-          (checked-summarize account units label: #f #!rest payload: #f))))))
+  (summary-observation family units checked-summarize))
+
+;; Select a current public combiner at each invocation, before resolving the raw
+;; inherited fragment slot. Core signature bindings own contracts and defaults;
+;; the complete canonical keyword/rest row is passed directly to that combiner.
+(.defgeneric (configured-summary account (required :~ fixnum?)
+    (optional required :~ fixnum?) label: (label #f) . rest)
+  from: type slot: .summary
+  combination: (read-slot (.get account .type) '.summary-combination))
+
+;; Reuse the same Reader/reflection/C3 workflow with a live, declared combination.
+;; No captured action freezes combiner admission or method metadata. A source edit
+;; is read again on retry, and refusal stops before any summary/charge body.
+(def (configured-summary-action family units)
+  (summary-observation family units configured-summary))
 
 ;; Four first-class prototype layers assemble Reader actions without executing
 ;; them. Approval and reflected policy precede the typed generic; tag/observation

@@ -106,8 +106,8 @@ benchmark-metadata-paired:
 # Whole continuation preparation and reused calls, with fresh-process ABBA/A-A controls.
 benchmark-combination: build
     mkdir -p .build/combination
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/combination -exe -ld-options "{{ closure-ld-options }}" -o .build/combination/combination t/combination-benchmark.ss
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} t/combination-suite.ss .build/combination/combination "{{ timeout-executable }}" .build/combination/results.scm
+    {{ build-env }} GERBIL_BUILD_SCOPE=combination {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} build.ss
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} t/combination-suite.ss .build/combination/combination-benchmark "{{ timeout-executable }}" .build/combination/results.scm
 
 # Focused source gate for a new MOP primitive before building the compiled group.
 # Same released harness, heap fence and failure markers; no package installation.

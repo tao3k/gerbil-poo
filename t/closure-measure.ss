@@ -1,5 +1,5 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
-(export measure read-datum write-datum source-digests median mean)
+(export run-child measure read-datum write-datum source-digests median mean)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
 ;; Result columns: CPU, wall, GC CPU, collections, allocated bytes.
 (def (measure thunk repetitions (collect? #f))
@@ -44,3 +44,18 @@
   (if (odd? (length sorted)) (list-ref sorted middle)
       (/ (+ (list-ref sorted (1- middle)) (list-ref sorted middle)) 2)))
 (def (mean values) (/ (apply + values) (length values)))
+
+;; Shared fixed-prefix native measurement, parameterized by semantic workload only.
+;; Both metadata and recursive studies retain identical signed allocation/GC rules.
+(def (run-child scenario regime side actions count warmups)
+  (for* ((_ (in-range warmups)) (action actions)) (unless (action) (error "paired prefix oracle")))
+  (when (eq? regime 'collected) (##gc))
+  (def prefix (##process-statistics))
+  (unless (= (f64vector-length prefix) 20) (error "unsupported statistics"))
+  (defvalues (ok metrics) (measure (list-ref actions side) count))
+  (unless ok (error "paired measured oracle"))
+  (def raw (vector-ref metrics 4))
+  (unless (and (= (vector-ref metrics 3) 0) (>= raw 0)) (vector-set! metrics 4 #f))
+  (write (vector scenario regime side count metrics raw
+    (vector (f64vector-ref prefix 6) (f64vector-ref prefix 7) (f64vector-ref prefix 9))))
+  (newline))

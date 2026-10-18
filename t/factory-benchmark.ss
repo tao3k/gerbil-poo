@@ -3,7 +3,7 @@
 (import :std/iter ../object (prefix-in ../generalized-prototype gp.)
   (prefix-in ../examples/generalized-checkout checkout.)
   (prefix-in ../method-combination combination.) (prefix-in "factory-cases.ss" study.)
-  (only-in "metadata-paired-benchmark.ss" run-child))
+  (only-in "closure-measure.ss" run-child))
 ;; Identical fixed-field projection on both sides, matching the actual public report.
 (def (fields view)
   (list (view 'price) (view 'rebate) (view 'service) (view 'tenant) (view 'approved)))

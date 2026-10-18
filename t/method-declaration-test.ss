@@ -51,9 +51,76 @@
 (.defgeneric (simula-call self value) slot: .simula combination: simula-combination)
 ;; Standard around/primary semantics also apply to an instance-provided generic.
 (.defgeneric (standard-call self value) slot: .standard combination: standard-combination)
+;; Deliberately effectful selection and lookup expose the bridge evaluation order.
+;; The combiner returns multiple values, including the complete escaped call row.
+(.defgeneric (boundary-call self required (optional #f) label: (label #f) . rest)
+  slot: .parts combination: (begin ((.@ self record) 'combine) (.@ self combiner)))
 ;; Test actual assembled methods rather than expected constants injected into slots.
 (def method-declaration-test
   (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "direct combined rows retain selection lookup defaults and multiple values"
+      (def events [])
+      ;; One log distinguishes selector failure, lookup failure and body execution.
+      (def (record-event event) (set! events (cons event events)))
+      (def self (.o
+        (record record-event)
+        (combiner (lambda (parts row) (record-event 'body) (values #f (cons parts row))))
+        (.parts (begin (record-event 'lookup) 'parts))))
+      (check-equal? (call/values (lambda () (boundary-call self #!key payload: label: #f #!rest #f #f)) list)
+        '(#f (parts label: #f #!rest payload: #f #f)))
+      (check-equal? (reverse events) '(combine lookup body))
+      (def frames [])
+      ;; A combiner owns each transported row; changing it cannot rewrite a
+      ;; caller's replay list or a subsequent invocation's independently built row.
+      (.set! self combiner (lambda (_ row)
+        (set! frames (cons row frames)) (set-car! row 'changed) #f))
+      (def supplied (list label: #f #!rest 3 #f payload: #f))
+      (check (apply boundary-call self supplied) => #f)
+      (check (apply boundary-call self supplied) => #f)
+      (check-equal? supplied '(label: #f #!rest 3 #f payload: #f))
+      (check (eq? (car frames) (cadr frames)) => #f)
+      (.set! self combiner #f)
+      ;; Invalidate the cached slot too: invalid combiners must still demand it.
+      (.setslot! self .parts ($computed-slot-spec (lambda (_ inherited) (record-event 'lookup) 'parts)))
+      (set! events [])
+      (check-exception (boundary-call self 2) Error?)
+      (check-equal? (reverse events) '(combine lookup))
+      (def cause (list 'lookup-failed))
+      (.setslot! self .parts ($computed-slot-spec (lambda (_ inherited) (record-event 'lookup) (raise cause))))
+      (set! events [])
+      (check-exception (boundary-call self 2) (lambda (actual) (eq? actual cause)))
+      (check-equal? (reverse events) '(combine lookup))
+      (.set! self record (lambda (_) (raise cause)))
+      (set! events [])
+      (check-exception (boundary-call self 2) (lambda (actual) (eq? actual cause)))
+      (check-equal? events []))
+    (test-case "current declared combiner composes reflection Reader and shared C3 retry"
+      (def events [])
+      ;; Record every method separately from the current combination boundary.
+      (def (record event) (set! events (cons event events)))
+      (def family (.declare MethodDeclaration. (.o)
+        (public .summary-combination (.o (type Any) (default (simple-combination combination.collect))))))
+      (def complete (.mix family (service.make-reporting-family record)))
+      (def action (service.configured-summary-action complete 2))
+      (check-equal? (call/values (lambda () (action (.o rate: 10))) list)
+        '(46 ((10 2 2 #f (payload: #f)))))
+      (def metadata (cdr (assq '.summary-combination (reflect-slots complete))))
+      (.setslot! metadata hidden ($constant-slot-spec #t))
+      (set! events [])
+      (check-exception (action (.o rate: 20)) Error?)
+      (check-equal? events [])
+      (.setslot! metadata hidden ($constant-slot-spec #f))
+      (write-slot! complete '.summary-combination
+        (lambda (parts row) (record 'combine) ((simple-combination combination.collect) parts row)))
+      (check-equal? (car (call/values (lambda () (action (.o rate: 20))) list)) 86)
+      (check-equal? (car (reverse events)) 'combine)
+      (check-equal? (length (filter (cut eq? <> 'base) events)) 1)
+      (write-slot! complete '.summary-combination #f)
+      (set! events [])
+      (check-exception (action (.o rate: 30)) Error?)
+      (check-equal? events [])
+      (write-slot! complete '.summary-combination (simple-combination combination.collect))
+      (check-equal? (car (call/values (lambda () (action (.o rate: 30))) list)) 126))
     (test-case "standard prototype reduction preserves identities current tails and exact body failures"
       (def layer (lambda (_ value) (cons 'only value)))
       (check (eq? (proto.compose-proto* []) proto.identity-proto) => #t)
