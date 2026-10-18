@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -375,3 +375,20 @@
   (infer-declared-calls (specialize-prototype-type KeywordCallbackServiceType '(UInt)) candidates
     '((() (UInt) (UInt (Function (UInt) (UInt) keywords: ((scale: . UInt))))))
     (cut signature-service-declarations <> procedure record)))
+
+
+;; A fixed UInt case serves unchanged single-value calls; the optional Any case
+;; serves every other spelling of the one-value, optional-scale keyword API.
+;; This closes a finite raw language without declaring unbounded Any rest.
+(def KeywordPrefixCallback
+  '(CaseFunction (Function (UInt) (UInt))
+    (Function (UInt) (Any Any) optional: (Any Any Any))))
+;; Complete candidate inference rejects a mismatched first result before building
+;; declarations, then publishes the real Gerbil case-lambda through existing FUN/IO.
+(def (infer-keyword-prefix-service (record void))
+  (infer-keyword-callback-service
+    (list '(CaseFunction (Function (Bool) (UInt))
+             (Function (UInt) (Any Any) optional: (Any Any Any))) KeywordPrefixCallback)
+    (lambda (n)
+      (values n (case-lambda ((value) (1+ value)) ((first second . rest) (+ 2 (length rest))))))
+    record))

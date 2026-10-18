@@ -399,18 +399,24 @@ modes retain the original path. Different modes now have two sufficient rules:
   are stable even with Any payloads; Maybe exposes its payload (plus ordinary void),
   and Union requires every exposed alternative to be stable. Any is unsafe.
   Ordinary input contravariance and exact-count output covariance still apply.
-- Positional source / keyword target: the **first source clause** must have only
-  Any required/optional positions, unbounded Any rest, and no keys. At every target
-  region its required count must be at most `positions + 2 * supplied-keys`.
-  This is the minimum length of **any** original raw spelling: the encoder's
-  optional `#!rest` cannot count toward the minimum. Every raw token is admitted
-  unchanged, and exact-count result covariance is checked against the actual first
-  selected target clause. Non-universal prefixes/later transport clauses refuse.
+- Positional source / keyword target: each selected target region with `n`
+  positions and `k` keys generates the raw length interval `n+2k .. 2n+2k+1`.
+  The upper endpoint includes escaping every position and a trailing `#!rest`.
+  Clamp raw lengths beyond the largest fixed prefix to its one rest representative;
+  select the **actual first source clause by raw length** at each region. Fixed,
+  optional and several ordered case-lambda clauses may jointly cover that interval.
+  No source rest is needed when the target's raw language is bounded.
+  A non-tail row of length `n` with no keys has no escapes: compare supplied input
+  Types by ordinary contravariance. Every other region requires Any only at
+  **supplied** source positions, not unused optional fields. Every selected pair
+  retains exact-count covariant results. A failed first Type/result never falls
+  through to another source case. Different target decoded cases may share one
+  source raw arity: all those output obligations must hold independently.
 
 Neither rule rewrites an incoming row or makes a keyword optional by dropping it.
 Gerbil's existing decoder, normalizer, keyword lambda and case selection remain
 responsible for runtime calls. Direct-source wrapper controls test all token rows
-up to length four, independently of the finite partition algorithm; positive
+up to length five, independently of the finite partition algorithm; positive
 examples exercise keyword order and both escape markers. A target wrapper is not
 inserted ahead of the source to conceal an interpretation difference.
 
@@ -440,15 +446,34 @@ publication through `catalog-service-action`. See `t/function-coverage-test.ss`.
 `KeywordCallbackServiceType` / `infer-keyword-callback-service` use the same fixed
 Value prefix, candidate inference, whole declaration builder and
 `catalog-service-action` FUN/refine/bind-evidence chain. Runtime callbacks retain
-ordinary default execution and exact raw-row identity respectively. See
+ordinary default execution and exact raw token sequence respectively. See
 `t/keyword-coverage-test.ss`, including no-solution/exhaustion before builder calls,
 outer-versus-exposed carriers, shadowing, required keys and raw-minimum controls.
 
-Lean's `Functional/KeywordArguments.lean` uses the existing
-`Functional.FunctionSignature` namespace. It proves ordinary-row decoding agreement,
-the minimum raw length, first transport selection for every successful target raw
-spelling, output variance, and finite-to-unbounded supplied-position stability.
+Lean's `Functional/KeywordArguments.lean` and `Functional/KeywordCoverage.lean`
+use the existing `Functional.FunctionSignature` namespace. They prove decoding
+agreement, lower/upper raw lengths, direct minimum-row identity, complete clamped
+raw regions, actual ordered selection, output variance and direct-input/Any
+obligations for all raw spellings, plus finite-to-unbounded rest stability.
 The positional-to-keyword theorem requires the explicit runtime carrier law and
 input recognition premise; finite Type projection, host behavior and arbitrary
 recognizers are not verified. This advances the article's hypothetical type-system
 future work, not a claim that its Racket implementation has these static checks.
+
+
+`KeywordPrefixCallback` / `infer-keyword-prefix-service` specialize the same Value
+prefix and infer a real Gerbil case-lambda: a fixed UInt case and a bounded optional
+Any case. Existing declaration admission and `catalog-service-action` carry it
+through FUN/refine/bind-evidence. `t/keyword-prefix-test.ss` checks fixed-only case
+unions, unused optional Types, trailing escape upper bounds, shared raw arities
+across target cases, stationary rest refusal, nested callbacks/Map-key invariance,
+full publication and no-builder quota/failure paths. Its independent runtime oracle
+enumerates 1365 unmodified token rows, not the coverage algorithm's cells.
+
+This remains a conservative finite decision: non-direct regions require supplied
+Any positions even where a richer value-sensitive token analysis might succeed.
+Direct minimum rows use the existing finite Type algebra, not a new restricted-value
+subtyping engine. False means unproved coverage/replacement; malformed/unsupported
+syntax and exhausted shared work retain their TypeRefusal causes. Shape coverage
+alone does not establish direct-row input variance; subtype replacement does.
+Neither incomplete region traversal nor failed/ambiguous inference enters a builder.

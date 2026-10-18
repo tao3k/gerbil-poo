@@ -74,37 +74,52 @@
         (lambda results
           (apply values (check-results descriptor signature results check refuse)))))))
 
-;; Compare ordered languages using their actual global keyword interpretations.
-;; `wire-related` must certify cross-mode raw-row safety before `related` checks
-;; selected-clause obligations. Same-mode selection retains the existing path.
-;; A positional source replacing a keyword target must use its FIRST clause:
-;; its witness must establish universal raw-row admission, not pick a favorable
-;; clause using the target's decoded arity. No argument row is rewritten here.
+;; Compare first-selected clauses in the actual wire modes. Keyword decoding
+;; bounds raw length by n+2k through 2n+2k+1; all arities above the largest fixed
+;; prefix share one rest representative. Cross-mode positional sources are chosen
+;; by RAW arity, never by the target's decoded arity or a preferred later case.
+;; Callbacks receive the target row, source row and a direct-row witness: only a
+;; non-tail raw row of length n with no keys can omit every protocol token.
 (def (covers-signatures? source target work related wire-related)
+  ;; One interpretation applies to every clause of each ordered descriptor.
   (def source-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) source) #t))
+  ;; The target supplies the decoded shape regions and declared key universe.
   (def target-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) target) #t))
+  ;; A shared mode keeps the original selector/normalizer path.
   (def same-mode? (eq? source-mode? target-mode?))
   (let* ((signatures (append source target))
          (maximum (foldl (lambda (s largest)
            (work) (max largest (+ (length (.get s inputs)) (length (.get s optional))))) 0 signatures))
          (keys (delete-duplicates/hash
            (apply append (map-in-order (lambda (s) (work) (map car (.get s keywords))) target)))))
-    ;; Canonical masks describe presence only. Cross-mode universal admission
-    ;; must handle every raw key order and escape arrangement, not just this row.
+    ;; Stream raw length representatives; clamping the interval retains every
+    ;; possible first source clause and each repeated rest Type exactly once.
+    (def (raw-covered? expected arguments count keys)
+      (def minimum (+ count (* 2 (length keys))))
+      (def maximum-raw (+ (* 2 count) (* 2 (length keys)) 1))
+      (let rows ((raw-count (min minimum (1+ maximum))))
+        (work)
+        (def raw-arguments (make-list raw-count 'Any))
+        (def actual (select-signature source raw-arguments))
+        (def direct? (and (<= raw-count maximum) (null? keys) (= raw-count count)))
+        (and actual
+          (wire-related actual expected arguments source-mode? target-mode? raw-arguments direct?)
+          (related actual expected arguments source-mode? target-mode? raw-arguments direct?)
+          (or (= raw-count (min maximum-raw (1+ maximum))) (rows (1+ raw-count))))))
+    ;; Canonical masks describe presence, not the caller's wire order/spelling.
     (def (row-covered? count keys)
       (work)
       (def arguments (encode-arguments (make-list count 'Any)
         (map (lambda (key) (cons key 'Any)) keys) target-mode?))
       (def expected (select-signature target arguments))
       (or (not expected)
-        (let (actual (if (and (not source-mode?) target-mode?)
-                      (and (pair? source) (car source))
-                      (select-signature source arguments)))
-          (and actual
-            (or same-mode? (wire-related actual expected arguments source-mode? target-mode?))
-            (related actual expected arguments source-mode? target-mode?)))))
-    ;; Arity partitions include the stationary rest tail. Subsets stream under
-    ;; the shared quota; exhaustion cannot return a successful prefix certificate.
+        (if (and (not source-mode?) target-mode?)
+          (raw-covered? expected arguments count keys)
+          (let (actual (select-signature source arguments))
+            (and actual
+              (or same-mode? (wire-related actual expected arguments source-mode? target-mode? arguments #f))
+              (related actual expected arguments source-mode? target-mode? arguments #f))))))
+    ;; Stream key subsets and arity cells under the SAME admission quota.
     (let counts ((count 0))
       (and (let subsets ((remaining keys) (supplied []))
              (work)

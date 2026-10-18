@@ -472,11 +472,13 @@ and `t/candidate-inference-test.ss` for finite scope and failure categories.
 
 Cross-mode callback bounds now use the same two controlled coverage witnesses as
 shared-mode inference: stable supplied outer Types for keyword source / positional
-target, or first-clause Any raw transport above the true minimum raw length for
-positional source / keyword target. Candidate comparison neither constructs a
+target, or clamped raw-length regions with actual ordered source selection for positional
+source / keyword target. Fixed/optional and multiple case-lambda clauses may combine;
+direct no-key minimum rows keep ordinary input variance, while other regions require
+Any only at supplied positions. Candidate comparison neither constructs a
 wrapper nor changes the original call row. Exact result count/variance, complete
 search, prefix specialization, sibling/source admission and cache-owner gates
 remain mandatory. See [prototype-types.md](prototype-types.md#ordered-case-call-language-coverage-and-replacement)
-and `t/keyword-coverage-test.ss` for FUN/refine/bind-evidence examples and refusal,
+and `t/keyword-coverage-test.ss` / `t/keyword-prefix-test.ss` for FUN/refine/bind-evidence examples and refusal,
 shadowing, escape and no-builder controls. General mixed-wire inclusion is outside
 this conservative finite decision. This is hypothetical type-system future work.

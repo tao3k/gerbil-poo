@@ -88,9 +88,10 @@
       (check (function-covers? '(Function (UInt) (Any Any Any Any) rest: Any) required) => #f)
       (check (function-covers? '(Function (UInt) (Any) optional: (UInt) rest: Any) required) => #f)
       (check (function-covers? '(Function (UInt) (Any) rest: UInt) optional) => #f))
-    (test-case "raw positional first clause must cover every accepted row"
+    (test-case "raw positional cases follow actual arity and result obligations"
       (def target '(Function (UInt) (UInt) keywords: ((mode: . UInt))))
-      (check (function-covers? '(CaseFunction (Function (UInt) (UInt)) (Function (UInt) () rest: Any)) target) => #f)
+      ;; The one-argument typed case handles the direct row; later raw arities use Any.
+      (check (function-covers? '(CaseFunction (Function (UInt) (UInt)) (Function (UInt) () rest: Any)) target) => #t)
       (check (subtype-expression? '(CaseFunction (Function (Bool) () rest: Any) (Function (UInt) () rest: Any)) target) => #f)
       (check (subtype-expression? '(Function (UInt Bool) () rest: Any) target) => #f))
     (test-case "operational oracle checks unmodified raw calls over a finite token alphabet"

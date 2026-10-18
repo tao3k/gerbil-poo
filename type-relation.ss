@@ -173,14 +173,11 @@
       ((List Tuple Pair Map Sum Record Object Function CaseFunction) #t)
       (else #f)))))
 
-;; A keyword source can consume a positional target's unchanged raw row only
-;; when every SUPPLIED target Type excludes outer protocol tokens. Conversely,
-;; a positional source's first clause must accept all raw tokens above the target
-;; region's minimum length: Any fixed inputs and unbounded Any rest. Escapes may
-;; add tokens, so use decoded positions + twice the supplied key count, without
-;; assuming the optional #!rest marker is present. No optional keyword
-;; is dropped, and literal protocol tokens never enter the Type-expression checker.
-(def (function-wire-related? actual expected arguments source-mode? target-mode? work)
+;; Keyword sources require stable supplied target carriers as before. For a
+;; positional source, a direct minimum row has no keys or escapes and uses normal
+;; variance. Other raw spellings require Any only at SUPPLIED source positions:
+;; fixed/optional clauses and shadowed later cases retain their actual semantics.
+(def (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments direct? work)
   (work)
   (if source-mode?
     (let (stable #t)
@@ -189,12 +186,14 @@
           (unless (keyword-stable-type? formal work) (set! stable #f))
           formal))
       stable)
-    (let (row (signature.decode-arguments arguments target-mode?))
-      (and (null? (.get actual keywords)) (null? (.get actual required-keywords))
-           (eq? (.get actual rest) 'Any)
-           (<= (length (.get actual inputs)) (+ (length (car row)) (* 2 (length (cdr row)))))
-           (andmap (lambda (formal) (work) (eq? formal 'Any))
-             (append (.get actual inputs) (.get actual optional)))))))
+    (or direct?
+      (let (universal #t)
+        (signature.normalize-arguments actual raw-arguments #f
+          (lambda (formal _placeholder)
+            (work)
+            (unless (eq? formal 'Any) (set! universal #f))
+            formal))
+        universal))))
 
 ;; Decide shape-language inclusion in the bounded finite algebra. This checks
 ;; all allowed supplied rows, not Type inclusion or arbitrary host procedure arity.
@@ -207,32 +206,32 @@
                (memq (car left) '(Function CaseFunction)) (memq (car right) '(Function CaseFunction)))
     (refuse-type 'bounds "Call coverage requires Function signatures"))
   (signature.covers-signatures? (function-signatures left) (function-signatures right) work
-    (lambda _ #t) (cut function-wire-related? <> <> <> <> <> work)))
+    (lambda _ #t) (cut function-wire-related? <> <> <> <> <> <> <> work)))
 
 ;; First-match selection determines BOTH sides of every row. Required/optional/
 ;; rest and provided keyword inputs are contravariant; exact-count outputs are
 ;; covariant. Shadowed later cases cannot repair an earlier incompatible clause.
 (def (function-replaces? source target work)
   (signature.covers-signatures? (function-signatures source) (function-signatures target) work
-    (lambda (actual expected arguments source-mode? target-mode?)
+    (lambda (actual expected arguments source-mode? target-mode? _raw-arguments direct?)
       (work)
       (and (= (length (.get actual outputs)) (length (.get expected outputs)))
            (andmap (lambda (s t) (compare-types s t work)) (.get actual outputs) (.get expected outputs))
-        ;; The cross-mode positional source was separately proved Any above
-        ;; every target raw minimum, independent of key order and escape spelling.
-        ;; Target encoding includes literal keys/escapes, which are VALUES, not
-        ;; Type terms. Universality admits them without pretending they are Types.
-        (or (and (not source-mode?) target-mode?)
-          (let ((accepted #t)
-                (supplied (signature.normalize-arguments expected arguments target-mode?
-                  (lambda (formal _placeholder) formal))))
+        ;; Non-direct raw regions were checked Any at every supplied position.
+        ;; Direct regions decode to the original positional row; extract those
+        ;; Types without passing the encoder's literal #!rest into comparison.
+        (or (and (not source-mode?) target-mode? (not direct?))
+          (let* ((accepted #t)
+                 (normalized (signature.normalize-arguments expected arguments target-mode?
+                   (lambda (formal _placeholder) formal)))
+                 (supplied (if direct? (car (signature.decode-arguments normalized target-mode?)) normalized)))
             (signature.normalize-arguments actual supplied source-mode?
               (lambda (formal value)
                 (work)
                 (unless (compare-types value formal work) (set! accepted #f))
                 value))
             accepted))))
-    (cut function-wire-related? <> <> <> <> <> work)))
+    (cut function-wire-related? <> <> <> <> <> <> <> work)))
 
 ;; Compile a checked ground expression through existing recursive container and
 ;; Function validators. Wrapping remains at validate/contract boundaries, so this
