@@ -99,7 +99,7 @@
                       (body
                        (if combination
                          (with-syntax ((combine combination)
-                                       (row (call<-formals #'(list selfvar ...) #'formals)))
+                                       (row (call<-formals #'(list selfvar ...) #'formals #t)))
                            ;; Core list/apply constructs the complete resolved row
                            ;; directly. Preserve combine-expression, lookup and
                            ;; procedure-check order before invoking the combiner;

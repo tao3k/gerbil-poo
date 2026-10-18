@@ -196,3 +196,100 @@ shared measurement entry now lives in ~t/closure-measure.ss~, so six consumers
 avoid importing the unrelated metadata publication workload solely to measure.
 The standard ~std/make~ executable scope passed within the unchanged 90-second
 fence after that dependency closure was reduced; failed builds remain failures.
+
+* Fixed-prefix generic assembly and complete controls
+
+The immediately preceding combined generic used ~apply list~ to construct its
+resolved row. The candidate emits the statically known prefix with core ~cons~
+and copies the rest spine with standard ~append~ and an empty final argument.
+Combiner selection, fragment lookup and procedure admission remain in order;
+callbacks own the complete row. Tail mutation and replay are regression-tested.
+
+The final source/binary-bound study completed and replayed all 720 fresh children:
+15 scopes, both GC regimes, four ABBA rounds and two exact A/A comparisons.
+Hot/transport scopes use 131,072 operations; complete workflow scopes use 1,024;
+the separate factory-only scope uses 16,384. Conditioned scopes execute both
+controls 128 times before the common all-control prefix. Single-operation
+allocation controls remain separate and unchanged. Every child retains its 20s
+and 1GiB fences; the complete study retains 300s. Real progress is emitted after
+each 24 completed children, outside measurement.
+
+Both summary and charge in the full-chain reference use the immediately previous
+lowering. Both named factories share the same native FUN Reader macro; its explicit
+charging-generic form keeps core callees statically known. Family/C3 assembly is
+outside these timed scopes. The earlier 672-child study is retained separately:
+its workflow reference changed only summary transport, so it is not substituted
+for the final complete-chain comparison.
+
+All deltas below are *production minus reference*, CPU microseconds/operation.
+GC and residual columns are medians of paired differences; their independent
+medians need not sum to the CPU median. Residual is CPU minus reported GC CPU,
+not an attribution to a particular instruction or module.
+
+| Scope | Regime | CPU delta | GC delta | Residual delta |
+|-------+--------+-----------+----------+----------------|
+| Isolated transport | natural | -0.18120 | -0.13464 | -0.04599 |
+| Isolated transport | collected | -0.14244 | -0.10789 | -0.03454 |
+| Hot generic | natural | -0.10335 | -0.07880 | -0.02538 |
+| Hot generic | collected | -0.22040 | -0.17176 | -0.05183 |
+| Retained workflow | natural | -6.25293 | -2.22412 | -4.02881 |
+| Retained workflow | collected | -6.13477 | -1.43018 | -4.70459 |
+| Factory plus invocation | natural | -0.05859 | -1.10596 | +1.04736 |
+| Factory plus invocation | collected | +7.73291 | +2.08203 | +5.65088 |
+| Conditioned hot | natural | -0.18984 | -0.13946 | -0.05038 |
+| Conditioned hot | collected | -0.22066 | -0.16112 | -0.05181 |
+| Conditioned retained workflow | natural | -5.09570 | -2.22314 | -2.87256 |
+| Conditioned retained workflow | collected | -1.01904 | -0.25293 | -0.76611 |
+| Conditioned factory plus invocation | natural | +4.79199 | +0.16748 | +4.62451 |
+| Conditioned factory plus invocation | collected | -3.95410 | -3.36133 | -1.32471 |
+
+The isolated transport improved in all eight main pairs; its smallest CPU gain
+(0.09711us) exceeds the largest absolute corresponding A/A observation (0.08871us).
+This is local CPU evidence beyond allocation alone. Unconditioned hot calls also
+improved in all eight main pairs, but individual hot A/A observations overlap the
+main spread; conditioned natural hot calls retain one adverse pair. No universal
+latency guarantee is admitted.
+
+Complete-workflow A/A medians reach 10.87988us (retained) and 11.77588us
+(factory plus invocation), comparable to or larger than the apparent differences.
+The collected construction regression includes 5.65088us of residual CPU: it
+cannot be explained by subtracting GC alone. Conditioning changes the direction
+of construction differences, but does not establish identical heaps or causality.
+Factory-only production CPU is 0.22311/0.23734us in natural/collected mode, versus
+roughly 98--116us for the complete scopes. Its paired differences are inconclusive;
+these independently measured medians must not be subtracted to invent a precise
+construction/body split. End-to-end regression closure remains unadmitted.
+
+Collection-free allocation controls report 480 fewer bytes for the generic row,
+zero factory-only difference and 576 fewer bytes for construction plus invocation.
+Batch allocation crossing collection stays unavailable. Source-level Lean laws
+prove complete-row equality and arbitrary-monad substitution; the cost threshold
+prices rest copying, apply/list redistribution, setup and GC separately. They do
+not establish Gambit allocation, collector behavior or compiler/CPU correctness.
+
+Earlier failed dynamic keyword forwarding and stale numbered AOT runs remain
+failures. Interrupted builds also left four unowned object locks: repeated waits
+were traced to the release compiler's lock loop, checked with process inspection
+and lsof, then the four locks/partial objects were moved locally and regenerated.
+The same 90s build fence then passed. The unrelated older lock was left alone.
+Full raw studies, generated objects and temporary diagnostics remain outside Git;
+no versioned JSON, full benchmark dataset or compressed archive is added.
+
+Host snapshots still showed external compiler activity before and after the final
+study (four/three active compilers, aggregate 79.6/144.4 percent CPU at those two
+snapshots). Our own compilation was stopped for the timed study. These endpoint
+snapshots do not reconstruct the intervening load, so no isolated-host claim is
+made and the A/A spread remains part of the reported evidence.
+
+Functional acceptance for this change: all 17 compilation groups completed under
+the original per-group bounds. The contracts group first hit 180s near its final
+module; its completed AOT work was retained, audited, then the complete group
+returned normally on the bounded resume. The original batch failure marker remains
+in the local receipt. Final AOT admission found 651 generated intermediates with
+no missing current objects; the remaining older numbered example object was moved
+locally before loading. The single-process full suite then exited naturally with
+103 unique modules, 748 cases, zero errors/warnings, wall 206.11s (user 21.52s,
+system 2.63s), within 300s/1GiB. All 306 tracked Scheme source hashes remained frozen.
+Payload values retain their identities; argument spines are copied. Earlier
+summary callback effects remain visible if a later replay admission fails, while
+charging runs only after every summary succeeds. This is not a transaction claim.

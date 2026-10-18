@@ -22,35 +22,54 @@
     (cons (lambda (next)
       (lambda (view args) (callback (car args) view) (next view args))) builders)) suffix methods))
   ((apply compose1 builders) (lambda (_ __) (void))))
-;; Historical bridge, retained only as an independent same-binary study control.
-;; Both variants use identical core formals and the public production combiner.
-(def (reference-combine combine fragments)
-  (unless (procedure? combine) (error "generic combination must be a procedure"))
-  (lambda arguments (combine fragments arguments)))
 ;; A finite row oracle keeps false and escaped keyword data observable.
 (def (row-combination fragments row)
   (and (eq? fragments 'parts) (equal? row '(label: #f #!rest 3 #f payload: #f))))
 ;; Actual production lowering exercises canonical keyword/rest row construction.
 (.defgeneric (direct-row self required (optional #f) label: (label #f) . rest)
   slot: .parts combination: row-combination)
-;; Previous lowering over the exact same formal bindings and fragment lookup.
+;; Immediately preceding apply/list lowering, with identical selection, lookup,
+;; admission and core bindings. Compare one change, not accumulated optimizations.
 (def (reference-row self required (optional #f) label: (label #f) . rest)
-  (apply (reference-combine row-combination (.ref self '.parts))
-    label: label #!rest required optional rest))
+  (let* ((combine row-combination) (parts (.ref self '.parts)))
+    (unless (procedure? combine) (error "generic combination must be a procedure"))
+    (combine parts (apply list label: label #!rest required optional rest))))
 ;; Previous contracted type-provided generic, without a substitute interpreter.
 (def (reference-summary account (required :~ fixnum?)
     (optional required :~ fixnum?) label: (label #f) . rest)
-  (apply (reference-combine (simple-combination combination.collect)
-           (.ref (.get account .type) '.summary))
-    label: label #!rest account required optional rest))
+  (let* ((combine (simple-combination combination.collect))
+         (parts (.ref (.get account .type) '.summary)))
+    (unless (procedure? combine) (error "generic combination must be a procedure"))
+    (combine parts (apply list label: label #!rest account required optional rest))))
+;; Isolate parameter transport from object lookup, method selection and factories.
+;; Both paths copy the rest spine and demand the same exact row oracle.
+(def (reference-transport rest)
+  (row-combination 'parts (apply list label: #f #!rest 3 #f rest)))
+;; This is the fixed prefix emitted by the production macro, using core cons and
+;; append only; append's final empty list makes the callback's rest spine private.
+(def (direct-transport rest)
+  (row-combination 'parts (cons label: (cons #f (cons #!rest (cons 3 (cons #f (append rest '()))))))))
 ;; Match the production named factory boundary as well as its native FUN syntax.
 ;; Inlining only the reference factory would confound construction measurements.
 (def (reference-summary-action family units)
-  (service.summary-observation family units reference-summary))
+  (service.summary-observation family units reference-summary reference-charge))
+;; The second generic in the complete workflow also retains its preceding row
+;; lowering. Fixed arity previously used core list, not the variadic apply route.
+(def (reference-charge account units)
+  (let* ((combine standard-combination)
+         (parts (.ref (.get account .type) '.charge)))
+    (unless (procedure? combine) (error "generic combination must be a procedure"))
+    (combine parts (list account units))))
 ;; Measure only the bridge or the complete Reader/reflection/C3 workflow. Each
 ;; fresh child constructs and warms all four controls in the same order. No setup,
 ;; GC count or callback history is chosen after seeing the measured side.
 (def (generic-workload scenario)
+  (def conditioned? (memq scenario '(generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned)))
+  (def kind (case scenario
+    ((generic-hot-conditioned) 'generic-hot)
+    ((generic-workflow-conditioned) 'generic-workflow)
+    ((generic-construction-conditioned) 'generic-construction)
+    (else scenario)))
   (def receiver (.o (.parts 'parts)))
   (def calls 0)
   ;; A bounded counter forces callbacks; each complete operation resets it.
@@ -62,20 +81,29 @@
           (lambda () (service.typed-summary-action family 2))))
   (def held #f)
   (def actions
-    (if (eq? scenario 'generic-factory-allocation)
+    (if (eq? kind 'generic-transport)
+      (map (lambda (transport) (lambda () (transport '(payload: #f))))
+        (list reference-transport direct-transport))
+    (if (memq kind '(generic-factory generic-factory-allocation))
       (map (lambda (make-action)
         (lambda () (set! held (make-action)) (procedure? held))) makers)
-    (if (memq scenario '(generic-workflow generic-construction generic-construction-allocation))
+    (if (memq kind '(generic-workflow generic-construction generic-construction-allocation))
       (map (lambda (make-action)
         (def prepared (make-action))
         (lambda ()
           (set! calls 0)
-          (def action (if (memq scenario '(generic-construction generic-construction-allocation)) (make-action) prepared))
+          (def action (if (memq kind '(generic-construction generic-construction-allocation)) (make-action) prepared))
           (def observed (call/values (lambda () (action context)) list))
           (and (= calls 9) (equal? observed '(46 ((10 2 2 #f (payload: #f)))))))) makers)
       (map (lambda (invoke)
         (lambda () (invoke receiver 3 #f label: #f #!rest payload: #f)))
-        (list reference-row direct-row)))))
+        (list reference-row direct-row))))))
+  ;; Fixed all-control conditioning precedes the shared prefix and measured side.
+  ;; Natural GC is retained: this tests sensitivity to workload history, without
+  ;; claiming two separate processes have identical heaps or subtracting A/A noise.
+  (when conditioned?
+    (for* ((_ (in-range 128)) (action actions))
+      (unless (action) (error "conditioning oracle"))))
   (list (car actions) (cadr actions) (car actions) (cadr actions)))
 
 ;; Both implementations share callback identities and fully demanded return oracles.
@@ -103,7 +131,7 @@
 ;; The shared study retains the earlier continuation candidates as historical
 ;; controls; new generic scenarios compare the complete production bridge only.
 (def (workload scenario)
-  (if (memq scenario '(generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation))
+  (if (memq scenario '(generic-factory generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation))
     (generic-workload scenario) (combination-workload scenario)))
 ;; Validate CLI dimensions before using the shared 1GiB/fresh-process protocol.
 (def (main scenario-text regime-text side-text)

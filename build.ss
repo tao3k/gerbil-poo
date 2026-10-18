@@ -217,9 +217,13 @@
 ;; path; all functional test scopes and their complete inventories stay unchanged.
 (defbuild-script
   (if (equal? scope "combination")
-    `((exe: "t/combination-benchmark"
+    ;; Imported .ssi files alone do not make std/make revisit changed dependency
+    ;; sources. Include the ordinary library graph before linking the benchmark,
+    ;; so the child and source-driven driver share one current cases definition.
+    (append (filter (lambda (entry) (not (equal? entry "t/combination-benchmark")))
+              +gerbil-poo-build-spec+) `((exe: "t/combination-benchmark"
         "-ld-options" ,(getenv "GERBIL_CLOSURE_LD_OPTIONS"
-          (cond-expand (darwin "-L/opt/homebrew/opt/openssl@3/lib") (else "")))))
+          (cond-expand (darwin "-L/opt/homebrew/opt/openssl@3/lib") (else ""))))))
     (append (if (equal? scope "tests") [] +gerbil-poo-build-spec+)
       (map path-strip-extension selected-tests)))
   bindir: (path-expand ".build/combination")

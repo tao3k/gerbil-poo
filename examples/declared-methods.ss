@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
+(export replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
         (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
@@ -66,17 +66,22 @@
 ;; default/keyword lowering without an additional runtime forwarding closure.
 ;; Capture family and units exactly once before building the ordinary FUN chain.
 ;; Reflection is current on every call; refusal prevents summary and charge bodies.
-(defrule (summary-observation family units generic)
+;; The four-argument form also selects a statically known charging generic, so a
+;; different charging policy shares the complete Reader chain without an indirect
+;; optional/keyword call or a duplicated workflow implementation.
+(defrules summary-observation ()
+ ((_ family units generic) (summary-observation family units generic charge))
+ ((_ family units generic charging)
   (let ((owner family) (count units))
     (.call gp.Observation. .bind
       (lambda (context) (make-account owner (.@ context rate)))
       (lambda (account)
         (.call gp.Observation. .map
-          (lambda (summary) (values (charge account count) summary))
+          (lambda (summary) (values (charging account count) summary))
           (lambda (_context)
             (read-slot owner '.summary)
             (read-slot owner '.charge)
-            (generic account count label: #f #!rest payload: #f)))))))
+            (generic account count label: #f #!rest payload: #f))))))))
 
 ;; Bind the statically known contracted call before crossing the Reader boundary.
 ;; The native macro adds no runtime adapter or reimplementation of defaults.
@@ -96,6 +101,26 @@
 ;; is read again on retry, and refusal stops before any summary/charge body.
 (def (configured-summary-action family units)
   (summary-observation family units configured-summary))
+
+;; Replay resolved required/optional/label bindings and one structured payload.
+;; reads current metadata and selects the current combiner; caller request spines
+;; are never handed to callbacks. Refusal stops the batch before charging, and a
+;; retry uses the new context rather than retaining a prior result or admission.
+(def (replayed-summary-action family units requests)
+  (.call gp.Observation. .bind
+    (lambda (context) (make-account family (.@ context rate)))
+    (lambda (account)
+      (.call gp.Observation. .map
+        (lambda (summaries) (values (charge account units) summaries))
+        (lambda (_context)
+          (map (lambda (request)
+            (read-slot family '.summary)
+            (read-slot family '.charge)
+            ;; Keep the contracted callee, arity and keyword statically known.
+            ;; The message is one argument, even if it contains keyword data.
+            ;; This pattern does not emulate core defaults or keyword dispatch.
+            (match request ([required optional label payload]
+              (configured-summary account required optional label: label #!rest payload)))) requests))))))
 
 ;; Four first-class prototype layers assemble Reader actions without executing
 ;; them. Approval and reflected policy precede the typed generic; tag/observation

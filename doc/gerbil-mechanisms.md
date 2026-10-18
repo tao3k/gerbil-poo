@@ -756,3 +756,63 @@ is checked after executable construction, since that compiler route regenerates
 Scheme intermediates without refreshing their separately loaded module objects.
 The indirect-optional-call regression, executable build timeouts and initial
 asymmetric-constructor study are retained locally.
+
+## Fixed generic prefixes and replay ownership
+
+Combined `.defgeneric` now emits core `cons` for its statically resolved prefix,
+then uses standard `append` with an empty final argument to copy the rest spine.
+Core formal projection still supplies keyword source order, defaults, contracts,
+the receiver and `#!rest` placement. Selection, raw lookup and procedure admission
+still happen before constructing the row. No combiner or metadata is cached.
+
+`replayed-summary-action` composes the existing FUN Reader bind/map, current
+reflection, configurable combination and shared-C3 charge. Two replay entries may
+alias one caller list: mutating a callback's tail cannot corrupt either entry or
+a later retry. Hidden metadata refuses before charging; retry reads fresh context.
+This continues generalized MOP future work. Lean's matching pure laws establish
+row values, composition and arbitrary-monad substitution. Mutable identity,
+procedure contracts and actual latency are separate Scheme checks.
+
+The paired benchmark compares the immediately preceding `apply list` lowering,
+not the older variadic relay. It separately measures pure transport, hot generics,
+retained complete actions and construction plus invocation. Fixed conditioning
+runs both controls 128 times before the shared prefix, without forcing GC in
+natural mode. This measures history sensitivity, not equal heap contents.
+Exact A/A duplicates, both GC regimes and signed GC/residual CPU deltas remain.
+Every 24 completed children produces real progress outside the measured interval.
+The `combination` build scope includes the standard library graph before linking,
+so changed imported cases cannot silently survive behind an old `.ssi` file.
+
+Local validation also exposed historical numbered Gambit objects shadowing newer
+`.o1` output (for example, an old `.o42` hid the new example export). Conflicting
+generated objects were moved to a local temporary directory before retrying.
+A further negative control rejected forwarding a complete dynamic keyword row
+into a contracted optional generic. The replay example therefore supplies resolved
+required/optional/label fields with a statically known callee and keyword; Gerbil
+still performs the actual type checks and call lowering. No POO signature parser
+or replacement default evaluator is introduced. Both failed runs remain failures.
+
+The executable workload counts were calibrated before the first admitted paired
+run: complete workflow scopes use 1,024 invocations (previously 256), while hot
+calls and isolated transport use 131,072. A 128-round all-control conditioning
+prefix keeps the full expanded study within its unchanged 300-second fence.
+This is a fixed workload-history control, not an adaptive warmup or best-of run.
+The replay example has four resolved fields and one structured message argument;
+it does not advertise arbitrary dynamic splicing through core contract wrappers.
+
+The final study adds a separate 16,384-operation factory-only CPU scope while
+retaining all one-operation allocation controls. Its complete-workflow reference
+uses the immediately preceding lowering for both summary and charge. The existing
+`summary-observation` macro accepts an explicit statically known charging generic;
+its ordinary form still selects `charge`. Both benchmark factories therefore use
+one FUN chain, matching factory boundaries and core call conventions throughout.
+The earlier 672-child study is retained separately; its workflow control changed
+only summary transport and is not substituted for this stronger full-chain control.
+
+Repeated local executable timeouts were traced to four empty static-object lock
+files left by the interrupted build, not evidence that all repeated work was CPU
+compilation. The release compiler waits for an existing lock without recording a
+PID. Process inspection and `lsof` confirmed no holder; only those four locks and
+possibly partial objects were moved to a temporary directory and regenerated.
+The unrelated older lock was left alone. No deadline was widened, no compiler
+source was modified, and failed or interrupted runs were not admitted as passes.

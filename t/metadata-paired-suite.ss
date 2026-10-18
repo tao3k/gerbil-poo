@@ -149,7 +149,8 @@
         (child scenario regime side repetitions metrics raw-allocation prefix)
         (metrics cpu wall gc-cpu collections bytes-or-false) (prefix-metrics collections allocation-counter post-gc-counter)
         (toolchain ,(gerbil-version-string) ,(system-version-string))))
-      (for (key (expected-order))
+      (def order (expected-order))
+      (for ((key order) (index (in-range (length order))))
         (match key ([scenario regime round pair-index position]
           (def side (list-ref ((setting 'side-order) round (list-ref (setting 'pairs) pair-index)) position))
           (try
@@ -158,6 +159,12 @@
             (unless (= status 0) (error "paired child failed" status stdout))
             (def datum (call-with-input-string stdout read-one))
             (emit (list->vector (append key (list datum))))
+            ;; Report completed observations outside child timing, never a timer
+            ;; heartbeat. Interrupted runs retain their exact last completed row.
+            (when (zero? (modulo (1+ index) 24))
+              (displayln "PAIRED-PROGRESS " (1+ index) "/" (length order)
+                " " scenario "/" regime)
+              (force-output))
             (catch (cause) (emit `(failed ,key ,(object->string cause))) (raise cause))))))
       (check-sources! identities)
       (unless (equal? binaries (source-digests (list binary))) (error "paired binary changed"))

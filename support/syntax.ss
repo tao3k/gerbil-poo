@@ -12,7 +12,7 @@
   ;; source keyword order separately; table enumeration would change call syntax.
   ;; POO adds only its leading receiver and #!rest escape: keyword-valued positional
   ;; data stays positional, no runtime parser is added, and apply is used for rest.
-  (def (call<-formals prefix formals)
+  (def (call<-formals prefix formals (row? #f))
     (defvalues (head rest) (syntax-split-splice formals 0))
     (unless (or (stx-null? rest) (identifier? rest)) (error "Invalid formals" formals))
     (def bound (signature-arguments-out head))
@@ -30,5 +30,14 @@
                       ((escape ...) (if (pair? keywords) #'(#!rest) []))
                       ((tail ...) (if (identifier? rest) [rest] []))
                       ((apply* ...) (if (identifier? rest) #'(apply) [])))
-          #'(apply* ... target keyword ... escape ... leading ... positional ... tail ...)))
+          (if row?
+            ;; The fixed prefix is known at expansion time. Standard append
+            ;; copies the rest spine before callbacks can mutate their owned row;
+            ;; nested cons avoids runtime apply/list argument redistribution.
+            (foldr (lambda (value tail)
+                     (with-syntax ((value value) (tail tail)) #'(cons value tail)))
+              (if (identifier? rest)
+                (with-syntax ((rest rest)) #'(append rest '())) #''())
+              (syntax->list #'(keyword ... escape ... leading ... positional ...)))
+            #'(apply* ... target keyword ... escape ... leading ... positional ... tail ...))))
       (map (lambda (binding) (if (stx-keyword? binding) (syntax-e binding) binding)) bound))))

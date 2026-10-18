@@ -79,6 +79,15 @@
       (check (apply boundary-call self supplied) => #f)
       (check-equal? supplied '(label: #f #!rest 3 #f payload: #f))
       (check (eq? (car frames) (cadr frames)) => #f)
+      ;; Mutate the copied rest spine, not merely the newly constructed prefix.
+      ;; A later replay must still see the caller's original escaped payload.
+      (.set! self combiner (lambda (_ row)
+        (check-equal? row '(label: #f #!rest 3 #f payload: #f))
+        (set-car! (list-tail row 5) 'private)
+        (set-cdr! (list-tail row 5) []) #t))
+      (check (apply boundary-call self supplied) => #t)
+      (check (apply boundary-call self supplied) => #t)
+      (check-equal? supplied '(label: #f #!rest 3 #f payload: #f))
       (.set! self combiner #f)
       ;; Invalidate the cached slot too: invalid combiners must still demand it.
       (.setslot! self .parts ($computed-slot-spec (lambda (_ inherited) (record-event 'lookup) 'parts)))
@@ -94,6 +103,32 @@
       (set! events [])
       (check-exception (boundary-call self 2) (lambda (actual) (eq? actual cause)))
       (check-equal? events []))
+    (test-case "replayed Reader requests own rest rows across metadata refusal and retry"
+      (def events [])
+      ;; Preserve callback order and one shared C3 base, including the retry.
+      (def (record event) (set! events (cons event events)))
+      (def metadata-family (.declare MethodDeclaration. (.o)
+        (public .summary-combination (.o (type Any) (default (simple-combination combination.collect))))))
+      (def family (.mix metadata-family (service.make-reporting-family record)))
+      (def request (list 2 2 #f (list payload: #f)))
+      (def action (service.replayed-summary-action family 2 (list request request)))
+      (write-slot! family '.summary-combination (lambda (parts row)
+        (def result ((simple-combination combination.collect) parts row))
+        (set-car! (list-tail row 6) 'private)
+        (set-cdr! (list-tail row 6) [])
+        result))
+      (check-equal? (call/values (lambda () (action (.o rate: 10))) list)
+        '(46 (((10 2 2 #f ((payload: #f)))) ((10 2 2 #f ((payload: #f)))))))
+      (check-equal? request '(2 2 #f (payload: #f)))
+      (check-equal? (length (filter (cut eq? <> 'base) events)) 1)
+      (def metadata (cdr (assq '.summary-combination (reflect-slots family))))
+      (.setslot! metadata hidden ($constant-slot-spec #t))
+      (set! events [])
+      (check-exception (action (.o rate: 20)) Error?)
+      (check-equal? events [])
+      (.setslot! metadata hidden ($constant-slot-spec #f))
+      (check-equal? (car (call/values (lambda () (action (.o rate: 20))) list)) 86)
+      (check-equal? request '(2 2 #f (payload: #f))))
     (test-case "current declared combiner composes reflection Reader and shared C3 retry"
       (def events [])
       ;; Record every method separately from the current combination boundary.
