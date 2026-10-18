@@ -505,7 +505,7 @@ compiler, mutable-source atomicity or security proofs. No speedup is claimed.
 bind/map continuation tree per form. Preparation now captures one checked action
 per form; invocation uses the standard ordered traversal, then the same right-fold
 `append` to collect the complete entries. FUN `.map` connects these stages and
-`.bind` selects the one finalizer. The native Observation methods retain their
+`.bind` selects the one finalizer. The FUN Observation methods retain their
 standard Reader meaning. No callback or approval runs during preparation.
 
 The complete call path is static/spliced `declaration-forms` → captured actions →
@@ -739,7 +739,7 @@ with fresh children, natural/collected regimes, ABBA and exact A/A controls.
 Raw data remains ignored and source-bound. Results, including regressions, are
 reported separately; a source-operation saving alone is not a speedup claim.
 
-The shared higher-order boundary is the native `summary-observation` defrule,
+The shared higher-order boundary is the core `summary-observation` defrule,
 which binds owner/units once and retains the statically known contracted call. Passing
 the generic itself through an indirect optional/keyword/rest call failed the
 payload/default regression and was rejected; defaults are not emulated by POO.
@@ -822,8 +822,8 @@ source was modified, and failed or interrupted runs were not admitted as passes.
 `summary-observation` now fuses its environment-independent nested Reader into
 standard `Observation.` map. The current owner is reflected before summary and
 charge; core optional/keyword/predicate contracts and the complete generic row
-are unchanged. `call/values` preserves the single-summary-result boundary before
-charging. This is a use of the standard FUN instance, not an optimizer for an
+are unchanged. An ordinary single-value context preserves standard `compose`'s
+projection of additional results, rather than imposing a new arity check. This is a use of the standard FUN instance, not an optimizer for an
 arbitrary replacement of its `.bind` or `.map` methods.
 
 `reviewed-summary-action` composes a post-success review, with explicit packaging

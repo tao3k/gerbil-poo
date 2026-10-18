@@ -1,5 +1,5 @@
 (export method-declaration-test)
-(import :std/test :std/error ../object ../mop ../brace ../declaration ../method-declaration ../reflection
+(import :std/test :std/error :std/iter ../object ../mop ../brace ../declaration ../method-declaration ../reflection
         (only-in ../number Integer)
         ../recursive-declaration
         ../support/option
@@ -33,11 +33,11 @@
 (.defgeneric (score self value) slot: .score combination: (simple-combination combination.sum))
 ;; Explicit empty fragments provide the missing-slot default, not a method result cache.
 (.defgeneric (empty-score self value) slot: .score default: [] combination: (simple-combination combination.sum))
-;; A combined zero-argument function invokes its method; a legacy getter stays a getter.
+;; A combined zero-argument function invokes its method; a plain instance getter stays a getter.
 (.defgeneric (zero-score self) slot: .zero combination: (simple-combination combination.sum))
 ;; A rest argument row, including false, reaches the item unchanged.
 (.defgeneric (collect-score self . args) slot: .collect combination: (simple-combination combination.collect))
-;; Legacy property access keeps its previous zero-argument semantics.
+;; Instance property access follows its zero-argument slot protocol.
 (.defgeneric (label self) slot: label)
 ;; Genuine absence gets a default; nested computation errors must propagate.
 (.defgeneric (fallback self) slot: .missing default: 'fallback)
@@ -90,16 +90,25 @@
       (set! events [])
       (check-exception (failed (.o rate: 40)) (lambda (actual) (eq? actual cause)))
       (check-equal? (length (filter (cut eq? <> 'base) events)) 1))
-    (test-case "fused Reader retains summary arity refusal before charging"
+    (test-case "FUN Observation specifies its summary result context"
       (def family (service.make-reporting-family void))
       (def charges 0)
-      ;; This alternate callee exercises the public macro's exact result boundary.
-      (def (two-results account units label: (label #f) . rest) (values 'first 'second))
-      ;; Charge is observable only if the single-summary-value boundary accepts.
+      (def outputs [])
+      ;; Zero/single/multiple results use the declared ordinary value context.
+      (def (summary-results account units label: (label #f) . rest) (apply values outputs))
+      ;; A counter distinguishes result projection from new refusal or double work.
       (def (charging account units) (set! charges (+ charges 1)) 'charged)
-      (def action (service.summary-observation family 2 two-results charging))
-      (check-exception (action (.o rate: 10)) true)
-      (check-equal? charges 0))
+      (def action (service.summary-observation family 2 summary-results charging))
+      (for (results (list [] [#f] ['first] ['first 'second]))
+        (set! outputs results) (set! charges 0)
+        (def actual (call/values (lambda () (action (.o rate: 10))) list))
+        ;; Gerbil retains an opaque multiple-values carrier in this context.
+        ;; Compare its contents through the core values->list boundary rather
+        ;; than pointer identity of separately created opaque return carriers.
+        (check-equal? (car actual) 'charged)
+        (check-equal? (length actual) 2)
+        (check-equal? (values->list (cadr actual)) results)
+        (check-equal? charges 1)))
     (test-case "direct combined rows retain selection lookup defaults and multiple values"
       (def events [])
       ;; One log distinguishes selector failure, lookup failure and body execution.
@@ -420,7 +429,7 @@
         '(first second) 50))
       (check-equal? (score value 3) 5)
       (check-equal? (.@ value .public-slots) '(.score)))
-    (test-case "forwarding inner and Simula declarations use their native interpreters"
+    (test-case "forwarding inner and Simula declarations use the method-combination interpreters"
       (def events [])
       (def value (object<-declaration-forms MethodDeclaration. (.o)
         (list

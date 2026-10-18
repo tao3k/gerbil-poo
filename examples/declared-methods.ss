@@ -62,7 +62,7 @@
     (optional required :~ fixnum?) label: (label #f) . rest)
   from: type slot: .summary combination: (simple-combination combination.collect))
 
-;; Core defrule keeps the generic callee statically known, preserving its native
+;; Core defrule keeps the generic callee statically known, preserving its Gerbil core
 ;; default/keyword lowering without an additional runtime forwarding closure.
 ;; Capture family and units exactly once before building the ordinary FUN chain.
 ;; Reflection is current on every call; refusal prevents summary and charge bodies.
@@ -70,8 +70,9 @@
 ;; different charging policy shares the complete Reader chain without an indirect
 ;; optional/keyword call or a duplicated workflow implementation. This standard
 ;; Observation map fuses the environment-independent bind continuation: no nested
-;; Reader action is constructed during invocation. call/values preserves the
-;; summary's single-value boundary before charging and all final result values.
+;; Reader action is constructed during invocation. An ordinary let preserves
+;; standard compose's single-value context (including Gerbil result carriers),
+;; rather than imposing a stricter call/values consumer on the summary.
 (defrules summary-observation ()
  ((_ family units generic) (summary-observation family units generic charge))
  ((_ family units generic charging)
@@ -80,16 +81,16 @@
       (lambda (account)
         (read-slot owner '.summary)
         (read-slot owner '.charge)
-        (call/values (lambda () (generic account count label: #f #!rest payload: #f))
-          (lambda (summary) (values (charging account count) summary))))
+        (let (summary (generic account count label: #f #!rest payload: #f))
+          (values (charging account count) summary)))
       (lambda (context) (make-account owner (.@ context rate)))))))
 
 ;; Bind the statically known contracted call before crossing the Reader boundary.
-;; The native macro adds no runtime adapter or reimplementation of defaults.
+;; The core defrule adds no runtime adapter or reimplementation of defaults.
 (def (typed-summary-action family units)
   (summary-observation family units checked-summarize))
 
-;; Attach a post-success review through native FUN map. Its standard compose
+;; Attach a post-success review through FUN Observation map. Its standard compose
 ;; accepts one intermediate value, so call/values packages both results explicitly.
 ;; A review may reenter this action at a different context: each invocation owns
 ;; its account and argument row. Review failure preserves prior method effects;

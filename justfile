@@ -61,7 +61,7 @@ build:
 build-group group:
     GERBIL_BUILD_SCOPE=tests GERBIL_BUILD_TEST_GROUP={{ group }} GERBIL_BUILD_LIBDIR="$PWD/.ci-tests/{{ group }}/lib" {{ build-env }} gxi build.ss
 
-# Standalone native Scheme matrix; no companion checkout is required.
+# Standalone Scheme matrix; no companion checkout is required.
 benchmark-closure: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/closure
@@ -74,7 +74,7 @@ benchmark-closure-paired: build
     {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-paired t/closure-paired-benchmark.ss
     {{ platform-env }} gxi {{ test-runtime-options }} t/closure-paired-suite.ss .build/closure/closure-paired "{{ timeout-executable }}" .build/closure/closure-paired.scm
 
-# Native CPU/GC/allocation phases, with natural and pre-collected controls.
+# Gambit CPU/GC/allocation phases, with natural and pre-collected controls.
 benchmark-closure-phases: build
     mkdir -p .build/closure
     {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-phases t/closure-phases.ss

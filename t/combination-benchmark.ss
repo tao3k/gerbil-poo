@@ -44,8 +44,8 @@
 (def (direct-transport rest)
   (row-combination 'parts (cons label: (cons #f (cons #!rest (cons 3 (cons #f (append rest '()))))))))
 ;; The immediately preceding Reader chain uses the SAME current generic lowering
-;; and native contracts on both sides. Only continuation materialization differs;
-;; keeping the native callees static avoids keyword/default redispatch adapters.
+;; and core predicate contracts on both sides. Only continuation materialization differs;
+;; keeping the core callees static avoids keyword/default redispatch adapters.
 (defrules reference-summary-observation ()
  ((_ family units)
   (let ((owner family) (count units))

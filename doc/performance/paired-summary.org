@@ -294,7 +294,14 @@ Payload values retain their identities; argument spines are copied. Earlier
 summary callback effects remain visible if a later replay admission fails, while
 charging runs only after every summary succeeds. This is not a transaction claim.
 
-* Standard Reader completion with unchanged generic transport
+* Historical strict-summary candidate (rejected)
+
+The following 816-child receipt belongs to commit 277dbec. A later independent
+legacy control found that its explicit call/values consumer rejected additional
+summary results that standard compose projects in ordinary single-value context.
+That extra implicit result check is outside the selected FUN result protocol.
+The candidate is not adopted; its complete performance data and adverse
+observations remain historical evidence, not current production results.
 
 The standard summary Reader now fuses its environment-independent continuation
 through FUN map. Current reflection still precedes summary and charge. The
@@ -373,3 +380,78 @@ current-value retry and a conditional complete-budget threshold. Top-level examp
 cover nested forecast traces, refusal/retry and review failure. These do not prove
 native multiple-value ABI, mutable receiver identity, actual allocation, GC or CPU
 behavior. The integrated Reader/reflection MOP use remains article future work.
+
+* Current FUN Observation design
+
+The production workflow uses one standard FUN map, ordinary Gerbil result context
+and current method reflection. Functional tests specify result contents directly
+through core ~values->list~ for zero/single/multiple results and false data, with
+one charging effect. They contain no previous-chain implementation. The previous
+algorithm exists only in this paired measurement control. Production APIs have
+one implementation; comments name Gerbil core, FUN Observation and the actual
+method-combination module rather than an extra execution-category namespace.
+
+The final source/binary-bound run completed and strictly replayed all 816 fresh
+children with unchanged 306 tracked Scheme source hashes. The 17 scopes, fixed
+ABBA order, both A/A pairs, natural/collected modes, conditioned prefixes, 20s/1GiB
+children and 300s study fence are unchanged. This new receipt supersedes the
+strict-result candidate above; its allocation and timing values are not pooled.
+
+The following CPU microsecond deltas are production minus the adjacent reference.
+GC/residual columns are independently computed paired medians and need not add.
+AA max retains the largest individual identical-action CPU difference. Full
+workflow controls share the SAME current generic, contract and argument-row code;
+hot/transport controls separately compare the already implemented row lowering.
+
+| Scope | GC regime | CPU delta | GC delta | Residual delta | Adverse / 4 | AA max |
+|-------+-----------+-----------+----------+----------------+-------------+--------|
+| Transport | natural | -0.15289 | -0.11709 | -0.03578 | 0 | 0.03814 |
+| Transport | collected | -0.15563 | -0.11980 | -0.03582 | 0 | 0.01250 |
+| Hot generic | natural | -0.15441 | -0.11008 | -0.04471 | 0 | 0.25603 |
+| Hot generic | collected | -0.16993 | -0.12137 | -0.04856 | 0 | 0.04671 |
+| Conditioned hot | natural | -0.17143 | -0.12383 | -0.04767 | 0 | 0.03194 |
+| Conditioned hot | collected | -0.16655 | -0.12204 | -0.04429 | 0 | 0.06928 |
+| Retained workflow | natural | -2.47754 | -0.95312 | -1.36719 | 0 | 5.27441 |
+| Retained workflow | collected | +1.56543 | +1.21924 | +0.48096 | 4 | 13.76465 |
+| Factory plus invocation | natural | +1.49902 | +1.24658 | +0.23535 | 3 | 4.88184 |
+| Factory plus invocation | collected | -0.41064 | +0.17334 | -0.58398 | 2 | 7.32520 |
+| Conditioned retained workflow | natural | +0.63379 | +0.53711 | +0.08398 | 3 | 15.06250 |
+| Conditioned retained workflow | collected | -2.46875 | -0.82373 | -1.43750 | 1 | 12.55273 |
+| Conditioned factory plus invocation | natural | +1.27441 | +0.79297 | +0.50293 | 2 | 61.39355 |
+| Conditioned factory plus invocation | collected | +1.48193 | +0.82227 | +0.65967 | 3 | 7.53809 |
+
+Conditioned hot calls improve in every main pair; minimum gains are
+0.13664/0.15665us (natural/collected), above their corresponding individual A/A
+ranges. Collected unconditioned hot calls also exceed their A/A range; natural
+unconditioned hot calls still overlap history noise. These are local CPU results
+for row transport, not a new claim about the complete Reader workflow.
+
+Current action-factory CPU medians are 0.22607us in each GC mode, with zero
+single-operation allocation change. Receiver construction plus first type/rate
+reads has identical-action medians of 16.56445/15.97510us. These separately measured
+scopes do not establish an additive split of the 92--97us complete production
+workflows. Family/C3 source assembly stays outside these timing boundaries.
+
+Collection-free one-operation controls save 208 bytes in both retained workflow
+and factory-plus-invocation, in all eight pairs each. Row-only controls save 480
+bytes against their separate apply/list reference. Cross-collection batch bytes
+stay unavailable, and one-operation CPU is not admitted as a latency improvement.
+Complete-workflow CPU still has adverse pairs; regression closure remains open.
+
+The largest collected retained-workflow main discrepancy is +111.71777us:
+31.72070us GC and 79.99707us residual. Both sides record 90 collections and identical
+prefix counters. A conditioned natural construction A/A pair differs by 61.39355us,
+including 18.12109us GC and 43.27246us residual, again at 90/90 collections and equal
+recorded prefixes. These observations cannot be attributed to collection count
+alone. The endpoint snapshots show ten/seven external compiler/tool processes,
+125.3/93.6 percent aggregate CPU; they do not reconstruct the intervening load.
+No isolated-host or causal instruction-cost claim is made, and no adverse sample
+is removed to qualify a speedup.
+
+Final complete Scheme check: 651 current AOT intermediates, zero missing or shadowed
+objects; 103 modules/750 test cases, zero errors/warnings, natural exit zero,
+22.57s wall (18.82s user, 1.54s system), under the existing 300s/1GiB fence. The
+final executable and methods rebuilds retain their original 90s/180s bounds.
+Lean's full regular/stress gate after current-design naming cleanup passed all
+340 units/eight phases in 134.943s with automatic 14 jobs. Its laws remain finite
+semantic/cost-model results, not Gerbil runtime or compiler proofs.
