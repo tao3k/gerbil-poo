@@ -109,3 +109,23 @@ whole chain with FUN approval, shared inheritance, method qualifiers, metadata
 refusal and retry. The implementation lowers whole groups through Gerbil core
 binding/definition forms; repeated lexical aliases retain nested shadowing,
 receiver expressions are not silently cached, and empty groups do not read.
+
+## Core contract binders and generic forwarding
+
+Generic forwarding now delegates the whole formal projection and keyword split to
+Gerbil's public core signature/dispatch mechanisms at expansion time. For example:
+
+```scheme
+(.defgeneric (checked-summarize account (required :~ fixnum?)
+    (optional required :~ fixnum?) label: (label #f) . rest)
+  from: type slot: .summary combination: (simple-combination combination.collect))
+```
+
+Core `def` owns predicate checks and the dependent default. The forwarding body
+uses only resolved bindings and retains the standard keyword/`#!rest` escape.
+The existing `typed-summary-action` example combines this call with current
+reflection, both combination policies and FUN. Public-call `#!key`/`#!rest` data
+escapes remain supported; a formal `#!key` collector is still outside the generic
+protocol and refuses instead of being silently omitted. Unsupported projection
+and duplicate/bad binders refuse during actual expansion. This is Gerbil syntax,
+not an additional formal grammar attributed to the article's Racket implementation.

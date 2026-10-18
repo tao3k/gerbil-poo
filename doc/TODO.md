@@ -72,6 +72,10 @@ The prefixed binding follow-up lowers entire lexical/snapshot groups through cor
 binding and definition forms, retaining nested aliases, current reads and ordered
 snapshots. The same ledger records the whole FUN/reflection/combination workflow,
 regressions and ten binding/sequence laws, plus a rejected mutable-spine fold substitution.
+The generic forwarding follow-up delegates complete formal projection and keyword
+splitting to core signature/dispatch mechanisms at expansion time. Core contract
+binders now compose with current reflection, FUN and method policies; the ledger
+records complete-projection refusal, runtime controls and eight forwarding laws.
 This audit does not mark the open type/library/interpreter projects complete.
 
 ### Consolidated acceptance, not scenario accumulation

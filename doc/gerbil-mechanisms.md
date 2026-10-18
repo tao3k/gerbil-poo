@@ -593,3 +593,60 @@ Gerbil captures a list cell's tail before invoking its fold callback, whereas th
 existing prepared simple-item reducer reads that tail after the method/step.
 Callbacks can mutate the caller-owned method-list spine. Short-circuiting alone
 does not establish equivalence for that protocol, so its existing loop remains.
+
+### Complete generic formal projection through core signature and keyword mechanisms
+
+`support/syntax.call<-formals` no longer implements `parse-formal` and a recursive
+optional/keyword/rest grammar. Core `syntax-split-splice` separates the rest tail;
+public `signature-arguments-out` projects the identifiers owned by the enclosing
+core definition. Core `keyword-dispatch` partitions that syntax metadata at macro
+expansion time. Only a fresh mapped list spine is passed to its destructive
+argument traversal. No user argument list or formal syntax spine is rewritten.
+
+The ordered source keys are kept separately and restored through core table
+lookup, rather than hash enumeration. The standard alist encoder emits the same
+keyword prefix, followed by the existing `#!rest` shield and leading receiver,
+resolved positional values and rest data. No runtime parser, signature cache,
+second default evaluation or predicate wrapper is introduced by this helper.
+`from:type`, `from:instance`, missing-slot defaults and `combination:` retain their
+existing selection boundaries. A cardinality guard rejects incomplete core
+projections instead of silently emitting a shortened call. In particular the
+previously unsupported formal `#!key` collector still refuses; public-call escapes
+remain supported. Actual grammar/duplicate binding admission belongs to core.
+
+This also makes core predicate-contract binders usable by the generic frontend.
+Their checks and dependent defaults are entirely those of Gerbil's `def` contract
+mechanism; they do not replace POO's recursive Function normalization. The declared
+methods `checked-summarize` / `typed-summary-action` example composes current public
+reflection, core-checked typed/default/keyword/rest forwarding, a simple collection
+combination, FUN bind and standard qualified C3 charging. Refusal stops the suffix;
+metadata refusal wins before the explicit workflow calls the checked generic.
+Hiding/restoring metadata and changing context data exercises current retry.
+
+Three regression cases cover this complete workflow, body exception identity,
+default staging/counts, optional false refusal, keyword-valued data, from:instance
+fallback and from:type combination. Actual expansion controls distinguish valid
+contract/default forms from dropped metadata, duplicate labels/binders and the
+unsupported collector. Interleaved keyword/untyped positional formals remain
+admitted by ordinary core lambda. No contract/default expression runs during
+projection.
+
+Expansion probes use an isolated standard `let` definition body: core contract
+definitions emit declaration macros that are illegal in expression context.
+Positive controls retain actual legal expansion alongside the negative controls.
+
+Eight laws in the existing Lean FunctionSignature namespace establish ordered
+lookup restoration (including present false), exact absence, original binding
+reconstruction and resolved receiver/positional/rest forwarding, lengths and
+wrapper composition. Top-level DeclaredMethods examples connect the resulting
+frame to the existing combined method interpreter, including metadata/type
+refusal priority and retry. Already resolved bindings, supplied admission and
+stable metadata are premises; these laws do not verify Gerbil formal parsing,
+macro hygiene, predicate correctness, fixnum ranges or mutable dispatch. The
+nonnegative numeric fixture is not a model of every host value. This advances
+the article's type/metadata/MOP future work, not a new Racket formal syntax.
+
+The runtime Function decoder is retained: directly substituting keyword-dispatch
+there would rewrite its argument spine and lose source keyword order through table
+enumeration, affecting recursive validators. Its use here is safe precisely because
+it is confined to private syntax metadata and source order is explicitly restored.

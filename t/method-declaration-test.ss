@@ -28,6 +28,29 @@
 ;; Test actual assembled methods rather than expected constants injected into slots.
 (def method-declaration-test
   (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "core contracted forwarding composes current reflection and both method policies"
+      (def events [])
+      (def family (service.make-reporting-family (lambda (event) (set! events (cons event events)))))
+      (def action (service.typed-summary-action family 2))
+      (check-equal? events [])
+      (check-equal? (call/values (lambda () (action (.o rate: 10))) list)
+        '(46 ((10 2 2 #f (payload: #f)))))
+      (check-equal? (reverse events)
+        '(summary around-enter billing-before risk-before billing-primary base risk-after billing-after around-exit))
+      (set! events [])
+      (check-exception ((service.typed-summary-action family #f) (.o rate: 10)) contract-violation-error?)
+      (check-equal? events [])
+      (def descriptor (cdr (assq '.summary (reflect-slots family))))
+      (.setslot! descriptor hidden ($constant-slot-spec #t))
+      (check-exception (action (.o rate: 20)) Error?)
+      (check-exception ((service.typed-summary-action family #f) (.o rate: 20))
+        (lambda (cause) (and (Error? cause)
+          (equal? (error-message cause) "slot is hidden or undeclared"))))
+      (check-equal? events [])
+      (.setslot! descriptor hidden ($constant-slot-spec #f))
+      (check-equal? (call/values (lambda () (action (.o rate: 20))) list)
+        '(86 ((20 2 2 #f (payload: #f)))))
+      (check-equal? (length (filter (cut eq? <> 'base) events)) 1))
     (test-case "prefixed FUN workflow separates snapshots live aliases and current reflection"
       (def events [])
       (def family (service.make-family (lambda (event) (set! events (cons event events)))))

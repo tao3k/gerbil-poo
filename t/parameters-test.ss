@@ -6,11 +6,13 @@
         (prefix-in ../method-declaration methods.)
         (prefix-in ../method-combination combination.))
 
-;; Expand the real constructor macro, retaining a valid control for the same path.
+;; Expand real forms in an isolated standard definition body. Contract definitions
+;; emit declaration macros, so probing them as expressions would reject valid
+;; signatures before their own syntax checks. Keep positive controls on this path.
 (defsyntax (rejects? stx)
   (syntax-case stx ()
     ((_ form)
-     (try (core-expand #'form) #'#f (catch (_cause) #'#t)))))
+     (try (core-expand #'(let () form (void))) #'#f (catch (_cause) #'#t)))))
 
 ;; Defaults resolve once before instance-method dispatch, including false values.
 (.defgeneric (collect self required (optional #f) tag: (tag 'default) . rest) slot: collect)
@@ -29,6 +31,47 @@
 ;; Exercise complete public APIs, receiver sharing, mutation discipline and effects.
 (def parameters-test
   (test-suite "object syntax and positional specialization"
+    (test-case "core signature projection preserves contracts defaults and generic fallback"
+      (def events [])
+      ;; Both defaults and contracts execute only at the core call boundary.
+      (.defgeneric (checked self (required :~ fixnum?)
+          (optional (begin (set! events (cons 'default events)) required) :~ fixnum?)
+          tag: (tag #f) . rest) slot: collect)
+      (.defgeneric (checked-fallback self (required :~ fixnum?) (optional required :~ fixnum?))
+        slot: missing default: (lambda (a b) (+ a b)))
+      (def receiver (.o collect: (lambda (required optional tag: tag . rest)
+        (set! events (cons 'body events)) (values required optional tag rest))))
+      (check-equal? events [])
+      (check-equal? (call/values (lambda () (checked receiver 3 tag: #f #!rest payload: #f)) list)
+        '(3 3 #f (payload: #f)))
+      (check-equal? (reverse events) '(default body))
+      (set! events [])
+      (check-equal? (call/values (lambda () (checked receiver 3 7 tag: other:)) list)
+        '(3 7 other: ()))
+      (check-equal? events '(body))
+      (set! events [])
+      (check-exception (checked receiver #f 7) contract-violation-error?)
+      (check-exception (checked receiver 3 #f) contract-violation-error?)
+      (check-equal? events [])
+      (check-equal? (checked-fallback (.o) 3) 6)
+      (check-exception (checked-fallback (.o) #f 7) contract-violation-error?)
+      (def cause (list 'body-refused))
+      (check-exception (checked (.o collect: (lambda _ (raise cause))) 3 7)
+        (lambda (actual) (eq? actual cause))))
+    (test-case "core projection keeps interleaved keywords and refuses incomplete metadata"
+      ;; Untyped core lambda permits keywords between positional bindings.
+      (.defgeneric (interleaved self first: (first #f) x second: (second #f) (y #f) . rest)
+        slot: collect)
+      (def receiver (.o collect: (lambda (x y first: first second: second . rest)
+        (list x y first second rest))))
+      (check-equal? (interleaved receiver first: 'a second: 'b #!rest payload: #f trailing:)
+        '(payload: #f a b (trailing:)))
+      (check (rejects? (.defgeneric (valid self (x :~ fixnum?) (y x :~ fixnum?)) slot: collect)) => #f)
+      (check (rejects? (.defgeneric (lazy self (x (error "not expansion time"))) slot: collect)) => #f)
+      (check (rejects? (.defgeneric (bad self #!key keys) slot: collect)) => #t)
+      (check (rejects? (.defgeneric (bad self (x 1 unknown)) slot: collect)) => #t)
+      (check (rejects? (.defgeneric (bad self a: x a: y) slot: collect)) => #t)
+      (check (rejects? (.defgeneric (bad self x a: x) slot: collect)) => #t))
     (test-case "generic option lists delegate structure but retain duplicate and alias refusal"
       (check (rejects? (.defgeneric (option-control self x) slot: collect from: instance)) => #f)
       (check (rejects? (.defgeneric (bad self) slot:)) => #t)

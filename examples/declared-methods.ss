@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
+(export charge make-account make-family observation summarize checked-summarize typed-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
         (only-in ../reflection read-slot))
@@ -54,6 +54,28 @@
 ;; resolved value and the original receiver into the existing item combination.
 (.defgeneric (summarize account required (optional #f) label: (label 'default) . rest)
   from: type slot: .summary combination: (simple-combination combination.collect))
+
+;; Core predicate contracts guard resolved bindings; the dependent default belongs
+;; to the core definition, not the POO forwarder. Keywords and rest data retain the
+;; same call format as summarize, including false and literal keyword payloads.
+(.defgeneric (checked-summarize account (required :~ fixnum?)
+    (optional required :~ fixnum?) label: (label #f) . rest)
+  from: type slot: .summary combination: (simple-combination combination.collect))
+
+;; One current Reader context selects a fresh account. Public reflection precedes
+;; the typed generic; its successful summary then binds through FUN to the C3
+;; standard charge. Neither admission nor method results survive a later call;
+;; refusal stops the suffix, and restoring current metadata permits a fresh retry.
+(def (typed-summary-action family units)
+  (.call gp.Observation. .bind
+    (lambda (context) (make-account family (.@ context rate)))
+    (lambda (account)
+      (.call gp.Observation. .map
+        (lambda (summary) (values (charge account units) summary))
+        (lambda (_context)
+          (read-slot family '.summary)
+          (read-slot family '.charge)
+          (checked-summarize account units label: #f #!rest payload: #f))))))
 
 ;; Extend the shared diamond with one fragment and a private override of label.
 ;; Reflection must select this override before checking visibility, hiding the base.
