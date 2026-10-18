@@ -1,5 +1,26 @@
 # Method fragments in the declaration protocol
 
+## Prototype recipe composition
+
+`summary-prototypes` returns ordinary first-class prototype extensions, and
+`prototype-summary-action` assembles them over the existing typed summary and C3
+charge. Standard `reduce-right` owns long suffix reduction. The outer head is
+captured at construction; later suffix edits are selected on the next application.
+The small zero/one/two-layer paths retain their original capture behavior.
+
+The four Reader layers sequence approval and current reflected policy before
+the method workflow, then tag publication and observation after success. Hidden
+metadata refuses without caching an earlier admission. Restoring metadata and
+changing the offset permits a fresh retry. A post-result refusal retains earlier
+method effects. The finite-list contract rejects revised improper/cyclic suffixes;
+this is separate from unrestricted recursive fixed-point termination.
+
+Use typed defaults for a revisable policy, for example
+`(public offset (.o (type Integer) (default 1)))`. A `constant` declaration also
+constrains admission to that exact value; it is appropriate for the false tag,
+but correctly refuses an offset update. `write-slot!` validates the current
+descriptor before editing; a rejected false offset leaves the original value.
+
 ## Prepared whole-form expansion
 
 `batch-expander` and `batch-action` in `examples/declared-methods.ss` prepare one

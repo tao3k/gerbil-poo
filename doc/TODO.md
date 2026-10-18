@@ -76,6 +76,10 @@ The generic forwarding follow-up delegates complete formal projection and keywor
 splitting to core signature/dispatch mechanisms at expansion time. Core contract
 binders now compose with current reflection, FUN and method policies; the ledger
 records complete-projection refusal, runtime controls and eight forwarding laws.
+The prototype-list follow-up delegates complete long-suffix reduction to standard
+`reduce-right`, retaining small-chain identities and captured-head/current-suffix
+behavior. Its Reader/method workflow, finite-list laws and refusal controls are
+recorded in the same ledger; unrestricted fixed-point termination stays open.
 This audit does not mark the open type/library/interpreter projects complete.
 
 ### Consolidated acceptance, not scenario accumulation

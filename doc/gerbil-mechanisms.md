@@ -650,3 +650,47 @@ The runtime Function decoder is retained: directly substituting keyword-dispatch
 there would rewrite its argument spine and lose source keyword order through table
 enumeration, affecting recursive validators. Its use here is safe precisely because
 it is confined to private syntax metadata and source order is explicitly restored.
+
+### Complete prototype-list reduction through standard reduce-right
+
+`proto.compose-proto*` delegates the entire long suffix composition to public
+`std/list/list.reduce-right`, which uses its last element directly on nonempty
+lists. The zero/one/two-layer paths retain their original identities and capture
+timing. A longer chain captures its first layer at construction and retains the
+suffix spine; each application reduces the current suffix before any prototype
+body executes. Eagerly reducing at construction would lose later suffix edits.
+No extra identity composition, cached approval or second prototype engine is added.
+
+The reference equations and the standard source both select the complete proper
+suffix before body invocation. A callback editing a later source cell therefore
+changes the next application, not the current selected callbacks. The recipe spine
+must remain stable during selection; concurrent mutation during that selection is
+outside this protocol. All layers see
+the same final self; inherited values flow from the last layer to the first.
+Body exceptions retain identity and prevent the remaining outer bodies. The
+standard list contract also refuses an improper/cyclic revised suffix before body
+effects. Legacy error classes on malformed suffixes were not a typed-list law;
+they now follow that standard contract. Unrestricted `instantiate-proto` and its
+fixed-point termination are unchanged and not certified by finite reduction.
+
+`summary-prototypes` and `prototype-summary-action` in the existing declared-methods
+example build four ordinary Reader extensions over the existing typed summary/C3
+workflow: current approval, reflected rate offset, successful-result observation
+and reflected tag publication. False tags remain data. Hiding policy metadata
+refuses, restoring/changing it permits retry using fresh context, and failure of
+post-result metadata preserves prior method effects while preventing observation.
+Three regression cases cover this full path, zero/singleton/two-layer capture,
+lengths zero through eight, exact self, a historical independent reference,
+callback-driven suffix edits, cyclic suffix refusal and exception identity.
+
+Ten laws in the existing Lean `Prototype` namespace connect the finite optional
+right fold to `composeAll`, including singleton retention, cons, concatenation,
+same-self application and captured-head/current-suffix composition. Top-level
+DeclaredMethods examples assemble the same Reader layers over the earlier exact
+forwarded frame and method trace, with current-data retry and boundary refusals.
+Finite immutable list views, supplied metadata/admission and callback semantics
+are premises. Host pointer mutation/capture timing, core contracts and the standard
+reducer are exercised by Scheme controls, not proved by those list laws. The
+Except-based examples do not assert rollback or retain an error-state trace.
+This continues the article's generalized MOP future work without closing its
+unrelated TODO projects. No end-to-end performance claim is made.

@@ -1,8 +1,8 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize checked-summarize typed-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
+(export charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
-        (only-in ../reflection read-slot))
+        (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)
 ;; Two branches refine one shared base through ordinary inherited fragment slots.
@@ -76,6 +76,39 @@
           (read-slot family '.summary)
           (read-slot family '.charge)
           (checked-summarize account units label: #f #!rest payload: #f))))))
+
+;; Four first-class prototype layers assemble Reader actions without executing
+;; them. Approval and reflected policy precede the typed generic; tag/observation
+;; follow successful summary and C3 charging. Each invocation reads current Slot
+;; metadata. A later refusal retains earlier callback effects, without settlement.
+(def (summary-prototypes policy record)
+  (list
+    (lambda (family inherited)
+      (.call gp.Observation. .bind
+        (lambda (context)
+          (unless (.@ context approved) (error "current approval refused"))
+          (read-slot family '.charge)
+          (record 'approval) context)
+        (lambda (_) inherited)))
+    (lambda (_family inherited)
+      (lambda (context)
+        (record 'offset)
+        (inherited (.cc context 'rate (+ (.@ context rate) (read-slot policy 'offset))))))
+    (lambda (_family inherited)
+      (.call gp.Observation. .map
+        (lambda (result) (record 'observed) result) inherited))
+    (lambda (_family inherited)
+      (.call gp.Observation. .map
+        (lambda (result) (record 'tag) (cons (read-slot policy 'tag) result)) inherited))))
+
+;; Reuse the existing typed/default/keyword/rest workflow as the terminal action.
+;; Captured long-chain heads stay fixed; suffix edits are selected on the next
+;; application. Both returned values are retained with standard call/values.
+(def (prototype-summary-action family units layers)
+  (def program (compose-proto* layers))
+  (lambda (context)
+    ((program family (lambda (current)
+       (call/values (lambda () ((typed-summary-action family units) current)) list))) context)))
 
 ;; Extend the shared diamond with one fragment and a private override of label.
 ;; Reflection must select this override before checking visibility, hiding the base.
