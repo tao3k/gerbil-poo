@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -391,4 +391,28 @@
              (Function (UInt) (Any Any) optional: (Any Any Any))) KeywordPrefixCallback)
     (lambda (n)
       (values n (case-lambda ((value) (1+ value)) ((first second . rest) (+ 2 (length rest))))))
+    record))
+
+;; An Any-free raw callback language: values remain Integer, keyword/escape
+;; markers are finite Enums, and the five-token endpoint has exact slot origins.
+;; First-match case order keeps the typed endpoint ahead of the optional clause.
+(def KeywordValueCallback
+  '(CaseFunction (Function (UInt) (UInt))
+    (Function (UInt) ((Enum scale: #!key) Integer (Enum scale: #!key) Integer (Exactly #!rest)))
+    (Function (UInt) ((Union Integer (Enum scale: #!key #!rest))
+                     (Union Integer (Enum scale: #!key #!rest)))
+      optional: ((Union Integer (Enum scale: #!key #!rest))
+                 (Union Integer (Enum scale: #!key #!rest))))))
+;; Reuse residual parameter specialization, inference and typed declarations.
+;; The bad five-token payload candidate is rejected before the builder executes.
+;; The callback is genuinely Gerbil case-lambda; no unchecked forwarding shim.
+(def (infer-keyword-value-service (record void))
+  (infer-keyword-callback-service
+    (list `(CaseFunction (Function (UInt) (UInt))
+             (Function (UInt) ((Enum scale: #!key) Bool (Enum scale: #!key) Integer (Exactly #!rest)))
+             ,(cadddr KeywordValueCallback)) KeywordValueCallback)
+    (lambda (n)
+      (values n (case-lambda ((value) (1+ value))
+        ((first second . rest)
+         (if (= (length rest) 3) (abs (+ second (cadr rest))) (+ 2 (length rest)))))))
     record))

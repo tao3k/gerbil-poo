@@ -1,6 +1,6 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
-        type-expression substitute-type guarded-body? copy-type function-options map-function-types function-input-types map-sum-types map-type-children canonical-type)
+        type-expression substitute-type guarded-body? copy-type literal-type-value? function-options map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in :std/list/list delete-duplicates/hash) (only-in ./support/base require-value))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -27,6 +27,12 @@
 ;; Descriptor objects are compiled later and are not cached across publication.
 (def (copy-type term)
   (if (pair? term) (cons (copy-type (car term)) (copy-type (cdr term))) term))
+
+;; Only immutable scalar literals enter the decidable Exactly/Enum algebra.
+;; Protocol escapes stay literal metadata, never Type variables or recognizers.
+(def (literal-type-value? value)
+  (or (boolean? value) (exact-integer? value) (keyword? value)
+      (eq? value #!key) (eq? value #!rest)))
 
 ;; Read the existing Function constructor options as literal metadata. Omitted
 ;; options keep constructor defaults; duplicates and unknown options refuse.
@@ -70,6 +76,7 @@
 ;; markers or Mu binders/depth as Types. Canonical Map arrows share one shape.
 (def (map-type-children term transform)
   (case (car term)
+    ((Exactly Enum) term)
     ((Function) (map-function-types term transform))
     ((Sum) (map-sum-types term transform))
     ((Map)
@@ -118,10 +125,14 @@
   (let check ((value term) (variables variables))
     (work)
     (cond
-     (((one-of Any Never Bool Integer UInt) value) value)
+     (((one-of Any Never Bool Integer UInt Keyword) value) value)
      ((memq value variables) value)
      ((and (list? value) (pair? value))
       (case (car value)
+        ((Exactly Enum)
+         (unless (and (or (eq? (car value) 'Enum) (= (length value) 2))
+                      (andmap literal-type-value? (cdr value)))
+           (refuse-type 'unsupported "Exactly/Enum needs immutable scalar literals" value)))
         ((List Maybe)
          (unless (= (length value) 2) (refuse-type 'malformed "Unary Type needs one argument"))
          (check (cadr value) variables))
@@ -189,7 +200,7 @@
              (check (cadr tail) variables))))
         ((Mu)
          (unless (and (= (length value) 4) (symbol? (cadr value))
-                      (not (memq (cadr value) '(Any Never Bool Integer UInt List Maybe Tuple Pair Map Sum Union Record Function CaseFunction Object Row Mu)))
+                      (not (memq (cadr value) '(Any Never Bool Integer UInt Keyword Exactly Enum List Maybe Tuple Pair Map Sum Union Record Function CaseFunction Object Row Mu)))
                       (not (memq (cadr value) variables))
                       (exact-integer? (caddr value)) (<= 0 (caddr value) 16))
            (refuse-type 'malformed "Mu needs a fresh binder and depth in 0..16"))
@@ -210,6 +221,7 @@
     (list (car term)
       (map (lambda (field) (cons (car field) (cons (substitute-type (cadr field) substitution work) (cddr field)))) (cadr term))
       (if (pair? (caddr term)) (list 'Row (substitute-type (cadr (caddr term)) substitution work)) (caddr term))))
+   ((memq (car term) '(Exactly Enum)) term)
    ((eq? (car term) 'Sum) (map-sum-types term (cut substitute-type <> substitution work)))
    ((eq? (car term) 'Map)
     (list 'Map (substitute-type (cadr term) substitution work) (caddr term)

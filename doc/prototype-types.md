@@ -397,18 +397,21 @@ modes retain the original path. Different modes now have two sufficient rules:
   target clause must exclude outer keyword, `#!key` and `#!rest` tokens. UInt,
   Integer and Bool are stable. List/Tuple/Pair/Map/Sum/Object/Record/Function carriers
   are stable even with Any payloads; Maybe exposes its payload (plus ordinary void),
-  and Union requires every exposed alternative to be stable. Any is unsafe.
+  and Union requires every exposed alternative to be stable. Any supplies no outer-token stability witness.
   Ordinary input contravariance and exact-count output covariance still apply.
 - Positional source / keyword target: each selected target region with `n`
   positions and `k` keys generates the raw length interval `n+2k .. 2n+2k+1`.
   The upper endpoint includes escaping every position and a trailing `#!rest`.
-  Clamp raw lengths beyond the largest fixed prefix to its one rest representative;
+  The precision ceiling includes all bounded target raw spellings and all fixed
+  prefixes; only the remaining unbounded tail uses a stationary envelope.
   select the **actual first source clause by raw length** at each region. Fixed,
   optional and several ordered case-lambda clauses may jointly cover that interval.
   No source rest is needed when the target's raw language is bounded.
   A non-tail row of length `n` with no keys has no escapes: compare supplied input
-  Types by ordinary contravariance. Every other region requires Any only at
-  **supplied** source positions, not unused optional fields. Every selected pair
+  Types by ordinary contravariance. Other bounded rows trace each data origin
+  and exact protocol marker through the decoder grammar. UInt payloads can
+  therefore occupy Integer slots; marker slots use Keyword, Exactly or Enum.
+  Unused optional fields impose no obligation. Every selected pair
   retains exact-count covariant results. A failed first Type/result never falls
   through to another source case. Different target decoded cases may share one
   source raw arity: all those output obligations must hold independently.
@@ -470,10 +473,61 @@ across target cases, stationary rest refusal, nested callbacks/Map-key invarianc
 full publication and no-builder quota/failure paths. Its independent runtime oracle
 enumerates 1365 unmodified token rows, not the coverage algorithm's cells.
 
-This remains a conservative finite decision: non-direct regions require supplied
-Any positions even where a richer value-sensitive token analysis might succeed.
-Direct minimum rows use the existing finite Type algebra, not a new restricted-value
-subtyping engine. False means unproved coverage/replacement; malformed/unsupported
+This remains a conservative finite decision. Non-direct raw rows now use the
+value-sensitive traversal below; no Type is enlarged to Any to repair a refusal. False means unproved coverage/replacement; malformed/unsupported
 syntax and exhausted shared work retain their TypeRefusal causes. Shape coverage
 alone does not establish direct-row input variance; subtype replacement does.
 Neither incomplete region traversal nor failed/ambiguous inference enters a builder.
+
+
+## Value-sensitive raw rows
+
+`type-syntax.ss` admits existing `Keyword`, `(Exactly literal)` and `(Enum literal ...)`
+for immutable bool/integer/keyword/escape literals. These are metadata, not Type
+variables: normalization and prefix/residual substitution retain them unchanged.
+`expression-type` constructs the existing Type descriptors and validators. Enum
+literal lists are copied before entering lazy descriptor slots, so subsequent
+caller syntax mutation cannot alter the first literal-set observation. This
+validation grammar does not extend JSON encoding to escape-token values.
+
+`type-relation.ss` checks each bounded region against the actual first source
+case. A request-local standard hash table memoizes completed suffix decisions by
+remaining positional Types, remaining supplied key/Type entries and raw offset.
+Ordinary data consumes one slot; key-escaped data consumes two; a keyword consumes
+its exact label and its own payload Type; rest escape consumes its marker and the
+remaining positional suffix. All key orders participate, each key is removed on
+use, and infeasible suffix lengths are pruned **before** checking their prefixes.
+The shared work/depth limits remain mandatory. No defaults or inferred Any appear.
+
+The tail beyond every fixed prefix uses a conservative stationary envelope: each
+source position, including its rest Type, must include every remaining data and
+marker origin. An explicit `(Union Integer Keyword (Enum #!key #!rest))` can prove
+this without Any. Per-slot correlations in this tail, literal-sensitive ordinary
+value decoding, arbitrary predicates and maximal mixed-mode inclusion remain open.
+
+Only raw-origin admission compares identity-preserving flat scalar/literal Union
+alternatives extensionally. Public subtype/inference bounds retain ordered Union
+invariance, including flat Unions. Function/container/wrapper-bearing Union never
+uses this raw-only inclusion; earlier
+branch wrapping cannot silently replace later branch behavior. Ordinary Function
+inputs and exact-count outputs retain their existing variance rules.
+
+`KeywordValueCallback` and `infer-keyword-value-service` compose the Any-free
+five-token endpoint with original prefix specialization, complete unique inference,
+unified declarations and `catalog-service-action`'s FUN/refine/bind-evidence chain.
+`t/keyword-values-test.ss` independently enumerates 9331 raw rows of length at most
+five over numeric/false/key/escape values, retaining malformed/dangling/duplicate
+controls. It also checks two distinct key payload Types, exact labels, a required
+nested Function's two raw spellings, checked callback result failures, stationary
+Any-free rest, first-case refusal, exhaustion and no-builder failure semantics.
+
+The companion `RawArguments.lean` uses the existing FunctionSignature namespace.
+`rawCovers_sound` proves admission for **every** RawSpelling derivation, with payload
+Types and marker evidence retained separately; `rawSlots_sound` lifts supplied
+origin-admission laws to all slots. Enum/Keyword laws exclude invented labels and
+escape-as-keyword certificates. `stationaryRaw_sound` retains its explicit complete
+origin-envelope premise. The publication example reuses existing finite inference
+and the two-generic builder. Decoder-to-typed-origin assignment and host validator
+interpretations are explicit premises, not proved compiler/runtime correspondence.
+These advance the article's hypothetical type protocol (Appendices C/D), not a
+claim that its original Racket implementation already supplied a static type system.
