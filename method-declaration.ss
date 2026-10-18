@@ -291,6 +291,12 @@
       (def source-work (type-work 8192))
       (def expression (.get instance expression))
       (type-expression expression [] source-work)
+      ;; Record describes Class DATA callbacks, including optional absence and
+      ;; initialization. It is valid in Function inputs/results; a method-group
+      ;; interface must use the existing explicit Object catalog instead.
+      (let (root (normalize-type expression source-work))
+        (when (and (pair? root) (eq? (car root) 'Record))
+          (refuse-type 'unsupported "Record value contract is not an Object method catalog")))
       (def bound-names (bound-parameters instance))
       (def bindings (.get instance bound-parameters))
       (bounded-type-data bindings source-work)

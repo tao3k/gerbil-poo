@@ -20,6 +20,7 @@ Any | Bool | Integer | UInt | declared-variable
 (Map Value <- Key) | (Map Key -> Value)
 (Sum tag: T ...)
 (Union T ...)
+(Record ((name T required-or-optional) ...) open-or-closed)
 (Function (output ...) (input ...))
 ```
 
@@ -245,5 +246,68 @@ Existing `VariantValidation` laws separately establish returned-child retention,
 collision rejection and committed branch failures. Conditional semantic
 replacement still requires the explicit interpretation laws; these proofs do not
 verify Gerbil's compiler, hash implementation, arbitrary callbacks, or mutable
-writes. Record/Class-specific inference and candidate-dependent method paths
-remain outside this acceptance.
+writes. Implicit arbitrary Class/Slot callback inference and candidate-dependent method
+paths remain outside this acceptance. The following section admits explicit Record fields.
+
+## Explicit Record fields and Class construction
+
+`(Record ((name Type required-or-optional) ...) open-or-closed)` is a finite Type
+expression. Field names are unique literal symbols, presence is exactly `required`
+or `optional`, and the tail is exactly `open` or `closed`. No callback, mutable Class
+descriptor, default value, nominal superclass or arbitrary Slot policy is embedded
+in inference syntax. Malformed metadata gives `malformed`; an unsupported Type
+still gives `unsupported`, even against Any. Recursive field Types reuse guarded Mu
+and the shared quota. Literal names/presence survive prefix substitution; Record
+cannot be a parameter or Mu binder name.
+
+Compilation produces the existing **Class.** with ordinary **RecordSlot** entries,
+not a new record implementation. Closed means `sealed: #t`; optional means the
+existing Slot `optional: #t`. Required absence, unknown sealed fields and child
+failures retain Class validation behavior. Recursive Function wrappers remain in
+the returned fields. A positive inference does not supply defaults, execute
+computed getters/hooks, certify host arity or allow mutable covariant writes.
+
+Replacement is conservative: exact ordered field names/counts, covariant readable
+Types, and required-to-optional weakening only. An optional source cannot promise
+a required target; an open source cannot replace a closed target. Width/permutation
+inclusions and Record/Object cross-constructor relations are not guessed, and
+Record field lists are not sorted or erased during normalization. This rule is
+complete only for the documented finite derivability relation, not every possible
+semantic record inclusion or Class inheritance relation.
+
+`RecordServiceType` in `examples/polymorphic-services.ss` returns a Record containing
+required run/limit/bias and an optional callback. After fixing Self as a parameter
+prefix, the actual Integer argument, original Self <: Super bound and expected
+Record jointly select Super = Integer from the finite universe. The same inferred
+signature feeds the existing prepared method combination and `.defgeneric`.
+`record-service-class` reuses ordinary multiple inheritance, effective Slot types,
+a computed child override and checked initialization. Its hook runs only when a
+method constructs an instance; inference/installation runs no hook or method body.
+The declared result boundary independently validates the actual constructed Class
+value. A bad hook result refuses; a fresh construction can retry.
+
+`record-service-action` sequences approval and declared construction through FUN,
+then reuses `publication-action` for ObjectContract/refine, exact `bind-evidence`
+and IO consumption. Rejected refinements never call the consumer. Earlier hook or
+method effects are not rolled back. Optional callbacks are not invented by the
+inference engine; when supplied, their wrappers still check each call.
+
+A **data callback** in a Record is a procedure validated by Class. A **declared
+method group** in an Object catalog carries dispatch/certificate provenance. Record
+is admitted in Function arguments/results and standalone data construction; a root
+Record is explicitly refused as a declared-method catalog before its builder runs.
+Methods should use the existing explicit Object signature paths. This prevents
+optional Class fields or initialization hooks from silently becoming mandatory
+method groups. Candidate-dependent paths and arbitrary Class reflection remain open.
+
+`Functional.ClassValidation.RecordType`, `recordFieldsCheck_sound`,
+`recordCheck_sound` and `record_field_replacement` prove exact metadata matching,
+presence/sealedness requirements and replacement of the same finite observed value
+snapshot under an explicit child interpretation. `Examples/ClassContracts.lean`
+uses the matching field layout and prefix-fixed constraints with
+`Functional.PrototypeTypes.infer`, plus existing checked-initialization and evidence
+proofs. These laws do not verify C3, host descriptor identity, arbitrary getters,
+compiler behavior, default computation or GC. Syntax admission and faithful label
+projection are premises. Existing source revision and resource limits stay intact.
+The concentrated tests are `t/record-inference-test.ss`; complete single-process and
+all existing test groups remain required.

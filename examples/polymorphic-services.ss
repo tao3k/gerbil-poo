@@ -1,10 +1,11 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
-(import ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
+(import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
         (prefix-in ../declarative-metadata metadata.) ../method-declaration
         (prefix-in ../generalized-prototype observation.)
+        (prefix-in ./contract-publication publication.)
         (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)
         (prefix-in ../method-combination combination.))
 
@@ -237,3 +238,58 @@
           (consume (.get subject routes))
           (values (.o bind-these: #f subject: subject descriptor: checked-output context: context)
                   (.cc context owner: next))) normalized)))))
+
+;; Required/optional metadata is finite Type syntax. Initialization callbacks are
+;; deliberately absent: existing Class/Slot descriptors own those computations.
+(def RecordServiceType
+  (prototype-type (.o .parameters: '(Self Super)) '(Self Super)
+    '(Function ((Record ((run (Function (Self) (Super)) required)
+                         (limit UInt required) (bias UInt required)
+                         (extra (Function (Self) (Super)) optional)) open)) (Super))
+    '((Self Super))))
+;; Gerbil binds one supplied input; all returned record fields pass through the
+;; inferred Class validator before the ordinary result/cache pair can escape.
+(.defgeneric (record-service service value) slot: .invoke combination: invoke-declared)
+;; Multiple inheritance and child overrides are supplied to the existing Record
+;; constructor. The checked hook receives wrapped computed fields and is checked
+;; again; the inferred output descriptor subsequently validates the returned object.
+(def (record-service-class instance record)
+  (def output (car (.get instance descriptor outputs)))
+  (def transform (.get output effective-slots run type))
+  (def base (Record run: [transform default: abs] limit: [UInt default: 10]))
+  (def limits (Record bias: [UInt default: 2]))
+  (.cc (Record [base limits]
+         run: [transform compute: (lambda (self _next) (lambda (n) (+ (.get self bias) (abs n))))])
+    .instantiate: (lambda (checked) (record 'hook) checked)))
+;; Type search and declaration installation finish before a Class is constructed.
+;; The host callbacks remain under the same ordinary error and resource discipline.
+(def (infer-record-service prefix candidates observations (record void))
+  (infer-declared-calls (specialize-prototype-type RecordServiceType prefix) candidates observations
+    (lambda (instance)
+      (def descriptor (record-service-class instance record))
+      (signature-service-declarations instance
+        (lambda (_input) (make-instance descriptor)) record))))
+
+;; FUN sequences current approval and the declared factory. The existing checked
+;; publication combines recursive Class wrapping, whole-object refinement and
+;; exact evidence binding before IO consumes the normalized record. Hook effects
+;; are not rolled back if a later refinement refuses publication.
+(def (record-service-action instance input context consume (maximum 20))
+  (def output (car (.get instance descriptor outputs)))
+  (def contract (refine (.cc ObjectContract. responsibilities: (.o processor: output))
+    (lambda (candidate location)
+      (if (<= (.get candidate processor limit) maximum) []
+        [(.o bind-these: #f kind: 'record-limit path: location)]))))
+  (def invocation (metadata.contract (metadata.predicate "subject" object?)
+    (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
+  (def publish (publication.publication-action contract invocation context
+    (lambda (subject)
+      (consume (.get subject processor))
+      (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
+  (.call observation.Observation. .bind
+    (lambda (_)
+      (unless (eq? (.get context approved) #t) (error "record approval refused"))
+      (.get instance prototype))
+    (lambda (receiver) (lambda (_)
+      (defvalues (answer _owner) (record-service receiver input))
+      (publish (.o processor: answer))))))

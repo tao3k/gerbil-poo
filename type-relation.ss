@@ -1,10 +1,10 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression copy-type canonical-type)
 (import ./type-syntax ./recursive-types ./object
-        (only-in ./mop Any Bool Function CaseFunction Type. Object)
+        (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
-        (only-in ./type List Tuple Maybe Pair Map Sum Union))
+        (only-in ./type List Tuple Maybe Pair Map Sum Union RecordSlot))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -91,6 +91,18 @@
       ;; Union equality was handled above. No widening, sorting, deduplication or
       ;; branchwise covariance may change committed first-match normalization.
       ((Union) #f)
+      ;; Conservative observational record relation: exact ordered field names,
+      ;; no optional-to-required strengthening, readable field covariance. Open
+      ;; source metadata cannot justify a sealed target or mutable writes.
+      ((Record)
+       (and (or (eq? (caddr target) 'open) (eq? (caddr source) 'closed))
+            (= (length (cadr source)) (length (cadr target)))
+            (andmap (lambda (s t)
+                      (work)
+                      (and (eq? (car s) (car t))
+                           (or (eq? (caddr s) 'required) (eq? (caddr t) 'optional))
+                           (compare-types (cadr s) (cadr t) work)))
+                    (cadr source) (cadr target))))
       ((Object)
        (and (or (eq? (caddr target) 'open)
                 (and (eq? (caddr source) 'closed)
@@ -142,6 +154,14 @@
       ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt)
       (else
        (case (car term)
+         ;; Reuse Class and its effective Slot protocol, including recursive
+         ;; validation and checked initialization. Defaults/hooks are host policy,
+         ;; supplied by deriving this descriptor, never executable inference data.
+         ((Record)
+          (.cc Class. sexp: (copy-type term) sealed: (eq? (caddr term) 'closed)
+            slots: (object<-alist (map (lambda (field)
+              (cons (car field) (RecordSlot (build (cadr field)) optional: (eq? (caddr field) 'optional))))
+              (cadr term)))))
          ((Object)
           (let (fields (object<-alist (map (lambda (field) (cons (car field) (build (cadr field)))) (cadr term))))
             (if (eq? (caddr term) 'closed)
