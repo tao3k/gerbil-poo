@@ -567,3 +567,63 @@ computed revision, dirty-reference rejection and current refine/bind-evidence
 retry. Twelve Lean laws and focused host controls cover the declared serialized
 protocol. See [recursive-coordination.md](recursive-coordination.md) and the
 consolidated [TODO.md](TODO.md) ledger for the remaining original feature backlog.
+
+## Persistent tables and sets
+
+`methods.table` is now a Type with separate recognition and normalization.
+Backends supply carrier-only `.validate-shape` and their existing snapshot,
+`.empty`, `.key?` and persistent `.acons` operations. `table-element?` recognizes
+without creating wrappers; `validate-table` admits shape, normalizes every key
+then value, privately rebuilds changed entries, and checks final membership.
+The shared `validate-bindings` in `variant-validation.ss` also serves Map, using
+standard ordered traversal. There is no Value=Any bypass of Key validation.
+
+RationalDict retains RBTree carrier admission. Trie separates full structural
+validation from binding normalization, then retains Function-valued leaves and
+normalized keys through the shared protocol. Its membership uses the complete
+table protocol, not Wrap's shallow recognition. Derived sets delegate both
+operations independently, so callable elements retain their wrappers too.
+Map keeps its source hash/comparison policy; persistent backends use their
+declared membership/insertion policy. An unchanged collection retains identity.
+
+Children finish before rebuilding starts. Typed shape refusal, child errors,
+normalized-key collisions, insertion errors and final membership refusal never
+return a partial collection. Collisions can be detected after a private prefix
+has been built; custom backend/Type/IO effects are not rolled back. Unexpected
+errors preserve their cause, and retry uses a fresh request. Persistent backends
+must preserve the source, and snapshots/recursive callbacks must terminate.
+
+The ledger example composes nested List/Tuple/Function tables, FUN checked-action,
+ObjectContract refinement and IO. A false approval or invalid Function result
+suppresses IO; a fresh approved request can retry. The consumer uses the already
+normalized table without validating it again. `t/table-validation-test.ss` covers
+RationalDict, Trie, generic association backends, sets and the shared Map path,
+including Function keys/values and normalization-versus-recognition call counts.
+
+Companion Lean `VariantValidation.table_positions` requires a backend
+snapshot/rebuild fidelity law and proves exact normalized binding retention and
+length. Keys can reorder after normalization: result snapshots are a permutation
+of the checked bindings, not necessarily the same physical iteration order.
+Other table laws retain shape/child/rebuild failures, suppress consumers and keep
+the original persistent state on failure; final membership is necessary before
+exposure. Actual RBTree/Patricia/hash behavior, pointer identity and callback IO
+remain executable/backend obligations. This does not close the broader generic
+incremental/isomorphism-aware collection library or establish a speedup.
+
+### Collection validation acceptance
+
+The final local run passed all **104 modules / 766 cases**, zero errors/warnings,
+natural exit 0, with the unchanged 1-GiB heap and 300-second fence. AOT admission
+covered 654 intermediates with zero incomplete/stale/shadow outputs. All 17 build
+groups completed under the existing std/make protocol, with two drivers and two
+compiler workers per driver. The combined all-module compiler driver exceeded its
+1-GiB heap; it was not granted a larger heap, and its failed log is retained in
+/tmp. Grouping compilation did not remove any test from the single-process run.
+
+The earlier cold run also passed (104 modules / 765 cases before the key-reordering
+control), real 192.61 s / user 19.58 s / sys 1.78 s. Sampling during its pre-test
+load showed dyld segment mapping/fcntl, not collection evaluation; unrelated
+compiler activity was present. Final complete run after the reordering control:
+real 49.87 s / user 22.70 s / sys 2.05 s. These distinct load/host histories are
+not a paired performance experiment and establish no speedup. Raw logs and
+sampling data remain outside Git.

@@ -21,10 +21,11 @@
 (define-type (RationalDict. @ [methods.table] Value)
    Key: Rational
    Value: Any
-   .validate: => (λ (super)
-                   (lambda (x)
-                     (unless (rationaldict? x) (raise-type-error "Not an rationaldict" x))
-                     (super x)))
+   ;; Carrier admission is separate from recursive normalization and recognition.
+   ;; The shared table protocol owns key/value wrappers, collisions and rebuilding.
+   .validate-shape: (lambda (source)
+     (unless (rationaldict? source) (raise-type-error @ source 'expected-rationaldict))
+     source)
    ;; TODO: also use rationaldict-min-key, rationaldict-max-key, rationaldict-update ?
    .empty: empty-rationaldict
    .empty?: rationaldict-empty?
@@ -39,6 +40,7 @@
    .list<-: rationaldict->list
    .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))
    .=?: (lambda (d1 d2) (rationaldict=? d1 d2 (.@ Value .=?))))
+;; Construct the ordinary value-specialized descriptor; no value validation runs here.
 (def (RationalDict (Value Any))
   (if (eq? Value Any) RationalDict.
       {(:: @ RationalDict.) Value sexp: `(RationalDict ,(.@ Value sexp))}))

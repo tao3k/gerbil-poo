@@ -1,8 +1,8 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export make-services observe-services observe-cached-services)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services)
 (import :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map)
-        ../object ../mop ../object-contract-flow ../support/option
+        ../object ../mop ../object-contract ../object-contract-flow ../support/option
         (prefix-in ../construction-cache cache.)
         (prefix-in ../dependency-analysis code.))
 
@@ -32,3 +32,30 @@
     (unless (and (some? entry) (code.success? (some-value entry)))
       (error "required service collection unavailable" key))
     (observe-services descriptor (code.success-value (some-value entry)) consume)))
+
+;; Consume a normalized ledger without validating it again. The callback completes
+;; before IO; its error suppresses consume and preserves prior external effects.
+(def (consume-ledger descriptor key argument consume ledger)
+  (let* ((callback (vector-ref (car (.call descriptor .ref ledger key)) 0))
+         (result (callback argument)))
+    (consume result)
+    (values result (.call descriptor .count ledger))))
+
+;; FUN passes a recursively normalized List/Tuple/Function table into lookup once.
+;; Source remains persistent; a fresh invocation can retry after a refused request.
+(def (ledger-action descriptor key argument consume)
+  (checked-action descriptor (cut consume-ledger descriptor key argument consume <>)))
+
+;; Named-schema refinement observes a normalized persistent table before IO. The
+;; same consumer receives its already wrapped callbacks, without revalidating the
+;; ledger. A false approval or bad callback result cannot reach the IO consumer.
+(def (approved-ledger-action descriptor key argument consume)
+  ;; Use the existing ObjectContract/refine chain; no table-specific approval API.
+  (def submission (refine
+    (.cc ObjectContract. responsibilities: (.o approved: Bool ledger: descriptor))
+    (lambda (candidate location)
+      (if (.@ candidate approved) '()
+        [(.o kind: 'approval-refused path: (append location '(approved)))]))))
+  (checked-action submission
+    (lambda (candidate)
+      (consume-ledger descriptor key argument consume (.@ candidate ledger)))))

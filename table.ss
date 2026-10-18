@@ -3,6 +3,7 @@
 (export #t)
 
 (import
+  (only-in ./variant-validation validate-bindings)
   :std/interface
   :std/iter
   (only-in :std/list/alist acons)
@@ -10,7 +11,7 @@
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method)
   (only-in ./io marshal)
-  (only-in ./mop define-type Type. Any validate)
+  (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError?)
   (only-in ./object .@ .call)
   (only-in ./type List Pair))
 
@@ -25,6 +26,27 @@
 (def (iterator-map transform source)
   (Iterator (%mapped-iterator (iter source) transform)))
 
+;; Recognize carrier and child membership without constructing normalized wrappers.
+;; Catch only typed refusal; user/backend exceptions preserve their original cause.
+(def (table-element? descriptor source)
+  (try
+    (.call descriptor .validate-shape source)
+    (.call descriptor .every
+      (lambda (key value)
+        (and (element? (.@ descriptor Key) key) (element? (.@ descriptor Value) value))) source)
+    (catch (TypeError? _) #f)))
+
+;; Validate a persistent table through its current public representation protocol.
+;; Admit the carrier, normalize children, then privately rebuild and recognize the result.
+(def (validate-table descriptor source)
+  (.call descriptor .validate-shape source)
+  ;; Post-recognition checks the normalized result without wrapping children again.
+  (def checked (validate-bindings descriptor (.@ descriptor Key) (.@ descriptor Value) source
+    (.call descriptor .list<- source) (lambda () (.@ descriptor .empty))
+    (.@ descriptor .key?) (.@ descriptor .acons)))
+  (unless (element? descriptor checked) (raise-type-error descriptor checked))
+  checked)
+
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)
@@ -34,7 +56,8 @@
 ;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
 ;; NB: General methods for maps, that are not trie-specific
-(define-type (methods.table @ []
+(define-type (methods.table @ Type.
+       .validate-shape ;; carrier-only admission, raises TypeError before enumeration
        Key ;; : Type
        Value ;; : Type
        .empty ;; : @
@@ -44,11 +67,14 @@
        .foldl ;; : (Fun o <- (Fun o <- Key Value o) o @)
        .foldr) ;; : (Fun o <- (Fun o <- Key Value o) o @)
 
-  .validate:
-  (if (eq? Value Any) identity
-      (lambda (x)
-        (.for-each (lambda (_k v) (validate Value v)) x) ;; should we test keys, too?
-        x))
+  ;; Recognition never normalizes children. This keeps nested List/Schema shape
+  ;; checks and postconditions from constructing or discarding Function wrappers.
+  ;; Typed refusal is false; unexpected user/backend exceptions remain observable.
+  .element?: (lambda (source) (table-element? @ source))
+
+  ;; Both Key and Value recursively normalize after complete carrier admission.
+  ;; Persistent reconstruction retains every replacement and rejects key collisions.
+  .validate: (lambda (source) (validate-table @ source))
 
   ;; : (Fun Bool <- @)
   .empty?: (lambda (t) (eqv? t .empty))
@@ -216,7 +242,7 @@
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
   .validate: (.@ Table .validate) ;; : @ <- Any
-  .element?: (.@ Table .validate) ;; : Bool <- Any
+  .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
   .empty: (.@ Table .empty)  ;; : @
   .empty?: (.@ Table .empty?) ;; : Bool <- @
   .elt?: (.@ Table .key?) ;; : Bool <- @ Elt

@@ -42,7 +42,7 @@ further tuning of the corresponding workflow.
 | Data representation / usual object optimizations | Implemented protocol: persistent ordered prototype maps, shared symbolic shapes, opt-in receiver-local vectors and guarded inline sites integrated into object reads/writes and descendant invalidation | Concrete protocol closed; full hash removal, small-map specialization, Patricia layouts and automatic JIT/PIC policy remain optimization work. See [representation.md](representation.md). Historical speed measurements do not close these. |
 | Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
 | Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `type-relation.ss` / `prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
-| Generic data structure library | Partial existing containers only | A general collection library with the proposed protocol and laws is open. |
+| Generic data structure library | Shared finite collection-validation protocol closed: methods.table / RationalDict / Trie / derived sets / Map retain recursively normalized keys and values, Function wrappers, carrier admission and refusal/retry; t/table-validation-test.ss | A general collection library with the proposed protocol and laws is open. |
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
@@ -897,3 +897,17 @@ explicit proof premises are recorded in `gerbil-mechanisms.md`. The paired study
 now compares the same current FUN/generic implementation with and without that
 evidence, including cold registration/family construction. This cost study does
 not close any of the open feature rows above.
+
+### Persistent collection validation acceptance
+
+`methods.table` now separates carrier-only `.validate-shape`, non-normalizing
+membership and recursive binding normalization. RationalDict, Trie and derived sets
+share `validate-bindings` with Map; every normalized key/value is retained and
+backend-policy collisions refuse. Value=Any never skips Key admission. Child
+failures precede reconstruction; builder/collision/postcondition failures retain
+their actual order and never expose a partial table. Source persistence and
+snapshot/rebuild fidelity are explicit obligations; arbitrary IO is not rolled back.
+The nested ledger example connects FUN, schema refinement and checked callbacks
+to IO without revalidating the normalized ledger. The corresponding Lean table
+laws and executable tests close this concrete validation protocol, not the general
+incremental/isomorphism-aware collection library. See object-contracts.md.

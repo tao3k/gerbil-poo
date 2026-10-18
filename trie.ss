@@ -287,19 +287,23 @@
                      (.ensure-height (.trie-height ta) tb)))
 
 
-  ;; : Bool <- Any
-  .validate:
+  ;; Table membership owns recursive key/value checks; Wrap recognition alone
+  ;; cannot certify a tree or its normalized children. Use the common protocol.
+  .element?: (lambda (source) (table-element? @ source))
+
+  ;; Check representation/height before enumerating keys; no child normalization.
+  .validate-shape:
   (lambda (t)
     (def (err reason) (raise-type-error @ reason t))
     (match (.unwrap t)
       ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
       ;; Otherwise, a Branch with an Empty child is normalized to a Skip
-      ((Leaf value) (validate Value value) t)
+      ((Leaf _) t)
       ((Branch height left right)
        (validate Height height)
-       (.validate left)
+       (.validate-shape left)
        (unless (= (1- height) (.trie-height left)) (err wrong-left-height:))
-       (.validate right)
+       (.validate-shape right)
        (unless (= (1- height) (.trie-height right)) (err wrong-right-height:))
        t)
       ((Skip height bits-height bits child)
@@ -308,9 +312,10 @@
        (unless (<= bits-height height) (err bad-bits-height:))
        (unless (<= 0 bits) (err negative-bits:))
        (unless (<= (integer-length bits) (1+ bits-height)) (err bits-too-big:))
-       (.validate child)
+       (.validate-shape child)
        (unless (= (- height bits-height 1) (.trie-height child)) (err child-height-mismatch:))
-       t)))
+       t)
+      (_ (err invalid-node:))))
 
   ;; : (Fun Value <- @ Key (Fun Value <-))
   .ref:

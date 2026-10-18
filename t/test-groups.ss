@@ -9,7 +9,7 @@
 (def test-groups
   '((objects support object mop parameters inheritance-hooks slot-observation)
     (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
-    (collections library-reuse number polynomial rationaldict trie fq)
+    (collections table-validation library-reuse number polynomial rationaldict trie fq)
     (methods multimethod method-combination method-declaration)
     (declarations declarative-metadata generalized-declaration recursive-declaration meta-prototype)
     (closure closure closure-alignment component-closure)
