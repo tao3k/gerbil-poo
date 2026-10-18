@@ -192,16 +192,6 @@
                 queries: (inference-solution-queries solution) expression: (inference-solution-expression solution))) ordered)
             queries: (if (eq? status 'unique) (inference-solution-queries (car ordered)) queries))))))
 
-;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
-;; These temporary objects are shape views, not new Types or dispatch certificates.
-(def (signature-view term)
-  (def options (function-options term))
-  ;; Constructor defaults are literal metadata, never optional value expressions.
-  (def (option name default) (cond ((assq name options) => cdr) (else default)))
-  (.o bind-these: #f outputs: (cadr term) inputs: (caddr term)
-    optional: (option optional: []) keywords: (option keywords: [])
-    required-keywords: (option required-keywords: []) rest: (option rest: #f)))
-
 ;; One observation is (field-path supplied-Type-arguments expected-output-Types).
 ;; #f outputs means no return obligation; () requires zero user values. Reuse the
 ;; runtime's first structural clause and keyword escapes, without invoking bodies,
@@ -213,7 +203,7 @@
     (refuse-type 'malformed "Call observation needs path, arguments and optional outputs" observation))
   (def term (or template (function-expression (.get scheme expression) (car observation) work
                           (if candidate? 'bounds 'unsupported))))
-  (def clauses (map signature-view (if (eq? (car term) 'Function) (list term) (cdr term))))
+  (def clauses (function-signatures term))
   (def arguments (cadr observation))
   (def selected (signature.select-signature clauses arguments))
   (unless selected (refuse-type 'bounds "No declared case accepts the supplied call shape" observation))

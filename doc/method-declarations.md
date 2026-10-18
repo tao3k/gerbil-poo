@@ -306,12 +306,13 @@ CaseFunction contains a nonempty ordered sequence of ordinary Function terms.
 Nested Functions in any input category or output retain recursive wrappers.
 
 The existing finite candidate inference and ordered prefix specialization visit
-all these Type positions. The subtype rule requires equal structural call shape
-and clause order, exact output count, covariant output Types and contravariant
-required/optional/keyword/rest Types. Omitted option defaults and option ordering
-are normalized for comparison; declared keyword and required-key order remain
-conservative metadata constraints. It does not infer arbitrary case-language
-coverage, reorder overlapping cases or infer host signatures/default behavior.
+all these Type positions. The subtype rule now checks complete ordered call-language
+coverage under a shared keyword wire interpretation, exact-count covariant outputs,
+and contravariant supplied positional/key inputs. Distinct required/optional/rest
+layouts and disjoint reordered cases may replace each other when every selected
+region passes. Overlapping cases preserve first selection; no failed type check
+falls through. This does not infer host signatures/default effects or arbitrary
+semantic predicate inclusion. See [the complete coverage protocol](prototype-types.md#ordered-case-call-language-coverage-and-replacement).
 
 `instance-signature` uses the same sparse multi-dispatch and completed-candidate
 negative checks. Its final optional `arity` argument selects the fixed number of

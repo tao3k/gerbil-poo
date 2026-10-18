@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -337,3 +337,17 @@
 (def (infer-shared-catalog-service candidates observations report recover (record void))
   (infer-declared-calls CatalogServiceType candidates observations
     (cut shared-service-declarations <> report recover record)))
+
+;; The required callback language contains two disjoint arities. The finite
+;; candidate may use optional/rest or differently ordered cases to cover it.
+;; Value is fixed through existing prefix specialization before callback inference.
+(def CoveredServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    '(Function (Value Callback) (Value))
+    '((Callback (CaseFunction (Function (Value) (Value)) (Function (Value) (Value Value)))))))
+;; Callback coverage, call observations, source guards and full method admission
+;; share one existing solver/builder chain. Bodies remain deferred until invocation.
+(def (infer-covered-service candidates procedure (record void))
+  (infer-declared-calls (specialize-prototype-type CoveredServiceType '(UInt)) candidates
+    '((() (UInt) (UInt (CaseFunction (Function (UInt) (UInt)) (Function (UInt) (UInt UInt))))))
+    (cut signature-service-declarations <> procedure record)))

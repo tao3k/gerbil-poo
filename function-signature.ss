@@ -1,6 +1,6 @@
 ;;; Structural Function admission below the Type bootstrap; validators are injected.
-(export decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function check-results)
-(import (only-in ./support/base require-value) (only-in :std/list/list map-in-order)
+(export covers-signatures? decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function check-results)
+(import (only-in ./support/base require-value) (only-in :std/list/list map-in-order delete-duplicates/hash)
         (only-in :std/list/plist alist->plist)
         (only-in ./object .get))
 
@@ -73,3 +73,39 @@
     (call/values (lambda () (apply procedure normalized))
         (lambda results
           (apply values (check-results descriptor signature results check refuse)))))))
+
+;; Compare complete ordered call languages under a shared keyword-wire mode.
+;; Arity acceptance and selected clauses stabilize beyond the maximum fixed
+;; prefix. The extra representative checks each repeated rest Type once. Keyword
+;; subsets stream under the caller's quota instead of allocating a powerset.
+;; `related` checks the selected pair for this supplied row, not all clause pairs.
+;; Different wire modes conservatively refuse: raw keyword values/escapes do not
+;; have a shared decoded language. No defaults, validators or bodies run here.
+(def (covers-signatures? source target work related)
+  (def source-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) source) #t))
+  (def target-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) target) #t))
+  (and (eq? source-mode? target-mode?)
+    (let* ((signatures (append source target))
+           (maximum (foldl (lambda (s largest)
+             (work) (max largest (+ (length (.get s inputs)) (length (.get s optional))))) 0 signatures))
+           (keys (delete-duplicates/hash
+             (apply append (map-in-order (lambda (s) (work) (map car (.get s keywords))) target)))))
+      ;; Canonical key order only represents presence. Value checks use the
+      ;; original supplied order at runtime; effectful recognizers are not modeled.
+      (def (row-covered? count keys)
+        (work)
+        (def arguments (encode-arguments (make-list count 'Any)
+          (map (lambda (key) (cons key 'Any)) keys) target-mode?))
+        (def expected (select-signature target arguments))
+        (or (not expected)
+          (let (actual (select-signature source arguments))
+            (and actual (related actual expected arguments target-mode?)))))
+      ;; Visit every key subset for each representative count. False is a complete
+      ;; failed obligation; exhaustion raises without claiming prefix coverage.
+      (let counts ((count 0))
+        (and (let subsets ((remaining keys) (supplied []))
+               (work)
+               (if (null? remaining) (row-covered? count (reverse supplied))
+                 (and (subsets (cdr remaining) supplied)
+                      (subsets (cdr remaining) (cons (car remaining) supplied)))))
+             (or (= count (+ maximum 1)) (counts (+ count 1))))))))

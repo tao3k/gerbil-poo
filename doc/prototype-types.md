@@ -167,9 +167,10 @@ laws and final identity/revision admission under the supplied source model.
 
 Finite expressions also accept Function optional/keyword/rest options and ordered
 CaseFunction clauses. Prefix specialization and finite inference traverse every
-Type position while preserving literal keyword metadata. Equal call shapes and
-ordered cases admit covariant exact outputs and contravariant argument Types;
-arbitrary host signature/default inference and case coverage stay outside scope.
+Type position while preserving literal keyword metadata. Call-language inclusion now admits different required/optional/rest regions and
+ordered case layouts under a common keyword wire mode, with exact covariant
+outputs and contravariant supplied inputs. Arbitrary host signature/default
+inference remains outside scope.
 See [the declaration protocol](method-declarations.md#rich-declared-function-signatures)
 for grammar, failure phases, full examples, cache transport and Lean boundaries.
 
@@ -360,5 +361,54 @@ This is finite rank-one future-work inference, not an implementation attributed
 to the Racket appendix. Explicit `.parameters`, Type/Function descriptors and
 Self/Super constraints follow the existing protocol. It does not discover arbitrary
 Class/Slot callback layouts, principal host types, higher ranks, unrestricted
-recursive/effect types or arbitrary replacement between different case languages.
+recursive/effect types or value-directed dispatch and arbitrary semantic predicate inclusion.
 Root Record remains a data Type rather than a certified method catalog.
+
+## Ordered case call-language coverage and replacement
+
+`(function-covers? source target [budget])` decides whether the source covers
+the target's complete declared shape language within the shared wire domain.
+`subtype-expression?` additionally checks safe replacement. Both ordinary Function
+and ordered CaseFunction terms can occur on either side, including nested Type
+positions. For example, one `(Function (UInt) (Integer) rest: Integer)` safely
+replaces a CaseFunction requiring a UInt argument, or two UInt arguments followed
+by any number of UInt rest arguments, with Integer results.
+
+The checker reuses the existing first-shape selector and supplied-argument
+normalizer. It enumerates counts from zero through one beyond the largest fixed
+required/optional prefix on either side, and every subset of target-declared keys.
+Those counts partition the entire arity language: selection and rest input Types
+stabilize after that boundary. Keys are deduplicated through Gerbil's standard
+library; subsets stream under the same work quota. This is exhaustive finite
+partitioning, **not** inference from a few observed calls.
+
+For every target-accepted region, the actual first source clause must exist.
+Replacement requires the source's exact-count outputs to be subtypes of that
+selected target's outputs, and each provided target input/key Type to be a subtype
+of the corresponding source Type. Optional defaults are not executed or checked
+as supplied values. A shadowed later clause imposes no independent obligation
+and cannot repair a failed earlier one. Disjoint cases may safely reorder, and a
+source may accept additional calls. The ordering of overlapping cases is retained.
+
+The two descriptors must agree on whether **any** clause declares keyword input.
+Different wire modes conservatively return false: raw keyword-valued positionals
+and Gerbil escapes otherwise lack a common decoded interpretation. Within the
+shared mode, key order does not change structural admission; no claim is made
+about effectful recognizer/default ordering, host arity or totality. Type relations
+remain the explicit finite structural algebra; arbitrary predicates, higher ranks,
+effects and unrestricted recursive language inclusion remain outside scope.
+
+Malformed/unsupported syntax and exhausted work raise their existing TypeRefusal
+causes. The public coverage entry refuses non-Function kinds with `bounds`. False
+means coverage/replacement is not established in this domain; shape coverage
+alone cannot authorize replacement after a variance/output mismatch. A request
+that exhausts after checking a prefix returns no coverage certificate.
+
+Original bounds and call-derived inequalities use the same replacement judgment,
+so prefix specialization, candidate-dependent signatures, nested callbacks and
+`infer-declared-calls` compose without another declaration API. False comparisons
+reject candidates; an exhausted search aborts before any builder or artifact.
+Existing source/negative/sibling admission remains mandatory. `CoveredServiceType`
+and `infer-covered-service` demonstrate a prefix-bound scalar and inferred callback,
+qualified method invocation, recursive wrapping, FUN/refine and exact evidence
+publication through `catalog-service-action`. See `t/function-coverage-test.ss`.

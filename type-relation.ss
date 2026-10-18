@@ -1,6 +1,6 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
-(import ./type-syntax ./recursive-types ./object
+(export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
+(import (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
@@ -75,7 +75,7 @@
       (else (refuse-type 'unsupported "Signature path needs Object fields" remaining)))))
 
 ;; Decide derivability in the closed algebra: UInt <: Integer <: Any; Bool <: Any;
-;; covariant List/Tuple observations; fixed-arity Function inputs contravariant,
+;; covariant List/Tuple observations; covered Function inputs contravariant,
 ;; outputs covariant, with exact multiple-value counts. False means no rule here,
 ;; not a counterexample to arbitrary predicate inclusion or mutable-slot writes.
 (def (subtype-expression? source target (budget 8192))
@@ -97,6 +97,9 @@
    ((equal? source target) #t)
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
    ((and (eq? source 'UInt) (eq? target 'Integer)) #t)
+   ((and (pair? source) (pair? target)
+         (memq (car source) '(Function CaseFunction)) (memq (car target) '(Function CaseFunction)))
+    (function-replaces? source target work))
    ((and (pair? source) (pair? target) (eq? (car source) (car target)))
     (case (car source)
       ((List Maybe Tuple Pair)
@@ -137,32 +140,55 @@
             (andmap (lambda (field)
                       (let (found (assq (car field) (cadr source)))
                         (and found (compare-types (cadr found) (cadr field) work)))) (cadr target))))
-      ((Function CaseFunction)
-       ;; Same call-language metadata and ordered clause count only. This finite
-       ;; rule cannot reorder overlapping cases or infer arbitrary domain coverage.
-       (let ()
-         ;; Erasing Type positions preserves ordered keys, option presence and
-         ;; clause precedence. No implication between unequal shapes is guessed.
-         (def (erase-types term)
-           (if (eq? (car term) 'Function)
-             (let* ((options (function-options term))
-                    (option (lambda (name default) (cond ((assq name options) => cdr) (else default)))))
-               (list 'Function (map (lambda (_) 'Any) (cadr term)) (map (lambda (_) 'Any) (caddr term))
-                 optional: (map (lambda (_) 'Any) (option optional: []))
-                 keywords: (map (lambda (entry) (cons (car entry) 'Any)) (option keywords: []))
-                 required-keywords: (option required-keywords: [])
-                 rest: (and (option rest: #f) 'Any)))
-             (cons 'CaseFunction (map erase-types (cdr term)))))
-         (and (equal? (erase-types source) (erase-types target))
-           (let compare-clause ((s source) (t target))
-             (if (eq? (car s) 'CaseFunction)
-               (andmap compare-clause (cdr s) (cdr t))
-               (and
-                 (andmap (lambda (a b) (compare-types a b work)) (cadr s) (cadr t))
-                 (andmap (lambda (a b) (compare-types b a work))
-                   (function-input-types s) (function-input-types t))))))))
       (else #f)))
    (else #f)))
+
+;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
+;; These temporary objects are shape views, not new Types or dispatch certificates.
+(def (signature-view term)
+  (def options (function-options term))
+  ;; Constructor defaults are literal metadata, never optional value expressions.
+  (def (option name default) (cond ((assq name options) => cdr) (else default)))
+  (.o bind-these: #f outputs: (cadr term) inputs: (caddr term)
+    optional: (option optional: []) keywords: (option keywords: [])
+    required-keywords: (option required-keywords: []) rest: (option rest: #f)))
+
+;; Shared structural views feed inference and coverage through the same existing
+;; Function selector/normalizer. They do not construct Types or certificates.
+(def (function-signatures term)
+  (map-in-order signature-view (if (eq? (car term) 'Function) (list term) (cdr term))))
+
+;; Decide shape-language inclusion in the bounded finite algebra. This checks
+;; all allowed supplied rows, not Type inclusion or arbitrary host procedure arity.
+;; Unsupported/malformed syntax and quota exhaustion retain their typed errors.
+(def (function-covers? source target (budget 8192))
+  (def work (type-work budget))
+  (type-expression source [] work) (type-expression target [] work)
+  (def left (normalize-type source work)) (def right (normalize-type target work))
+  (unless (and (pair? left) (pair? right)
+               (memq (car left) '(Function CaseFunction)) (memq (car right) '(Function CaseFunction)))
+    (refuse-type 'bounds "Call coverage requires Function signatures"))
+  (signature.covers-signatures? (function-signatures left) (function-signatures right) work
+    (lambda _ #t)))
+
+;; First-match selection determines BOTH sides of every row. Required/optional/
+;; rest and provided keyword inputs are contravariant; exact-count outputs are
+;; covariant. Shadowed later cases cannot repair an earlier incompatible clause.
+(def (function-replaces? source target work)
+  (signature.covers-signatures? (function-signatures source) (function-signatures target) work
+    (lambda (actual expected arguments keyword-mode?)
+      (work)
+      (and (= (length (.get actual outputs)) (length (.get expected outputs)))
+           (andmap (lambda (s t) (compare-types s t work)) (.get actual outputs) (.get expected outputs))
+        (let ((accepted #t)
+              (supplied (signature.normalize-arguments expected arguments keyword-mode?
+                (lambda (formal _placeholder) formal))))
+          (signature.normalize-arguments actual supplied keyword-mode?
+            (lambda (formal value)
+              (work)
+              (unless (compare-types value formal work) (set! accepted #f))
+              value))
+          accepted)))))
 
 ;; Compile a checked ground expression through existing recursive container and
 ;; Function validators. Wrapping remains at validate/contract boundaries, so this

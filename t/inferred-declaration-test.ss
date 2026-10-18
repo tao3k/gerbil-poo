@@ -179,7 +179,7 @@
           [(typed-method-fragment '.test certified [(metadata.replace "bad" [(dispatch.prototype 'Number)]
             (combination.primary (lambda (_ __) -1)))])]) .test))))
       (check-exception (dispatch.call installed 1) TypeError?))
-    (test-case "rich Function variance retains exact structural call language"
+    (test-case "rich Function variance covers supplied call languages and ordered cases"
       (check (subtype-expression?
         '(Function (UInt) (Integer) optional: (Integer) keywords: ((scale: . Integer)) rest: Integer)
         '(Function (Integer) (UInt) optional: (UInt) keywords: ((scale: . UInt)) rest: UInt)) => #t)
@@ -189,10 +189,10 @@
       (check (subtype-expression? '(Function (UInt) (Integer) optional: () rest: #f)
         '(Function (Integer) (UInt))) => #t)
       (check (subtype-expression? '(Function (UInt) (Integer) rest: Integer)
-        '(Function (Integer) (UInt))) => #f)
+        '(Function (Integer) (UInt))) => #t)
       (check (subtype-expression?
         '(CaseFunction (Function (UInt) (UInt)) (Function (Integer) (Integer Integer)))
-        '(CaseFunction (Function (Integer) (Integer Integer)) (Function (UInt) (UInt)))) => #f)
+        '(CaseFunction (Function (Integer) (Integer Integer)) (Function (UInt) (UInt)))) => #t)
       (check-exception (expression-type '(Function () () optional: () optional: (UInt))) (refusal 'malformed))
       (check-exception (expression-type '(Function () () keywords: ((x: . UInt)) required-keywords: (y:))) (refusal 'malformed))
       (check-exception (expression-type '(CaseFunction (CaseFunction (Function () ())))) (refusal 'malformed))
