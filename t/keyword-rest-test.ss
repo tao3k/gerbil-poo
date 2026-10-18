@@ -104,6 +104,14 @@
         (check-equal? (apply observed row) expected))
         (list service.infer-correlated-rest-service service.infer-literal-rest-service)
         (list (list enabled: #t #!key 7 #!rest 1 2 3) (list #!rest #!rest 1 2 3)) '(8 5)))
+    (test-case "completed false and interrupted traversal cannot poison a fresh request"
+      (def bad '(Function (UInt) ((Union Integer (Enum enabled: #!key #!rest)))
+                  rest: (Union Integer (Enum enabled: #!key #!rest))))
+      (for-each (lambda (_)
+        (check (subtype-expression? bad rest-target) => #f)
+        (check-exception (subtype-expression? service.CorrelatedRestCallback rest-target 100) exhausted?)
+        (check (subtype-expression? service.CorrelatedRestCallback rest-target) => #t)
+        (check (subtype-expression? service.LiteralRestCallback literal-target) => #t)) '(1 2 3)))
     (test-case "quota failure cannot approve a partial cyclic graph"
       (def schema (prototype-type (.o .parameters: '(Callback)) '(Callback) 'Callback `((Callback ,rest-target))))
       ;; Incomplete closure cannot execute the existing declaration builder.

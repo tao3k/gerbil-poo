@@ -1,6 +1,7 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
 (export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
-(import (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
+(import (only-in :std/hash/misc hash-ensure-ref)
+        (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
@@ -254,36 +255,40 @@
 ;; States are standard equal?-hashed lists (position, keys, raw offset, rest mode).
 (defstruct raw-edge (next origins) final: #t)
 
-;; Decide the product of the target decoder grammar and both arity regions.
-;; Bounded counters are exact; tail counters saturate beyond every fixed prefix.
-;; Build reachable states first, then backwards reachability from legal endings.
-;; Only edges on successful paths impose obligations. Cycles are fully explored;
-;; revisiting a state never manufactures a partial admission certificate.
-(def (raw-inputs-related? actual expected arguments raw-arguments limits work)
-  (def row (signature.decode-arguments
-    (signature.normalize-arguments expected arguments #t (lambda (formal _) formal)) #t))
+;; Explore a finite directed graph with the arrow/target protocol used by
+;; std/struct/dag. Unlike walk-dag, this worklist admits cycles: an explored node
+;; records outgoing arrows, never a successful subtype result. Each pop consumes
+;; the caller's quota; the whole request-local graph is discarded on exhaustion.
+(def (raw-reachable starts arrows target work)
+  (def visited (make-hash-table))
+  (let visit ((pending starts))
+    (unless (null? pending)
+      (work)
+      (let (node (car pending))
+        (if (hash-key? visited node) (visit (cdr pending))
+          (let (outgoing (arrows node))
+            (hash-put! visited node outgoing)
+            (visit (foldr (lambda (arrow tail) (cons (target arrow) tail))
+                     (cdr pending) outgoing)))))))
+  visited)
+
+;; Construct the decoder/arity product, its reverse arrows and legal endings.
+;; Exact and saturated counters share this grammar; no subtype is admitted here.
+(def (raw-graph expected row raw-count limits work)
   (def positions (list->vector (car row)))
   (def position-count (vector-length positions))
-  (def raw-count (length raw-arguments))
   (def bounded-positions? (<= position-count (cdr limits)))
   (def bounded-raw? (<= raw-count (car limits)))
   (def initial (list 0 (cdr row) 0 #f))
-  (def source-fixed (and actual (list->vector (append (.get actual inputs) (.get actual optional)))))
-  (def source-rest (and actual (.get actual rest)))
-  (def edges (make-hash-table))
   (def predecessors (make-hash-table))
   (def ordinary (make-hash-table))
-  (def admitted (make-hash-table))
-  (def live (make-hash-table))
   (def endings [])
   ;; At the saturated decoded position, only the target's declared rest repeats.
   (def (position-type index)
     (if (< index position-count) (vector-ref positions index) (.get expected rest)))
   ;; Cache only completed ordinary restrictions, including an explicit Never.
   (def (ordinary-type type)
-    (def cached (hash-ref ordinary type (void)))
-    (if (not (void? cached)) cached
-      (let (answer (ordinary-origin type work)) (hash-put! ordinary type answer) answer)))
+    (hash-ensure-ref ordinary type (cut ordinary-origin type work)))
   ;; Necessary exact-region bounds prune unreachable suffix sizes early. Rest
   ;; mode has no further keyword interpretation, hence exactly one token/value.
   (def (feasible? position keys offset rest?)
@@ -324,44 +329,23 @@
                (and (not (empty-origin? (cdr entry)))
                  (edge position (remq entry keys) offset #f (list (list 'Exactly (car entry)) (cdr entry))))) keys)
              (if (null? keys) (list (edge position [] offset #t '((Exactly #!rest)))) [])))))))
-  ;; Register a complete finite reachable graph; no subtype result is cached here.
-  (let discover ((pending (list initial)))
-    (unless (null? pending)
-      (work)
-      (let (state (car pending))
-        (if (hash-key? edges state) (discover (cdr pending))
-          (let (outgoing (successors state))
-            (hash-put! edges state outgoing)
-            (match state
-              ([position keys offset _rest?]
-               (when (and (= position position-count) (null? keys) (= offset raw-count))
-                 (set! endings (cons state endings)))))
-            (for-each (lambda (out)
-              (def next (raw-edge-next out))
-              (hash-put! predecessors next (cons state (hash-ref predecessors next [])))) outgoing)
-            (discover (append (map raw-edge-next outgoing) (cdr pending))))))))
-  ;; Least backwards fixed point: only states with a successful finite ending
-  ;; become live. A closed cycle without an ending cannot certify a real call.
-  (let close ((pending endings))
-    (unless (null? pending)
-      (work)
-      (let (state (car pending))
-        (if (hash-key? live state) (close (cdr pending))
-          (begin (hash-put! live state #t)
-            (close (append (hash-ref predecessors state []) (cdr pending))))))))
-  ;; Every edge's origin uses the source slot at its own raw offset, including
-  ;; the saturated source rest. Public Union bounds are never widened here.
-  (def (at? index origin)
-    (work)
-    (def formal (if (< index (vector-length source-fixed)) (vector-ref source-fixed index) source-rest))
-    (and formal
-      (let* ((key (cons origin formal)) (cached (hash-ref admitted key (void))))
-        (if (not (void? cached)) cached
-          (let (answer (raw-origin-subtype? origin formal work))
-            (hash-put! admitted key answer) answer)))))
-  ;; Check the closure certificate itself, even for an empty initial region.
-  ;; Every ending must be live and every edge into live must start live. Only
-  ;; then may an empty language skip source selection/output variance entirely.
+  ;; Register reverse arrows while exploring; the same traversal later closes
+  ;; predecessors. The official hash-update! retains all shared predecessors.
+  (def (arrows state)
+    (match state
+      ([position keys offset _rest?]
+       (when (and (= position position-count) (null? keys) (= offset raw-count))
+         (set! endings (cons state endings)))))
+    (def outgoing (successors state))
+    (for-each (lambda (out)
+      (hash-update! predecessors (raw-edge-next out) (cut cons state <>) [])) outgoing)
+    outgoing)
+  (values (raw-reachable (list initial) arrows raw-edge-next work) predecessors endings initial))
+
+;; Independently check endings, predecessor closure and ordered per-slot evidence.
+;; Even an empty initial language must carry a complete closure certificate;
+;; merely encountering an explored cycle can never approve a call region.
+(def (raw-certificate? edges live endings initial actual at? work)
   (and (andmap (cut hash-key? live <>) endings)
     (or (not (hash-key? live initial)) actual)
     (hash-fold (lambda (state outgoing accepted?)
@@ -376,6 +360,27 @@
                    (or (null? origins)
                      (and (at? index (car origins)) (slots (cdr origins) (1+ index)))))))) outgoing))))) #t edges)
     (if (hash-key? live initial) #t 'empty)))
+
+;; Normalize through the existing signature protocol, construct the product,
+;; close predecessors, then check slot evidence. Cache only completed comparisons
+;; with std/hash/misc: cached #f stays #f and exceptions never install an answer.
+(def (raw-inputs-related? actual expected arguments raw-arguments limits work)
+  (def row (signature.decode-arguments
+    (signature.normalize-arguments expected arguments #t (lambda (formal _) formal)) #t))
+  (defvalues (edges predecessors endings initial)
+    (raw-graph expected row (length raw-arguments) limits work))
+  (def live (raw-reachable endings (cut hash-ref predecessors <> []) identity work))
+  (def admitted (make-hash-table))
+  (def source-fixed (and actual (list->vector (append (.get actual inputs) (.get actual optional)))))
+  (def source-rest (and actual (.get actual rest)))
+  ;; Each edge origin uses its own raw offset, including the saturated rest slot.
+  ;; Public Union bounds remain invariant; only identity origins use flat inclusion.
+  (def (at? index origin)
+    (work)
+    (def formal (if (< index (vector-length source-fixed)) (vector-ref source-fixed index) source-rest))
+    (and formal (hash-ensure-ref admitted (cons origin formal)
+                  (cut raw-origin-subtype? origin formal work))))
+  (raw-certificate? edges live endings initial actual at? work))
 
 ;; Keyword sources still require stable supplied target carriers. Plain sources
 ;; use value-sensitive raw origin checks, preserving the exact selected clause.

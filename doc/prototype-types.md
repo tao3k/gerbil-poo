@@ -585,3 +585,23 @@ origin correspondence and host validator interpretations remain explicit premise
 this is Appendix C/D future work. Arbitrary predicates, effects and opaque ordinary
 refinement remain outside this decidable subset. Infinite rest means arbitrary
 finite call lists, not execution on a physically cyclic/infinite argument list.
+
+## Graph implementation and library reuse
+
+The cross-mode judgment composes product construction, backwards closure and
+independent certificate checking inside `type-relation.ss`. Both traversals use
+one private arrow/target traversal, following the higher-order protocol in
+Gerbil `std/struct/dag`, while allowing finite cycles that `walk-dag` rejects.
+Visited nodes only record outgoing arrows; they never certify a subtype.
+`std/hash/misc`'s `hash-ensure-ref` caches completed ordinary restrictions and
+origin comparisons (including false), and `hash-update!` collects shared reverse
+dependencies. Exceptions leave no completed answer; all tables remain local to
+one judgment. Work accounting and default budgets are unchanged.
+
+The existing FUN/refine/bind-evidence pipeline consumes the final checked result;
+pure graph traversal does not introduce a separate effect or declaration protocol.
+The companion `rawRegionCovers_ext` law makes the certificate judgment independent
+of live-set ordering and duplicates when membership agrees. This is not a proof
+of Gerbil's hash implementation or of the concrete graph producer's completeness.
+The keyword/rest regression repeats false, exhausted and successful requests to
+check that an interrupted traversal cannot poison subsequent inference.
