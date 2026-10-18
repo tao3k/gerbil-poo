@@ -60,6 +60,10 @@ continuation assembly candidate equivalent, but rejects default adoption after
 paired construction/GC regressions. Live reflection retains current Slot
 admission across shared source revisions. The mechanism ledger records why direct host class reflection
 is not an equivalent replacement, the new FUN workflow and bounded paired study.
+The brace frontend now uses core `defalias` to the existing match-aware `.o`
+binding, removing both duplicate forwarding transformers. Constructor, nested
+pattern, renamed-import, host-method escape and live metadata refusal/retry
+controls cover the complete combined-method/FUN workflow; see the same ledger.
 This audit does not mark the open type/library/interpreter projects complete.
 
 ### Consolidated acceptance, not scenario accumulation

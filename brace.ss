@@ -5,15 +5,10 @@
 
 (import
   (prefix-in (only-in :gerbil/core @method) @)
-  (only-in ./object .o .o/ctx))
+  (only-in ./object .o))
 
-;; {args ...} -> (@method args ...) -> (.o args ...)
-;; except that for macro-scope it's -> (.o/ctx #,stx args ...)
-(defsyntax-for-match @method
-  (lambda (stx)
-    (syntax-case stx () ; match pattern
-      ((_ args ...) #'(.o args ...))))
-  (lambda (stx)
-    (syntax-case stx () ; expr
-      ((_ args ...)
-       (with-syntax ((ctx stx)) #'(.o/ctx ctx args ...))))))
+;; The core alias preserves the SAME match-aware binding as .o, including its
+;; expression use-site context. .o alone owns match/constructor selection and
+;; slot lowering; braces do not supply another expander or receiver scope.
+;; Keep @@method above as the explicit escape to Gerbil's host method syntax.
+(defalias @method .o)

@@ -461,3 +461,39 @@ callbacks/monads; existing SlotReflection laws specify current admission separat
 They do not prove host mutation, macro/compiler correctness, GC costs or capability
 security. Generalized MOP integration continues the article's future work. The
 open TODO type/library/interpreter projects remain open.
+
+### Brace frontend: one resolved macro binding through current reflection
+
+The complete frontend path is now reader braces → core alias `@method` → the
+existing `.o` match macro → core expression/match selection → `.o/ctx` slot
+lowering or the existing object projection pattern. `brace.ss` uses core
+`defalias`; its duplicate expression AND match transformers are removed. This
+is binding reuse, not another wrapper, pattern compiler or receiver parameter.
+The explicit `@@method` escape retains the original Gerbil host-method binding.
+Inspected host owners are `core/sugar.ss` (`defalias`), `expander/top.ss`
+(`core-expand-define-alias%`) and `core/match.ss` (`defsyntax-for-match`).
+
+`examples/declared-methods.ss` `inspected-action` composes brace construction,
+nested brace matching, captured outer/local receivers, inherited standard method
+combination and current public reflection in one FUN observation. It reads the
+current method declaration before invocation; hiding the declaration refuses
+without method effects, and restoring visibility permits retry with the SAME
+action and a new Reader context. It never retains successful approval or values.
+This declaration/MOP integration advances the article's stated future work;
+the article does not prescribe Gerbil reader braces or this alias API.
+
+Regression controls inspect actual free-identifier binding identity, renamed
+imports, lexical shorthand, nested matching, missing/non-object cases, read-only
+field expansion and explicit host dispatch. A separate control demonstrates
+why public reflection must finish its existing complete right-fold catalog:
+an unrelated suffix's failing metadata getter prevents a front slot read, with
+the original exception and no getter/value effects from the earlier entry.
+Restoring the metadata source allows the same receiver to be retried.
+
+`Object/CatalogReflection.lean` adds six laws in the existing DescriptorReflection
+namespace: ordered all-visible inspection, suffix failure, refusal before read,
+exact selected entry/error propagation, absence refusal and whole-call congruence.
+The top-level `Examples/CatalogReflection.lean` combines current catalog checks
+with the existing prepared continuation program. Effective most-specific entries,
+callback behavior and source stability are premises. These are not host hygiene,
+compiler, mutable-source atomicity or security proofs. No speedup is claimed.

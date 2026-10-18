@@ -1,7 +1,8 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action)
+(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
-        (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.))
+        (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
+        (only-in ../reflection read-slot))
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)
 ;; Two branches refine one shared base through ordinary inherited fragment slots.
@@ -88,3 +89,23 @@
   (.call gp.Observation. .map
     (lambda (account) (.call (.@ account nested) run units))
     (lambda (context) (make-scoped-account family (.@ context rate)))))
+
+;; Brace construction and nested matching share .o's core binding, including the
+;; final outer receiver captured by run. Current PUBLIC method metadata is admitted
+;; before invocation, so visibility/metadata refusal emits no method effects. FUN
+;; retains code, not an earlier catalog approval or a previous context's result.
+(def (inspected-action family units)
+  (.call gp.Observation. .map
+    (lambda (account)
+      (read-slot family '.charge)
+      (match account
+        ({nested: {run: run outer: outer local: local}}
+         (values (.@ family .public-slots) (outer) (local)
+                 (call/values (lambda () (run units)) list)))))
+    (lambda (context)
+      {self: account
+       .type: family rate: (.@ context rate)
+       nested: {rate: 7 outer: (lambda () (.@ account rate))
+                local: (lambda () rate)
+                run: (lambda (amount)
+                       (values (outer) (local) (charge account amount)))}})))

@@ -5,6 +5,8 @@
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :gerbil/runtime/c3 c4-linearize c4-linearize*)
         (prefix-in ../reflection reflection.)
+        (only-in ../brace @method @@method)
+        (rename-in (only-in ../brace @method) (@method object-form))
         (prefix-in ../examples/declared-methods declared.)
         (prefix-in ../method-combination method.)
         (prefix-in ../multimethod dispatch.)
@@ -24,6 +26,14 @@
 (defsyntax (rejects? stx)
   (syntax-case stx ()
     ((_ form) (try (core-expand #'form) #'#f (catch (_cause) #'#t)))))
+;; Inspect actual resolved bindings; equality of printed macro names is insufficient.
+(defsyntax (same-binding? stx)
+  (syntax-case stx ()
+    ((_ left right) (if (free-identifier=? #'left #'right) #'#t #'#f))))
+;; A host class stays on the explicit Gerbil method escape, independent of braces.
+(defstruct host-reading (value) final: #t)
+;; Core defmethod and @@method retain their original binding and dispatch semantics.
+(defmethod (@@method read host-reading) (lambda (self) (host-reading-value self)))
 ;; The two value identifiers have the same spelling and distinct lexical bindings.
 (defrule (two-scopes outer)
   (let (value 99) (with-slots (value outer) (.o value: 7) (+ value outer))))
@@ -35,6 +45,59 @@
 ;; Use actual ordered callbacks, not only final container equality, as acceptance evidence.
 (def library-reuse-test
   (test-suite "Gerbil classes containers and lazy caches"
+    (test-case "brace aliases preserve the complete match binding and host escape"
+      (check (same-binding? @method .o) => #t)
+      (check (same-binding? object-form .o) => #t)
+      (check (same-binding? @@method .o) => #f)
+      (check-equal? (@@method read (make-host-reading #f)) #f)
+      (let ((value 13))
+        (def first {value})
+        (def second (object-form value: 7 child: first))
+        (check-equal? (match second ((object-form value: own child: {value: captured})
+                                    (list own captured))) '(7 13))
+        (check-equal? (match second ({absent: _} 'unexpected) (_ 'missing)) 'missing)
+        (check-equal? (match #f ({value: _} 'unexpected) (_ 'non-object)) 'non-object))
+      (check (rejects? {value: 1 change: (lambda () (set! value 2))}) => #t))
+    (test-case "brace FUN method workflow rechecks current reflection and retries"
+      (def events [])
+      (def family (declared.make-reporting-family (lambda (event) (set! events (cons event events)))))
+      (def action (declared.inspected-action family 2))
+      (check-equal? events [])
+      (check-equal? (call/values (lambda () (action {rate: 10})) list)
+        '((.summary .charge) 10 7 (10 7 46)))
+      (def descriptor (cdr (assq '.charge (reflection.reflect-slots family))))
+      (.putslot! descriptor 'hidden ($constant-slot-spec #t))
+      (set! events [])
+      (check-exception (action {rate: 20}) Error?)
+      (check-equal? events [])
+      (.putslot! descriptor 'hidden ($constant-slot-spec #f))
+      (check-equal? (call/values (lambda () (action {rate: 20})) list)
+        '((.summary .charge) 20 7 (20 7 86)))
+      (check-equal? (reverse events)
+        '(around-enter billing-before risk-before billing-primary base risk-after billing-after around-exit)))
+    (test-case "complete reflected catalog precedes a front slot and preserves metadata failure"
+      (def events [])
+      (def cause (list 'metadata-refused))
+      (def first (.o (:: @ (instance Slot))
+        (hidden #f)
+        (compute (lambda (_ __) (set! events (cons 'first-value events)) 5))))
+      (def last (.o (:: @ (instance Slot))
+        (hidden #f)
+        (compute (lambda (_ __) (error "unreachable value")))))
+      (def receiver (reflection.object<-declarations (list (cons 'first first) (cons 'last last))))
+      ;; Initial Slot admission precedes these supported metadata revisions;
+      ;; the following observations must use fresh descriptor computations.
+      (.putslot! first 'hidden ($thunk-slot-spec
+        (lambda () (set! events (cons 'first-metadata events)) #f)))
+      (.putslot! last 'hidden ($thunk-slot-spec
+        (lambda () (set! events (cons 'last-metadata events)) (raise cause))))
+      (set! events [])
+      (check-exception (reflection.read-slot receiver 'first) (lambda (actual) (eq? actual cause)))
+      (check-equal? (reverse events) '(last-metadata))
+      (.putslot! last 'hidden ($constant-slot-spec #t))
+      (set! events [])
+      (check-equal? (reflection.read-slot receiver 'first) 5)
+      (check-equal? (reverse events) '(first-metadata first-value)))
     (test-case "core receiver scopes preserve nested and inherited method ownership through FUN"
       (let* ((events []) (family (declared.make-reporting-family
                           (lambda (event) (set! events (cons event events)))))
