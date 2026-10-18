@@ -1,5 +1,5 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression copy-type canonical-type)
+(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
@@ -31,7 +31,7 @@
 ;; Select a declared Function through explicit Object fields. An unresolved row
 ;; tail or Type variable cannot invent a named signature before substitution.
 ;; Callers validate syntax with their own variable set before this shared walk.
-(def (function-expression expression path work)
+(def (function-expression expression path work (missing 'unsupported))
   (bounded-type-data path work)
   (unless (and (list? path) (andmap symbol? path))
     (refuse-type 'malformed "Signature path must contain field names" path))
@@ -41,11 +41,38 @@
     (if (null? path)
       (begin
         (unless (and (pair? current) (memq (car current) '(Function CaseFunction)))
-          (refuse-type 'unsupported "Signature path does not name a concrete Function" path))
+          (refuse-type missing "Signature path does not name a concrete Function" path))
         current)
       (let (field (and (pair? current) (eq? (car current) 'Object) (assq (car path) (cadr current))))
-        (unless field (refuse-type 'unsupported "Signature path needs explicit Object fields" path))
+        (unless field (refuse-type missing "Signature path needs explicit Object fields" path))
         (walk (cadr field) (cdr path))))))
+
+;; Return a known signature template, or #f when substitution can decide the
+;; path's kind/layout. Literal names are not variables: capture-free substitution
+;; detects only actual Type positions. Fixed absent paths still refuse up front.
+;; Candidate projection later uses function-expression with bounds refusal.
+(def (function-template expression path variables work)
+  (bounded-type-data path work)
+  (unless (and (list? path) (andmap symbol? path))
+    (refuse-type 'malformed "Signature path must contain field names" path))
+  ;; A private false marker detects free Type parameters without unfolding Mu.
+  (def (dependent? term)
+    (not (equal? term (substitute-type term (map (lambda (name) (cons name #f)) variables) work))))
+  (let walk ((term expression) (remaining path))
+    (work)
+    (cond
+      ((memq term variables) #f)
+      ((and (pair? term) (eq? (car term) 'Mu))
+       (if (dependent? term) #f (walk (normalize-type term work) remaining)))
+      ((null? remaining) (function-expression term [] work))
+      ((and (pair? term) (eq? (car term) 'Object))
+       (let (field (assq (car remaining) (cadr term)))
+         (cond (field (walk (cadr field) (cdr remaining)))
+               ((pair? (caddr term))
+                (if (dependent? (cadr (caddr term))) #f
+                  (walk (normalize-type term work) remaining)))
+               (else (refuse-type 'unsupported "Signature path needs a declared field" remaining)))))
+      (else (refuse-type 'unsupported "Signature path needs Object fields" remaining)))))
 
 ;; Decide derivability in the closed algebra: UInt <: Integer <: Any; Bool <: Any;
 ;; covariant List/Tuple observations; fixed-arity Function inputs contravariant,

@@ -5,6 +5,9 @@
         (prefix-in ./parameters positional.)
         (prefix-in ./function-signature signature.))
 
+;; An accepted finite assignment retains its own derived queries and normalized
+;; layout. Private immutable transport prevents parallel lists from drifting apart.
+(defstruct inference-solution (arguments queries expression) final: #t)
 ;; A bound descriptor carries its direct source revision. The private immutable
 ;; record is transport for ordinary metadata, not an arbitrary Type inclusion proof.
 (defstruct type-binding (descriptor revision) final: #t)
@@ -146,7 +149,7 @@
 
 ;; The same finite solver accepts bounds on BOTH sides of a call constraint.
 ;; All callers pass one captured schema and one shared quota through construction.
-(def (infer/checked scheme candidates queries work)
+(def (infer/checked scheme candidates queries work (derive #f))
   (let ()
     (bounded-type-data candidates work)
     (require-value candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
@@ -165,23 +168,29 @@
           (for-each (lambda (candidate) (search (cdr variables) (cons candidate arguments))) domain)
           (let* ((ordered (reverse arguments))
                  (substitution (map cons (.get scheme variables) ordered))
-                 (constraints (append (.get scheme bounds) queries)))
+                 (derived queries) (layout #f))
             (when (try
                     (let (ground (substitute-type (.get scheme expression) substitution work))
                       (type-expression ground [] work)
-                      (normalize-type ground work))
+                      (set! layout (normalize-type ground work)))
+                    (when derive (set! derived (derive layout)))
                     (andmap (lambda (bound)
                               (subtype/checked?
                                 (substitute-type (car bound) substitution work)
-                                (substitute-type (cadr bound) substitution work) work)) constraints)
+                                (substitute-type (cadr bound) substitution work) work)) (append (.get scheme bounds) derived))
                     (catch (cause)
                       (if (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'bounds)) #f (raise cause))))
-              (set! solutions (cons ordered solutions))))))
+              (set! solutions (cons (make-inference-solution ordered derived layout) solutions))))))
       (let* ((ordered (reverse solutions))
              (status (cond ((null? ordered) 'no-solution)
                            ((null? (cdr ordered)) 'unique) (else 'ambiguous)))
-             (instance (and (eq? status 'unique) (instantiate/checked scheme (car ordered) work))))
-        (.o bind-these: #f status: status solutions: ordered instance: instance)))))
+             (instance (and (eq? status 'unique) (instantiate/checked scheme (inference-solution-arguments (car ordered)) work))))
+        (.o bind-these: #f status: status
+            solutions: (map inference-solution-arguments ordered) instance: instance
+            alternatives: (map (lambda (solution)
+              (.o bind-these: #f arguments: (inference-solution-arguments solution)
+                queries: (inference-solution-queries solution) expression: (inference-solution-expression solution))) ordered)
+            queries: (if (eq? status 'unique) (inference-solution-queries (car ordered)) queries))))))
 
 ;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
 ;; These temporary objects are shape views, not new Types or dispatch certificates.
@@ -198,11 +207,12 @@
 ;; runtime's first structural clause and keyword escapes, without invoking bodies,
 ;; defaults or Type validators. An input contributes actual <: formal; an expected
 ;; output contributes formal <: expected, including nested Function variance.
-(def (call-constraints scheme observation work)
+(def (call-constraints scheme observation work (template #f) (candidate? #f))
   (unless (and (list? observation) (= (length observation) 3) (list? (cadr observation))
                (or (not (caddr observation)) (list? (caddr observation))))
     (refuse-type 'malformed "Call observation needs path, arguments and optional outputs" observation))
-  (def term (function-expression (.get scheme expression) (car observation) work))
+  (def term (or template (function-expression (.get scheme expression) (car observation) work
+                          (if candidate? 'bounds 'unsupported))))
   (def clauses (map signature-view (if (eq? (car term) 'Function) (list term) (cdr term))))
   (def arguments (cadr observation))
   (def selected (signature.select-signature clauses arguments))
@@ -212,6 +222,10 @@
     (ormap (lambda (clause) (pair? (.get clause keywords))) clauses)
     (lambda (formal actual)
       (work)
+      ;; Escaped wire tokens may be positional only for a non-keyword candidate;
+      ;; they are not ground Types. The preflight already checked every payload.
+      (when (and candidate? (or (keyword? actual) (eq? actual #!key) (eq? actual #!rest)))
+        (refuse-type 'bounds "Candidate does not interpret the observed keyword call"))
       (type-expression actual [] work)
       (set! constraints (cons (list (copy-type actual) (copy-type formal)) constraints))
       actual))
@@ -226,11 +240,24 @@
       (.get selected outputs) expected))
   (reverse constraints))
 
-;; Jointly infer one shared assignment from any finite collection of named calls.
-;; Capture schema/observations before search; extraction, Cartesian enumeration,
-;; subtype checks and successful construction consume the SAME request budget.
-;; Unsupported paths/shapes refuse before a builder; inconsistent constraints are
-;; no-solution, multiple assignments stay ambiguous, and exhaustion never admits.
+;; Validate candidate-dependent wire data before enumeration, even for an empty
+;; universe. Reuse Gerbil keyword decoding; every supplied payload is a ground
+;; Type, not a runtime value or a user callback to execute during inference.
+(def (check-call observation work)
+  (unless (and (list? observation) (= (length observation) 3) (list? (car observation))
+               (andmap symbol? (car observation)) (list? (cadr observation))
+               (or (not (caddr observation)) (list? (caddr observation))))
+    (refuse-type 'malformed "Call observation needs path, arguments and optional outputs" observation))
+  (def row (signature.decode-arguments (cadr observation) #t))
+  (unless row (refuse-type 'malformed "Malformed observed keyword argument row"))
+  (for-each (cut type-expression <> [] work) (append (car row) (map cdr (cdr row))))
+  (when (caddr observation) (for-each (cut type-expression <> [] work) (caddr observation))))
+
+;; Jointly infer one shared assignment. Known shapes reuse precollected queries;
+;; dependent kinds/row layouts project only AFTER complete candidate substitution
+;; and recursive admission. Each accepted alternative retains its own evidence.
+;; Bounds failures reject candidates; malformed/unsupported syntax and exhaustion
+;; remain whole-request errors. No builder or Type validator runs during search.
 (def (infer-prototype-calls scheme candidates observations (budget 8192))
   (def work (type-work budget))
   (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
@@ -238,6 +265,19 @@
   (bounded-type-data observations work)
   (unless (list? observations) (refuse-type 'malformed "Call observations must form a list"))
   (def calls (map copy-type observations))
-  (def constraints (apply append (map-in-order (cut call-constraints captured <> work) calls)))
-  (def report (infer/checked captured candidates constraints work))
-  (.cc report calls: calls queries: constraints))
+  (def templates (map-in-order (lambda (call)
+    (unless (and (list? call) (= (length call) 3))
+      (refuse-type 'malformed "Call observation needs path, arguments and optional outputs"))
+    (def term (function-template (.get captured expression) (car call) (.get captured variables) work))
+    (if term (call-constraints captured call work term)
+      (begin (check-call call work) #f))) calls))
+  (def dependent? (ormap not templates))
+  (def constraints (if dependent? [] (apply append templates)))
+  ;; One candidate layout owns every sibling call. Known templates retain their
+  ;; original order among newly projected queries; no per-method solving occurs.
+  (def derive (and dependent? (lambda (layout)
+    (def ground (.o bind-these: #f expression: layout))
+    (apply append (map-in-order (lambda (call known)
+      (or known (call-constraints ground call work #f #t))) calls templates)))))
+  (def report (infer/checked captured candidates constraints work derive))
+  (.cc report calls: calls))

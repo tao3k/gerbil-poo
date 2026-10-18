@@ -461,3 +461,9 @@ admissions. Parser/descriptor projection, genuine host identities and faithful
 revision observations are premises; there is no compiler or runtime proof or
 end-to-end speed claim. This advances the article's type-system/generalized-
 prototype future work from Appendix B combinations and Appendix C constraints.
+
+Candidate-dependent call inference now resolves whole signature Types and Object
+field/row layouts before invoking the same declaration builder. Alternatives keep
+their own queries and normalized catalog, and complete sibling/source admission
+is unchanged. See [prototype-types.md](prototype-types.md#candidate-dependent-signatures-and-field-layouts)
+and `t/candidate-inference-test.ss` for finite scope and failure categories.

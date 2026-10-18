@@ -311,3 +311,54 @@ compiler behavior, default computation or GC. Syntax admission and faithful labe
 projection are premises. Existing source revision and resource limits stay intact.
 The concentrated tests are `t/record-inference-test.ss`; complete single-process and
 all existing test groups remain required.
+
+## Candidate-dependent signatures and field layouts
+
+`infer-prototype-calls` and `infer-declared-calls` also accept schemas whose
+whole expression, named field Type, or Object row tail is a free Type parameter.
+An explicit finite candidate universe determines each complete ground expression;
+recursive syntax admission and row normalization precede projection of its named
+Function paths. Existing Function shape selection then extracts inequalities, and
+all sibling calls and original bounds must hold under that **same** assignment.
+Known signature shapes retain the existing precollection path. No body, optional
+default, Type recognizer or declaration builder executes during enumeration.
+
+```scheme
+(def catalog-type
+  (prototype-type (.o .parameters: '(Catalog)) '(Catalog) 'Catalog []))
+(infer-prototype-calls catalog-type
+  '(UInt (Object ((run (Function (UInt) (Integer)))) closed))
+  '(((run) (Integer) (UInt)))) ; unique Object candidate
+```
+
+Each `alternatives` entry carries `arguments`, its own normalized `expression`,
+and its own ordered `queries`. The report's `solutions` remains the assignment
+list. For unique call inference, top-level `queries` is that selected alternative's
+queries. For nonunique dependent inference it is empty; inspect `alternatives`
+rather than merging incompatible layouts. For known shapes the precollected
+queries remain available even when the result is nonunique.
+
+Wrong candidate kind, absent candidate field, disallowed row overlap, rejected
+call shape/output count or unsatisfied inequalities reject that candidate. Complete
+search returns `no-solution`, `unique`, or `ambiguous`; only `unique` may invoke
+the builder. Malformed/unsupported syntax or exhaustion aborts the entire request,
+even after a valid candidate. Invalid candidate-dependent observations are
+preflighted through the existing keyword decoder, including with an empty universe.
+Dangling/duplicate keyword rows are malformed; payloads must be ground supported
+Types. Literal missing paths in an already known schema remain unsupported.
+The shared quota, depth guard and recursive admission rules remain enforced.
+
+Publication still checks source identities/revisions, negative assumptions and
+**every** required named signature, including unobserved siblings. Builder/approval
+errors propagate; there is no fallback to another candidate after builder failure,
+no partial artifact and no rollback of arbitrary builder effects. A new request
+may retry. `infer-shared-catalog-service` reuses both existing qualified factories;
+`catalog-service-action` composes recursive callback validation, refinement and
+exact evidence binding through the existing FUN/publication protocol.
+
+This is finite rank-one future-work inference, not an implementation attributed
+to the Racket appendix. Explicit `.parameters`, Type/Function descriptors and
+Self/Super constraints follow the existing protocol. It does not discover arbitrary
+Class/Slot callback layouts, principal host types, higher ranks, unrestricted
+recursive/effect types or arbitrary replacement between different case languages.
+Root Record remains a data Type rather than a certified method catalog.

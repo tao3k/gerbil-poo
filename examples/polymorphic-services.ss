@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -293,3 +293,47 @@
     (lambda (receiver) (lambda (_)
       (defvalues (answer _owner) (record-service receiver input))
       (publish (.o processor: answer))))))
+
+;; The outer parameter is itself a finite candidate signature, rather than a
+;; preselected Function skeleton. Existing inference determines its kind, call
+;; language and nested callback result before any method declaration is built.
+(def CatalogServiceType
+  (prototype-type (.o .parameters: '(Signature)) '(Signature) 'Signature []))
+;; Reuse the existing standard fragment/factory protocol and original source
+;; guards. A callback result demonstrates recursive wrapping before FUN/refine
+;; and exact bind-evidence publication; no callback runs during candidate search.
+(def (infer-catalog-service candidates observations procedure (record void))
+  (infer-declared-calls CatalogServiceType candidates observations
+    (cut signature-service-declarations <> procedure record)))
+
+;; The candidate supplies the scalar and callback Types. Existing publication
+;; checks both recursively, refines the normalized scalar, and binds exact
+;; subject/descriptor/context evidence before IO. No result escapes on refusal.
+(def (catalog-service-action instance input context consume)
+  (def outputs (.get instance descriptor outputs))
+  (def contract (refine (.cc ObjectContract. responsibilities:
+    (.o answer: (car outputs) callback: (cadr outputs)))
+    (lambda (subject path)
+      (if (<= (.get subject answer) 100) []
+        [(.o bind-these: #f kind: 'limit path: path)]))))
+  (def invocation (metadata.contract (metadata.predicate "subject" object?)
+    (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
+  (def publish (publication.publication-action contract invocation context
+    (lambda (subject)
+      (consume subject)
+      (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
+  (.call observation.Observation. .bind
+    (lambda (_)
+      (unless (eq? (.get context approved) #t) (error "catalog approval refused"))
+      (.get instance prototype))
+    (lambda (receiver) (lambda (_)
+      (defvalues (answer callback _owner) (invoke-signature-service receiver input))
+      (publish (.o bind-these: #f answer: answer callback: callback))))))
+
+;; Whole-catalog candidates can add or omit fields. Reuse the two existing
+;; typed fragment factories; final admission still demands every required method,
+;; including siblings absent from the observed calls. No inferred method appears
+;; merely because a caller requested its path.
+(def (infer-shared-catalog-service candidates observations report recover (record void))
+  (infer-declared-calls CatalogServiceType candidates observations
+    (cut shared-service-declarations <> report recover record)))

@@ -517,7 +517,7 @@
       (defvalues (answer _) (invoke-declared (.get result instance prototype api run) [-9]))
       (check-equal? answer 9)
       (check-exception (infer-prototype-calls schema '(UInt Integer) '(((api missing) (Integer) (UInt)))) (refusal 'unsupported)))
-    (test-case "invalid observations and unresolved signature kinds refuse before building"
+    (test-case "invalid observations refuse before building; concrete candidate signatures resolve"
       (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
         '(((.report) (Integer))) forbidden-builder) (refusal 'malformed))
       (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
@@ -527,8 +527,8 @@
       (check-exception (infer-declared-calls service.SharedServiceType '(UInt Integer)
         '(((.report) (Integer) (UInt))) forbidden-builder) (refusal 'bounds))
       (def schema (prototype-type (.o .parameters: '(Signature)) '(Signature) 'Signature []))
-      (check-exception (infer-declared-calls schema '((Function (UInt) (UInt)))
-        '((() (UInt) (UInt))) forbidden-builder) (refusal 'unsupported)))
+      (check-equal? (.get (infer-prototype-calls schema '((Function (UInt) (UInt)))
+        '((() (UInt) (UInt)))) status) 'unique))
     (test-case "unique joint inference refuses a forbidden sibling without exposing an instance"
       (def bodies 0)
       ;; First group is valid; the second fails completed negative admission.
