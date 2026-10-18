@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action)
+(export charge make-account make-family observation summarize make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
         (only-in ../reflection read-slot))
@@ -109,3 +109,43 @@
                 local: (lambda () rate)
                 run: (lambda (amount)
                        (values (outer) (local) (charge account amount)))}})))
+
+;; An inherited expander contributes a whole qualifier group from one form.
+;; Ordinary record/private forms still use MethodDeclaration.'s inherited path;
+;; the same finalizer merges methods only after CURRENT whole-batch approval.
+;; Capture scalar surcharge/tenant values during this expansion, not a mutable
+;; context in an escaping method body. Expansion effects are not rolled back.
+(def (batch-expander record)
+  (.o (:: @ MethodDeclaration.)
+    (expand-declaration (inherited) (lambda (context form)
+      (record (.@ form name))
+      (case (.@ form kind)
+        ((tenant) ((inherited) context
+          (declaration-form 'public 'tenant (instance Slot constant: (.@ context tenant)))))
+        ((charge)
+         (let (surcharge (.@ context surcharge))
+           (append
+             ((inherited) context (method-fragment '.charge
+               [(combination.before (lambda (_ units) (record 'batch-before)))]))
+             ((inherited) context (method-fragment '.charge
+               [(combination.primary (lambda (next _ units) (record 'batch-primary) (+ surcharge (next))))]))
+             ((inherited) context (method-fragment '.charge
+               [(combination.after (lambda (_ units) (record 'batch-after)))])))))
+        (else ((inherited) context form)))))
+    (finalize-declarations (inherited) (lambda (context entries)
+      (record 'finalize)
+      (unless (.@ context approved) (error "batch approval refused"))
+      ((inherited) context entries)))))
+
+;; Static and spliced forms enter ONE prepared traversal and one finalizer.
+;; FUN binds complete entries to the same context before deriving a C3 family;
+;; current reflection gates the inherited generic and never demands the token.
+(def (batch-action family expander units)
+  (def private-forms [(declaration-form 'private 'token (instance Slot constant: 'secret))])
+  (def forms (declaration-forms (tenant tenant (.o)) ,@private-forms (charge .charge (.o))))
+  (.call gp.Observation. .bind (declaration-action expander forms)
+    (lambda (entries) (lambda (context)
+      (def current (object<-expanded-declarations context entries supers: [family]))
+      (read-slot current '.charge)
+      (values (read-slot current 'tenant) (.@ current .public-slots)
+        (charge (make-account current (.@ context rate)) units))))))

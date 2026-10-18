@@ -64,6 +64,10 @@ The brace frontend now uses core `defalias` to the existing match-aware `.o`
 binding, removing both duplicate forwarding transformers. Constructor, nested
 pattern, renamed-import, host-method escape and live metadata refusal/retry
 controls cover the complete combined-method/FUN workflow; see the same ledger.
+The complete declaration driver now delegates ordered expansion to standard
+`map-in-order` and delayed flattening to `foldr append`, retaining FUN finalization,
+captured forms, refusal/retry and current reflection. Whole-batch inherited method
+examples and effectful traversal laws cover this replacement in the same ledger.
 This audit does not mark the open type/library/interpreter projects complete.
 
 ### Consolidated acceptance, not scenario accumulation

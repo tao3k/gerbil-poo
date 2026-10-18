@@ -1,5 +1,21 @@
 # Method fragments in the declaration protocol
 
+## Prepared whole-form expansion
+
+`batch-expander` and `batch-action` in `examples/declared-methods.ss` prepare one
+FUN traversal of static and spliced declarations, then derive a family above the
+existing shared C3 diamond. A form may contribute a complete before/primary/after
+group. The current context supplies tenant, surcharge and final approval; only a
+complete approved stream reaches construction, public reflection and combined
+dispatch. A rejected context can be retried with the same action. Revising the
+expander requires fresh preparation. Private fields remain unforced.
+
+The expansion driver uses standard ordered mapping and right-fold collection.
+It checks each fragment before the suffix, captures the original form bindings,
+and preserves deferred copying of returned chunks. Finalization also runs for
+empty input. Callback side effects preceding refusal are retained. These controls
+and the companion Lean traversal laws advance the article's future MOP work.
+
 Racket's “Combining Method Fragments” specifies standard qualifier order; the
 following “Generalized Prototype Combination” proposes fragments beyond records
 as future work. This module advances that proposal by connecting existing native

@@ -1,5 +1,5 @@
 (export method-declaration-test)
-(import :std/test ../object ../mop ../brace ../declaration ../method-declaration ../reflection
+(import :std/test :std/error ../object ../mop ../brace ../declaration ../method-declaration ../reflection
         ../recursive-declaration
         ../support/option
         (prefix-in ../method-combination combination.) (prefix-in ../examples/declared-methods service.))
@@ -28,6 +28,41 @@
 ;; Test actual assembled methods rather than expected constants injected into slots.
 (def method-declaration-test
   (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "prepared whole-batch declarations finalize before inherited combined dispatch"
+      (def events [])
+      (def record (lambda (event) (set! events (cons event events))))
+      (def family (service.make-family record))
+      (def expander (service.batch-expander record))
+      (def action (service.batch-action family expander 2))
+      (check-equal? events [])
+      (check-equal? (call/values (lambda ()
+        (action (.o tenant: 'eu rate: 10 surcharge: 5 approved: #t))) list)
+        '(eu (tenant .charge label) 56))
+      (check-equal? (reverse events)
+        '(tenant token .charge finalize around-enter batch-before billing-before risk-before
+          batch-primary billing-primary base risk-after billing-after batch-after around-exit))
+      (set! events [])
+      (check-exception (action (.o tenant: 'us rate: 20 surcharge: 7 approved: #f)) Error?)
+      (check-equal? (reverse events) '(tenant token .charge finalize))
+      (set! events [])
+      (check-equal? (call/values (lambda ()
+        (action (.o tenant: 'us rate: 20 surcharge: 7 approved: #t))) list)
+        '(us (tenant .charge label) 100))
+      (check-equal? (active-object-constructions) []))
+    (test-case "stale batch expanders refuse before effects and fresh preparation recovers"
+      (def events [])
+      (def record (lambda (event) (set! events (cons event events))))
+      (def family (service.make-family record))
+      (def expander (service.batch-expander record))
+      (def action (service.batch-action family expander 2))
+      (def finalize (.@ expander finalize-declarations))
+      (.putslot! expander 'finalize-declarations ($constant-slot-spec finalize))
+      (check-exception (action (.o tenant: 'eu rate: 10 surcharge: 5 approved: #t)) Error?)
+      (check-equal? events [])
+      (check-equal? (call/values (lambda ()
+        ((service.batch-action family expander 2)
+          (.o tenant: 'eu rate: 10 surcharge: 5 approved: #t))) list)
+        '(eu (tenant .charge label) 56)))
     (test-case "shared family preserves qualifier order receiver and current Reader data"
       (def events [])
       (def family (service.make-family (lambda (event) (set! events (cons event events)))))

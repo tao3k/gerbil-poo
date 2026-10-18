@@ -2,7 +2,7 @@
 (export Declaration. declaration-form declaration-action expand-declarations object<-declaration-forms
         object<-expanded-declarations declaration-forms .declare)
 (import :std/iter 
-        (only-in :std/list/list foldr) ./object ./mop ./reflection (only-in ./type element?)
+        (only-in :std/list/list foldr map-in-order) ./object ./mop ./reflection (only-in ./type element?)
         (prefix-in ./generalized-prototype gp.))
 ;; A declaration is ordinary typed-by-convention metadata, not a second AST engine.
 ;; Runtime construction supports computed names; .declare provides static syntax.
@@ -46,9 +46,13 @@
 ;; Duplicate names and Slot descriptor validity are checked after finalization.
 (def (check-fragment entries)
   (unless (list? entries) (error "declaration expansion must return a list")) entries)
-;; Compile an actual Reader/FUN chain: bind preserves ordered expansion and map
-;; concatenates fragments without changing the context. Repeated calls can use
-;; different contexts; they never reuse a previous approval or expanded catalog.
+;; Compile one Reader/FUN traversal. Standard map-in-order owns callback order;
+;; every fragment is checked immediately, before the next expander can run.
+;; Fold only after the complete traversal, retaining the original right-to-left
+;; append/copy timing, including changes to an earlier chunk by a later callback.
+;; Capture forms individually during preparation: caller edits to the list spine
+;; cannot replace/remove a prepared form. No callback runs during preparation.
+;; Repeated calls use current contexts, never an old approval or expanded catalog.
 ;; Captured expander methods belong to one revision. Changed source requires a
 ;; fresh action, and registered writes during evaluation refuse before mutation.
 (def (declaration-action expander forms)
@@ -57,11 +61,11 @@
   (def expand (.@ expander expand-declaration))
   (def finalize (.@ expander finalize-declarations))
   (def revision (object-revision expander))
-  (def program (foldr (lambda (form rest)
-    (.call gp.Observation. .bind
-      (.call gp.Observation. .map check-fragment (lambda (context) (expand context form)))
-      (lambda (front) (.call gp.Observation. .map (lambda (back) (append front back)) rest))))
-    (.call gp.Observation. .ap []) forms))
+  (def actions (map-in-order (lambda (form)
+    (lambda (context) (check-fragment (expand context form)))) forms))
+  (def program (.call gp.Observation. .map
+    (lambda (chunks) (foldr append [] chunks))
+    (lambda (context) (map-in-order (cut <> context) actions))))
   (def finished (.call gp.Observation. .bind program
     (lambda (entries) (lambda (context) (check-fragment (finalize context entries))))))
   (lambda (context)

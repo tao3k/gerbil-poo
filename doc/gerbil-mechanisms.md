@@ -497,3 +497,49 @@ The top-level `Examples/CatalogReflection.lean` combines current catalog checks
 with the existing prepared continuation program. Effective most-specific entries,
 callback behavior and source stability are premises. These are not host hygiene,
 compiler, mutable-source atomicity or security proofs. No speedup is claimed.
+
+### Complete ordered declaration traversal through Gerbil and FUN
+
+`declaration-action` delegates its entire expansion driver to public
+`std/list/list` `map-in-order` and `foldr`. The former hand-built one nested Reader
+bind/map continuation tree per form. Preparation now captures one checked action
+per form; invocation uses the standard ordered traversal, then the same right-fold
+`append` to collect the complete entries. FUN `.map` connects these stages and
+`.bind` selects the one finalizer. The native Observation methods retain their
+standard Reader meaning. No callback or approval runs during preparation.
+
+The complete call path is static/spliced `declaration-forms` → captured actions →
+ordered expansion with immediate proper-list admission → delayed right-fold
+collection → current-context finalization → inherited method-fragment merge →
+object construction → current public reflection → `.defgeneric` combination.
+Expander revision rejection, active expander/context write guards and failure
+cleanup remain at the original public boundary. Source edits require fresh
+preparation. Earlier external callback effects are retained on later refusal.
+
+Three ownership/order details are part of this replacement. Capture individual
+forms so caller list-spine edits cannot remove prepared forms. Admit every result
+before selecting the next callback. Delay copying until all callbacks finish so
+a later callback's edit to an earlier returned chunk remains observable, as in the
+old Reader recursion. The trailing empty accumulator in `foldr append []` also
+keeps the final output spine independent of the last source chunk. Immediate
+flat mapping or `apply append` without that empty tail would change these details.
+Regressions observe callback order, exact exception identity, empty finalization,
+whole-batch retry and aliasing, rather than checking successful values alone.
+
+The declared-methods `batch-expander` / `batch-action` example emits a tenant slot,
+a private token and three method qualifiers through static and spliced forms.
+One current approval gates finalization; FUN binds its whole result to a derived
+family above the existing shared C3 diamond. Reflection precedes combined dispatch.
+Refused approval executes no method, fresh context retries change surcharge/data,
+and stale expander sources refuse before expansion effects. This is an extension
+of the article's future generalized-prototype/MOP construction.
+
+Lean's existing `Functional.DeclarativeMetadata` namespace adds `collectForms`:
+standard `List.mapM` followed by flattening. Six laws establish same-context
+monadic sequencing, empty input, equality to `expandForms`, refusal, concatenated
+batches and finalizer equivalence. The sequencing law is generic over lawful
+monads; exception-over-state examples retain prefix effects on failure. Declared
+method examples connect whole-batch approval to the existing qualifier interpreter.
+Immutable finite lists and supplied callback semantics are proof premises; mutable
+Scheme spine/capture behavior, host expansion and registered invalidation have
+separate runtime controls. No speedup or unrelated TODO completion is claimed.
