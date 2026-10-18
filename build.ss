@@ -4,7 +4,7 @@
 
 (import
   (only-in :std/build-script defbuild-script)
-  (only-in :std/make include-gambit-sharp)
+  (only-in :std/make include-gambit-sharp pkg-config-libs)
   (only-in :gerbil/runtime/system gerbil-path)
   (only-in "t/test-groups.ss" test-files))
 
@@ -222,8 +222,12 @@
     ;; so the child and source-driven driver share one current cases definition.
     (append (filter (lambda (entry) (not (equal? entry "t/combination-benchmark")))
               +gerbil-poo-build-spec+) `((exe: "t/combination-benchmark"
-        "-ld-options" ,(getenv "GERBIL_CLOSURE_LD_OPTIONS"
-          (cond-expand (darwin "-L/opt/homebrew/opt/openssl@3/lib") (else ""))))))
+        ;; Discover the released runtime's OpenSSL link dependencies through the
+        ;; selected pkg-config environment, including custom installation prefixes.
+        ;; An explicit override (even empty) bypasses discovery; other scopes do
+        ;; not require OpenSSL development metadata just to compile Scheme modules.
+        "-ld-options" ,(or (getenv "GERBIL_CLOSURE_LD_OPTIONS" #f)
+                          (pkg-config-libs "openssl")))))
     (append (if (equal? scope "tests") [] +gerbil-poo-build-spec+)
       (map path-strip-extension selected-tests)))
   bindir: (path-expand ".build/combination")

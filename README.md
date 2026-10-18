@@ -58,3 +58,12 @@ upstream revision. Darwin development uses its compatible installed compiler.
 No compiler source build, companion Lean checkout or repository shell wrapper is
 required. Compiler downloads and build artifacts stay outside Git. A PR commit
 triggers one matrix run.
+
+Standalone benchmark executables query `pkg-config --libs openssl` for the
+released runtime's link dependencies, using Gerbil's `:std/make` helper in
+`build.ss`. Install OpenSSL development metadata for that runtime and configure
+`PKG_CONFIG_PATH` or `PKG_CONFIG_LIBDIR` when it is outside the toolchain's normal
+search path. No Homebrew prefix or OpenSSL version is assumed. An explicit
+`GERBIL_CLOSURE_LD_OPTIONS` overrides discovery (including an empty value for a
+toolchain that already supplies the dependencies). Ordinary library and test
+builds do not need this executable-only discovery.

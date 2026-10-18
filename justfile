@@ -11,7 +11,9 @@ build-env := platform-env + " GERBIL_BUILD_VERBOSE=" + build-verbose
 test-max-heap := env_var_or_default("GERBIL_TEST_MAX_HEAP", "1G")
 test-debug := env_var_or_default("GERBIL_TEST_DEBUG", "q")
 test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
-closure-ld-options := env_var_or_default("GERBIL_CLOSURE_LD_OPTIONS", if os() == "macos" { "-L/opt/homebrew/opt/openssl@3/lib" } else { "" })
+# Query the selected toolchain's metadata only when an executable recipe needs
+# link flags. Preserve explicit overrides, including an intentionally empty one.
+closure-ld-options := `if test "${GERBIL_CLOSURE_LD_OPTIONS+x}" = x; then printf '%s' "$GERBIL_CLOSURE_LD_OPTIONS"; else pkg-config --libs openssl; fi`
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
 test: build
