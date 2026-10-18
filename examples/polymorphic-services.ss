@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -465,3 +465,15 @@
              rest: (Union Integer Keyword (Enum #!key #!rest))) LiteralRestCallback)
     '((() (UInt) (UInt (Function (UInt) ((Exactly #!rest)) keywords: ((scale: . UInt)) rest: UInt))))
     (cut signature-service-declarations <> (lambda (n) (values n (lambda arguments (length arguments)))) record)))
+
+;; Two spellings describe one rich callback after a Value prefix is fixed. The
+;; original joint solver must merge only metadata aliases before declaring once.
+;; Missing optional values remain absent until the Gerbil target applies defaults.
+(def (infer-signature-alias-service (record void))
+  (infer-positional-callback-service
+    '((Function (Bool) (UInt))
+      (Function (UInt) (UInt) optional: (UInt) keywords: ((scale: . UInt)) rest: UInt)
+      (Function (UInt) (UInt) rest: UInt required-keywords: () keywords: ((scale: . UInt)) optional: (UInt)))
+    (lambda (n)
+      (values n (lambda (value (bonus n) scale: (scale 1) . rest)
+        (* scale (+ value bonus (apply + rest)))))) record))

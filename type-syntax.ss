@@ -1,7 +1,8 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
-        type-expression substitute-type guarded-body? copy-type literal-type-value? function-options map-function-types function-input-types map-sum-types map-type-children canonical-type)
-(import :std/error (only-in :std/list/list delete-duplicates/hash) (only-in ./support/base require-value))
+        type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
+(import :std/error (only-in :std/list/list delete-duplicates/hash map-in-order)
+        (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -45,27 +46,44 @@
                      (not (assq (car rest) seen)))
           (refuse-type 'malformed "Invalid or duplicate Function option" rest))
         (loop (cddr rest) (cons (cons (car rest) (cadr rest)) seen))))))
+;; Bind the existing Function schema once for each consumer. Gerbil's agetq
+;; preserves explicit false and supplies only literal metadata defaults; it does
+;; not evaluate optional argument values, validators or a target procedure.
+(def (call-with-function-types term consume)
+  (def options (function-options term))
+  (consume (cadr term) (caddr term) (agetq optional: options [])
+    (agetq keywords: options []) (agetq required-keywords: options []) (agetq rest: options #f)))
+
+;; Use the same option order/default omission as the existing Function descriptor.
+;; Child Type order, keyword declarations and required-key order remain literal.
+;; Retain any nonempty required-key metadata so malformed input cannot disappear.
+(def (canonical-function term)
+  (call-with-function-types term
+    (lambda (outputs inputs optional keywords required rest)
+      (append (list 'Function outputs inputs)
+        (if (and (null? optional) (null? keywords) (null? required) (not rest)) []
+          (list optional: optional keywords: keywords required-keywords: required rest: rest))))))
+
 ;; Transform only Type positions. Keyword labels and required-key metadata remain
 ;; literal, even when their spelling equals a prototype parameter name.
 (def (map-function-types term transform)
-  (cons 'Function (cons (map transform (cadr term)) (cons (map transform (caddr term))
-    (let loop ((options (cdddr term)))
-      (if (null? options) []
-        (cons (car options) (cons
-          (case (car options)
-            ((optional:) (map transform (cadr options)))
-            ((keywords:) (map (lambda (entry) (cons (car entry) (transform (cdr entry)))) (cadr options)))
-            ((rest:) (and (cadr options) (transform (cadr options))))
-            (else (cadr options)))
-          (loop (cddr options))))))))))
+  (cons* 'Function (map transform (cadr term)) (map transform (caddr term))
+    (alist->plist
+      (map-in-order (lambda (entry)
+        (def name (car entry)) (def value (cdr entry))
+        (cons name
+          (case name
+            ((optional:) (map transform value))
+            ((keywords:) (map (lambda (entry) (cons (car entry) (transform (cdr entry)))) value))
+            ((rest:) (and value (transform value)))
+            (else value))))
+        (reverse (function-options term))))))
 ;; Flatten only contravariant Type positions using the constructor's defaults.
 ;; Source keyword order is retained; no supplied argument/default is constructed.
 (def (function-input-types term)
-  (def options (function-options term))
-  ;; Missing options have the same defaults as the Function constructor.
-  (def (option name default) (cond ((assq name options) => cdr) (else default)))
-  (append (caddr term) (option optional: []) (map cdr (option keywords: []))
-    (if (option rest: #f) (list (option rest: #f)) [])))
+  (call-with-function-types term
+    (lambda (_outputs inputs optional keywords _required rest)
+      (append inputs optional (map cdr keywords) (if rest (list rest) [])))))
 ;; Sum's keyword tags are literal metadata, never binders or Type variables.
 ;; Preserve declaration order while mapping only the associated payload Types.
 (def (map-sum-types term transform)
@@ -74,10 +92,11 @@
       (cons (car entries) (cons (transform (cadr entries)) (loop (cddr entries))))))))
 ;; Traverse admitted Type children without treating literal tags, arrows, row
 ;; markers or Mu binders/depth as Types. Canonical Map arrows share one shape.
-(def (map-type-children term transform)
+(def (map-type-children term transform (canonical? #f))
   (case (car term)
     ((Exactly Enum) term)
-    ((Function) (map-function-types term transform))
+    ((Function) (let (mapped (map-function-types term transform))
+                  (if canonical? (canonical-function mapped) mapped)))
     ((Sum) (map-sum-types term transform))
     ((Map)
      (let ((first (transform (cadr term))) (last (transform (cadddr term))))
@@ -92,7 +111,7 @@
 ;; erasing a candidate's binders before that check would bypass admission.
 (def (canonical-type term work)
   (work)
-  (if (pair? term) (map-type-children term (cut canonical-type <> work)) term))
+  (if (pair? term) (map-type-children term (cut canonical-type <> work) #t) term))
 ;; Recursion must cross a data carrier and remain positive. Nested Mu binders and
 ;; row-tail recursion are unsupported; Function arguments cannot mention self.
 (def (guarded-body? term name work)
@@ -157,20 +176,17 @@
            (refuse-type 'malformed "Function Type needs output/input lists"))
          (for-each (cut check <> variables) (cadr value))
          (for-each (cut check <> variables) (caddr value))
-         (let* ((options (function-options value))
-                (optional (cond ((assq optional: options) => cdr) (else [])))
-                (keys (cond ((assq keywords: options) => cdr) (else [])))
-                (required (cond ((assq required-keywords: options) => cdr) (else [])))
-                (rest (cond ((assq rest: options) => cdr) (else #f))))
-           (unless (and (list? optional) (list? keys) (list? required)
-                        (andmap (lambda (entry) (and (pair? entry) (keyword? (car entry)))) keys)
-                        (= (length keys) (length (delete-duplicates/hash (map car keys))))
-                        (= (length required) (length (delete-duplicates/hash required)))
-                        (andmap (lambda (key) (and (keyword? key) (assq key keys))) required))
-             (refuse-type 'malformed "Invalid Function option metadata" value))
-           (for-each (cut check <> variables) optional)
-           (for-each (lambda (entry) (check (cdr entry) variables)) keys)
-           (when rest (check rest variables))))
+         (call-with-function-types value
+           (lambda (_outputs _inputs optional keys required rest)
+             (unless (and (list? optional) (list? keys) (list? required)
+                          (andmap (lambda (entry) (and (pair? entry) (keyword? (car entry)))) keys)
+                          (= (length keys) (length (delete-duplicates/hash (map car keys))))
+                          (= (length required) (length (delete-duplicates/hash required)))
+                          (andmap (lambda (key) (and (keyword? key) (assq key keys))) required))
+               (refuse-type 'malformed "Invalid Function option metadata" value))
+             (for-each (cut check <> variables) optional)
+             (for-each (lambda (entry) (check (cdr entry) variables)) keys)
+             (when rest (check rest variables)))))
         ((CaseFunction)
          (unless (and (pair? (cdr value))
                       (andmap (lambda (clause) (and (list? clause) (pair? clause) (eq? (car clause) 'Function))) (cdr value)))

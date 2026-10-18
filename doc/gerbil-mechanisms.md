@@ -891,3 +891,15 @@ stability, and its amortization law requires supplied cost/GC inputs. They prove
 neither hash-table implementation nor unconditional elapsed-time improvement.
 The integrated declaration/reflection/FUN workflow advances the article's MOP
 future work; this optimization does not mark open TODO features complete.
+
+
+### Function schema projection
+
+The complete admission → specialization → candidate identity → replacement →
+descriptor chain shares one Function metadata projection. Gerbil runtime `agetq`
+provides presence-preserving literal defaults; std/list `map-in-order` and
+`alist->plist` retain source binding order during substitution. The existing
+Function descriptor supplies the schema and runtime contracts. The finite raw
+option admission parser remains POO policy: duplicate/unknown bindings, malformed
+payloads and quota exhaustion must refuse before descriptor or builder execution.
+No separate wrapper/namespace or compatibility dispatch is introduced.

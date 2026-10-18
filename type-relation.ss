@@ -27,7 +27,7 @@
                (when (ormap (lambda (field) (assq (car field) fields)) (cadr row))
                  (refuse-type 'bounds "Row substitution overlaps explicit fields"))
                (list 'Object (append fields (cadr row)) (caddr row))))))
-        (else (map-type-children term (cut normalize-type <> work)))))
+        (else (map-type-children term (cut normalize-type <> work) #t))))
 
 ;; Select a declared Function through explicit Object fields. An unresolved row
 ;; tail or Type variable cannot invent a named signature before substitution.
@@ -197,12 +197,10 @@
 ;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
 ;; These temporary objects are shape views, not new Types or dispatch certificates.
 (def (signature-view term)
-  (def options (function-options term))
-  ;; Constructor defaults are literal metadata, never optional value expressions.
-  (def (option name default) (cond ((assq name options) => cdr) (else default)))
-  (.o bind-these: #f outputs: (cadr term) inputs: (caddr term)
-    optional: (option optional: []) keywords: (option keywords: [])
-    required-keywords: (option required-keywords: []) rest: (option rest: #f)))
+  (call-with-function-types term
+    (lambda (outputs inputs optional keywords required rest)
+      (.o bind-these: #f outputs: outputs inputs: inputs optional: optional
+        keywords: keywords required-keywords: required rest: rest))))
 
 ;; Shared structural views feed inference and coverage through the same existing
 ;; Function selector/normalizer. They do not construct Types or certificates.
@@ -498,10 +496,9 @@
          ((Tuple) (apply Tuple (map build (cdr term))))
          ((CaseFunction) (apply CaseFunction (map build (cdr term))))
          ((Function)
-          (let* ((options (function-options term))
-                 (option (lambda (name default) (cond ((assq name options) => cdr) (else default)))))
-          (Function (map build (cadr term)) (map build (caddr term))
-            optional: (map build (option optional: []))
-            keywords: (map (lambda (entry) (cons (car entry) (build (cdr entry)))) (option keywords: []))
-            required-keywords: (option required-keywords: [])
-            rest: (and (option rest: #f) (build (option rest: #f)))))))))))
+          (call-with-function-types term
+            (lambda (outputs inputs optional keywords required rest)
+              (Function (map build outputs) (map build inputs)
+                optional: (map build optional)
+                keywords: (map (lambda (entry) (cons (car entry) (build (cdr entry)))) keywords)
+                required-keywords: required rest: (and rest (build rest)))))))))))
