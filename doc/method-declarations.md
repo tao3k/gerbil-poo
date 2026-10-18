@@ -476,10 +476,11 @@ target, or clamped raw-length regions with actual ordered source selection for p
 source / keyword target. Fixed/optional and multiple case-lambda clauses may combine;
 direct no-key minimum rows keep ordinary input variance; other bounded regions
 retain each payload Type and require exact Keyword/Exactly/Enum marker evidence.
-The unbounded stationary envelope also admits explicit flat unions without Any. Candidate comparison neither constructs a
+Independent decoded/raw counter states retain correlated unbounded rest origins,
+and Keyword/Exactly/Enum ordinary-token restrictions remove impossible raw rows. Candidate comparison neither constructs a
 wrapper nor changes the original call row. Exact result count/variance, complete
 search, prefix specialization, sibling/source admission and cache-owner gates
 remain mandatory. See [prototype-types.md](prototype-types.md#ordered-case-call-language-coverage-and-replacement)
-and `t/keyword-coverage-test.ss`, `t/keyword-prefix-test.ss` and `t/keyword-values-test.ss` for FUN/refine/bind-evidence examples and refusal,
+and `t/keyword-coverage-test.ss`, `t/keyword-prefix-test.ss`, `t/keyword-values-test.ss` and `t/keyword-rest-test.ss` for FUN/refine/bind-evidence examples and refusal,
 shadowing, escape and no-builder controls. General mixed-wire inclusion is outside
 this conservative finite decision. This is hypothetical type-system future work.

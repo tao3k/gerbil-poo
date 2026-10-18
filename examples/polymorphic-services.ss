@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -416,3 +416,42 @@
         ((first second . rest)
          (if (= (length rest) 3) (abs (+ second (cadr rest))) (+ 2 (length rest)))))))
     record))
+
+;; Boolean keyword payloads may occur after a marker, never at the first raw slot.
+;; The prefix excludes Bool while the infinite tail retains its proper origins.
+(def CorrelatedRestCallback
+  '(Function (UInt) ((Union Integer (Enum enabled: #!key #!rest)))
+     rest: (Union Integer Bool (Enum enabled: #!key #!rest))))
+;; A first positional rest-escape literal must be transported as data. It cannot
+;; be an ordinary decoder step; the second raw slot is a literal or key payload.
+(def LiteralRestCallback
+  '(Function (UInt) ((Enum scale: #!key #!rest) (Union Integer (Exactly #!rest)))
+     rest: (Union Integer Keyword (Enum #!key #!rest))))
+;; Preserve the existing Value/Callback parameter and service declaration layout.
+;; Only the callback's explicitly declared call language changes to an infinite tail.
+(def RestCallbackServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    '(Function (Value Callback) (Value))
+    '((Callback (Function (Value) (Value) keywords: ((enabled: . Bool)) rest: Value)))))
+;; Literal metadata survives prefix specialization unchanged; rest values still
+;; use the original Value parameter rather than a guessed universal carrier.
+(def LiteralCallbackServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    '(Function (Value Callback) (Value))
+    '((Callback (Function (Value) ((Exactly #!rest)) keywords: ((scale: . Value)) rest: Value)))))
+;; Complete unique inference rejects a missing Boolean tail before building the
+;; existing sibling declarations. FUN/refine/bind-evidence consume the same instance.
+(def (infer-correlated-rest-service (record void))
+  (infer-declared-calls (specialize-prototype-type RestCallbackServiceType '(UInt))
+    (list '(Function (UInt) ((Union Integer (Enum enabled: #!key #!rest)))
+             rest: (Union Integer (Enum enabled: #!key #!rest))) CorrelatedRestCallback)
+    '((() (UInt) (UInt (Function (UInt) (UInt) keywords: ((enabled: . Bool)) rest: UInt))))
+    (cut signature-service-declarations <> (lambda (n) (values n (lambda arguments (length arguments)))) record)))
+;; A competing candidate cannot omit rest escape from its first marker set. Both
+;; infinite input families enter the original unified declaration builder intact.
+(def (infer-literal-rest-service (record void))
+  (infer-declared-calls (specialize-prototype-type LiteralCallbackServiceType '(UInt))
+    (list '(Function (UInt) ((Enum scale: #!key) (Union Integer (Exactly #!rest)))
+             rest: (Union Integer Keyword (Enum #!key #!rest))) LiteralRestCallback)
+    '((() (UInt) (UInt (Function (UInt) ((Exactly #!rest)) keywords: ((scale: . UInt)) rest: UInt))))
+    (cut signature-service-declarations <> (lambda (n) (values n (lambda arguments (length arguments)))) record)))

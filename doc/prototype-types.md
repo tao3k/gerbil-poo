@@ -499,11 +499,10 @@ remaining positional suffix. All key orders participate, each key is removed on
 use, and infeasible suffix lengths are pruned **before** checking their prefixes.
 The shared work/depth limits remain mandatory. No defaults or inferred Any appear.
 
-The tail beyond every fixed prefix uses a conservative stationary envelope: each
-source position, including its rest Type, must include every remaining data and
-marker origin. An explicit `(Union Integer Keyword (Enum #!key #!rest))` can prove
-this without Any. Per-slot correlations in this tail, literal-sensitive ordinary
-value decoding, arbitrary predicates and maximal mixed-mode inclusion remain open.
+The current graph rule below supersedes the earlier all-slots stationary envelope.
+It retains each raw position's own origins at arbitrary rest lengths, with distinct
+raw and decoded counters. An explicit broad flat envelope remains a sufficient
+contract, but the checker does not require that envelope at every prefix slot.
 
 Only raw-origin admission compares identity-preserving flat scalar/literal Union
 alternatives extensionally. Public subtype/inference bounds retain ordered Union
@@ -531,3 +530,58 @@ and the two-generic builder. Decoder-to-typed-origin assignment and host validat
 interpretations are explicit premises, not proved compiler/runtime correspondence.
 These advance the article's hypothetical type protocol (Appendices C/D), not a
 claim that its original Racket implementation already supplied a static type system.
+
+
+## Literal ordinary values and correlated rest positions
+
+The complete `raw-inputs-related?` judgment now builds a finite product graph. Its
+states retain decoded position, remaining supplied key/Type pairs, raw offset and
+whether rest escape has ended interpretation. Edges retain one/two ordered origin
+Types. `Keyword` has no ordinary-data edge; `Exactly` and `Enum` filter out keyword,
+key-escape and rest-escape literals exactly. Flat identity-preserving Union arms
+and Maybe's ordinary restriction reuse existing constructors. Opaque carriers and
+wrapper-bearing Unions retain conservative overapproximations, not guessed Types.
+Escaped values and the suffix after rest escape keep their **full** payload Type.
+
+Raw and decoded positions have independent finite limits. Source selection still
+partitions every raw arity beyond all source prefixes. Target selection needs only
+its own fixed/optional prefix; beyond that point its rest Type repeats. Counters
+saturate after those prefixes while preserving the source slot of every edge.
+A decoded tail visits every later raw arity cell through the raw sentinel, rather
+than stopping at the upper bound of the shortest decoded row. A late arity-12 bad
+source result is independently rejected by `t/keyword-rest-test.ss`.
+
+Standard equal?-hash tables record reachable edges and backwards predecessors.
+Only legitimate endings seed backwards closure. The final certificate independently
+checks every ending is live and every edge into live starts live; its origin checks
+use each edge's exact raw offset. Cycles without endings do not invent calls, and
+cycles with an exit retain all their input obligations. A graph lacking a complete
+certificate cannot publish, even if some visited states looked compatible.
+
+A genuinely empty raw region may skip a missing source clause or an incompatible
+unused output only after closure validation. Every inhabited region still requires
+its actual first source clause, exact output count and covariance. Type failure
+cannot fall through. Shared Type-work, depth, heap and timeout guards remain active;
+exhaustion raises the existing typed refusal and no partial graph/memo is published.
+Both complete new service examples fit the original default 8192 work budget.
+
+`CorrelatedRestCallback` excludes Bool from the first raw slot while admitting the
+Boolean enabled-key payload in later slots. `LiteralRestCallback` carries a first
+positional rest-escape literal through an arbitrarily long numeric tail. Their
+existing Value/Callback schemas, prefix specialization and complete unique inference
+feed the original unified declaration and FUN/refine/bind-evidence pipeline.
+`t/keyword-rest-test.ss` adds nine cases, an independent 3906-word runtime oracle,
+long tails through 257 positions, exact Keyword/Exactly/Enum controls, dead arity
+result controls, late-case selection, quota refusal and failure-before-builder.
+Public ordered Union bounds and wrapper semantics retain their invariant judgment.
+
+The companion existing `RawArguments.lean` adds exact finite ordinary-literal laws,
+independent counter-transition/slot-lookup laws and complete raw tail-cell coverage.
+`rawGraphCheck_sound` proves the certified origin law for **all** finite accepting
+paths, including arbitrarily many cycles. `rawGraph_empty` proves the empty witness
+excludes all such paths. The top-level declaration example links unique inference
+and the original builder to that universal law. Concrete graph-construction/typed
+origin correspondence and host validator interpretations remain explicit premises;
+this is Appendix C/D future work. Arbitrary predicates, effects and opaque ordinary
+refinement remain outside this decidable subset. Infinite rest means arbitrary
+finite call lists, not execution on a physically cyclic/infinite argument list.

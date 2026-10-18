@@ -78,7 +78,7 @@
 ;; bounds raw length by n+2k through 2n+2k+1; all arities above the largest fixed
 ;; prefix share one rest representative. Cross-mode positional sources are chosen
 ;; by RAW arity, never by the target's decoded arity or a preferred later case.
-;; Callbacks receive the target row, source row and a bounded-region witness.
+;; Callbacks receive the target row, source row and independent raw/decoded precision ceilings.
 ;; The precision ceiling includes every bounded target raw spelling, not only arity.
 (def (covers-signatures? source target work related wire-related)
   ;; One interpretation applies to every clause of each ordered descriptor.
@@ -93,21 +93,26 @@
            (def width (+ (length (.get s inputs)) (length (.get s optional))))
            (max largest width (if (and (not source-mode?) target-mode? (memq s target))
              (+ (* 2 width) (* 2 (length (.get s keywords))) 1) 0))) 0 signatures))
+         (decoded-maximum (if (and (not source-mode?) target-mode?)
+           (foldl (lambda (s largest) (work) (max largest (+ (length (.get s inputs)) (length (.get s optional))))) 0 target)
+           maximum))
+         (limits (cons maximum decoded-maximum))
          (keys (delete-duplicates/hash
            (apply append (map-in-order (lambda (s) (work) (map car (.get s keywords))) target)))))
     ;; Stream raw length representatives; clamping the interval retains every
     ;; possible first source clause and each repeated rest Type exactly once.
     (def (raw-covered? expected arguments count keys)
       (def minimum (+ count (* 2 (length keys))))
-      (def maximum-raw (+ (* 2 count) (* 2 (length keys)) 1))
+      (def maximum-raw (if (> count decoded-maximum) (1+ maximum)
+        (+ (* 2 count) (* 2 (length keys)) 1)))
       (let rows ((raw-count (min minimum (1+ maximum))))
         (work)
         (def raw-arguments (make-list raw-count #f))
         (def actual (select-signature source raw-arguments))
-        (def bounded? (<= raw-count maximum))
-        (and actual
-          (wire-related actual expected arguments source-mode? target-mode? raw-arguments bounded?)
-          (related actual expected arguments source-mode? target-mode? raw-arguments bounded?)
+        (def wire (wire-related actual expected arguments source-mode? target-mode? raw-arguments limits))
+        (and wire
+          (or (eq? wire 'empty)
+              (and actual (related actual expected arguments source-mode? target-mode? raw-arguments limits)))
           (or (= raw-count (min maximum-raw (1+ maximum))) (rows (1+ raw-count))))))
     ;; Canonical masks describe presence, not the caller's wire order/spelling.
     (def (row-covered? count keys)
@@ -120,8 +125,8 @@
           (raw-covered? expected arguments count keys)
           (let (actual (select-signature source arguments))
             (and actual
-              (or same-mode? (wire-related actual expected arguments source-mode? target-mode? arguments #f))
-              (related actual expected arguments source-mode? target-mode? arguments #f))))))
+              (or same-mode? (wire-related actual expected arguments source-mode? target-mode? arguments limits))
+              (related actual expected arguments source-mode? target-mode? arguments limits))))))
     ;; Stream key subsets and arity cells under the SAME admission quota.
     (let counts ((count 0))
       (and (let subsets ((remaining keys) (supplied []))
@@ -129,4 +134,4 @@
              (if (null? remaining) (row-covered? count (reverse supplied))
                (and (subsets (cdr remaining) supplied)
                     (subsets (cdr remaining) (cons (car remaining) supplied)))))
-           (or (= count (+ maximum 1)) (counts (+ count 1)))))))
+           (or (= count (+ decoded-maximum 1)) (counts (+ count 1)))))))

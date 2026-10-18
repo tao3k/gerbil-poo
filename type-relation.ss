@@ -218,76 +218,168 @@
   (if (and (flat-type? source) (flat-type? target))
     (flat-subtype? source target work) (compare-types source target work)))
 
-;; Check every raw spelling of this bounded target row against the ACTUAL first
-;; source clause. The memo is request-local; only completed answers are stored.
-;; Each transition consumes raw tokens, and impossible suffix lengths are pruned.
-;; Neither omitted defaults nor an inferred Any is introduced by this traversal.
-(def (raw-inputs-related? actual expected arguments raw-arguments bounded? work)
-  (def normalized (signature.normalize-arguments expected arguments #t (lambda (formal _) formal)))
-  (def row (signature.decode-arguments normalized #t))
-  (def source (list->vector
-    (signature.normalize-arguments actual raw-arguments #f (lambda (formal _) formal))))
-  (def size (vector-length source))
-  ;; Every comparison, including protocol singleton checks, shares admission quota.
-  (def (at? index type)
-    (and (< index size) (raw-origin-subtype? type (vector-ref source index) work)))
-  ;; Match a rest escape's exact positional suffix without reinterpreting tokens.
-  (def (suffix? index types)
+;; Restrict ordinary (unescaped) data to values the keyword decoder can read as
+;; data. Exactly/Enum/Keyword are decided extensionally; no user recognizer runs.
+;; Flat Union alternatives are identity validators, so removing token-only arms
+;; preserves their ordinary values. Opaque/wrapper-bearing carriers stay bounded
+;; overapproximations. Explicit Any remains explicit; no complement is invented.
+(def (ordinary-origin type work)
+  (work)
+  (case type
+    ((Keyword) 'Never)
+    (else (if (not (pair? type)) type
+      (case (car type)
+        ((Exactly Enum)
+         (let (values (filter (lambda (value)
+                        (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr type)))
+           (if (null? values) 'Never (cons (car type) values))))
+        ((Union)
+         (if (not (flat-type? type)) type
+           (let (types (filter (lambda (child) (not (eq? child 'Never)))
+                        (map (cut ordinary-origin <> work) (cdr type))))
+             (cond ((null? types) 'Never) ((null? (cdr types)) (car types))
+                   (else (cons 'Union types))))))
+        ((Maybe) (list 'Maybe (ordinary-origin (cadr type) work)))
+        (else type))))))
+
+;; Only decidably empty finite scalar alternatives are removed. Unknown host
+;; carriers remain potentially inhabited; an unsupported proof cannot erase them.
+(def (empty-origin? type)
+  (or (eq? type 'Never)
+      (and (pair? type)
+        (case (car type) ((Enum) (null? (cdr type)))
+          ((Union) (andmap empty-origin? (cdr type))) (else #f)))))
+
+;; Private graph edges retain ordered origin Types, including exact marker Types.
+;; States are standard equal?-hashed lists (position, keys, raw offset, rest mode).
+(defstruct raw-edge (next origins) final: #t)
+
+;; Decide the product of the target decoder grammar and both arity regions.
+;; Bounded counters are exact; tail counters saturate beyond every fixed prefix.
+;; Build reachable states first, then backwards reachability from legal endings.
+;; Only edges on successful paths impose obligations. Cycles are fully explored;
+;; revisiting a state never manufactures a partial admission certificate.
+(def (raw-inputs-related? actual expected arguments raw-arguments limits work)
+  (def row (signature.decode-arguments
+    (signature.normalize-arguments expected arguments #t (lambda (formal _) formal)) #t))
+  (def positions (list->vector (car row)))
+  (def position-count (vector-length positions))
+  (def raw-count (length raw-arguments))
+  (def bounded-positions? (<= position-count (cdr limits)))
+  (def bounded-raw? (<= raw-count (car limits)))
+  (def initial (list 0 (cdr row) 0 #f))
+  (def source-fixed (and actual (list->vector (append (.get actual inputs) (.get actual optional)))))
+  (def source-rest (and actual (.get actual rest)))
+  (def edges (make-hash-table))
+  (def predecessors (make-hash-table))
+  (def ordinary (make-hash-table))
+  (def admitted (make-hash-table))
+  (def live (make-hash-table))
+  (def endings [])
+  ;; At the saturated decoded position, only the target's declared rest repeats.
+  (def (position-type index)
+    (if (< index position-count) (vector-ref positions index) (.get expected rest)))
+  ;; Cache only completed ordinary restrictions, including an explicit Never.
+  (def (ordinary-type type)
+    (def cached (hash-ref ordinary type (void)))
+    (if (not (void? cached)) cached
+      (let (answer (ordinary-origin type work)) (hash-put! ordinary type answer) answer)))
+  ;; Necessary exact-region bounds prune unreachable suffix sizes early. Rest
+  ;; mode has no further keyword interpretation, hence exactly one token/value.
+  (def (feasible? position keys offset rest?)
     (work)
-    (if (null? types) (= index size)
-      (and (at? index (car types)) (suffix? (1+ index) (cdr types)))))
-  (if (not bounded?)
-    ;; Beyond all fixed prefixes, use a conservative stationary origin envelope.
-    ;; Every source slot must accept every possible value/marker origin. Explicit
-    ;; flat unions/enums suffice; no universal Type is manufactured as fallback.
-    (let (origins (append (car row) (map cdr (cdr row))
-                   (map (lambda (key) (list 'Exactly key)) (map car (cdr row)))
-                   '((Exactly #!key) (Exactly #!rest))))
-      (andmap (lambda (formal)
-        (andmap (lambda (origin) (raw-origin-subtype? origin formal work)) origins))
-        (vector->list source)))
-    (let (memo (make-hash-table))
-      ;; Keys retain their payload Types and are removed on use, excluding duplicates.
-      ;; Ordinary values are an overapproximation when they themselves are tokens;
-      ;; this may refuse a safe case but can never certify a missing spelling.
-      (def (walk positions keys index)
-        (work)
-        (def state (list positions keys index))
-        (def cached (hash-ref memo state (void)))
+    (and (or (not bounded-raw?) (<= offset raw-count))
+      (or (not bounded-positions?)
+        (let ((remaining (- position-count position)) (raw-left (- raw-count offset)))
+          (and (>= remaining 0)
+            (if bounded-raw?
+              (if rest? (= raw-left remaining)
+                (and (<= (+ remaining (* 2 (length keys))) raw-left)
+                     (<= raw-left (+ (* 2 remaining) (* 2 (length keys)) 1))))
+              (>= (+ offset (if rest? remaining
+                           (+ (* 2 remaining) (* 2 (length keys)) 1))) raw-count)))))))
+  ;; Emit the exact one/two-token prefix and its counter successor, or no edge.
+  (def (edge position keys offset rest? origins)
+    (def next-offset (+ offset (length origins)))
+    (and (feasible? position keys next-offset rest?)
+      (make-raw-edge
+        (list position keys (if bounded-raw? next-offset (min raw-count next-offset)) rest?) origins)))
+  ;; Enumerate decoder alternatives using the existing supplied key/Type pairs.
+  ;; Literal token payloads may occur after key/rest escape but never ordinary.
+  (def (successors state)
+    (match state
+      ([position keys offset rest?]
+       (def type (and (or (< position position-count) (not bounded-positions?)) (position-type position)))
+       (def next-position (min position-count (1+ position)))
+       (def data? (and type (not (empty-origin? type))))
+       (filter identity
+         (if rest?
+           (if data? (list (edge next-position keys offset #t (list type))) [])
+           (append
+             (if data?
+               (let (plain (ordinary-type type))
+                 (list (and (not (empty-origin? plain)) (edge next-position keys offset #f (list plain)))
+                       (edge next-position keys offset #f (list '(Exactly #!key) type)))) [])
+             (map (lambda (entry)
+               (and (not (empty-origin? (cdr entry)))
+                 (edge position (remq entry keys) offset #f (list (list 'Exactly (car entry)) (cdr entry))))) keys)
+             (if (null? keys) (list (edge position [] offset #t '((Exactly #!rest)))) [])))))))
+  ;; Register a complete finite reachable graph; no subtype result is cached here.
+  (let discover ((pending (list initial)))
+    (unless (null? pending)
+      (work)
+      (let (state (car pending))
+        (if (hash-key? edges state) (discover (cdr pending))
+          (let (outgoing (successors state))
+            (hash-put! edges state outgoing)
+            (match state
+              ([position keys offset _rest?]
+               (when (and (= position position-count) (null? keys) (= offset raw-count))
+                 (set! endings (cons state endings)))))
+            (for-each (lambda (out)
+              (def next (raw-edge-next out))
+              (hash-put! predecessors next (cons state (hash-ref predecessors next [])))) outgoing)
+            (discover (append (map raw-edge-next outgoing) (cdr pending))))))))
+  ;; Least backwards fixed point: only states with a successful finite ending
+  ;; become live. A closed cycle without an ending cannot certify a real call.
+  (let close ((pending endings))
+    (unless (null? pending)
+      (work)
+      (let (state (car pending))
+        (if (hash-key? live state) (close (cdr pending))
+          (begin (hash-put! live state #t)
+            (close (append (hash-ref predecessors state []) (cdr pending))))))))
+  ;; Every edge's origin uses the source slot at its own raw offset, including
+  ;; the saturated source rest. Public Union bounds are never widened here.
+  (def (at? index origin)
+    (work)
+    (def formal (if (< index (vector-length source-fixed)) (vector-ref source-fixed index) source-rest))
+    (and formal
+      (let* ((key (cons origin formal)) (cached (hash-ref admitted key (void))))
         (if (not (void? cached)) cached
-          (let* ((p (length positions)) (k (length keys)) (remaining (- size index))
-                 (feasible? (and (<= (+ p (* 2 k)) remaining)
-                                  (<= remaining (+ (* 2 p) (* 2 k) 1))))
-                 (answer
-                   (or (not feasible?)
-                     (and
-                       (or (not (and (zero? p) (zero? k) (zero? remaining))) (= index size))
-                       (or (null? positions) (not (walk-feasible? (cdr positions) keys (1+ index)))
-                           (and (at? index (car positions)) (walk (cdr positions) keys (1+ index))))
-                       (or (null? positions) (not (walk-feasible? (cdr positions) keys (+ index 2)))
-                           (and (at? index '(Exactly #!key)) (at? (1+ index) (car positions))
-                                (walk (cdr positions) keys (+ index 2))))
-                       (andmap (lambda (entry)
-                         (def remaining-keys (remq entry keys))
-                         (or (not (walk-feasible? positions remaining-keys (+ index 2)))
-                             (and (at? index (list 'Exactly (car entry)))
-                                  (at? (1+ index) (cdr entry))
-                                  (walk positions remaining-keys (+ index 2))))) keys)
-                       (or (pair? keys) (not (= remaining (1+ p)))
-                           (and (at? index '(Exactly #!rest)) (suffix? (1+ index) positions)))))))
-            (hash-put! memo state answer)
-            answer)))
-      ;; Check feasibility BEFORE prefix comparisons, so impossible suffixes do
-      ;; not create obligations for values that cannot occur at this raw length.
-      (def (walk-feasible? positions keys index)
-        (work)
-        (let ((p (length positions)) (k (length keys)) (remaining (- size index)))
-          (and (<= (+ p (* 2 k)) remaining) (<= remaining (+ (* 2 p) (* 2 k) 1)))))
-      (walk (car row) (cdr row) 0))))
+          (let (answer (raw-origin-subtype? origin formal work))
+            (hash-put! admitted key answer) answer)))))
+  ;; Check the closure certificate itself, even for an empty initial region.
+  ;; Every ending must be live and every edge into live must start live. Only
+  ;; then may an empty language skip source selection/output variance entirely.
+  (and (andmap (cut hash-key? live <>) endings)
+    (or (not (hash-key? live initial)) actual)
+    (hash-fold (lambda (state outgoing accepted?)
+      (work)
+      (and accepted?
+        (match state
+          ([_position _keys offset _rest?]
+           (andmap (lambda (out)
+             (or (not (hash-key? live (raw-edge-next out)))
+               (and (hash-key? live state) actual
+                 (let slots ((origins (raw-edge-origins out)) (index offset))
+                   (or (null? origins)
+                     (and (at? index (car origins)) (slots (cdr origins) (1+ index)))))))) outgoing))))) #t edges)
+    (if (hash-key? live initial) #t 'empty)))
 
 ;; Keyword sources still require stable supplied target carriers. Plain sources
 ;; use value-sensitive raw origin checks, preserving the exact selected clause.
-(def (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments bounded? work)
+(def (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments limits work)
   (work)
   (if source-mode?
     (let (stable #t)
@@ -296,7 +388,7 @@
           (unless (keyword-stable-type? formal work) (set! stable #f))
           formal))
       stable)
-    (raw-inputs-related? actual expected arguments raw-arguments bounded? work)))
+    (raw-inputs-related? actual expected arguments raw-arguments limits work)))
 
 ;; Decide shape-language inclusion in the bounded finite algebra. This checks
 ;; all allowed supplied rows, not Type inclusion or arbitrary host procedure arity.
@@ -310,20 +402,20 @@
     (refuse-type 'bounds "Call coverage requires Function signatures"))
   (signature.covers-signatures? (function-signatures left) (function-signatures right) work
     (lambda _ #t)
-    (lambda (actual expected arguments source-mode? target-mode? raw-arguments bounded?)
+    (lambda (actual expected arguments source-mode? target-mode? raw-arguments limits)
       ;; Direct rows ask shape coverage only, as in the same-mode judgment.
       ;; Replacement separately checks every direct value's contravariance.
-      (or (and (not source-mode?) target-mode? bounded?
+      (or (and (not source-mode?) target-mode? actual (<= (length raw-arguments) (car limits))
                (let (row (signature.decode-arguments arguments #t))
                  (and (null? (cdr row)) (= (length (car row)) (length raw-arguments)))))
-          (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments bounded? work)))))
+          (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments limits work)))))
 
 ;; First-match selection determines BOTH sides of every row. Required/optional/
 ;; rest and provided keyword inputs are contravariant; exact-count outputs are
 ;; covariant. Shadowed later cases cannot repair an earlier incompatible clause.
 (def (function-replaces? source target work)
   (signature.covers-signatures? (function-signatures source) (function-signatures target) work
-    (lambda (actual expected arguments source-mode? target-mode? _raw-arguments bounded?)
+    (lambda (actual expected arguments source-mode? target-mode? _raw-arguments limits)
       (work)
       (and (= (length (.get actual outputs)) (length (.get expected outputs)))
            (andmap (lambda (s t) (compare-types s t work)) (.get actual outputs) (.get expected outputs))
