@@ -16,6 +16,10 @@ It does not provide the following solver as an existing paper implementation.
 Any | Bool | Integer | UInt | declared-variable
 (List T)
 (Tuple T ...)
+(Pair T T)
+(Map Value <- Key) | (Map Key -> Value)
+(Sum tag: T ...)
+(Union T ...)
 (Function (output ...) (input ...))
 ```
 
@@ -178,3 +182,68 @@ captured source preservation and current factory descriptors. The report retains
 captured `calls` and generated `queries`; no source/default/method body executes
 during constraint collection. See [joint call inference](method-declarations.md#joint-call-inference-and-complete-interface-admission)
 for grammar, failure kinds, shared quotas, source discipline and proof premises.
+
+## Pair, Map, Sum and ordered Union admission
+
+This advances the paper's type-system future work (Type Descriptors and Type
+Constraints), using its explicit type-constructor/constraint vocabulary. The
+paper's Racket prototype construction does not supply a general-purpose inference
+solver or the rules below. These are a deliberately finite extension.
+
+All four constructors have Type kind. Pair takes exactly two Types; Map takes two
+Types and exactly one literal `<-` or `->`; Sum takes unique keyword/Type pairs;
+Union takes an ordered Type list, including empty and duplicate alternatives.
+Tags and arrows are never substituted. Sum labels correspond to the runtime
+symbol tags via the existing constructor; descriptor `sexp` retains keyword/Type
+order. No new executable container representation or validator is introduced.
+
+| Constructor | Admitted replacement | Normalization / failure |
+| --- | --- | --- |
+| Pair | Both positions covariant | Existing validator preserves both normalized positions, including improper tails and Function wrappers; child errors propagate. |
+| Map | Key syntax invariant **after normalization**; value covariant | Both arrows canonicalize to `(Map Value <- Key)`. Runtime validation keeps source hash/equality policy and normalized keys/values; collisions refuse the whole rebuild. No source mutation. |
+| Sum | Exact ordered tag skeleton; each payload covariant | Never sort tags; unknown tags gate payload evaluation; selected payload errors do not try another tag. Empty Sum has no admitted values. |
+| Union | Exact normalized ordered branches | Never sort/deduplicate alternatives or lift component subtyping through Union. First structural branch remains committed, including errors and returned wrappers. Empty Union has no admitted values. |
+
+These are rules for validated observations. Hash tables, pairs, tagged objects and
+procedures remain host values; a positive judgment does not authorize covariant
+writes or prove procedure behavior. Runtime validation is required on every
+contract boundary, even when key syntax or Union branches are unchanged.
+
+Ground candidates canonicalize Map arrows **before** ordered duplicate elimination,
+so arrow aliases cannot produce spurious ambiguous assignments. Mu binders and row
+tails remain explicit until complete substitution has rechecked recursion and kind;
+early expansion must not erase a newly nested Mu refusal. Literal Sum order and
+Union duplicate branches remain significant. Subsequent finite Mu expansion and
+row normalization share the existing quota. Recursive Map payloads are guarded positive
+positions; recursive Map keys are refused because their relation is invariant.
+Malformed arities/arrows/duplicate tags give `malformed`; unsupported constructors
+or negative recursion give `unsupported`; explicit row kind mismatch gives `bounds`
+(inference filters assignments with invalid bounds);
+quota/depth exhaustion gives `exhausted`. Completed conflicting constraints return
+`no-solution`; no incomplete search can publish a prefix solution. A fresh request
+can retry after failure. Syntax/canonicalization errors or exhaustion propagate
+before search; unsupported substituted recursion also propagates, without being
+silently discarded as a false subtype judgment. No such failure exposes a partial
+descriptor or builder result.
+
+`RoutingServiceType` and `infer-routing-service` in
+`examples/polymorphic-services.ss` bind Key as a prefix and jointly infer Self/Super
+from a Map-of-Sum-of-Function argument and Pair/Union expected result. The existing
+`.defgeneric` installs qualified typed fragments; `routing-service-action` composes
+Reader/FUN, a refined object root, exact `bind-evidence` publication and IO consumption.
+Tests cover every rule and refusal, Function keys and values, no premature method
+execution, cache ownership, failed refinement and retry. The existing variant and
+table suites continue to cover collision admission and carrier reconstruction.
+
+`Functional.PrototypeTypes` now carries corresponding Pair/Map/Sum/Union syntax,
+substitution and derivability rules. `same_sound`, `map_key_invariant`,
+`sum_tags_invariant`, `union_branches_invariant`, `check_sound` and
+`inferred_constraints` prove the finite judgments. Sum's unique labels/payload
+lengths are parser premises; the proof algebra represents labels with finite Nat
+IDs. Canonical Gerbil surface syntax must be projected faithfully to these Types.
+Existing `VariantValidation` laws separately establish returned-child retention,
+collision rejection and committed branch failures. Conditional semantic
+replacement still requires the explicit interpretation laws; these proofs do not
+verify Gerbil's compiler, hash implementation, arbitrary callbacks, or mutable
+writes. Record/Class-specific inference and candidate-dependent method paths
+remain outside this acceptance.

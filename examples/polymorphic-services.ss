@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export SharedServiceType report-service recover-service shared-service-declarations
+(export RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -186,3 +186,54 @@
       (defvalues (recovered recovery-owner) (recover-service receiver answer))
       (consume answer recovered callback)
       (values answer recovered report-owner recovery-owner)))))
+
+;; Pair/Map/Sum/Union Type positions share Self/Super with the existing typed
+;; declaration driver. Union branches stay literal and ordered during inference.
+(def RoutingServiceType
+  (prototype-type (.o .parameters: '(Key Self Super)) '(Key Self Super)
+    '(Function ((Pair (Map (Sum active: (Function (Self) (Super)) count: Self) <- Key)
+                       (Union (Function (UInt) (Integer)) Bool)))
+               ((Map (Sum active: (Function (Self) (Super)) count: Self) <- Key)))
+    '((Self Super))))
+;; Gerbil owns argument forwarding; the user result and cache owner stay explicit.
+(.defgeneric (route-service service routes) slot: .route combination: invoke-declared)
+;; One prepared standard group retains existing qualifier and negative-watch
+;; semantics while the signature recursively wraps the returned route callbacks.
+(def (routing-declarations instance record)
+  (def certified (instance-signature instance (lambda (_) [['Routes]]) []
+    standard-combination combination.standard-contribution?
+    (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing routing method"))))))
+  (def path [(dispatch.prototype 'Routes)])
+  [(typed-method-fragment '.route certified
+    [(metadata.replace "routes" path
+       (combination.primary (lambda (_next routes) (cons routes abs))))
+     (metadata.contribute "audit" path (combination.before (lambda (_) (record 'routes))))])])
+;; Fix the invariant key prefix, then derive the remaining inequalities from an
+;; observed call and expected output. No callback executes during candidate search.
+(def (infer-routing-service prefix candidates observations (record void))
+  (infer-declared-calls (specialize-prototype-type RoutingServiceType prefix) candidates observations
+    (cut routing-declarations <> record)))
+;; FUN checks current approval, invokes the declared method, refines its fully
+;; wrapped result and binds exact subject/descriptor/context evidence before IO.
+(def (routing-service-action instance routes context consume)
+  (def signature (.get instance descriptor))
+  (def output (car (.get signature outputs)))
+  (def checked-output (refine (.cc ObjectContract. responsibilities: (.o routes: output))
+    (lambda (candidate path)
+      (if (positive? (hash-length (car (.get candidate routes)))) []
+        [(.o bind-these: #f kind: 'empty-routes path: path)]))))
+  (.call observation.Observation. .bind
+    (lambda (_)
+      (unless (eq? (.get context approved) #t) (error "routing approval refused"))
+      (.get instance prototype))
+    (lambda (receiver) (lambda (_)
+      (defvalues (answer next) (route-service receiver routes))
+      (def normalized (validate checked-output (.o routes: answer)))
+      (def invocation (metadata.contract (metadata.predicate "subject" object?)
+        (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
+      (def bound (metadata.bind-evidence invocation normalized checked-output context identity))
+      (metadata.publish bound context
+        (lambda (subject)
+          (consume (.get subject routes))
+          (values (.o bind-these: #f subject: subject descriptor: checked-output context: context)
+                  (.cc context owner: next))) normalized)))))

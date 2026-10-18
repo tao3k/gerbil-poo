@@ -1,6 +1,6 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
-        type-expression substitute-type guarded-body? copy-type function-options map-function-types function-input-types)
+        type-expression substitute-type guarded-body? copy-type function-options map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in :std/list/list delete-duplicates/hash) (only-in ./support/base require-value))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -60,6 +60,32 @@
   (def (option name default) (cond ((assq name options) => cdr) (else default)))
   (append (caddr term) (option optional: []) (map cdr (option keywords: []))
     (if (option rest: #f) (list (option rest: #f)) [])))
+;; Sum's keyword tags are literal metadata, never binders or Type variables.
+;; Preserve declaration order while mapping only the associated payload Types.
+(def (map-sum-types term transform)
+  (cons 'Sum (let loop ((entries (cdr term)))
+    (if (null? entries) []
+      (cons (car entries) (cons (transform (cadr entries)) (loop (cddr entries))))))))
+;; Traverse admitted Type children without treating literal tags, arrows, row
+;; markers or Mu binders/depth as Types. Canonical Map arrows share one shape.
+(def (map-type-children term transform)
+  (case (car term)
+    ((Function) (map-function-types term transform))
+    ((Sum) (map-sum-types term transform))
+    ((Map)
+     (let ((first (transform (cadr term))) (last (transform (cadddr term))))
+       (if (eq? (caddr term) '<-) (list 'Map first '<- last) (list 'Map last '<- first))))
+    ((Object)
+     (list 'Object (map (lambda (field) (list (car field) (transform (cadr field)))) (cadr term))
+       (if (pair? (caddr term)) (list 'Row (transform (cadr (caddr term)))) (caddr term))))
+    ((Mu) (list 'Mu (cadr term) (caddr term) (transform (cadddr term))))
+    (else (cons (car term) (map transform (cdr term))))))
+;; Candidate deduplication canonicalizes syntax without expanding Mu or splicing
+;; rows. Complete substitution must still reject newly nested/negative recursion;
+;; erasing a candidate's binders before that check would bypass admission.
+(def (canonical-type term work)
+  (work)
+  (if (pair? term) (map-type-children term (cut canonical-type <> work)) term))
 ;; Recursion must cross a data carrier and remain positive. Nested Mu binders and
 ;; row-tail recursion are unsupported; Function arguments cannot mention self.
 (def (guarded-body? term name work)
@@ -77,7 +103,13 @@
              ((Object)
               (and (andmap (lambda (field) (walk (cadr field) #t positive?)) (cadr value))
                    (or (not (pair? (caddr value))) (walk (cadr (caddr value)) #f #f))))
-             ((List Maybe Tuple) (andmap (lambda (x) (walk x #t positive?)) (cdr value)))
+             ((Map) (if (eq? (caddr value) '<-)
+                      (and (walk (cadr value) #t positive?) (walk (cadddr value) #f #f))
+                      (and (walk (cadr value) #f #f) (walk (cadddr value) #t positive?))))
+             ((Sum) (let loop ((entries (cdr value)))
+                      (or (null? entries)
+                          (and (walk (cadr entries) #t positive?) (loop (cddr entries))))))
+             ((List Maybe Tuple Pair Union) (andmap (lambda (x) (walk x #t positive?)) (cdr value)))
              (else #t))))))
 ;; Admit syntax independently of subtype decisions. Field labels are unique
 ;; symbols, not type variables; row tails are open/closed or (Row expression).
@@ -93,7 +125,22 @@
         ((List Maybe)
          (unless (= (length value) 2) (refuse-type 'malformed "Unary Type needs one argument"))
          (check (cadr value) variables))
-        ((Tuple) (for-each (cut check <> variables) (cdr value)))
+        ((Pair)
+         (unless (= (length value) 3) (refuse-type 'malformed "Pair Type needs two arguments"))
+         (for-each (cut check <> variables) (cdr value)))
+        ((Map)
+         (unless (and (= (length value) 4) (memq (caddr value) '(<- ->)))
+           (refuse-type 'malformed "Map Type needs Value <- Key or Key -> Value"))
+         (check (cadr value) variables) (check (cadddr value) variables))
+        ((Sum)
+         (let loop ((entries (cdr value)) (seen []))
+           (unless (null? entries)
+             (unless (and (pair? entries) (pair? (cdr entries)) (keyword? (car entries))
+                          (not (memq (car entries) seen)))
+               (refuse-type 'malformed "Sum Type needs unique keyword payload Types"))
+             (check (cadr entries) variables)
+             (loop (cddr entries) (cons (car entries) seen)))))
+        ((Union Tuple) (for-each (cut check <> variables) (cdr value)))
         ((Function)
          (unless (and (>= (length value) 3) (list? (cadr value)) (list? (caddr value)))
            (refuse-type 'malformed "Function Type needs output/input lists"))
@@ -135,7 +182,7 @@
              (check (cadr tail) variables))))
         ((Mu)
          (unless (and (= (length value) 4) (symbol? (cadr value))
-                      (not (memq (cadr value) '(Any Never Bool Integer UInt List Maybe Tuple Function CaseFunction Object Row Mu)))
+                      (not (memq (cadr value) '(Any Never Bool Integer UInt List Maybe Tuple Pair Map Sum Union Function CaseFunction Object Row Mu)))
                       (not (memq (cadr value) variables))
                       (exact-integer? (caddr value)) (<= 0 (caddr value) 16))
            (refuse-type 'malformed "Mu needs a fresh binder and depth in 0..16"))
@@ -156,6 +203,10 @@
     (list 'Object
       (map (lambda (field) (list (car field) (substitute-type (cadr field) substitution work))) (cadr term))
       (if (pair? (caddr term)) (list 'Row (substitute-type (cadr (caddr term)) substitution work)) (caddr term))))
+   ((eq? (car term) 'Sum) (map-sum-types term (cut substitute-type <> substitution work)))
+   ((eq? (car term) 'Map)
+    (list 'Map (substitute-type (cadr term) substitution work) (caddr term)
+      (substitute-type (cadddr term) substitution work)))
    ((eq? (car term) 'Mu)
     (list 'Mu (cadr term) (caddr term)
       (substitute-type (cadddr term) (filter (lambda (binding) (not (eq? (car binding) (cadr term)))) substitution) work)))

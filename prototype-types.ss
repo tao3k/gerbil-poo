@@ -52,7 +52,7 @@
   (let ()
     (type-expression `(Tuple ,@variables) variables work)
     (unless (and (andmap symbol? variables)
-                 (not (ormap (cut memq <> '(Any Never Bool Integer UInt List Maybe Tuple Function CaseFunction Object Row Mu)) variables))
+                 (not (ormap (cut memq <> '(Any Never Bool Integer UInt List Maybe Tuple Pair Map Sum Union Function CaseFunction Object Row Mu)) variables))
                  (= (length variables) (length (delete-duplicates/hash variables)))
                  (equal? variables (positional.parameters prototype)))
       (refuse-type 'malformed "Type variables must match unique prototype parameters" variables))
@@ -157,7 +157,8 @@
     (for-each (lambda (query)
                 (type-expression (car query) (.get scheme variables) work)
                 (type-expression (cadr query) (.get scheme variables) work)) queries)
-    (let ((solutions []) (domain (map copy-type (delete-duplicates/hash candidates))))
+    (let ((solutions []) (domain (delete-duplicates/hash
+                    (map-in-order (lambda (candidate) (canonical-type (copy-type candidate) work)) candidates))))
       (let search ((variables (.get scheme variables)) (arguments []))
         (work)
         (if (pair? variables)

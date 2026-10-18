@@ -1,10 +1,10 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression copy-type)
+(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression copy-type canonical-type)
 (import ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
-        (only-in ./type List Tuple Maybe))
+        (only-in ./type List Tuple Maybe Pair Map Sum Union))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -26,9 +26,7 @@
                (when (ormap (lambda (field) (assq (car field) fields)) (cadr row))
                  (refuse-type 'bounds "Row substitution overlaps explicit fields"))
                (list 'Object (append fields (cadr row)) (caddr row))))))
-        ((eq? (car term) 'Function)
-         (map-function-types term (cut normalize-type <> work)))
-        (else (cons (car term) (map (cut normalize-type <> work) (cdr term))))))
+        (else (map-type-children term (cut normalize-type <> work)))))
 
 ;; Select a declared Function through explicit Object fields. An unresolved row
 ;; tail or Type variable cannot invent a named signature before substitution.
@@ -74,9 +72,25 @@
    ((and (eq? source 'UInt) (eq? target 'Integer)) #t)
    ((and (pair? source) (pair? target) (eq? (car source) (car target)))
     (case (car source)
-      ((List Maybe Tuple)
+      ((List Maybe Tuple Pair)
        (and (= (length source) (length target))
             (andmap (lambda (s t) (compare-types s t work)) (cdr source) (cdr target))))
+      ;; Keys are invariant after finite normalization: changing their validator
+      ;; could change identity/equality or create a collision. Values are readable.
+      ((Map) (and (equal? (cadddr source) (cadddr target))
+                  (compare-types (cadr source) (cadr target) work)))
+      ;; Equal tag skeletons retain wire order and selected payload identity.
+      ((Sum)
+       (let loop ((left (cdr source)) (right (cdr target)))
+         (work)
+         (cond ((null? left) (null? right))
+               ((null? right) #f)
+               (else (and (eq? (car left) (car right))
+                          (compare-types (cadr left) (cadr right) work)
+                          (loop (cddr left) (cddr right)))))))
+      ;; Union equality was handled above. No widening, sorting, deduplication or
+      ;; branchwise covariance may change committed first-match normalization.
+      ((Union) #f)
       ((Object)
        (and (or (eq? (caddr target) 'open)
                 (and (eq? (caddr source) 'closed)
@@ -133,6 +147,10 @@
             (if (eq? (caddr term) 'closed)
               (.cc ObjectContract. responsibilities: fields)
               (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+         ((Pair) (Pair (build (cadr term)) (build (caddr term))))
+         ((Map) (Map (build (cadr term)) <- (build (cadddr term))))
+         ((Sum) (apply Sum (cdr (map-sum-types term build))))
+         ((Union) (apply Union (map build (cdr term))))
          ((Maybe) (Maybe (build (cadr term))))
          ((List) (List (build (cadr term))))
          ((Tuple) (apply Tuple (map build (cdr term))))

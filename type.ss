@@ -13,7 +13,7 @@
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
-  (only-in :std/list/list pop! append-map)
+  (only-in :std/list/list pop! map-in-order)
   (only-in :std/list/alist acons plist->alist)
   (only-in :std/number/misc n-bits->n-u8)
   (only-in :std/encoding/hex hex-decode hex-encode)
@@ -399,7 +399,7 @@
        (cons tag tag-n))))
   (def tag-marsh-t (UIntN (integer-length (max 0 (1- (vector-length variant-names@))))))
   {(:: @ [methods.bytes<-marshal Type.])
-      sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
+      sexp: ['Sum (apply append (map-in-order (match <> ([k . t] [(make-keyword k) (.@ t sexp)])) a))...]
       variants: (object<-alist a)
       variant-names: sum-variant-names
       types: (map cdr a)
