@@ -13,7 +13,7 @@ test-debug := env_var_or_default("GERBIL_TEST_DEBUG", "q")
 test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
 # Query the selected toolchain's metadata only when an executable recipe needs
 # link flags. Preserve explicit overrides, including an intentionally empty one.
-closure-ld-options := `if test "${GERBIL_CLOSURE_LD_OPTIONS+x}" = x; then printf '%s' "$GERBIL_CLOSURE_LD_OPTIONS"; else pkg-config --libs openssl; fi`
+closure-link-env := 'GERBIL_CLOSURE_LD_OPTIONS="${GERBIL_CLOSURE_LD_OPTIONS-$(pkg-config --libs openssl)}"'
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
 test: build
@@ -65,26 +65,26 @@ build-group group:
 benchmark-closure: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/closure
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
+    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
     {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss .build/closure/closure-scale "{{ timeout-executable }}" .build/closure/closure-benchmarks.scm
 
 # Same-process warm comparisons with balanced queue order and bounded children.
 benchmark-closure-paired: build
     mkdir -p .build/closure
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-paired t/closure-paired-benchmark.ss
+    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-paired t/closure-paired-benchmark.ss
     {{ platform-env }} gxi {{ test-runtime-options }} t/closure-paired-suite.ss .build/closure/closure-paired "{{ timeout-executable }}" .build/closure/closure-paired.scm
 
 # Native CPU/GC/allocation phases, with natural and pre-collected controls.
 benchmark-closure-phases: build
     mkdir -p .build/closure
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "{{ closure-ld-options }}" -o .build/closure/closure-phases t/closure-phases.ss
+    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-phases t/closure-phases.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/closure/closure-phases -:max-heap=1G .build/closure/closure-phases.scm
 
 # Standalone Scheme signature/negative-watch costs; no Lean checkout required.
 benchmark-dispatch: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/dispatch
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/dispatch -exe -ld-options "{{ closure-ld-options }}" -o .build/dispatch/dispatch-benchmark t/dispatch-benchmark.ss
+    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/dispatch -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/dispatch/dispatch-benchmark t/dispatch-benchmark.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/dispatch/dispatch-benchmark -:max-heap=1G .build/dispatch/dispatch-benchmarks.scm .build/dispatch/dispatch-benchmark
 
 # Composed metadata wrappers and complete cooked-family publication costs.
@@ -93,7 +93,7 @@ benchmark-metadata:
     printf '%s\n' '(metadata-benchmarks (status incomplete))' > .build/metadata/metadata-benchmarks.scm
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     just build
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "{{ closure-ld-options }}" -o .build/metadata/metadata-benchmark t/metadata-benchmark.ss
+    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/metadata/metadata-benchmark t/metadata-benchmark.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/metadata/metadata-benchmark -:max-heap=1G .build/metadata/metadata-benchmarks.scm .build/metadata/metadata-benchmark
     {{ platform-env }} gxi {{ test-runtime-options }} t/metadata-report.ss .build/metadata/metadata-benchmarks.scm
 
@@ -102,7 +102,7 @@ benchmark-metadata-paired:
     printf '%s\n' '(metadata-paired (status incomplete))' > .build/metadata/metadata-paired.scm
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     just build
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "{{ closure-ld-options }}" -o .build/metadata/metadata-paired t/metadata-paired-benchmark.ss
+    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/metadata/metadata-paired t/metadata-paired-benchmark.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} t/metadata-paired-suite.ss .build/metadata/metadata-paired "{{ timeout-executable }}" .build/metadata/metadata-paired.scm
 
 # Whole continuation preparation and reused calls, with fresh-process ABBA/A-A controls.

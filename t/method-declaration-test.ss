@@ -58,6 +58,48 @@
 ;; Test actual assembled methods rather than expected constants injected into slots.
 (def method-declaration-test
   (test-suite "declaration fragments method combination and defgeneric"
+    (test-case "fused Reader reviews reenter with fresh receivers and retry current metadata"
+      (def events [])
+      (def reviews [])
+      (def action #f)
+      (def family (service.make-reporting-family
+        (lambda (event) (set! events (cons event events)))))
+      ;; The review invokes the same captured action with another current rate.
+      ;; The outer result must survive nested accounts and two result-value frames.
+      (def (review amount summary)
+        (set! reviews (cons amount reviews))
+        (when (= amount 46)
+          (check-equal? (call/values (lambda () (action (.o rate: 20))) list)
+            '(86 ((20 2 2 #f (payload: #f)))))))
+      (set! action (service.reviewed-summary-action family 2 review))
+      (check-equal? (call/values (lambda () (action (.o rate: 10))) list)
+        '(46 ((10 2 2 #f (payload: #f)))))
+      (check-equal? (reverse reviews) '(46 86))
+      (check-equal? (length (filter (cut eq? <> 'base) events)) 2)
+      (def descriptor (cdr (assq '.summary (reflect-slots family))))
+      (.setslot! descriptor hidden ($constant-slot-spec #t))
+      (set! events []) (set! reviews [])
+      (check-exception (action (.o rate: 30)) Error?)
+      (check-equal? events []) (check-equal? reviews [])
+      (.setslot! descriptor hidden ($constant-slot-spec #f))
+      (check-equal? (call/values (lambda () (action (.o rate: 30))) list)
+        '(126 ((30 2 2 #f (payload: #f)))))
+      (check-equal? reviews '(126))
+      (def cause (list 'review-refused))
+      (def failed (service.reviewed-summary-action family 2 (lambda (_ __) (raise cause))))
+      (set! events [])
+      (check-exception (failed (.o rate: 40)) (lambda (actual) (eq? actual cause)))
+      (check-equal? (length (filter (cut eq? <> 'base) events)) 1))
+    (test-case "fused Reader retains summary arity refusal before charging"
+      (def family (service.make-reporting-family void))
+      (def charges 0)
+      ;; This alternate callee exercises the public macro's exact result boundary.
+      (def (two-results account units label: (label #f) . rest) (values 'first 'second))
+      ;; Charge is observable only if the single-summary-value boundary accepts.
+      (def (charging account units) (set! charges (+ charges 1)) 'charged)
+      (def action (service.summary-observation family 2 two-results charging))
+      (check-exception (action (.o rate: 10)) true)
+      (check-equal? charges 0))
     (test-case "direct combined rows retain selection lookup defaults and multiple values"
       (def events [])
       ;; One log distinguishes selector failure, lookup failure and body execution.

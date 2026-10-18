@@ -1,5 +1,5 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
+(export reviewed-summary-action replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
         (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
@@ -68,25 +68,39 @@
 ;; Reflection is current on every call; refusal prevents summary and charge bodies.
 ;; The four-argument form also selects a statically known charging generic, so a
 ;; different charging policy shares the complete Reader chain without an indirect
-;; optional/keyword call or a duplicated workflow implementation.
+;; optional/keyword call or a duplicated workflow implementation. This standard
+;; Observation map fuses the environment-independent bind continuation: no nested
+;; Reader action is constructed during invocation. call/values preserves the
+;; summary's single-value boundary before charging and all final result values.
 (defrules summary-observation ()
  ((_ family units generic) (summary-observation family units generic charge))
  ((_ family units generic charging)
   (let ((owner family) (count units))
-    (.call gp.Observation. .bind
-      (lambda (context) (make-account owner (.@ context rate)))
+    (.call gp.Observation. .map
       (lambda (account)
-        (.call gp.Observation. .map
-          (lambda (summary) (values (charging account count) summary))
-          (lambda (_context)
-            (read-slot owner '.summary)
-            (read-slot owner '.charge)
-            (generic account count label: #f #!rest payload: #f))))))))
+        (read-slot owner '.summary)
+        (read-slot owner '.charge)
+        (call/values (lambda () (generic account count label: #f #!rest payload: #f))
+          (lambda (summary) (values (charging account count) summary))))
+      (lambda (context) (make-account owner (.@ context rate)))))))
 
 ;; Bind the statically known contracted call before crossing the Reader boundary.
 ;; The native macro adds no runtime adapter or reimplementation of defaults.
 (def (typed-summary-action family units)
   (summary-observation family units checked-summarize))
+
+;; Attach a post-success review through native FUN map. Its standard compose
+;; accepts one intermediate value, so call/values packages both results explicitly.
+;; A review may reenter this action at a different context: each invocation owns
+;; its account and argument row. Review failure preserves prior method effects;
+;; it never turns completed charging into rollback or caches an earlier approval.
+(def (reviewed-summary-action family units review)
+  (def action (typed-summary-action family units))
+  (.call gp.Observation. .map
+    (match <> ([amount summary]
+      (review amount summary)
+      (values amount summary)))
+    (lambda (context) (call/values (lambda () (action context)) list))))
 
 ;; Select a current public combiner at each invocation, before resolving the raw
 ;; inherited fragment slot. Core signature bindings own contracts and defaults;

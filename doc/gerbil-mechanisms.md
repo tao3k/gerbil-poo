@@ -816,3 +816,41 @@ PID. Process inspection and `lsof` confirmed no holder; only those four locks an
 possibly partial objects were moved to a temporary directory and regenerated.
 The unrelated older lock was left alone. No deadline was widened, no compiler
 source was modified, and failed or interrupted runs were not admitted as passes.
+
+## Standard Reader completion and result frames
+
+`summary-observation` now fuses its environment-independent nested Reader into
+standard `Observation.` map. The current owner is reflected before summary and
+charge; core optional/keyword/predicate contracts and the complete generic row
+are unchanged. `call/values` preserves the single-summary-result boundary before
+charging. This is a use of the standard FUN instance, not an optimizer for an
+arbitrary replacement of its `.bind` or `.map` methods.
+
+`reviewed-summary-action` composes a post-success review, with explicit packaging
+of the two result values before standard `compose` consumes its one intermediate
+value. A review can invoke the same captured action at a different context; outer
+receiver/result data remain local. Hidden metadata refuses before methods/review,
+restored metadata permits retry, and a failing review retains preceding external
+method effects. No rollback or result/approval cache is introduced.
+
+The Lean companion proves environment-independent Reader equality for arbitrary
+monadic effects, source refusal/current-value behavior, and a complete-budget
+threshold with separate setup, dynamic map construction, completion and GC terms.
+A bounded nested forecast checks both full qualifier traces. Scheme controls own
+actual multiple-value arity, callback identity and mutation semantics. The article
+supplies same-self modular composition; this Reader/reflection integration remains
+generalized-prototype future work rather than a claim of complete source coverage.
+
+The generic workflow benchmark compares the previous nested Reader with the fused
+Reader using the **same current generic calls and contracts**. Transport/hot scopes
+separately keep the previous apply/list row control. Account construction and
+first field reads have an identical-action scope; action construction, retained
+workflow and factory-plus-invocation remain separate, with natural/collected GC,
+fixed prefixes, conditioned history and duplicate A/A pairs. Independent phase
+medians are not an exact additive attribution of one workflow invocation.
+
+Executable link discovery in the just recipes is deferred until the actual link
+command. A global just backtick was found to execute even for an unrelated script
+recipe; the shell assignment now queries pkg-config only at linking and fails
+before starting gxc when metadata is unavailable. Explicit empty/nonempty link
+options remain valid. `build.ss` continues to use standard `pkg-config-libs`.

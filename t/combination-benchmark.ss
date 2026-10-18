@@ -1,7 +1,8 @@
 ;;; Same-binary original-algorithm controls for continuation preparation.
 (export main)
 (import ../object ../mop ../method-declaration
-  (prefix-in ../examples/declared-methods service.) :std/iter (only-in :std/list/list foldr) (only-in :std/func compose1)
+  (prefix-in ../examples/declared-methods service.) (prefix-in ../generalized-prototype gp.)
+  (only-in ../reflection read-slot) :std/iter (only-in :std/list/list foldr) (only-in :std/func compose1)
   (prefix-in ../method-combination combination.) "combination-cases.ss"
   (only-in "closure-measure.ss" run-child))
 ;; Rejected candidate: lift to unary continuation builders and use std compose1.
@@ -34,13 +35,6 @@
   (let* ((combine row-combination) (parts (.ref self '.parts)))
     (unless (procedure? combine) (error "generic combination must be a procedure"))
     (combine parts (apply list label: label #!rest required optional rest))))
-;; Previous contracted type-provided generic, without a substitute interpreter.
-(def (reference-summary account (required :~ fixnum?)
-    (optional required :~ fixnum?) label: (label #f) . rest)
-  (let* ((combine (simple-combination combination.collect))
-         (parts (.ref (.get account .type) '.summary)))
-    (unless (procedure? combine) (error "generic combination must be a procedure"))
-    (combine parts (apply list label: label #!rest account required optional rest))))
 ;; Isolate parameter transport from object lookup, method selection and factories.
 ;; Both paths copy the rest spine and demand the same exact row oracle.
 (def (reference-transport rest)
@@ -49,17 +43,24 @@
 ;; append only; append's final empty list makes the callback's rest spine private.
 (def (direct-transport rest)
   (row-combination 'parts (cons label: (cons #f (cons #!rest (cons 3 (cons #f (append rest '()))))))))
-;; Match the production named factory boundary as well as its native FUN syntax.
-;; Inlining only the reference factory would confound construction measurements.
+;; The immediately preceding Reader chain uses the SAME current generic lowering
+;; and native contracts on both sides. Only continuation materialization differs;
+;; keeping the native callees static avoids keyword/default redispatch adapters.
+(defrules reference-summary-observation ()
+ ((_ family units)
+  (let ((owner family) (count units))
+    (.call gp.Observation. .bind
+      (lambda (context) (service.make-account owner (.@ context rate)))
+      (lambda (account)
+        (.call gp.Observation. .map
+          (lambda (summary) (values (service.charge account count) summary))
+          (lambda (_context)
+            (read-slot owner '.summary)
+            (read-slot owner '.charge)
+            (service.checked-summarize account count label: #f #!rest payload: #f))))))))
+;; Match the production named factory boundary; both retain family and units once.
 (def (reference-summary-action family units)
-  (service.summary-observation family units reference-summary reference-charge))
-;; The second generic in the complete workflow also retains its preceding row
-;; lowering. Fixed arity previously used core list, not the variadic apply route.
-(def (reference-charge account units)
-  (let* ((combine standard-combination)
-         (parts (.ref (.get account .type) '.charge)))
-    (unless (procedure? combine) (error "generic combination must be a procedure"))
-    (combine parts (list account units))))
+  (reference-summary-observation family units))
 ;; Measure only the bridge or the complete Reader/reflection/C3 workflow. Each
 ;; fresh child constructs and warms all four controls in the same order. No setup,
 ;; GC count or callback history is chosen after seeing the measured side.
@@ -84,10 +85,15 @@
     (if (eq? kind 'generic-transport)
       (map (lambda (transport) (lambda () (transport '(payload: #f))))
         (list reference-transport direct-transport))
+    (if (eq? kind 'generic-account)
+      (let (construct (lambda ()
+        (set! held (service.make-account family 10))
+        (and (eq? (.@ held .type) family) (= (.@ held rate) 10))))
+        (list construct construct))
     (if (memq kind '(generic-factory generic-factory-allocation))
       (map (lambda (make-action)
         (lambda () (set! held (make-action)) (procedure? held))) makers)
-    (if (memq kind '(generic-workflow generic-construction generic-construction-allocation))
+    (if (memq kind '(generic-workflow generic-workflow-allocation generic-construction generic-construction-allocation))
       (map (lambda (make-action)
         (def prepared (make-action))
         (lambda ()
@@ -97,7 +103,7 @@
           (and (= calls 9) (equal? observed '(46 ((10 2 2 #f (payload: #f)))))))) makers)
       (map (lambda (invoke)
         (lambda () (invoke receiver 3 #f label: #f #!rest payload: #f)))
-        (list reference-row direct-row))))))
+        (list reference-row direct-row)))))))
   ;; Fixed all-control conditioning precedes the shared prefix and measured side.
   ;; Natural GC is retained: this tests sensitivity to workload history, without
   ;; claiming two separate processes have identical heaps or subtracting A/A noise.
@@ -131,7 +137,7 @@
 ;; The shared study retains the earlier continuation candidates as historical
 ;; controls; new generic scenarios compare the complete production bridge only.
 (def (workload scenario)
-  (if (memq scenario '(generic-factory generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation))
+  (if (memq scenario '(generic-account generic-workflow-allocation generic-factory generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation))
     (generic-workload scenario) (combination-workload scenario)))
 ;; Validate CLI dimensions before using the shared 1GiB/fresh-process protocol.
 (def (main scenario-text regime-text side-text)

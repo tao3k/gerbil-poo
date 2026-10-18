@@ -293,3 +293,83 @@ system 2.63s), within 300s/1GiB. All 306 tracked Scheme source hashes remained f
 Payload values retain their identities; argument spines are copied. Earlier
 summary callback effects remain visible if a later replay admission fails, while
 charging runs only after every summary succeeds. This is not a transaction claim.
+
+* Standard Reader completion with unchanged generic transport
+
+The standard summary Reader now fuses its environment-independent continuation
+through FUN map. Current reflection still precedes summary and charge. The
+reference retains the preceding bind/nested-map chain but uses the SAME current
+generic/contract/row code as production. This comparison isolates the Reader
+change; transport and generic-hot scopes separately retain their apply/list row
+reference. No workflow speedup is inferred transitively from those microbenchmarks.
+
+The complete source/binary-bound study completed and strictly replayed 816 fresh
+children: 17 scopes, natural/collected GC, four ABBA rounds, and both exact A/A
+pairs. Fixed all-control prefixes, conditioned history, result oracles, 20s/1GiB
+child fences and the 300s study fence remain. All 306 tracked Scheme source hashes
+were unchanged through timing and replay. Full raw observations stay ignored.
+
+Deltas are production minus the adjacent reference, CPU microseconds/operation.
+GC and residual are independent medians of per-pair differences and need not add.
+AA max is the largest absolute individual same-action difference, not a confidence
+interval and not a quantity subtracted to repair a regression.
+
+| Scope | GC regime | CPU delta | GC delta | Residual delta | Adverse / 4 | AA max |
+|-------+-----------+-----------+----------+----------------+-------------+--------|
+| Transport | natural | -0.14631 | -0.11222 | -0.03399 | 0 | 0.01025 |
+| Transport | collected | -0.14244 | -0.10928 | -0.03404 | 0 | 0.01441 |
+| Hot generic | natural | -0.27401 | -0.17989 | -0.09412 | 0 | 0.45667 |
+| Hot generic | collected | -0.16110 | -0.11711 | -0.04166 | 0 | 0.11430 |
+| Conditioned hot | natural | -0.16998 | -0.12077 | -0.04921 | 0 | 0.02753 |
+| Conditioned hot | collected | -0.15914 | -0.11261 | -0.04601 | 0 | 0.01183 |
+| Retained workflow | natural | -1.77930 | -0.29395 | -1.48535 | 1 | 50.46777 |
+| Retained workflow | collected | -2.99609 | -0.99463 | -1.95117 | 0 | 3.74414 |
+| Factory plus invocation | natural | +0.16064 | -0.15283 | +0.11768 | 2 | 2.97070 |
+| Factory plus invocation | collected | +0.18213 | -0.07910 | +0.26123 | 2 | 2.41211 |
+| Conditioned retained workflow | natural | +0.03662 | +0.31689 | -0.28027 | 2 | 2.75098 |
+| Conditioned retained workflow | collected | -2.81396 | -1.06982 | -1.74414 | 1 | 89.47461 |
+| Conditioned factory plus invocation | natural | -0.53418 | -0.09961 | -0.43457 | 1 | 2.83691 |
+| Conditioned factory plus invocation | collected | -2.37695 | -0.93994 | -1.35498 | 0 | 5.27246 |
+
+Conditioned hot-call gains exceed their corresponding individual A/A ranges:
+the smallest gains are 0.16593/0.14927us (natural/collected). Unconditioned hot
+calls remain sensitive to history. This repeats local CPU evidence for the row
+lowering already present in the preceding revision, not a new Reader-only gain.
+
+Action-factory production medians are 0.22311/0.21182us (natural/collected), with
+zero one-operation allocation difference. A separate identical-action control
+measures receiver construction PLUS first type/rate field reads: 15.41943/14.54053us.
+This is not a changed receiver constructor or an exact additive decomposition of
+the 93--99us complete production scopes. Family/C3 source assembly remains outside
+these timed scopes. No independent phase medians are subtracted to invent a cost.
+
+Collection-free single-operation controls consistently save 80 bytes in retained
+workflow and factory-plus-invocation, in all eight pairs each. Row-only controls
+still save 480 bytes against apply/list; these are different comparisons and must
+not be added. Batch byte counts crossing collection remain unavailable. The full
+workflow has both improvements and adverse CPU pairs, so end-to-end regression
+closure remains unadmitted despite the allocation reduction and semantic proof.
+
+The largest natural retained-workflow A/A discrepancy is 50.46777us: 19.79004us
+GC and 30.67773us residual. The conditioned collected A/A discrepancy is 89.47461us:
+29.46973us GC and 60.00488us residual. Each pair has 90 measured collections on
+both sides and identical recorded prefix counters. Equal counters do NOT mean
+identical heaps, collector cost, locality or CPU scheduling; GC count/history
+alone cannot explain these residual differences. External compiler snapshots
+show ten compiler/tool processes totalling 103.8 percent CPU before timing and
+none at the endpoint. This does not reconstruct the intervening load, so no
+isolated-host or causal attribution is claimed.
+
+Acceptance: current AOT admission found 651 intermediates, no missing objects and
+no numbered-object shadowing. All 103 modules/750 test cases passed in one bounded
+process with natural exit zero, no errors/warnings (31.21s wall, 19.78s user, 1.81s
+system). The first 90s executable build and its first bounded resume timed out;
+four new unowned object locks and the older missing-object cyclic-access lock
+were diagnosed and retained outside Git. After verified inactive locks were moved,
+the same 90s route passed. Failures are not relabelled as successful builds.
+
+Lean's four general Reader laws prove arbitrary-monad fusion, source refusal,
+current-value retry and a conditional complete-budget threshold. Top-level examples
+cover nested forecast traces, refusal/retry and review failure. These do not prove
+native multiple-value ABI, mutable receiver identity, actual allocation, GC or CPU
+behavior. The integrated Reader/reflection MOP use remains article future work.
