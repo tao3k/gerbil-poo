@@ -167,3 +167,67 @@ mutation and reflection refusal/retry remain observable; see
 [the mechanism ledger](gerbil-mechanisms.md#revision-checked-contribution-admission).
 The current workflow benchmark uses the same FUN action and generic on both
 sides; its control constructs ordinary descriptors without registration evidence.
+
+## Certified typed declarations
+
+The existing `method` descriptor accepts a `signature`: an existing
+`dispatch-extension.check` certificate. It fixes input/output Types, dispatch
+arity, precedence, combination policy and negative watches in one shared seed.
+Set `admit` to `metadata.declaration?`; `contributions` contains the existing
+`declarative-metadata` declarations (`replace`, `contribute`, `guarded`, `remove`).
+`typed-method-fragment` constructs exactly this same descriptor for computed names.
+No second macro, dispatcher, edit interpreter or namespace is introduced.
+
+```scheme
+;; metadata., dispatch. and extension. denote the existing modules.
+(def certified (extension.check
+  (dispatch.prepared-standard [Integer] Integer (lambda (_) [['Number]])) []))
+(def owner (.declare MethodDeclaration. (.o)
+  (method .charge (.o (signature certified) (admit metadata.declaration?)
+    (contributions [(metadata.replace "base" [(dispatch.prototype 'Number)]
+      (combination.primary (lambda (_ n) (* n 10))))])))))
+(.defgeneric (charge self units) slot: .charge combination: invoke-declared)
+(defvalues (amount next) (charge owner 2))
+(defvalues (again after) (invoke-declared next [3]))
+```
+
+Same-name typed fragments must share the **same certificate identity**, admission
+callback and visibility. Inheritance also checks signature identity. Untyped and
+typed groups cannot silently mix. Distinct certificates are distinct signatures,
+even when their callbacks happen to agree on sampled arguments. Stored false is
+invalid signature metadata; absence retains the ordinary untyped method protocol.
+
+The ordinary Slot computes the complete inherited declaration stream. Ancestor
+edits execute before derived edits, so a local replacement or erasure wins at its
+path. Each batch keeps existing `declarative-metadata` edit order: `contribute`
+prepends, `replace` replaces, and guarded contributions rerun their guards.
+Gerbil `delay`/`force` owns one lazy installation and completed negative check per
+assembled group. Intermediate inheritance groups remain unforced. Compilation
+runs no method bodies; failed registration/negative admission returns no group
+certificate, preserving existing failure phase/cause. It does not undo effects
+of arbitrary user compile callbacks.
+
+`.defgeneric` uses its existing `combination:` path and Gerbil formal binding,
+including `from: type`'s original instance. `invoke-declared` validates the complete
+argument row and result using the existing dispatcher, returning **two values**:
+result and complete immutable successor group. Retain that successor for warm
+calls. `declared-snapshot` exposes its existing dispatch certificate for ordinary
+revision/publication; it forces compilation but invokes no method. No hidden
+receiver mutation, dropped nested cache, result cache or cached guard approval
+is introduced. Supported declaration edits invalidate the receiver's group;
+explicitly retained old groups keep their immutable snapshot semantics. New
+fragment membership still needs fresh elaboration. Source rows, watches, Types,
+precedence and callbacks retain the existing immutable/pure certificate premises.
+
+`make-dispatch-family` / `typed-charge-action` combine a shared C3 diamond,
+two dispatch axes, standard qualifiers, a value-sensitive guard, FUN approval and
+an IO consumer. `t/typed-method-declaration-test.ss` also checks every existing
+combination policy, warm successor transfer, derived replacement/erasure,
+completed-batch cancellation, refusal/retry, metadata invalidation, signature
+conflicts, arity, output and original-instance binding. The Lean companion proves
+transaction acceptance, batch equivalence, cache soundness, transported absence
+and refusal retention; finite executable controls exercise two-axis cached calls.
+These are generalized-prototype **future work**, not a claim that the article's
+Racket code already supplies this declaration syntax. General carrier inference,
+arbitrary compile-time multi-dispatch specialization and runtime/compiler
+verification remain outside this closure.

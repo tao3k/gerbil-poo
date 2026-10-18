@@ -32,7 +32,7 @@ further tuning of the corresponding workflow.
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
-| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream and `.defgeneric` `combination:` bridge. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and unified arbitrary multi-dispatch syntax remain future work. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream, certified typed declaration groups and `.defgeneric` `combination:` invocation with retained cache successors. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and arbitrary inferred multi-dispatch syntax remain future work; explicit certified typed declarations now use the same method form, inheritance and generic invocation protocol. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
 | General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
 | User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
@@ -499,6 +499,23 @@ Shared checkpoint assertions use standard nonblocking channel reads and FIFO
 buffering. Lean adds fallible checked preparation, exact errors, failed-attempt
 projection and whole-state preservation/validity laws. See
 [coordinator-retry.md](coordinator-retry.md) for the exact scenario and premises.
+
+### Certified typed method declaration closure
+
+The existing `method` form now admits a certified `signature` plus existing
+`declarative-metadata` edits; `typed-method-fragment` constructs that same form.
+Same-signature coalescing/inheritance, ancestor-before-local installation,
+completed-candidate negative admission, `.defgeneric` argument forwarding,
+input/output validation and explicit immutable cache succession form one protocol.
+Gerbil promises compile a demanded whole group once, while current guards rerun.
+Supported declaration revisions invalidate groups; mismatched signatures, bad
+carriers/arity, forbidden methods and bad results retain refusal boundaries.
+See [method-declarations.md](method-declarations.md), the shared diamond/two-axis
+FUN/IO example and `t/typed-method-declaration-test.ss`. Lean `MethodDeclarations`
+proves acceptance, batch parity, cache soundness, transported absence and refusal
+retention; `Examples/TypedMethodDeclarations.lean` checks finite workflow controls.
+This closes explicit certified declarations, not arbitrary inferred syntax or
+unrestricted MOP/recursive compilation. It advances the article's future work.
 
 ### Declared method fragments and receiver generics
 

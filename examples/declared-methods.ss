@@ -1,8 +1,9 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
-(export reviewed-summary-action replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
+(export typed-charge make-dispatch-family typed-charge-action reviewed-summary-action replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
         (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
-        (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
+        (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)
+        (prefix-in ../declarative-metadata metadata.) (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)
 ;; Two branches refine one shared base through ordinary inherited fragment slots.
@@ -282,3 +283,43 @@
       (read-slot current '.charge)
       (values (read-slot current 'tenant) (.@ current .public-slots)
         (charge (make-account current (.@ context rate)) units))))))
+
+;; The same generic macro consumes a certified typed declaration group and
+;; returns both the value and the complete immutable cache successor.
+(.defgeneric (typed-charge account units) from: type slot: .typed-charge combination: invoke-declared)
+;; Build a two-axis standard generic from one shared signature. Fragment metadata
+;; is compiled lazily once for the complete inherited stream, never per hot call.
+(def (make-dispatch-family record)
+  (def seed (dispatch.prepared-standard [Any Integer] Integer
+    (lambda (args) [[(.@ (car args) tier) 'Account]
+                   [(if (> (cadr args) 10) 'Large 'Small)]])))
+  (def certified (extension.check seed [(extension.shape [['Blocked] ['Small]])]))
+  (def base (object<-declaration-forms MethodDeclaration. (.o)
+    [(typed-method-fragment '.typed-charge certified
+      [(metadata.replace "base" [(dispatch.prototype 'Account) dispatch.any]
+        (combination.primary (lambda (_ account units) (record 'base) (* (.@ account rate) units))))])]))
+  (def billing (object<-declaration-forms MethodDeclaration. (.o)
+    [(typed-method-fragment '.typed-charge certified
+      [(metadata.contribute "premium" [(dispatch.prototype 'Premium) (dispatch.prototype 'Large)]
+        (combination.around (lambda (next _account _units)
+          (record 'around-enter) (let (amount (next)) (record 'around-exit) (* 2 amount)))))])]
+    supers: [base]))
+  (def audit (object<-declaration-forms MethodDeclaration. (.o)
+    [(typed-method-fragment '.typed-charge certified
+      [(metadata.guarded "audit" [(dispatch.prototype 'Premium) (dispatch.prototype 'Large)]
+        (lambda (_account units) (> units 20))
+        (combination.before (lambda (_account _units) (record 'audit))))])]
+    supers: [base]))
+  (.mix billing audit))
+;; FUN Reader admission precedes type-selected dispatch and the IO consumer.
+;; A failed approval executes neither methods nor consume; successful calls expose
+;; the cache owner so the application can retain it without mutating the family.
+(def (typed-charge-action family units consume)
+  (.call gp.Observation. .bind
+    (lambda (context)
+      (unless (.@ context approved) (error "current approval refused"))
+      (.o (.type family) (tier (.@ context tier)) (rate (.@ context rate))))
+    (lambda (account) (lambda (_context)
+      (defvalues (amount next) (typed-charge account units))
+      (consume amount)
+      (values amount next)))))
