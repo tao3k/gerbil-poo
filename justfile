@@ -108,3 +108,20 @@ benchmark-combination: build
     mkdir -p .build/combination
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/combination -exe -ld-options "{{ closure-ld-options }}" -o .build/combination/combination t/combination-benchmark.ss
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} t/combination-suite.ss .build/combination/combination "{{ timeout-executable }}" .build/combination/results.scm
+
+# Focused source gate for a new MOP primitive before building the compiled group.
+# Same released harness, heap fence and failure markers; no package installation.
+test-source-file file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log="$(mktemp "${TMPDIR:-/tmp}/poo-source-test.XXXXXX")"
+    sources="$(mktemp -d "${TMPDIR:-/tmp}/poo-source-tree.XXXXXX")"
+    trap 'rm -f "$log"; rm -rf "$sources"' EXIT
+    mkdir -p "$sources/clan"
+    ln -s "$PWD" "$sources/clan/poo"
+    export GERBIL_LOADPATH="$sources:${GERBIL_LOADPATH:-$HOME/.gerbil/lib}"
+    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 90s gerbil {{ test-runtime-options }} env gerbil {{ test-runtime-options }} test "{{ file }}" 2>&1 | tee "$log"
+    grep -F 'MODULE-OK {{ file }}' "$log"
+    grep -F 'HARNESS-OK' "$log"
+    grep -x 'OK' "$log"
+    if grep -Eq 'ERROR (CASE|CHECK|HARNESS)|Heap overflow|Stack overflow' "$log"; then exit 1; fi

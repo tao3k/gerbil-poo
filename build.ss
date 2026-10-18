@@ -84,6 +84,7 @@
     "number"
     "prototype-map"
     "slot-layout"
+    "slot-observation"
     "object-state"
     "inheritance-hooks"
     "meta-prototype"

@@ -7,7 +7,7 @@
 ;; Keep existing modules classified by responsibility. New modules are still
 ;; tested in an additional group until their author assigns a functional group.
 (def test-groups
-  '((objects support object mop parameters inheritance-hooks)
+  '((objects support object mop parameters inheritance-hooks slot-observation)
     (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
     (collections library-reuse number polynomial rationaldict trie fq)
     (methods multimethod method-combination method-declaration)

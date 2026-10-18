@@ -17,6 +17,7 @@
   (only-in :std/error deferror-class Exception)
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
+  ./slot-observation
   ./object-state
   ./prototype-map
   ./slot-layout
@@ -33,6 +34,7 @@
   (supers ;; : (Listof (Object ?))
    %slots ;; : persistent ordered direct specifications
    %defaults ;; : persistent ordered defaults
+   %reads ;; receiver-local read records; no global receiver retention
    %layout ;; : optional shared shape and receiver-local value vector
    %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
@@ -54,6 +56,7 @@
     (set! (object-%slots self) (prototype-map slots))
     (set! (object-%defaults self) (prototype-map defaults))
     (set! (object-%instance self) #f)
+    (set! (object-%reads self) #f)
     (set! (object-%layout self) #f)
     (set! (object-%precedence-list self) #f)
     (set! (object-%slot-funs self) #f)
@@ -89,6 +92,7 @@
 (def active-object-constructions (make-parameter []))
 ;; Clear all derived state together. Explicit instance assignments remain separate.
 (def (clear-object-cache! self)
+  (set! (object-%reads self) #f)
   (set! (object-%instance self) #f)
   (set! (object-%layout self) #f)
   (set! (object-%precedence-list self) #f)
@@ -165,15 +169,21 @@
     (when (memq self (active-object-constructions)) (error "recursive object construction"))
     (parameterize ((active-object-constructions (cons self (active-object-constructions))))
       (try
-        (compute-precedence-list! self)
-        (compute-slot-funs! self)
-        (def instance (make-hash-table-symbolic))
-        (when (object-%overrides self)
-          (for (([key . value] (object-%overrides self))) (hash-put! instance key value)))
-        ;; The constant base is also present in ordinary full-cache reflection.
-        (when (and (eq? (object-%protocol self) self) (object-%bootstrap self))
-          (for (([key . value] (object-%bootstrap self))) (hash-put! instance key value)))
+        (defvalues (instance dependencies)
+          (%call-with-recorded-slot-reads
+            (lambda ()
+              (compute-precedence-list! self)
+              (compute-slot-funs! self)
+              (def instance (make-hash-table-symbolic))
+              (when (object-%overrides self)
+                (for (([key . value] (object-%overrides self))) (hash-put! instance key value)))
+              ;; The constant base is also present in ordinary full-cache reflection.
+              (when (and (eq? (object-%protocol self) self) (object-%bootstrap self))
+                (for (([key . value] (object-%bootstrap self))) (hash-put! instance key value)))
+              instance)))
         (set! (object-%instance self) instance)
+        (hash-put! (object-read-table self) '(preparation)
+          (object-record-read self '(preparation) instance dependencies))
         (catch (cause) (clear-object-cache! self) (raise cause))))))
 
 (defclass (InvalidObject Exception) (slots) transparent: #t)
@@ -283,22 +293,91 @@
   (when (any (lambda (entry) (and (eq? (car entry) self) (eq? (cdr entry) slot))) active)
     (raise (CyclicSlot path: (reverse (cons key active)))))
   (parameterize ((active-slot-computations (cons key active))) (thunk)))
-;; Read a cached slot or compute it through the cycle-aware missing-method protocol.
+;; MOP read records live on the receiver and are cleared with its native cache.
+;; A retained record may retain its receiver; no global registry retains either.
+(def (object-read-table self)
+  (or (object-%reads self)
+      (let (table (make-hash-table)) (set! (object-%reads self) table) table)))
+(def (object-read-current? read)
+  (def self (slot-read-receiver read))
+  (def key (slot-read-key read))
+  (and (= (slot-read-revision read) (object-revision self))
+       (cond
+         ((and (pair? key) (eq? (car key) 'bootstrap))
+          (let (anchor (bootstrap-anchor self (cadr key)))
+            (and anchor (eq? (cdr anchor) (slot-read-value read)))))
+         ((not (eq? (slot-read-instance read) (object-%instance self))) #f)
+         ((and (pair? key) (eq? (car key) 'cache-miss))
+          (not (hash-key? (object-%instance self) (cadr key))))
+         (else
+          (and (object-%reads self) (eq? read (hash-get (object-%reads self) key))
+               (or (pair? key)
+                   (eq? (slot-read-value read)
+                        (hash-ref (object-%instance self) key absent-value))))))))
+(def (object-record-read self key value dependencies)
+  ;; Cold preparation may run before the getter frame starts. Preserve those
+  ;; reads on ALL value/structure tokens, including a value warmed outside admission.
+  (def preparation (and (object-%reads self) (hash-get (object-%reads self) '(preparation))))
+  (def inherited-dependencies
+    (if (and preparation
+             (not (and (pair? key) (memq (car key) '(preparation bootstrap)))))
+      (cons preparation dependencies) dependencies))
+  (make-slot-read self key (object-revision self) (object-%instance self)
+                  value inherited-dependencies object-read-current?))
+(def (object-deliver-value self slot value)
+  (def table (object-read-table self))
+  (def read
+    (or (hash-get table slot)
+        ;; Explicit instance writes are values, never inferred computed traces.
+        (and (object-%overrides self) (hash-key? (object-%overrides self) slot)
+             (eq? value (hash-ref (object-%overrides self) slot))
+             (let (read (object-record-read self slot value '()))
+               (hash-put! table slot read) read))))
+  (unless read (error "unrecorded cached slot" slot))
+  (%deliver-slot-read read value))
+(def (object-read-bootstrap self slot anchor)
+  (def key (list 'bootstrap slot))
+  (%slot-read-demand! self key)
+  (def table (object-read-table self))
+  (def read (or (hash-get table key)
+               (let (read (object-record-read self key (cdr anchor) '()))
+                 (hash-put! table key read) read)))
+  (%deliver-slot-read read (cdr anchor)))
+;; Structural preparation can itself read MOP configuration. Retain its FIRST
+;; preparation dependencies even when later name/presence queries are hot.
+(def (object-read-query self key action cache?: (cache? #t))
+  (%slot-read-demand! self key)
+  (def revision (object-revision self))
+  (defvalues (value dependencies) (%call-with-recorded-slot-reads action))
+  (unless (= revision (object-revision self)) (error "object changed during query" key))
+  (def table (object-read-table self))
+  (def read (or (and cache? (hash-get table key))
+               (let (read (object-record-read self key value dependencies))
+                 (when cache? (hash-put! table key read)) read)))
+  (%deliver-slot-read read value))
+;; Read a cached slot or compute it through the original cycle-aware protocol.
 (def (.ref self slot)
+  (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
-  (if anchor (cdr anchor)
-    (let ()
-      (def instance (object-instance self))
-      ;; Ordinary cached lookup allocates no cache-miss thunk.
-      (def value (hash-ref instance slot absent-value))
+  (if anchor (object-read-bootstrap self slot anchor)
+    (let* ((instance (object-instance self))
+           (value (hash-ref instance slot absent-value)))
       (if (eq? value absent-value)
-        (let (value (compute-slot-value self slot
-                      (hash-ref/default (object-%slot-funs self) slot
-                        (cut cut no-applicable-method self slot))))
+        (let (revision (object-revision self))
+          (defvalues (value dependencies)
+            (%call-with-recorded-slot-reads
+              (lambda ()
+                (compute-slot-value self slot
+                  (hash-ref/default (object-%slot-funs self) slot
+                    (cut cut no-applicable-method self slot))))))
+          (unless (and (= revision (object-revision self)) (eq? instance (object-%instance self)))
+            (error "object changed during slot computation" slot))
+          (def read (object-record-read self slot value dependencies))
           (hash-put! instance slot value)
+          (hash-put! (object-read-table self) slot read)
           (when (object-%layout self) (slot-layout-put! (object-%layout self) slot value))
-          value)
-        value))))
+          (%deliver-slot-read read value))
+        (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 ;; Prepare a shared symbolic shape lazily. Ordinary lookup retains its hash API;
 ;; opting into an access site adds a coherent receiver-local vector, not a new evaluator.
@@ -313,7 +392,13 @@
 (def (.ref/inline self cache)
   (def layout (object-layout self))
   (def revision (object-revision self))
-  (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
+  (if (slot-cache-hit? cache self revision layout)
+    (if (%slot-read-active?)
+      (let* ((slot (slot-cache-name cache)) (anchor (bootstrap-anchor self slot)))
+        (if anchor (object-read-bootstrap self slot anchor)
+          (begin (%slot-read-demand! self slot)
+                 (object-deliver-value self slot (slot-cache-read cache)))))
+      (slot-cache-read cache))
     (let* ((slot (slot-cache-name cache)) (index (slot-layout-index layout slot))
            (value (.ref self slot)))
       (slot-cache-bind! cache self revision layout index)
@@ -321,8 +406,15 @@
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))
+  (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
-  (if anchor (cdr anchor) (hash-ref/default (object-instance self) slot default)))
+  (if anchor (object-read-bootstrap self slot anchor)
+    (let* ((instance (object-instance self)) (value (hash-ref instance slot absent-value)))
+      (if (eq? value absent-value)
+        ;; A miss is not field absence. Later cache population makes it stale
+        ;; without any mutation revision; each default invocation has its own dependencies.
+        (object-read-query self (list 'cache-miss slot) default cache?: #f)
+        (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
 
@@ -374,6 +466,11 @@
 
 ;; : Bool <- (Object _) Symbol
 (def (.slot? self slot)
+  (if (bootstrap-anchor self slot)
+    (begin (object-read-bootstrap self slot (bootstrap-anchor self slot)) #t)
+    (object-read-query self (list 'presence slot)
+      (cut object-slot-present? self slot))))
+(def (object-slot-present? self slot)
   (if (bootstrap-anchor self slot) #t
     (begin (instantiate-object! self) (hash-key? (object-%slot-funs self) slot))))
 
@@ -384,6 +481,8 @@
 
 ;; : (Listof Symbol) <- (Object _)
 (def (.all-slots self)
+  (object-read-query self '(names) (cut object-slot-names self)))
+(def (object-slot-names self)
   (instantiate-object! self)
   (or (object-%all-slots self)
       (let (esl (merge-super-slots

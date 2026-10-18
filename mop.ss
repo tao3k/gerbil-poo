@@ -3,9 +3,10 @@
 ;; Slogan: A Type meta-object as a prototype is a class descriptor,
 ;; as an instance is a type descriptor.
 
-(export #t)
+(export #t (import: ./slot-observation))
 
 (import
+  ./slot-observation
   ./value-diagnostics
   ./function-signature
   ./class-validation
