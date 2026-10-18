@@ -28,10 +28,14 @@
 ;; Invoke the established typed dispatcher. Transfer the complete cache successor
 ;; only after success; do not mutate the receiver or cache approval/body results.
 (def (invoke-declared group arguments)
-  (defvalues (result next) (apply extension.invoke (declared-snapshot group) arguments))
-  (values result (if (eq? next (declared-snapshot group)) group
+  (def current (declared-snapshot group))
+  (defvalues (result next) (apply extension.invoke current arguments))
+  (def successor (if (eq? next current) group
     (make-declared-methods (declared-methods-signature group)
-      (declared-methods-declarations group) (delay next)))))
+      (declared-methods-declarations group) (delay next))))
+  (if (dispatch.function-signature (extension.snapshot next))
+    (apply values (append result (list successor)))
+    (values result successor)))
 ;; Read the optional signature without treating a stored false as an absent field.
 ;; A signature is an existing negative-watch certificate, shared by identity.
 (def (method-signature metadata)
@@ -158,22 +162,22 @@
 (def (simula-combination parts arguments)
   (combination.simula-effective (admit-contributions combination.simula-body? parts) arguments))
 
-;; Recompile checked ground syntax, rather than trusting a caller-owned instance's
-;; descriptor field as a proof token. Existing dispatch has one Result carrier:
-;; only fixed Function rows with exactly one output enter this bridge. Other
-;; expression shapes refuse explicitly. Policy/carrier admission stays supplied
-;; by the existing method interpreters; an optional preparer retains their caches.
+;; Recompile the checked finite Function/CaseFunction expression. Required,
+;; optional, keyword, rest and exact output rows use the existing validator;
+;; clause order remains observable. Dispatch axes are fixed independently of
+;; variable call length (default: first clause's required positional count).
 (def (instance-signature instance precedence watches
-       (combine standard-combination) (accept combination.standard-contribution?) (prepare #f) (budget 8192))
+       (combine standard-combination) (accept combination.standard-contribution?) (prepare #f) (budget 8192) (arity #f))
   (def work (type-work budget))
   (def expression (.get instance expression))
   (type-expression expression [] work)
   (def ground (normalize-type expression work))
-  (unless (and (pair? ground) (eq? (car ground) 'Function) (= (length (cadr ground)) 1))
-    (refuse-type 'unsupported "Declared dispatch needs one-output fixed Function syntax" ground))
+  (unless (and (pair? ground) (memq (car ground) '(Function CaseFunction)))
+    (refuse-type 'unsupported "Declared dispatch needs Function or CaseFunction syntax" ground))
   (def descriptor (compile-expression ground work))
-  (def seed (dispatch.make (.get descriptor inputs) (car (.get descriptor outputs)) precedence
-    combine (length (.get descriptor inputs)) accept))
+  (def first (car (.get descriptor signatures)))
+  (def axes (or arity (length (.get first inputs))))
+  (def seed (dispatch.make-function descriptor precedence combine axes accept))
   (extension.check (if prepare (dispatch.prepared seed prepare) seed) watches))
 
 ;; Build from an already complete specialization under existing construction

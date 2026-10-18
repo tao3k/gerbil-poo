@@ -1,5 +1,6 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
+(export invoke-signature-service invoke-report-service SignatureServiceType
+        signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
         (prefix-in ../declarative-metadata metadata.) ../method-declaration
         (prefix-in ../generalized-prototype observation.)
@@ -85,3 +86,52 @@
       (defvalues (answer next) (convert receiver value))
       (consume answer)
       (values answer next)))))
+
+;; The same rank-one schema now has optional/rest/keyword input positions and two
+;; outputs, one itself a checked callback. Literal keyword names are not variables.
+(def SignatureServiceType
+  (prototype-type (.o .parameters: '(Self Super)) '(Self Super)
+    '(Function (Self (Function (Self) (Super))) (Super)
+       optional: (Super) keywords: ((scale: . UInt)) required-keywords: () rest: Super)
+    '((Self Super))))
+;; Rest-only generic forwarding leaves optional defaults in the target procedure.
+;; Returned user values precede the complete immutable declaration/cache successor.
+(.defgeneric (invoke-signature-service service . arguments) slot: .invoke combination: invoke-declared)
+;; Core optional/keyword binding resolves these defaults before constructing the
+;; declared argument row; the method then receives each supplied value once.
+(.defgeneric (invoke-report-service service value (bonus 0) scale: (scale 1) . rest)
+  slot: .invoke combination: invoke-declared)
+;; A whole qualified declaration group shares one inferred signature and existing
+;; standard preparer. No method executes until a shape/type-checked call succeeds.
+(def (signature-service-declarations instance procedure record)
+  (def certified (instance-signature instance (lambda (_) [['Service]]) []
+    standard-combination combination.standard-contribution?
+    (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing service"))))
+    8192 1))
+  (def path [(dispatch.prototype 'Service)])
+  [(typed-method-fragment '.invoke certified
+    [(metadata.replace "service" path
+       (combination.primary (lambda (_next . arguments) (apply procedure arguments))))
+     (metadata.contribute "audit-before" path (combination.before (lambda _ (record 'before))))
+     (metadata.contribute "audit-after" path (combination.after (lambda _ (record 'after))))
+     (metadata.contribute "audit-around" path
+       (combination.around (lambda (next . _arguments) (record 'around) (next))))])])
+;; Explicit complete binding uses the same declaration stream as residual inference.
+(def (instantiate-signature-service schema arguments procedure (record void))
+  (instantiate-declared schema arguments (cut signature-service-declarations <> procedure record)))
+;; Specialize an ordered prefix, then exhaust the finite residual candidate set;
+;; ambiguous/failed inference cannot call the builder or install a partial generic.
+(def (infer-signature-service schema prefix candidates queries procedure (record void))
+  (infer-declared (specialize-prototype-type schema prefix) candidates queries
+    (cut signature-service-declarations <> procedure record)))
+;; FUN supplies current approval; IO consumes both checked user outputs once. A
+;; rejected call transfers neither partial outputs nor a cache successor to IO.
+(def (signature-service-action instance arguments consume)
+  (.call observation.Observation. .bind
+    (lambda (context)
+      (unless (eq? (.get context approved) #t) (error "signature service approval refused"))
+      (.get instance prototype))
+    (lambda (receiver) (lambda (_context)
+      (defvalues (answer callback next) (apply invoke-signature-service receiver arguments))
+      (consume answer callback)
+      (values answer callback next)))))

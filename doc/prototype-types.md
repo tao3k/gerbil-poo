@@ -156,3 +156,14 @@ principal-type or unrestricted predicate/recursive inference claim. Lean proves
 prefix environment preservation, original-constraint entailment, suppression on
 incomplete/nonunique searches, successful builder provenance, positional frame
 laws and final identity/revision admission under the supplied source model.
+
+
+## Rich declared Function signatures
+
+Finite expressions also accept Function optional/keyword/rest options and ordered
+CaseFunction clauses. Prefix specialization and finite inference traverse every
+Type position while preserving literal keyword metadata. Equal call shapes and
+ordered cases admit covariant exact outputs and contravariant argument Types;
+arbitrary host signature/default inference and case coverage stay outside scope.
+See [the declaration protocol](method-declarations.md#rich-declared-function-signatures)
+for grammar, failure phases, full examples, cache transport and Lean boundaries.

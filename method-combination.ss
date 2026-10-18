@@ -82,9 +82,10 @@
   (call-chain (group contributions 'around)
     (lambda (current)
       (for-each (cut apply <> current) (group contributions 'before))
-      (def result (call-chain (group contributions 'primary) on-missing current))
-      (for-each (cut apply <> current) (reverse (group contributions 'after)))
-      result) args))
+      (call/values (lambda () (call-chain (group contributions 'primary) on-missing current))
+        (lambda results
+          (for-each (cut apply <> current) (reverse (group contributions 'after)))
+          (apply values results)))) args))
 
 ;; Open simple-reduction protocol matching Lean SimplePolicy: item/accumulator/
 ;; result may differ. stop is tested only AFTER the first item; empty has no method.
@@ -175,9 +176,11 @@
   (call-forward-chain (group contributions 'around)
     (lambda (current)
       (for-each (cut apply <> current) (group contributions 'before))
-      (def result (call-forward-chain (group contributions 'primary) on-missing
+      (call/values (lambda () (call-forward-chain (group contributions 'primary) on-missing
                      (car current) (cadr current) validate-payload))
-      (for-each (cut apply <> current) (reverse (group contributions 'after))) result)
+        (lambda results
+          (for-each (cut apply <> current) (reverse (group contributions 'after)))
+          (apply values results))))
     dispatch (cadr args) validate-payload))
 ;; BETA control: reverse resolved C4 methods, then reuse original-args next thunks.
 ;; A superclass omitting inner stops descendants; missing descendants use terminal.
@@ -217,9 +220,10 @@
   (prepare-chain (group contributions 'around)
     (lambda (args)
       (for-each (cut apply <> args) before)
-      (def result (primary args))
-      (for-each (cut apply <> args) after)
-      result)))
+      (call/values (lambda () (primary args))
+        (lambda results
+          (for-each (cut apply <> args) after)
+          (apply values results))))))
 ;; Prepare the already resolved homogeneous item group (Lean SimpleMethods.items).
 ;; Methods keep their argument row and selected order; no body or empty result
 ;; runs here. Callers own item-only admission. General qualifiers use prepare-simple.
@@ -261,9 +265,10 @@
   (prepare-forward-chain (group contributions 'around)
     (lambda (args)
       (for-each (cut apply <> args) before)
-      (def result (primary args))
-      (for-each (cut apply <> args) after)
-      result) validate-payload))
+      (call/values (lambda () (primary args))
+        (lambda results
+          (for-each (cut apply <> args) after)
+          (apply values results)))) validate-payload))
 ;; Reverse C4 only during preparation; superclass-controlled inner still receives
 ;; fresh arguments and may omit or repeat the descendant continuation.
 (def (prepare-inner methods terminal) (prepare-chain (reverse methods) terminal))

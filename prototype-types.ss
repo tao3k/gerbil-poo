@@ -51,7 +51,7 @@
   (let ()
     (type-expression `(Tuple ,@variables) variables work)
     (unless (and (andmap symbol? variables)
-                 (not (ormap (cut memq <> '(Any Never Bool Integer UInt List Maybe Tuple Function Object Row Mu)) variables))
+                 (not (ormap (cut memq <> '(Any Never Bool Integer UInt List Maybe Tuple Function CaseFunction Object Row Mu)) variables))
                  (= (length variables) (length (delete-duplicates/hash variables)))
                  (equal? variables (positional.parameters prototype)))
       (refuse-type 'malformed "Type variables must match unique prototype parameters" variables))

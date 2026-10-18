@@ -1,7 +1,7 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type)
+(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options)
 (import ./type-syntax ./recursive-types ./object
-        (only-in ./mop Any Bool Function Type. Object)
+        (only-in ./mop Any Bool Function CaseFunction Type. Object)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
         (only-in ./type List Tuple Maybe))
@@ -27,7 +27,7 @@
                  (refuse-type 'bounds "Row substitution overlaps explicit fields"))
                (list 'Object (append fields (cadr row)) (caddr row))))))
         ((eq? (car term) 'Function)
-         (cons 'Function (map (lambda (types) (map (cut normalize-type <> work) types)) (cdr term))))
+         (map-function-types term (cut normalize-type <> work)))
         (else (cons (car term) (map (cut normalize-type <> work) (cdr term))))))
 
 ;; Decide derivability in the closed algebra: UInt <: Integer <: Any; Bool <: Any;
@@ -65,11 +65,30 @@
             (andmap (lambda (field)
                       (let (found (assq (car field) (cadr source)))
                         (and found (compare-types (cadr found) (cadr field) work)))) (cadr target))))
-      ((Function)
-       (and (= (length (cadr source)) (length (cadr target)))
-            (= (length (caddr source)) (length (caddr target)))
-            (andmap (lambda (s t) (compare-types s t work)) (cadr source) (cadr target))
-            (andmap (lambda (s t) (compare-types t s work)) (caddr source) (caddr target))))
+      ((Function CaseFunction)
+       ;; Same call-language metadata and ordered clause count only. This finite
+       ;; rule cannot reorder overlapping cases or infer arbitrary domain coverage.
+       (let ()
+         ;; Erasing Type positions preserves ordered keys, option presence and
+         ;; clause precedence. No implication between unequal shapes is guessed.
+         (def (erase-types term)
+           (if (eq? (car term) 'Function)
+             (let* ((options (function-options term))
+                    (option (lambda (name default) (cond ((assq name options) => cdr) (else default)))))
+               (list 'Function (map (lambda (_) 'Any) (cadr term)) (map (lambda (_) 'Any) (caddr term))
+                 optional: (map (lambda (_) 'Any) (option optional: []))
+                 keywords: (map (lambda (entry) (cons (car entry) 'Any)) (option keywords: []))
+                 required-keywords: (option required-keywords: [])
+                 rest: (and (option rest: #f) 'Any)))
+             (cons 'CaseFunction (map erase-types (cdr term)))))
+         (and (equal? (erase-types source) (erase-types target))
+           (let compare-clause ((s source) (t target))
+             (if (eq? (car s) 'CaseFunction)
+               (andmap compare-clause (cdr s) (cdr t))
+               (and
+                 (andmap (lambda (a b) (compare-types a b work)) (cadr s) (cadr t))
+                 (andmap (lambda (a b) (compare-types b a work))
+                   (function-input-types s) (function-input-types t))))))))
       (else #f)))
    (else #f)))
 
@@ -98,4 +117,12 @@
          ((Maybe) (Maybe (build (cadr term))))
          ((List) (List (build (cadr term))))
          ((Tuple) (apply Tuple (map build (cdr term))))
-         ((Function) (Function (map build (cadr term)) (map build (caddr term)))))))))
+         ((CaseFunction) (apply CaseFunction (map build (cdr term))))
+         ((Function)
+          (let* ((options (function-options term))
+                 (option (lambda (name default) (cond ((assq name options) => cdr) (else default)))))
+          (Function (map build (cadr term)) (map build (caddr term))
+            optional: (map build (option optional: []))
+            keywords: (map (lambda (entry) (cons (car entry) (build (cdr entry)))) (option keywords: []))
+            required-keywords: (option required-keywords: [])
+            rest: (and (option rest: #f) (build (option rest: #f)))))))))))

@@ -1,11 +1,11 @@
 ;;; Structural Function admission below the Type bootstrap; validators are injected.
-(export decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function)
+(export decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function check-results)
 (import (only-in ./support/base require-value) (only-in :std/list/list map-in-order)
         (only-in :std/list/plist alist->plist)
         (only-in ./object .get))
 
 ;; Decode Gerbil's keyword escapes without executing defaults or validators.
-;; With no declared keyword API, retain legacy positional keyword values verbatim.
+;; With no declared keyword API, retain positional keyword values verbatim.
 (def (decode-arguments arguments keyword-mode?)
   (if (not keyword-mode?) (cons arguments [])
     (let loop ((rest arguments) (pos []) (keys []))
@@ -55,8 +55,14 @@
   (def keywords (map-in-order (lambda (entry)
     (cons (car entry) (check (cdr (assq (car entry) (.get signature keywords))) (cdr entry)))) (cdr row)))
   (encode-arguments positionals keywords keyword-mode?))
+;; Check the exact returned row before transporting any cache successor. Each
+;; Type may replace its value with a recursively wrapped Function/container.
+(def (check-results descriptor signature results check refuse)
+  (def outputs (.get signature outputs))
+  (unless (= (length outputs) (length results)) (refuse descriptor results))
+  (map-in-order check outputs results))
 ;; Validate arguments before one body invocation, then validate every returned value.
-;; Native body/default errors propagate exactly and cannot cause overload fallback.
+;; Target body/default errors propagate exactly and cannot cause overload fallback.
 (def (wrap-function descriptor procedure signatures check refuse)
   (require-value procedure procedure? (lambda () (refuse descriptor procedure)))
   (let (keyword-mode? (ormap (lambda (signature) (pair? (.get signature keywords))) signatures))
@@ -66,6 +72,4 @@
       (def normalized (normalize-arguments signature arguments keyword-mode? check))
     (call/values (lambda () (apply procedure normalized))
         (lambda results
-          (def outputs (.get signature outputs))
-          (unless (= (length outputs) (length results)) (refuse descriptor results))
-          (apply values (map-in-order check outputs results)))))))
+          (apply values (check-results descriptor signature results check refuse)))))))

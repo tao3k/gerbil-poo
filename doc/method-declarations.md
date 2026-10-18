@@ -242,15 +242,15 @@ callback returns existing declaration forms; the usual MethodDeclaration
 expander/finalizer elaborates them over the specialized prototype. No extra DSL
 or independent inference engine is added.
 
-`instance-signature instance precedence watches [combine accept prepare budget]`
+`instance-signature instance precedence watches [combine accept prepare budget arity]`
 derives the actual dispatch input/output Types from checked ground Function
 syntax. It recompiles that finite syntax instead of treating a caller-owned
 `descriptor` field as authority. The default policy is existing standard method
 combination; other existing combiners/carrier checks and optional preparers are
-passed directly to the same dispatcher. This bridge accepts fixed Function rows
-with **one Result carrier**, including higher-order Function/container/row Types.
-Zero/multiple outputs and non-Function outer syntax refuse as `unsupported`.
-It does not infer keyword/rest/case-lambda host signatures from procedures.
+passed directly to the same dispatcher. Function options, ordered CaseFunction
+and exact multiple outputs enter the same invocation/cache protocol (details
+below). Non-Function outer syntax refuses as `unsupported`. Host signatures are
+explicit descriptors, never inferred from procedures.
 
 After expansion, finalized declarations cannot replace bound type-parameter
 names or `.parameters`. The entry points prepare every typed group, including
@@ -285,3 +285,74 @@ qualified dispatch, FUN approval and an IO consumer. The focused regression
 module covers nonunique/exhausted suppression, higher-order wrappers, literal
 field labels, full/empty parameter suffixes, stale bindings, nonlocal overrides,
 compile-time Type revisions, eager typed admission and ordinary laziness.
+
+
+## Rich declared Function signatures
+
+The explicit finite expression grammar now accepts the existing constructor
+options and ordered `CaseFunction`, for example:
+
+```scheme
+(Function (Self (Function (Self) (Super))) (Super)
+  optional: (Super) keywords: ((scale: . UInt))
+  required-keywords: () rest: Super)
+```
+
+Each optional option can be omitted; defaults match `Function`. Keyword alists
+use literal keyword names and Type expressions in their cdrs. These names and
+`required-keywords:` never undergo Type substitution. Unknown/duplicate options,
+invalid required keys and empty/nested CaseFunction clauses are malformed. A
+CaseFunction contains a nonempty ordered sequence of ordinary Function terms.
+Nested Functions in any input category or output retain recursive wrappers.
+
+The existing finite candidate inference and ordered prefix specialization visit
+all these Type positions. The subtype rule requires equal structural call shape
+and clause order, exact output count, covariant output Types and contravariant
+required/optional/keyword/rest Types. Omitted option defaults and option ordering
+are normalized for comparison; declared keyword and required-key order remain
+conservative metadata constraints. It does not infer arbitrary case-language
+coverage, reorder overlapping cases or infer host signatures/default behavior.
+
+`instance-signature` uses the same sparse multi-dispatch and completed-candidate
+negative checks. Its final optional `arity` argument selects the fixed number of
+dispatch axes (default: first clause's required positional count), independently
+of varying call lengths. Precedence/guards see the checked, keyword-escaped
+supplied row; they must implement the same fixed axes for every admitted case.
+
+The structural selector chooses the first matching case before Type checks. A
+bad argument never falls through to another case. Missing/unknown/duplicate keys,
+dangling keys and bad arity refuse before method bodies. Optional defaults stay
+in the actual binding site: the target owns omitted defaults in a rest-forwarding
+generic, while explicit `.defgeneric` formals resolve their own defaults once.
+The target owns its actual procedure arity. Body/default exceptions preserve
+identity. Output count and each output Type are checked after the effective
+method returns; failures expose neither partial checked results nor a successor.
+External effects are not rolled back.
+
+`invoke-declared` returns **all user values followed by one group/cache owner**.
+Zero user outputs therefore return only the owner. Direct `multimethod.call` on
+`make-function` returns a checked result **list** plus owner; its immutable
+certificate protocol always has those two transport values, even for a one-output declared signature. Existing low-level `make`
+retains its scalar Result carrier; declarations uniformly use Function validation
+and exact value counts through `make-function` in that same dispatcher.
+Prepared and uncached standard/forwarding/inner continuations retain all results;
+simple reductions still aggregate one policy result, and Simula returns Unit.
+Those policies do not invent extra values for an incompatible output signature.
+
+`examples/polymorphic-services.ss` connects residual inference, qualified methods,
+`.defgeneric` optional/keyword/rest binding, a returned checked Function, FUN
+approval and IO consumption. `t/inferred-declaration-test.ss` also covers varying
+case result counts on one warm effective cache, zero values, literal keywords,
+negative-watch refusal, explicit contexts, unchanged-owner retry and original
+exception identity. These are regression controls, not performance measurements.
+
+The companion `Functional.FunctionSignature` proves substitution preserves call
+shape and ordered selection, conservative variance yields structural subtype
+derivations, and result validation retains exact cardinality and successor only
+on complete success. `invokeValues` proves selected input/body/count failures do
+not enter a later overload. `Examples/TypedMethodDeclarations.lean` combines the
+same rich schema with complete finite inference and original Self/Super bounds.
+Host decoding, compiler expansion, arbitrary callback termination and transitive
+Type stability remain premises; there is no Scheme dependency on a Lean checkout.
+This advances the article's type-system/generalized-prototype future work, based
+on Appendix B method combinations and Appendix C Self/Super constraints.

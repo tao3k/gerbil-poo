@@ -506,8 +506,11 @@ Explicit ground/prefix Type binding now feeds the same declared generic protocol
 `specialize-prototype-type` produces residual syntax/bounds using the existing
 positional specialization; `instantiate-declared` and `infer-declared` call the
 ordinary builder only after complete binding or uniquely completed finite search.
-`instance-signature` derives the actual dispatch Types from checked one-output
-fixed Function syntax, retaining existing policies and optional preparation.
+`instance-signature` derives the dispatch Types from checked Function/CaseFunction
+syntax, including optional/keyword/rest and exact multiple outputs. Existing
+standard/forwarding/inner continuations preserve all user values; reduction
+policies keep their declared one-value policy semantics. Effective preparation
+and explicit context retain the existing cache owner and negative watches.
 Typed groups are installed/negatively checked before returning an instance.
 Finalized declarations cannot overwrite bound parameters or reopen `.parameters`;
 current descriptor identities/revisions are checked before inference and again
@@ -518,7 +521,9 @@ The bridge is complete for explicit finite candidate schemas and ground ordered
 prefixes in the existing algebra. Arbitrary principal types, host signature
 inference, unrestricted recursion/effects and transitive Type semantic discovery
 remain outside this boundary. Lean proves prefix/constraint, builder-provenance,
-phase/refusal, positional-frame and final source-admission laws. Tests cover the
+phase/refusal, positional-frame and final source-admission laws. `FunctionSignature`
+additionally proves shape preservation under Type substitution, ordered selection,
+conservative rich variance and exact all-or-error output/cache-owner completion. Tests cover the
 complete FUN/IO chain and stale/override/retry controls, not only added examples.
 
 ### Certified typed method declaration closure

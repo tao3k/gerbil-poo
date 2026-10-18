@@ -1,11 +1,12 @@
 ;;; Executable counterpart of Object.Multimethod and its sparse MethodIndex.
-(export make standard simple forwarding-standard inner simula multimethod? prototype any register contribute register-when erase
+(export make make-function function-signature standard simple forwarding-standard inner simula multimethod? prototype any register contribute register-when erase
         prepared prepared-standard prepared-simple prepared-forwarding-standard prepared-inner prepared-simula nested nested-state
         prepared-context bind-context prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
 (import (only-in :std/list/alist arem) (only-in ./support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
-        (only-in ./mop Type validate define-type) ./object
+        (only-in ./mop Type Any validate define-type raise-type-error)
+        (prefix-in ./function-signature signature.) ./object
         (only-in ./object compute-precedence-list!) (only-in ./type Unit)
         (prefix-in ./method-combination combination.))
 
@@ -27,7 +28,7 @@
 ;; Shared empty persistent method tree for fresh generics.
 (def empty-index (make-method-index [] []))
 ;; Private generic signature, carrier validator, persistent index and bounded candidate cache.
-(defstruct multimethod (arity inputs output precedence combine method-type index cache invocation) final: #t)
+(defstruct multimethod (arity inputs output precedence combine method-type index cache invocation signature) final: #t)
 ;; Typed dispatch refusal with its expected/actual diagnostic values.
 (defstruct dispatch-error (kind expected actual) final: #t)
 ;; Raise dispatch refusal; callers retain the unpublished generic on failure.
@@ -41,7 +42,18 @@
   (unless (and (list? inputs) (exact-integer? arity) (<= 0 arity) (procedure? precedence) (procedure? combine) (procedure? method-type))
     (error "invalid multimethod signature"))
   (for-each (cut validate Type <>) (cons output inputs))
-  (make-multimethod arity (map identity inputs) output precedence combine method-type empty-index [] #f))
+  (make-multimethod arity (map identity inputs) output precedence combine method-type empty-index [] #f #f))
+;; Construct rich typed dispatch over the SAME sparse index and negative watches.
+;; Calls return a checked result list plus owner; invoke-declared exposes the user
+;; values followed by that owner, including zero or one user outputs.
+(def (make-function descriptor precedence combine arity method-type)
+  (validate Type descriptor)
+  (unless (and (.has? descriptor signatures) (pair? (.get descriptor signatures)))
+    (error "expected Function signature"))
+  (make [] Any precedence combine arity method-type)
+  (make-multimethod arity [] Any precedence combine method-type empty-index [] #f descriptor))
+;; Read the immutable call signature; false denotes the fixed one-result carrier.
+(def (function-signature generic) (multimethod-signature generic))
 ;; Construct Appendix B standard qualified dispatch over the EXISTING sparse
 ;; index/cache/type/guard machinery. Contributions retain C4 order; missing primary
 ;; invokes on-missing with the original argument row. No parallel dispatcher exists.
@@ -88,9 +100,26 @@
   shape)
 ;; Validate fixed input row length and each native Type before any candidate/body runs.
 (def (arguments! generic args)
-  (unless (= (length args) (length (multimethod-inputs generic)))
-    (fail 'arity (length (multimethod-inputs generic)) (length args)))
-  (map validate (multimethod-inputs generic) args))
+  (def descriptor (multimethod-signature generic))
+  (if descriptor
+    (let* ((signatures (.get descriptor signatures))
+           (selected (signature.select-signature signatures args)))
+      (unless selected (raise-type-error descriptor args))
+      (signature.normalize-arguments selected args
+        (ormap (lambda (clause) (pair? (.get clause keywords))) signatures) validate))
+    (begin
+      (unless (= (length args) (length (multimethod-inputs generic)))
+        (fail 'arity (length (multimethod-inputs generic)) (length args)))
+      (map validate (multimethod-inputs generic) args))))
+;; A rich result carrier is explicit and separate from the immutable cache owner.
+;; The selected clause is determined by shape only, never by returned value Types.
+(def (checked-result generic checked result)
+  (def descriptor (multimethod-signature generic))
+  (if descriptor
+    (signature.check-results descriptor
+      (signature.select-signature (.get descriptor signatures) checked)
+      result validate (lambda (type value) (raise-type-error type value)))
+    (validate (multimethod-output generic) result)))
 ;; Path-copy sparse index branches, sharing unaffected subtrees; apply change at exact path.
 (def (alter index path change)
   (if (null? path)
@@ -110,7 +139,7 @@
   (make-multimethod (multimethod-arity generic) (multimethod-inputs generic) (multimethod-output generic)
     (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic)
     (alter (multimethod-index generic) (map specializer-name path)
-      (lambda (old) (if candidate (cons candidate (if replace? [] old)) []))) [] (multimethod-invocation generic)))
+      (lambda (old) (if candidate (cons candidate (if replace? [] old)) []))) [] (multimethod-invocation generic) (multimethod-signature generic)))
 ;; Validate the generic's actual method carrier before registration. Ordinary
 ;; generics require procedures; qualified constructors admit native contributions.
 ;; The predicate validates data only and must return Boolean, never execute a body.
@@ -153,7 +182,7 @@
 ;; Retain signature/carrier/index identity while replacing bounded candidate-cache state.
 (def (with-cache generic cache)
   (make-multimethod (multimethod-arity generic) (multimethod-inputs generic) (multimethod-output generic)
-    (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic) (multimethod-index generic) cache (multimethod-invocation generic)))
+    (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic) (multimethod-index generic) cache (multimethod-invocation generic) (multimethod-signature generic)))
 ;; A cached resolution retains candidate data and, only for unconditional
 ;; shapes, a compiled effective method. Both share one bounded LRU entry/key.
 (defstruct resolution (candidates effective) final: #t)
@@ -199,14 +228,20 @@
 (def (with-invocation generic invocation)
   (make-multimethod (multimethod-arity generic) (multimethod-inputs generic) (multimethod-output generic)
     (multimethod-precedence generic) (multimethod-combine generic) (multimethod-method-type generic)
-    (multimethod-index generic) (multimethod-cache generic) invocation))
+    (multimethod-index generic) (multimethod-cache generic) invocation (multimethod-signature generic)))
 ;; Opt into precompiled effective methods over the existing typed sparse generic.
 ;; prepare must be pure and agree with its combiner. Edits invalidate the shared
 ;; resolution cache; guarded shapes reselect AND prepare for every invocation.
 (def (prepared generic prepare)
   (unless (procedure? prepare) (error "effective preparation must be a procedure"))
+  (def compiler
+    (if (multimethod-signature generic)
+      (lambda (methods)
+        (def effective (prepare methods))
+        (lambda (args) (call/values (lambda () (effective args)) list)))
+      prepare))
   (with-invocation (with-cache generic [])
-    (.call prepared-invocation .specialize prepare #f)))
+    (.call prepared-invocation .specialize compiler #f)))
 ;; Construct explicit-context prepared dispatch. Preparation sees only method
 ;; definitions; applicability/precedence still see typed Args, not context state.
 ;; The immutable context Type is checked here and every time bind-context runs.
@@ -216,7 +251,13 @@
   (unless (procedure? prepare) (error "effective preparation must be a procedure"))
   (validate Type context-type)
   (def state (make-context-state context-type (validate context-type context)))
-  (with-invocation (with-cache generic []) (.call context-invocation .specialize prepare state)))
+  (def compiler
+    (if (multimethod-signature generic)
+      (lambda (methods)
+        (def effective (prepare methods))
+        (lambda (context args) (call/values (lambda () (effective context args)) list)))
+      prepare))
+  (with-invocation (with-cache generic []) (.call context-invocation .specialize compiler state)))
 ;; Rebind only typed context DATA, retaining the exact index, candidate/effective
 ;; cache, signature, precedence and invoker callbacks. Guards still run per call
 ;; against Args. Definitions cannot use this operation as a registration shortcut.
@@ -305,11 +346,14 @@
              ((invocation-prepare invocation) (select (resolution-candidates resolved) checked))))
            (state (invocation-state invocation)))
       (defvalues (result next-state) ((invocation-invoke invocation) effective checked state))
-      (def valid (validate (multimethod-output generic) result))
+      (def valid (checked-result generic checked result))
       (values valid (if (eq? state next-state) generic
         (with-invocation generic (make-invocation (invocation-prepare invocation) (invocation-invoke invocation) next-state)))))
-    (values (validate (multimethod-output generic)
-      ((multimethod-combine generic) (select (resolution-candidates resolved) checked) checked)) generic)))
+    (let (methods (select (resolution-candidates resolved) checked))
+      (def result (if (multimethod-signature generic)
+        (call/values (lambda () ((multimethod-combine generic) methods checked)) list)
+        ((multimethod-combine generic) methods checked)))
+      (values (checked-result generic checked result) generic))))
 ;; Validate inputs before resolution or effective-cache hits, then return result
 ;; and the complete immutable successor (outer resolution plus nested caches).
 (def (call generic . args)
@@ -332,7 +376,8 @@
 (def (index-shared? first second)
   (def left (multimethod-invocation first))
   (def right (multimethod-invocation second))
-  (and (eq? (multimethod-index first) (multimethod-index second))
+  (and (eq? (multimethod-signature first) (multimethod-signature second))
+    (eq? (multimethod-index first) (multimethod-index second))
     (or (eq? left right)
       (and left right (eq? (invocation-prepare left) (invocation-prepare right)) (eq? (invocation-invoke left) (invocation-invoke right))))))
 ;; Inspect current-definition candidates for negative watches; never invoke a body or combiner.

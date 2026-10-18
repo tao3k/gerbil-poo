@@ -1,7 +1,7 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
-        type-expression substitute-type guarded-body?)
-(import :std/error (only-in ./support/base require-value))
+        type-expression substitute-type guarded-body? function-options map-function-types function-input-types)
+(import :std/error (only-in :std/list/list delete-duplicates/hash) (only-in ./support/base require-value))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -23,6 +23,38 @@
     (work)
     (when (zero? depth) (refuse-type 'exhausted "Type expression depth exhausted"))
     (when (pair? value) (walk (car value) (- depth 1)) (walk (cdr value) (- depth 1)))))
+;; Read the existing Function constructor options as literal metadata. Omitted
+;; options keep constructor defaults; duplicates and unknown options refuse.
+(def (function-options term)
+  (let loop ((rest (cdddr term)) (seen []))
+    (if (null? rest) seen
+      (begin
+        (unless (and (pair? rest) (pair? (cdr rest)) (keyword? (car rest))
+                     (memq (car rest) '(optional: keywords: required-keywords: rest:))
+                     (not (assq (car rest) seen)))
+          (refuse-type 'malformed "Invalid or duplicate Function option" rest))
+        (loop (cddr rest) (cons (cons (car rest) (cadr rest)) seen))))))
+;; Transform only Type positions. Keyword labels and required-key metadata remain
+;; literal, even when their spelling equals a prototype parameter name.
+(def (map-function-types term transform)
+  (cons 'Function (cons (map transform (cadr term)) (cons (map transform (caddr term))
+    (let loop ((options (cdddr term)))
+      (if (null? options) []
+        (cons (car options) (cons
+          (case (car options)
+            ((optional:) (map transform (cadr options)))
+            ((keywords:) (map (lambda (entry) (cons (car entry) (transform (cdr entry)))) (cadr options)))
+            ((rest:) (and (cadr options) (transform (cadr options))))
+            (else (cadr options)))
+          (loop (cddr options))))))))))
+;; Flatten only contravariant Type positions using the constructor's defaults.
+;; Source keyword order is retained; no supplied argument/default is constructed.
+(def (function-input-types term)
+  (def options (function-options term))
+  ;; Missing options have the same defaults as the Function constructor.
+  (def (option name default) (cond ((assq name options) => cdr) (else default)))
+  (append (caddr term) (option optional: []) (map cdr (option keywords: []))
+    (if (option rest: #f) (list (option rest: #f)) [])))
 ;; Recursion must cross a data carrier and remain positive. Nested Mu binders and
 ;; row-tail recursion are unsupported; Function arguments cannot mention self.
 (def (guarded-body? term name work)
@@ -33,9 +65,10 @@
           (else
            (case (car value)
              ((Mu) #f)
+             ((CaseFunction) (andmap (lambda (clause) (walk clause guarded? positive?)) (cdr value)))
              ((Function)
               (and (andmap (lambda (x) (walk x guarded? positive?)) (cadr value))
-                   (andmap (lambda (x) (walk x guarded? #f)) (caddr value))))
+                   (andmap (lambda (x) (walk x guarded? #f)) (function-input-types value))))
              ((Object)
               (and (andmap (lambda (field) (walk (cadr field) #t positive?)) (cadr value))
                    (or (not (pair? (caddr value))) (walk (cadr (caddr value)) #f #f))))
@@ -57,10 +90,29 @@
          (check (cadr value) variables))
         ((Tuple) (for-each (cut check <> variables) (cdr value)))
         ((Function)
-         (unless (and (= (length value) 3) (list? (cadr value)) (list? (caddr value)))
+         (unless (and (>= (length value) 3) (list? (cadr value)) (list? (caddr value)))
            (refuse-type 'malformed "Function Type needs output/input lists"))
          (for-each (cut check <> variables) (cadr value))
-         (for-each (cut check <> variables) (caddr value)))
+         (for-each (cut check <> variables) (caddr value))
+         (let* ((options (function-options value))
+                (optional (cond ((assq optional: options) => cdr) (else [])))
+                (keys (cond ((assq keywords: options) => cdr) (else [])))
+                (required (cond ((assq required-keywords: options) => cdr) (else [])))
+                (rest (cond ((assq rest: options) => cdr) (else #f))))
+           (unless (and (list? optional) (list? keys) (list? required)
+                        (andmap (lambda (entry) (and (pair? entry) (keyword? (car entry)))) keys)
+                        (= (length keys) (length (delete-duplicates/hash (map car keys))))
+                        (= (length required) (length (delete-duplicates/hash required)))
+                        (andmap (lambda (key) (and (keyword? key) (assq key keys))) required))
+             (refuse-type 'malformed "Invalid Function option metadata" value))
+           (for-each (cut check <> variables) optional)
+           (for-each (lambda (entry) (check (cdr entry) variables)) keys)
+           (when rest (check rest variables))))
+        ((CaseFunction)
+         (unless (and (pair? (cdr value))
+                      (andmap (lambda (clause) (and (list? clause) (pair? clause) (eq? (car clause) 'Function))) (cdr value)))
+           (refuse-type 'malformed "CaseFunction needs ordered Function clauses" value))
+         (for-each (cut check <> variables) (cdr value)))
         ((Object)
          (unless (and (= (length value) 3) (list? (cadr value))
                       (andmap (lambda (field) (and (list? field) (= (length field) 2) (symbol? (car field))))
@@ -78,7 +130,7 @@
              (check (cadr tail) variables))))
         ((Mu)
          (unless (and (= (length value) 4) (symbol? (cadr value))
-                      (not (memq (cadr value) '(Any Never Bool Integer UInt List Maybe Tuple Function Object Row Mu)))
+                      (not (memq (cadr value) '(Any Never Bool Integer UInt List Maybe Tuple Function CaseFunction Object Row Mu)))
                       (not (memq (cadr value) variables))
                       (exact-integer? (caddr value)) (<= 0 (caddr value) 16))
            (refuse-type 'malformed "Mu needs a fresh binder and depth in 0..16"))
@@ -104,5 +156,5 @@
       (substitute-type (cadddr term) (filter (lambda (binding) (not (eq? (car binding) (cadr term)))) substitution) work)))
    (else (cons (car term)
            (if (eq? (car term) 'Function)
-             (map (lambda (types) (map (cut substitute-type <> substitution work) types)) (cdr term))
+             (cdr (map-function-types term (cut substitute-type <> substitution work)))
              (map (cut substitute-type <> substitution work) (cdr term)))))))
