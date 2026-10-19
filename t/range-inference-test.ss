@@ -12,7 +12,7 @@
 (def calls (list (list [] (list large) (list small `(Function (,small) (,large))))))
 ;; No declaration may be constructed from a partial or nonunique result.
 (def (forbidden _) (error "range declaration built before complete inference"))
-;; Test native Type behavior and the complete shared declaration driver together.
+;; Test existing IntegerRange descriptor behavior and the complete shared declaration driver together.
 (def range-inference-test
   (test-suite "IntegerRange finite inference and shared publication"
     (test-case "literal option admission uses the existing constructor exactly"
@@ -41,7 +41,7 @@
       (check (subtype-expression? '(Exactly 10) small) => #t)
       (check (subtype-expression? '(Enum -1 10) small) => #f)
       (check (subtype-expression? '(Exactly #f) '(IntegerRange)) => #f))
-    (test-case "endpoint decision agrees with independently chosen native witnesses"
+    (test-case "endpoint decision agrees with independent descriptor membership witnesses"
       (def ranges '((IntegerRange) (IntegerRange min: 0) (IntegerRange max: 0)
         (IntegerRange min: -1 max: 1) (IntegerRange min: 0 max: 0) (IntegerRange min: 1 max: -1)))
       (for-each (lambda (left)
