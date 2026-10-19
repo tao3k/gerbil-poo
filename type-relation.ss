@@ -259,7 +259,9 @@
         ((not (pair? term)) #f)
         (else
           (case (car term)
-            ((Enum) (null? (cdr term)))
+            ;; Empty literal alternatives and empty dependent-Type directories admit no value.
+            ;; A nonempty directory remains opaque: never run its payload recognizers.
+            ((Enum TypeValuePair) (null? (cdr term)))
             ((IntegerRange) (empty-range? (range-bounds term)))
             ((Tuple Pair) (ormap (cut empty-type? <> work) (cdr term)))
             ((Union) (andmap (cut empty-type? <> work) (cdr term)))

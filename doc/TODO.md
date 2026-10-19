@@ -46,6 +46,18 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 empty dependent directory acceptance
+
+The zero-entry `(TypeValuePair)` directory now feeds the shared positive empty-Type
+witness, rather than a parallel inference rule. Mandatory products/rows, singleton
+List carriers and necessarily absent optional fields inherit it. Nonempty catalogs
+remain opaque even when a recognizer always returns false. Empty List/Map values
+and Maybe/OrFalse sentinels are inhabited and remain distinct from empty Types.
+`infer-plugin-service` exercises finite inference, specialization, qualified
+declarations and the existing FUN/refine/bind-evidence publication chain with
+active Function plugins, retired metadata, ambiguity, retry and stale-source refusal.
+This closes this finite P2 omission, not the unrestricted type-system TODO.
+
 ### Gerbil standard mechanism audit
 
 The contract interoperability pass delegates ordinary predicate/list/range checks
