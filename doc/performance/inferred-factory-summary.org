@@ -11,7 +11,8 @@ argument/bound checks and a second parse/copy of its private schema. Raw substit
 normalized public alternative, including controlled Mu. Instance syntax and
 substitution are copied independently from mutable public search reports. Live
 prototype parameters and direct bound descriptor revisions are still refreshed
-before constructing fresh descriptors, receivers and method declarations.
+before ordinary descriptor, receiver and method declaration construction.
+Composite descriptors remain fresh; intrinsic leaves keep standard library identity.
 Explicit instantiation still runs the full checker. Exhaustion, ambiguity and
 unsupported syntax remain refusals; removing visits may admit work formerly over
 quota, so this is not equality of exact quota thresholds.
@@ -66,6 +67,8 @@ the same released compiler, optimization policy, final harness and fixed prefix.
 The completed final receipt has 504 children. No build/test/compiler process was
 active when measurement started. All six paired prefix GC counts agree in every
 cell; this does not establish identical heap contents or allocation history.
+The measured implementation is b126ead6c704499eba1cd8cbc307ea8d133ddfff;
+the subsequent wording correction only clarifies intrinsic-leaf identity.
 
 Median within-pair CPU differences in microseconds/operation, candidate minus
 baseline; N/C means natural/collected. Negative saves. These are seven separate

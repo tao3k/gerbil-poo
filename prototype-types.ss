@@ -149,8 +149,8 @@
     (copy-type (inference-solution-ground solution)) work))
 
 ;; Both explicit instantiation and accepted inference use the same compiler,
-;; positional specialization and fresh direct-revision bindings. No descriptor,
-;; compiled Function wrapper, receiver or declaration is shared between factories.
+;; positional specialization and fresh direct-revision bindings. No new sharing
+;; is introduced: intrinsic leaves retain library identity; composite Types stay fresh.
 (def (assemble-instance scheme arguments substitution expression work)
   (def descriptor (compile-expression expression work))
   (def bound-values (map (cut compile-expression <> work) arguments))
