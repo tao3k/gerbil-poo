@@ -182,6 +182,7 @@
     "t/focused-cases"
     "t/combination-cases"
     "t/combination-benchmark"
+    "t/factory-paired-benchmark"
     "t/combination-suite"
     "t/binding-cases"
     "t/factory-cases"
@@ -206,22 +207,24 @@
 ;; graph once, then each functional group compiles only its disjoint test roots.
 ;; std/make still owns import dependencies and compiler jobs within each process.
 (def scope (getenv "GERBIL_BUILD_SCOPE" "all"))
-(unless (member scope '("all" "library" "tests" "combination")) (error "unknown build scope" scope))
+(unless (member scope '("all" "library" "tests" "combination" "factory")) (error "unknown build scope" scope))
 (def selected-tests
-  (cond ((member scope '("library" "combination")) [])
+  (cond ((member scope '("library" "combination" "factory")) [])
     ((equal? scope "tests")
       (test-files (or (getenv "GERBIL_BUILD_TEST_GROUP" #f) (error "test group required"))))
     (else (test-files))))
 ;; std/make also owns executable dependency scheduling and its bounded compiler
 ;; pool. The benchmark scope reuses compiled modules instead of a serial gxc link
 ;; path; all functional test scopes and their complete inventories stay unchanged.
+;; Both compiled workflow studies use the same std/make graph and linker policy.
+(def benchmark (if (equal? scope "factory") "t/factory-paired-benchmark" "t/combination-benchmark"))
 (defbuild-script
-  (if (equal? scope "combination")
+  (if (member scope '("combination" "factory"))
     ;; Imported .ssi files alone do not make std/make revisit changed dependency
     ;; sources. Include the ordinary library graph before linking the benchmark,
     ;; so the child and source-driven driver share one current cases definition.
-    (append (filter (lambda (entry) (not (equal? entry "t/combination-benchmark")))
-              +gerbil-poo-build-spec+) `((exe: "t/combination-benchmark"
+    (append (filter (lambda (entry) (not (equal? entry benchmark)))
+              +gerbil-poo-build-spec+) `((exe: ,benchmark
         ;; Discover the released runtime's OpenSSL link dependencies through the
         ;; selected pkg-config environment, including custom installation prefixes.
         ;; An explicit override (even empty) bypasses discovery; other scopes do

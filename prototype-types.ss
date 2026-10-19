@@ -7,7 +7,7 @@
 
 ;; An accepted finite assignment retains its own derived queries and normalized
 ;; layout. Private immutable transport prevents parallel lists from drifting apart.
-(defstruct inference-solution (arguments queries expression) final: #t)
+(defstruct inference-solution (arguments queries expression ground) final: #t)
 ;; A bound descriptor carries its direct source revision. The private immutable
 ;; record is transport for ordinary metadata, not an arbitrary Type inclusion proof.
 (defstruct type-binding (descriptor revision) final: #t)
@@ -124,16 +124,40 @@
 ;; Internal assembly shares the inference quota through compilation and binding.
 ;; Metadata is an explicit caller-owned schema, not an authenticated proof token.
 (def (instantiate/checked scheme arguments work)
-  (let* ((scheme (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-                   (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
-         (substitution (checked-substitution scheme arguments work))
-         (expression (substitute-type (.get scheme expression) substitution work))
-         (descriptor (compile-expression expression work))
-         (bound-values (map (cut compile-expression <> work) arguments))
-         (receiver (apply positional.specialize (.get scheme prototype) bound-values))
-         (bindings (append (.get scheme bound-parameters) (capture-bindings (.get scheme variables) bound-values))))
-    (.o bind-these: #f prototype: receiver descriptor: descriptor
-        expression: expression substitution: substitution bound-parameters: bindings)))
+  (def prepared (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
+    (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
+  (def substitution (checked-substitution prepared arguments work))
+  (assemble-instance prepared arguments substitution
+    (substitute-type (.get prepared expression) substitution work) work))
+
+;; Only the private, fully searched solution can take this path. Recheck current
+;; prototype parameters and bound descriptor revisions before any construction;
+;; candidate syntax/ground/bounds were already admitted with this request's quota.
+;; Copy ground/substitution independently so public report mutation cannot revise
+;; the instance or share mutable syntax with another reported alternative.
+(def (instantiate-solution scheme solution work)
+  ;; infer/checked owns this already captured schema. Refresh its live references,
+  ;; rather than reparsing and cloning immutable syntax into another schema object.
+  (def prototype (.get scheme prototype))
+  (def variables (.get scheme variables))
+  (check-bindings prototype (.get scheme bound-parameters) variables work)
+  (unless (equal? variables (positional.parameters prototype))
+    (refuse-type 'malformed "Type variables must match unique prototype parameters" variables))
+  (def arguments (inference-solution-arguments solution))
+  (def substitution (map cons variables (map copy-type arguments)))
+  (assemble-instance scheme arguments substitution
+    (copy-type (inference-solution-ground solution)) work))
+
+;; Both explicit instantiation and accepted inference use the same compiler,
+;; positional specialization and fresh direct-revision bindings. No descriptor,
+;; compiled Function wrapper, receiver or declaration is shared between factories.
+(def (assemble-instance scheme arguments substitution expression work)
+  (def descriptor (compile-expression expression work))
+  (def bound-values (map (cut compile-expression <> work) arguments))
+  (def receiver (apply positional.specialize (.get scheme prototype) bound-values))
+  (def bindings (append (.get scheme bound-parameters) (capture-bindings (.get scheme variables) bound-values)))
+  (.o bind-these: #f prototype: receiver descriptor: descriptor
+      expression: expression substitution: substitution bound-parameters: bindings))
 
 ;; Exhaustively check a finite caller-supplied ground candidate universe. Queries
 ;; are (source target) constraints; either side may contain schema variables.
@@ -168,9 +192,10 @@
           (for-each (lambda (candidate) (search (cdr variables) (cons candidate arguments))) domain)
           (let* ((ordered (reverse arguments))
                  (substitution (map cons (.get scheme variables) ordered))
-                 (derived queries) (layout #f))
+                 (derived queries) (layout #f) (ground #f))
             (when (try
-                    (let (ground (substitute-type (.get scheme expression) substitution work))
+                    (begin
+                      (set! ground (substitute-type (.get scheme expression) substitution work))
                       (type-expression ground [] work)
                       (set! layout (normalize-type ground work)))
                     (when derive (set! derived (derive layout)))
@@ -180,11 +205,11 @@
                                 (substitute-type (cadr bound) substitution work) work)) (append (.get scheme bounds) derived))
                     (catch (cause)
                       (if (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'bounds)) #f (raise cause))))
-              (set! solutions (cons (make-inference-solution ordered derived layout) solutions))))))
+              (set! solutions (cons (make-inference-solution ordered derived layout ground) solutions))))))
       (let* ((ordered (reverse solutions))
              (status (cond ((null? ordered) 'no-solution)
                            ((null? (cdr ordered)) 'unique) (else 'ambiguous)))
-             (instance (and (eq? status 'unique) (instantiate/checked scheme (inference-solution-arguments (car ordered)) work))))
+             (instance (and (eq? status 'unique) (instantiate-solution scheme (car ordered) work))))
         (.o bind-these: #f status: status
             solutions: (map inference-solution-arguments ordered) instance: instance
             alternatives: (map (lambda (solution)

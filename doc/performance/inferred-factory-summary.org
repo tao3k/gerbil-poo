@@ -1,0 +1,110 @@
+#+title: Inferred factory construction and checked publication
+
+* Scope and construction
+This advances the paper's type-protocol future work. The Racket appendix supplies
+Self/Super constraints and explicit prototype specialization, rather than this
+finite inference algorithm. Gerbil retains its existing Type compiler, positional
+specialization, declared generics, FUN refinement and IO publication.
+
+Only a private, completely searched unique solution can bypass repeated pure
+argument/bound checks and a second parse/copy of its private schema. Raw substituted syntax is retained separately from the
+normalized public alternative, including controlled Mu. Instance syntax and
+substitution are copied independently from mutable public search reports. Live
+prototype parameters and direct bound descriptor revisions are still refreshed
+before constructing fresh descriptors, receivers and method declarations.
+Explicit instantiation still runs the full checker. Exhaustion, ambiguity and
+unsupported syntax remain refusals; removing visits may admit work formerly over
+quota, so this is not equality of exact quota thresholds.
+
+bind-evidence retains with-meaning and its customization, fresh binding identity,
+Boolean admission, parent-first short circuit and exact subject/descriptor/context
+checks. One Formula fuses the known atom and conjunction. The service workflow
+also shares its private invariant invocation template; every publication still
+validates and binds current values. Neither change caches approval or results.
+
+* Proof boundary
+Lean CheckedAssignment / checkedUnique connects the completed finite solver to
+each original constraint. instantiatePrepared_eq preserves the same live refresh
+and assembler, including errors; instantiatePrepared_refuses retains stale-source
+refusal. Formula.conjoinAtom_holds and the false/error/true laws retain logical
+meaning and decision order. accepted_comparison_work counts eliminated abstract
+replays only. Copying, compiler correctness, total allocation, GC and wall time
+are not proved. Runtime custom predicates, projection purity and source metadata
+stability keep their existing explicit premises.
+
+* Reproduction and admission
+Build library scope before factory scope in the current and previous source
+snapshots with the same released Gerbil and standard build.ss. Use separate
+GERBIL_BUILD_LIBDIR / GERBIL_LOADPATH roots for the previous snapshot and copy only
+the identical build/benchmark harness into it. std/make owns graph scheduling;
+pkg-config discovers OpenSSL through the selected host environment. No Lean
+checkout is needed. Build outputs and complete receipts belong outside Git.
+
+From the current checkout, import :clan/poo/t/factory-paired-benchmark and call
+compare with the absolute baseline executable, candidate executable, baseline
+source directory, timeout executable and output receipt path. Each executable is
+.build/combination/factory-paired-benchmark in its own source checkout.
+
+The fixed matrix contains bytes and rich optional/keyword/rest services, natural
+and collected heaps, seven phases, six AB/BA pairs and three A/A controls: 504
+fresh children. Each child runs the same seven semantic controls twice before its
+100 measured operations. Phases are factory, action construction, prepared call,
+complete factory/action/call, evidence binding, declaration-fragment construction
+and explicit ground-instance construction. The last two paths are unchanged-code
+controls; they expose context/heap effects, not additional algorithm speedups.
+Semantic oracles check result
+and exact evidence/context identities. Every child has 20s/1GiB limits; progress
+reports completed pairs. Source/binary identity is rechecked before completion.
+Signed allocation is unavailable after GC or a negative counter result, never
+converted into a gain. GC residual is CPU minus reported GC, not causal attribution
+of allocator history. Module initialization stays outside phase timings and must
+be charged separately for whole-process startup claims.
+
+* Matched results
+Baseline is 4e2b20b08a624a1452f4aae491c6b8f0f527ff56. Both executables use
+the same released compiler, optimization policy, final harness and fixed prefix.
+The completed final receipt has 504 children. No build/test/compiler process was
+active when measurement started. All six paired prefix GC counts agree in every
+cell; this does not establish identical heap contents or allocation history.
+
+Median within-pair CPU differences in microseconds/operation, candidate minus
+baseline; N/C means natural/collected. Negative saves. These are seven separate
+experiments, not additive pieces of one measured operation.
+
+| Phase | Bytes N/C | Rich N/C |
+|-------+-----------+----------|
+| Complete inferred factory | -34.045 / -40.885 | -51.540 / -46.345 |
+| Publication action construction | -52.935 / -58.660 | -53.720 / -56.800 |
+| Prepared checked call | -23.530 / -23.485 | -24.140 / -22.700 |
+| Complete factory/action/call | -129.870 / -137.255 | -106.595 / -136.455 |
+| Evidence binding | -18.645 / -14.235 | -19.200 / -13.965 |
+| Declaration-fragment control | +1.940 / -1.855 | -1.975 / -0.885 |
+| Explicit ground-instance control | -0.495 / +0.210 | +1.650 / -0.150 |
+
+Full-workflow CPU and measured GC decompositions, also paired microseconds:
+
+| Cell | CPU | GC CPU | CPU minus GC | A/A CPU median | Worst A/B CPU |
+|------+-----+--------+--------------+----------------+---------------|
+| Bytes natural | -129.870 | -56.720 | -75.605 | +20.020 | -123.670 |
+| Bytes collected | -137.255 | -56.590 | -78.050 | +1.960 | -82.130 |
+| Rich natural | -106.595 | -44.900 | -60.360 | -11.490 | +3.760 |
+| Rich collected | -136.455 | -50.470 | -86.915 | -12.260 | -126.490 |
+
+Separate medians need not sum. Rich natural retains one adverse full-workflow
+pair (+3.760us); bytes collected also retains one adverse factory-only pair
+(+80.500us). A/A controls expose noise, including a bytes-natural full-workflow
+maximum of +71.510us. This is not a universal latency improvement or a proof
+that GC history is identical. Declaration and explicit construction controls have
+no algorithm change and no claimed speedup. All final allocation pairs are
+unavailable under the collection-free admission rule, so no byte-saving claim
+is made. The earlier five-control candidate and its rich factory regression
+(+73.375/+27.405us N/C) remain local diagnostics, not comparable final-matrix
+receipts; private schema revalidation/copy was removed before this final study.
+
+Regression admission: all 17 compiled test groups; all 121 modules / 1001 cases
+in one process, exit 0 (74.68s); 692 AOT intermediates with no incomplete or
+shadowed objects; the complete Lean eight-phase gate, 299 ordinary files and
+42 stress files, automatic 14-worker ordinary phase, no failures. Limits and
+checks are unchanged. Public syntax mutation, raw Mu preservation, fresh nested
+Function descriptors, fresh binding atoms, custom with-meaning ordering and
+projection short circuit have explicit regression controls.

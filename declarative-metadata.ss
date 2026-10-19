@@ -197,7 +197,12 @@
                         (eq? context (.@ view context)))))
             (previous-meaning key request evidence)))
         #f)
-      rule: (both (.@ invocation rule) (atom binding-key)))))
+      ;; Fuse the known fresh atom with conjunction: one Formula object instead
+      ;; of an intermediate atom plus both. Capture the current parent decision
+      ;; after with-meaning, preserving custom specialization effects and order.
+      rule: (let (previous (decision (.@ invocation rule)))
+              (.cc Formula. .holds: (lambda (meaning)
+                (and (previous meaning) (boolean! (meaning binding-key)))))))))
 ;; Bind the current executor to a descriptor's checked wrapper; state remains an invocation argument.
 (.defgeneric (wrap contract execute) slot: .wrap)
 ;; Execute through the descriptor's native checked invocation method.

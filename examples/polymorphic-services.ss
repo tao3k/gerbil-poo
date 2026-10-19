@@ -297,9 +297,7 @@
     (lambda (candidate location)
       (if (<= (.get candidate processor limit) maximum) []
         [(.o bind-these: #f kind: 'record-limit path: location)]))))
-  (def invocation (metadata.contract (metadata.predicate "subject" object?)
-    (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
-  (def publish (publication.publication-action contract invocation context
+  (def publish (publication.publication-action contract signature-invocation context
     (lambda (subject)
       (consume (.get subject processor))
       (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
@@ -341,13 +339,18 @@
       (refine (.cc ObjectContract. responsibilities:
         (.o answer: (car outputs) callback: (cadr outputs))) check) consume)))
 
+;; Invariant invocation metadata belongs to this workflow, not each request.
+;; Binding still constructs fresh subject/context relations and executes all
+;; predicates/formulas; this private template stores no approval or result.
+(def signature-invocation
+  (metadata.contract (metadata.predicate "subject" object?)
+    (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
+
 ;; Policies supply the descriptor; FUN approval, generic invocation, checked
 ;; publication and exact evidence binding are one shared numeric/text workflow.
 ;; User effects before a later refinement refusal are not rolled back.
 (def (signature-publication-action instance input context contract consume)
-  (def invocation (metadata.contract (metadata.predicate "subject" object?)
-    (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
-  (def publish (publication.publication-action contract invocation context
+  (def publish (publication.publication-action contract signature-invocation context
     (lambda (subject)
       (consume subject)
       (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))

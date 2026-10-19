@@ -102,6 +102,26 @@
       (check-equal? failure #f)
       (check (eq? accepted result) => #t) (check (eq? next current) => #t))
 
+    (test-case "fused binding keeps fresh atoms and post-specialization rule selection"
+      (def subject (.o)) (def descriptor (.o)) (def context (.o))
+      (def first (metadata.bind-evidence Call subject descriptor context result-view))
+      (def second (metadata.bind-evidence Call subject descriptor context result-view))
+      (def left []) (def right [])
+      (metadata.holds (.get first rule) (lambda (key) (set! left (cons key left)) #t))
+      (metadata.holds (.get second rule) (lambda (key) (set! right (cons key right)) #t))
+      (check-equal? (length left) 1) (check-equal? (length right) 1)
+      (check (eq? (car left) (car right)) => #f)
+      (def projections 0) (def custom #f)
+      (set! custom (.cc Call .with-meaning:
+        (lambda (meaning (share? #t))
+          (.setslot! custom rule ($constant-slot-spec (metadata.deny metadata.truth)))
+          (.cc custom meaning: meaning))))
+      (def bound (metadata.bind-evidence custom subject descriptor context
+        (lambda (result) (set! projections (1+ projections)) result)))
+      (def result (.o subject: subject descriptor: descriptor context: context))
+      (defvalues (_ next refusal) (metadata.publish bound context (lambda (_) (values result subject)) subject))
+      (check-equal? (metadata.failure-phase refusal) 'logic)
+      (check (eq? next context) => #t) (check-equal? projections 0))
     (test-case "invalid projections remain explicit failures"
       (check-exception (metadata.bind-evidence Call (.o) (.o) (.o) #f) error?)
       (def subject-value (.o))

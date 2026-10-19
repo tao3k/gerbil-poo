@@ -31,7 +31,9 @@ descriptor actually used. A symbolic contract name cannot substitute for its
 object reference. Binding does not authenticate freely constructed POO fields.
 This example assumes consumer-defined names, not additional public APIs.
 
-The helper uses existing `with-meaning`, `both`, `atom`, `invoke` and `publish`.
+The helper uses existing `with-meaning`, `Formula.`, `decision`, `invoke` and
+`publish`. A single Formula closes over the original decision and the fresh atom,
+instead of constructing an intermediate atom Formula followed by `both`.
 A fresh private atom avoids collisions with the caller's formula. Existing rule
 refusal short-circuits the projection. Binding does not eagerly prepare invariant
 checks, including when the parent has already prepared them. Existing source
