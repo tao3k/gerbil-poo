@@ -903,3 +903,15 @@ Function descriptor supplies the schema and runtime contracts. The finite raw
 option admission parser remains POO policy: duplicate/unknown bindings, malformed
 payloads and quota exhaustion must refuse before descriptor or builder execution.
 No separate wrapper/namespace or compatibility dispatch is introduced.
+
+
+### Sentinel Type inference
+
+Gerbil core contract's `maybe` rule is a false-or-predicate admission rule; it
+does not recursively normalize Function payloads. The existing OrFalse Type and
+shared optional-validation protocol supply that POO behavior. Finite inference
+now compiles directly to those descriptors and reuses the existing call-coverage,
+parameter and declaration drivers. `using` admits the example's observer callback
+with Gerbil's procedure contract. No parser, runtime wrapper, effect abstraction
+or namespace is duplicated. Record Class data and Object method catalogs retain
+their existing distinction; ordinary Function data is not a typed method group.

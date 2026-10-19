@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -477,3 +477,19 @@
     (lambda (n)
       (values n (lambda (value (bonus n) scale: (scale 1) . rest)
         (* scale (+ value bonus (apply + rest)))))) record))
+
+;; False route entries and a void/false fallback retain distinct absence protocols.
+;; Invariant Key is fixed once; nested Function Types share Self <: Super with
+;; the original route method, Class/data validators and complete publication chain.
+(def OptionalRoutingServiceType
+  (prototype-type (.o .parameters: '(Key Self Super)) '(Key Self Super)
+    '(Function ((Pair (Map (OrFalse (Function (Self) (Super))) <- Key)
+                      (Maybe (OrFalse (Function (Self) (Super))))))
+               ((Map (OrFalse (Function (Self) (Super))) <- Key)))
+    '((Self Super))))
+;; Use existing route fragments, qualifiers and FUN action; no parallel optional
+;; validator, optional dispatcher or declaration builder is introduced here.
+(def (infer-optional-routing-service prefix candidates observations (record void))
+  (using (record :~ procedure?)
+    (infer-declared-calls (specialize-prototype-type OptionalRoutingServiceType prefix)
+      candidates observations (cut routing-declarations <> record))))

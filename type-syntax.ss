@@ -1,8 +1,13 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
-(export type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
+(export type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
+;; One constructor vocabulary owns prototype/Mu binder admission. A constructor
+;; cannot become a free Type variable merely because a caller uses another phase.
+(def (type-constructor? name)
+  (and (memq name '(Any Never Bool Integer UInt Keyword Exactly Enum List Maybe OrFalse
+                   Tuple Pair Map Sum Union Record Function CaseFunction Object Row Mu)) #t))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -135,7 +140,7 @@
              ((Sum) (let loop ((entries (cdr value)))
                       (or (null? entries)
                           (and (walk (cadr entries) #t positive?) (loop (cddr entries))))))
-             ((List Maybe Tuple Pair Union) (andmap (lambda (x) (walk x #t positive?)) (cdr value)))
+             ((List Maybe OrFalse Tuple Pair Union) (andmap (lambda (x) (walk x #t positive?)) (cdr value)))
              (else #t))))))
 ;; Admit syntax independently of subtype decisions. Field labels are unique
 ;; symbols, not type variables; row tails are open/closed or (Row expression).
@@ -152,7 +157,7 @@
          (unless (and (or (eq? (car value) 'Enum) (= (length value) 2))
                       (andmap literal-type-value? (cdr value)))
            (refuse-type 'unsupported "Exactly/Enum needs immutable scalar literals" value)))
-        ((List Maybe)
+        ((List Maybe OrFalse)
          (unless (= (length value) 2) (refuse-type 'malformed "Unary Type needs one argument"))
          (check (cadr value) variables))
         ((Pair)
@@ -216,7 +221,7 @@
              (check (cadr tail) variables))))
         ((Mu)
          (unless (and (= (length value) 4) (symbol? (cadr value))
-                      (not (memq (cadr value) '(Any Never Bool Integer UInt Keyword Exactly Enum List Maybe Tuple Pair Map Sum Union Record Function CaseFunction Object Row Mu)))
+                      (not (type-constructor? (cadr value)))
                       (not (memq (cadr value) variables))
                       (exact-integer? (caddr value)) (<= 0 (caddr value) 16))
            (refuse-type 'malformed "Mu needs a fresh binder and depth in 0..16"))

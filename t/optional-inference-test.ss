@@ -1,0 +1,110 @@
+;;; Existing sentinel validators across finite inference and method publication.
+(export optional-inference-test)
+(import :std/test :std/error ../object ../mop ../prototype-types ../type-relation ../method-declaration
+        (prefix-in ../examples/polymorphic-services service.))
+;; Preserve protocol refusal independently of false data and failed user calls.
+(def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))
+;; Shared positive and negative Function positions determine one residual solution.
+(def routes-type '(Map (OrFalse (Function (UInt) (Integer))) <- UInt))
+;; Maybe's void sentinel and OrFalse's false sentinel both survive in the output.
+(def output-type `(Pair ,routes-type (Maybe (OrFalse (Function (UInt) (Integer))))))
+;; Exact supplied/expected rows use the original complete joint call solver.
+(def observations (list (list [] (list routes-type) (list output-type))))
+;; No declaration artifact may escape a failed or incomplete solve.
+(def (forbidden _) (error "builder ran before complete optional inference"))
+;; Original immutable input retains the raw callback and the false entry.
+(def (routes) (hash (1 abs) (2 #f)))
+;; The whole protocol uses standard containers, Function wrappers and FUN actions.
+(def optional-inference-test
+  (test-suite "Sentinel optional inference specialization and publication"
+    (test-case "precise unary kinds reserve names in both binding protocols"
+      (check-equal? (.get (expression-type '(OrFalse UInt)) sexp) '(OrFalse UInt))
+      (for-each (lambda (term) (check-exception (expression-type term) (refusal 'malformed)))
+        '((OrFalse) (OrFalse UInt Bool) (Mu OrFalse 1 (List OrFalse))))
+      (check-exception (prototype-type (.o .parameters: '(OrFalse)) '(OrFalse) 'OrFalse []) (refusal 'malformed))
+      (check-exception (expression-type '(OrFalse Unknown)) (refusal 'unsupported)))
+    (test-case "child variance preserves exact sentinel and invariant parents"
+      (check (subtype-expression? '(OrFalse UInt) '(OrFalse Integer)) => #t)
+      (check (subtype-expression? '(OrFalse Integer) '(OrFalse UInt)) => #f)
+      (check (subtype-expression? '(Maybe UInt) '(OrFalse Integer)) => #f)
+      (check (subtype-expression? '(OrFalse UInt) '(Maybe Integer)) => #f)
+      (check (subtype-expression? '(OrFalse (Function (UInt) (Integer)))
+        '(OrFalse (Function (Integer) (UInt)))) => #t)
+      (check (subtype-expression? '(Map UInt <- (OrFalse UInt)) '(Map UInt <- (OrFalse Integer))) => #f)
+      (check (subtype-expression? '(Union (OrFalse UInt) Bool) '(Union (OrFalse Integer) Bool)) => #f))
+    (test-case "keyword transport inspects exposed optional children"
+      (check (function-covers?
+        '(Function (UInt) ((OrFalse UInt)) keywords: ((mode: . UInt)))
+        '(Function (UInt) ((OrFalse UInt)))) => #t)
+      (check (function-covers?
+        '(Function (UInt) ((OrFalse Keyword)) keywords: ((mode: . UInt)))
+        '(Function (UInt) ((OrFalse Keyword)))) => #f)
+      (def checked (validate (expression-type '(Function (UInt) ((OrFalse UInt)) keywords: ((mode: . UInt))))
+        (lambda (value mode: (mode 0)) (if value (+ value mode) mode))))
+      (check-equal? (checked #f) 0)
+      (check-equal? (checked 3 mode: 2) 5)
+      (check-exception (checked other:) TypeError?))
+    (test-case "prefix binding traverses nested sentinel and Function positions"
+      (def partial (specialize-prototype-type service.OptionalRoutingServiceType '(UInt)))
+      (check-equal? (.get partial variables) '(Self Super))
+      (def instance (instantiate-prototype partial '(UInt Integer)))
+      (check-equal? (.get instance expression) `(Function (,output-type) (,routes-type)))
+      (def checked (validate (car (.get instance descriptor outputs)) (cons (routes) (void))))
+      (check (void? (cdr checked)) => #t)
+      (check-equal? (hash-ref (car checked) 2) #f)
+      (check-equal? ((hash-ref (car checked) 1) -2) 2)
+      (check-exception ((hash-ref (car checked) 1) #f) TypeError?))
+    (test-case "false is successful absence while invalid present values refuse"
+      (def descriptor (expression-type '(OrFalse (Function (UInt) (Integer)))))
+      (check-equal? (validate descriptor #f) #f)
+      (check-exception (validate descriptor (void)) TypeError?)
+      (check-exception (validate descriptor 0) TypeError?)
+      (check-exception ((validate descriptor (lambda (_) #f)) 1) TypeError?)
+      (check-equal? (validate (expression-type '(OrFalse Never)) #f) #f)
+      (check-exception (validate (expression-type '(OrFalse Never)) 0) TypeError?)
+      ;; An optional Function is not an unconditionally callable Function.
+      (check-exception (infer-prototype-calls
+        (prototype-type (.o .parameters: '(T)) '(T) '(OrFalse (Function (T) (T))) [])
+        '(UInt) '((() (UInt) (UInt)))) (refusal 'unsupported)))
+    (test-case "controlled recursive expansion keeps wrappers quota and failure semantics"
+      (def schema (prototype-type (.o .parameters: '(T)) '(T) '(Mu X 3 (OrFalse (Pair T X))) []))
+      (def descriptor (.get (instantiate-prototype schema '((Function (UInt) (Integer)))) descriptor))
+      (def checked (validate descriptor (cons abs (cons abs #f))))
+      (check-equal? ((car checked) -4) 4)
+      (check-exception ((cadr checked) #f) TypeError?)
+      (check-equal? (cddr checked) #f)
+      (check-exception (validate descriptor (cons abs (cons abs (cons abs #f)))) TypeError?)
+      (check-exception (validate (expression-type '(Mu X 0 (OrFalse X))) #f) TypeError?)
+      (check-exception (expression-type '(Mu X 2 (OrFalse (Function (UInt) (X))))) (refusal 'unsupported))
+      (check-exception (expression-type '(Mu X 16 (OrFalse (Pair X X))) 64) (refusal 'exhausted)))
+    (test-case "unique full solve precedes qualifiers and complete FUN publication"
+      (def events [])
+      (def report (service.infer-optional-routing-service '(UInt) '(UInt Integer) observations
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) '((UInt Integer)))
+      (check-equal? events [])
+      (def original (routes)) (def context (.o approved: #t)) (def consumed 0)
+      (def action (service.routing-service-action (.get report instance) original context
+        (lambda (answer)
+          (set! consumed (1+ consumed))
+          (check-equal? (hash-ref (car answer) 2) #f)
+          (check-equal? ((hash-ref (car answer) 1) -3) 3)
+          (check-exception ((hash-ref (car answer) 1) #f) TypeError?)
+          (check-exception ((cdr answer) #f) TypeError?))))
+      (defvalues (evidence next failure) (action context))
+      (check-equal? failure #f) (check-equal? consumed 1)
+      (check (eq? (.get evidence context) context) => #t)
+      (check (eq? (hash-ref original 1) abs) => #t)
+      (check (begin (declared-snapshot (.get next owner)) #t) => #t)
+      (check-equal? events '(routes))
+      (check-exception ((service.routing-service-action (.get report instance) (hash) context
+        (lambda (_) (set! consumed 99))) context) TypeError?)
+      (check-equal? consumed 1))
+    (test-case "no-solution ambiguous and exhausted requests never build; retry is fresh"
+      (def partial (specialize-prototype-type service.OptionalRoutingServiceType '(UInt)))
+      (check-equal? (.get (infer-declared-calls partial '(Bool) observations forbidden) status) 'no-solution)
+      (check-exception (infer-declared-calls partial '(UInt Integer) observations forbidden 20) (refusal 'exhausted))
+      (def schema (prototype-type (.o .parameters: '(T)) '(T) '(Function ((OrFalse T)) ()) []))
+      (check-equal? (.get (infer-declared-calls schema '(UInt Integer) [] forbidden) status) 'ambiguous)
+      (check-equal? (.get (service.infer-optional-routing-service '(UInt) '(UInt Integer) observations) status) 'unique))))

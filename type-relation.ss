@@ -1,11 +1,11 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
+(export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
-        (only-in ./type List Tuple Maybe Pair Map Sum Union RecordSlot Keyword Exactly Enum.))
+        (only-in ./type List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot Keyword Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -169,7 +169,7 @@
     (function-replaces? source target work))
    ((and (pair? source) (pair? target) (eq? (car source) (car target)))
     (case (car source)
-      ((List Maybe Tuple Pair)
+      ((List Maybe OrFalse Tuple Pair)
        (and (= (length source) (length target))
             (andmap (lambda (s t) (compare-types s t work)) (cdr source) (cdr target))))
       ;; Keys are invariant after finite normalization: changing their validator
@@ -209,7 +209,7 @@
 
 ;; Recognized ground Types exclude outer keyword/escape tokens without calling
 ;; user recognizers. Containers keep their outer carrier even when their payload
-;; is Any; Maybe and Union can expose payloads, so inspect those alternatives.
+;; is Any; Maybe/OrFalse and Union can expose payloads, so inspect those alternatives.
 ;; Mu has already undergone the existing finite normalization/admission guard.
 (def (keyword-stable-type? term work)
   (work)
@@ -219,7 +219,7 @@
     ((Keyword) #f)
     (else (case (car term)
       ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
-      ((Maybe) (keyword-stable-type? (cadr term) work))
+      ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
       ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
       ((List Tuple Pair Map Sum Record Object Function CaseFunction) #t)
       (else #f)))))
@@ -252,7 +252,7 @@
                         (map (cut ordinary-origin <> work) (cdr type))))
              (cond ((null? types) 'Never) ((null? (cdr types)) (car types))
                    (else (cons 'Union types))))))
-        ((Maybe) (list 'Maybe (ordinary-origin (cadr type) work)))
+        ((Maybe OrFalse) (list (car type) (ordinary-origin (cadr type) work)))
         (else type))))))
 
 ;; Only decidably empty finite scalar alternatives are removed. Unknown host
@@ -492,6 +492,7 @@
          ((Sum) (apply Sum (cdr (map-sum-types term build))))
          ((Union) (apply Union (map build (cdr term))))
          ((Maybe) (Maybe (build (cadr term))))
+         ((OrFalse) (OrFalse (build (cadr term))))
          ((List) (List (build (cadr term))))
          ((Tuple) (apply Tuple (map build (cdr term))))
          ((CaseFunction) (apply CaseFunction (map build (cdr term))))
