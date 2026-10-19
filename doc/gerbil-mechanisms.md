@@ -964,3 +964,12 @@ FUN/refine/bind-evidence action consume the new bound directly.
 Public finite-source admission reuses keyword-stable-type?: keyword/escape tokens
 remain in the existing raw-origin transport judgment. Shared flat coverage does
 not widen that wire-sensitive public replacement boundary.
+
+Unbounded range-to-Union coverage extends the same ordered projection and residual
+fold, rather than introducing another range implementation. Gerbil's standard
+`append-map` and runtime `foldl` retain descriptor traversal order; the existing
+numeric bounds use false endpoints for infinity. Arithmetic only touches finite
+exact integers, so no machine-sized sentinel or enumerated tail is introduced.
+`select-union`/`validate-union` and the shared declaration/FUN publication chain
+remain authoritative. The numeric projection has no custom recognizer effects;
+all branch admission and residual visits retain the shared work quota.

@@ -129,50 +129,53 @@
   (if (pair? term)
     (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
-;; Only keyword-stable finite literals and bounded ranges gain public coverage.
+;; Only keyword-stable finite literals and integer ranges gain public coverage.
 ;; Keyword/escape origins retain their dedicated transport judgment.
 ;; Union-to-Union identity and wrapper-bearing alternatives keep their old rule.
-(def (finite-union-source? source work)
+(def (flat-union-source? source work)
   (and (pair? source)
     (case (car source)
       ((Exactly Enum) (keyword-stable-type? source work))
-      ((IntegerRange) (let (bounds (range-bounds source)) (and (car bounds) (cdr bounds))))
+      ((IntegerRange) #t)
       (else #f))))
 ;; Project numeric coverage without altering the ordered descriptor tree.
-;; Clip numeric families to the source; literal integers become singleton pieces.
+;; Preserve unbounded endpoints; literal integers become singleton pieces.
 ;; Other admitted flat scalars contain no integers. No user recognizer executes.
-(def (union-range-pieces term lower upper work)
+(def (union-range-pieces term work)
   (work)
   (cond ((numeric-bounds term) => (lambda (bounds)
-          (list (cons (if (car bounds) (max lower (car bounds)) lower)
-                      (if (cdr bounds) (min upper (cdr bounds)) upper)))))
+          (list bounds)))
         ((pair? term)
          (case (car term)
-           ((Union) (append-map (cut union-range-pieces <> lower upper work) (cdr term)))
+           ((Union) (append-map (cut union-range-pieces <> work) (cdr term)))
            ((Exactly Enum) (append-map (lambda (value) (work)
              (if (exact-integer? value) (list (cons value value)) [])) (cdr term)))
            (else [])))
         (else [])))
 ;; Subtract one closed integer interval, retaining at most two ordered residuals.
-;; Empty/disjoint covers change nothing; endpoint arithmetic is exact integer.
+;; False lower/upper endpoints mean negative/positive infinity. Only finite
+;; endpoints are shifted; empty/disjoint covers change nothing.
 (def (subtract-range source covered)
   (def lower (car source)) (def upper (cdr source))
   (def left (car covered)) (def right (cdr covered))
-  (if (or (> left right) (< upper left) (< right lower)) (list source)
-    (append (if (< lower left) (list (cons lower (1- left))) [])
-            (if (< right upper) (list (cons (1+ right) upper)) []))))
+  (if (or (empty-range? covered) (and upper left (< upper left))
+          (and right lower (< right lower))) (list source)
+    (append (if (and left (or (not lower) (< lower left)))
+              (list (cons lower (1- left))) [])
+            (if (and right (or (not upper) (< right upper)))
+              (list (cons (1+ right) upper)) []))))
 ;; Accumulate uncovered pieces using Gerbil's ordered fold/append-map protocol.
 ;; Work depends on descriptor pieces, never the number of integers in a range.
 ;; Preparation and every residual visit share the original quota; exhaustion
 ;; escapes as a refusal and cannot be mistaken for a gap or complete coverage.
 (def (range-union-subtype? source branches work)
   (def bounds (numeric-bounds source))
-  (and bounds (car bounds) (cdr bounds)
+  (and bounds
     (or (empty-range? bounds)
       (null? (foldl (lambda (covered remaining)
         (append-map (lambda (piece) (work) (subtract-range piece covered)) remaining))
         (list bounds)
-        (append-map (cut union-range-pieces <> (car bounds) (cdr bounds) work) branches))))))
+        (append-map (cut union-range-pieces <> work) branches))))))
 ;; Decide singleton inclusion without executing a user predicate or constructor.
 (def (literal-in-type? value term work)
   (work)
@@ -244,7 +247,7 @@
    ((and (flat-type? source) (flat-type? target)
          (not (and (pair? source) (eq? (car source) 'Union)))
          (or (not (and (pair? target) (eq? (car target) 'Union)))
-             (finite-union-source? source work)))
+             (flat-union-source? source work)))
     (flat-subtype? source target work))
    ((and (pair? source) (pair? target)
          (memq (car source) '(Function CaseFunction)) (memq (car target) '(Function CaseFunction)))
