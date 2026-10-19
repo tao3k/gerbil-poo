@@ -400,10 +400,14 @@
       ((List Tuple Pair)
        (and (= (length source) (length target))
             (andmap (lambda (s t) (compare-types s t work)) (cdr source) (cdr target))))
-      ;; Keys are invariant after finite normalization: changing their validator
-      ;; could change identity/equality or create a collision. Values are readable.
-      ((Map) (and (equal? (cadddr source) (cadddr target))
-                  (compare-types (cadr source) (cadr target) work)))
+      ;; Inhabited entries retain invariant keys and readable values. A positive
+      ;; empty key OR value witness proves no entries can exist, so another Map
+      ;; checks the same empty carrier without invoking either child validator.
+      ;; This is not an empty Type and grants no mutable insertion permission.
+      ((Map) (or (and (equal? (cadddr source) (cadddr target))
+                       (compare-types (cadr source) (cadr target) work))
+                 (empty-type? (cadddr source) work)
+                 (empty-type? (cadr source) work)))
       ;; Catalog membership is descriptor identity, not payload covariance:
       ;; UInt's Type object never becomes Integer's Type object. Source order
       ;; remains metadata, even when set inclusion permits readable replacement.

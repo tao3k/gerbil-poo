@@ -46,6 +46,17 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 necessarily empty Map acceptance
+
+A positive finite empty key or value witness now admits readable replacement by
+another Map layout through the shared relation, complete inference, prefix
+specialization and qualified declarations. Possible entries still require
+invariant keys and covariant values. The Map itself remains inhabited by an
+empty hash table; nested empty Maps and optional sentinels cannot prove an
+outer component empty. Existing wrappers, hash policy, failure categories,
+FUN/refine/evidence publication and complete checks remain in force.
+See prototype-types.md and container-inference-test.ss for scope and controls.
+
 ### P2 empty dependent directory acceptance
 
 The zero-entry `(TypeValuePair)` directory now feeds the shared positive empty-Type

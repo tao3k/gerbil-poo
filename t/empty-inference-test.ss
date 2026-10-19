@@ -36,7 +36,9 @@
       (check (subtype-expression? '(Enum) '(Union UInt (Function (UInt) (UInt)))) => #f)
       (check (subtype-expression? dead '(Union UInt (Function (UInt) (UInt)))) => #f)
       (check (subtype-expression? '(Sum absent: (Enum)) '(Sum other: (Enum))) => #f)
-      (check (subtype-expression? '(Map UInt <- (Tuple (Enum))) '(Map UInt <- String)) => #f)
+      ;; A positive empty key witness proves zero entries; live keys remain invariant.
+      (check (subtype-expression? '(Map UInt <- (Tuple (Enum))) '(Map UInt <- String)) => #t)
+      (check (subtype-expression? '(Map UInt <- (Tuple UInt)) '(Map UInt <- String)) => #f)
       (check (subtype-expression? '(Pair UInt UInt) '(Tuple (Enum))) => #f))
     (test-case "runtime validators reject impossible required payloads"
       (for-each (lambda (entry)

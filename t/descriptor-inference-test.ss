@@ -32,7 +32,9 @@
       (validate (expression-type '(Map (TypeValuePair) <- UInt)) (make-hash-table))
       (validate (expression-type '(Maybe (TypeValuePair))) (void))
       (validate (expression-type '(OrFalse (TypeValuePair))) #f)
-      (check (subtype-expression? '(Map UInt <- (TypeValuePair)) '(Map UInt <- Bool)) => #f)
+      ;; Zero possible entries permit a different key; nonempty directories do not.
+      (check (subtype-expression? '(Map UInt <- (TypeValuePair)) '(Map UInt <- Bool)) => #t)
+      (check (subtype-expression? '(Map UInt <- (TypeValuePair Bool)) '(Map UInt <- Bool)) => #f)
       (check (subtype-expression? '(Union (TypeValuePair)) '(Union UInt)) => #f)
       (check-exception (subtype-expression? '(TypeValuePair Unknown) 'String) (refusal 'unsupported))
       (check-exception (subtype-expression? '(TypeValuePair) 'String 1) (refusal 'exhausted)))

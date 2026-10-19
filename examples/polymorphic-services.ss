@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-plugin-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
+(export infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -765,6 +765,17 @@
 ;; complete candidate inference may prove retired optional catalogs impossible.
 (def (infer-plugin-service tag candidates procedure (record void))
   (def input `(Object ((plugins (Map (TypeValuePair ,tag) <- UInt)) (limit Integer)) closed))
+  (infer-descriptor-service (list input) candidates
+    (list (list [] (list input) (list input `(Function (,input) (,input)))))
+    procedure record))
+
+;; Publish a callback-bearing route packet whose retired table is necessarily
+;; empty. Complete inference retains the original key/value declarations, while
+;; the shared Map rule permits a different consumer layout only from a witness.
+;; Existing qualified declarations and descriptor-service-action own publication.
+(def (infer-retired-route-service candidates procedure (record void))
+  (def handler '(Function (UInt) (Integer)))
+  (def input `(Pair ,handler (Map ,handler <- UInt)))
   (infer-descriptor-service (list input) candidates
     (list (list [] (list input) (list input `(Function (,input) (,input)))))
     procedure record))
