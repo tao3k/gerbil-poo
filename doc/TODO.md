@@ -46,6 +46,19 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 finite data source alternatives
+
+One shared source-Union judgment now includes optional, dependent and tagged
+views alongside the previous ordinary containers and flat views. Every original
+branch must meet the same complete target; sentinel and empty-carrier evidence
+reuse existing rules. Direct Union identity, root arrow/opaque targets, Sum tag
+skeletons, keyword/escape transport and distinct failure categories remain.
+The availability factory composes all these views with complete inference, prefix
+specialization, declarations and FUN/refine/evidence publication. Lean success
+extraction and existing optional/catalog laws prove actual normalized membership
+and carried-token identity, without a raw-identity assumption. This closes the
+finite-data protocol omission, not arbitrary predicate or unrestricted inference.
+
 ### P2 container source alternatives
 
 Ordered source Union candidates now cover one ordinary readable container only

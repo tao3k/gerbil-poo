@@ -369,12 +369,16 @@
     (or (eq? source 'Null)
         (and (compare-types (cadr source) (cadr target) work)
              (compare-types (caddr source) target work))))
-   ;; An ordinary readable container must accept EVERY original Union branch.
-   ;; Reuse recursive carrier/child replacement with the same work quota; no
-   ;; branch is reordered, discarded or used as a runtime fallback. Direct
-   ;; Union targets and root Function/opaque descriptors keep their own rules.
-   ((and (pair? source) (eq? (car source) 'Union) (pair? target)
-         (memq (car target) '(List Tuple Pair Map Object Record)))
+   ;; All finite data targets share one source-Union decomposition. Every
+   ;; original branch must pass that SAME target's existing carrier, sentinel,
+   ;; tag/directory and child rules under the common quota. Runtime selection,
+   ;; wrapping and failure remain ordered; direct Union, root Function and
+   ;; opaque target judgments are deliberately not widened.
+   ((and (pair? source) (eq? (car source) 'Union)
+         (or (and (flat-type? target)
+                  (not (and (pair? target) (eq? (car target) 'Union))))
+             (and (pair? target)
+                  (memq (car target) '(List Tuple Pair Map Object Record Maybe OrFalse TypeValuePair Sum)))))
     (andmap (cut compare-types <> target work) (cdr source)))
    ;; Same-kind covariance, payload lifting and cross-sentinel coverage share
    ;; one rule. Runtime optional validation still owns sentinel bypass/wrapping.
