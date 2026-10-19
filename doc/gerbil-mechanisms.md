@@ -992,3 +992,6 @@ checks use grouped Gerbil `using` contracts, whose core expansion nests the
 existing contracts. Policies still feed the shared FUN/IO refinement/evidence
 publication action. False values are preserved through validation and approval;
 unsupported trees and quota exhaustion retain their existing refusals.
+
+[Scalar coverage](scalar-coverage.md) reuses the existing ordered flat matcher,
+shared refinement action and keyword encoder for String/Symbol/Keyword publication.

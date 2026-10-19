@@ -1,8 +1,8 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
-(import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
+(import (only-in ../function-signature encode-arguments) (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
         (prefix-in ../declarative-metadata metadata.) ../method-declaration
         (prefix-in ../generalized-prototype observation.)
         (prefix-in ./contract-publication publication.)
@@ -327,13 +327,19 @@
 ;; checks both recursively, refines the normalized scalar, and binds exact
 ;; subject/descriptor/context evidence before IO. No result escapes on refusal.
 (def (catalog-service-action instance input context consume (maximum 100))
-  (def outputs (.get instance descriptor outputs))
-  (def contract (refine (.cc ObjectContract. responsibilities:
-    (.o answer: (car outputs) callback: (cadr outputs)))
+  (signature-refinement-action instance input context consume
     (lambda (subject path)
       (if (<= (.get subject answer) maximum) []
         [(.o bind-these: #f kind: 'limit path: path)]))))
-  (signature-publication-action instance input context contract consume))
+
+;; Each policy refines the same recursively checked answer/callback object.
+;; Keep descriptor construction and FUN/IO/evidence publication in one chain.
+(def (signature-refinement-action instance input context consume check)
+  (using (check :~ procedure?)
+    (def outputs (.get instance descriptor outputs))
+    (signature-publication-action instance input context
+      (refine (.cc ObjectContract. responsibilities:
+        (.o answer: (car outputs) callback: (cadr outputs))) check) consume)))
 
 ;; Policies supply the descriptor; FUN approval, generic invocation, checked
 ;; publication and exact evidence binding are one shared numeric/text workflow.
@@ -350,7 +356,11 @@
       (unless (eq? (.get context approved) #t) (error "catalog approval refused"))
       (.get instance prototype))
     (lambda (receiver) (lambda (_)
-      (defvalues (answer callback _owner) (invoke-signature-service receiver input))
+      ;; Encode semantic inputs through the existing keyword transport protocol.
+      ;; Keyword data must not become a keyword argument or an escape marker.
+      (defvalues (answer callback _owner)
+        (apply invoke-signature-service receiver
+          (encode-arguments (list input) [] (pair? (.get instance descriptor keywords)))))
       (publish (.o bind-these: #f answer: answer callback: callback))))))
 
 ;; Whole-catalog candidates can add or omit fields. Reuse the two existing
@@ -520,13 +530,10 @@
 ;; The same shared publication chain admits a nonempty String and its recursively
 ;; wrapped callback; refinement refusal runs no consumer and publishes no evidence.
 (def (text-service-action instance label context consume)
-  (def outputs (.get instance descriptor outputs))
-  (def contract (refine (.cc ObjectContract. responsibilities:
-    (.o answer: (car outputs) callback: (cadr outputs)))
+  (signature-refinement-action instance label context consume
     (lambda (subject path)
       (if (positive? (string-length (.get subject answer))) []
         [(.o bind-these: #f kind: 'empty-text path: path)]))))
-  (signature-publication-action instance label context contract consume))
 
 ;; Reuse the original rich signature and parameter template, strengthening only
 ;; Super's declared bound. Inclusive endpoints are literal Type metadata.
@@ -596,10 +603,31 @@
 ;; before the shared FUN/IO consumer and binds evidence to the exact context.
 (def (boolean-service-action instance input context consume (required #t))
   (using (required :~ boolean?)
-    (def outputs (.get instance descriptor outputs))
-    (def contract (refine (.cc ObjectContract. responsibilities:
-      (.o answer: (car outputs) callback: (cadr outputs)))
+    (signature-refinement-action instance input context consume
       (lambda (subject path)
         (if (eq? (.get subject answer) required) []
-          [(.o bind-these: #f kind: 'boolean-policy path: path)]))))
-    (signature-publication-action instance input context contract consume)))
+          [(.o bind-these: #f kind: 'boolean-policy path: path)])))))
+
+;; Infinite scalar domains need their complete intrinsic family in the ordered
+;; flat bound. Earlier finite/token alternatives retain their original order;
+;; neither family conversion nor a universal fallback is inferred.
+(def (scalar-union-service-type family)
+  (using (family :~ (cut memq <> '(String Symbol Keyword)))
+    (prototype-type (.get SignatureServiceType prototype) (.get SignatureServiceType variables)
+      (.get SignatureServiceType expression)
+      (append (.get SignatureServiceType bounds)
+        `((Super (Union (Enum report ready: #!key #!rest) (Union ,family Bool))))))))
+;; The rich host signature gives a missing bonus the already checked input's
+;; value. Supplied optional/keyword/rest arguments pass the existing wrapper;
+;; identity results and callbacks reuse the same declaration factory.
+(def (infer-scalar-service family prefix candidates observations (record void))
+  (infer-signature-calls (scalar-union-service-type family) prefix candidates observations
+    (lambda (value (bonus value) scale: (scale 1) . rest)
+      (values value identity)) record))
+;; Policy equality refines the shared object contract before its IO consumer.
+;; The common publication action owns raw keyword encoding and context evidence.
+(def (scalar-service-action instance input context consume (required input))
+  (signature-refinement-action instance input context consume
+    (lambda (subject path)
+      (if (equal? (.get subject answer) required) []
+        [(.o bind-these: #f kind: 'scalar-policy path: path)]))))

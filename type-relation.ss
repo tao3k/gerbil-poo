@@ -123,19 +123,21 @@
               (work)
               (or (> value (cdr bounds))
                   (and (hash-key? index value) (loop (1+ value)))))))))))
-;; Flat Types validate without replacing values. Raw-origin admission alone
-;; may compare their alternatives; the public Union relation stays invariant.
+;; Intrinsic flat validators preserve values. Source admission stays separate
+;; from token transport; public Union-to-Union descriptor identity is invariant.
 (def (flat-type? term)
   (if (pair? term)
     (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
 ;; Numeric families share their symbolic interval view; Bool has exactly two
-;; intrinsic values. Other finite literals still require keyword stability.
+;; intrinsic values. String/Symbol/Keyword require a same-family flat branch;
+;; finite literals cannot cover their infinite domains. Other finite literal
+;; sources still require keyword stability.
 ;; No descriptor kind is collapsed.
 ;; Keyword/escape transport, ordered Union identity and wrapper admission retain
 ;; their existing judgments; coverage does not execute user recognizers.
 (def (flat-union-source? source work)
-  (or (eq? source 'Bool) (and (numeric-bounds source) #t)
+  (or (and (memq source '(Bool String Symbol Keyword)) #t) (and (numeric-bounds source) #t)
       (and (pair? source) (memq (car source) '(Exactly Enum))
            (keyword-stable-type? source work))))
 ;; Project numeric coverage without altering the ordered descriptor tree.
@@ -314,8 +316,8 @@
 
 ;; Only the raw transport judgment uses extensional flat-origin inclusion:
 ;; identity validators cannot alter earlier branch wrapping or normalization.
-;; Public token origins keep this boundary; only keyword-stable finite sources
-;; gain joint flat coverage. Union-to-Union syntax still remains invariant.
+;; Literal token origins keep their public guard. Scalar family coverage is
+;; value inclusion, not permission to erase wire origins or change Union order.
 (def (raw-origin-subtype? source target work)
   (if (and (flat-type? source) (flat-type? target))
     (flat-subtype? source target work) (compare-types source target work)))
