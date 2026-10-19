@@ -5,7 +5,7 @@
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt IntegerRange)
-        (only-in ./type List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Exactly Enum.))
+        (only-in ./type first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -106,6 +106,23 @@
     (or (empty-range? left)
       (and (or (not (car right)) (and (car left) (<= (car right) (car left))))
            (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))
+;; A finite literal target covers a range only when every integer is present.
+;; Reject unbounded/oversized intervals before reusing Enum's first-index table;
+;; duplicate and noninteger literals cannot fill holes. Charge preparation and
+;; every visited integer to the existing shared quota, never to endpoint size.
+(def (range-literals-subtype? source values work)
+  (def bounds (numeric-bounds source))
+  (and bounds
+    (or (empty-range? bounds)
+      (and (car bounds) (cdr bounds)
+        (<= (1+ (- (cdr bounds) (car bounds))) (length values))
+        (begin
+          (for-each (lambda (_) (work)) values)
+          (let (index (first-index-hash<-vector (list->vector values)))
+            (let loop ((value (car bounds)))
+              (work)
+              (or (> value (cdr bounds))
+                  (and (hash-key? index value) (loop (1+ value)))))))))))
 ;; Flat Types validate without replacing values. Raw-origin admission alone
 ;; may compare their alternatives; the public Union relation stays invariant.
 (def (flat-type? term)
@@ -136,6 +153,8 @@
          (andmap (cut flat-subtype? <> target work) (cdr source)))
         ((and (pair? source) (memq (car source) '(Exactly Enum)))
          (andmap (cut literal-in-type? <> target work) (cdr source)))
+        ((and (pair? target) (memq (car target) '(Exactly Enum)))
+         (range-literals-subtype? source (cdr target) work))
         ((and (pair? target) (eq? (car target) 'Union))
          (ormap (cut flat-subtype? source <> work) (cdr target)))
         (else (numeric-subtype? source target))))

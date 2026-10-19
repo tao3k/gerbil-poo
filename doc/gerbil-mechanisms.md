@@ -939,3 +939,14 @@ precision integers and unbounded endpoints, unlike core contract's fixnum range
 predicate, so compilation uses that descriptor directly. Existing rich method
 fragments and the catalog FUN/refine/evidence action complete publication; no
 new dispatcher, namespace or compatibility chain is introduced.
+
+Range-to-Enum inclusion reuses type.ss first-index-hash<-vector, the exact
+index constructor used by Enum's .value-indices@ and .element? protocol. It uses
+Gerbil runtime/hash.ss make-hash-table (equal? default) and hash-ensure-ref,
+preserving first positions. The existing type-work quota is charged before the
+index is prepared, and only exact integers probe it. This cannot mutate or
+normalize the caller's Enum descriptor. The flat inclusion entry point supplies all container, Function,
+inference, specialization and declaration consumers. FUN/refine/bind-evidence and
+the existing service builder are unchanged; no alternate dispatcher or namespace
+is introduced. The runtime still constructs the original Enum/Exactly/IntegerRange
+Types, including their wrapper and failure protocols.

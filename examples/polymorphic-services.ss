@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -532,10 +532,17 @@
 ;; Original fragments own qualifiers, negative checks and the generic cache.
 ;; The host owns defaults; every supplied input and both user results pass the
 ;; existing Function wrapper before the shared numeric publication policy.
-(def (infer-range-service prefix candidates observations (record void))
+(def (infer-range-service prefix candidates observations (record void) schema: (schema RangeServiceType))
   (using (record :~ procedure?)
-    (infer-declared-calls (specialize-prototype-type RangeServiceType prefix) candidates observations
+    (infer-declared-calls (specialize-prototype-type schema prefix) candidates observations
       (cut signature-service-declarations <>
         (lambda (value (bonus 0) scale: (scale 1) . rest)
           (def clamp (lambda (value) (max 0 (min 10 value))))
           (values (clamp (* scale (+ value bonus (apply + rest)))) clamp)) record))))
+
+;; The same rich service can require a finite output/argument alphabet without
+;; replacing the range descriptor selected by inference or its wrapper protocol.
+(def EnumServiceType
+  (prototype-type (.get SignatureServiceType prototype) (.get SignatureServiceType variables)
+    (.get SignatureServiceType expression)
+    (append (.get SignatureServiceType bounds) '((Super (Enum 10 0 9 1 8 2 7 3 6 4 5))))))
