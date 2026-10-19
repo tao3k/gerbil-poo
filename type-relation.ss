@@ -1,11 +1,11 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
+(export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt)
-        (only-in ./type List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot Keyword Exactly Enum.))
+        (only-in ./type List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -95,20 +95,17 @@
 (def (flat-type? term)
   (if (pair? term)
     (case (car term) ((Exactly Enum) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
-    (and (memq term '(Any Never Bool Integer UInt Keyword)) #t)))
+    (and (scalar-recognizer term) #t)))
 ;; Decide singleton inclusion without executing a user predicate or constructor.
 (def (literal-in-type? value term work)
   (work)
-  (case term
-    ((Any) #t) ((Never) #f) ((Bool) (boolean? value))
-    ((Integer) (exact-integer? value)) ((UInt) (and (exact-integer? value) (>= value 0)))
-    ((Keyword) (keyword? value))
-    (else (and (pair? term)
-      (case (car term)
-        ((Exactly) (equal? value (cadr term)))
-        ((Enum) (and (member value (cdr term)) #t))
-        ((Union) (ormap (cut literal-in-type? value <> work) (cdr term)))
-        (else #f))))))
+  (cond ((scalar-recognizer term) => (lambda (recognize) (recognize value)))
+        (else (and (pair? term)
+          (case (car term)
+            ((Exactly) (equal? value (cadr term)))
+            ((Enum) (and (member value (cdr term)) #t))
+            ((Union) (ormap (cut literal-in-type? value <> work) (cdr term)))
+            (else #f))))))
 ;; Inclusion distributes only over the proven identity-preserving flat fragment.
 ;; An explicit Any source still cannot replace a narrower field or signature.
 (def (flat-subtype? source target work)
@@ -213,16 +210,15 @@
 ;; Mu has already undergone the existing finite normalization/admission guard.
 (def (keyword-stable-type? term work)
   (work)
-  (case term
-    ((Any) #f)
-    ((Never Bool Integer UInt) #t)
-    ((Keyword) #f)
-    (else (case (car term)
-      ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
-      ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
-      ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
-      ((List Tuple Pair Map Sum Record Object Function CaseFunction) #t)
-      (else #f)))))
+  (cond ((scalar-recognizer term) =>
+         (lambda (recognize)
+           (not (or (recognize mode:) (recognize #!key) (recognize #!rest)))))
+        (else (case (car term)
+          ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
+          ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
+          ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
+          ((List Tuple Pair Map Sum Record Object Function CaseFunction) #t)
+          (else #f)))))
 
 ;; Only the raw transport judgment uses extensional flat-origin inclusion:
 ;; identity validators cannot alter earlier branch wrapping or normalization.
@@ -465,7 +461,7 @@
   (let build ((term (normalize-type expression work)))
     (work)
     (case term
-      ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword)
+      ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
       (else
        (case (car term)
          ;; Reuse Class and its effective Slot protocol, including recursive

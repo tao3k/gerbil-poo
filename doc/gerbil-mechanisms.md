@@ -915,3 +915,15 @@ parameter and declaration drivers. `using` admits the example's observer callbac
 with Gerbil's procedure contract. No parser, runtime wrapper, effect abstraction
 or namespace is duplicated. Record Class data and Object method catalogs retain
 their existing distinction; ordinary Function data is not a typed method group.
+
+
+### Scalar protocol and service publication
+
+The finite scalar table reuses Gerbil `agetq`, `boolean?`, `exact-integer?`,
+`keyword?`, `string?` and `symbol?`; the POO-specific UInt bound stays explicit.
+String/Symbol descriptors and conversion stay in type.ss. The finite checker
+does not execute arbitrary descriptor recognizers or infer that a conversion
+method is a subtype proof. Gerbil's contract/using expansion admits observer
+procedures, and one existing FUN/checked-action/evidence publication chain now
+serves both numeric and text policies. Runtime callbacks and wrappers are reused
+as a whole; there is no new contract namespace or compatibility dispatch.

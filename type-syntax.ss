@@ -1,13 +1,23 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
-(export type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
+(export scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
+;; Only built-in scalar recognizers enter finite derivation. This registry is
+;; private; exported lookup never invokes a mutable POO descriptor or user Type.
+(def scalar-recognizers
+  (list (cons 'Any true) (cons 'Never false) (cons 'Bool boolean?)
+        (cons 'Integer exact-integer?) (cons 'UInt (lambda (value) (and (exact-integer? value) (>= value 0))))
+        (cons 'Keyword keyword?) (cons 'String string?) (cons 'Symbol symbol?)))
+;; Gerbil's presence-preserving association lookup supplies the known predicate;
+;; unknown scalar names remain false and cannot manufacture a universal Type.
+(def (scalar-recognizer name) (agetq name scalar-recognizers))
 ;; One constructor vocabulary owns prototype/Mu binder admission. A constructor
 ;; cannot become a free Type variable merely because a caller uses another phase.
 (def (type-constructor? name)
-  (and (memq name '(Any Never Bool Integer UInt Keyword Exactly Enum List Maybe OrFalse
-                   Tuple Pair Map Sum Union Record Function CaseFunction Object Row Mu)) #t))
+  (or (and (scalar-recognizer name) #t)
+      (and (memq name '(Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
+                       Function CaseFunction Object Row Mu)) #t)))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -37,7 +47,7 @@
 ;; Only immutable scalar literals enter the decidable Exactly/Enum algebra.
 ;; Protocol escapes stay literal metadata, never Type variables or recognizers.
 (def (literal-type-value? value)
-  (or (boolean? value) (exact-integer? value) (keyword? value)
+  (or (boolean? value) (exact-integer? value) (keyword? value) (symbol? value)
       (eq? value #!key) (eq? value #!rest)))
 
 ;; Read the existing Function constructor options as literal metadata. Omitted
@@ -149,7 +159,7 @@
   (let check ((value term) (variables variables))
     (work)
     (cond
-     (((one-of Any Never Bool Integer UInt Keyword) value) value)
+     ((scalar-recognizer value) value)
      ((memq value variables) value)
      ((and (list? value) (pair? value))
       (case (car value)
