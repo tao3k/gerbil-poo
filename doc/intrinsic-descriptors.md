@@ -80,7 +80,7 @@ Projection/recognizer correspondence, optional wrapping, host calling convention
 compiler behavior, serialization, mutation and cache implementation remain explicit
 runtime premises and regression obligations. Arbitrary width expressions, host
 predicate implication, implicit Class/Schema callback discovery, dependent
-TypeValuePair catalogs, general Boolean algebra and unrestricted recursion remain
+parameter-dependent TypeValuePair catalogs, general Boolean algebra and unrestricted recursion remain
 open or outside the current decidable boundary. Full resource limits and complete
 local/exact-head CI checks remain enabled; no Lean checkout is used by Scheme.
 
@@ -88,7 +88,7 @@ local/exact-head CI checks remain enabled; no Lean checkout is used by Scheme.
 
 `(TypeValuePair UInt Bool String)` restricts the existing dependent carrier to
 those exact shared descriptor objects. The payload is still validated through
-its carried Type. The finite grammar admits distinct literal intrinsic names,
+its carried Type. The finite grammar admits distinct literal intrinsic names or captured directory tokens,
 excluding Any/Never, and an empty catalog. It does not admit parameter-dependent
 catalog entries, width expressions, predicate callbacks or arbitrary descriptor
 objects. A whole catalog expression can still be a prototype type argument.
@@ -141,3 +141,76 @@ not a proof of the Scheme parser, Type registry, compiler or unrestricted depend
 type inference. The examples stay in top-level `Examples/OptionalContracts.lean`.
 This explicitly advances the article's type-protocol future work; its Racket
 reference does not already implement this finite inference extension.
+
+## Dynamic Class and external Schema directories
+
+`capture-type-catalog provider names sources: roots` resolves at most 64 distinct
+symbol names through ordinary POO getters, once, into private snapshot-local Type
+tokens. Use Gerbil's `agetq` to select a token. Every selected value must satisfy
+the existing Type protocol. No Schema namespace, provider language or global Type
+registry is introduced: an external Schema is its existing well-formed Type.
+Aliases of the same descriptor within one capture share a token; independent
+captures remain separate scopes even when a name, Type object or sexp is equal.
+Gerbil opaque equality and standard identity tables enforce that boundary.
+
+Tokens can occur as complete Type arguments or nested TypeValuePair entries.
+Existing containers, Function wrapping, prefix specialization, finite-candidate
+inference and unified qualified declarations compile them through the actual
+captured descriptor. Direct Type use receives a guarded delegation, retaining
+custom diagnostics, recursive normalization and original child exceptions.
+TypeValuePair retains the *actual* carried Type, rather than a proxy identity.
+Catalog narrowing never retags values. Replacement is exact token identity;
+no structural Class ancestry or equal-looking Schema metadata grants widening.
+Opaque keyword-mode conversion is conservatively refused. Existing intrinsic
+judgments, invariant Map keys and ordered Union behavior stay unchanged.
+
+Standard Class capture reads both declared and effective Slot inventories and
+follows their declared child Types within a 64-descriptor bound. This includes
+original Slot metadata even when effective composition copies specifications.
+Other Schema/custom-Type dependencies must be declared as explicit source roots
+or present in registered observed reads; no arbitrary callback dependency or
+predicate implication is discovered. Cached computed selectors must register
+external dependencies with the existing `depend-on-object!` discipline. Merely
+passing roots does not repair an already stale, unregistered provider cache.
+Callbacks must terminate; metadata work counters do not meter arbitrary host code.
+
+The existing Slot observation module now owns `reobserve-slot-reads!`: the same
+checked replay walk exposes its complete actual dependency closure through the
+ordinary cache-hit delivery path, then rechecks it. Thus nested getter reads,
+unselected catalog entries and Type-admission reads reach enclosing collectors.
+Metadata preparation and cold getters do not rerun during admission. Traversal
+uses the existing depth-first replay order; this is not an assertion that an
+effectful observer sees the same trace as cold computation. Edits from an observer
+refuse after delivery. No successful approval is memoized across calls.
+
+Malformed capture arguments, unsupported metadata graphs larger than 64 Types,
+Type admission failures, missing getters and exhausted shared work remain distinct
+failures. Capture resolves/adopts the complete directory before returning usable
+tokens. Supported source/ancestor/Slot or declared-root changes raise the existing
+stale-slot error on old tokens, even before callback work. Re-capture and
+re-specialization are required; new tokens cannot silently replace old ones.
+A successful validator followed by source drift refuses its result. A validator
+that raises keeps its original cause; its effects are not rolled back. A fresh
+snapshot whose Schema policy rejects data returns its original TypeError.
+
+`infer-schema-service` composes this capture with the existing rich declaration
+builder, method combination and descriptor-service FUN/refine/bind-evidence action.
+Regressions cover computed Class selection and aliases, caller/source revisions,
+original Slot edits, nested Function fields, external Schema policy changes,
+old-call refusal before method effects, incomplete capture, budget refusal,
+custom Schema errors, complete-closure observation and fresh retry/publication.
+Duplicate aliases in this example are coalesced before constructing its input
+catalog; user Union trees and explicit catalog declaration order are not rewritten.
+
+Lean `OptionalValidation` models snapshot-local identity, complete finite
+resolution followed by admission, and guarded calls under exact before/after
+source stamps. `catalogIdentity_sound` / `catalogIdentity_scope` prove nominal
+replacement and scope separation; `captureCatalog_sound` / `captureCatalog_error`
+exclude partial successful materialization; the catalogCall laws preserve exact
+normalized artifacts and original errors or refuse old/changed stamps. A stamp
+must actually represent the complete declared source set. Host identity, correct
+read recording/replay, registration, hidden dependencies, callback termination,
+parser correctness and concurrent mutation are explicit implementation premises.
+These proofs do not infer arbitrary Class/Schema structural subtyping or extend
+the original Racket reference into a proved dependent-type compiler. This is the
+article's type-protocol future work, now closed within the stated finite scope.

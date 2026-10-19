@@ -1,8 +1,9 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
-(import (only-in ../function-signature encode-arguments) (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
+(import (only-in :std/list/list delete-duplicates/hash)
+        (only-in ../function-signature encode-arguments) (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
         (prefix-in ../declarative-metadata metadata.) ../method-declaration
         (prefix-in ../generalized-prototype observation.)
         (prefix-in ./contract-publication publication.)
@@ -675,3 +676,19 @@
 (def (infer-type-value-service candidates observations procedure (record void))
   (infer-signature-calls DescriptorServiceType '((TypeValuePair UInt Bool String))
     candidates observations procedure record))
+
+;; Capture dynamic Class/Schema selection once, then feed exact snapshot tokens
+;; into the existing qualified declaration and FUN/refine/evidence publication.
+;; The producer converts typed payloads explicitly; inclusion never changes tags.
+(def (infer-schema-service provider names selected procedure (record void) sources: (sources []))
+  (unless (and (list? names) (symbol? selected) (memq selected names))
+    (error "selected Schema must name a finite catalog entry"))
+  (def directory (capture-type-catalog provider names sources: sources))
+  (def types (delete-duplicates/hash (map cdr directory) table: (make-hash-table-eq) from-end?: #t))
+  (def input (cons 'TypeValuePair types))
+  (def output (list 'TypeValuePair (agetq selected directory)))
+  (def observations (list (list [] (list input) (list output `(Function (,output) (,input))))))
+  (.cc (infer-descriptor-service (list input)
+         (map (lambda (type) (list 'TypeValuePair type)) types)
+         observations procedure record)
+    catalog: directory))

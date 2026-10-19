@@ -1,8 +1,10 @@
 ;;; Existing Maybe/OrFalse sentinels and dependent TypeValuePair validation.
-(export optional-shape validate-optional type-value-shape validate-type-value type-value-catalog)
-(import (only-in ./object .o .cc .ref)
+(export optional-shape validate-optional type-value-shape validate-type-value type-value-catalog
+        capture-type-values catalog-type? catalog-current! catalog-descriptor catalog-contract)
+(import (only-in ./object .o .cc .ref .get .slot? .all-slots object?)
+        (only-in :std/list/list delete-duplicates/hash map-in-order)
         ./slot-observation ./value-diagnostics
-        (only-in ./mop Type element? validate raise-type-error)
+        (only-in ./mop Type Class element? validate raise-type-error)
         (only-in ./type-validation validate-container))
 
 ;; Absent values bypass even child descriptor lookup. Present values keep the
@@ -47,7 +49,8 @@
 ;; actual descriptor reads through the existing observation protocol: edits to
 ;; inherited sources also make replay refuse. Catalog tags use eq? identities;
 ;; an unlisted Type cannot run a payload callback by forging public metadata.
-(def (type-value-catalog base types syntax)
+(def (type-value-catalog base types syntax (guard void))
+  (guard)
   (unless (and (list? types) (<= (length types) 64)) (error "invalid finite Type catalog"))
   ;; Capture membership before Type admission can run a caller-defined getter.
   (def captured (map identity types))
@@ -62,9 +65,11 @@
   ;; Replay refuses old sources before getters; final replay also rejects edits
   ;; made by an enclosing observer. This never caches a successful approval.
   (def (current!)
+    (guard)
     (replay-slot-reads! reads void)
     (read-catalog)
-    (replay-slot-reads! reads void))
+    (replay-slot-reads! reads void)
+    (guard))
   ;; Retain malformed carrier/invalid Type diagnostics before catalog membership;
   ;; the ordinary dependent checker alone owns selected payload traversal.
   (def (shape value location check-field)
@@ -84,3 +89,93 @@
     .diagnose-shape: (lambda (value location (check-field diagnose-structure))
                        (shape value location check-field))))
   descriptor)
+
+;; Private tokens are immutable, snapshot-local Type identities, not names or
+;; public sexp certificates. Aliases within one capture share a token.
+(defstruct catalog-type (descriptor name current) final: #t equal: #f)
+;; Recheck the complete captured source set, including unused directory entries.
+(def (catalog-current! token (work void)) ((catalog-type-current token) work))
+;; Resolve only after live admission; callers cannot use a stale raw descriptor.
+(def (catalog-descriptor token (work void))
+  (catalog-current! token work)
+  (catalog-type-descriptor token))
+
+;; Materialize an explicit finite directory once. Ordinary object getters own
+;; dynamic Class/Schema selection. Extra roots declare otherwise hidden external
+;; metadata; no predicate, layout or arbitrary callback implication is inferred.
+(def (capture-type-values provider names sources work refuse)
+  (unless (and (object? provider) (list? names) (<= (length names) 64)
+               (andmap symbol? names) (= (length names) (length (delete-duplicates/hash names)))
+               (list? sources) (<= (length sources) 64) (andmap object? sources))
+    (refuse 'malformed "invalid finite Type directory"))
+  (def keys (map identity names))
+  (def roots (map identity sources))
+  (def seen (make-hash-table-eq))
+  ;; The existing observation frame records actual getter results and their
+  ;; dependencies. Metadata preparation runs only during this capture.
+  (def (read! thunk) (work) (thunk))
+  ;; Class fields reuse effective Slot metadata. Follow finite declared child
+  ;; Types once, preserving custom validators instead of translating their sexp.
+  (def (visit descriptor)
+    (work)
+    (unless (hash-key? seen descriptor)
+      (when (>= (hash-length seen) 64) (refuse 'unsupported "finite Type directory graph exceeds 64 descriptors"))
+      (validate Type descriptor)
+      (hash-put! seen descriptor #t)
+      (read! (lambda () (.all-slots descriptor)))
+      (read! (lambda () (.ref descriptor '.element?)))
+      (read! (lambda () (.ref descriptor '.validate)))
+      (when (and (.slot? descriptor '.type)
+                 (eq? (read! (lambda () (.ref descriptor '.type))) Class))
+        ;; Capture declared Slots too: effective composition may copy their
+        ;; specifications, so a copied effective Slot alone is not their source.
+        (for-each (lambda (key)
+          (let* ((slots (read! (lambda () (.ref descriptor key))))
+                 (fields (read! (lambda () (.all-slots slots)))))
+            (for-each (lambda (name)
+              (def slot (read! (lambda () (.ref slots name))))
+              (read! (lambda () (.all-slots slot)))
+              (when (.slot? slot 'type) (visit (read! (lambda () (.ref slot 'type)))))) fields)))
+          '(slots effective-slots)))))
+  (defvalues (entries reads) (%call-with-recorded-slot-reads
+    (lambda ()
+      (for-each (lambda (source) (read! (lambda () (.all-slots source)))) roots)
+      (map-in-order (lambda (name)
+        (def descriptor (read! (lambda () (.ref provider name))))
+        (visit descriptor)
+        (cons name descriptor)) keys))))
+  (def captured-reads (delete-duplicates/hash reads table: (make-hash-table-eq) from-end?: #t))
+  ;; Deliver the same current read records through the ordinary cache-hit path.
+  ;; This includes reads made by Type admission, not only explicit metadata
+  ;; getters. Both guards prevent observer edits from becoming approvals.
+  (def (current! tick)
+    (reobserve-slot-reads! captured-reads tick))
+  (current! work)
+  (def tokens (make-hash-table-eq))
+  (map (lambda (entry)
+    (def descriptor (cdr entry))
+    (cons (car entry) (or (hash-get tokens descriptor)
+      (let (token (make-catalog-type descriptor (car entry) current!))
+        (hash-put! tokens descriptor token) token)))) entries))
+
+;; Wrap the actual Type methods with snapshot admission. Recursive normalization,
+;; custom Schema diagnostics and child exceptions keep their original semantics.
+;; Only successful callbacks receive a final guard; errors are never replaced.
+(def (catalog-contract token work)
+  (def source (catalog-descriptor token work))
+  ;; One higher-order gate serves recognition, normalization and both diagnostic
+  ;; paths, retaining ordinary calls inside outer Slot observation frames.
+  (def (guard action)
+    (catalog-current! token)
+    (def result (action))
+    (catalog-current! token)
+    result)
+  (.cc source sexp: (catalog-type-name token)
+    .element?: (lambda (value) (guard (lambda () (element? source value))))
+    .validate: (lambda (value) (guard (lambda () (validate source value))))
+    .diagnose: (lambda (value location) (guard (lambda () (diagnose-value source value location))))
+    .diagnose-shape: (lambda (value location (check-field diagnose-structure))
+      (guard (lambda ()
+        (if (.slot? source '.diagnose-shape)
+          ((.ref source '.diagnose-shape) value location check-field)
+          (check-field source value location)))))))

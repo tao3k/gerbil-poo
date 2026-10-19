@@ -1,7 +1,8 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export descriptor-alias descriptor-width fixed-integer-bounds range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
-(import :std/error (only-in :std/number/misc uint-of-length? sint-of-length?) (only-in :std/list/list delete-duplicates/hash map-in-order)
+(import :std/error (only-in ./optional-validation catalog-type? catalog-current!)
+        (only-in :std/number/misc uint-of-length? sint-of-length?) (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
 ;; Only built-in scalar recognizers enter finite derivation. This registry is
 ;; private; exported lookup never invokes a mutable POO descriptor or user Type.
@@ -210,6 +211,7 @@
   (let check ((value term) (variables variables))
     (work)
     (cond
+     ((catalog-type? value) (catalog-current! value work) value)
      ((scalar-recognizer value)
       (let (alias (descriptor-alias value)) (when alias (descriptor-width alias work))) value)
      ((memq value variables) value)
@@ -226,7 +228,8 @@
         ;; dynamic descriptor. Keep catalog order and reject duplicate names.
         ((TypeValuePair)
          (unless (and (andmap (lambda (name)
-                         (and (scalar-recognizer name) (not (memq name '(Any Never))))) (cdr value))
+                         (or (and (catalog-type? name) (catalog-current! name work) #t)
+                             (and (scalar-recognizer name) (not (memq name '(Any Never)))))) (cdr value))
                       (= (length (cdr value)) (length (delete-duplicates/hash (cdr value)))))
            (refuse-type 'unsupported "TypeValuePair needs distinct intrinsic descriptor names" value)))
         ((List Maybe OrFalse)

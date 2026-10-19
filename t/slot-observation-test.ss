@@ -10,6 +10,27 @@
   (and (Error? cause) (equal? (Error-message cause) "stale slot dependency")))
 (def slot-observation-test
   (test-suite "MOP slot read records"
+    (test-case "reobservation exposes nested cached dependencies without recomputing"
+      (def source (.o amount: 7))
+      (def calls 0)
+      (def owner (.o total: (begin (set! calls (1+ calls)) (.get source amount))))
+      (defvalues (_ records) (snapshot (cut .get owner total)))
+      (def observed [])
+      (call-with-slot-read-observer
+        (lambda (read) (set! observed (cons (slot-read-receiver read) observed)))
+        (lambda () (reobserve-slot-reads! records)))
+      (check-equal? calls 1)
+      (check (and (memq owner observed) (memq source observed) #t) => #t)
+      (.put! source 'amount 8)
+      (check-exception (reobserve-slot-reads! records) stale?)
+      (check-equal? calls 1))
+    (test-case "reobservation refuses edits made by an enclosing observer"
+      (def source (.o amount: 7))
+      (defvalues (_ records) (snapshot (cut .get source amount)))
+      (check-exception
+        (call-with-slot-read-observer
+          (lambda (_) (.put! source 'amount 8))
+          (lambda () (reobserve-slot-reads! records))) stale?))
     (test-case "cold capture and every warm value route replay dependencies"
       (def calls 0)
       (def source (.o port: 5432))

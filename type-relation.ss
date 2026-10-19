@@ -1,16 +1,22 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
+(export capture-type-catalog function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
-        (only-in ./optional-validation type-value-catalog)
+        (only-in ./optional-validation type-value-catalog capture-type-values
+                 catalog-type? catalog-current! catalog-descriptor catalog-contract)
         (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
         (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
 (def Never (.cc Type. sexp: 'Never .element?: (lambda (_) #f)))
+
+;; Snapshot explicitly named computed Class/Schema Types through ordinary POO
+;; getters. Tokens remain local to this capture; no global registry is installed.
+(def (capture-type-catalog provider names (budget 8192) sources: (sources []))
+  (capture-type-values provider names sources (type-work budget) refuse-type))
 
 ;; Expand only explicit guarded Mu and splice explicit Object row substitutions.
 ;; Disjointness/kind failures invalidate an assignment; exhaustion always escapes.
@@ -373,7 +379,8 @@
 ;; Mu has already undergone the existing finite normalization/admission guard.
 (def (keyword-stable-type? term work)
   (work)
-  (cond ((scalar-recognizer term) =>
+  (cond ((catalog-type? term) #f)
+        ((scalar-recognizer term) =>
          (lambda (recognize)
            (not (or (recognize mode:) (recognize #!key) (recognize #!rest)))))
         (else (case (car term)
@@ -626,7 +633,7 @@
 (def (compile-expression expression work)
   (let build ((term (normalize-type expression work)))
     (work)
-    (case term
+    (if (catalog-type? term) (catalog-contract term work) (case term
       ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
       (else
        (case (car term)
@@ -655,7 +662,11 @@
           (let ((values (copy-type (cdr term))) (syntax (copy-type term)))
             (.cc Enum. vals: values sexp: syntax)))
          ((Pair) (Pair (build (cadr term)) (build (caddr term))))
-         ((TypeValuePair) (type-value-catalog TypeValuePair (map build (cdr term)) (copy-type term)))
+         ((TypeValuePair)
+          (let (tokens (filter catalog-type? (cdr term)))
+            (type-value-catalog TypeValuePair
+              (map (lambda (child) (if (catalog-type? child) (catalog-descriptor child work) (build child))) (cdr term))
+              (copy-type term) (lambda () (for-each catalog-current! tokens)))))
          ((Map) (Map (build (cadr term)) <- (build (cadddr term))))
          ((Sum) (apply Sum (cdr (map-sum-types term build))))
          ((Union) (apply Union (map build (cdr term))))
@@ -670,4 +681,4 @@
               (Function (map build outputs) (map build inputs)
                 optional: (map build optional)
                 keywords: (map (lambda (entry) (cons (car entry) (build (cdr entry)))) keywords)
-                required-keywords: required rest: (and rest (build rest)))))))))))
+                required-keywords: required rest: (and rest (build rest))))))))))))
