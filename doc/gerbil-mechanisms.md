@@ -982,3 +982,13 @@ the original specialization/declaration/FUN/refine/evidence workflow. Enum
 keyword/escape origins retain their dedicated transport judgment, and no custom
 recognizer is invoked by coverage. The same bounded work quota covers the full
 request and still refuses incomplete or ambiguous construction.
+
+Bool uses the intrinsic boolean? registry entry and the complete private
+`(Enum #f #t)` view to reuse Exactly/Enum membership and the existing ordered
+Union protocol. No new recognizer registry or wrapper adapter is introduced.
+The shared `infer-signature-calls` factory removes duplicated numeric/text call
+inference and typed-fragment wiring; Boolean services use it too. Host callback
+checks use grouped Gerbil `using` contracts, whose core expansion nests the
+existing contracts. Policies still feed the shared FUN/IO refinement/evidence
+publication action. False values are preserved through validation and approval;
+unsupported trees and quota exhaustion retain their existing refusals.

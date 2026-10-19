@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -126,6 +126,13 @@
 (def (infer-signature-service schema prefix candidates queries procedure (record void))
   (infer-declared (specialize-prototype-type schema prefix) candidates queries
     (cut signature-service-declarations <> procedure record)))
+;; Calls and prefix specialization use the same typed fragment builder for
+;; numeric, text and Boolean services. Gerbil using checks host callbacks before
+;; inference; no target or declaration builder executes before a unique solution.
+(def (infer-signature-calls schema prefix candidates observations procedure (record void))
+  (using ((procedure :~ procedure?) (record :~ procedure?))
+    (infer-declared-calls (specialize-prototype-type schema prefix) candidates observations
+      (cut signature-service-declarations <> procedure record))))
 ;; FUN supplies current approval; IO consumes both checked user outputs once. A
 ;; rejected call transfers neither partial outputs nor a cache successor to IO.
 (def (signature-service-action instance arguments consume)
@@ -508,10 +515,8 @@
 ;; Reuse the complete existing typed fragment builder; Gerbil owns symbol/string
 ;; primitives and using owns observer admission. Inference never runs the target.
 (def (infer-text-service prefix candidates observations (record void))
-  (using (record :~ procedure?)
-    (infer-declared-calls (specialize-prototype-type TextServiceType prefix) candidates observations
-      (cut signature-service-declarations <>
-        (lambda (label) (values (symbol->string label) symbol->string)) record))))
+  (infer-signature-calls TextServiceType prefix candidates observations
+    (lambda (label) (values (symbol->string label) symbol->string)) record))
 ;; The same shared publication chain admits a nonempty String and its recursively
 ;; wrapped callback; refinement refusal runs no consumer and publishes no evidence.
 (def (text-service-action instance label context consume)
@@ -533,12 +538,10 @@
 ;; The host owns defaults; every supplied input and both user results pass the
 ;; existing Function wrapper before the shared numeric publication policy.
 (def (infer-range-service prefix candidates observations (record void) schema: (schema RangeServiceType))
-  (using (record :~ procedure?)
-    (infer-declared-calls (specialize-prototype-type schema prefix) candidates observations
-      (cut signature-service-declarations <>
-        (lambda (value (bonus 0) scale: (scale 1) . rest)
-          (def clamp (lambda (value) (max 0 (min 10 value))))
-          (values (clamp (* scale (+ value bonus (apply + rest)))) clamp)) record))))
+  (infer-signature-calls schema prefix candidates observations
+    (lambda (value (bonus 0) scale: (scale 1) . rest)
+      (def clamp (lambda (value) (max 0 (min 10 value))))
+      (values (clamp (* scale (+ value bonus (apply + rest)))) clamp)) record))
 
 ;; The same rich service can require a finite output/argument alphabet without
 ;; replacing the range descriptor selected by inference or its wrapper protocol.
@@ -574,3 +577,29 @@
     (.get SignatureServiceType expression)
     (append (.get SignatureServiceType bounds)
       '((Super (Union (IntegerRange min: 1) (Enum 0)))))))
+
+;; Both Boolean values must be covered by the original ordered alternatives;
+;; the duplicate true branch deliberately retains observable declaration order.
+(def BooleanServiceType
+  (prototype-type (.get SignatureServiceType prototype) (.get SignatureServiceType variables)
+    (.get SignatureServiceType expression)
+    (append (.get SignatureServiceType bounds)
+      '((Super (Union (Exactly #t) (Union (Enum #f) (Exactly #t))))))))
+;; Reuse the complete call/declaration factory. The wrapper checks optional,
+;; keyword and rest inputs; higher-order aggregation preserves Boolean results
+;; and returns the existing identity callback for recursive Function wrapping.
+(def (infer-boolean-service prefix candidates observations (record void))
+  (infer-signature-calls BooleanServiceType prefix candidates observations
+    (lambda (value (bonus #f) scale: (scale 1) . rest)
+      (values (and (positive? scale) (or value bonus (ormap identity rest))) identity)) record))
+;; A policy can approve false just as precisely as true. Refinement occurs
+;; before the shared FUN/IO consumer and binds evidence to the exact context.
+(def (boolean-service-action instance input context consume (required #t))
+  (using (required :~ boolean?)
+    (def outputs (.get instance descriptor outputs))
+    (def contract (refine (.cc ObjectContract. responsibilities:
+      (.o answer: (car outputs) callback: (cadr outputs)))
+      (lambda (subject path)
+        (if (eq? (.get subject answer) required) []
+          [(.o bind-these: #f kind: 'boolean-policy path: path)]))))
+    (signature-publication-action instance input context contract consume)))

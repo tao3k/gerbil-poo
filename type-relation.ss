@@ -129,12 +129,13 @@
   (if (pair? term)
     (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
-;; Numeric families share the existing symbolic interval view; finite literal
-;; sources still require keyword stability. No descriptor kind is collapsed.
+;; Numeric families share their symbolic interval view; Bool has exactly two
+;; intrinsic values. Other finite literals still require keyword stability.
+;; No descriptor kind is collapsed.
 ;; Keyword/escape transport, ordered Union identity and wrapper admission retain
 ;; their existing judgments; coverage does not execute user recognizers.
 (def (flat-union-source? source work)
-  (or (and (numeric-bounds source) #t)
+  (or (eq? source 'Bool) (and (numeric-bounds source) #t)
       (and (pair? source) (memq (car source) '(Exactly Enum))
            (keyword-stable-type? source work))))
 ;; Project numeric coverage without altering the ordered descriptor tree.
@@ -195,6 +196,9 @@
   (work)
   (cond ((equal? source target) #t)
         ((or (eq? source 'Never) (eq? target 'Any)) #t)
+        ;; The private finite view reuses literal membership without rewriting
+        ;; the public Bool descriptor or interpreting false as missing data.
+        ((eq? source 'Bool) (flat-subtype? '(Enum #f #t) target work))
         ((and (pair? source) (eq? (car source) 'Union))
          (andmap (cut flat-subtype? <> target work) (cdr source)))
         ((and (pair? source) (memq (car source) '(Exactly Enum)))
