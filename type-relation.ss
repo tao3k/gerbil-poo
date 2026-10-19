@@ -4,7 +4,7 @@
         (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
-        (only-in ./number Integer UInt)
+        (only-in ./number Integer UInt IntegerRange)
         (only-in ./type List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
@@ -90,11 +90,27 @@
   (type-expression source [] work) (type-expression target [] work)
   (compare-types (normalize-type source work) (normalize-type target work) work))
 
+;; Numeric families reuse literal bounds, independent of mutable Type methods.
+;; A false result means nonnumeric; a pair of false bounds means all integers.
+(def (numeric-bounds term)
+  (case term ((Integer) (cons #f #f)) ((UInt) (cons 0 #f))
+    (else (and (pair? term) (eq? (car term) 'IntegerRange) (range-bounds term)))))
+;; Empty ranges are numeric bottom, not work failure or a universal fallback.
+(def (empty-range? bounds)
+  (and (car bounds) (cdr bounds) (> (car bounds) (cdr bounds))))
+;; Symbolic inclusion compares at most two exact endpoints, never enumerating
+;; inhabitants. Nonnumeric families are deliberately outside this rule.
+(def (numeric-subtype? source target)
+  (def left (numeric-bounds source)) (def right (numeric-bounds target))
+  (and left right
+    (or (empty-range? left)
+      (and (or (not (car right)) (and (car left) (<= (car right) (car left))))
+           (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))
 ;; Flat Types validate without replacing values. Raw-origin admission alone
 ;; may compare their alternatives; the public Union relation stays invariant.
 (def (flat-type? term)
   (if (pair? term)
-    (case (car term) ((Exactly Enum) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
+    (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
 ;; Decide singleton inclusion without executing a user predicate or constructor.
 (def (literal-in-type? value term work)
@@ -102,6 +118,10 @@
   (cond ((scalar-recognizer term) => (lambda (recognize) (recognize value)))
         (else (and (pair? term)
           (case (car term)
+            ((IntegerRange)
+             (let (bounds (range-bounds term))
+               (and (exact-integer? value) (or (not (car bounds)) (<= (car bounds) value))
+                    (or (not (cdr bounds)) (<= value (cdr bounds))))))
             ((Exactly) (equal? value (cadr term)))
             ((Enum) (and (member value (cdr term)) #t))
             ((Union) (ormap (cut literal-in-type? value <> work) (cdr term)))
@@ -118,7 +138,7 @@
          (andmap (cut literal-in-type? <> target work) (cdr source)))
         ((and (pair? target) (eq? (car target) 'Union))
          (ormap (cut flat-subtype? source <> work) (cdr target)))
-        (else (and (eq? source 'UInt) (eq? target 'Integer)))))
+        (else (numeric-subtype? source target))))
 
 ;; Object fields are required; Record fields carry explicit presence metadata.
 ;; Syntax admission already rejects duplicate names and unknown presence markers.
@@ -214,6 +234,7 @@
          (lambda (recognize)
            (not (or (recognize mode:) (recognize #!key) (recognize #!rest)))))
         (else (case (car term)
+          ((IntegerRange) #t)
           ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
           ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
           ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
@@ -257,6 +278,7 @@
   (or (eq? type 'Never)
       (and (pair? type)
         (case (car type) ((Enum) (null? (cdr type)))
+          ((IntegerRange) (empty-range? (range-bounds type)))
           ((Union) (andmap empty-origin? (cdr type))) (else #f)))))
 
 ;; Private graph edges retain ordered origin Types, including exact marker Types.
@@ -477,6 +499,8 @@
             (if (eq? (caddr term) 'closed)
               (.cc ObjectContract. responsibilities: fields)
               (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+         ((IntegerRange)
+          (let (bounds (range-bounds term)) (IntegerRange min: (car bounds) max: (cdr bounds))))
          ((Exactly) (Exactly (cadr term)))
          ((Enum)
           ;; Snapshot before entering lazy slots: later caller syntax mutation

@@ -1,0 +1,108 @@
+;;; Inclusive integer bounds across inference, specialization and publication.
+(export range-inference-test)
+(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types ../method-declaration
+        (prefix-in ../examples/polymorphic-services service.))
+;; Keep malformed metadata and exhausted work separate from an empty numeric set.
+(def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))
+;; The result bound is narrower than the accepted input bound, including callbacks.
+(def small '(IntegerRange min: 0 max: 10))
+;; The declared upper bound and supplied input jointly force this residual Type.
+(def large '(IntegerRange min: 0 max: 100))
+;; Existing call lowering generates both ordinary and higher-order inequalities.
+(def calls (list (list [] (list large) (list small `(Function (,small) (,large))))))
+;; No declaration may be constructed from a partial or nonunique result.
+(def (forbidden _) (error "range declaration built before complete inference"))
+;; Test native Type behavior and the complete shared declaration driver together.
+(def range-inference-test
+  (test-suite "IntegerRange finite inference and shared publication"
+    (test-case "literal option admission uses the existing constructor exactly"
+      (for-each (lambda (term)
+        (check-equal? (.get (expression-type term) sexp) small)
+        (check-equal? (canonical-type term (type-work 1000)) small))
+        (list small '(IntegerRange max: 10 min: 0)))
+      (check-equal? (canonical-type '(IntegerRange max: #f min: #f) (type-work 1000)) '(IntegerRange))
+      (check-equal? (.get (expression-type '(IntegerRange max: #f min: #f)) sexp) '(IntegerRange))
+      (for-each (lambda (term) (check-exception (expression-type term) (refusal 'malformed)))
+        '((IntegerRange min:) (IntegerRange min: 0 min: 1) (IntegerRange upper: 10)
+          (IntegerRange min: 2.0) (IntegerRange max: UInt)))
+      (check-exception (prototype-type (.o .parameters: '(IntegerRange)) '(IntegerRange) 'IntegerRange [])
+        (refusal 'malformed)))
+    (test-case "symbolic inclusion covers signed unbounded singleton and empty ranges"
+      (check (subtype-expression? small large) => #t)
+      (check (subtype-expression? large small) => #f)
+      (check (subtype-expression? small 'UInt) => #t)
+      (check (subtype-expression? '(IntegerRange min: -1 max: 1) 'UInt) => #f)
+      (check (subtype-expression? 'UInt '(IntegerRange min: -1)) => #t)
+      (check (subtype-expression? 'Integer '(IntegerRange)) => #t)
+      (check (subtype-expression? 'Integer '(IntegerRange max: 100)) => #f)
+      (check (subtype-expression? '(IntegerRange min: 3 max: 1) small) => #t)
+      (check (subtype-expression? small '(IntegerRange min: 3 max: 1)) => #f)
+      (check (subtype-expression? '(IntegerRange min: 3 max: 1) 'String) => #f)
+      (check (subtype-expression? '(Exactly 10) small) => #t)
+      (check (subtype-expression? '(Enum -1 10) small) => #f)
+      (check (subtype-expression? '(Exactly #f) '(IntegerRange)) => #f))
+    (test-case "endpoint decision agrees with independently chosen native witnesses"
+      (def ranges '((IntegerRange) (IntegerRange min: 0) (IntegerRange max: 0)
+        (IntegerRange min: -1 max: 1) (IntegerRange min: 0 max: 0) (IntegerRange min: 1 max: -1)))
+      (for-each (lambda (left)
+        (for-each (lambda (right)
+          (def actual (subtype-expression? left right))
+          ;; -2..2 includes a counterexample for every failed pair in this fixture.
+          ;; The universal inclusion law is proved independently in Lean.
+          (check-equal? actual (andmap (lambda (value)
+            (or (not (element? (expression-type left) value)) (element? (expression-type right) value)))
+            '(-2 -1 0 1 2)))) ranges)) ranges)
+      (def huge (expt 2 2048))
+      (check (subtype-expression? (list 'IntegerRange min: (- huge) max: huge) 'Integer 1000) => #t))
+    (test-case "bounds are metadata; descriptor kinds and invariant keys remain distinct"
+      (check-equal? (substitute-type small '((min: . Bool) (max: . Symbol)) (type-work 1000)) small)
+      (check-equal? (normalize-type '(Pair (IntegerRange max: 10 min: 0) (IntegerRange min: #f)) (type-work 1000))
+        `(Pair ,small (IntegerRange)))
+      (check (subtype-expression? `(Map UInt <- ,small) `(Map Integer <- ,large)) => #f)
+      (check (subtype-expression? '(Map UInt <- UInt) '(Map Integer <- (IntegerRange min: 0))) => #f)
+      (check (subtype-expression? `(Union ,small Bool) `(Union ,large Bool)) => #f)
+      (def schema (prototype-type (.o .parameters: '(T)) '(T) 'T []))
+      (check-equal? (.get (infer-prototype schema (list small '(IntegerRange max: 10 min: 0)) []) status) 'unique)
+      (check-equal? (.get (infer-prototype schema '(UInt (IntegerRange min: 0)) []) status) 'ambiguous))
+    (test-case "keyword transport and recursive wrappers retain numeric domains"
+      (check (function-covers? `(Function (,small) (,large) keywords: ((scale: . UInt)))
+                              `(Function (,large) (,small))) => #t)
+      (def callback (validate (expression-type `(Function (,small) (,large))) (lambda (value) (min 10 value))))
+      (check-equal? (callback 0) 0) (check-equal? (callback 100) 10)
+      (check-exception (callback -1) TypeError?) (check-exception (callback 101) TypeError?)
+      (check-exception (callback #f) TypeError?) (check-exception (callback 2.0) TypeError?)
+      (def descriptor (expression-type `(Mu X 2 (OrFalse (Pair (Function (,small) (,large)) X)))))
+      (def checked (validate descriptor (cons (lambda (value) (min 10 value)) #f)))
+      (check-exception ((car checked) 101) TypeError?)
+      (check-exception (validate (expression-type '(IntegerRange min: 1 max: 0)) 0) TypeError?)
+      (check-exception (expression-type `(Mu X 16 (Pair ,small X)) 50) (refusal 'exhausted)))
+    (test-case "joint inference retains rich forwarding and publishes only refined roots"
+      (def events [])
+      (def report (service.infer-range-service (list small)
+        (list 'Integer 'UInt large '(IntegerRange max: 100 min: 0)) calls
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) (list (list large)))
+      (check-equal? events [])
+      (def instance (.get report instance)) (def context (.o approved: #t)) (def consumed 0)
+      (defvalues (answer callback owner) (service.invoke-signature-service (.get instance prototype) 4 1 scale: 2 3))
+      (check-equal? answer 10) (check-equal? (callback 100) 10)
+      (check-exception (callback 101) TypeError?)
+      (check (begin (declared-snapshot owner) #t) => #t)
+      (defvalues (evidence next failure)
+        ((service.catalog-service-action instance 4 context
+          (lambda (subject) (set! consumed (1+ consumed))
+            (check-equal? (.get subject answer) 4)
+            (check-exception ((.get subject callback) -1) TypeError?)) 5) context))
+      (check-equal? failure #f) (check (eq? next context) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check-equal? consumed 1)
+      (check-exception ((service.catalog-service-action instance 8 context (lambda (_) (set! consumed 99)) 5) context) TypeError?)
+      (check-equal? consumed 1)
+      (check (and (member 'around events) #t) => #t))
+    (test-case "incomplete or invalid requests never build and fresh retry succeeds"
+      (def partial (specialize-prototype-type service.RangeServiceType (list small)))
+      (check-equal? (.get (infer-declared-calls partial '(Integer UInt) calls forbidden) status) 'no-solution)
+      (check-exception (infer-declared-calls partial (list large) calls forbidden 20) (refusal 'exhausted))
+      (check-exception (infer-declared-calls partial '((IntegerRange min: Bad)) calls forbidden) (refusal 'malformed))
+      (check-equal? (.get (service.infer-range-service (list small) (list large) calls) status) 'unique))))

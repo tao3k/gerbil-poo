@@ -1,8 +1,8 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
-(export scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
+(export range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in :std/list/list delete-duplicates/hash map-in-order)
-        (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
+        (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
 ;; Only built-in scalar recognizers enter finite derivation. This registry is
 ;; private; exported lookup never invokes a mutable POO descriptor or user Type.
 (def scalar-recognizers
@@ -16,7 +16,7 @@
 ;; cannot become a free Type variable merely because a caller uses another phase.
 (def (type-constructor? name)
   (or (and (scalar-recognizer name) #t)
-      (and (memq name '(Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
+      (and (memq name '(IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
                        Function CaseFunction Object Row Mu)) #t)))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -50,17 +50,37 @@
   (or (boolean? value) (exact-integer? value) (keyword? value) (symbol? value)
       (eq? value #!key) (eq? value #!rest)))
 
-;; Read the existing Function constructor options as literal metadata. Omitted
-;; options keep constructor defaults; duplicates and unknown options refuse.
+;; Admit literal keyword metadata before using Gerbil's plist conversion.
+;; Duplicate/unknown names remain typed protocol refusals, not host binder policy.
+;; Return standard source order so every consumer shares one association protocol.
+(def (literal-options entries allowed)
+  (unless (and (list? entries) (even? (length entries)))
+    (refuse-type 'malformed "Expected complete literal keyword bindings" entries))
+  (def bindings (plist->alist entries))
+  (def names (map car bindings))
+  (unless (and (andmap (cut memq <> allowed) names)
+               (= (length names) (length (delete-duplicates/hash names))))
+    (refuse-type 'malformed "Invalid or duplicate literal option" entries))
+  bindings)
+;; Function metadata now uses the same standard source-ordered option reader.
 (def (function-options term)
-  (let loop ((rest (cdddr term)) (seen []))
-    (if (null? rest) seen
-      (begin
-        (unless (and (pair? rest) (pair? (cdr rest)) (keyword? (car rest))
-                     (memq (car rest) '(optional: keywords: required-keywords: rest:))
-                     (not (assq (car rest) seen)))
-          (refuse-type 'malformed "Invalid or duplicate Function option" rest))
-        (loop (cddr rest) (cons (cons (car rest) (cadr rest)) seen))))))
+  (literal-options (cdddr term) '(optional: keywords: required-keywords: rest:)))
+;; False means unbounded, including an explicit false binding. Endpoints are
+;; literal exact integers, not Type parameters or expressions to evaluate.
+;; Reversed endpoints denote an empty range, matching the existing constructor.
+(def (range-bounds term)
+  (def options (literal-options (cdr term) '(min: max:)))
+  (def lower (agetq min: options)) (def upper (agetq max: options))
+  (unless (and (or (not lower) (exact-integer? lower))
+               (or (not upper) (exact-integer? upper)))
+    (refuse-type 'malformed "IntegerRange bounds must be literal exact integers or false" term))
+  (cons lower upper))
+;; Canonical spelling matches IntegerRange's existing min/max order and omission
+;; of unbounded endpoints; it does not collapse descriptor kinds into Integer/UInt.
+(def (canonical-range term)
+  (def bounds (range-bounds term))
+  (append '(IntegerRange) (if (car bounds) (list min: (car bounds)) [])
+    (if (cdr bounds) (list max: (cdr bounds)) [])))
 ;; Bind the existing Function schema once for each consumer. Gerbil's agetq
 ;; preserves explicit false and supplies only literal metadata defaults; it does
 ;; not evaluate optional argument values, validators or a target procedure.
@@ -92,7 +112,7 @@
             ((keywords:) (map (lambda (entry) (cons (car entry) (transform (cdr entry)))) value))
             ((rest:) (and value (transform value)))
             (else value))))
-        (reverse (function-options term))))))
+        (function-options term)))))
 ;; Flatten only contravariant Type positions using the constructor's defaults.
 ;; Source keyword order is retained; no supplied argument/default is constructed.
 (def (function-input-types term)
@@ -110,6 +130,7 @@
 (def (map-type-children term transform (canonical? #f))
   (case (car term)
     ((Exactly Enum) term)
+    ((IntegerRange) (if canonical? (canonical-range term) term))
     ((Function) (let (mapped (map-function-types term transform))
                   (if canonical? (canonical-function mapped) mapped)))
     ((Sum) (map-sum-types term transform))
@@ -163,6 +184,7 @@
      ((memq value variables) value)
      ((and (list? value) (pair? value))
       (case (car value)
+        ((IntegerRange) (range-bounds value))
         ((Exactly Enum)
          (unless (and (or (eq? (car value) 'Enum) (= (length value) 2))
                       (andmap literal-type-value? (cdr value)))
@@ -252,7 +274,7 @@
     (list (car term)
       (map (lambda (field) (cons (car field) (cons (substitute-type (cadr field) substitution work) (cddr field)))) (cadr term))
       (if (pair? (caddr term)) (list 'Row (substitute-type (cadr (caddr term)) substitution work)) (caddr term))))
-   ((memq (car term) '(Exactly Enum)) term)
+   ((memq (car term) '(Exactly Enum IntegerRange)) term)
    ((eq? (car term) 'Sum) (map-sum-types term (cut substitute-type <> substitution work)))
    ((eq? (car term) 'Map)
     (list 'Map (substitute-type (cadr term) substitution work) (caddr term)

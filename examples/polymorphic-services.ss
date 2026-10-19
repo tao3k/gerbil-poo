@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -319,12 +319,12 @@
 ;; The candidate supplies the scalar and callback Types. Existing publication
 ;; checks both recursively, refines the normalized scalar, and binds exact
 ;; subject/descriptor/context evidence before IO. No result escapes on refusal.
-(def (catalog-service-action instance input context consume)
+(def (catalog-service-action instance input context consume (maximum 100))
   (def outputs (.get instance descriptor outputs))
   (def contract (refine (.cc ObjectContract. responsibilities:
     (.o answer: (car outputs) callback: (cadr outputs)))
     (lambda (subject path)
-      (if (<= (.get subject answer) 100) []
+      (if (<= (.get subject answer) maximum) []
         [(.o bind-these: #f kind: 'limit path: path)]))))
   (signature-publication-action instance input context contract consume))
 
@@ -522,3 +522,20 @@
       (if (positive? (string-length (.get subject answer))) []
         [(.o bind-these: #f kind: 'empty-text path: path)]))))
   (signature-publication-action instance label context contract consume))
+
+;; Reuse the original rich signature and parameter template, strengthening only
+;; Super's declared bound. Inclusive endpoints are literal Type metadata.
+(def RangeServiceType
+  (prototype-type (.get SignatureServiceType prototype) (.get SignatureServiceType variables)
+    (.get SignatureServiceType expression)
+    (append (.get SignatureServiceType bounds) '((Super (IntegerRange min: 0 max: 100))))))
+;; Original fragments own qualifiers, negative checks and the generic cache.
+;; The host owns defaults; every supplied input and both user results pass the
+;; existing Function wrapper before the shared numeric publication policy.
+(def (infer-range-service prefix candidates observations (record void))
+  (using (record :~ procedure?)
+    (infer-declared-calls (specialize-prototype-type RangeServiceType prefix) candidates observations
+      (cut signature-service-declarations <>
+        (lambda (value (bonus 0) scale: (scale 1) . rest)
+          (def clamp (lambda (value) (max 0 (min 10 value))))
+          (values (clamp (* scale (+ value bonus (apply + rest)))) clamp)) record))))

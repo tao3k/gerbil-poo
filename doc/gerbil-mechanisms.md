@@ -927,3 +927,15 @@ method is a subtype proof. Gerbil's contract/using expansion admits observer
 procedures, and one existing FUN/checked-action/evidence publication chain now
 serves both numeric and text policies. Runtime callbacks and wrappers are reused
 as a whole; there is no new contract namespace or compatibility dispatch.
+
+
+### IntegerRange and source-ordered literal options
+
+Gerbil std/list `plist->alist`, runtime `agetq` and std/list `alist->plist` now
+serve both Function and IntegerRange metadata. Typed duplicate/kind refusal stays
+in one finite admission layer; no second host keyword binder is implemented.
+The project number.ss IntegerRange descriptor already handles exact arbitrary-
+precision integers and unbounded endpoints, unlike core contract's fixnum range
+predicate, so compilation uses that descriptor directly. Existing rich method
+fragments and the catalog FUN/refine/evidence action complete publication; no
+new dispatcher, namespace or compatibility chain is introduced.
