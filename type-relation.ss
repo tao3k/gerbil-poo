@@ -1,6 +1,7 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
 (export capture-type-catalog function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
-(import (only-in :std/hash/misc hash-ensure-ref)
+(import (only-in :std/list/alist plist->alist)
+        (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
@@ -315,6 +316,18 @@
                         (relate (cadr actual) (cadr expected))))))
             (else (and closed? (not (field-required? expected)))))) (cadr target))))
 
+;; Each Sum branch promises exactly two readable fields, with an open carrier:
+;; runtime Sum accepts inherited/extra slots. Reuse the common row protocol for
+;; each exact symbol tag and its original payload, under the caller's quota.
+;; This temporary metadata view changes neither the Sum descriptor nor its wire
+;; tag order. Open sources cannot justify closed targets or absent extra fields.
+(def (sum-row-related? source target relate work)
+  (andmap (lambda (variant)
+    (work)
+    (row-related? `(Object ((tag (Exactly ,(make-symbol (car variant))))
+                           (value ,(cdr variant))) open) target relate work))
+    (plist->alist (cdr source))))
+
 ;; Both branches of an optional source must fit one original target. Sharing
 ;; this decomposition keeps optional and ordinary targets under the same quota
 ;; and prevents a successful payload from hiding an uncovered void/false value.
@@ -401,6 +414,11 @@
    ((and (pair? source) (pair? target)
          (memq (car source) '(Function CaseFunction)) (memq (car target) '(Function CaseFunction)))
     (function-replaces? source target work))
+   ;; Tagged objects already have this carrier; inspect every declared variant
+   ;; through existing required/open row rules without projecting runtime values.
+   ((and (pair? source) (eq? (car source) 'Sum) (pair? target)
+         (memq (car target) '(Record Object)))
+    (sum-row-related? source target (cut compare-types <> <> work) work))
    ;; Finite Record/Class and ObjectContract rows share the POO object carrier.
    ;; Reuse the entire named presence/closure/child protocol in either direction;
    ;; their original validators, initialization policies and descriptors stay distinct.

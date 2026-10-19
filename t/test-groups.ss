@@ -10,7 +10,13 @@
   '((objects support object mop parameters inheritance-hooks slot-observation)
     (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
     (collections table-validation library-reuse number polynomial rationaldict trie fq)
-    (methods multimethod method-combination method-declaration typed-method-declaration inferred-declaration container-inference record-inference candidate-inference function-coverage keyword-coverage keyword-prefix keyword-values keyword-rest function-options optional-inference scalar-inference range-inference union-inference empty-inference descriptor-inference)
+    ;; Bound compiler retention by responsibility, rather than increasing its
+    ;; heap: the old mixed methods group retained all inference/signature ASTs.
+    ;; The checked inventory and final one-process suite remain complete.
+    (methods multimethod method-combination method-declaration typed-method-declaration inferred-declaration)
+    (inference container-inference record-inference candidate-inference optional-inference empty-inference descriptor-inference)
+    (signatures function-coverage keyword-coverage keyword-prefix keyword-values keyword-rest function-options)
+    (scalars scalar-inference range-inference union-inference)
     (declarations declarative-metadata generalized-declaration recursive-declaration meta-prototype)
     (closure closure closure-alignment component-closure)
     (construction construction-cache construction-workflow focused-closure)

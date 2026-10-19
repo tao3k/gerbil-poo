@@ -11,6 +11,15 @@
       (check-equal? (length files) (length (delete-duplicates/hash files)))
       (check-equal? (list-sort string<? files) (test-files))
       (check-exception (test-files "not-a-test-group") true))
+    (test-case "compiler-heavy protocols retain independent bounded groups"
+      ;; Bound each known compiler-heavy family while the inventory test above
+      ;; separately proves that no module was omitted or duplicated by grouping.
+      (for-each (lambda (name)
+        (def files (test-files name))
+        (check (and (pair? files) (<= (length files) 6)) => #t))
+        '("methods" "inference" "signatures" "scalars"))
+      (check (and (member "t/container-inference-test.ss" (test-files "inference")) #t) => #t)
+      (check (and (member "t/union-inference-test.ss" (test-files "scalars")) #t) => #t))
     (test-case "matching bytes permit reuse while all changed identity axes refuse"
       (def record '(test-group "objects" "compiler-and-library" "tests" "original-producer"))
       (check (artifact-key-valid? record "objects" "compiler-and-library" "tests") => #t)

@@ -46,6 +46,17 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 tagged-object carrier acceptance
+
+CLOSED for Sum-to-open-Object/Record readable interfaces through the shared row
+protocol. Every original variant supplies its exact symbol tag and payload under
+the same quota. Closed targets, unknown optional extras, reverse replacement and
+codec/index casts remain refused; direct Sum/Union/Map-key identities remain.
+Complete tagged worker inference, prefix binding, qualified declarations and
+FUN/refine/evidence publication are covered by container-inference-test.ss.
+row-types.md states the literal-tag/child interpretation and normalized payload
+proof boundary. This closes the finite carrier omission, not the full type TODO.
+
 ### P2 callable source alternatives
 
 CLOSED within the finite relation: Function/CaseFunction targets now participate
