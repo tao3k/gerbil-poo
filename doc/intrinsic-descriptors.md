@@ -39,8 +39,8 @@ Numeric widths reuse the existing inclusive interval and finite literal/ordered
 Union coverage machinery. Exact endpoint checks include UIntN zero, which accepts
 only zero. BytesN includes Bytes and the same fixed length; unbounded Bytes needs
 a whole Bytes branch, since finitely many fixed lengths cannot cover every vector.
-Null/Unit use intrinsic singleton recognition. Null and the empty Tuple share
-readable membership; Unit supplies Maybe's void sentinel. Other optional payload
+Null/Unit use intrinsic singleton recognition. Null is an empty list; the empty
+Tuple is an empty vector, so neither replaces the other. Unit supplies Maybe's void sentinel. Other optional payload
 rules remain conservative, and public Union branch/Sum tag/Map key rules remain
 unchanged. Wrapper-bearing Union alternatives still fail complete flat admission.
 
@@ -83,6 +83,21 @@ predicate implication, implicit Class/Schema callback discovery, dependent
 parameter-dependent TypeValuePair catalogs, general Boolean algebra and unrestricted recursion remain
 open or outside the current decidable boundary. Full resource limits and complete
 local/exact-head CI checks remain enabled; no Lean checkout is used by Scheme.
+
+## Proper-list coverage and carrier safety
+
+Proper-list coverage uses the existing recursive replacement judgment: Null
+replaces any List, and Pair replaces List only when its head replaces the element
+Type and its entire tail replaces the same List. Fixed prefixes and unbounded
+List tails are supported without flattening, coercion or Any. Improper tails,
+vectors and incompatible mandatory heads refuse; Map keys and ordered Union
+branches retain exact identity. Shared work exhaustion remains a typed refusal.
+`infer-handler-batch-service` prefix-binds a List of checked Functions and infers
+a nonempty Pair/List result, using the existing qualified declaration and
+descriptor-service-action chain. Wrapping, policy refusal/retry and exact evidence
+are covered by regression. Lean proves universal proper-list inclusion from child
+inclusion, distinct zero-length carriers and exact inferred declaration provenance;
+runtime projection and wrappers remain implementation obligations.
 
 ## Finite dependent TypeValuePair catalogs
 

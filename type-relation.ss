@@ -312,9 +312,15 @@
   (or (cond
    ((equal? source target) #t)
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
-   ;; Null and the empty Tuple share their sole list value, not descriptor keys.
-   ((or (and (eq? source 'Null) (equal? target '(Tuple)))
-        (and (equal? source '(Tuple)) (eq? target 'Null))) #t)
+   ;; Null is an empty LIST, while Tuple uses a vector, even at arity zero.
+   ;; A Pair belongs to List only when its head and entire tail are covered.
+   ;; Recurse through existing replacement, retaining nested wrapper checks,
+   ;; invariant keys, finite Mu normalization and the same shared work budget.
+   ((and (pair? target) (eq? (car target) 'List)
+         (or (eq? source 'Null) (and (pair? source) (eq? (car source) 'Pair))))
+    (or (eq? source 'Null)
+        (and (compare-types (cadr source) (cadr target) work)
+             (compare-types (caddr source) target work))))
    ;; Optional sentinel inclusion never changes Function wrapping or calls.
    ((and (memq source '(Null Unit)) (pair? target) (memq (car target) '(Maybe OrFalse)))
     (or (and (eq? source 'Unit) (eq? (car target) 'Maybe))
