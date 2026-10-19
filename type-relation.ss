@@ -305,6 +305,14 @@
                     (relate (cadr actual) (cadr expected)))))
             (else (and closed? (not (field-required? expected)))))) (cadr target))))
 
+;; Both branches of an optional source must fit one original target. Sharing
+;; this decomposition keeps optional and ordinary targets under the same quota
+;; and prevents a successful payload from hiding an uncovered void/false value.
+(def (optional-source-related? source target relate work)
+  (work)
+  (and (relate (if (eq? (car source) 'Maybe) 'Unit '(Exactly #f)) target)
+       (relate (cadr source) target)))
+
 ;; Optional membership is its exact sentinel or its original child membership.
 ;; Decompose optional sources, preserving BOTH obligations across different kinds.
 ;; Bool/immutable literal sources use exhaustive values, not samples or a top Type.
@@ -324,8 +332,7 @@
           (relate (cadr source) payload)) #t)
     ((and (eq? source 'Unit) (eq? (car target) 'Maybe)) #t)
     ((and (pair? source) (memq (car source) '(Maybe OrFalse)))
-     (and (relate (if (eq? (car source) 'Maybe) 'Unit '(Exactly #f)) target)
-          (relate (cadr source) target)))
+     (optional-source-related? source target relate work))
     ((eq? source 'Bool) (and (literal-covered? #f) (literal-covered? #t)))
     ((and (pair? source) (memq (car source) '(Exactly Enum)))
      (andmap literal-covered? (cdr source)))
@@ -356,6 +363,11 @@
    ;; one rule. Runtime optional validation still owns sentinel bypass/wrapping.
    ((and (pair? target) (memq (car target) '(Maybe OrFalse)))
     (optional-related? source target (cut compare-types <> <> work) work))
+   ;; Eliminate optional syntax only into the admitted identity-validating flat
+   ;; fragment. Every original branch is checked; ordered Union trees and Map
+   ;; keys are retained, and an optional Function never becomes directly callable.
+   ((and (pair? source) (memq (car source) '(Maybe OrFalse)) (flat-type? target))
+    (optional-source-related? source target (cut compare-types <> <> work) work))
    ((and (flat-type? source) (flat-type? target)
          (not (and (pair? source) (eq? (car source) 'Union)))
          (or (not (and (pair? target) (eq? (car target) 'Union)))

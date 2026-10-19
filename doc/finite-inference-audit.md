@@ -9,6 +9,7 @@ used as a composition seed is inhabited and is not an empty Type.
 
 | Priority | Finding | Acceptance / next boundary |
 | --- | --- | --- |
+| P2 optional sources | Optional sources could not replace ordinary flat targets even when both sentinel and payload were covered | Closed by the shared two-branch source decomposition: original sentinels and payloads must each replace the same intrinsic flat target, including entirely flat ordered Union targets. No wrapper-bearing shortcut, Map-key widening or Any fallback; decision-service integration and refusal/retry controls are in optional-inference-test.ss. |
 | P2 optional coverage | Payload lifting, finite Bool/Enum coverage and cross-sentinel composition were refused | Closed within the admitted finite relation: both original sentinel and payload obligations must hold; Bool and immutable Exactly/Enum enumerate every source value. Existing runtime validation, Map-key identity, Union order and keyword-origin restrictions remain intact. See optional-inference-test.ss. |
 | P2 singleton lists | A List with a witnessed empty element could not satisfy Null bounds or singleton Pair tails | Closed via the existing empty-type? witness and shared replacement quota. The List is inhabited by nil, not an empty Type. Descriptor metadata, Map keys and ordered Union branches stay unchanged; singleton-handler inference/declaration/publication has end-to-end controls. |
 | P2 carrier safety | Null was incorrectly equated with the empty vector Tuple; Pair spines could not satisfy List bounds | Corrected to distinct carriers. Null-to-List and Pair-to-List reuse the existing child/tail replacement judgment and shared quota; handler-batch inference, qualified declaration, refinement and evidence publication have integrated controls. No Tuple/list conversion or structural implication of opaque Types is added. |
@@ -66,6 +67,33 @@ they retain both obligations and the original captured signature/candidate pair.
 Top-level Examples/OptionalContracts.lean includes exhaustive Bool controls,
 different-sentinel compositions and exact declaration artifacts. Host syntax
 projection, recognizers, wrappers and effects remain separate runtime obligations.
+
+
+Optional sources now also replace ordinary intrinsic flat targets through the
+same two-branch obligation. `(OrFalse (Exactly #t))` covers Bool;
+`(Maybe Never)` covers Unit, while `(OrFalse (Enum))` covers exactly false.
+Empty children never erase their source sentinel. Entirely intrinsic flat Union
+targets can jointly cover both branches, including nested void/false optionals,
+numeric intervals and Keyword leaves. Each check retains the original candidate
+AST and shared work quota. Wrapper-bearing Union targets, invariant Map keys,
+direct ordered Union relations and keyword/escape origins are not widened.
+Optional Functions remain non-callable without checking their present branch.
+
+`infer-decision-service` exercises this inside Pair fields with a recursively
+wrapped Function, a concrete Bool decision and Unit acknowledgement. It reuses
+the complete prefix-specialization/declaration/FUN/refine/bind-evidence chain;
+invalid sentinels, returned callback inputs, policy retry and genuine equivalent
+candidate ambiguity are checked. No Any is synthesized. Missing coverage is false;
+unsupported metadata and exhaustion keep their typed refusal semantics.
+
+Lean's replacement_into_iff proves both source obligations are necessary and
+sufficient. normalized_replacement establishes membership of the exact returned
+value under the existing normalizer, preserving its checked Function wrapper;
+inferOptional_replacement retains the original completed declaration artifact.
+Host descriptor interpretation and the flat target's identity validation remain
+premises. These are readable inclusion laws, not arbitrary effect equivalence or
+compiler verification. This finite type protocol advances the article's future
+work; it is not attributed to the reference Racket implementation.
 
 ### Container carrier audit
 

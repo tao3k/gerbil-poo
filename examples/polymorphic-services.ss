@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-handler-batch-service infer-single-handler-service infer-optional-handler-service)
+(export infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -708,6 +708,16 @@
 (def (infer-optional-handler-service candidates procedure (record void))
   (def batch '(List (Function (UInt) (Integer))))
   (def input (list 'Maybe (list 'OrFalse batch)))
+  (infer-descriptor-service (list input) candidates
+    (list (list [] (list input) (list input `(Function (,input) (,input)))))
+    procedure record))
+
+;; A decision packet retains its checked handler, Boolean decision and void ack.
+;; Candidate metadata may use OrFalse/Maybe fields, but both source branches must
+;; satisfy the concrete Bool/Unit fields before the complete declaration is built.
+;; Existing descriptor-service-action publishes refined, exact FUN/IO evidence.
+(def (infer-decision-service candidates procedure (record void))
+  (def input '(Pair (Function (UInt) (Integer)) (Pair Bool Unit)))
   (infer-descriptor-service (list input) candidates
     (list (list [] (list input) (list input `(Function (,input) (,input)))))
     procedure record))
