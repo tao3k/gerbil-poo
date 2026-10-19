@@ -217,6 +217,39 @@
 (def (field-required? field)
   (or (null? (cddr field)) (eq? (caddr field) 'required)))
 
+;; Decide only witnessed emptiness of admitted, normalized finite data Types.
+;; Products need one impossible mandatory child; alternatives need every child
+;; impossible. Empty List/Map, void/false sentinels, optional fields and procedures
+;; remain inhabited or unknown. No mutable descriptor/user predicate is invoked.
+;; Shared work is charged even for a negative result; Mu means only its explicit
+;; finite approximant, never a claim about an unrestricted recursive fixed point.
+(def (empty-type? term work)
+  (work)
+  (cond ((eq? term 'Never) #t)
+        ((not (pair? term)) #f)
+        (else
+          (case (car term)
+            ((Enum) (null? (cdr term)))
+            ((IntegerRange) (empty-range? (range-bounds term)))
+            ((Tuple Pair) (ormap (cut empty-type? <> work) (cdr term)))
+            ((Union) (andmap (cut empty-type? <> work) (cdr term)))
+            ((Sum) (let loop ((entries (cdr term)))
+                     (or (null? entries)
+                         (and (empty-type? (cadr entries) work) (loop (cddr entries))))))
+            ((Object Record) (ormap (lambda (field)
+                              (work)
+                              (and (field-required? field) (empty-type? (cadr field) work)))
+                              (cadr term)))
+            (else #f)))))
+
+;; Descriptor identity is independent of inhabitants: direct Sum/Union sources
+;; retain their tag/branch protocol. Other failed comparisons may use a witnessed
+;; empty source without rewriting its descriptor kind, fields or callback Types.
+(def (empty-replacement? source target work)
+  (and (not (and (pair? source) (memq (car source) '(Union Sum))))
+       (or (not (and (pair? target) (eq? (car target) 'Union))) (flat-type? target))
+       (empty-type? source work)))
+
 ;; Standard symbol-keyed tables index admitted immutable field declarations.
 ;; Charge the shared quota before inserting each name; never evaluate a Slot.
 (def (field-index fields work)
@@ -246,7 +279,7 @@
 ;; Open source rows leave undeclared fields unconstrained; closed targets exclude extras.
 (def (compare-types source target work)
   (work)
-  (cond
+  (or (cond
    ((equal? source target) #t)
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
    ((and (flat-type? source) (flat-type? target)
@@ -282,7 +315,8 @@
       ;; their finite field-coverage judgment uses the same named-row protocol.
       ((Record Object) (row-related? source target (cut compare-types <> <> work) work))
       (else #f)))
-   (else #f)))
+   (else #f))
+    (empty-replacement? source target work)))
 
 ;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
 ;; These temporary objects are shape views, not new Types or dispatch certificates.

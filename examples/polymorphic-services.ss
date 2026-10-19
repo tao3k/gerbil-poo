@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../function-signature encode-arguments) (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -631,3 +631,20 @@
     (lambda (subject path)
       (if (equal? (.get subject answer) required) []
         [(.o bind-these: #f kind: 'scalar-policy path: path)]))))
+
+;; A disabled capability has an impossible mandatory payload, not a permissive
+;; callback input. Value is prefix-bound; only a witnessed empty Dead candidate
+;; can satisfy Dead <: String while retaining its original structured descriptor.
+(def EmptyCallbackServiceType
+  (prototype-type (.o .parameters: '(Value Dead)) '(Value Dead)
+    '(Function (Value (Function (Value) (Dead))) (Value)) '((Dead String))))
+;; Reuse the complete qualified declaration builder and existing using checks.
+;; The host callback is returned and recursively wrapped, never invoked by inference.
+(def (infer-empty-callback-service prefix candidates observations procedure (record void))
+  (infer-signature-calls EmptyCallbackServiceType prefix candidates observations procedure record))
+;; Publication uses the same refinement/evidence chain as the other services.
+;; A negative policy can refuse after method effects, before consumer admission.
+(def (empty-callback-action instance input context consume (allowed? #t))
+  (signature-refinement-action instance input context consume
+    (lambda (_subject path)
+      (if allowed? [] [(.o bind-these: #f kind: 'disabled path: path)]))))

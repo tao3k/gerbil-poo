@@ -977,3 +977,5 @@ Racket reference implements this static coverage algorithm.
 
 See [intrinsic scalar Union coverage](scalar-coverage.md) for String/Symbol/Keyword,
 its exact decidable scope, shared publication chain and proof interpretation bounds.
+
+See [finite inference audit and emptiness](finite-inference-audit.md) for remaining P2 coverage and the required-field witness protocol.

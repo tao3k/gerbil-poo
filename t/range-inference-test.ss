@@ -37,7 +37,11 @@
       (check (subtype-expression? 'Integer '(IntegerRange max: 100)) => #f)
       (check (subtype-expression? '(IntegerRange min: 3 max: 1) small) => #t)
       (check (subtype-expression? small '(IntegerRange min: 3 max: 1)) => #f)
-      (check (subtype-expression? '(IntegerRange min: 3 max: 1) 'String) => #f)
+      ;; The new universal emptiness witness discharges this formerly conservative
+      ;; cross-family refusal; nonempty intervals still cannot become String.
+      (check (subtype-expression? '(IntegerRange min: 3 max: 1) 'String) => #t)
+      (check (subtype-expression? '(IntegerRange min: 3 max: 3) 'String) => #f)
+      (check (subtype-expression? '(IntegerRange min: 1 max: 3) 'String) => #f)
       (check (subtype-expression? '(Exactly 10) small) => #t)
       (check (subtype-expression? '(Enum -1 10) small) => #f)
       (check (subtype-expression? '(Exactly #f) '(IntegerRange)) => #f))
