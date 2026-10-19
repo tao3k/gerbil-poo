@@ -973,3 +973,12 @@ exact integers, so no machine-sized sentinel or enumerated tail is introduced.
 `select-union`/`validate-union` and the shared declaration/FUN publication chain
 remain authoritative. The numeric projection has no custom recognizer effects;
 all branch admission and residual visits retain the shared work quota.
+
+Integer/UInt-to-Union admission now reuses `numeric-bounds` directly, including
+its already existing all-integer and unsigned views. The standard ordered
+append-map/foldl projection/subtraction chain, shape selection and validation
+are shared rather than copied. Atomic public descriptors stay intact through
+the original specialization/declaration/FUN/refine/evidence workflow. Enum
+keyword/escape origins retain their dedicated transport judgment, and no custom
+recognizer is invoked by coverage. The same bounded work quota covers the full
+request and still refuses incomplete or ambiguous construction.

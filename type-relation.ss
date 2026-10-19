@@ -129,15 +129,14 @@
   (if (pair? term)
     (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
-;; Only keyword-stable finite literals and integer ranges gain public coverage.
-;; Keyword/escape origins retain their dedicated transport judgment.
-;; Union-to-Union identity and wrapper-bearing alternatives keep their old rule.
+;; Numeric families share the existing symbolic interval view; finite literal
+;; sources still require keyword stability. No descriptor kind is collapsed.
+;; Keyword/escape transport, ordered Union identity and wrapper admission retain
+;; their existing judgments; coverage does not execute user recognizers.
 (def (flat-union-source? source work)
-  (and (pair? source)
-    (case (car source)
-      ((Exactly Enum) (keyword-stable-type? source work))
-      ((IntegerRange) #t)
-      (else #f))))
+  (or (and (numeric-bounds source) #t)
+      (and (pair? source) (memq (car source) '(Exactly Enum))
+           (keyword-stable-type? source work))))
 ;; Project numeric coverage without altering the ordered descriptor tree.
 ;; Preserve unbounded endpoints; literal integers become singleton pieces.
 ;; Other admitted flat scalars contain no integers. No user recognizer executes.
