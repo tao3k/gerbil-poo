@@ -950,3 +950,17 @@ inference, specialization and declaration consumers. FUN/refine/bind-evidence an
 the existing service builder are unchanged; no alternate dispatcher or namespace
 is introduced. The runtime still constructs the original Enum/Exactly/IntegerRange
 Types, including their wrapper and failure protocols.
+
+Joint range/Enum-to-Union coverage uses std/list/list.ss append-map (ordered
+callback traversal and concatenation) and the runtime foldl, following the same
+composition protocol as validate-bindings and existing variant diagnostics.
+Interval projection is private analysis data; Type Union and variant-validation.ss
+still own branch selection, committed validation and error propagation. The
+complete literal inclusion entry feeds containers, Function variance, inference,
+parameter binding and original method declarations; no second normalizer,
+dispatcher, parser or namespace is added. The rich service's existing factory and
+FUN/refine/bind-evidence action consume the new bound directly.
+
+Public finite-source admission reuses keyword-stable-type?: keyword/escape tokens
+remain in the existing raw-origin transport judgment. Shared flat coverage does
+not widen that wire-sensitive public replacement boundary.

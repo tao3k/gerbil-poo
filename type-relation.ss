@@ -1,7 +1,7 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
 (export function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/hash/misc hash-ensure-ref)
-        (only-in :std/list/list map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
+        (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./number Integer UInt IntegerRange)
@@ -129,6 +129,50 @@
   (if (pair? term)
     (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
+;; Only keyword-stable finite literals and bounded ranges gain public coverage.
+;; Keyword/escape origins retain their dedicated transport judgment.
+;; Union-to-Union identity and wrapper-bearing alternatives keep their old rule.
+(def (finite-union-source? source work)
+  (and (pair? source)
+    (case (car source)
+      ((Exactly Enum) (keyword-stable-type? source work))
+      ((IntegerRange) (let (bounds (range-bounds source)) (and (car bounds) (cdr bounds))))
+      (else #f))))
+;; Project numeric coverage without altering the ordered descriptor tree.
+;; Clip numeric families to the source; literal integers become singleton pieces.
+;; Other admitted flat scalars contain no integers. No user recognizer executes.
+(def (union-range-pieces term lower upper work)
+  (work)
+  (cond ((numeric-bounds term) => (lambda (bounds)
+          (list (cons (if (car bounds) (max lower (car bounds)) lower)
+                      (if (cdr bounds) (min upper (cdr bounds)) upper)))))
+        ((pair? term)
+         (case (car term)
+           ((Union) (append-map (cut union-range-pieces <> lower upper work) (cdr term)))
+           ((Exactly Enum) (append-map (lambda (value) (work)
+             (if (exact-integer? value) (list (cons value value)) [])) (cdr term)))
+           (else [])))
+        (else [])))
+;; Subtract one closed integer interval, retaining at most two ordered residuals.
+;; Empty/disjoint covers change nothing; endpoint arithmetic is exact integer.
+(def (subtract-range source covered)
+  (def lower (car source)) (def upper (cdr source))
+  (def left (car covered)) (def right (cdr covered))
+  (if (or (> left right) (< upper left) (< right lower)) (list source)
+    (append (if (< lower left) (list (cons lower (1- left))) [])
+            (if (< right upper) (list (cons (1+ right) upper)) []))))
+;; Accumulate uncovered pieces using Gerbil's ordered fold/append-map protocol.
+;; Work depends on descriptor pieces, never the number of integers in a range.
+;; Preparation and every residual visit share the original quota; exhaustion
+;; escapes as a refusal and cannot be mistaken for a gap or complete coverage.
+(def (range-union-subtype? source branches work)
+  (def bounds (numeric-bounds source))
+  (and bounds (car bounds) (cdr bounds)
+    (or (empty-range? bounds)
+      (null? (foldl (lambda (covered remaining)
+        (append-map (lambda (piece) (work) (subtract-range piece covered)) remaining))
+        (list bounds)
+        (append-map (cut union-range-pieces <> (car bounds) (cdr bounds) work) branches))))))
 ;; Decide singleton inclusion without executing a user predicate or constructor.
 (def (literal-in-type? value term work)
   (work)
@@ -156,7 +200,8 @@
         ((and (pair? target) (memq (car target) '(Exactly Enum)))
          (range-literals-subtype? source (cdr target) work))
         ((and (pair? target) (eq? (car target) 'Union))
-         (ormap (cut flat-subtype? source <> work) (cdr target)))
+         (or (ormap (cut flat-subtype? source <> work) (cdr target))
+             (range-union-subtype? source (cdr target) work)))
         (else (numeric-subtype? source target))))
 
 ;; Object fields are required; Record fields carry explicit presence metadata.
@@ -198,7 +243,8 @@
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
    ((and (flat-type? source) (flat-type? target)
          (not (and (pair? source) (eq? (car source) 'Union)))
-         (not (and (pair? target) (eq? (car target) 'Union))))
+         (or (not (and (pair? target) (eq? (car target) 'Union)))
+             (finite-union-source? source work)))
     (flat-subtype? source target work))
    ((and (pair? source) (pair? target)
          (memq (car source) '(Function CaseFunction)) (memq (car target) '(Function CaseFunction)))
@@ -262,7 +308,8 @@
 
 ;; Only the raw transport judgment uses extensional flat-origin inclusion:
 ;; identity validators cannot alter earlier branch wrapping or normalization.
-;; Public Union bounds and general subtype inference retain exact ordered syntax.
+;; Public token origins keep this boundary; only keyword-stable finite sources
+;; gain joint flat coverage. Union-to-Union syntax still remains invariant.
 (def (raw-origin-subtype? source target work)
   (if (and (flat-type? source) (flat-type? target))
     (flat-subtype? source target work) (compare-types source target work)))
