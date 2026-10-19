@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
+(export infer-callback-directory-service infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -792,6 +792,19 @@
   (def directory (cons 'TypeValuePair tags))
   (def input `(Pair ,handler (Sum ready: (Maybe (OrFalse ,directory))
                                 idle: (OrFalse (List ,handler)))))
+  (infer-descriptor-service (list input) candidates
+    (list (list [] (list input) (list input `(Function (,input) (,input)))))
+    procedure record))
+
+;; Publish one directory of overloaded callbacks and a fallback callback vector.
+;; Every original callable alternative must implement the same ordered one/two
+;; argument interface before the existing whole declaration and FUN/refine/
+;; bind-evidence chain runs. Validation retains first-selected Function wrappers;
+;; neither a later branch nor a retry can repair a failed checked callback call.
+(def (infer-callback-directory-service candidates procedure (record void))
+  (def callback '(CaseFunction (Function (UInt) (Integer))
+                               (Function (UInt UInt) (Integer Integer))))
+  (def input `(Pair (Map (List ,callback) <- UInt) (Tuple ,callback)))
   (infer-descriptor-service (list input) candidates
     (list (list [] (list input) (list input `(Function (,input) (,input)))))
     procedure record))

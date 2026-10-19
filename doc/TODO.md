@@ -46,12 +46,25 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 callable source alternatives
+
+CLOSED within the finite relation: Function/CaseFunction targets now participate
+in the common all-original-branch source-Union rule. This fixes nested callback
+containers through inference, prefix specialization and unified declarations,
+without another dispatch or wrapping implementation. Existing rich signature
+coverage, keyword origins, ordered case selection, exact result counts and shared
+quotas remain authoritative. Complete callback-directory publication and refusal/
+retry controls are in union-inference-test.ss; prototype-types.md states the
+conditional Lean proof scope. Direct Union/Map keys and opaque target bounds are
+unchanged; empty alternatives do not create runtime procedures. This advances
+the article's future work and does not close the unrestricted type-system TODO.
+
 ### P2 finite data source alternatives
 
 One shared source-Union judgment now includes optional, dependent and tagged
 views alongside the previous ordinary containers and flat views. Every original
 branch must meet the same complete target; sentinel and empty-carrier evidence
-reuse existing rules. Direct Union identity, root arrow/opaque targets, Sum tag
+reuse existing rules. Direct Union identity, opaque targets, Sum tag
 skeletons, keyword/escape transport and distinct failure categories remain.
 The availability factory composes all these views with complete inference, prefix
 specialization, declarations and FUN/refine/evidence publication. Lean success
@@ -65,7 +78,8 @@ Ordered source Union candidates now cover one ordinary readable container only
 when every original branch satisfies that same target's existing carrier and
 child rules. List/Tuple/Pair/Map/Record/Object compose with inference, prefix
 specialization and qualified declarations, including nested Function wrappers.
-Direct Union identity and root Function/opaque-target bounds remain unchanged.
+Direct Union identity and opaque-target bounds remain unchanged; callable
+targets use the shared rule described above.
 The worked worker factory reuses FUN/refine/bind-evidence and preserves selected
 branch failure, source syntax, ambiguity and approval retry. Lean proves both
 branch derivability and coverage of actual normalized results without a raw-value

@@ -369,16 +369,17 @@
     (or (eq? source 'Null)
         (and (compare-types (cadr source) (cadr target) work)
              (compare-types (caddr source) target work))))
-   ;; All finite data targets share one source-Union decomposition. Every
+   ;; All explicit structural targets share one source-Union decomposition. Every
    ;; original branch must pass that SAME target's existing carrier, sentinel,
    ;; tag/directory and child rules under the common quota. Runtime selection,
-   ;; wrapping and failure remain ordered; direct Union, root Function and
-   ;; opaque target judgments are deliberately not widened.
+   ;; wrapping and failure remain ordered. Function/CaseFunction branches reuse
+   ;; the complete ordered call-language/variance judgment, including nested
+   ;; callbacks; direct Union and opaque targets are deliberately not widened.
    ((and (pair? source) (eq? (car source) 'Union)
          (or (and (flat-type? target)
                   (not (and (pair? target) (eq? (car target) 'Union))))
              (and (pair? target)
-                  (memq (car target) '(List Tuple Pair Map Object Record Maybe OrFalse TypeValuePair Sum)))))
+                  (memq (car target) '(List Tuple Pair Map Object Record Maybe OrFalse TypeValuePair Sum Function CaseFunction)))))
     (andmap (cut compare-types <> target work) (cdr source)))
    ;; Same-kind covariance, payload lifting and cross-sentinel coverage share
    ;; one rule. Runtime optional validation still owns sentinel bypass/wrapping.
