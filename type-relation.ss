@@ -312,6 +312,11 @@
   (or (cond
    ((equal? source target) #t)
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
+   ;; An impossible element Type leaves exactly the empty proper list, not an
+   ;; empty container Type. Reuse the finite witness and shared quota; never
+   ;; confuse an inhabited empty Tuple, Map or optional sentinel with no values.
+   ((and (eq? target 'Null) (pair? source) (eq? (car source) 'List))
+    (empty-type? (cadr source) work))
    ;; Null is an empty LIST, while Tuple uses a vector, even at arity zero.
    ;; A Pair belongs to List only when its head and entire tail are covered.
    ;; Recurse through existing replacement, retaining nested wrapper checks,

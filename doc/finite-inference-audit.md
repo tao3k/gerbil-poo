@@ -9,6 +9,7 @@ used as a composition seed is inhabited and is not an empty Type.
 
 | Priority | Finding | Acceptance / next boundary |
 | --- | --- | --- |
+| P2 singleton lists | A List with a witnessed empty element could not satisfy Null bounds or singleton Pair tails | Closed via the existing empty-type? witness and shared replacement quota. The List is inhabited by nil, not an empty Type. Descriptor metadata, Map keys and ordered Union branches stay unchanged; singleton-handler inference/declaration/publication has end-to-end controls. |
 | P2 carrier safety | Null was incorrectly equated with the empty vector Tuple; Pair spines could not satisfy List bounds | Corrected to distinct carriers. Null-to-List and Pair-to-List reuse the existing child/tail replacement judgment and shared quota; handler-batch inference, qualified declaration, refinement and evidence publication have integrated controls. No Tuple/list conversion or structural implication of opaque Types is added. |
 | P2 first | Impossible mandatory products/rows were refused across kinds | Implemented here: positive finite emptiness witnesses feed the existing replacement judgment, shared inference, ordered parameter specialization and whole declaration admission. |
 | P2 covered | Runtime Null/Unit and fixed-width numeric/byte descriptors | Closed for literal bounded UIntN/IntN/BytesN, Bytes, singleton names and existing fixed aliases; see intrinsic-descriptors.md for admission, interval/carrier and artifact laws. Dynamic widths remain unsupported. |
@@ -20,6 +21,46 @@ explicit Object/Record protocols retain their documented bounds. This audit does
 not claim complete runtime Type coverage or mark every TODO complete.
 
 ## Implemented judgment
+
+### Container carrier audit
+
+The following concrete paths were compared against their actual validators;
+this is not a claim of unrestricted runtime Type or callback soundness.
+
+| Family | Carrier and replacement boundary retained |
+| --- | --- |
+| Tuple / List / Pair | Exact vector arity / proper lists / cons pairs including improper tails. No vector/list coercion; Pair-to-List checks the entire tail. |
+| Map | Hash-table carrier; keys keep exact normalized syntax, values have readable variance. Existing shared binding validation preserves returned wrappers and refuses normalized collisions. |
+| Sum / Union | POO tag/value objects with the declared tag skeleton / ordered alternatives with committed first structural selection. Payload covariance does not reorder tags; Union equality is invariant. |
+| Maybe / OrFalse | Distinct void/false sentinels; present payloads use their actual validators. A sentinel is an inhabitant, never evidence of an empty payload Type. |
+| Object / Record | POO objects with explicit field presence and open/closed policy. Optional presence cannot supply a required field; opaque Class ancestry grants no structural implication. |
+
+The substantive remaining gap found here was singleton-list admission: an empty
+element witness proves that every accepted proper list is nil, but the old
+replacement judgment still rejected List-to-Null. The shared judgment now uses
+that positive witness, including nested impossible products/required rows and
+all-empty alternatives. It does not reinterpret a failed emptiness search as a
+proof, and it does not make List itself an empty Type. Existing Pair recursion
+propagates the result into exact singleton tails without another normalization
+engine. Empty Tuple, List, Map, byte vectors and optional sentinels are explicitly
+tested as inhabited child Types and cannot justify this rule.
+
+`infer-single-handler-service` composes the new tail judgment with prefix
+specialization, one whole candidate solve, qualified method installation and the
+existing descriptor-service-action FUN/refine/bind-evidence chain. Source
+descriptor identities remain in the solution: equivalent Null and empty-element
+List candidates remain genuinely ambiguous. Failed and ambiguous requests do not
+run a builder; invalid callbacks and multi-element tails refuse; failed approval
+does not consume evidence and a fresh action can retry. Original exceptions and
+effects retain their existing semantics; no rollback or compiler proof is claimed.
+
+Lean's existing PrototypeTypes namespace adds emptyListCheck_sound,
+emptyListCheck_inhabited, singleton_tail and inferEmptyList_sound. These prove
+universal nil inclusion, nonemptiness of the accepted Type, preservation of the
+one original head, and exact declaration provenance. Soundness of the child
+empty-Type witness and correspondence of host constructors remain explicit
+premises; the existing empty-type witness model and runtime regressions cover
+their separate obligations. Checks and resource limits are unchanged.
 
 The parser first admits both complete finite expressions. Comparison retains its
 existing fast successful path; only a failed judgment attempts empty-replacement?.

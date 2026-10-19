@@ -11,6 +11,63 @@
 ;; Boundary, containment, carrier identity and whole workflow have independent controls.
 (def descriptor-inference-test
   (test-suite "Singleton width and byte descriptor inference"
+    (test-case "empty element witnesses prove singleton lists without merging carriers"
+      (for-each (lambda (dead)
+        (check (subtype-expression? (list 'List dead) 'Null) => #t)
+        (check (subtype-expression? (list 'Pair 'UInt (list 'List dead)) '(Pair Integer Null)) => #t)
+        (check (element? (expression-type (list 'List dead)) []) => #t)
+        (check (eq? (validate (expression-type (list 'List dead)) []) []) => #t))
+        '(Never (Enum) (Tuple Never) (Pair UInt Never)
+          (Record ((disabled Never required)) closed) (Union Never (Enum))))
+      ;; Empty containers and optional sentinels are inhabitants, not empty Types.
+      (for-each (lambda (inhabited value)
+        (check (subtype-expression? (list 'List inhabited) 'Null) => #f)
+        (validate (expression-type (list 'List inhabited)) (list value))
+        (check-exception (validate Null (list value)) TypeError?))
+        '((Tuple) (List Never) (Map UInt <- Never) (Maybe Never) (OrFalse Never) (BytesN 0))
+        (list #() [] (make-hash-table) (void) #f #u8()))
+      (check (subtype-expression? '(List Never) 'Unit) => #f)
+      (check (subtype-expression? '(List Never) '(Tuple)) => #f)
+      (check (subtype-expression? '(Map UInt <- (List Never)) '(Map UInt <- Null)) => #f)
+      (check (subtype-expression? '(Union (List Never)) '(Union Null)) => #f)
+      (check-exception (subtype-expression? '(List Never) 'Null 1) (refusal 'exhausted)))
+    (test-case "singleton handler pipelines retain source shapes and complete publication"
+      (def handler '(Function (UInt) (Integer)))
+      (def selected (list 'Pair handler '(List (Tuple Never))))
+      (def events []) (def calls 0) (def consumed 0) (def observed #f)
+      (def report (service.infer-single-handler-service
+        (list (list 'Pair handler '(List (Tuple))) selected (list 'Pair handler '(Tuple)))
+        (lambda (batch) (set! calls (1+ calls)) (values batch identity))
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) (list (list selected)))
+      (def context (.o approved: #t))
+      (def source (list abs))
+      (def action (service.descriptor-service-action (.get report instance) source context
+        (lambda (subject)
+          (set! observed subject) (set! consumed (1+ consumed))
+          (check-equal? ((car (.get subject answer)) -7) 7)
+          (check-exception ((car (.get subject answer)) #f) TypeError?)
+          (def next ((.get subject callback) (list abs)))
+          (check-equal? (cdr next) [])
+          (check-equal? ((car next) -8) 8)
+          (check-exception ((.get subject callback) (list abs abs)) TypeError?))))
+      (defvalues (evidence returned issue) (action context))
+      (check-equal? issue #f) (check (eq? returned context) => #t)
+      (check (eq? (.get evidence subject) observed) => #t)
+      (check (eq? (car source) abs) => #t)
+      (check-equal? calls 1) (check-equal? consumed 1)
+      (check-equal? (reverse events) '(around before after))
+      (check-exception
+        ((service.descriptor-service-action (.get report instance) source context void #f) context) TypeError?)
+      (check-equal? consumed 1)
+      (defvalues (_ _context retried) (action context))
+      (check-equal? retried #f) (check-equal? consumed 2)
+      ;; Equivalent value sets retain distinct original candidate descriptors.
+      (check-equal? (.get (service.infer-single-handler-service
+        (list selected (list 'Pair handler 'Null)) (lambda (_) (error "ambiguous builder ran"))) status) 'ambiguous)
+      (check-equal? (.get (service.infer-single-handler-service
+        (list (list 'Pair handler '(List Bool))) (lambda (_) (error "failed builder ran"))) status) 'no-solution))
     (test-case "proper list inclusion checks every Pair head and the complete tail"
       (check (subtype-expression? 'Null '(List UInt)) => #t)
       (check (subtype-expression? '(Pair UInt Null) '(List Integer)) => #t)
