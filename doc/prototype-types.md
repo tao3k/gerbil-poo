@@ -274,9 +274,11 @@ field order; an open target permits additional declared source fields. Optional
 source fields cannot promise required target fields. A missing optional target
 field is safe only when the source is closed: an open source could contain that
 undeclared name with an incompatible value. Closed targets require closed sources
-and forbid all extra declared source fields, including optional ones. A closed
-source may omit optional target fields. Record/Object cross-constructor relations
-remain unsupported. Neither normalization nor Class construction sorts field lists
+and forbid extra observable source fields. An optional field with a positively
+witnessed empty child is necessarily absent and may be omitted; see row-types.md.
+A closed source may omit optional target fields. Record/Object cross-constructor relations
+use the same finite named-field protocol; opaque Class/Schema tokens remain
+nominal. Neither normalization nor Class construction sorts field lists
 or changes validator/default/hook order. These are observational derivations,
 not mutable-write permission or effectful validator equivalence.
 

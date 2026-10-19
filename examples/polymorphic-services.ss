@@ -750,9 +750,12 @@
 ;; A structural worker interface consumes inherited Record values without a cast.
 ;; Candidate outputs retain Class optional slots and their original metadata;
 ;; complete inference checks every named field before qualified publication.
-(def (infer-worker-service candidates procedure (record void))
-  (def input '(Object ((run (Function (UInt) (Integer))) (limit Integer)
-    (jobs (Map (List (Function (UInt) (Integer))) <- UInt))) open))
-  (infer-descriptor-service (list input) candidates
-    (list (list [] (list input) (list input `(Function (,input) (,input)))))
-    procedure record))
+;; Closure is a checked interface policy, not a runtime projection: sealed
+;; consumers may forget only fields whose optional payload is proved impossible.
+(def (infer-worker-service candidates procedure (record void) closed?: (closed? #f))
+  (using (closed? :~ boolean?)
+    (def input `(Object ((run (Function (UInt) (Integer))) (limit Integer)
+      (jobs (Map (List (Function (UInt) (Integer))) <- UInt))) ,(if closed? 'closed 'open)))
+    (infer-descriptor-service (list input) candidates
+      (list (list [] (list input) (list input `(Function (,input) (,input)))))
+      procedure record)))

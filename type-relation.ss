@@ -286,8 +286,14 @@
   (list->hash-table-eq (map-in-order (lambda (field)
     (work) (cons (car field) field)) fields)))
 
+;; Optional presence plus a positive finite empty-child witness proves absence.
+;; Empty collections and optional sentinels are inhabited; unknown predicates
+;; cannot supply this evidence. The original descriptor and shared quota remain.
+(def (absent-field? field work)
+  (and (not (field-required? field)) (empty-type? (cadr field) work)))
+
 ;; One observational protocol for Object rows and required/optional Record slots.
-;; Closed targets require a closed source with no extra declared key. Missing
+;; Closed targets require a closed source; extra keys need proved absence. Missing
 ;; optional targets are safe only for closed sources: an open source could hide
 ;; that name with an incompatible value. Supplied fields retain readable variance;
 ;; this rule grants neither mutable writes nor arbitrary callback implication.
@@ -296,13 +302,15 @@
   (def right (field-index (cadr target) work))
   (def closed? (eq? (caddr source) 'closed))
   (and (or (eq? (caddr target) 'open)
-           (and closed? (andmap (lambda (field) (work) (hash-key? right (car field))) (cadr source))))
+           (and closed? (andmap (lambda (field) (work)
+             (or (hash-key? right (car field)) (absent-field? field work))) (cadr source))))
     (andmap (lambda (expected)
       (work)
       (cond ((hash-get left (car expected)) =>
              (lambda (actual)
                (and (or (not (field-required? expected)) (field-required? actual))
-                    (relate (cadr actual) (cadr expected)))))
+                    (or (absent-field? actual work)
+                        (relate (cadr actual) (cadr expected))))))
             (else (and closed? (not (field-required? expected)))))) (cadr target))))
 
 ;; Both branches of an optional source must fit one original target. Sharing
