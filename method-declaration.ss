@@ -229,7 +229,7 @@
 ;; Admit EVERY required named method, not only groups the builder chose to return.
 ;; Source/path/descriptor/revision mismatch refuses before publication. Nested
 ;; carriers reuse object construction guards; finite syntax/work bounds the walk.
-(def (admit-signatures instance receiver captured-expression captured-bindings (budget 8192))
+(def (admit-signatures instance receiver captured-expression captured-bindings catalog slots (budget 8192))
   (def work (type-work budget))
   (def expression (.get instance expression))
   (type-expression expression [] work)
@@ -237,10 +237,13 @@
   (bounded-type-data bindings work)
   (unless (and (equal? expression captured-expression) (equal? bindings captured-bindings))
     (refuse-type 'bounds "Declaration builder changed captured type metadata"))
-  (def catalog (normalize-type expression work))
+  ;; Only exact source equality above admits this private normalized snapshot.
+  ;; It derives from captured-expression, never the builder's mutable public AST.
   (when (and (pair? catalog) (memq (car catalog) '(Function CaseFunction)))
     (let (found? #f)
-      (for (entry (reflect-slots receiver include-hidden?: #t))
+      ;; declare-instance holds this receiver and its registered metadata sources
+      ;; under the construction guard from reflection through this final admission.
+      (for (entry slots)
         (def slot (cdr entry))
         (when (and (method-slot? slot) (.@ slot signature))
           (let* ((group (.ref receiver (car entry))) (origin (declared-methods-source group)))
@@ -291,16 +294,18 @@
       (def source-work (type-work 8192))
       (def expression (.get instance expression))
       (type-expression expression [] source-work)
+      ;; Copy admitted syntax before normalizing it: normalization may retain
+      ;; literal subtrees, which must not alias the later builder's public AST.
+      (def captured-expression (copy-type expression))
+      (def catalog (normalize-type captured-expression source-work))
       ;; Record describes Class DATA callbacks, including optional absence and
       ;; initialization. It is valid in Function inputs/results; a method-group
       ;; interface must use the existing explicit Object catalog instead.
-      (let (root (normalize-type expression source-work))
-        (when (and (pair? root) (eq? (car root) 'Record))
-          (refuse-type 'unsupported "Record value contract is not an Object method catalog")))
+      (when (and (pair? catalog) (eq? (car catalog) 'Record))
+        (refuse-type 'unsupported "Record value contract is not an Object method catalog"))
       (def bound-names (bound-parameters instance))
       (def bindings (.get instance bound-parameters))
       (bounded-type-data bindings source-work)
-      (def captured-expression (copy-type expression))
       (def captured-bindings (copy-type bindings))
       (def forms (build instance))
       (def entries (expand-declarations MethodDeclaration. instance forms))
@@ -309,7 +314,11 @@
       (def receiver (object<-expanded-declarations instance entries supers: [source]))
       (instantiate-object! receiver)
       (parameterize ((active-object-constructions (cons receiver (active-object-constructions))))
-        (for (entry (reflect-slots receiver include-hidden?: #t))
+        ;; One effective catalog serves forcing and root-signature admission.
+        ;; Registered source/Slot edits would reach this guarded receiver and
+        ;; refuse before invalidation; nested Object catalogs still walk normally.
+        (def slots (reflect-slots receiver include-hidden?: #t))
+        (for (entry slots)
           (def descriptor (cdr entry))
           (when (and (method-slot? descriptor) (.@ descriptor signature))
             (declared-snapshot (.ref receiver (car entry)))))
@@ -317,7 +326,7 @@
           (refuse-type 'bounds "Declarations reopened positional parameters"))
         (def published (.cc instance prototype: receiver))
         (bound-parameters published)
-        (admit-signatures published receiver captured-expression captured-bindings)
+        (admit-signatures published receiver captured-expression captured-bindings catalog slots)
         published))))
 
 ;; Complete explicit binding precedes all declaration builders and installation.

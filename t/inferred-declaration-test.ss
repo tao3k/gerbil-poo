@@ -781,6 +781,71 @@
       (defvalues (answer _) (invoke instance -2))
       (check-equal? answer 2)
       (check-equal? demanded 0))
+    (test-case "guarded catalog retains hidden rich methods without demanding ordinary data"
+      (def demanded 0)
+      (def events [])
+      ;; Hidden method metadata still participates in complete typed admission.
+      (def (build instance)
+        (cons (declaration-form 'public 'unused (.o
+          (compute (lambda (_self _inherited) (set! demanded (+ demanded 1)) (error "unused")))))
+          (map (lambda (form) (.cc form descriptor: (.cc (.get form descriptor) hidden: #t)))
+            (service.signature-service-declarations instance
+              (lambda (value (extra 0) scale: (scale 1) . rest)
+                (values (abs (* scale (+ value extra (apply + rest)))) abs))
+              (lambda (event) (set! events (cons event events)))))))
+      (def instance (instantiate-declared service.SignatureServiceType '(UInt Integer) build))
+      (check-equal? demanded 0)
+      (defvalues (answer callback owner) (service.invoke-signature-service (.get instance prototype) -3 1 scale: 2 1))
+      (check-equal? answer 2)
+      (check-equal? (callback -4) 4)
+      (check-exception (callback "bad") TypeError?)
+      (check-equal? (reverse events) '(around before after))
+      (check-equal? demanded 0))
+    (test-case "deferred metadata edits refuse before guarded catalog invalidation and retry"
+      (def schema (prototype-type (.o .parameters: []) [] '(Function (UInt) (UInt)) []))
+      (def metadata #f)
+      (def fail? #t)
+      (def compiled 0)
+      ;; The supported edit reaches the registered Slot and active receiver.
+      (def edit (.o inherit: [metadata.Declaration.] bind-these: #f name: "catalog-edit"
+        (.compile (begin (set! compiled (+ compiled 1))
+          (when fail? (.setslot! metadata hidden ($constant-slot-spec #t)))
+          (extension.register [(dispatch.prototype 'Value)]
+            (combination.primary (lambda (_ n) n)))))))
+      ;; A fresh construction retries the same failed declaration, not its approval.
+      (def (build instance)
+        (def signature (instance-signature instance (lambda (_) [['Value]]) []))
+        (def form (typed-method-fragment '.invoke signature [edit]))
+        (set! metadata (.get form descriptor))
+        [form])
+      (check-exception (instantiate-declared schema [] build)
+        (lambda (cause) (and (Error? cause)
+          (equal? (error-message cause) "object mutation during computation"))))
+      (check-equal? compiled 1)
+      (check-equal? (.get metadata hidden) #f)
+      (check-equal? (object-revision metadata) 0)
+      (set! fail? #f)
+      (def instance (instantiate-declared schema [] build))
+      (defvalues (answer owner) (service.invoke-signature-service (.get instance prototype) 7))
+      (check-equal? answer 7)
+      (check-equal? compiled 2))
+    (test-case "private normalized literals cannot alias a builder's replaced AST subtree"
+      (def schema (prototype-type (.o .parameters: []) [] '(Function ((UIntN 8)) ((UIntN 8))) []))
+      (def detached #f)
+      ;; Restoring equal public syntax must not leave a private normalized leaf
+      ;; pointing at the detached, revised literal from before the replacement.
+      (def (build instance)
+        (def inputs (caddr (.get instance expression)))
+        (set! detached (car inputs))
+        (set-car! (cdr detached) 9)
+        (set-car! inputs (list 'UIntN 8))
+        (service.signature-service-declarations instance identity void))
+      (def instance (instantiate-declared schema [] build))
+      (check-equal? detached '(UIntN 9))
+      (check-equal? (.get instance expression) '(Function ((UIntN 8)) ((UIntN 8))))
+      (defvalues (answer owner) (service.invoke-signature-service (.get instance prototype) 255))
+      (check-equal? answer 255)
+      (check-exception (service.invoke-signature-service (.get instance prototype) 256) TypeError?))
     (test-case "construction guard rejects supported edits to the specialized source"
       ;; Guard the same receiver whose checked Type fields inform the declaration.
       (def (build instance)
