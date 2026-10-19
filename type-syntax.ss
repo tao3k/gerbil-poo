@@ -21,7 +21,7 @@
 (def (type-constructor? name)
   (or (and (scalar-recognizer name) #t)
       (and (memq name '(UIntN IntN BytesN IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
-                       Function CaseFunction Object Row Mu)) #t)))
+                       TypeValuePair Function CaseFunction Object Row Mu)) #t)))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
 ;; Inspect controlled failure without depending on diagnostic formatting.
@@ -221,6 +221,14 @@
          (unless (and (or (eq? (car value) 'Enum) (= (length value) 2))
                       (andmap literal-type-value? (cdr value)))
            (refuse-type 'unsupported "Exactly/Enum needs immutable scalar literals" value)))
+        ;; Literal intrinsic names resolve to shared descriptor identities. Type
+        ;; expressions, free variables and public sexp equality cannot certify a
+        ;; dynamic descriptor. Keep catalog order and reject duplicate names.
+        ((TypeValuePair)
+         (unless (and (andmap (lambda (name)
+                         (and (scalar-recognizer name) (not (memq name '(Any Never))))) (cdr value))
+                      (= (length (cdr value)) (length (delete-duplicates/hash (cdr value)))))
+           (refuse-type 'unsupported "TypeValuePair needs distinct intrinsic descriptor names" value)))
         ((List Maybe OrFalse)
          (unless (= (length value) 2) (refuse-type 'malformed "Unary Type needs one argument"))
          (check (cadr value) variables))

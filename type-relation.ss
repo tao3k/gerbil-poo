@@ -4,8 +4,9 @@
         (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
+        (only-in ./optional-validation type-value-catalog)
         (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
-        (only-in ./type first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
+        (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -329,6 +330,11 @@
       ;; could change identity/equality or create a collision. Values are readable.
       ((Map) (and (equal? (cadddr source) (cadddr target))
                   (compare-types (cadr source) (cadr target) work)))
+      ;; Catalog membership is descriptor identity, not payload covariance:
+      ;; UInt's Type object never becomes Integer's Type object. Source order
+      ;; remains metadata, even when set inclusion permits readable replacement.
+      ((TypeValuePair)
+       (andmap (lambda (name) (work) (and (memq name (cdr target)) #t)) (cdr source)))
       ;; Equal tag skeletons retain wire order and selected payload identity.
       ((Sum)
        (let loop ((left (cdr source)) (right (cdr target)))
@@ -375,7 +381,7 @@
           ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
           ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
           ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
-          ((List Tuple Pair Map Sum Record Object Function CaseFunction) #t)
+          ((List Tuple Pair TypeValuePair Map Sum Record Object Function CaseFunction) #t)
           (else #f)))))
 
 ;; Only the raw transport judgment uses extensional flat-origin inclusion:
@@ -649,6 +655,7 @@
           (let ((values (copy-type (cdr term))) (syntax (copy-type term)))
             (.cc Enum. vals: values sexp: syntax)))
          ((Pair) (Pair (build (cadr term)) (build (caddr term))))
+         ((TypeValuePair) (type-value-catalog TypeValuePair (map build (cdr term)) (copy-type term)))
          ((Map) (Map (build (cadr term)) <- (build (cadddr term))))
          ((Sum) (apply Sum (cdr (map-sum-types term build))))
          ((Union) (apply Union (map build (cdr term))))

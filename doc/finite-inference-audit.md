@@ -11,7 +11,7 @@ used as a composition seed is inhabited and is not an empty Type.
 | --- | --- | --- |
 | P2 first | Impossible mandatory products/rows were refused across kinds | Implemented here: positive finite emptiness witnesses feed the existing replacement judgment, shared inference, ordered parameter specialization and whole declaration admission. |
 | P2 covered | Runtime Null/Unit and fixed-width numeric/byte descriptors | Closed for literal bounded UIntN/IntN/BytesN, Bytes, singleton names and existing fixed aliases; see intrinsic-descriptors.md for admission, interval/carrier and artifact laws. Dynamic widths remain unsupported. |
-| P2 next | TypeValuePair and Class/Schema callbacks can determine types dynamically | Still open. A future decidable protocol must capture a finite, stable descriptor catalog; arbitrary dependent/callback discovery is unsupported. |
+| P2 bounded catalog | TypeValuePair carries an actual Type identity | Implemented for explicit finite intrinsic-name catalogs: shared identity membership, live read replay, recursive normalization and exact-tag inclusion; see intrinsic-descriptors.md. Arbitrary descriptor discovery and Class/Schema callbacks determining types dynamically remain open. |
 | Outside current boundary | Arbitrary predicate implication/emptiness, implicit principal or higher-rank inference, unrestricted recursive language inclusion | Unsupported; neither samples nor an Any fallback establish these laws. |
 
 Existing finite Function/case language, keyword-origin, Pair/Map/Sum/Union and

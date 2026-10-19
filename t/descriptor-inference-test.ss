@@ -1,6 +1,8 @@
 ;;; Literal intrinsic descriptors share finite inference and qualified publication.
 (export descriptor-inference-test)
-(import (only-in ../number UInt256 JsInt) :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types
+(import (only-in ../number UInt Integer UInt256 JsInt) :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types
+        (only-in ../optional-validation type-value-catalog)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-receiver)
         (prefix-in ../examples/polymorphic-services service.))
 ;; Keep syntax/work refusal separate from a completed false judgment.
 (def (refusal kind)
@@ -8,6 +10,71 @@
 ;; Boundary, containment, carrier identity and whole workflow have independent controls.
 (def descriptor-inference-test
   (test-suite "Singleton width and byte descriptor inference"
+    (test-case "dependent catalogs compare identities rather than payload subtyping"
+      (check (subtype-expression? '(TypeValuePair UInt) '(TypeValuePair Bool UInt)) => #t)
+      (check (subtype-expression? '(TypeValuePair UInt) '(TypeValuePair Integer)) => #f)
+      (check (subtype-expression? '(TypeValuePair) '(TypeValuePair UInt)) => #t)
+      (check (subtype-expression? '(TypeValuePair UInt) '(TypeValuePair)) => #f)
+      (check (subtype-expression? '(Map UInt <- (TypeValuePair UInt Bool))
+        '(Map UInt <- (TypeValuePair Bool UInt))) => #f)
+      (for-each (lambda (term) (check-exception (expression-type term) (refusal 'unsupported)))
+        '((TypeValuePair Any) (TypeValuePair Never) (TypeValuePair UInt UInt)
+          (TypeValuePair (UIntN 8)) (TypeValuePair (Function (UInt) (UInt))) (TypeValuePair Missing)))
+      (check-exception (expression-type '(TypeValuePair UInt Bool) 1) (refusal 'exhausted))
+      (check-exception (prototype-type (.o .parameters: '(TypeValuePair)) '(TypeValuePair) 'UInt [])
+        (refusal 'malformed)))
+    (test-case "typed-value outer pairs preserve keyword and escape transport boundaries"
+      (check (function-covers?
+        '(Function (UInt) ((TypeValuePair UInt Bool)) keywords: ((mode: . UInt)))
+        '(Function (UInt) ((TypeValuePair UInt)))) => #t)
+      (check (function-covers?
+        '(Function (UInt) ((TypeValuePair Keyword)) keywords: ((mode: . UInt)))
+        '(Function (UInt) ((TypeValuePair Keyword)))) => #t)
+      (def checked (validate
+        (expression-type '(Function (UInt) ((TypeValuePair Keyword)) keywords: ((mode: . UInt))))
+        (lambda (value mode: (mode 7)) (if (keyword? (cdr value)) mode 0))))
+      (check-equal? (checked (cons Keyword mode:)) 7)
+      (check-exception (checked (cons Keyword #!key)) TypeError?)
+      (check-exception (checked mode:) TypeError?))
+    (test-case "catalog admission preserves carried identity and refuses forged descriptors"
+      (def descriptor (expression-type '(TypeValuePair UInt Bool Null)))
+      (def source (cons Bool #f))
+      (check (eq? (validate descriptor source) source) => #t)
+      (validate descriptor (cons Null []))
+      (check-exception (validate descriptor (cons UInt -1)) TypeError?)
+      (check-exception (validate descriptor (cons Integer 3)) TypeError?)
+      (check-exception (validate descriptor (cons 'UInt 3)) TypeError?)
+      (def calls 0)
+      (def forged (.cc UInt .element?: (lambda (_) (set! calls (1+ calls)) #t)))
+      (check-exception (validate descriptor (cons forged 3)) TypeError?)
+      (check-equal? calls 0)
+      (check-exception (validate (expression-type '(TypeValuePair)) source) TypeError?))
+    (test-case "explicit catalog reuses dependent Function wrapping and inherited source invalidation"
+      (def parent (.cc Type. .element?: exact-integer?))
+      (def child (.o inherit: [parent]))
+      (def callback (expression-type '(Function (UInt) (Integer))))
+      (def types (list child callback))
+      (def descriptor (type-value-catalog TypeValuePair types 'private-catalog))
+      (set-car! types Type.)
+      (check-exception (validate descriptor (cons Type. 1)) TypeError?)
+      (def source (cons callback abs))
+      (def checked (validate descriptor source))
+      (check (eq? (car checked) callback) => #t)
+      (check-equal? ((cdr checked) -3) 3)
+      (check-exception ((cdr checked) #f) TypeError?)
+      (check (eq? (cdr source) abs) => #t)
+      (def observed [])
+      (call-with-slot-read-observer
+        (lambda (read) (set! observed (cons (slot-read-receiver read) observed)))
+        (lambda () (validate descriptor (cons child 1))))
+      (check (and (memq child observed) #t) => #t)
+      (check (and (memq callback observed) #t) => #t)
+      (.setslot! parent .element? ($constant-slot-spec string?))
+      (check-exception (validate descriptor (cons child 1))
+        (lambda (cause) (and (Error? cause) (equal? (error-message cause) "stale slot dependency"))))
+      (def fresh (type-value-catalog TypeValuePair (list child callback) 'private-catalog))
+      (validate fresh (cons child "renewed"))
+      (check-exception (validate fresh (cons child 1)) TypeError?))
     (test-case "Null and Unit preserve distinct carriers and sentinel semantics"
       (for-each (lambda (name value)
         (check (eq? (expression-type name) (if (eq? name 'Null) Null Unit)) => #t)
@@ -24,6 +91,53 @@
       (check-exception (validate Unit []) TypeError?)
       (check-exception (validate Null (void)) TypeError?)
       (check (subtype-expression? '(Map UInt <- Null) '(Map UInt <- (Tuple))) => #f))
+    (test-case "typed-value catalogs complete inference declarations refinement and exact evidence"
+      (def input '(TypeValuePair UInt Bool String))
+      (def output '(TypeValuePair UInt))
+      (def events []) (def calls 0) (def callbacks 0) (def consumed 0)
+      ;; Explicit application meaning converts heterogeneous values; readable
+      ;; catalog replacement itself never rewrites a carried descriptor token.
+      (def (size value)
+        (cons UInt (cond ((eq? (car value) UInt) (cdr value))
+                        ((eq? (car value) Bool) (if (cdr value) 1 0))
+                        (else (string-length (cdr value))))))
+      (def report (service.infer-type-value-service
+        '((TypeValuePair Bool) (TypeValuePair UInt))
+        (list (list [] (list input) (list output `(Function (,output) (,input)))))
+        (lambda (value) (set! calls (1+ calls))
+          (values (size value) (lambda (next) (set! callbacks (1+ callbacks)) (size next))))
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) '(((TypeValuePair UInt))))
+      (def instance (.get report instance))
+      (def context (.o approved: #t))
+      (def observed #f)
+      ;; The shared publication action gives IO only the refined wrapped result.
+      (def action (service.descriptor-service-action instance (cons Bool #f) context
+        (lambda (subject) (set! consumed (1+ consumed)) (set! observed subject))))
+      (defvalues (evidence next issue) (action context))
+      (check-equal? issue #f)
+      (check (eq? next context) => #t)
+      (check (eq? (.get evidence subject) observed) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check-equal? (.get observed answer) (cons UInt 0))
+      (check-equal? (reverse events) '(around before after))
+      (def callback (.get observed callback))
+      (check-equal? (callback (cons String "port")) (cons UInt 4))
+      (check-exception (callback (cons Integer 1)) TypeError?)
+      (check-exception (callback (cons UInt -1)) TypeError?)
+      (check-equal? callbacks 1)
+      (check-exception ((service.descriptor-service-action instance (cons Bool #f) context void #f) context) TypeError?)
+      (check-equal? consumed 1)
+      (defvalues (_ _next retried) (action context))
+      (check-equal? retried #f) (check-equal? consumed 2)
+      (check-equal? calls 3)
+      (check-equal? (.get (service.infer-type-value-service
+        '((TypeValuePair UInt Bool) (TypeValuePair Bool UInt))
+        (list (list [] (list input) #f)) (lambda (_) (error "must not invoke"))) status) 'ambiguous)
+      (check-equal? (.get (service.infer-type-value-service '((TypeValuePair Bool))
+        (list (list [] (list input) (list output `(Function (,output) (,input)))))
+        (lambda (_) (error "must not invoke"))) status) 'no-solution))
     (test-case "fixed integer inclusion and literal membership reuse intervals"
       (for-each (lambda (bits)
         (def unsigned (list 'UIntN bits)) (def signed (list 'IntN (1+ bits)))

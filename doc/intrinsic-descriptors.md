@@ -83,3 +83,61 @@ predicate implication, implicit Class/Schema callback discovery, dependent
 TypeValuePair catalogs, general Boolean algebra and unrestricted recursion remain
 open or outside the current decidable boundary. Full resource limits and complete
 local/exact-head CI checks remain enabled; no Lean checkout is used by Scheme.
+
+## Finite dependent TypeValuePair catalogs
+
+`(TypeValuePair UInt Bool String)` restricts the existing dependent carrier to
+those exact shared descriptor objects. The payload is still validated through
+its carried Type. The finite grammar admits distinct literal intrinsic names,
+excluding Any/Never, and an empty catalog. It does not admit parameter-dependent
+catalog entries, width expressions, predicate callbacks or arbitrary descriptor
+objects. A whole catalog expression can still be a prototype type argument.
+Compilation, substitution, candidate search and declaration admission retain the
+same shared syntax/work limits; source order is preserved, not sorted or erased.
+
+Replacement requires each source identity in the target catalog. In particular,
+`(TypeValuePair UInt)` is covered by `(TypeValuePair Bool UInt)` but not by
+`(TypeValuePair Integer)`: payload subtyping cannot replace the carried tag. Map
+keys and ordered Union trees retain their existing stricter identity rules.
+The empty catalog rejects every runtime value; missing catalog membership is a
+TypeError before any payload callback, not a request to infer another Type.
+Malformed/unsupported syntax, exhausted work, no solution and ambiguity remain
+different results. A duplicate name or nonliteral entry refuses admission.
+
+`optional-validation.ss` supplies the shared `type-value-catalog` lowering helper,
+with a bounded caller-supplied Type list (at most 64). This runtime helper may
+capture explicit Function or custom Types; that does not extend the finite
+inference grammar. It snapshots the list, uses Gerbil's eq? membership and reuses
+`type-value-shape` / `validate-type-value` for dependent traversal and recursive
+Function wrapping. The original pair survives unchanged when its payload does;
+a wrapped payload keeps the exact carried Type. Public descriptor sexp equality
+is never an authority to run an unlisted validator.
+
+The helper captures actual Slot observations with the existing recording/replay
+protocol, including the base validator and each descriptor recognizer. Replay
+before and after successful observations rejects supported source/ancestor edits.
+Ordinary source reads are reissued between the replay guards, so enclosing cache
+observers also receive unselected catalog members; replay alone is not treated
+as an observed read. Its original stale-slot error and child exceptions remain distinct from catalog
+membership failure. Rebuilding the catalog is the explicit retry. Raw mutation,
+unregistered external dependencies and arbitrary concurrent edits have the same
+existing unsupported boundary; there is no process-wide catalog approval cache.
+
+`infer-type-value-service` composes the existing rich declaration builder with
+finite catalog inference, around/before/after combination, returned callback
+wrapping, FUN/refine and exact bind-evidence publication. Regressions cover false
+payload data, different carried identities, forged equal-looking descriptors,
+parent-source invalidation, rebuilding, ambiguous reordered catalogs, no solution,
+policy refusal after method effects and successful retry before IO consumption.
+
+Lean extends `OptionalValidation`'s existing dependent-pair model, rather than
+inventing a second validator. `catalogCovers_sound` and `catalog_replacement`
+prove readable inclusion for arbitrary payload predicates under stable host
+identity. `catalogTyped_missing` proves refusal before payload work;
+`catalogTyped_sound` retains the exact tag and normalized payload membership.
+`catalog_stale` states guard short circuit; host replay detecting a mutation is a
+separate implementation obligation. These are conditional denotational laws,
+not a proof of the Scheme parser, Type registry, compiler or unrestricted dependent
+type inference. The examples stay in top-level `Examples/OptionalContracts.lean`.
+This explicitly advances the article's type-protocol future work; its Racket
+reference does not already implement this finite inference extension.
