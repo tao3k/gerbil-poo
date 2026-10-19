@@ -379,6 +379,12 @@
    ((and (pair? source) (pair? target)
          (memq (car source) '(Function CaseFunction)) (memq (car target) '(Function CaseFunction)))
     (function-replaces? source target work))
+   ;; Finite Record/Class and ObjectContract rows share the POO object carrier.
+   ;; Reuse the entire named presence/closure/child protocol in either direction;
+   ;; their original validators, initialization policies and descriptors stay distinct.
+   ((and (pair? source) (pair? target)
+         (memq (car source) '(Record Object)) (memq (car target) '(Record Object)))
+    (row-related? source target (cut compare-types <> <> work) work))
    ((and (pair? source) (pair? target) (eq? (car source) (car target)))
     (case (car source)
       ((List Tuple Pair)
@@ -405,9 +411,6 @@
       ;; Union equality was handled above. No widening, sorting, deduplication or
       ;; branchwise covariance may change committed first-match normalization.
       ((Union) #f)
-      ;; Class/Slot and ObjectContract keep their distinct runtime validators;
-      ;; their finite field-coverage judgment uses the same named-row protocol.
-      ((Record Object) (row-related? source target (cut compare-types <> <> work) work))
       (else #f)))
    (else #f))
     (empty-replacement? source target work)))
