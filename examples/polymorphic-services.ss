@@ -749,6 +749,8 @@
 
 ;; A structural worker interface consumes inherited Record values without a cast.
 ;; Candidate outputs retain Class optional slots and their original metadata;
+;; ordered Record/Object alternatives must ALL satisfy this one readable view.
+;; Their source validators keep first selection, recursive wrappers and errors;
 ;; complete inference checks every named field before qualified publication.
 ;; Closure is a checked interface policy, not a runtime projection: sealed
 ;; consumers may forget only fields whose optional payload is proved impossible.

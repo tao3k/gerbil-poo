@@ -46,6 +46,18 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 container source alternatives
+
+Ordered source Union candidates now cover one ordinary readable container only
+when every original branch satisfies that same target's existing carrier and
+child rules. List/Tuple/Pair/Map/Record/Object compose with inference, prefix
+specialization and qualified declarations, including nested Function wrappers.
+Direct Union identity and root Function/opaque-target bounds remain unchanged.
+The worked worker factory reuses FUN/refine/bind-evidence and preserves selected
+branch failure, source syntax, ambiguity and approval retry. Lean proves both
+branch derivability and coverage of actual normalized results without a raw-value
+identity assumption. See prototype-types.md and union-inference-test.ss.
+
 ### P2 necessarily empty Map acceptance
 
 A positive finite empty key or value witness now admits readable replacement by

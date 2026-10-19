@@ -1,4 +1,4 @@
-;;; Joint flat Union coverage through the original finite declaration protocol.
+;;; Ordered scalar/container Union coverage through the shared declaration protocol.
 (export union-inference-test)
 (import (only-in ../function-signature encode-arguments) :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
@@ -15,7 +15,86 @@
 (def (forbidden _) (error "Union declaration built before complete inference"))
 ;; Coverage, ordered validation and whole publication are checked independently.
 (def union-inference-test
-  (test-suite "Joint range and literal coverage in ordered flat Union"
+  (test-suite "Joint scalar and container coverage in ordered Union"
+    (test-case "source alternatives cover one ordinary readable container"
+      (for-each (lambda (source target)
+        (check (subtype-expression? source target) => #t)
+        ;; ObjectContract's public sexp is a nominal display, not captured syntax.
+        (check-equal? (canonical-type source (type-work 8192)) source))
+        '((Union (List UInt) (Union (List (IntegerRange min: -2 max: -1)) (List (Enum -3))))
+          (Union (Tuple UInt Bool) (Tuple (Enum -1 0) (Exactly #f)))
+          (Union (Pair UInt Null) (Pair (Enum -1) (List UInt)))
+          (Union (Pair UInt Null) (Pair (Enum -1) (List Never)))
+          (Union (Map UInt <- UInt) (Map (Enum -1) <- UInt))
+          (Union (Map Bool <- (Enum)) (Map UInt <- UInt))
+          (Union (Record ((x UInt required)) closed) (Object ((x Integer)) open))
+          (Union (Object ((x UInt)) closed) (Record ((x Integer required)) closed))
+          (Union))
+        '((List Integer) (Tuple Integer Bool) (List Integer) (Pair Integer Null) (Map Integer <- UInt)
+          (Map Integer <- UInt) (Object ((x Integer)) open) (Record ((x Integer required)) closed)
+          (List (Function (UInt) (UInt)))))
+      (for-each (lambda (source target) (check (subtype-expression? source target) => #f))
+        '((Union (List UInt) (Tuple UInt)) (Union (Pair UInt Null) (Pair UInt UInt))
+          (Union (Map UInt <- UInt) (Map UInt <- Integer))
+          (Union (Object ((x UInt)) open) (Record ((x String required)) closed))
+          (Union (List (Function (Bool) (Bool))))
+          (Union (List UInt) (List Integer)))
+        '((List Integer) (List Integer) (Map Integer <- UInt) (Object ((x Integer)) open)
+          (List (Function (UInt) (Integer))) (Union (List Integer) (List UInt))))
+      (check-exception (subtype-expression? '(Union (List UInt) (List Unknown)) '(List Integer)) (refusal 'unsupported))
+      (check-exception (subtype-expression? '(Union (List UInt)) '(List Integer) 1) (refusal 'exhausted)))
+    (test-case "container Union preserves committed wrapper failure and original carrier"
+      (def narrow '(Record ((run (Function ((UIntN 8)) (Integer)) required)) closed))
+      (def broad '(Object ((run (Function (UInt) (Integer)))) open))
+      (def source `(Union ,narrow ,broad))
+      (check (subtype-expression? source broad) => #t)
+      (def raw (.o run: abs))
+      (def checked (validate (expression-type source) raw))
+      (check-equal? ((.get checked run) -7) 7)
+      ;; The first selected layout's UInt8 wrapper still rejects 300; a later
+      ;; compatible layout could accept it but cannot replace the committed one.
+      (check-exception ((.get checked run) -300) TypeError?)
+      (check-equal? ((.get (validate (expression-type broad) raw) run) -300) 300)
+      (check-equal? ((.get raw run) -300) 300)
+      (check-exception (validate (expression-type '(Union (List UInt) (Tuple UInt))) (cons 1 2)) TypeError?)
+      (check-exception (validate (expression-type '(Union)) []) TypeError?))
+    (test-case "shared worker alternatives infer publish and retry through existing declarations"
+      (def handler '(Function (UInt) (Integer)))
+      (def narrow '(Function ((UIntN 8)) (Integer)))
+      (def jobs `(Map (List ,handler) <- UInt))
+      (def primary `(Record ((run ,narrow required) (limit UInt required) (jobs ,jobs required)) closed))
+      (def fallback `(Object ((run ,handler) (limit Integer) (jobs ,jobs)) open))
+      (def selected `(Union ,primary ,fallback))
+      (def wrong `(Union ,primary (Object ((run ,handler) (limit String) (jobs ,jobs)) open)))
+      (def events []) (def consumed 0) (def observed #f)
+      (def report (service.infer-worker-service (list wrong selected)
+        (lambda (worker) (values worker identity))
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) (list (list selected)))
+      (def raw (.o run: abs limit: 5 jobs: (hash (1 (list abs)))))
+      (def context (.o approved: #t))
+      (def action (service.descriptor-service-action (.get report instance) raw context
+        (lambda (subject)
+          (set! observed subject) (set! consumed (1+ consumed))
+          (def answer (.get subject answer))
+          (check-equal? ((.get answer run) -8) 8)
+          (check-exception ((.get answer run) -300) TypeError?)
+          (check-exception ((car (hash-ref (.get answer jobs) 1)) #f) TypeError?)
+          (def again ((.get subject callback) raw))
+          (check-exception ((.get again run) -300) TypeError?))))
+      (defvalues (evidence returned issue) (action context))
+      (check-equal? issue #f) (check (eq? returned context) => #t)
+      (check (eq? (.get evidence subject) observed) => #t)
+      (check (eq? (.get raw run) abs) => #t)
+      (check-equal? (reverse events) '(around before after))
+      (check-exception ((service.descriptor-service-action (.get report instance) raw context void #f) context) TypeError?)
+      (check-equal? consumed 1)
+      (defvalues (_ _context retried) (action context))
+      (check-equal? retried #f) (check-equal? consumed 2)
+      (check-equal? (.get (service.infer-worker-service (list wrong) forbidden) status) 'no-solution)
+      (check-equal? (.get (service.infer-worker-service
+        (list selected `(Union ,fallback ,primary)) forbidden) status) 'ambiguous))
     (test-case "flat source Union requires every original branch in one ordinary target"
       (for-each (lambda (source target values)
         (check (subtype-expression? source target) => #t)
