@@ -17,6 +17,72 @@
 ;; The whole protocol uses standard containers, Function wrappers and FUN actions.
 (def optional-inference-test
   (test-suite "Sentinel optional inference specialization and publication"
+    (test-case "ordinary payloads and finite literals share exact optional coverage"
+      (for-each (lambda (payload)
+        (check (subtype-expression? payload (list 'Maybe payload)) => #t)
+        (check (subtype-expression? payload (list 'OrFalse payload)) => #t))
+        '(UInt (Tuple UInt) (List Bool) (Pair UInt Null) (Map UInt <- UInt)
+          (Sum ready: UInt) (Function (UInt) (Integer))
+          (Record ((value UInt required)) closed)))
+      (check (subtype-expression? 'Bool '(OrFalse (Exactly #t))) => #t)
+      (check (subtype-expression? '(Enum #f ready:) '(OrFalse Keyword)) => #t)
+      (check (subtype-expression? '(Exactly #f) '(OrFalse Never)) => #t)
+      (check (subtype-expression? '(Enum #f #t ready:) '(OrFalse Keyword)) => #f)
+      (check (subtype-expression? '(Enum #f #!key) '(OrFalse Keyword)) => #f)
+      (check (subtype-expression? '(Enum) '(Maybe Never)) => #t)
+      (check (subtype-expression? '(Exactly #f) '(Maybe Never)) => #f)
+      (check (subtype-expression? 'Unit '(OrFalse Never)) => #f)
+      (check (subtype-expression? '(Maybe UInt) '(OrFalse Integer)) => #f)
+      (check (subtype-expression? '(OrFalse UInt) '(Maybe Integer)) => #f)
+      (check-exception (subtype-expression? 'Bool '(OrFalse (Exactly #t)) 1) (refusal 'exhausted)))
+    (test-case "cross-sentinel compositions preserve both branches and invariant parents"
+      (def source '(Maybe (OrFalse (List UInt))))
+      (def target '(OrFalse (Maybe (List Integer))))
+      (check (subtype-expression? source target) => #t)
+      (for-each (lambda (value) (validate (expression-type source) value) (validate (expression-type target) value))
+        (list (void) #f [] '(1 2)))
+      (check (subtype-expression? '(Maybe Bool) '(OrFalse (Maybe (Exactly #t)))) => #t)
+      (check (subtype-expression? '(Maybe Bool) '(OrFalse (Maybe Never))) => #f)
+      (check (subtype-expression? '(Map UInt <- (Maybe Bool)) '(Map UInt <- (OrFalse (Maybe (Exactly #t))))) => #f)
+      (check (subtype-expression? '(Union Bool) '(Union (OrFalse (Exactly #t)))) => #f)
+      ;; Structural coverage does not grant keyword-origin conversion.
+      (check (function-covers?
+        '(Function (UInt) ((OrFalse Keyword)) keywords: ((mode: . UInt)))
+        '(Function (UInt) (Keyword))) => #f))
+    (test-case "optional handler publication infers original nesting and wraps present callbacks"
+      (def batch '(List (Function (UInt) (Integer))))
+      (def selected (list 'OrFalse (list 'Maybe batch)))
+      (def events []) (def calls 0) (def consumed 0) (def observed #f)
+      (def report (service.infer-optional-handler-service
+        (list '(Maybe UInt) selected '(OrFalse UInt))
+        (lambda (value) (set! calls (1+ calls)) (values value identity))
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) (list (list selected)))
+      (def context (.o approved: #t))
+      (def source (list abs))
+      (def action (service.descriptor-service-action (.get report instance) source context
+        (lambda (subject)
+          (set! observed subject) (set! consumed (1+ consumed))
+          (check-equal? ((car (.get subject answer)) -6) 6)
+          (check-exception ((car (.get subject answer)) #f) TypeError?)
+          (check (void? ((.get subject callback) (void))) => #t)
+          (check-equal? ((.get subject callback) #f) #f)
+          (check-exception ((.get subject callback) (list #f)) TypeError?))))
+      (defvalues (evidence returned issue) (action context))
+      (check-equal? issue #f) (check (eq? returned context) => #t)
+      (check (eq? (.get evidence subject) observed) => #t)
+      (check (eq? (car source) abs) => #t)
+      (check-equal? (reverse events) '(around before after))
+      (check-equal? calls 1) (check-equal? consumed 1)
+      (check-exception
+        ((service.descriptor-service-action (.get report instance) source context void #f) context) TypeError?)
+      (check-equal? consumed 1)
+      (defvalues (_ _next retried) (action context))
+      (check-equal? retried #f) (check-equal? consumed 2)
+      (check-equal? (.get (service.infer-optional-handler-service
+        (list selected (list 'Maybe (list 'OrFalse batch)))
+        (lambda (_) (error "ambiguous implementation ran"))) status) 'ambiguous))
     (test-case "precise unary kinds reserve names in both binding protocols"
       (check-equal? (.get (expression-type '(OrFalse UInt)) sexp) '(OrFalse UInt))
       (for-each (lambda (term) (check-exception (expression-type term) (refusal 'malformed)))

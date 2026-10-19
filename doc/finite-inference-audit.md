@@ -9,6 +9,7 @@ used as a composition seed is inhabited and is not an empty Type.
 
 | Priority | Finding | Acceptance / next boundary |
 | --- | --- | --- |
+| P2 optional coverage | Payload lifting, finite Bool/Enum coverage and cross-sentinel composition were refused | Closed within the admitted finite relation: both original sentinel and payload obligations must hold; Bool and immutable Exactly/Enum enumerate every source value. Existing runtime validation, Map-key identity, Union order and keyword-origin restrictions remain intact. See optional-inference-test.ss. |
 | P2 singleton lists | A List with a witnessed empty element could not satisfy Null bounds or singleton Pair tails | Closed via the existing empty-type? witness and shared replacement quota. The List is inhabited by nil, not an empty Type. Descriptor metadata, Map keys and ordered Union branches stay unchanged; singleton-handler inference/declaration/publication has end-to-end controls. |
 | P2 carrier safety | Null was incorrectly equated with the empty vector Tuple; Pair spines could not satisfy List bounds | Corrected to distinct carriers. Null-to-List and Pair-to-List reuse the existing child/tail replacement judgment and shared quota; handler-batch inference, qualified declaration, refinement and evidence publication have integrated controls. No Tuple/list conversion or structural implication of opaque Types is added. |
 | P2 first | Impossible mandatory products/rows were refused across kinds | Implemented here: positive finite emptiness witnesses feed the existing replacement judgment, shared inference, ordered parameter specialization and whole declaration admission. |
@@ -21,6 +22,50 @@ explicit Object/Record protocols retain their documented bounds. This audit does
 not claim complete runtime Type coverage or mark every TODO complete.
 
 ## Implemented judgment
+
+### Optional sentinel and payload coverage
+
+`optional-related?` replaces the earlier small Null/Unit exception with one
+shared rule for Maybe/OrFalse targets. Successful same-kind covariance keeps its
+existing fast child proof. Broader optional sources then require BOTH their
+original sentinel and their payload to replace the target. Ordinary carriers
+lift through the original child relation. Bool and immutable Exactly/Enum sources
+check every literal, treating false as successful OrFalse absence and checking
+every remaining value through Exactly and the same child judgment. Void is
+Maybe's sentinel, not an Enum literal. Missing coverage is false; malformed or
+unsupported syntax and work exhaustion remain distinct typed refusals.
+
+The rule compares finite metadata; it does not invoke caller-defined recognizers or rewrite
+the candidate AST. Maybe/OrFalse may exchange nesting only when each original
+sentinel is explicitly covered. A bare Maybe UInt still cannot replace OrFalse
+Integer, nor the reverse. Optional Functions remain optional, not unconditionally
+callable. Map keys and direct ordered Union replacement retain their identity
+rules. A lifted Union retains its original complete tree in the child proof;
+no committed branch is reordered. Keyword/escape origin restrictions stay under
+the existing function coverage algorithm. No Any is synthesized.
+
+`infer-optional-handler-service` composes this with prefix specialization, whole
+candidate inference, qualified method fragments and the existing
+descriptor-service-action FUN/refine/bind-evidence chain. Mixed void/false/list
+results and returned callbacks retain recursive Function wrapping. Regressions
+cover incomplete finite coverage, both missing sentinels, escape values, invalid
+callback batches, exact selected nesting and evidence, policy failure/retry and
+genuine ambiguity between two equivalent original optional representations.
+
+Runtime `validate-optional` is unchanged: absence returns its original value
+without demanding the child; present values lock the original child normalizer
+and retain its errors and post-membership check. Coverage proves readable
+inclusion, not equality of arbitrary custom-validator effects or mutable writes.
+Existing source admission and descriptor revision obligations remain in force.
+
+Lean's existing OptionalValidation namespace proves payload_replacement,
+sentinel_replacement, finiteCoverage_sound and inferOptional_sound, reusing its
+Admits/normalize protocol and the existing complete declaration search. The
+proofs require actual child inclusion and complete host Bool/Enum interpretation;
+they retain both obligations and the original captured signature/candidate pair.
+Top-level Examples/OptionalContracts.lean includes exhaustive Bool controls,
+different-sentinel compositions and exact declaration artifacts. Host syntax
+projection, recognizers, wrappers and effects remain separate runtime obligations.
 
 ### Container carrier audit
 
@@ -35,7 +80,7 @@ this is not a claim of unrestricted runtime Type or callback soundness.
 | Maybe / OrFalse | Distinct void/false sentinels; present payloads use their actual validators. A sentinel is an inhabitant, never evidence of an empty payload Type. |
 | Object / Record | POO objects with explicit field presence and open/closed policy. Optional presence cannot supply a required field; opaque Class ancestry grants no structural implication. |
 
-The substantive remaining gap found here was singleton-list admission: an empty
+A prior carrier-audit gap was singleton-list admission: an empty
 element witness proves that every accepted proper list is nil, but the old
 replacement judgment still rejected List-to-Null. The shared judgment now uses
 that positive witness, including nested impossible products/required rows and

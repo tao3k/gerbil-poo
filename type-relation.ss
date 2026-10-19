@@ -305,6 +305,32 @@
                     (relate (cadr actual) (cadr expected)))))
             (else (and closed? (not (field-required? expected)))))) (cadr target))))
 
+;; Optional membership is its exact sentinel or its original child membership.
+;; Decompose optional sources, preserving BOTH obligations across different kinds.
+;; Bool/immutable literal sources use exhaustive values, not samples or a top Type.
+;; Other carriers lift only through the existing child relation; no Union tree,
+;; Map key or opaque descriptor is rewritten. Each visit shares the caller quota.
+(def (optional-related? source target relate work)
+  (work)
+  (def payload (cadr target))
+  ;; False is data here, not a missing association. Void is not an Enum literal.
+  (def (literal-covered? value)
+    (work)
+    (or (and (eq? (car target) 'OrFalse) (eq? value #f))
+        (relate (list 'Exactly value) payload)))
+  (cond
+    ;; Keep the established fast covariance proof before broader decomposition.
+    ((and (pair? source) (eq? (car source) (car target))
+          (relate (cadr source) payload)) #t)
+    ((and (eq? source 'Unit) (eq? (car target) 'Maybe)) #t)
+    ((and (pair? source) (memq (car source) '(Maybe OrFalse)))
+     (and (relate (if (eq? (car source) 'Maybe) 'Unit '(Exactly #f)) target)
+          (relate (cadr source) target)))
+    ((eq? source 'Bool) (and (literal-covered? #f) (literal-covered? #t)))
+    ((and (pair? source) (memq (car source) '(Exactly Enum)))
+     (andmap literal-covered? (cdr source)))
+    (else (relate source payload))))
+
 ;; Compare normalized finite terms; every required target field must be present.
 ;; Open source rows leave undeclared fields unconstrained; closed targets exclude extras.
 (def (compare-types source target work)
@@ -326,10 +352,10 @@
     (or (eq? source 'Null)
         (and (compare-types (cadr source) (cadr target) work)
              (compare-types (caddr source) target work))))
-   ;; Optional sentinel inclusion never changes Function wrapping or calls.
-   ((and (memq source '(Null Unit)) (pair? target) (memq (car target) '(Maybe OrFalse)))
-    (or (and (eq? source 'Unit) (eq? (car target) 'Maybe))
-        (compare-types source (cadr target) work)))
+   ;; Same-kind covariance, payload lifting and cross-sentinel coverage share
+   ;; one rule. Runtime optional validation still owns sentinel bypass/wrapping.
+   ((and (pair? target) (memq (car target) '(Maybe OrFalse)))
+    (optional-related? source target (cut compare-types <> <> work) work))
    ((and (flat-type? source) (flat-type? target)
          (not (and (pair? source) (eq? (car source) 'Union)))
          (or (not (and (pair? target) (eq? (car target) 'Union)))
@@ -340,7 +366,7 @@
     (function-replaces? source target work))
    ((and (pair? source) (pair? target) (eq? (car source) (car target)))
     (case (car source)
-      ((List Maybe OrFalse Tuple Pair)
+      ((List Tuple Pair)
        (and (= (length source) (length target))
             (andmap (lambda (s t) (compare-types s t work)) (cdr source) (cdr target))))
       ;; Keys are invariant after finite normalization: changing their validator

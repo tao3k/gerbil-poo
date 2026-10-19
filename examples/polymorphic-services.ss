@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export infer-handler-batch-service infer-single-handler-service)
+(export infer-handler-batch-service infer-single-handler-service infer-optional-handler-service)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -697,6 +697,17 @@
 (def (infer-single-handler-service candidates procedure (record void))
   (def handler '(Function (UInt) (Integer)))
   (def input (list 'Pair handler 'Null))
+  (infer-descriptor-service (list input) candidates
+    (list (list [] (list input) (list input `(Function (,input) (,input)))))
+    procedure record))
+
+;; One optional handler schema accepts void/false or a proper batch of callbacks.
+;; Candidates may retain either nesting order or lift a concrete batch payload;
+;; the shared solver proves both sentinel obligations before method installation.
+;; Existing descriptor-service-action owns refinement and exact FUN/IO evidence.
+(def (infer-optional-handler-service candidates procedure (record void))
+  (def batch '(List (Function (UInt) (Integer))))
+  (def input (list 'Maybe (list 'OrFalse batch)))
   (infer-descriptor-service (list input) candidates
     (list (list [] (list input) (list input `(Function (,input) (,input)))))
     procedure record))
