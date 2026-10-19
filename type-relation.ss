@@ -4,8 +4,8 @@
         (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
-        (only-in ./number Integer UInt IntegerRange)
-        (only-in ./type first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Exactly Enum.))
+        (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
+        (only-in ./type first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -94,7 +94,9 @@
 ;; A false result means nonnumeric; a pair of false bounds means all integers.
 (def (numeric-bounds term)
   (case term ((Integer) (cons #f #f)) ((UInt) (cons 0 #f))
-    (else (and (pair? term) (eq? (car term) 'IntegerRange) (range-bounds term)))))
+    (else (let (term (or (descriptor-alias term) term)) (and (pair? term)
+      (case (car term) ((IntegerRange) (range-bounds term))
+        ((UIntN IntN) (fixed-integer-bounds term)) (else #f)))))))
 ;; Empty ranges are numeric bottom, not work failure or a universal fallback.
 (def (empty-range? bounds)
   (and (car bounds) (cdr bounds) (> (car bounds) (cdr bounds))))
@@ -127,7 +129,7 @@
 ;; from token transport; public Union-to-Union descriptor identity is invariant.
 (def (flat-type? term)
   (if (pair? term)
-    (case (car term) ((Exactly Enum IntegerRange) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
+    (case (car term) ((Exactly Enum IntegerRange UIntN IntN BytesN) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
 ;; Numeric families share their symbolic interval view; Bool has exactly two
 ;; intrinsic values. String/Symbol/Keyword require a same-family flat branch;
@@ -137,7 +139,8 @@
 ;; Keyword/escape transport, ordered Union identity and wrapper admission retain
 ;; their existing judgments; coverage does not execute user recognizers.
 (def (flat-union-source? source work)
-  (or (and (memq source '(Bool String Symbol Keyword)) #t) (and (numeric-bounds source) #t)
+  (or (and (memq source '(Bool String Symbol Keyword Null Unit Bytes Bytes32 Bytes64)) #t) (and (numeric-bounds source) #t)
+      (and (pair? source) (eq? (car source) 'BytesN))
       (and (pair? source) (memq (car source) '(Exactly Enum))
            (keyword-stable-type? source work))))
 ;; Project numeric coverage without altering the ordered descriptor tree.
@@ -184,14 +187,31 @@
   (cond ((scalar-recognizer term) => (lambda (recognize) (recognize value)))
         (else (and (pair? term)
           (case (car term)
-            ((IntegerRange)
-             (let (bounds (range-bounds term))
+            ((IntegerRange UIntN IntN)
+             (let (bounds (numeric-bounds term))
                (and (exact-integer? value) (or (not (car bounds)) (<= (car bounds) value))
                     (or (not (cdr bounds)) (<= value (cdr bounds))))))
             ((Exactly) (equal? value (cadr term)))
             ((Enum) (and (member value (cdr term)) #t))
             ((Union) (ormap (cut literal-in-type? value <> work) (cdr term)))
             (else #f))))))
+;; Bytes validation is identity-preserving; mutable contents never enter literal
+;; metadata or a value cache. Only the carrier and immutable vector length matter.
+(def (byte-type? term)
+  (or (and (memq term '(Bytes Bytes32 Bytes64)) #t)
+      (and (pair? term) (eq? (car term) 'BytesN))))
+;; Finite fixed-length branches cover a fixed source only at that same length.
+;; An unbounded Bytes source requires a whole Bytes branch; no finite length list
+;; can cover every vector. Ordered target traversal remains the shared flat rule.
+(def (byte-subtype? source target work)
+  (def left (or (descriptor-alias source) source))
+  (def right (or (descriptor-alias target) target))
+  (cond ((eq? right 'Bytes) #t)
+        ((and (pair? right) (eq? (car right) 'BytesN))
+         (and (pair? left) (= (cadr left) (cadr right))))
+        ((and (pair? target) (eq? (car target) 'Union))
+         (ormap (cut flat-subtype? source <> work) (cdr target)))
+        (else #f)))
 ;; Inclusion distributes only over the proven identity-preserving flat fragment.
 ;; An explicit Any source still cannot replace a narrower field or signature.
 (def (flat-subtype? source target work)
@@ -200,6 +220,9 @@
         ((or (eq? source 'Never) (eq? target 'Any)) #t)
         ;; The private finite view reuses literal membership without rewriting
         ;; the public Bool descriptor or interpreting false as missing data.
+        ((eq? source 'Null) (literal-in-type? [] target work))
+        ((eq? source 'Unit) (literal-in-type? (void) target work))
+        ((byte-type? source) (byte-subtype? source target work))
         ((eq? source 'Bool) (flat-subtype? '(Enum #f #t) target work))
         ((and (pair? source) (eq? (car source) 'Union))
          (andmap (cut flat-subtype? <> target work) (cdr source)))
@@ -282,6 +305,13 @@
   (or (cond
    ((equal? source target) #t)
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
+   ;; Null and the empty Tuple share their sole list value, not descriptor keys.
+   ((or (and (eq? source 'Null) (equal? target '(Tuple)))
+        (and (equal? source '(Tuple)) (eq? target 'Null))) #t)
+   ;; Optional sentinel inclusion never changes Function wrapping or calls.
+   ((and (memq source '(Null Unit)) (pair? target) (memq (car target) '(Maybe OrFalse)))
+    (or (and (eq? source 'Unit) (eq? (car target) 'Maybe))
+        (compare-types source (cadr target) work)))
    ((and (flat-type? source) (flat-type? target)
          (not (and (pair? source) (eq? (car source) 'Union)))
          (or (not (and (pair? target) (eq? (car target) 'Union)))
@@ -341,7 +371,7 @@
          (lambda (recognize)
            (not (or (recognize mode:) (recognize #!key) (recognize #!rest)))))
         (else (case (car term)
-          ((IntegerRange) #t)
+          ((IntegerRange UIntN IntN BytesN) #t)
           ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
           ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
           ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
@@ -591,7 +621,7 @@
   (let build ((term (normalize-type expression work)))
     (work)
     (case term
-      ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
+      ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
       (else
        (case (car term)
          ;; Reuse Class and its effective Slot protocol, including recursive
@@ -607,6 +637,9 @@
             (if (eq? (caddr term) 'closed)
               (.cc ObjectContract. responsibilities: fields)
               (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+         ((UIntN) (UIntN (cadr term)))
+         ((IntN) (IntN (cadr term)))
+         ((BytesN) (BytesN (cadr term)))
          ((IntegerRange)
           (let (bounds (range-bounds term)) (IntegerRange min: (car bounds) max: (cdr bounds))))
          ((Exactly) (Exactly (cadr term)))

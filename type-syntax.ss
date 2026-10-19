@@ -1,14 +1,18 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
-(export range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
+(export descriptor-alias descriptor-width fixed-integer-bounds range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
-(import :std/error (only-in :std/list/list delete-duplicates/hash map-in-order)
+(import :std/error (only-in :std/number/misc uint-of-length? sint-of-length?) (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
 ;; Only built-in scalar recognizers enter finite derivation. This registry is
 ;; private; exported lookup never invokes a mutable POO descriptor or user Type.
 (def scalar-recognizers
   (list (cons 'Any true) (cons 'Never false) (cons 'Bool boolean?)
         (cons 'Integer exact-integer?) (cons 'UInt (lambda (value) (and (exact-integer? value) (>= value 0))))
-        (cons 'Keyword keyword?) (cons 'String string?) (cons 'Symbol symbol?)))
+        (cons 'Keyword keyword?) (cons 'String string?) (cons 'Symbol symbol?)
+        (cons 'Null null?) (cons 'Unit void?) (cons 'Bytes u8vector?)
+        (cons 'UInt256 (cut uint-of-length? <> 256)) (cons 'JsInt (cut sint-of-length? <> 54))
+        (cons 'Bytes32 (lambda (value) (and (u8vector? value) (= (u8vector-length value) 32))))
+        (cons 'Bytes64 (lambda (value) (and (u8vector? value) (= (u8vector-length value) 64))))))
 ;; Gerbil's presence-preserving association lookup supplies the known predicate;
 ;; unknown scalar names remain false and cannot manufacture a universal Type.
 (def (scalar-recognizer name) (agetq name scalar-recognizers))
@@ -16,7 +20,7 @@
 ;; cannot become a free Type variable merely because a caller uses another phase.
 (def (type-constructor? name)
   (or (and (scalar-recognizer name) #t)
-      (and (memq name '(IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
+      (and (memq name '(UIntN IntN BytesN IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
                        Function CaseFunction Object Row Mu)) #t)))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -75,6 +79,32 @@
                (or (not upper) (exact-integer? upper)))
     (refuse-type 'malformed "IntegerRange bounds must be literal exact integers or false" term))
   (cons lower upper))
+;; Existing named descriptors have fixed immutable metadata views. Source names
+;; stay intact for compilation, owner stamps and invariant descriptor-key checks.
+(def (descriptor-alias name)
+  (case name ((UInt256) (list 'UIntN 256)) ((JsInt) (list 'IntN 54))
+    ((Bytes32) (list 'BytesN 32)) ((Bytes64) (list 'BytesN 64)) (else #f)))
+;; Admit literal widths before exponentiation or constructing a cached descriptor.
+;; Numeric metadata is bounded to 4096 bits, byte lengths to 65536. Charge one
+;; work unit per 64 bits/bytes; no width expression, allocation or user code runs.
+(def (descriptor-width term work)
+  (unless (and (= (length term) 2) (exact-integer? (cadr term))
+               (>= (cadr term) (if (eq? (car term) 'IntN) 1 0)))
+    (refuse-type 'malformed "Descriptor needs one literal nonnegative width (IntN >= 1)" term))
+  (def width (cadr term))
+  (when (> width (if (eq? (car term) 'BytesN) 65536 4096))
+    (refuse-type 'unsupported "Descriptor width exceeds the finite inference boundary" term))
+  (let charge ((remaining width))
+    (work)
+    (when (> remaining 64) (charge (- remaining 64))))
+  width)
+;; Project an admitted numeric width to the existing inclusive interval algebra.
+;; Keep its original descriptor kind and width in all source/artifact metadata.
+(def (fixed-integer-bounds term)
+  (def bits (cadr term))
+  (if (eq? (car term) 'UIntN)
+    (cons 0 (1- (arithmetic-shift 1 bits)))
+    (let (half (arithmetic-shift 1 (1- bits))) (cons (- half) (1- half)))))
 ;; Canonical spelling matches IntegerRange's existing min/max order and omission
 ;; of unbounded endpoints; it does not collapse descriptor kinds into Integer/UInt.
 (def (canonical-range term)
@@ -129,7 +159,7 @@
 ;; markers or Mu binders/depth as Types. Canonical Map arrows share one shape.
 (def (map-type-children term transform (canonical? #f))
   (case (car term)
-    ((Exactly Enum) term)
+    ((Exactly Enum UIntN IntN BytesN) term)
     ((IntegerRange) (if canonical? (canonical-range term) term))
     ((Function) (let (mapped (map-function-types term transform))
                   (if canonical? (canonical-function mapped) mapped)))
@@ -180,11 +210,13 @@
   (let check ((value term) (variables variables))
     (work)
     (cond
-     ((scalar-recognizer value) value)
+     ((scalar-recognizer value)
+      (let (alias (descriptor-alias value)) (when alias (descriptor-width alias work))) value)
      ((memq value variables) value)
      ((and (list? value) (pair? value))
       (case (car value)
         ((IntegerRange) (range-bounds value))
+        ((UIntN IntN BytesN) (descriptor-width value work))
         ((Exactly Enum)
          (unless (and (or (eq? (car value) 'Enum) (= (length value) 2))
                       (andmap literal-type-value? (cdr value)))
@@ -274,7 +306,7 @@
     (list (car term)
       (map (lambda (field) (cons (car field) (cons (substitute-type (cadr field) substitution work) (cddr field)))) (cadr term))
       (if (pair? (caddr term)) (list 'Row (substitute-type (cadr (caddr term)) substitution work)) (caddr term))))
-   ((memq (car term) '(Exactly Enum IntegerRange)) term)
+   ((memq (car term) '(Exactly Enum IntegerRange UIntN IntN BytesN)) term)
    ((eq? (car term) 'Sum) (map-sum-types term (cut substitute-type <> substitution work)))
    ((eq? (car term) 'Map)
     (list 'Map (substitute-type (cadr term) substitution work) (caddr term)

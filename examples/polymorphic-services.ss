@@ -1,5 +1,5 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
-(export EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
+(export DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in ../function-signature encode-arguments) (only-in ../type Record) ../number ../type-relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
@@ -648,3 +648,20 @@
   (signature-refinement-action instance input context consume
     (lambda (_subject path)
       (if allowed? [] [(.o bind-these: #f kind: 'disabled path: path)]))))
+
+;; Prefix-bound data/callback inputs and candidate outputs retain descriptor kinds.
+;; The same schema handles singleton, fixed integer and byte-buffer services;
+;; fixed-width metadata is literal and never evaluated as a prototype parameter.
+(def DescriptorServiceType
+  (prototype-type (.o .parameters: '(Input Output)) '(Input Output)
+    '(Function (Output (Function (Output) (Input))) (Input)) '((Output Input))))
+;; Reuse the existing whole qualified builder, host contracts and complete solve.
+;; The caller supplies the host operation; returned callbacks are checked later.
+(def (infer-descriptor-service prefix candidates observations procedure (record void))
+  (infer-signature-calls DescriptorServiceType prefix candidates observations procedure record))
+;; Reuse FUN approval, recursive result wrapping, refinement and exact evidence.
+;; A policy failure occurs after method effects and before consumer admission.
+(def (descriptor-service-action instance input context consume (allowed? #t))
+  (signature-refinement-action instance input context consume
+    (lambda (_subject path)
+      (if allowed? [] [(.o bind-these: #f kind: 'descriptor-policy path: path)]))))
