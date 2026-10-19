@@ -9,6 +9,7 @@ used as a composition seed is inhabited and is not an empty Type.
 
 | Priority | Finding | Acceptance / next boundary |
 | --- | --- | --- |
+| P2 source alternatives | Flat Union sources were refused even when every branch fit an ordinary intrinsic target | Closed through the existing shared all-branch flat relation, preserving original branch trees, direct Union-to-Union/Map-key invariance and keyword origins. Wrapper-bearing sources refuse; empty Union remains uninhabited. Measurement-service integration covers Map/Pair fields, wrapping, inference, specialization, declarations and FUN/refine/evidence; t/union-inference-test.ss. |
 | P2 optional sources | Optional sources could not replace ordinary flat targets even when both sentinel and payload were covered | Closed by the shared two-branch source decomposition: original sentinels and payloads must each replace the same intrinsic flat target, including entirely flat ordered Union targets. No wrapper-bearing shortcut, Map-key widening or Any fallback; decision-service integration and refusal/retry controls are in optional-inference-test.ss. |
 | P2 optional coverage | Payload lifting, finite Bool/Enum coverage and cross-sentinel composition were refused | Closed within the admitted finite relation: both original sentinel and payload obligations must hold; Bool and immutable Exactly/Enum enumerate every source value. Existing runtime validation, Map-key identity, Union order and keyword-origin restrictions remain intact. See optional-inference-test.ss. |
 | P2 singleton lists | A List with a witnessed empty element could not satisfy Null bounds or singleton Pair tails | Closed via the existing empty-type? witness and shared replacement quota. The List is inhabited by nil, not an empty Type. Descriptor metadata, Map keys and ordered Union branches stay unchanged; singleton-handler inference/declaration/publication has end-to-end controls. |
@@ -94,6 +95,46 @@ Host descriptor interpretation and the flat target's identity validation remain
 premises. These are readable inclusion laws, not arbitrary effect equivalence or
 compiler verification. This finite type protocol advances the article's future
 work; it is not attributed to the reference Racket implementation.
+
+
+### Source alternatives into ordinary intrinsic targets
+
+A completely intrinsic flat Union source can now replace an ordinary intrinsic
+flat target only when EVERY original branch replaces that same target. The shared
+flat-subtype? rule already owns ordered andmap traversal, literal/interval/byte
+judgments and quota charging; the public replacement dispatcher now admits this
+direction. For example, negative-range/zero/UInt alternatives replace Integer,
+and Exactly/Enum Boolean alternatives replace Bool. Nested and overlapping source
+branches retain their original order and syntax. An empty Union has no values;
+vacuous coverage does not make runtime validation accept a fabricated value.
+
+This is a read/validation inclusion, not a serialization conversion. Direct
+Union-to-Union replacement remains invariant, including semantically equivalent
+reorderings. Map keys keep exact syntax. Any wrapper-bearing or non-flat source
+branch refuses this path even if another branch would match a particular sample.
+Missing coverage is false; malformed/unsupported syntax and shared work exhaustion
+retain distinct typed refusal semantics. Keyword/escape origin restrictions and
+first-match validation errors are not relaxed, and no Any is introduced.
+
+infer-measurement-service puts the rule inside UInt-indexed Map values and Pair
+fields next to a recursively wrapped Function. It reuses complete inference,
+prefix specialization, qualified declarations and descriptor-service-action's
+FUN/refine/bind-evidence chain. Regressions check source/Map identity, false data,
+returned callbacks, policy failure/retry, bad branches and genuine ambiguity of
+original candidate descriptors. Ordinary subtype observations do not rewrite the
+selected output declaration to its target.
+
+VariantValidation.sourceCoverage_exact/sourceCoverage_sound prove exhaustive
+branch obligations and universal membership. sourceCoverage_normalized reuses
+committed Union validation to retain the exact value under explicit source and
+target identity premises; selected-error controls retain the original cause.
+DeclarativeMetadata.inferSourceUnion_sound connects complete unique search to
+both original ordered artifact provenance and universal inclusion. Top-level
+Examples/PrototypeTypes.lean exercises overlapping branches and failure controls.
+These generic interpretation laws complement the restricted Ty checker; they do
+not claim its completeness, Scheme parser correctness, arbitrary callback effect
+equivalence or host compiler verification. This advances the article's type
+protocol future work; Racket does not supply this finite inference algorithm.
 
 ### Container carrier audit
 

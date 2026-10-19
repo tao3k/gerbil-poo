@@ -369,7 +369,10 @@
    ((and (pair? source) (memq (car source) '(Maybe OrFalse)) (flat-type? target))
     (optional-source-related? source target (cut compare-types <> <> work) work))
    ((and (flat-type? source) (flat-type? target)
-         (not (and (pair? source) (eq? (car source) 'Union)))
+         ;; Flat source alternatives may each replace one ordinary flat target.
+         ;; Keep direct Union-to-Union identity: no branch permutation or widening.
+         (not (and (pair? source) (eq? (car source) 'Union)
+                   (pair? target) (eq? (car target) 'Union)))
          (or (not (and (pair? target) (eq? (car target) 'Union)))
              (flat-union-source? source work)))
     (flat-subtype? source target work))
