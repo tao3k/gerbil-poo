@@ -21,7 +21,7 @@
 ;; cannot become a free Type variable merely because a caller uses another phase.
 (def (type-constructor? name)
   (or (and (scalar-recognizer name) #t)
-      (and (memq name '(UIntN IntN BytesN IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Record
+      (and (memq name '(UIntN IntN BytesN IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Or Record
                        TypeValuePair Function CaseFunction Object Row Mu)) #t)))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -202,7 +202,7 @@
              ((Sum) (let loop ((entries (cdr value)))
                       (or (null? entries)
                           (and (walk (cadr entries) #t positive?) (loop (cddr entries))))))
-             ((List Maybe OrFalse Tuple Pair Union) (andmap (lambda (x) (walk x #t positive?)) (cdr value)))
+             ((List Maybe OrFalse Tuple Pair Union Or) (andmap (lambda (x) (walk x #t positive?)) (cdr value)))
              (else #t))))))
 ;; Admit syntax independently of subtype decisions. Field labels are unique
 ;; symbols, not type variables; row tails are open/closed or (Row expression).
@@ -250,7 +250,7 @@
                (refuse-type 'malformed "Sum Type needs unique keyword payload Types"))
              (check (cadr entries) variables)
              (loop (cddr entries) (cons (car entries) seen)))))
-        ((Union Tuple) (for-each (cut check <> variables) (cdr value)))
+        ((Union Or Tuple) (for-each (cut check <> variables) (cdr value)))
         ((Function)
          (unless (and (>= (length value) 3) (list? (cadr value)) (list? (caddr value)))
            (refuse-type 'malformed "Function Type needs output/input lists"))

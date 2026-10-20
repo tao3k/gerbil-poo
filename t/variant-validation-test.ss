@@ -1,7 +1,7 @@
 ;;; Recursive Pair/Map/Sum/Union validation and bound routing publication.
 (export variant-validation-test)
 (import :std/test ../object ../mop ../number ../object-contract
-        (only-in ../type Pair Map Sum Union String)
+        (only-in ../type Pair Map Sum Union Or List String)
         (prefix-in ../examples/variant-publication routing.)
         (prefix-in ../examples/object-contracts service.)
         (prefix-in ../examples/contract-publication publication.)
@@ -27,6 +27,37 @@
 ;; Check each carrier, selection and publication boundary with negative controls.
 (def variant-validation-test
   (test-suite "recursive Pair Map Sum and committed Union"
+    (test-case "Or uses actual membership and preserves the selected validator failure"
+      (def calls 0) (def failure (.o reason: 'selected))
+      (def ghost (.cc Type. .element?: (lambda (_) #f)
+        .diagnose-shape: (lambda (_value _path _check) [])
+        .validate: (lambda (_) (set! calls (1+ calls)) (raise failure))))
+      (check-equal? (validate (Or ghost Integer) 7) 7)
+      (check-equal? calls 0)
+      (check-exception (validate (Union ghost Integer) 7) (lambda (cause) (eq? cause failure)))
+      (check-equal? calls 1)
+      (def selected (.cc Type. .element?: exact-integer?
+        .validate: (lambda (_) (raise failure))))
+      (check-exception (validate (Or selected Integer) 7) (lambda (cause) (eq? cause failure)))
+      (def corrupt (.cc Type. .element?: exact-integer? .validate: (lambda (_) #f)))
+      ;; A later branch accepts false, but cannot bless a corrupt first result.
+      (check-exception (validate (Or corrupt Bool) 7) TypeError?)
+      (def broken (.cc Type. .element?: (lambda (_) (raise failure))))
+      (check-exception (validate (Or broken Integer) 7) (lambda (cause) (eq? cause failure))))
+    (test-case "Or recursively wraps nested Function containers without touching raw values"
+      (def calls 0)
+      (def raw (lambda (x) (set! calls (1+ calls)) (abs x)))
+      (def narrow (Function (list (UIntN 8)) (list Integer)))
+      (def broad (Function (list UInt) (list Integer)))
+      (def checked (validate (Or (Pair (List narrow) narrow) (Pair (List broad) broad))
+        (cons (list raw) raw)))
+      (check-equal? calls 0)
+      (check-equal? ((car (car checked)) -8) 8)
+      (check-exception ((cdr checked) -300) TypeError?)
+      (check-equal? calls 2)
+      (check (eq? (car (car checked)) raw) => #f)
+      (check-equal? (raw -300) 300)
+      (check-exception ((car (car checked)) #f) TypeError?))
     (test-case "Pair wraps both positions without invoking or mutating source"
       (def calls 0)
       (def raw (lambda (n) (set! calls (+ calls 1)) n))

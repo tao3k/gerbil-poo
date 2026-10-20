@@ -797,7 +797,8 @@
     procedure record))
 
 ;; Publish one directory of overloaded callbacks and a fallback callback vector.
-;; Every original callable alternative must implement the same ordered one/two
+;; Or's first actual member and Union's first structural branch keep their own
+;; selection discipline. Every callable alternative implements the same one/two
 ;; argument interface before the existing whole declaration and FUN/refine/
 ;; bind-evidence chain runs. Validation retains first-selected Function wrappers;
 ;; neither a later branch nor a retry can repair a failed checked callback call.

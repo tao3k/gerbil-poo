@@ -3,7 +3,7 @@
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ./support/base require-value) :std/iter :std/error ./object
         (only-in ./mop Type validate)
-        (only-in ./type List. Tuple. Pair. Union. Maybe. OrFalse.))
+        (only-in ./type List. Tuple. Pair. Union. Or. Maybe. OrFalse.))
 
 ;; Controlled resource refusal is distinct from a property exception or false result.
 (deferror-class GenerationRefusal () generation-refusal?)
@@ -38,7 +38,10 @@
     ((memq List. ancestors) (values 'list (list (.get descriptor type)) #f))
     ((memq Tuple. ancestors) (values 'tuple (.get descriptor type-list) #f))
     ((memq Pair. ancestors) (values 'pair (list (.get descriptor left) (.get descriptor right)) #f))
-    ((memq Union. ancestors) (values 'union (.get descriptor types) #f))
+    ;; Both protocols share a finite alternative membership grammar. Runtime
+    ;; selection/normalization still belongs to the original descriptor.
+    ((or (memq Union. ancestors) (memq Or. ancestors))
+     (values 'union (.get descriptor types) #f))
     ((memq Maybe. ancestors) (values 'maybe (list (.get descriptor type)) #f))
     ((memq OrFalse. ancestors) (values 'or-false (list (.get descriptor type)) #f))
     (else (as-leaf))))

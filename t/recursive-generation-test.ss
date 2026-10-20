@@ -14,6 +14,16 @@
 ;; make a recursive descriptor pass, and no inconclusive result is a success.
 (def recursive-generation-test
   (test-suite "automatic guarded recursive generators"
+    (test-case "Or reuses bounded alternative generation shrinking and replay"
+      (def descriptor (Or (List UInt) (Tuple Bool)))
+      (def passed (check-property descriptor (cut element? descriptor <>)
+        seed: 39 cases: 20 size: 5 depth: 6 node-budget: 32))
+      (check-equal? (.get passed status) 'passed)
+      (check-equal? (.get passed trial) 20)
+      (def failed (check-property descriptor (lambda (_) #f)
+        seed: 39 cases: 20 size: 5 depth: 6 node-budget: 32 shrink-budget: 30))
+      (check-equal? (.get failed status) 'failed)
+      (check-equal? (.get (replay-property failed) status) 'failed))
     (test-case "mutual recursion and shared children derive without custom callbacks"
       (let (report (check-property trees.Message (cut element? trees.Message <>) seed: 37
                       cases: 150 size: 5 depth: 10 node-budget: 100 search-budget: 20000))

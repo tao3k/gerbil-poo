@@ -1,8 +1,8 @@
 ;;; Recursive validation of existing Pair, Map, Sum and Union representations.
 (export pair-shape map-shape sum-shape union-shape union-diagnostics
-        validate-pair validate-map validate-bindings validate-sum validate-union)
+        validate-pair validate-map validate-bindings validate-sum validate-union validate-or)
 (import :std/iter
-        (only-in :std/list/list append-map map-in-order)
+        (only-in :std/list/list find append-map map-in-order)
         (only-in ./object .o .get .ref .slot? object? object<-alist)
         (only-in ./mop validate element? raise-type-error)
         (only-in ./value-diagnostics diagnose-value diagnose-structure)
@@ -92,10 +92,7 @@
 ;; Choose the first structurally matching branch in declaration order. Never
 ;; catch a custom recognizer exception or use execution failure as branch search.
 (def (select-union types candidate location check-field)
-  (let/cc return
-    (for-each (lambda (type)
-                (when (null? (check-field type candidate location)) (return type))) types)
-    #f))
+  (find (lambda (type) (null? (check-field type candidate location))) types))
 
 ;; Structural admission is existential; it does not normalize any alternative.
 (def (union-shape descriptor types candidate location check-field)
@@ -107,12 +104,22 @@
 (def (union-diagnostics descriptor types candidate location)
   (union-shape descriptor types candidate location diagnose-value))
 
-;; Lock the first structural branch, validate it once, then check THAT branch's
-;; returned value. A failure must not fall through to Any or another alternative.
-;; Membership alone cannot promise which normalization a future validation uses.
-(def (validate-union descriptor types candidate)
-  (def selected (select-union types candidate '() diagnose-structure))
-  (unless selected (raise-type-error descriptor candidate 'union-no-branch))
+;; Both existing alternative protocols lock a selected Type before wrapping.
+;; Keep its exact child error and require its returned membership; neither
+;; protocol retries another branch after normalization failure.
+(def (validate-alternative descriptor selected candidate missing)
+  (unless selected (raise-type-error descriptor candidate missing))
   (def checked (validate selected candidate))
   (unless (element? selected checked) (raise-type-error selected checked))
   checked)
+
+;; Union commits to its first structurally matching branch, as before.
+(def (validate-union descriptor types candidate)
+  (validate-alternative descriptor (select-union types candidate '() diagnose-structure)
+    candidate 'union-no-branch))
+
+;; Or follows its existing discriminant's first actual membership using Gerbil's
+;; ordered find. Recognizer exceptions propagate; wrapping never changes selection.
+(def (validate-or descriptor types candidate)
+  (validate-alternative descriptor (find (cut element? <> candidate) types)
+    candidate 'or-no-branch))

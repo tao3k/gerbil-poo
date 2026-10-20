@@ -1173,3 +1173,44 @@ requires faithful Union and Function interpretations. Procedure recognition alon
 proves neither totality nor output behavior. Gerbil regression tests separately
 exercise CaseFunction's richer call language; the Ty checker models fixed arrow
 rows, not the whole Scheme decoder, effects, GC or compiler.
+
+### Finite Or admission and readable replacement
+
+The existing runtime `Or` is now admitted by the finite constructor vocabulary,
+recursive child traversal, capture-free substitution and descriptor compilation.
+It retains its own kind and original ordered children. A source Or replaces one
+ordinary admitted scalar/container/Function interface only if every original
+child passes the same existing replacement judgment under the shared quota.
+Direct Or/Union targets and Map keys retain identity rules; this does not add a
+conversion between their serialized discriminants or widen keyword wire modes.
+Empty Or has no inhabitant; unsupported children and exhausted budgets still
+refuse before a declaration builder can run. Guarded Mu remains an explicit
+finite approximant, not unrestricted recursive language inclusion.
+
+Runtime Or retains its original first actual member, matching its discriminant.
+Gerbil's `find` supplies the ordered lookup. Union keeps first structural
+selection. Both feed one selected-child validator: recursive Function wrappers
+are retained, the exact child error propagates and a returned nonmember refuses
+without retrying another branch. Or's existing recognition/diagnostic and codec
+policies are unchanged. Custom recognizer exceptions propagate; arbitrary callback
+effects, global stability and codec correctness are not proved by finite inclusion.
+
+`infer-callback-directory-service` now has the same complete higher-order scenario
+exercised for Or and Union: Map/List overloaded callbacks plus a Tuple fallback,
+UInt8/UInt outputs, prefix specialization, whole candidate inference, qualified
+method declarations and FUN/refine/bind-evidence. Controls retain the selected
+narrow wrapper, exact evidence, untouched source procedures, original reordered
+candidate ambiguity, invalid calls and policy refusal/retry. Membership/structural
+selection and selected-error controls are in variant-validation-test.ss.
+The existing bounded alternative generator also recognizes Or, retaining its
+descriptor identity and the same depth/node/search limits, shrinking and replay;
+opaque callback generation still needs its existing explicit sampler.
+
+Lean's existing VariantValidation namespace specializes its ordered engine as
+orValidate, proves exact selected normalization/original failure and transfers
+complete branch coverage to the actual wrapped result. Top-level
+Examples/VariantContracts.lean distinguishes membership from structural choice
+and composes unique declared inference with universal wrapped replacement while
+retaining the original branch catalog and artifact. Host recognizer/child behavior
+is explicit. This extends the article's type-protocol future work; the Racket
+reference does not supply this finite inference algorithm.

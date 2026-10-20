@@ -8,7 +8,7 @@
         (only-in ./optional-validation type-value-catalog capture-type-values
                  catalog-type? catalog-current! catalog-descriptor catalog-contract)
         (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
-        (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
+        (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -265,7 +265,7 @@
             ((Enum TypeValuePair) (null? (cdr term)))
             ((IntegerRange) (empty-range? (range-bounds term)))
             ((Tuple Pair) (ormap (cut empty-type? <> work) (cdr term)))
-            ((Union) (andmap (cut empty-type? <> work) (cdr term)))
+            ((Union Or) (andmap (cut empty-type? <> work) (cdr term)))
             ((Sum) (let loop ((entries (cdr term)))
                      (or (null? entries)
                          (and (empty-type? (cadr entries) work) (loop (cddr entries))))))
@@ -279,7 +279,7 @@
 ;; retain their tag/branch protocol. Other failed comparisons may use a witnessed
 ;; empty source without rewriting its descriptor kind, fields or callback Types.
 (def (empty-replacement? source target work)
-  (and (not (and (pair? source) (memq (car source) '(Union Sum))))
+  (and (not (and (pair? source) (memq (car source) '(Union Or Sum))))
        (or (not (and (pair? target) (eq? (car target) 'Union))) (flat-type? target))
        (empty-type? source work)))
 
@@ -391,7 +391,9 @@
    ;; wrapping and failure remain ordered. Function/CaseFunction branches reuse
    ;; the complete ordered call-language/variance judgment, including nested
    ;; callbacks; direct Union and opaque targets are deliberately not widened.
-   ((and (pair? source) (eq? (car source) 'Union)
+   ;; Or retains first-member selection; Union retains structural selection.
+   ;; Neither direct ordered alternative target is widened by this read rule.
+   ((and (pair? source) (memq (car source) '(Union Or))
          (or (and (flat-type? target)
                   (not (and (pair? target) (eq? (car target) 'Union))))
              (and (pair? target)
@@ -457,7 +459,7 @@
                           (loop (cddr left) (cddr right)))))))
       ;; Union equality was handled above. No widening, sorting, deduplication or
       ;; branchwise covariance may change committed first-match normalization.
-      ((Union) #f)
+      ((Union Or) #f)
       (else #f)))
    (else #f))
     (empty-replacement? source target work)))
@@ -489,7 +491,7 @@
           ((IntegerRange UIntN IntN BytesN) #t)
           ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
           ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
-          ((Union) (andmap (cut keyword-stable-type? <> work) (cdr term)))
+          ((Union Or) (andmap (cut keyword-stable-type? <> work) (cdr term)))
           ((List Tuple Pair TypeValuePair Map Sum Record Object Function CaseFunction) #t)
           (else #f)))))
 
@@ -772,6 +774,7 @@
          ((Map) (Map (build (cadr term)) <- (build (cadddr term))))
          ((Sum) (apply Sum (cdr (map-sum-types term build))))
          ((Union) (apply Union (map build (cdr term))))
+         ((Or) (apply Or (map build (cdr term))))
          ((Maybe) (Maybe (build (cadr term))))
          ((OrFalse) (OrFalse (build (cadr term))))
          ((List) (List (build (cadr term))))

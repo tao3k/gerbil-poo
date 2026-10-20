@@ -171,6 +171,8 @@
 (define-type (Or. @ [methods.bytes<-marshal Type.] types)
   types@: (list->vector types)
   .element?: (λ (x) (any (cut element? <> x) types))
+  ;; Preserve first-member selection while retaining recursive child wrappers.
+  .validate: (lambda (value) (validate-or @ types value))
   ;; WE ASSUME THE JSON'S ARE DISJOINT, AS ARE THE VALUES (BUT WE DISCRIMINATE WHEN MARSHALLING)
   .discriminant-length-in-bits: (integer-length (1- (length types)))
   .discriminant-length-in-bytes: (n-bits->n-u8 .discriminant-length-in-bits)
