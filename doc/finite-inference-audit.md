@@ -358,3 +358,42 @@ recognition/identity and decoder correspondence remain explicit interpretation
 obligations; general predicates, wrapping alternatives and compiler/runtime
 verification are not claimed. This advances the article's finite type-system
 future work; it is not a Racket implementation claim.
+
+## Concentrated finite protocol acceptance
+
+The main TODO now groups the accepted P0/P1/P2 work by complete protocol family,
+with explicit outside boundaries. A new `candidate-inference-test.ss` directory
+contains 39 templates spanning current intrinsic families, every structural
+constructor, both Map spellings, literal metadata, rich Function/case signatures,
+row tails and guarded Mu. For each template, the same checks retain source syntax,
+compare staged/full substitution and canonical idempotence, then compare direct
+assembly, partial prefix binding and complete residual inference. Catalog/owner,
+raw keyword and container runtime controls remain in their existing full groups.
+This finite directory does not claim exhaustive value generation or unrestricted
+subtype completeness; explicit Any is not used to make a template pass.
+
+`substitute-type` now delegates all ordinary constructor traversal to the existing
+`map-type-children`. Only Mu binder shadowing remains substitution-specific.
+The shared ordinary mode preserves Map arrow spelling as well as field/tag names,
+presence, Function option order and recursive binder/depth; canonical mode alone
+normalizes the spelling. Map semantics were already the same in either direction;
+this is a coherent metadata transformation contract, not a new carrier conversion.
+Gerbil's standard ordered maps and plist/alist conversions remain the substrate.
+
+`MetadataServiceType` and `infer-metadata-service` reuse the existing signature
+solver, qualified declaration builder and catalog FUN/refine/bind-evidence action.
+One publication integrates a disjoint row extension, Pair/List/Map values, nested
+optional Sum/Tuple callbacks and a callback-bearing service result. Regressions
+check deferred execution, literal field identity, all nested call wrappers, exact
+context evidence, invalid-input suppression, invalid returned data, policy refusal
+and retry. No second validator, method engine or publication path is introduced.
+
+Lean's existing PrototypeTypes protocol proves identity and composition for every
+structural expression, including complete lists of constraints. RowTypes proves
+field transforms preserve names/lookups and commute with accepted disjoint
+splicing. RecursiveTypes proves finite unfolding commutes with transforms under
+explicit bottom/body substitution laws; those premises include binder safety.
+Top-level Examples/Parameters.lean composes specialization, complete unique
+inference and original declaration provenance for the composite service packet.
+Rich host metadata interpretation and primitive/decoder/binder correspondence
+remain explicit obligations. The article's future-work boundary is unchanged.

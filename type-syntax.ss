@@ -157,7 +157,8 @@
     (if (null? entries) []
       (cons (car entries) (cons (transform (cadr entries)) (loop (cddr entries))))))))
 ;; Traverse admitted Type children without treating literal tags, arrows, row
-;; markers or Mu binders/depth as Types. Canonical Map arrows share one shape.
+;; markers or Mu binders/depth as Types. Ordinary transforms retain wire spelling;
+;; only explicit canonicalization puts Map arrows into their common shape.
 (def (map-type-children term transform (canonical? #f))
   (case (car term)
     ((Exactly Enum UIntN IntN BytesN) term)
@@ -167,7 +168,9 @@
     ((Sum) (map-sum-types term transform))
     ((Map)
      (let ((first (transform (cadr term))) (last (transform (cadddr term))))
-       (if (eq? (caddr term) '<-) (list 'Map first '<- last) (list 'Map last '<- first))))
+       (if canonical?
+         (if (eq? (caddr term) '<-) (list 'Map first '<- last) (list 'Map last '<- first))
+         (list 'Map first (caddr term) last))))
     ((Object Record)
      (list (car term) (map (lambda (field) (cons (car field) (cons (transform (cadr field)) (cddr field)))) (cadr term))
        (if (pair? (caddr term)) (list 'Row (transform (cadr (caddr term)))) (caddr term))))
@@ -313,19 +316,10 @@
   (cond
    ((symbol? term) (let (binding (assq term substitution)) (if binding (cdr binding) term)))
    ((not (pair? term)) term)
-   ((memq (car term) '(Object Record))
-    (list (car term)
-      (map (lambda (field) (cons (car field) (cons (substitute-type (cadr field) substitution work) (cddr field)))) (cadr term))
-      (if (pair? (caddr term)) (list 'Row (substitute-type (cadr (caddr term)) substitution work)) (caddr term))))
-   ((memq (car term) '(Exactly Enum IntegerRange UIntN IntN BytesN)) term)
-   ((eq? (car term) 'Sum) (map-sum-types term (cut substitute-type <> substitution work)))
-   ((eq? (car term) 'Map)
-    (list 'Map (substitute-type (cadr term) substitution work) (caddr term)
-      (substitute-type (cadddr term) substitution work)))
    ((eq? (car term) 'Mu)
     (list 'Mu (cadr term) (caddr term)
       (substitute-type (cadddr term) (filter (lambda (binding) (not (eq? (car binding) (cadr term)))) substitution) work)))
-   (else (cons (car term)
-           (if (eq? (car term) 'Function)
-             (cdr (map-function-types term (cut substitute-type <> substitution work)))
-             (map (cut substitute-type <> substitution work) (cdr term)))))))
+   ;; Binder scope is the only substitution-specific structural rule. Literal
+   ;; metadata and every other constructor share the same child protocol used
+   ;; by canonicalization/normalization; no second container walker can drift.
+   (else (map-type-children term (cut substitute-type <> substitution work)))))
