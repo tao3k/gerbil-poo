@@ -811,8 +811,9 @@
 
 ;; Publish heterogeneous tagged workers through one readable object interface.
 ;; Sum owns tag dispatch and recursive wrapping; the existing whole solve and
-;; declaration/refine/evidence chain accepts only candidates whose every variant
-;; covers this open tag/value view. No closed layout or codec cast is implied.
+;; declaration/refine/evidence chain checks each inhabited variant against the
+;; open tag/value view. Retired variants need a positive impossible-payload witness;
+;; their original metadata and runtime refusal remain. No codec cast is implied.
 (def (infer-tagged-worker-service candidates procedure (record void))
   (def worker '(Object ((tag (Enum primary backup))
                        (value (Function (UInt) (Integer)))) open))

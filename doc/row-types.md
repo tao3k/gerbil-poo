@@ -239,7 +239,8 @@ host compiler proofs.
 
 The P2 carrier audit found that Sum already uses the POO object carrier with
 required `tag` and `value` fields, but finite replacement rejected all Object and
-Record views. The shared relation now checks EVERY original Sum variant through
+Record views. The shared relation checks every inhabited original Sum variant
+through
 `row-related?`: a temporary open Object row declares `(Exactly symbol-tag)` and
 the original payload Type. Gerbil's plist->alist and make-symbol are the same
 mechanisms used by the existing Sum constructor. No runtime value is projected,
@@ -247,7 +248,8 @@ no new validator/dispatch engine is added, and the original descriptor and tag
 order stay in inference solutions, specialization and declarations.
 
 Sum accepts extra/inherited slots, so each source row remains OPEN. A nonempty
-Sum cannot justify a closed target, an undeclared required field, or an optional
+Sum with an inhabited branch cannot justify a closed target, an undeclared
+required field, or an optional
 extra target field: that name could already exist with an incompatible value.
 Required tag/value reads and optional target presence use the existing row rule;
 tag Types are checked just like payload Types, including exact Symbol versus
@@ -255,8 +257,9 @@ Keyword distinction. Reverse Object-to-Sum replacement, direct Sum tag skeletons
 ordered Union identities and inhabited Map keys retain their existing bounds.
 No mutable-write, codec/index equivalence or closure permission is inferred.
 Empty alternatives have vacuous coverage but still have no runtime inhabitant.
-Every variant is required to pass; semantic pruning of impossible variants is not
-introduced. Malformed/unsupported syntax and exhausted shared budgets keep their
+Every original variant must pass either a positive empty-payload witness or the
+complete readable row check. No variant is removed from metadata or validation.
+Malformed/unsupported syntax and exhausted shared budgets keep their
 typed refusal categories; ordinary missing coverage is false.
 
 `infer-tagged-worker-service` composes a Pair packet containing a Map/List of
@@ -277,7 +280,8 @@ obligations; it does not supply this finite candidate solver. The Gerbil runtime
 carrier and validators, Lean obligations and finite examples are separate evidence.
 
 Lean's existing RowTypes module adds taggedRow/taggedRowsCheck, delegates to the
-same required/open recordCheck protocol, and proves every-branch acceptance and
+same required/open recordCheck and positive emptiness protocols, and proves
+exhaustive branch obligations and
 universal readable replacement. The theorem requires faithful literal-tag and
 child interpretations plus actual observations; it neither executes arbitrary
 predicates nor infers Function behavior from procedure recognition. The concrete
@@ -291,3 +295,30 @@ is never a proof premise. Top-level Examples/RowTypes.lean includes positive,
 negative, declaration, specialization and universal semantic controls. Source
 syntax projection, mutable effects, termination and compiler correctness are not
 proved by these conditional laws.
+
+### Impossible tagged payloads
+
+A Sum variant with a positively witnessed impossible payload has no actual
+readable carrier. The existing `sum-row-related?` now consults the common
+`empty-type?` before checking that variant's complete open row. It retains the
+original tag, branch order and candidate AST. Inhabited branches still check all
+tag, payload, presence and closure obligations; direct Sum replacement, Map
+keys, keyword/escape origins and codec/index behavior retain their boundaries.
+Empty Lists/Maps/Tuples and Maybe/OrFalse sentinels remain inhabited and cannot
+justify dropping a tag. Full syntax admission precedes this judgment; unsupported
+children and quota exhaustion remain typed refusals, not empty witnesses.
+
+The existing tagged-worker service now exercises a retired `(Pair Never Function)`
+variant inside Map/List callback batches alongside live UInt8/UInt workers. The
+same prefix specialization, complete inference, qualified declaration and
+FUN/refine/bind-evidence chain preserves live wrappers, exact evidence and raw
+callbacks. Controls cover fabricated retired values, inhabited impostors,
+ambiguous original layouts and failed approval followed by retry.
+
+Lean's `taggedRowsCheck_inhabited_branch` and `taggedRowsCheck_sound` reuse the
+existing row and empty-Type laws. Universal coverage requires faithful child/tag
+interpretation, sound positive emptiness and distinct tag/value field names;
+with duplicate names, first-field lookup would not establish payload membership.
+Top-level `Examples/RowTypes.lean` retains the impossible branch in the uniquely
+selected declaration artifact. This advances the article's finite type-protocol
+future work; it does not prove arbitrary predicate emptiness or host compilation.

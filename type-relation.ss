@@ -318,14 +318,17 @@
 
 ;; Each Sum branch promises exactly two readable fields, with an open carrier:
 ;; runtime Sum accepts inherited/extra slots. Reuse the common row protocol for
-;; each exact symbol tag and its original payload, under the caller's quota.
+;; each inhabited exact symbol tag and its original payload, under the caller's
+;; quota. A positive existing empty-payload witness discharges only this read
+;; obligation: original variants, runtime selection and direct Sum identity stay.
 ;; This temporary metadata view changes neither the Sum descriptor nor its wire
 ;; tag order. Open sources cannot justify closed targets or absent extra fields.
 (def (sum-row-related? source target relate work)
   (andmap (lambda (variant)
     (work)
-    (row-related? `(Object ((tag (Exactly ,(make-symbol (car variant))))
-                           (value ,(cdr variant))) open) target relate work))
+    (or (empty-type? (cdr variant) work)
+      (row-related? `(Object ((tag (Exactly ,(make-symbol (car variant))))
+                           (value ,(cdr variant))) open) target relate work)))
     (plist->alist (cdr source))))
 
 ;; Both branches of an optional source must fit one original target. Sharing
