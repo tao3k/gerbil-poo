@@ -323,3 +323,38 @@ controls. Host decoder correspondence and child-witness interpretation remain
 explicit; arbitrary predicate implication, compiler/runtime correctness, effects
 and performance are not proved. This advances the article's finite type-protocol
 future work, rather than an already implemented Racket inference solver.
+
+### Intrinsic alternative origins in raw keyword transport
+
+A reproduced P2 omission affected flat Or/Maybe/OrFalse arguments: the same
+keyword callback was accepted with Union but refused with an intrinsic Or.
+`flat-origin-view` now shares the existing flat inclusion solver and ordinary
+restriction across these identity-validating alternatives. It visits children in
+order with Gerbil's `map-in-order`, admits only a complete view, and represents
+void/false sentinels explicitly. No recognizer executes during this projection.
+The view is private to raw transport: public descriptor kinds, ordered branch
+replacement, original metadata, Map key identity and selected validation errors
+retain their existing judgments. A wrapping/opaque child refuses the complete
+view and keeps the original comparison. Shared request work exhaustion remains
+a typed refusal; no Any or universal complement is manufactured.
+
+`TokenCallbackServiceType` and `infer-token-callback-service` use the existing
+prefix inference and qualified declaration builder. The integrated regression
+publishes the original CaseFunction through FUN/refine/bind-evidence, checks
+false/void, escaped keyword/marker values, keyword placement and long rest tails
+against independent Gerbil keyword/rest formals, and exercises validation refusal,
+policy failure/retry and bound-only candidate ambiguity. The ambiguity control
+uses the complete declared bound; the successful publication also solves call
+observations. Unsupported children, insufficient work, wrapper-bearing branches,
+real ordinary Boolean data and invariant Map keys have explicit negative controls.
+
+Lean's existing FunctionSignature module proves ordered all-child projection,
+no partial success after a refused child, universal membership preservation and
+intersection with the decoder's ordinary-data predicate. The top-level example
+models all keys and optional Boolean values, proves its intrinsic interpretation,
+and composes complete unique declaration provenance with exact identity validation.
+Projection applies compositionally at each alternative layer. Host intrinsic
+recognition/identity and decoder correspondence remain explicit interpretation
+obligations; general predicates, wrapping alternatives and compiler/runtime
+verification are not claimed. This advances the article's finite type-system
+future work; it is not a Racket implementation claim.

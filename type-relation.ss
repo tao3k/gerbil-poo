@@ -501,9 +501,29 @@
 ;; identity validators cannot alter earlier branch wrapping or normalization.
 ;; Literal token origins keep their public guard. Scalar family coverage is
 ;; value inclusion, not permission to erase wire origins or change Union order.
+;; Interpret identity-validating alternatives only for raw value obligations.
+;; Or keeps its runtime membership selection; optional sentinels are explicit
+;; values. Complete ordered child projection refuses any wrapping/opaque branch.
+;; Public descriptor comparisons and original candidate metadata never use this
+;; view. Every visit shares the existing work counter; no Any is synthesized.
+(def (flat-origin-view type work)
+  (work)
+  (cond
+    ((and (pair? type) (memq (car type) '(Union Or)))
+     (let (children (map-in-order (cut flat-origin-view <> work) (cdr type)))
+       (and (andmap identity children) (cons 'Union children))))
+    ((and (pair? type) (memq (car type) '(Maybe OrFalse)))
+     (let (child (flat-origin-view (cadr type) work))
+       (and child (list 'Union (if (eq? (car type) 'Maybe) 'Unit '(Exactly #f)) child))))
+    ((flat-type? type) type)
+    (else #f)))
+
+;; Reuse the existing intrinsic inclusion solver after both complete projections.
+;; Unknown/wrapping origins retain their original comparison, not a wider view.
 (def (raw-origin-subtype? source target work)
-  (if (and (flat-type? source) (flat-type? target))
-    (flat-subtype? source target work) (compare-types source target work)))
+  (def left (flat-origin-view source work))
+  (def right (flat-origin-view target work))
+  (if (and left right) (flat-subtype? left right work) (compare-types source target work)))
 
 ;; Restrict ordinary (unescaped) data to values the keyword decoder can read as
 ;; data. Exactly/Enum/Keyword are decided extensionally; no user recognizer runs.
@@ -511,23 +531,26 @@
 ;; preserves their ordinary values. Opaque/wrapper-bearing carriers stay bounded
 ;; overapproximations. Explicit Any remains explicit; no complement is invented.
 (def (ordinary-origin type work)
-  (work)
-  (case type
-    ((Keyword) 'Never)
-    (else (if (not (pair? type)) type
-      (case (car type)
+  (def view (flat-origin-view type work))
+  ;; Restrict one completed view, without reprojecting each nested subtree.
+  ;; False and void stay ordinary data; only actual keyword/escape tokens vanish.
+  (def (restrict term)
+    (work)
+    (case term
+      ((Keyword) 'Never)
+      (else (if (not (pair? term)) term
+        (case (car term)
         ((Exactly Enum)
          (let (values (filter (lambda (value)
-                        (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr type)))
-           (if (null? values) 'Never (cons (car type) values))))
+                        (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
+           (if (null? values) 'Never (cons (car term) values))))
         ((Union)
-         (if (not (flat-type? type)) type
            (let (types (filter (lambda (child) (not (eq? child 'Never)))
-                        (map (cut ordinary-origin <> work) (cdr type))))
+                        (map-in-order restrict (cdr term))))
              (cond ((null? types) 'Never) ((null? (cdr types)) (car types))
-                   (else (cons 'Union types))))))
-        ((Maybe OrFalse) (list (car type) (ordinary-origin (cadr type) work)))
-        (else type))))))
+                   (else (cons 'Union types)))))
+        (else term))))))
+  (if view (restrict view) type))
 
 ;; Private graph edges retain ordered origin Types, including exact marker Types.
 ;; States are standard equal?-hashed lists (position, keys, raw offset, rest mode).

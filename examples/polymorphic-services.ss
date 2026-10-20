@@ -1,6 +1,7 @@
 ;;; Explicit bounded Self/Super polymorphism through existing FUN and contracts.
 (export infer-tagged-worker-service infer-callback-directory-service infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export RetiredKeywordServiceType infer-retired-keyword-service)
+(export TokenCallbackServiceType infer-token-callback-service)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -337,6 +338,19 @@
 ;; keyword-language coverage neither executes them nor invents keyword defaults.
 (def (infer-retired-keyword-service prefix candidates observations operation (record void))
   (infer-signature-calls RetiredKeywordServiceType prefix candidates observations operation record))
+
+;; Optional token-valued callbacks retain real false/void data as well as escaped
+;; keyword/marker values. Only their private raw origin view uses flat inclusion;
+;; the original ordered descriptors own validation and the published metadata.
+(def TokenCallbackServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    '(Function (Value Callback) (Value))
+    '((Callback (Function (Value) ((OrFalse (Maybe (Or Keyword (Exactly #!rest)))))
+      keywords: ((scale: . Value)) rest: Value)))))
+;; Share complete candidate search, qualified declaration construction and the
+;; existing FUN/refine/evidence action; no callback executes during inference.
+(def (infer-token-callback-service prefix candidates observations operation (record void))
+  (infer-signature-calls TokenCallbackServiceType prefix candidates observations operation record))
 
 ;; The candidate supplies the scalar and callback Types. Existing publication
 ;; checks both recursively, refines the normalized scalar, and binds exact

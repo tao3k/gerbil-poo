@@ -14,6 +14,77 @@
 ;; The entire protocol still requires exact-count covariant results and first selection.
 (def keyword-rest-test
   (test-suite "Literal ordinary origins and correlated rest positions"
+    (test-case "intrinsic alternatives share raw inclusion without changing public replacement"
+      (def raw '(Union Integer Keyword (Enum #!key #!rest)))
+      (def source `(Function (UInt) ((Enum scale: #!key #!rest) ,raw) rest: ,raw))
+      (def target '(Function (UInt) ((Or Keyword (Exactly #!rest)))
+        keywords: ((scale: . UInt)) rest: UInt))
+      (check (subtype-expression? source target) => #t)
+      (check (subtype-expression? `(List ,source) `(List ,target)) => #t)
+      (check (subtype-expression? source
+        '(Function (UInt) ((Or Keyword Bool)) keywords: ((scale: . UInt)) rest: UInt)) => #f)
+      (for-each (lambda (first)
+        (check (subtype-expression? source
+          `(Function (UInt) (,first) keywords: ((scale: . UInt)) rest: UInt)) => #f))
+        '((Maybe (Or Keyword (Exactly #!rest))) (OrFalse (Or Keyword (Exactly #!rest)))
+          (Or Keyword (Function (UInt) (UInt)))))
+      ;; Direct ordered alternatives and Map keys keep their original rules.
+      (check (subtype-expression? '(Or Keyword (Exactly #!rest))
+        '(Union Keyword (Exactly #!rest))) => #f)
+      (check (subtype-expression? `(Map UInt <- ,source) `(Map UInt <- ,target)) => #f)
+      (check-exception (subtype-expression? source
+        '(Function (UInt) ((Or Keyword (Unknown))) keywords: ((scale: . UInt))))
+        (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'unsupported))))
+      (check-exception (subtype-expression? source target 100) exhausted?))
+    (test-case "optional token callbacks publish original cases through refinement and evidence"
+      (def raw '(Union Integer Keyword Unit (Enum #f #!key #!rest)))
+      (def source `(CaseFunction (Function (UInt) ((Union Unit (Exactly #f))))
+        (Function (UInt) ((Union Unit (Enum #f scale: #!key #!rest)) ,raw) rest: ,raw)))
+      (def target '(Function (UInt) ((OrFalse (Maybe (Or Keyword (Exactly #!rest)))))
+        keywords: ((scale: . UInt)) rest: UInt))
+      (def calls 0) (def consumed 0) (def observed #f) (def events [])
+      ;; Compiler keyword/rest formals independently implement defaults and raw
+      ;; escapes. Body counters detect validation failure before user execution.
+      (def callback (lambda (value scale: (scale 1) . rest)
+        (set! calls (1+ calls))
+        (* scale (+ (cond ((void? value) 3) ((eq? value #f) 4)
+                          ((keyword? value) 10) (else 20)) (apply + rest)))))
+      (def report (service.infer-token-callback-service '(UInt) (list 'Bool source)
+        `((() (UInt) (UInt ,target))) (lambda (value) (values value callback))
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) (list (list (normalize-type source (type-work 4000)))))
+      (check-equal? calls 0)
+      (def context (.o approved: #t))
+      (def action (service.catalog-service-action (.get report instance) 7 context
+        (lambda (subject) (set! consumed (1+ consumed)) (set! observed (.get subject callback)))))
+      (defvalues (evidence next failure) (action context))
+      (check-equal? failure #f) (check-equal? consumed 1)
+      (check (eq? next context) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check-equal? (reverse events) '(around before after))
+      (def wrapped (validate (expression-type target) observed))
+      (for-each (lambda (row answer) (check-equal? (apply wrapped row) answer))
+        (list (list #f) (list (void)) (list #!key other:) (list #!key #!rest)
+          (list scale: 2 #!key other: #!rest 1 2 3)
+          (list #!key #!rest scale: 3 #!rest 1 2)) '(4 3 10 20 32 69))
+      (check-equal? (apply wrapped (append (list #!key other: #!rest) (make-list 128 1))) 138)
+      (let (before calls)
+        (for-each (lambda (row) (check (accepted? wrapped row) => #f))
+          (list (list #t) (list 7) (list #!key other: scale: #f)
+                (list #!key other: #!rest #t) (list #!key)))
+        (check-equal? calls before))
+      (def rejected (service.catalog-service-action (.get report instance) 7 context
+        (lambda (_) (error "refused consumer ran")) 0))
+      (check-exception (rejected context) TypeError?)
+      (defvalues (_retry-evidence _retry-context retried) (action context))
+      (check-equal? retried #f) (check-equal? consumed 2)
+      ;; Extensional identity views never canonicalize original branch order.
+      (def equivalent `(CaseFunction (Function (UInt) ((Union Unit (Exactly #f))))
+        (Function (UInt) ((Union Unit (Enum #f scale: #!key #!rest)) (Union Keyword Integer Unit (Enum #f #!key #!rest)))
+          rest: (Union Keyword Integer Unit (Enum #f #!key #!rest)))))
+      (check-equal? (.get (service.infer-token-callback-service '(UInt) (list source equivalent)
+        [] (lambda (_) (error "ambiguous builder ran"))) status) 'ambiguous))
     (test-case "raw graph origins share positive finite container emptiness"
       (def source '(Function (UInt) () rest: (Union UInt (Enum #!key #!rest))))
       (def finite-source '(Function (UInt) ((Union UInt (Enum #!key #!rest)))
