@@ -91,3 +91,30 @@ No heap/deadline increase, skipped test, custom scheduler or compiler rebuild is
 introduced. The build regression checks inventory equality/disjointness and the
 six-module cap on these compiler-heavy families. The cap is an operational guard,
 not a formal upper bound on compiler memory or an end-to-end speedup claim.
+
+
+## Worker budgets and cache freshness
+
+`GERBIL_BUILD_CORES` is the existing std/make backend-worker budget. The Just
+entrypoint selects physical cores unless the caller supplies it; this does not
+change the compiler heap or the complete single-process deadline. Functional
+compile groups are independent Actions jobs. Semantic groups retain two module
+processes and the complete single-process suite remains a separate mandatory job.
+A declared worker count, actual worker overlap, process startup and whole-run
+elapsed time are distinct measurements.
+
+The companion Lean checks now share ordinary file slots and compile only the
+selected workflow import closure for evaluator reuse. Their cache fallback is
+followed by Lake's content/options/dependency trace validation. That rule cannot
+be copied into std/make admission: this package retains exact source/toolchain/
+byte-generation keys, disjoint group ownership and current-run stamps. A source
+prefix or repaired timestamp alone cannot admit Scheme compiled outputs. Every
+cache hit still executes all semantic groups and the complete single-process
+suite. The two projects share admission requirements, not compiler cache formats;
+this package has no Lean checkout dependency.
+
+Complete-flow performance comparisons must keep those checks and limits, reverse
+variant order and report wall time including preparation/transfer. Existing
+source-bound grouping and artifact controls remain mandatory. Full payloads and
+compiler archives stay outside Git; neither lower CPU nor fewer bytes establish
+an end-to-end improvement on their own.
