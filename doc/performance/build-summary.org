@@ -152,3 +152,48 @@ products remain outside Git. Instrumented runs are diagnostic observations, not
 unwrapped wall-time controls. Nested command intervals and pipelined C/assembly
 must be unioned; import resolution/expansion and unobserved scheduler/parent work
 must remain explicitly distinguished rather than assigning the residual to GC.
+
+* Latest complete-build gate
+The unwrapped empty-output build at e40de6a96d0ff73880cfbb7a631d4c9939e2f218
+took 401.15 seconds and refused at the unchanged 300-second shared-library
+deadline, exit 70. All 42 CI jobs passed for that revision; that integrity result
+is separate from macOS cold-build acceptance. Compiler identity preparation took
+2.447 seconds, and the library stage began at interpreter uptime 76.912 seconds.
+No backend job started before refusal. This run does not qualify a cold speedup.
+
+A worker snapshot at 195 seconds elapsed showed 16.70 seconds CPU and about
+750 MiB RSS. A one-second stack sample then showed GC scanning. This does not
+make the remaining wall time GC cost: CPU, off-CPU waiting, loader registration
+and retained expansion state must stay distinct. Interpreter heap limits are not
+aggregate process-tree RSS limits, and the outer time command is not a complete
+per-descendant resource ledger.
+
+A temporary four-part library trial preserved root order and used standard
+std/make with completed SSI overlays, unchanged worker/heap/deadline budgets and
+the complete intended inventory. Its first part also missed the stage deadline.
+It is rejected and is not a shipped strategy. Earlier source grouping and
+signing/preload experiments likewise do not replace the failed cold acceptance.
+Full diagnostic data, source copies and binaries remain outside Git.
+
+* Successful library diagnostic: observed phase boundaries
+An earlier sampled library-only diagnostic completed 182 roots and 427 backend
+jobs in 283.139 seconds with twelve observed GSC descendants. Its first compile
+message occurred at 62.260 seconds. These are diagnostic boundaries for that
+source snapshot, not measurements for the complete e40de6a build.
+
+| Observed process | First observation (s) | Last observation (s) | Peak count |
+|------------------+-----------------------+----------------------+------------|
+| GSC | 69.405 | 276.227 | 12 |
+| C frontend cc1 | 69.405 | 273.373 | 12 |
+| Assembler as | 114.950 | 114.950 | 1 |
+| Link driver collect2 | 69.783 | 253.999 | 3 |
+| Linker ld | 69.783 | 253.999 | 3 |
+
+The 250 ms sampler misses short-lived commands; a single assembler observation
+does not mean one assembly job or zero assembly time. These first/last windows
+are not additive durations. Import/completion-table preparation precedes backend
+workers; parent expansion/code generation and dependency scheduling can overlap
+later jobs. Exact macro-only and scheduler-only wall totals, and a successful
+complete current-revision macOS cold build, remain open acceptance items. The
+command observer provides finer boundaries only on runs that actually reach
+those commands; an interrupted prepass cannot produce valid backend totals.
