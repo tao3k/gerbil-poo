@@ -118,3 +118,20 @@ variant order and report wall time including preparation/transfer. Existing
 source-bound grouping and artifact controls remain mandatory. Full payloads and
 compiler archives stay outside Git; neither lower CPU nor fewer bytes establish
 an end-to-end improvement on their own.
+
+## Bounded local Scheme compilation
+
+`just build` now uses the Scheme build driver in `t/build.ss`. It admits exact
+shared bytes, supplies a checked SSI-first source snapshot, and compiles the full
+local test inventory in four disjoint batches through two standard channel
+workers. This avoids starting all twenty CI groups locally and limits retained
+expansion contexts. A twelve-core budget gives each interpreter six std/make
+backend workers. CI keeps its twenty independent compile groups, twenty semantic
+groups and mandatory complete single-process job.
+
+Default output is `.build/package`; explicit `GERBIL_PATH` remains supported.
+Compilation cache hits never skip semantic checks. Sources, release/backend
+identity and complete compiler outputs are checked before reuse. Producer locks,
+per-stage process groups and deadlines prevent competing cleanup and orphaned
+compiler work. See `performance/build-summary.org` for the macOS receipt boundaries
+and rejected experiments; those measurements are not Linux build controls.

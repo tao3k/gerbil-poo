@@ -6,7 +6,7 @@
   (only-in :std/build-script defbuild-script)
   (only-in :std/make include-gambit-sharp pkg-config-libs)
   (only-in :gerbil/runtime/system gerbil-path)
-  (only-in "t/test-groups.ss" test-files))
+  (only-in "t/test-groups.ss" test-files test-batch))
 
 ;; Keep the package build graph explicit. V19 std/make owns dependency
 ;; scheduling and native compilation; this file only declares package inputs.
@@ -211,7 +211,12 @@
 (def selected-tests
   (cond ((member scope '("library" "combination" "factory")) [])
     ((equal? scope "tests")
-      (test-files (or (getenv "GERBIL_BUILD_TEST_GROUP" #f) (error "test group required"))))
+      (let ((group (getenv "GERBIL_BUILD_TEST_GROUP" #f))
+            (batch (getenv "GERBIL_BUILD_TEST_BATCH" #f)))
+        (when (and group batch) (error "select a test group or compiler batch"))
+        (cond (group (test-files group))
+          (batch (test-batch (string->number batch)))
+          (else (error "test group or compiler batch required")))))
     (else (test-files))))
 ;; std/make also owns executable dependency scheduling and its bounded compiler
 ;; pool. The benchmark scope reuses compiled modules instead of a serial gxc link

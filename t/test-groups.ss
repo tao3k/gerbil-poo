@@ -1,5 +1,5 @@
 ;;; One inventory for independent Scheme tests and the Actions matrix.
-(export main test-groups test-files checked-groups group-source-key)
+(export main test-groups test-files test-batch checked-groups group-source-key)
 (import :gerbil/runtime/gambit :std/encoding/json
         (only-in :std/list/list append-map delete-duplicates/hash)
         :std/crypto/digest :std/encoding/hex :std/misc/ports)
@@ -63,6 +63,16 @@
   (list-sort string<? (if group
     (cdr (or (assoc group groups) (error "unknown test group" group)))
     (append-map cdr groups))))
+
+;; Four disjoint local compiler batches bound retained expansion contexts while
+;; sharing the exact CI inventory. Functional CI groups remain independently run.
+(def (test-batch index)
+  (unless (and (exact-integer? index) (<= 0 index) (< index 4))
+    (error "test batch must be an integer in [0,4)" index))
+  (let loop ((files (test-files)) (position 0) (result []))
+    (if (null? files) (reverse result)
+      (loop (cdr files) (+ position 1)
+        (if (= (modulo position 4) index) (cons (car files) result) result)))))
 
 ;; Hash an unambiguous filename/digest sequence for this group. CI additionally
 ;; binds shared inputs and the complete test snapshot, including cross-group macros.

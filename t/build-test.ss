@@ -1,11 +1,58 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
 (import :std/test :std/io/tempfile (only-in :std/list/list append-map delete-duplicates/hash)
-  (only-in "test-groups.ss" test-files checked-groups group-source-key)
-  (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all))
+  (only-in "test-groups.ss" test-files test-batch checked-groups group-source-key)
+  (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
+    build-root save-build-generation build-current? test-build-output?))
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
+    (test-case "local compiler batches cover the unchanged CI inventory exactly once"
+      (def batches (map test-batch '(0 1 2 3)))
+      (def files (append-map values batches))
+      (check-equal? (list-sort string<? files) (test-files))
+      (check-equal? (length files) (length (delete-duplicates/hash files)))
+      (for-each (lambda (index) (check-exception (test-batch index) true))
+        '(-1 4 0.5 #f "0")))
+    (test-case "shared generation excludes only exact declared test module stems"
+      (check (and (test-build-output? "clan/poo/t/build-test.ssi") #t) => #t)
+      (check (and (test-build-output? "static/clan__poo__t__build-test~0.o1") #t) => #t)
+      (check (test-build-output? "clan/poo/t/build-test-extra.ssi") => #f)
+      (check (test-build-output? "clan/poo/t/test-groups.ssi") => #f))
+    (test-case "byte generations distinguish shared inputs test edits and compiler changes"
+      ;; These receipts exercise admission only; fixture interfaces are never loaded.
+      (call-with-temporary-directory "poo-build-generation-"
+        (lambda (directory)
+          (def source (path-expand "source/" directory))
+          (def cache (path-expand "cache/" directory))
+          (def receipt (path-expand "shared.scm" directory))
+          ;; Write one controlled fixture, closing the port before checking admission.
+          (def (save path value)
+            (create-directory* (path-directory path))
+            (call-with-output-file (list path: path truncate: #t)
+              (lambda (port) (write value port))))
+          (save (path-expand "type.ss" source) '(source-one))
+          (save (path-expand "t/build-test.ss" source) '(test-one))
+          (save (path-expand "lib/clan/poo/type.ssi" cache) '(interface-one))
+          (save (path-expand "lib/clan/poo/type.o1" cache) '(runtime-one))
+          (parameterize ((build-root cache))
+            (save-build-generation receipt source #t '(compiler-one))
+            (check (build-current? receipt source #t '(compiler-one)) => #t)
+            (check (build-current? receipt source #t '(compiler-two)) => #f)
+            (save (path-expand "t/build-test.ss" source) '(test-two))
+            (check (build-current? receipt source #t '(compiler-one)) => #t)
+            (save (path-expand "type.ss" source) '(source-two))
+            (check (build-current? receipt source #t '(compiler-one)) => #f)
+            (save (path-expand "type.ss" source) '(source-one))
+            (save (path-expand "lib/clan/poo/type.o1" cache) '(runtime-two))
+            (check (build-current? receipt source #t '(compiler-one)) => #f)
+            (save (path-expand "lib/clan/poo/type.o1" cache) '(runtime-one))
+            (call-with-output-file (list path: receipt append: #t)
+              (lambda (port) (write '(unexpected-trailing-data) port)))
+            (check (build-current? receipt source #t '(compiler-one)) => #f)
+            (save-build-generation receipt source #t '(compiler-one))
+            (delete-file (path-expand "lib/clan/poo/type.ssi" cache))
+            (check (build-current? receipt source #t '(compiler-one)) => #f)))))
     (test-case "every test belongs to exactly one compilation group"
       (def files (append-map (lambda (group) (test-files (car group))) (checked-groups)))
       (check-equal? (length files) (length (delete-duplicates/hash files)))

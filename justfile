@@ -5,6 +5,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 platform-env := if os() == "macos" { "env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin" } else { "env" }
 physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN` } else { `getconf _NPROCESSORS_ONLN` }
+# Keep package compilation in this project's managed output unless explicitly selected.
+export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
 export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
 build-verbose := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 build-env := platform-env + " GERBIL_BUILD_VERBOSE=" + build-verbose
@@ -55,11 +57,11 @@ clean:
     {{ platform-env }} gxi build.ss clean
 
 build:
-    {{ build-env }} gxi build.ss
+    POO_BUILD_TIMEOUT="{{ timeout-executable }}" {{ build-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss
 
 # Compile disjoint test roots into a separate artifact, retaining the shared imports.
 build-group group:
-    GERBIL_BUILD_SCOPE=tests GERBIL_BUILD_TEST_GROUP={{ group }} GERBIL_BUILD_LIBDIR="$PWD/.ci-tests/{{ group }}/lib" {{ build-env }} gxi build.ss
+    GERBIL_BUILD_SCOPE=tests GERBIL_BUILD_TEST_GROUP={{ group }} GERBIL_BUILD_LIBDIR="$PWD/.ci-tests/{{ group }}/lib" just build
 
 # Standalone Scheme matrix; no companion checkout is required.
 benchmark-closure: build

@@ -1,0 +1,113 @@
+#+title: macOS Scheme build preparation and bounded reuse
+
+* Measurement boundary
+These receipts use the macOS ARM64 precompiled Gerbil release 1cfb032 / Gambit
+ea114fc, Homebrew package patch618d76f9eb72, GCC 16.2.0 and macOS 26.6.1.
+They are Scheme build measurements. Other hosts and proof-checker timings are not
+controls for them. The package does not build Gerbil or introduce Bazel.
+
+GERBIL_BUILD_CORES=12 was observed as twelve concurrent GSC descendants, rather
+than inferred from an environment variable. This limits backend workers; it does
+not parallelize every import or macro-expansion operation in one interpreter.
+
+The released std/make first imports root modules to prepare its completion table,
+then starts dependency coordinators and workers. Its import mutex serializes
+imports. Library interfaces can avoid repeated source expansion, but a complete
+source build still has mandatory expansion and generated-code costs.
+
+* Retained refusals and diagnostic receipts
+| Operation | Wall seconds | Result / boundary |
+|-----------+--------------+-------------------|
+| Complete monolithic source build, 1 GiB interpreter | 82.112 | Heap overflow before first backend; exit 70 |
+| All 121 test roots in one interpreter, shared interfaces | 141.06 | Heap overflow before first backend; exit 70 |
+| Twenty local functional compiler groups, two processes | 1203.02 | Whole deadline; twelve groups finished, incomplete |
+| Four disjoint test batches against completed shared bytes | 347.96 | All 121 roots compiled; exit 0 |
+
+The four-batch receipt is not a cold full build. Its batch durations were 125.741,
+125.407, 89.492 and 207.525 seconds; two batches run concurrently. Corresponding
+interpreter GC CPU seconds were 3.538, 3.290, 2.089 and 7.461. GC CPU is neither
+whole-process-tree CPU nor GC wall time. The whole duration includes startup,
+termination and the parent. Independent component durations must not be added
+and reported as a measured complete build.
+
+The original bare build entry did not explicitly cap the compiler interpreter's
+heap. The monolithic 1 GiB refusals diagnose behavior under the explicit guard;
+they do not establish the cause of an older unbounded seven-minute run. Tests
+retain their existing 1 GiB/default heap and 90/300-second bounds. Compiler stages
+now receive that configured interpreter bound, a 300-second stage deadline and
+an owned process group. The complete build retains the 20-minute ceiling.
+These are interpreter bounds, not a claimed aggregate RSS cap for GCC/GSC children.
+
+* Build and cache protocol
+The default Just entry uses a project-local .build/package unless GERBIL_PATH is
+explicit. A producer owns only this package's generated namespace. Unknown
+pre-existing package outputs and source/symlink entries refuse destructive cleanup.
+The standard OS file lock prevents competing local producers replacing bytes.
+
+A shared producer runs standard make-clean/make, then records exact source and
+output byte inventories with the selected release/backend identity. Missing,
+changed, appended or malformed receipts do not authorize reuse. Source inputs
+include build scripts and fixture resources; documentation edits do not require
+recompilation. This is a trusted local cache protocol, not a proof of compiler,
+SDK, storage or cryptographic correctness.
+
+Tests compile in a disposable source snapshot with admitted non-test .ssi files
+beside unchanged sources. Gerbil's ordinary SSI-first library resolver supplies
+shared expansion metadata. Explicit test roots remain source files. Snapshot
+bytes and the original source inventory are rechecked. No compiler function or
+module registry is replaced. Four round-robin batches partition the checked test
+inventory; the existing twenty CI functional groups remain independent jobs.
+
+The local queue has two compiler interpreters with six backend workers each when
+the budget is twelve. A single-core request retains one interpreter/one worker.
+Failed batches remain failures and do not skip other independent batches.
+
+A complete cache hit skips compilation only. Semantic groups and the complete
+single-process test suite still execute. No source prefix, timestamp repair or
+producer SHA alone authorizes a byte generation. Root removals and additional
+compiler artifacts participate in the output inventory.
+
+* Reproduction and attribution
+Use an empty GERBIL_PATH outside the checkout for a cold run; repeat the exact
+command with the same path for a warm run. Keep the release and worker count
+fixed and retain /usr/bin/time -l output, standard make progress and exit status.
+The driver emits actual stage starts/ends and source-admitted cache hits. Full
+logs, traces, compiler artifacts and archives remain outside Git.
+
+The optional t/build-benchmark.ss collector records macOS process parentage and
+timestamped output in Scheme data. Sampling runs diagnose worker overlap;
+unwrapped runs qualify wall time. Sampling cannot identify very short processes
+or prove continuous worker occupancy. A GSC interval includes its C compiler and
+linker descendants. GCC -pipe permits C compilation and assembly to overlap;
+clang -cc1as is assembly, not a linker. Inclusive intervals must be unioned rather
+than blindly added. Import spans combine resolution, interface reading and
+expansion; they must not be relabeled pure macro-expansion time.
+
+The bounded-batch completion receipt establishes feasibility, not an end-to-end
+speedup ratio. Complete cold/warm measurements and exact-revision CI are required
+before publishing a complete-workflow performance claim.
+
+* First complete guarded candidate
+The first complete candidate used the uninstrumented build entry and empty output:
+759.99 seconds wall (576.08 user, 116.14 system), exit 0, all 303 source roots.
+Shared cleanup took 16.356 seconds, shared compilation 237.398 seconds, and the
+four test batches 276.905, 280.216, 104.793 and 207.213 seconds. This is not a
+qualified cold-build speedup. The earlier 347.96-second test-only diagnostic used
+a package directory containing previously compiled test products; it is not a
+matched isolated-shared-library control for the complete candidate.
+
+Repeating the exact candidate with its admitted complete byte generation took
+11.33 seconds wall (2.46 user, 0.79 system), exit 0, with no compiler stage started.
+The first complete single-process test run hit its unchanged 300-second deadline
+(305.54 seconds including forced termination), after 57 module completions. Its
+separate warm-loading control passed all 121 modules in 170.38 seconds (25.24 user,
+2.70 system). The cold refusal remains an open gate, not a warm pass.
+
+A two-second sample of the cold test startup contained 183/189 observations in
+dlopen -> Loader::mapSegments -> fcntl. This is a sampled loader wait, not a claim
+that 96.8% of the entire test duration has that cause. Generated bundles had
+linker-generated ad-hoc signatures and a provenance attribute. Apple dyld's
+[[https://github.com/apple-oss-distributions/dyld/blob/main/dyld/Loader.cpp][Loader implementation]] registers signatures and checks library validity in this
+path. The sample alone does not identify which fcntl operation or policy caused
+the delay. Source expansion, code generation and GC must not absorb that residual
+under an invented phase label.
