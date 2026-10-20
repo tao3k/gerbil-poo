@@ -88,3 +88,37 @@ The native package is standalone and requires no Lean checkout or proof token.
 
 Multiple simultaneous regroupings, shared-input migration and guarded batch
 publication now compose through [service-revisions.md](service-revisions.md).
+
+## Group discovery and paired costs
+
+Discovery prepares forward and reverse adjacency once, then intersects one
+forward/reverse visited pair per unassigned representative. It no longer retains
+one reachable set for every vertex. Both traversals use a tail-recursive worklist
+and standard Gerbil hash tables; all footprints are validated before traversal.
+Source-order groups, representatives, normalized reads and refusal behavior are
+unchanged. The corresponding Lean path-reversal and intersection lemmas establish
+the mathematical grouping rule, not extraction or hash-table/runtime correctness.
+
+`just benchmark-scc` reuses the compiled feedback regression module and its
+existing 1 GiB / 90-second focused-test bounds. One process runs small rings,
+larger rings, shared branching, chain and isolated controls, each with ABBA/BAAB
+ordering, natural/pre-collected GC and prepared/cold source construction. The
+measurement-only reference retains per-vertex reachability. Both sides include
+validation, construction, hashes and result closures; ordered groups, all owners
+and reads are checked against independent family oracles outside each timer.
+Gambit reports CPU, wall, GC CPU, collections and allocation separately. Output
+is ephemeral Scheme data; redirect it outside Git. The original closure benchmark
+matrix and its 20-second child limits remain unchanged.
+
+A singleton shortcut additionally skips both visited sets when every non-self
+incoming predecessor already belongs to a completed, distinct SCC. The Lean
+`singleton_of_assigned_predecessors` lemma makes that separation invariant
+explicit. It covers isolated nodes, self loops and source-ordered chains without
+mistaking a one-way dependency for a shared component. Hash-state maintenance of
+that invariant is exercised by regression tests, not claimed as verified extraction.
+
+Signed allocation observations from the shared process-statistics helper are
+retained as diagnostics. Negative values and collection-spanning samples do not
+establish an allocation reduction; CPU/wall and GC controls remain separate.
+A successful result marker alone is insufficient: the bounded process must exit
+successfully, and the complete regression suite must also pass.

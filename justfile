@@ -127,3 +127,8 @@ test-source-file file:
     grep -F 'HARNESS-OK' "$log"
     grep -x 'OK' "$log"
     if grep -Eq 'ERROR (CASE|CHECK|HARNESS)|Heap overflow|Stack overflow' "$log"; then exit 1; fi
+
+# Reuse the compiled feedback test module; avoid static relinking and repeated
+# interpreter startup. This uses the existing focused-test heap/deadline bounds.
+benchmark-scc: build
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} :clan/poo/t/feedback-graph-test

@@ -12,6 +12,17 @@
 (def partition-owner %partition-owner)
 ;; Inspect the validated node footprint.
 (def partition-reads %partition-reads)
+;; Collect a finite declared reachability set using one tail-recursive worklist.
+;; Only sets for the current group remain live; std hash tables own membership.
+(def (%reachable reads root)
+  (def seen (make-hash-table-eq))
+  (let visit ((pending [root]))
+    (if (null? pending) seen
+      (let ((key (car pending)) (rest (cdr pending)))
+        (if (hash-key? seen key) (visit rest)
+          (begin
+            (hash-put! seen key #t)
+            (visit (append (hash-ref reads key) rest))))))))
 ;; Validate the entire footprint before traversal, including unreachable nodes.
 ;; Reachability is reflexive; singleton self loops remain atomic groups too.
 (def (partition spec)
@@ -20,27 +31,31 @@
                (= (length keys) (length (delete-duplicates/hash keys))))
     (error "distinct finite component keys required"))
   (def reads (make-hash-table-eq))
-  (def reach (make-hash-table-eq))
+  (def reverse-reads (make-hash-table-eq))
   (def owners (make-hash-table-eq))
+  (for-each (lambda (key) (hash-put! reverse-reads key [])) keys)
   (for (key keys)
     (def code (.call spec .code key))
     (def deps (if code (.@ code reads) []))
     (unless (and (list? deps) (andmap (lambda (dep) (memq dep keys)) deps))
       (error "unsupported component read" key deps))
-    (hash-put! reads key (delete-duplicates/hash deps)))
-  ;; One local visited set per root computes exact finite graph reachability.
-  (for (root keys)
-    (def seen (make-hash-table-eq))
-    (def (visit key)
-      (unless (hash-key? seen key)
-        (hash-put! seen key #t) (for-each visit (hash-ref reads key))))
-    (visit root) (hash-put! reach root seen))
-  ;; Mutual reachability is the SCC equivalence; never infer groups from values.
+    (def unique (delete-duplicates/hash deps))
+    (hash-put! reads key unique)
+    (for-each (lambda (dep) (hash-update! reverse-reads dep (cut cons key <>))) unique))
+  ;; Preserve source-order representatives while sharing discovery by component.
+  ;; A forward set alone would incorrectly merge downstream one-way dependencies.
   (def groups (foldl (lambda (key result)
     (if (hash-key? owners key) result
-      (let (members (filter (lambda (other)
-        (and (hash-key? (hash-ref reach key) other)
-             (hash-key? (hash-ref reach other) key))) keys))
+      (let (members
+        ;; An already assigned group is a distinct completed SCC. If every
+        ;; non-self predecessor is assigned, no new cycle can enter this key.
+        ;; Isolated nodes, self loops and dependency chains need no visited sets.
+        (if (andmap (lambda (prior) (or (eq? prior key) (hash-key? owners prior)))
+                    (hash-ref reverse-reads key))
+          [key]
+          (let ((forward (%reachable reads key)) (backward (%reachable reverse-reads key)))
+            (filter (lambda (other)
+              (and (hash-key? forward other) (hash-key? backward other))) keys))))
         (for-each (lambda (member) (hash-put! owners member key)) members)
         (cons members result)))) [] keys))
   (make-%partition (reverse groups) (cut hash-ref owners <>) (cut hash-ref reads <>)))

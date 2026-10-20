@@ -1,5 +1,8 @@
-(export feedback-graph-test)
-(import :std/test ../object ../mop ../brace ../support/option ../feedback-graph ../feedback-cache
+(export feedback-graph-test main)
+(import :std/test :std/iter :gerbil/runtime/gambit
+        (only-in :std/list/list filter foldl delete-duplicates/hash take drop)
+        (only-in "closure-measure.ss" measure)
+        ../object ../mop ../brace ../support/option ../feedback-graph ../feedback-cache
         ../generalized-closure (prefix-in ../strong-components scc.)
         (prefix-in ../generalized-graph graph.) (prefix-in ../dependency-analysis code.)
         (prefix-in ../construction-cache cache.) (prefix-in ../generalized-prototype gp.)
@@ -35,6 +38,22 @@
         '((hub) (a b c d) (join) (isolated)))
       (check-equal? (scc.partition-groups (scc.partition (graph.define merged 'd d)))
         '((hub) (a b) (c d) (join) (isolated))))
+    (test-case "one-way tails never merge and every footprint is validated once"
+      (def calls [])
+      (def programs
+        (list->hash-table-eq
+          [(cons 'tail (code.need 'b identity))
+           (cons 'b (code.need 'a identity))
+           (cons 'a (code.both (code.need 'b identity) (code.need 'down identity) cons))]))
+      (def spec (.cc graph.Declaration. keys: '(down tail b a solo)
+        .code: (lambda (key) (set! calls (cons key calls)) (hash-get programs key))
+        .base: (lambda (_) #f)))
+      (def part (scc.partition spec))
+      (check-equal? (reverse calls) '(down tail b a solo))
+      (check-equal? (scc.partition-groups part) '((down) (tail) (b a) (solo)))
+      (check-equal? ((scc.partition-owner part) 'a) 'b)
+      (check-equal? ((scc.partition-reads part) 'a) '(b down))
+      (check-exception (scc.partition (graph.define spec 'solo (code.need 'missing identity))) true))
     (test-case "shared input rebuilds the atomic cycle and downstream joint settlement only"
       (def policy (.o (allowed #t) (limit 10)))
       (defvalues (old failure) (service.publish #f (service.source 3) policy (.cc cache.Builder.)))
@@ -113,3 +132,103 @@
       (defvalues (held refused) (publish-feedback-graph empty (graph-cache-source empty)
         service.build-group (lambda (_ __) 'yes)))
       (check (eq? held empty) => #t) (check (not (not refused)) => #t))))
+
+;; Measurement-only control has the same three fields as the production result.
+;; It intentionally retains the preceding per-vertex reachability algorithm.
+(defstruct %reference-partition (groups owner reads) final: #t)
+;; Repeat the complete validated partition operation, including footprint reads,
+;; hash allocation and ordered representatives; no production compatibility API.
+(def (%reference-partitioning spec)
+  (def keys (.@ spec keys))
+  (unless (and (list? keys) (andmap symbol? keys)
+               (= (length keys) (length (delete-duplicates/hash keys))))
+    (error "distinct finite component keys required"))
+  (def reads (make-hash-table-eq))
+  (def reach (make-hash-table-eq))
+  (def owners (make-hash-table-eq))
+  (for (key keys)
+    (def program (.call spec .code key))
+    (def deps (if program (.@ program reads) []))
+    (unless (and (list? deps) (andmap (lambda (dep) (memq dep keys)) deps))
+      (error "unsupported component read" key deps))
+    (hash-put! reads key (delete-duplicates/hash deps)))
+  (for (root keys)
+    (def seen (make-hash-table-eq))
+    ;; The reference recurses once for every newly visited vertex.
+    (def (visit key)
+      (unless (hash-key? seen key)
+        (hash-put! seen key #t) (for-each visit (hash-ref reads key))))
+    (visit root) (hash-put! reach root seen))
+  (def groups (foldl (lambda (key result)
+    (if (hash-key? owners key) result
+      (let (members (filter (lambda (other)
+        (and (hash-key? (hash-ref reach key) other)
+             (hash-key? (hash-ref reach other) key))) keys))
+        (for-each (lambda (member) (hash-put! owners member key)) members)
+        (cons members result)))) [] keys))
+  (make-%reference-partition (reverse groups) (cut hash-ref owners <>) (cut hash-ref reads <>)))
+;; Build two independent cyclic groups or singleton chain/isolated controls.
+;; These constructors run inside the cold scope and outside the prepared scope.
+(def (scc-source family size)
+  (def keys (map (lambda (i) (string->symbol (string-append "v" (number->string i)))) (iota size)))
+  (def width (quotient size 2))
+  (graph.declaration keys
+    (filter identity
+      (map (lambda (key i)
+        (cond
+          ((equal? family "scc-isolated") #f)
+          ((equal? family "scc-chain")
+           (and (< (1+ i) size) (cons key (code.need (list-ref keys (1+ i)) identity))))
+          (else
+           (def start (* (quotient i width) width))
+           (def first (code.need (list-ref keys (+ start (modulo (1+ i) width))) identity))
+           (cons key (if (equal? family "scc-shared")
+             (code.both first (code.need (list-ref keys (+ start (modulo (+ i 2) width))) identity) cons)
+             first))))) keys (iota size)))))
+;; Check exact ordered groups, every owner and every validated dependency using
+;; independent family arithmetic. Oracle work is outside each measurement.
+(def (check-scc result reference? family size)
+  (def source (scc-source family size))
+  (def keys (.@ source keys))
+  (def groups ((if reference? %reference-partition-groups scc.partition-groups) result))
+  (def owner ((if reference? %reference-partition-owner scc.partition-owner) result))
+  (def reads ((if reference? %reference-partition-reads scc.partition-reads) result))
+  (def expected (if (member family '("scc-chain" "scc-isolated")) (map list keys)
+                  (list (take keys (quotient size 2)) (drop keys (quotient size 2)))))
+  (unless (equal? groups expected) (error "SCC ordered partition oracle" family groups))
+  (for (group expected)
+    (for (key group)
+      (unless (eq? (owner key) (car group)) (error "SCC owner oracle" key))
+      (def program (.call source .code key))
+      (unless (equal? (reads key) (if program (.@ program reads) [])) (error "SCC footprint oracle" key)))))
+;; ABBA/BAAB samples share a process and inputs, with separate natural and
+;; pre-collected regimes. Construction, traversal, GC and allocation stay visible.
+(def (measure-scc family size-text repetitions-text)
+  (def size (string->number size-text))
+  (def repetitions (string->number repetitions-text))
+  (unless (and (integer? size) (>= size 4) (even? size) (integer? repetitions) (> repetitions 0))
+    (error "SCC size/repetitions"))
+  (def source (scc-source family size))
+  (def rows [])
+  (for* ((regime '(natural collected)) (scope '(prepared cold)) (round (in-range 4)))
+    (for (side (if (even? round) '(reference selected selected reference) '(selected reference reference selected)))
+      (def reference? (eq? side 'reference))
+      (def partitioner (if reference? %reference-partitioning scc.partition))
+      (defvalues (result costs)
+        (measure (lambda () (partitioner (if (eq? scope 'cold) (scc-source family size) source)))
+                 repetitions (eq? regime 'collected)))
+      (check-scc result reference? family size)
+      (set! rows (cons (vector regime scope round side repetitions costs) rows))))
+  (write (reverse rows)) (newline))
+
+;; Run the complete paired SCC matrix in one compiled test-module process. This
+;; avoids rebuilding a static executable and repeats no process/import startup
+;; between families. The test runner still executes the unchanged full suite.
+(def (main)
+  (for (spec '(("scc-ring" 8) ("scc-ring" 32) ("scc-shared" 32)
+              ("scc-chain" 32) ("scc-isolated" 32)))
+    (displayln "SCC-CASE " (car spec) " " (cadr spec))
+    (measure-scc (car spec) (number->string (cadr spec)) "32")
+    (force-output))
+  (displayln "SCC-PAIRED-OK observations=320")
+  (exit 0))
