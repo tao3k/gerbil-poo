@@ -371,11 +371,13 @@
   (or (cond
    ((equal? source target) #t)
    ((or (eq? target 'Any) (eq? source 'Never)) #t)
-   ;; An impossible element Type leaves exactly the empty proper list, not an
-   ;; empty container Type. Reuse the finite witness and shared quota; never
-   ;; confuse an inhabited empty Tuple, Map or optional sentinel with no values.
-   ((and (eq? target 'Null) (pair? source) (eq? (car source) 'List))
-    (empty-type? (cadr source) work))
+   ;; An impossible element leaves exactly nil, not an empty Type. Reuse Null's
+   ;; complete intrinsic coverage, including ordered flat Union targets, only
+   ;; after the existing finite witness. No child validator can run on nil.
+   ;; Wrapper-bearing alternative targets and invariant Map keys stay outside
+   ;; this value-preserving view; original List metadata is never rewritten.
+   ((and (pair? source) (eq? (car source) 'List) (flat-type? target))
+    (and (empty-type? (cadr source) work) (compare-types 'Null target work)))
    ;; Null is an empty LIST, while Tuple uses a vector, even at arity zero.
    ;; A Pair belongs to List only when its head and entire tail are covered.
    ;; Recurse through existing replacement, retaining nested wrapper checks,

@@ -655,8 +655,10 @@
       (if allowed? [] [(.o bind-these: #f kind: 'disabled path: path)]))))
 
 ;; Prefix-bound data/callback inputs and candidate outputs retain descriptor kinds.
-;; The same schema handles singleton, fixed integer and byte-buffer services;
-;; fixed-width metadata is literal and never evaluated as a prototype parameter.
+;; The same schema handles singleton, fixed integer and byte-buffer services.
+;; In particular an impossible-element List batch can return nil into an
+;; intrinsic Null/Bool/Keyword Union without erasing its original List artifact.
+;; Fixed-width metadata is literal, never evaluated as a prototype parameter.
 (def DescriptorServiceType
   (prototype-type (.o .parameters: '(Input Output)) '(Input Output)
     '(Function (Output (Function (Output) (Input))) (Input)) '((Output Input))))
