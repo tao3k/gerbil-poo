@@ -529,15 +529,6 @@
         ((Maybe OrFalse) (list (car type) (ordinary-origin (cadr type) work)))
         (else type))))))
 
-;; Only decidably empty finite scalar alternatives are removed. Unknown host
-;; carriers remain potentially inhabited; an unsupported proof cannot erase them.
-(def (empty-origin? type)
-  (or (eq? type 'Never)
-      (and (pair? type)
-        (case (car type) ((Enum) (null? (cdr type)))
-          ((IntegerRange) (empty-range? (range-bounds type)))
-          ((Union) (andmap empty-origin? (cdr type))) (else #f)))))
-
 ;; Private graph edges retain ordered origin Types, including exact marker Types.
 ;; States are standard equal?-hashed lists (position, keys, raw offset, rest mode).
 (defstruct raw-edge (next origins) final: #t)
@@ -569,6 +560,7 @@
   (def initial (list 0 (cdr row) 0 #f))
   (def predecessors (make-hash-table))
   (def ordinary (make-hash-table))
+  (def emptiness (make-hash-table))
   (def endings [])
   ;; At the saturated decoded position, only the target's declared rest repeats.
   (def (position-type index)
@@ -576,6 +568,11 @@
   ;; Cache only completed ordinary restrictions, including an explicit Never.
   (def (ordinary-type type)
     (hash-ensure-ref ordinary type (cut ordinary-origin type work)))
+  ;; Share the positive finite witness with ordinary replacement. Cache completed
+  ;; true/false results only within this graph, using Gerbil's presence-aware
+  ;; hash protocol. Unknown carriers remain live; exhaustion installs no answer.
+  (def (empty-origin? type)
+    (hash-ensure-ref emptiness type (cut empty-type? type work)))
   ;; Necessary exact-region bounds prune unreachable suffix sizes early. Rest
   ;; mode has no further keyword interpretation, hence exactly one token/value.
   (def (feasible? position keys offset rest?)

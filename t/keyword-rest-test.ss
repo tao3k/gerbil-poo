@@ -14,6 +14,86 @@
 ;; The entire protocol still requires exact-count covariant results and first selection.
 (def keyword-rest-test
   (test-suite "Literal ordinary origins and correlated rest positions"
+    (test-case "raw graph origins share positive finite container emptiness"
+      (def source '(Function (UInt) () rest: (Union UInt (Enum #!key #!rest))))
+      (def finite-source '(Function (UInt) ((Union UInt (Enum #!key #!rest)))
+        optional: ((Union UInt (Enum #!key #!rest)) (Union UInt (Enum #!key #!rest)))))
+      (for-each (lambda (payload)
+        (def target `(Function (UInt) (UInt) keywords: ((retired: . ,payload)) rest: UInt))
+        (check (subtype-expression? source target) => #t)
+        (check (subtype-expression? `(List ,source) `(List ,target)) => #t)
+        (check (subtype-expression? '(Function (UInt) (UInt))
+          `(Function (UInt) (,payload) keywords: ((scale: . UInt)))) => #t)
+        (check (subtype-expression? finite-source
+          `(Function (UInt) (UInt) keywords: ((retired: . ,payload)) rest: ,payload)) => #t)
+        (check-equal? (cdr (assq keywords: (function-options (normalize-type target (type-work 2000)))))
+          (list (cons retired: payload))))
+        '(Never (Pair Never (Function (UInt) (Integer))) (Tuple Never)
+          (TypeValuePair) (Or Never (Enum)) (Sum retired: Never)
+          (Record ((missing Never required)) closed)))
+      ;; Nil, empty maps/vectors and optional sentinels are actual key payloads.
+      ;; Their keyword token cannot be hidden from a source that refuses keywords.
+      (for-each (lambda (payload)
+        (check (subtype-expression? source
+          `(Function (UInt) (UInt) keywords: ((retired: . ,payload)) rest: UInt)) => #f))
+        '((List Never) (Map Never <- UInt) (Tuple) (Maybe Never) (OrFalse Never)
+          (Record ((missing Never optional)) closed) UInt))
+      (check (subtype-expression? '(Function (Bool) () rest: (Union UInt (Enum #!key #!rest)))
+        '(Function (UInt) (UInt) keywords: ((retired: . (Pair Never UInt))) rest: UInt)) => #f)
+      (check (subtype-expression? `(Map UInt <- ,source)
+        '(Map UInt <- (Function (UInt) (UInt) keywords: ((retired: . (Pair Never UInt))) rest: UInt))) => #f)
+      (check-exception (subtype-expression? source
+        '(Function (UInt) (UInt) keywords: ((retired: . (Pair Never (Unknown))))))
+        (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) 'unsupported))))
+      (check-exception (subtype-expression? source
+        '(Function (UInt) (UInt) keywords: ((retired: . (Pair Never UInt))) rest: UInt) 100) exhausted?))
+    (test-case "retired keyword publication retains live rest calls wrappers and retries"
+      (def source '(Function (UInt) () rest: (Union UInt (Enum #!key #!rest))))
+      (def target '(Function (UInt) (UInt)
+        keywords: ((retired: . (Pair Never (Function (UInt) (UInt))))) rest: UInt))
+      (def calls 0) (def consumed 0) (def observed #f) (def events [])
+      ;; Gerbil keyword/rest formals own decoding and defaults independently of
+      ;; the coverage graph. Standard apply folds only the supplied numeric data.
+      (def callback (lambda (value retired: (_retired #f) . rest)
+        (set! calls (1+ calls))
+        (apply + value rest)))
+      (def report (service.infer-retired-keyword-service '(UInt) (list 'Bool source)
+        `((() (UInt) (UInt ,target)))
+        (lambda (value) (values value callback))
+        (lambda (event) (set! events (cons event events)))))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (.get report solutions) (list (list (normalize-type source (type-work 2000)))))
+      (check-equal? calls 0)
+      (def context (.o approved: #t))
+      (def action (service.catalog-service-action (.get report instance) 7 context
+        (lambda (subject)
+          (set! consumed (1+ consumed)) (set! observed (.get subject callback)))))
+      (defvalues (evidence next failure) (action context))
+      (check-equal? failure #f) (check-equal? consumed 1)
+      (check (eq? next context) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check-equal? (reverse events) '(around before after))
+      (def target-wrapper (validate (expression-type target) observed))
+      (for-each (lambda (row answer)
+        (check-equal? (apply target-wrapper row) answer))
+        (list '(7) (list #!key 7) (list 7 #!rest) (list 7 #!rest 1 2 3)
+          (list #!key 7 #!rest 1 2 3)) '(7 7 7 13 13))
+      ;; Capture after the successful calls: a local definition is not an
+      ;; evaluation-order boundary for the compiled Gerbil body.
+      (let (before calls)
+        (for-each (lambda (row) (check (accepted? target-wrapper row) => #f))
+          (list (list 7 retired: (cons 0 abs)) (list 7 retired: []) (list 7 retired: #f)))
+        (check-equal? calls before))
+      (check-exception ((service.catalog-service-action (.get report instance) 7 context
+        (lambda (_) (set! consumed 99)) 0) context) TypeError?)
+      (check-equal? consumed 1)
+      (defvalues (_ _next retry) (action context))
+      (check-equal? retry #f) (check-equal? consumed 2)
+      ;; Different original arity metadata remains genuinely ambiguous.
+      (def equivalent '(Function (UInt) ((Union UInt (Enum #!key #!rest)))
+        optional: ((Union UInt (Enum #!key #!rest))) rest: (Union UInt (Enum #!key #!rest))))
+      (check-equal? (.get (service.infer-retired-keyword-service '(UInt) (list source equivalent)
+        `((() (UInt) (UInt ,target))) (lambda (_) (error "ambiguous builder ran"))) status) 'ambiguous))
     (test-case "literal-only positions have no ordinary decoding branch"
       (def target '(Function (UInt) (Keyword) keywords: ((scale: . UInt))))
       (def source '(Function (UInt) ((Enum scale: #!key #!rest) (Union Integer Keyword))
