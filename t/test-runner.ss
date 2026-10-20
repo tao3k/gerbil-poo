@@ -1,6 +1,7 @@
 ;;; Execute the checked compiled inventory using the released Gerbil test runner.
 (export main compiled-tests)
 (import (prefix-in :gerbil/tools/gxtest tests.)
+        (prefix-in :gerbil/expander x.)
         (only-in "test-groups.ss" test-files))
 
 ;; Keep source-file selection explicit, but pass compiled interfaces to gxtest.
@@ -23,5 +24,21 @@
 ;; with its original ordering, fixtures, test cases and typed failure handling.
 (def (main target)
   (def files (compiled-tests target))
+  (def paths (map path-normalize files))
+  (def evaluate (x.current-expander-module-eval))
+  ;; The harness evaluates each checked root through this public parameter.
+  ;; Report actual initialization work, including dependent bundle loading;
+  ;; preserve values and let the original exception propagate on failure.
+  (def (observe module)
+    (def path (and (x.module-context? module) (x.module-context-path module)))
+    (if (and (string? path) (member (path-normalize path) paths))
+      (let (start (real-time))
+        (displayln "TEST-LOAD-START " path) (force-output)
+        (call-with-values (lambda () (evaluate module))
+          (lambda result
+            (displayln "TEST-LOAD-END " path " wall=" (- (real-time) start))
+            (force-output) (apply values result))))
+      (evaluate module)))
   (displayln "TEST-MODE compiled modules=" (length files)) (force-output)
-  (exit (apply tests.main "-v" "5" files)))
+  (parameterize ((x.current-expander-module-eval observe))
+    (exit (apply tests.main "-v" "5" files))))

@@ -1,8 +1,7 @@
 ;;; One inventory for independent Scheme tests and the Actions matrix.
-(export main test-groups test-files test-batch checked-groups group-source-key)
-(import :gerbil/runtime/gambit :std/encoding/json
-        (only-in :std/list/list append-map delete-duplicates/hash)
-        :std/crypto/digest :std/encoding/hex :std/misc/ports)
+(export test-groups test-files test-batch checked-groups)
+(import :gerbil/runtime/gambit
+        (only-in :std/list/list append-map delete-duplicates/hash))
 
 ;; Keep existing modules classified by responsibility. New modules are still
 ;; tested in an additional group until their author assigns a functional group.
@@ -47,15 +46,6 @@
   (def extra (list-sort string<? (filter (lambda (file) (not (member file declared))) actual)))
   (if (null? extra) groups (append groups (list (cons "additional" extra)))))
 
-;; Emit only the ephemeral matrix required by Actions, using the standard JSON
-;; encoder. The registry remains Scheme data; no generated JSON is kept in Git.
-(def (main)
-  (def rows (map (lambda (group)
-                  (hash ("group" (car group)) ("modules" (string-join (cdr group) " ")) ("source-key" (group-source-key (car group)))))
-                (checked-groups)))
-  (display (json->string (hash ("include" (list->vector rows)))))
-  (newline))
-
 ;; Share the checked source inventory with compilation and single-process tests.
 ;; Preserve the release harness's source preparation order, independent of groups.
 (def (test-files (group #f))
@@ -64,19 +54,15 @@
     (cdr (or (assoc group groups) (error "unknown test group" group)))
     (append-map cdr groups))))
 
-;; Four disjoint local compiler batches bound retained expansion contexts while
-;; sharing the exact CI inventory. Functional CI groups remain independently run.
-(def (test-batch index)
-  (unless (and (exact-integer? index) (<= 0 index) (< index 4))
-    (error "test batch must be an integer in [0,4)" index))
-  (let loop ((files (test-files)) (position 0) (result []))
+;; Disjoint local compiler batches share the exact CI inventory. The explicit
+;; count permits matched memory/worker studies without silently dropping roots.
+(def (test-batch index (count 4))
+  (unless (and (exact-integer? count) (> count 0)
+               (exact-integer? index) (<= 0 index) (< index count))
+    (error "test batch requires a positive count and an index in [0,count)" index count))
+  (def files (test-files))
+  (when (> count (length files)) (error "empty compiler batches are not admitted" count))
+  (let loop ((files files) (position 0) (result []))
     (if (null? files) (reverse result)
       (loop (cdr files) (+ position 1)
-        (if (= (modulo position 4) index) (cons (car files) result) result)))))
-
-;; Hash an unambiguous filename/digest sequence for this group. CI additionally
-;; binds shared inputs and the complete test snapshot, including cross-group macros.
-(def (group-source-key group)
-  (hex-encode (sha256 (string->utf8 (call-with-output-string (lambda (port) (write
-    (map (lambda (file) (cons file (hex-encode
-      (sha256 (call-with-input-file file read-all-as-u8vector))))) (test-files group)) port)))))))
+        (if (= (modulo position count) index) (cons (car files) result) result)))))

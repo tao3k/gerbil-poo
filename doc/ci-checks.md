@@ -135,3 +135,9 @@ identity and complete compiler outputs are checked before reuse. Producer locks,
 per-stage process groups and deadlines prevent competing cleanup and orphaned
 compiler work. See `performance/build-summary.org` for the macOS receipt boundaries
 and rejected experiments; those measurements are not Linux build controls.
+
+The checked test inventory is independent of JSON matrix generation. Use
+`gxi t/test-matrix.ss` for the standard Actions matrix. Local batches retain
+source mtimes in the verified interface overlay; byte-admitted source edits use
+standard make scheduling, while changed policy, inventory or compiler bytes
+retain complete rebuilds. Empty output requires no cleanup process.

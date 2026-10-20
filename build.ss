@@ -9,7 +9,7 @@
   (only-in "t/test-groups.ss" test-files test-batch))
 
 ;; Keep the package build graph explicit. V19 std/make owns dependency
-;; scheduling and native compilation; this file only declares package inputs.
+;; scheduling and backend compilation; this file only declares package inputs.
 (def +gerbil-poo-fq-spec+
   (cond-expand
    (darwin
@@ -200,7 +200,9 @@
     "t/factory-benchmark"
     "t/binding-benchmark"
     "t/build-artifacts"
+    "t/build-command"
     "t/test-groups"
+    "t/test-matrix"
     "t/test-runner"))
 
 ;; The default local build retains the complete inventory. CI builds the shared
@@ -215,7 +217,8 @@
             (batch (getenv "GERBIL_BUILD_TEST_BATCH" #f)))
         (when (and group batch) (error "select a test group or compiler batch"))
         (cond (group (test-files group))
-          (batch (test-batch (string->number batch)))
+          (batch (test-batch (string->number batch)
+            (string->number (getenv "GERBIL_BUILD_TEST_BATCHES" "4"))))
           (else (error "test group or compiler batch required")))))
     (else (test-files))))
 ;; std/make also owns executable dependency scheduling and its bounded compiler

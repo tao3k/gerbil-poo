@@ -44,8 +44,12 @@ explicit. A producer owns only this package's generated namespace. Unknown
 pre-existing package outputs and source/symlink entries refuse destructive cleanup.
 The standard OS file lock prevents competing local producers replacing bytes.
 
-A shared producer runs standard make-clean/make, then records exact source and
-output byte inventories with the selected release/backend identity. Missing,
+A shared producer uses ordinary std/make dependency scheduling for byte-admitted
+edits to existing source modules. Changed module artifacts are invalidated even
+when an editor preserved the old mtime. Changed compiler, build policy, input
+inventory or output bytes require the complete clean/make path. An empty owned
+output skips cleanup altogether. It then records exact source and output byte
+inventories with the selected release/backend identity. Missing,
 changed, appended or malformed receipts do not authorize reuse. Source inputs
 include build scripts and fixture resources; documentation edits do not require
 recompilation. This is a trusted local cache protocol, not a proof of compiler,
@@ -54,7 +58,9 @@ SDK, storage or cryptographic correctness.
 Tests compile in a disposable source snapshot with admitted non-test .ssi files
 beside unchanged sources. Gerbil's ordinary SSI-first library resolver supplies
 shared expansion metadata. Explicit test roots remain source files. Snapshot
-bytes and the original source inventory are rechecked. No compiler function or
+bytes and the original source inventory are rechecked. Source and interface
+mtime values are preserved during copying; they are make hints, never byte
+admission evidence. No compiler function or
 module registry is replaced. Four round-robin batches partition the checked test
 inventory; the existing twenty CI functional groups remain independent jobs.
 
@@ -89,7 +95,7 @@ before publishing a complete-workflow performance claim.
 
 * First complete guarded candidate
 The first complete candidate used the uninstrumented build entry and empty output:
-759.99 seconds wall (576.08 user, 116.14 system), exit 0, all 303 source roots.
+759.99 seconds wall (576.08 user, 116.14 system), exit 0, all 304 source roots.
 Shared cleanup took 16.356 seconds, shared compilation 237.398 seconds, and the
 four test batches 276.905, 280.216, 104.793 and 207.213 seconds. This is not a
 qualified cold-build speedup. The earlier 347.96-second test-only diagnostic used
@@ -111,3 +117,38 @@ linker-generated ad-hoc signatures and a provenance attribute. Apple dyld's
 path. The sample alone does not identify which fcntl operation or policy caused
 the delay. Source expansion, code generation and GC must not absorb that residual
 under an invented phase label.
+
+* Inventory dependency reduction
+The inventory module now contains only enumeration and batching. Source hashing
+stays in the existing artifact protocol; the matrix command uses standard JSON
+serialization in t/test-matrix.ss. The checked twenty groups and 121 test roots
+are unchanged. No handwritten JSON serializer or alternate inventory was added.
+
+A before/after/after/before metadata control on this macOS release, using empty
+package paths, measured 19.52 / 4.99 / 6.68 / 20.41 seconds. DYLD_PRINT_LIBRARIES
+reported 283 bundle loads before and 100 after. This qualifies metadata startup
+only; it is not a complete-build speedup ratio.
+
+A separate startup sample contained 817/819 observations under dlopen, including
+778 under dyld notifyDebuggerLoad. Unlike the earlier fcntl sample, this window
+shows image-registration work. Neither sample establishes whole-run attribution.
+Mapping all 431 generated project bundles with twelve bounded helper processes
+took 168.81 seconds. This standalone preflight was rejected: moving that work to
+another stage does not establish a shorter workflow. Signing changes were also
+not adopted.
+
+* Phase observation
+POO_BUILD_IMPORT_TRACE selects the public expander-import observer. Its Scheme
+records include wall intervals, interpreter CPU and interpreter GC CPU. The
+separate t/build-command.ss diagnostic executable records GSC, GCC and GCC
+-wrapper subprocess intervals using /usr/bin/time -p. Standard process ports
+inherit stdin/stdout, retaining GCC -pipe. Compiler diagnostics stream once;
+only three stderr lines are delayed to parse the time footer. Missing or invalid
+timing fields refuse metric admission, not the underlying command's exit status.
+
+The command observer is macOS-only; its pure timing parser has regression
+controls on every CI platform. Raw traces, diagnostic executables and generated
+products remain outside Git. Instrumented runs are diagnostic observations, not
+unwrapped wall-time controls. Nested command intervals and pipelined C/assembly
+must be unioned; import resolution/expansion and unobserved scheduler/parent work
+must remain explicitly distinguished rather than assigning the residual to GC.

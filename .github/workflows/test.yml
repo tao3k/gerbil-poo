@@ -29,7 +29,7 @@ jobs:
         env:
           TEST_SOURCE_KEY: ${{ hashFiles('t/*-test.ss') }}
         run: |
-          matrix="$(gxi t/test-groups.ss)"
+          matrix="$(gxi t/test-matrix.ss)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "test-key=$TEST_SOURCE_KEY" >> "$GITHUB_OUTPUT"
       - name: Identify the C toolchain used by the released compiler

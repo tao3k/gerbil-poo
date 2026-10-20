@@ -1,5 +1,5 @@
 ;;; Source-bound admission for disjoint compiled test-group artifacts.
-(export main artifact-key-valid? artifact-root group-root check-group check-all read-one-file build-root build-files build-input-files build-digests build-output-files build-generation build-current? save-build-generation test-build-output?)
+(export main artifact-key-valid? artifact-root group-root check-group check-all read-one-file group-source-key build-root build-files build-input-files build-digests build-output-files build-generation build-current? save-build-generation test-build-output? build-source-outputs build-changed-sources copy-build-input)
 (import :std/misc/ports :std/crypto/digest :std/encoding/hex (only-in :std/list/list append-map) "test-groups.ss")
 ;; Standard dynamic scope isolates admission fixtures from real compiler artifacts.
 (def artifact-root (make-parameter ".ci-tests/"))
@@ -17,6 +17,12 @@
   (call-with-input-file path (lambda (port)
     (def value (read port))
     (unless (eof-object? (read port)) (error "extra artifact receipt" path)) value)))
+;; Source hashing belongs to artifact admission; inventory consumers do not need
+;; crypto or JSON initialization. Preserve the same filename/digest preimage.
+(def (group-source-key group)
+  (hex-encode (sha256 (string->utf8 (call-with-output-string (lambda (port) (write
+    (map (lambda (file) (cons file (hex-encode
+      (sha256 (call-with-input-file file read-all-as-u8vector))))) (test-files group)) port)))))))
 ;; Check source identity and every required compiled interface before loading it.
 ;; Missing runtime code is also rejected by the ordinary module loader/tests.
 (def (check-group group base-key)
@@ -115,6 +121,40 @@
   (and (file-exists? path)
     (with-catch (lambda (_) #f)
       (lambda () (equal? (read-one-file path) (build-generation root shared? compiler))))))
+;; Timestamps remain ordinary make hints. Preserve them when copying admitted
+;; bytes so unchanged snapshot roots do not become newer than their interfaces.
+(def (copy-build-input source target)
+  (def info (file-info source))
+  (copy-file source target)
+  (file-last-access-and-modification-times-set! target
+    (file-info-last-access-time info) (file-info-last-modification-time info)))
+;; Select only exact compiler stems belonging to a declared source module.
+;; A neighboring module with a longer name never belongs to this source.
+(def (build-source-outputs source outputs)
+  (def module (string-append "clan/poo/" (path-strip-extension source)))
+  (def prefixes [module (string-append "static/" (string-join (string-split module #\/) "__"))])
+  (filter (lambda (output) (test-build-output? output prefixes)) outputs))
+;; Admit incremental make only from unchanged compiler/output bytes and the
+;; same finite input inventory. Only existing module edits qualify. Build policy,
+;; resources, new/deleted modules or unowned stems require a complete rebuild.
+;; Returning the changed names also handles edits whose mtime was preserved.
+(def (build-changed-sources receipt root shared? compiler)
+  (with-catch (lambda (_) #f)
+    (lambda ()
+      (match [(read-one-file receipt) (build-generation root shared? compiler)]
+        ([['build-generation old-compiler old-inputs old-outputs]
+          ['build-generation new-compiler new-inputs new-outputs]]
+          (and (equal? old-compiler new-compiler)
+            (equal? old-outputs new-outputs)
+            (equal? (map car old-inputs) (map car new-inputs))
+            (let (changed (filter values (map (lambda (old new)
+                    (and (not (equal? old new)) (car new))) old-inputs new-inputs)))
+              (and (andmap (lambda (source)
+                      (and (string-suffix? ".ss" source)
+                        (not (member source '("build.ss" "t/build.ss")))
+                        (pair? (build-source-outputs source (map car new-outputs))))) changed)
+                changed))))
+        (else #f)))))
 ;; Publish a complete datum only after successful compilation and source rechecks.
 (def (save-build-generation path root shared? compiler)
   (def datum (build-generation root shared? compiler))
