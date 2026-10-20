@@ -1,5 +1,5 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
-(export prototype-type specialize-prototype-type instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
+(export instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked prototype-type specialize-prototype-type instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
 (import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop map-in-order)
         ./object ./type-relation (only-in ./mop Type validate)
         (prefix-in ./parameters positional.)
@@ -38,7 +38,12 @@
 ;; Return copied bound names after rechecking the current receiver and Type
 ;; descriptors. The same check guards residual inference and final publication.
 (def (bound-parameters instance (budget 8192))
-  (map car (check-bindings (.get instance prototype) (.get instance bound-parameters) [] (type-work budget))))
+  (bound-parameters/checked instance (type-work budget)))
+
+;; Internal publication checks consume the caller's existing request quota.
+;; A fresh public inspection still owns its independent validated budget.
+(def (bound-parameters/checked instance work)
+  (map car (check-bindings (.get instance prototype) (.get instance bound-parameters) [] work)))
 
 ;; Capture an immutable syntax snapshot before any specialization or computed
 ;; prototype field executes. Variable names are exactly existing .parameters;
@@ -166,24 +171,32 @@
 ;; Only a unique complete search instantiates the prototype; callbacks are not
 ;; executed during candidate enumeration, and an exhausted search raises.
 (def (infer-prototype scheme candidates queries (budget 8192))
-  (def work (type-work budget))
+  (infer-prototype/checked scheme candidates queries (type-work budget)))
+
+;; Internal declaration composition retains the same quota through publication.
+;; The caller supplies the existing work closure, as in subtype/checked?.
+(def (infer-prototype/checked scheme candidates queries work)
   (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
     (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
   (infer/checked captured candidates queries work))
 
 ;; The same finite solver accepts bounds on BOTH sides of a call constraint.
 ;; All callers pass one captured schema and one shared quota through construction.
-(def (infer/checked scheme candidates queries work (derive #f))
+(def (infer/checked scheme candidates queries work (derive #f) (queries-checked? #f))
   (let ()
     (bounded-type-data candidates work)
     (require-value candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
     (type-expression `(Tuple ,@candidates) [] work)
-    (bounded-type-data queries work)
-    (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))
-      (refuse-type 'malformed "Inference queries need actual/expected pairs"))
-    (for-each (lambda (query)
-                (type-expression (car query) (.get scheme variables) work)
-                (type-expression (cadr query) (.get scheme variables) work)) queries)
+    ;; Private call projection copies already admitted actual/formal expressions.
+    ;; Public raw queries still pass complete shape and syntax admission below.
+    ;; Reuse that judgment instead of reparsing every copied call constraint.
+    (unless queries-checked?
+      (bounded-type-data queries work)
+      (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))
+        (refuse-type 'malformed "Inference queries need actual/expected pairs"))
+      (for-each (lambda (query)
+                  (type-expression (car query) (.get scheme variables) work)
+                  (type-expression (cadr query) (.get scheme variables) work)) queries))
     (let ((solutions []) (domain (delete-duplicates/hash
                     (map-in-order (lambda (candidate) (canonical-type (copy-type candidate) work)) candidates))))
       (let search ((variables (.get scheme variables)) (arguments []))
@@ -274,7 +287,11 @@
 ;; Bounds failures reject candidates; malformed/unsupported syntax and exhaustion
 ;; remain whole-request errors. No builder or Type validator runs during search.
 (def (infer-prototype-calls scheme candidates observations (budget 8192))
-  (def work (type-work budget))
+  (infer-prototype-calls/checked scheme candidates observations (type-work budget)))
+
+;; The unified declaration driver supplies one counter for sibling projection,
+;; exhaustive inference, binding and the final guarded signature admission.
+(def (infer-prototype-calls/checked scheme candidates observations work)
   (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
     (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
   (bounded-type-data observations work)
@@ -294,5 +311,5 @@
     (def ground (.o bind-these: #f expression: layout))
     (apply append (map-in-order (lambda (call known)
       (or known (call-constraints ground call work #f #t))) calls templates)))))
-  (def report (infer/checked captured candidates constraints work derive))
+  (def report (infer/checked captured candidates constraints work derive #t))
   (.cc report calls: calls))

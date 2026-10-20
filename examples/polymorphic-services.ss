@@ -2,7 +2,7 @@
 (export infer-tagged-worker-service infer-callback-directory-service infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export RetiredKeywordServiceType infer-retired-keyword-service)
 (export TokenCallbackServiceType infer-token-callback-service)
-(export MetadataServiceType infer-metadata-service)
+(export MetadataServiceType infer-metadata-service metadata-service-request)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -365,10 +365,21 @@
                 (state (OrFalse (Maybe (Sum ready: (Tuple (Function (Value) (Integer)))
                                            idle: (List (Function (Value) (Integer))))))))
         (Row Tail))) (Value))))))
-;; Reuse the common complete solver/qualified declaration builder and unchanged
-;; catalog publication action. The original body is not run to infer a Type.
+;; Prepare the explicit prefix once; each returned request separately owns one
+;; residual inference/installation quota. This closure caches no approval, method
+;; result or admitted candidate. The public driver rechecks current metadata and
+;; captures the caller's candidate/call lists on every attempt, including retries.
+(def (metadata-service-request prefix candidates observations operation (record void))
+  (using ((operation :~ procedure?) (record :~ procedure?))
+    (let (residual (specialize-prototype-type MetadataServiceType prefix))
+      (lambda (budget)
+        (infer-declared-calls residual candidates observations
+          (cut signature-service-declarations <> operation record) budget)))))
+;; Ordinary construction uses the same prepared request and unchanged default
+;; quota. The original body is not run to infer a Type; the resulting instance
+;; still enters catalog-service-action's refine/bind-evidence/FUN publication.
 (def (infer-metadata-service prefix candidates observations operation (record void))
-  (infer-signature-calls MetadataServiceType prefix candidates observations operation record))
+  ((metadata-service-request prefix candidates observations operation record) 8192))
 
 ;; The candidate supplies the scalar and callback Types. Existing publication
 ;; checks both recursively, refines the normalized scalar, and binds exact

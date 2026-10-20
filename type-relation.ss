@@ -767,10 +767,12 @@
          ;; validation and checked initialization. Defaults/hooks are host policy,
          ;; supplied by deriving this descriptor, never executable inference data.
          ((Record)
-          (.cc Class. sexp: (copy-type term) sealed: (eq? (caddr term) 'closed)
-            slots: (object<-alist (map (lambda (field)
-              (cons (car field) (RecordSlot (build (cadr field)) optional: (eq? (caddr field) 'optional))))
-              (cadr term)))))
+          ;; .cc fields are lazy: finish child compilation while this request
+          ;; owns its counter. Runtime Class observation must not spend it again.
+          (let (slots (object<-alist (map (lambda (field)
+                  (cons (car field) (RecordSlot (build (cadr field)) optional: (eq? (caddr field) 'optional))))
+                  (cadr term))))
+            (.cc Class. sexp: (copy-type term) sealed: (eq? (caddr term) 'closed) slots: slots)))
          ((Object)
           (let (fields (object<-alist (map (lambda (field) (cons (car field) (build (cadr field)))) (cadr term))))
             (if (eq? (caddr term) 'closed)
@@ -793,7 +795,11 @@
             (type-value-catalog TypeValuePair
               (map (lambda (child) (if (catalog-type? child) (catalog-descriptor child work) (build child))) (cdr term))
               (copy-type term) (lambda () (for-each catalog-current! tokens)))))
-         ((Map) (Map (build (cadr term)) <- (build (cadddr term))))
+         ((Map)
+          ;; Map is syntax, not a strict constructor. Capture compiled values
+          ;; before its lazy Key/Value slots can retain the request counter.
+          (let* ((value (build (cadr term))) (key (build (cadddr term))))
+            (Map value <- key)))
          ((Sum) (apply Sum (cdr (map-sum-types term build))))
          ((Union) (apply Union (map build (cdr term))))
          ((Or) (apply Or (map build (cdr term))))

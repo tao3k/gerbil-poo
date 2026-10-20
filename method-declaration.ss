@@ -5,7 +5,7 @@
         instantiate-declared infer-declared infer-declared-calls instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop ./declaration
         (only-in ./reflection reflect-slots)
-        (only-in ./prototype-types instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
+        (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked)
         (prefix-in ./parameters positional.)
         (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression copy-type refuse-type)
         (prefix-in ./multimethod dispatch.)
@@ -229,9 +229,10 @@
 ;; Admit EVERY required named method, not only groups the builder chose to return.
 ;; Source/path/descriptor/revision mismatch refuses before publication. Nested
 ;; carriers reuse object construction guards; finite syntax/work bounds the walk.
-(def (admit-signatures instance receiver captured-expression captured-bindings catalog slots (budget 8192))
-  (def work (type-work budget))
+(def (admit-signatures instance receiver captured-expression captured-bindings catalog slots work)
   (def expression (.get instance expression))
+  ;; Recheck mutable builder output and live catalog revisions before equality.
+  ;; A private syntax snapshot does not certify mutable descriptor currency.
   (type-expression expression [] work)
   (def bindings (.get instance bound-parameters))
   (bounded-type-data bindings work)
@@ -244,6 +245,7 @@
       ;; declare-instance holds this receiver and its registered metadata sources
       ;; under the construction guard from reflection through this final admission.
       (for (entry slots)
+        (work)
         (def slot (cdr entry))
         (when (and (method-slot? slot) (.@ slot signature))
           (let* ((group (.ref receiver (car entry))) (origin (declared-methods-source group)))
@@ -284,31 +286,32 @@
 ;; guards. Freeze its receiver/context during the builder, normal declaration
 ;; elaboration and typed installation. Force typed groups only, including hidden
 ;; ones; unrelated ordinary/computed slots stay lazy. Errors return no published
-;; instance; arbitrary earlier callback effects are not rolled back.
-(def (declare-instance instance build)
+;; instance; arbitrary earlier callback effects are not rolled back. Inference,
+;; source capture, live binding checks and signature admission share one quota;
+;; callbacks retain their own semantics and the process resource limits.
+(def (declare-instance instance build work)
   (using (build :~ procedure?)
     (def source (.get instance prototype))
     (instantiate-object! source)
     (parameterize ((active-object-constructions
                     (cons instance (cons source (active-object-constructions)))))
-      (def source-work (type-work 8192))
       (def expression (.get instance expression))
-      (type-expression expression [] source-work)
+      (type-expression expression [] work)
       ;; Copy admitted syntax before normalizing it: normalization may retain
       ;; literal subtrees, which must not alias the later builder's public AST.
       (def captured-expression (copy-type expression))
-      (def catalog (normalize-type captured-expression source-work))
+      (def catalog (normalize-type captured-expression work))
       ;; Record describes Class DATA callbacks, including optional absence and
       ;; initialization. It is valid in Function inputs/results; a method-group
       ;; interface must use the existing explicit Object catalog instead.
       (when (and (pair? catalog) (eq? (car catalog) 'Record))
         (refuse-type 'unsupported "Record value contract is not an Object method catalog"))
-      (def bound-names (bound-parameters instance))
+      (def bound-names (bound-parameters/checked instance work))
       (def bindings (.get instance bound-parameters))
-      (bounded-type-data bindings source-work)
+      (bounded-type-data bindings work)
       (def captured-bindings (copy-type bindings))
-      (def forms (build instance))
-      (def entries (expand-declarations MethodDeclaration. instance forms))
+      (def forms (begin (work) (build instance)))
+      (def entries (begin (work) (expand-declarations MethodDeclaration. instance forms)))
       (when (ormap (lambda (entry) (or (eq? (car entry) '.parameters) (memq (car entry) bound-names))) entries)
         (refuse-type 'bounds "Declarations cannot replace bound type parameters"))
       (def receiver (object<-expanded-declarations instance entries supers: [source]))
@@ -319,36 +322,44 @@
         ;; refuse before invalidation; nested Object catalogs still walk normally.
         (def slots (reflect-slots receiver include-hidden?: #t))
         (for (entry slots)
+          (work)
           (def descriptor (cdr entry))
           (when (and (method-slot? descriptor) (.@ descriptor signature))
             (declared-snapshot (.ref receiver (car entry)))))
         (unless (null? (positional.parameters receiver))
           (refuse-type 'bounds "Declarations reopened positional parameters"))
         (def published (.cc instance prototype: receiver))
-        (bound-parameters published)
-        (admit-signatures published receiver captured-expression captured-bindings catalog slots)
+        (bound-parameters/checked published work)
+        (admit-signatures published receiver captured-expression captured-bindings catalog slots work)
         published))))
 
 ;; Complete explicit binding precedes all declaration builders and installation.
 ;; Existing type refusal and declaration failure objects propagate unchanged.
 (def (instantiate-declared scheme arguments build (budget 8192))
   (using (build :~ procedure?)
-    (declare-instance (instantiate-prototype scheme arguments budget) build)))
+    (def work (type-work budget))
+    (declare-instance (instantiate/checked scheme arguments work) build work)))
 
 ;; The existing bounded exhaustive search owns classification. Ambiguous/no-solution
 ;; reports are returned untouched, without calling build. Only a unique complete
 ;; assignment enters guarded declaration elaboration and typed installation.
 (def (infer-declared scheme candidates queries build (budget 8192))
   (using (build :~ procedure?)
-    (def report (infer-prototype scheme candidates queries budget))
+    (def work (type-work budget))
+    (def report (infer-prototype/checked scheme candidates queries work))
     (if (eq? (.get report status) 'unique)
-      (.cc report instance: (declare-instance (.get report instance) build)) report)))
+      ;; Finish admission before the lazy report can escape this request.
+      (let (instance (declare-instance (.get report instance) build work))
+        (.cc report instance: instance)) report)))
 
 ;; Joint call constraints feed the SAME uniquely completed inference/declaration
 ;; driver. The whole receiver's typed groups must install before any instance is
 ;; returned; a failed sibling group exposes no partially declared receiver.
 (def (infer-declared-calls scheme candidates observations build (budget 8192))
   (using (build :~ procedure?)
-    (def report (infer-prototype-calls scheme candidates observations budget))
+    (def work (type-work budget))
+    (def report (infer-prototype-calls/checked scheme candidates observations work))
     (if (eq? (.get report status) 'unique)
-      (.cc report instance: (declare-instance (.get report instance) build)) report)))
+      ;; Finish admission before the lazy report can escape this request.
+      (let (instance (declare-instance (.get report instance) build work))
+        (.cc report instance: instance)) report)))

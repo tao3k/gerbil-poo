@@ -397,3 +397,14 @@ Top-level Examples/Parameters.lean composes specialization, complete unique
 inference and original declaration provenance for the composite service packet.
 Rich host metadata interpretation and primitive/decoder/binder correspondence
 remain explicit obligations. The article's future-work boundary is unchanged.
+
+## Shared request quota through declaration admission
+
+The concentrated audit closed fresh default-counter resets between inference and
+final declaration admission in all three declared entry points, and delayed
+Map/Record child compilation that reused a completed request counter. Binding/search,
+source capture, live checks and admission now share one existing work closure.
+Exact-boundary, late-exhaustion, reentrancy, original-cause and fresh-retry controls
+compose the metadata/FUN/refine/evidence workflow; Lean proves explicit ledger
+composition and artifact provenance. Callback execution and GC are not visit costs.
+See [the complete protocol and proof boundary](prototype-types.md#shared-request-quota-through-declaration-admission).

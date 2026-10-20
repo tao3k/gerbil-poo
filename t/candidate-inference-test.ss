@@ -33,9 +33,162 @@
     (Function (T U) (T) rest: U required-keywords: (T:)
       keywords: ((T: . U)) optional: ((List T)))
     (CaseFunction (Function (T) ()) (Function (U T) (T U) rest: T))))
+;; Observe exact protocol work without substituting a new production counter.
+;; The checked workers accept this caller-owned observer; public APIs still
+;; validate numeric quotas through the existing type-work constructor.
+(def (observed-work operation)
+  (let (count 0)
+    (operation (lambda () (set! count (1+ count))))
+    count))
+;; Find the exact successful public quota with logarithmically many fresh calls.
+;; Only exhaustion moves the lower bound: malformed metadata, ownership and user
+;; failures remain observable. The unchanged default quota must already succeed.
+(def (required-budget operation)
+  (operation 8192)
+  (let search ((low 1) (high 8192))
+    (if (= low high) low
+      (let* ((middle (quotient (+ low high) 2))
+             (accepted? (try (operation middle) #t
+               (catch (cause)
+                 (if ((refusal 'exhausted) cause) #f (raise cause))))))
+        (if accepted? (search low middle) (search (1+ middle) high))))))
+;; Every public entry point uses the same whole declaration builder. Keeping the
+;; pure and published operations beside each other makes phase-reset regressions
+;; independent of a fixed count or a particular metadata representation.
+(def (declaration-drivers)
+  (def signature '(Function (UInt) (Integer)))
+  (def candidates (list signature))
+  (def queries `((Catalog ,signature)))
+  (def observations '((() (Integer) (UInt))))
+  (list
+    (cons (lambda (work) (instantiate/checked schema candidates work))
+      (lambda (builder budget) (instantiate-declared schema candidates builder budget)))
+    (cons (lambda (work) (infer-prototype/checked schema candidates queries work))
+      (lambda (builder budget) (.get (infer-declared schema candidates queries builder budget) instance)))
+    (cons (lambda (work) (infer-prototype-calls/checked schema candidates observations work))
+      (lambda (builder budget) (.get (infer-declared-calls schema candidates observations builder budget) instance)))))
 ;; Complete end-to-end coverage includes kind, shape, rows, quotas and provenance.
 (def candidate-inference-test
   (test-suite "Candidate-dependent signatures and field layouts"
+    (test-case "all declaration entry points retain inference quota before the builder"
+      (for-each (lambda (driver)
+        (def count (observed-work (car driver)))
+        ;; Pure binding/search has enough work, but source admission must not
+        ;; reset that consumed quota or execute any declaration callback.
+        (check-exception ((cdr driver) forbidden count) (refusal 'exhausted)))
+        (declaration-drivers)))
+    (test-case "late admission exhaustion publishes nothing and fresh exact-budget retries succeed"
+      (for-each (lambda (driver)
+        (def builds 0) (def bodies 0) (def returned #f)
+        (def builder (lambda (instance)
+          (set! builds (1+ builds))
+          (service.signature-service-declarations instance
+            (lambda (value) (set! bodies (1+ bodies)) (abs value)) void)))
+        (def request (lambda (budget) ((cdr driver) builder budget)))
+        (def count (required-budget request))
+        (check (> count (observed-work (car driver))) => #t)
+        (set! builds 0)
+        (check-exception (set! returned (request (1- count))) (refusal 'exhausted))
+        (check-equal? returned #f) (check-equal? builds 1) (check-equal? bodies 0)
+        ;; Construction guards unwind after late failure. Reuse exactly the same
+        ;; schema/builder, then invoke the accepted typed group and its successor.
+        (def instance (request count))
+        (check-equal? (bound-parameters instance) '(Catalog))
+        (check-equal? builds 2) (check-equal? bodies 0)
+        (defvalues (answer next) (service.invoke-signature-service (.get instance prototype) -7))
+        (check-equal? answer 7) (check-equal? bodies 1)
+        (defvalues (again _) (invoke-declared next [-8]))
+        (check-equal? again 8) (check-equal? bodies 2)) (declaration-drivers)))
+(test-case "declaration reports complete admission before any later instance observation"
+  (for-each (lambda (request)
+    (def builds 0)
+    (def builder (lambda (instance)
+      (set! builds (1+ builds))
+      (service.signature-service-declarations instance abs void)))
+    (let (report (request builder 8192))
+      (check-equal? builds 1)
+      (check-equal? (.get report status) 'unique)
+      (check-equal? (bound-parameters (.get report instance)) '(Catalog))
+      (check-equal? builds 1)))
+    (list
+      (lambda (build budget)
+        (infer-declared schema '((Function (UInt) (Integer))) [] build budget))
+      (lambda (build budget)
+        (infer-declared-calls schema '((Function (UInt) (Integer)))
+          '((() (Integer) (UInt))) build budget)))))
+    (test-case "nested independent requests cannot replenish or consume the outer admission quota"
+      (def driver (caddr (declaration-drivers)))
+      (def nested? #f) (def nested-count 0)
+      (def builder (lambda (instance)
+        (when nested?
+          ((cdr driver) (lambda (inner)
+            (set! nested-count (1+ nested-count))
+            (service.signature-service-declarations inner abs void)) 8192))
+        (service.signature-service-declarations instance abs void)))
+      (def count (required-budget (cut (cdr driver) builder <>)))
+      (set! nested? #t)
+      (check-exception ((cdr driver) builder (1- count)) (refusal 'exhausted))
+      (check-equal? nested-count 1)
+      (def instance ((cdr driver) builder count))
+      (check-equal? nested-count 2)
+      (defvalues (answer _) (service.invoke-signature-service (.get instance prototype) -5))
+      (check-equal? answer 5))
+    (test-case "builder causes precede late exhaustion and incomplete classifications never declare"
+      (def driver (caddr (declaration-drivers)))
+      (def builder (lambda (instance) (service.signature-service-declarations instance abs void)))
+      (def count (required-budget (cut (cdr driver) builder <>)))
+      (def cause (try (error "builder refused") (catch (cause) cause)))
+      (def found (try ((cdr driver) (lambda (_) (raise cause)) (1- count)) #f
+        (catch (failed) failed)))
+      (check (eq? found cause) => #t)
+;; Changed grammar retains its original refusal before source comparison.
+(for-each (lambda (entry)
+  (def source (prototype-type (.o .parameters: '(Item)) '(Item) '(List Item) []))
+  (check-exception
+    (instantiate-declared source '(UInt)
+      (lambda (instance) (set-car! (.get instance expression) (car entry)) []) 8192)
+    (refusal (cdr entry)))) '((Unknown . unsupported) (Function . malformed)))
+
+      (for-each (lambda (candidates)
+        (def observations '((() (UInt) (Integer))))
+        (def work (observed-work (cut infer-prototype-calls/checked schema candidates observations <>)))
+        (def pure (infer-prototype-calls schema candidates observations work))
+        (def declared (infer-declared-calls schema candidates observations forbidden work))
+        (check-equal? (.get declared status) (.get pure status))
+        (check-equal? (.get declared solutions) (.get pure solutions)))
+        '((Bool) ((Function (UInt) (Integer)) (Function (Integer) (Integer))))))
+    (test-case "compiled Map and Record children never retain a completed request counter"
+      (def packet '(Map (Record ((callbacks (List (Function (UInt) (Integer))) required)
+                                 (backup (Maybe (Function (UInt) (Integer))) optional)) closed) <- UInt))
+      (def syntax `(Function (,packet) (UInt)))
+      (type-expression syntax [] (type-work 8192))
+      (def closed? #f) (def ticks 0) (def bodies 0)
+      (def descriptor (compile-expression syntax (lambda ()
+        (when closed? (error "compiler work escaped into descriptor observation"))
+        (set! ticks (1+ ticks)))))
+      ;; A successful compiler request is over. Every later validation, clone,
+      ;; callback and diagnostic must work without another compiler tick.
+      (set! closed? #t)
+      (let (compiled ticks)
+        (for-each (lambda (current)
+          (def checked (validate current (lambda (key)
+            (set! bodies (1+ bodies))
+            (let (table (make-hash-table-eq))
+              (hash-put! table key (.o callbacks: (list abs))) table))))
+          (def result (checked 3))
+          (def callback (car (.get (hash-ref result 3) callbacks)))
+          (check-equal? (callback -4) 4)
+          (check-exception (callback #f) TypeError?)
+          (let (before bodies)
+            (check-exception (checked #f) TypeError?)
+            (check-equal? bodies before))
+          (check-equal? ticks compiled)) (list descriptor (.cc descriptor)))
+        (def table (.get descriptor outputs))
+        (def record (.get (car table) Value))
+        (check (eq? (.get (.cc (car table)) Value) record) => #t)
+        (check (eq? (.get (.cc record) slots) (.get record slots)) => #t)
+        (check-equal? (.get (car table) Key sexp) 'UInt)
+        (check-equal? ticks compiled)))
     (test-case "complete metadata directory shares transformation and canonicalization"
       (def substitution '((T . UInt) (U . Bool) (Tail . (Object ((extra UInt)) closed))))
       (for-each (lambda (term)
@@ -93,8 +246,12 @@
           (.o Value: (cons (list (if broken? #f (abs value))) table)
               state: (.o tag: 'ready value: (vector abs))
               audit: (lambda (number) (>= number 0))))))
-      (def report (service.infer-metadata-service (list 'UInt extension) (list 'Bool signature)
+      (def request (service.metadata-service-request (list 'UInt extension) (list 'Bool signature)
         `((() (UInt) (UInt ,target))) (lambda (value) (values value callback))))
+      (def budget (required-budget request))
+      (check-exception (request (1- budget)) (refusal 'exhausted))
+      (check-equal? calls 0) (check-equal? consumed 0)
+      (def report (request budget))
       (check-equal? (.get report status) 'unique)
       (check-equal? calls 0)
       (check-equal? (bound-parameters (.get report instance)) '(Value Tail Callback))
