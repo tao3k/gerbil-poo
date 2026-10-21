@@ -38,40 +38,26 @@ now receive that configured interpreter bound, a 300-second stage deadline and
 an owned process group. The complete build retains the 20-minute ceiling.
 These are interpreter bounds, not a claimed aggregate RSS cap for GCC/GSC children.
 
-* Build and cache protocol
-The default Just entry uses a project-local .build/package unless GERBIL_PATH is
-explicit. A producer owns only this package's generated namespace. Unknown
-pre-existing package outputs and source/symlink entries refuse destructive cleanup.
-The standard OS file lock prevents competing local producers replacing bytes.
+* Current build protocol
+The build entry uses the standard defbuild-script compile/clean/spec/meta
+protocol. std/make owns dependency and incremental decisions; explicit library,
+tests and batch arguments select only the project inventory and output location.
+GERBIL_PATH, GERBIL_BUILD_CORES and GERBIL_BUILD_VERBOSE are standard Gerbil
+settings. The extra project build-selection and observation environment switches
+have been removed.
 
-A shared producer uses ordinary std/make dependency scheduling for byte-admitted
-edits to existing source modules. Changed module artifacts are invalidated even
-when an editor preserved the old mtime. Changed compiler, build policy, input
-inventory or output bytes require the complete clean/make path. An empty owned
-output skips cleanup altogether. It then records exact source and output byte
-inventories with the selected release/backend identity. Missing,
-changed, appended or malformed receipts do not authorize reuse. Source inputs
-include build scripts and fixture resources; documentation edits do not require
-recompilation. This is a trusted local cache protocol, not a proof of compiler,
-SDK, storage or cryptographic correctness.
+The outer resource boundary retains heap/deadline/process-group cleanup and a
+short-lived SSI-first test view. No local byte-generation cache, compiler
+fingerprint, source-generation receipt, producer lock or custom cleanup remains.
+CI source admission stays separate, using the existing Actions artifacts and
+complete semantic checks.
 
-Tests compile in a disposable source snapshot with admitted non-test .ssi files
-beside unchanged sources. Gerbil's ordinary SSI-first library resolver supplies
-shared expansion metadata. Explicit test roots remain source files. Snapshot
-bytes and the original source inventory are rechecked. Source and interface
-mtime values are preserved during copying; they are make hints, never byte
-admission evidence. No compiler function or
-module registry is replaced. Four round-robin batches partition the checked test
-inventory; the existing twenty CI functional groups remain independent jobs.
-
-The local queue has two compiler interpreters with six backend workers each when
-the budget is twelve. A single-core request retains one interpreter/one worker.
-Failed batches remain failures and do not skip other independent batches.
-
-A complete cache hit skips compilation only. Semantic groups and the complete
-single-process test suite still execute. No source prefix, timestamp repair or
-producer SHA alone authorizes a byte generation. Root removals and additional
-compiler artifacts participate in the output inventory.
+* Historical measurement boundary
+The remaining receipts describe the source revisions and diagnostics named in
+each section. Their local cache and command/import observers were experimental
+and have been removed in favor of the standard build protocol. Historical warm
+cache results do not describe the current standard incremental path. No complete
+cold-build speedup is established by those receipts.
 
 * Reproduction and attribution
 Use an empty GERBIL_PATH outside the checkout for a cold run; repeat the exact
@@ -80,7 +66,7 @@ fixed and retain /usr/bin/time -l output, standard make progress and exit status
 The driver emits actual stage starts/ends and source-admitted cache hits. Full
 logs, traces, compiler artifacts and archives remain outside Git.
 
-The optional t/build-benchmark.ss collector records macOS process parentage and
+The historical t/build-benchmark.ss collector recorded macOS process parentage and
 timestamped output in Scheme data. Sampling runs diagnose worker overlap;
 unwrapped runs qualify wall time. Sampling cannot identify very short processes
 or prove continuous worker occupancy. A GSC interval includes its C compiler and
@@ -138,7 +124,7 @@ another stage does not establish a shorter workflow. Signing changes were also
 not adopted.
 
 * Phase observation
-POO_BUILD_IMPORT_TRACE selects the public expander-import observer. Its Scheme
+The former POO_BUILD_IMPORT_TRACE selected the public expander-import observer. Its Scheme
 records include wall intervals, interpreter CPU and interpreter GC CPU. The
 separate t/build-command.ss diagnostic executable records GSC, GCC and GCC
 -wrapper subprocess intervals using /usr/bin/time -p. Standard process ports

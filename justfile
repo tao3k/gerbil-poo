@@ -10,8 +10,8 @@ export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "
 export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
 build-verbose := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 build-env := platform-env + " GERBIL_BUILD_VERBOSE=" + build-verbose
-test-max-heap := env_var_or_default("GERBIL_TEST_MAX_HEAP", "1G")
-test-debug := env_var_or_default("GERBIL_TEST_DEBUG", "q")
+test-max-heap := "1G"
+test-debug := "q"
 test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
 # Query the selected toolchain's metadata only when an executable recipe needs
 # link flags. Preserve explicit overrides, including an intentionally empty one.
@@ -56,12 +56,13 @@ benchmark-object-scale:
 clean:
     {{ platform-env }} gxi build.ss clean
 
-build:
-    POO_BUILD_TIMEOUT="{{ timeout-executable }}" {{ build-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss
+build *selection:
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    {{ build-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" {{ selection }}
 
 # Compile disjoint test roots into a separate artifact, retaining the shared imports.
 build-group group:
-    GERBIL_BUILD_SCOPE=tests GERBIL_BUILD_TEST_GROUP={{ group }} GERBIL_BUILD_LIBDIR="$PWD/.ci-tests/{{ group }}/lib" just build
+    just build tests "{{ group }}" "$PWD/.ci-tests/{{ group }}/lib"
 
 # Standalone Scheme matrix; no companion checkout is required.
 benchmark-closure: build
@@ -110,7 +111,7 @@ benchmark-metadata-paired:
 # Whole continuation preparation and reused calls, with fresh-process ABBA/A-A controls.
 benchmark-combination: build
     mkdir -p .build/combination
-    {{ build-env }} GERBIL_BUILD_SCOPE=combination {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} build.ss
+    {{ build-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} build.ss combination
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} t/combination-suite.ss .build/combination/combination-benchmark "{{ timeout-executable }}" .build/combination/results.scm
 
 # Focused source gate for a new MOP primitive before building the compiled group.

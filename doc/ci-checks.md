@@ -51,8 +51,7 @@ warm CI receipts, rather than a subset build's duration alone, qualify any speed
 ## Commands and limits
 
 `just build` still builds the entire original inventory. CI uses
-`GERBIL_BUILD_SCOPE=library just build`, then `just build-group GROUP` with an
-isolated `GERBIL_BUILD_LIBDIR`. Standard Gerbil load paths supply shared imports.
+`just build library`, then `just build-group GROUP` with an explicit output directory. Standard Gerbil load paths supply shared imports.
 `test-files` rejects unknown groups and validates complete, duplicate-free source
 coverage before the ephemeral Actions matrix is emitted. No matrix JSON is
 source-controlled.
@@ -119,25 +118,32 @@ source-bound grouping and artifact controls remain mandatory. Full payloads and
 compiler archives stay outside Git; neither lower CPU nor fewer bytes establish
 an end-to-end improvement on their own.
 
-## Bounded local Scheme compilation
+## Standard build entry and resource boundaries
 
-`just build` now uses the Scheme build driver in `t/build.ss`. It admits exact
-shared bytes, supplies a checked SSI-first source snapshot, and compiles the full
-local test inventory in four disjoint batches through two standard channel
-workers. This avoids starting all twenty CI groups locally and limits retained
-expansion contexts. A twelve-core budget gives each interpreter six std/make
-backend workers. CI keeps its twenty independent compile groups, twenty semantic
-groups and mandatory complete single-process job.
+`build.ss` selects the project inventory and invokes Gerbil's `defbuild-script`.
+Its standard `compile`, `clean`, `spec`, `meta`, `--release`, `--optimized` and
+`--debug` options pass through unchanged. `std/make` owns dependency checks,
+incremental compilation and backend scheduling. There is no second local build
+cache, compiler fingerprint, generation receipt or cleanup algorithm.
 
-Default output is `.build/package`; explicit `GERBIL_PATH` remains supported.
-Compilation cache hits never skip semantic checks. Sources, release/backend
-identity and complete compiler outputs are checked before reuse. Producer locks,
-per-stage process groups and deadlines prevent competing cleanup and orphaned
-compiler work. See `performance/build-summary.org` for the macOS receipt boundaries
-and rejected experiments; those measurements are not Linux build controls.
+Use `just build library` for shared modules and `just build-group GROUP` for an
+explicit functional group/output directory. `gxi build.ss library spec` and
+`gxi build.ss tests objects /tmp/poo-tests spec` inspect those standard specs.
+Selection is expressed in arguments, rather than project-specific environment
+variables. Gerbil's own `GERBIL_PATH`, `GERBIL_BUILD_CORES` and
+`GERBIL_BUILD_VERBOSE` retain their standard meanings.
 
-The checked test inventory is independent of JSON matrix generation. Use
-`gxi t/test-matrix.ss` for the standard Actions matrix. Local batches retain
-source mtimes in the verified interface overlay; byte-admitted source edits use
-standard make scheduling, while changed policy, inventory or compiler bytes
-retain complete rebuilds. Empty output requires no cleanup process.
+`just build` keeps the existing complete local inventory: shared compilation,
+then four disjoint test batches through at most two fresh interpreters. The
+small `t/build.ss` boundary maintains the 1 GiB heap, 300-second stage deadline,
+1200-second whole deadline, owned process-group cleanup and actual make progress.
+The temporary SSI-first view retains source mtimes and releases expansion state;
+it does not implement caching or replace compiler functions. CI still runs the
+20 independent compile groups, 20 semantic groups and complete single-process
+suite. Actions source/revision admission remains independent of std/make.
+
+The default package output remains `.build/package`; `GERBIL_PATH` explicitly
+selects another installation. Just settings can tighten heap/runtime options
+without adding environment switches. Full payloads remain outside Git. See
+`performance/build-summary.org` for historical macOS receipts and unresolved
+cold-build acceptance; they are not current Linux performance controls.
