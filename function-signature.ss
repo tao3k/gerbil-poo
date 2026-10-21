@@ -80,7 +80,9 @@
 ;; by RAW arity, never by the target's decoded arity or a preferred later case.
 ;; Callbacks receive the target row, source row and independent raw/decoded precision ceilings.
 ;; The precision ceiling includes every bounded target raw spelling, not only arity.
-(def (covers-signatures? source target work related wire-related)
+;; The Type layer may discharge an impossible SUPPLIED row only after first
+;; selection; shape-only coverage passes a false witness and retains every row.
+(def (covers-signatures? source target work related wire-related row-empty?)
   ;; One interpretation applies to every clause of each ordered descriptor.
   (def source-mode? (and (ormap (lambda (s) (pair? (.get s keywords))) source) #t))
   ;; The target supplies the decoded shape regions and declared key universe.
@@ -120,7 +122,9 @@
       (def arguments (encode-arguments (make-list count 'Any)
         (map (lambda (key) (cons key 'Any)) keys) target-mode?))
       (def expected (select-signature target arguments))
-      (or (not expected)
+      ;; Commit to the original first target clause before consulting its
+      ;; supplied-Type witness. A dead clause never exposes a later overload.
+      (or (not expected) (row-empty? expected arguments target-mode?)
         (if (and (not source-mode?) target-mode?)
           (raw-covered? expected arguments count keys)
           (let (actual (select-signature source arguments))

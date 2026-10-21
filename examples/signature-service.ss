@@ -1,5 +1,5 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
         (only-in ../types/relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
@@ -133,3 +133,34 @@
       (unless (eq? (.get report status) 'unique)
         (error "staged service requires unique type inference" report))
       (service.descriptor-service-action (.get report instance) input context consume allowed?))))
+
+;; Reserved callback positions remain structurally declared but cannot be invoked:
+;; the one-argument clause has an impossible product, and optional/rest extensions
+;; must supply Never before reaching rest. Zero and two inputs remain live.
+(def (retired-call-target value)
+  `(CaseFunction (Function (,value) ())
+    (Function (String) ((Pair Never (Function (,value) (,value)))))
+    (Function (,value) (,value ,value) optional: (Never) rest: ,value)))
+;; Nested handler tables and refresh results share the exact same callback Type.
+;; The directory remains a closed readable object, not a projection or codec cast.
+(def (retired-call-view value callback)
+  `(Object ((handlers (Map ,callback <- UInt)) (refresh (Function (,callback) (,value)))) closed))
+;; Value is specialized first; one complete Callback assignment then serves every
+;; nested field and the original declared bound. No independent child solve runs.
+(def RetiredCallServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    `(Function (Value ,(retired-call-view 'Value 'Callback)) (Value))
+    (list (list 'Callback (retired-call-target 'Value)))))
+;; Gerbil's case-lambda supplies actual zero/two-argument dispatch. Contract
+;; inference does not add arities or execute a retired clause/default.
+(def (retired-call-callback seed)
+  (case-lambda (() seed) ((left right) (+ seed left right))))
+;; Reuse Reader/FUN specialization, complete typed declaration and the existing
+;; recursive refine/evidence publication. A refreshed callback keeps its wrappers;
+;; policy refusal remains observable and a new action can retry independently.
+(def (retired-call-action candidates seed context consume (allowed? #t))
+  (specialized-action RetiredCallServiceType '(UInt) candidates (lambda (_) [])
+    (lambda (value)
+      (values value (.o handlers: (hash (0 (retired-call-callback value)))
+        refresh: retired-call-callback)))
+    seed context consume allowed?))

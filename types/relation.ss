@@ -751,12 +751,29 @@
       (or (and (not source-mode?) target-mode? actual (<= (length raw-arguments) (car limits))
                (let (row (signature.decode-arguments arguments #t))
                  (and (null? (cdr row)) (= (length (car row)) (length raw-arguments)))))
-          (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments limits work)))))
+          (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments limits work)))
+    ;; Shape-only admission intentionally retains even uninhabited rows.
+    (lambda _ #f)))
 
 ;; First-match selection determines BOTH sides of every row. Required/optional/
 ;; rest and provided keyword inputs are contravariant; exact-count outputs are
 ;; covariant. Shadowed later cases cannot repair an earlier incompatible clause.
 (def (function-replaces? source target work)
+  ;; Keep completed positive/negative witnesses local to this replacement.
+  ;; Standard presence-aware lookup never treats a cached false as missing.
+  (def emptiness (make-hash-table))
+  ;; Normalize only supplied positions/keys through the existing binder. An
+  ;; omitted optional/default or unused rest Type cannot make a live row empty.
+  ;; No runtime validator or host procedure runs while collecting these Types.
+  (def (row-empty? expected arguments keyword-mode?)
+    (work)
+    (let/cc empty
+      (signature.normalize-arguments expected arguments keyword-mode?
+        (lambda (formal placeholder)
+          (work)
+          (when (hash-ensure-ref emptiness formal (cut empty-type? formal work)) (empty #t))
+          placeholder))
+      #f))
   (signature.covers-signatures? (function-signatures source) (function-signatures target) work
     (lambda (actual expected arguments source-mode? target-mode? _raw-arguments limits)
       (work)
@@ -775,7 +792,7 @@
                 (unless (compare-types value formal work) (set! accepted #f))
                 value))
             accepted))))
-    (cut function-wire-related? <> <> <> <> <> <> <> work)))
+    (cut function-wire-related? <> <> <> <> <> <> <> work) row-empty?))
 
 ;; Compile a checked ground expression through existing recursive container and
 ;; Function validators. Wrapping remains at validate/contract boundaries, so this
