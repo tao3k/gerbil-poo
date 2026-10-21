@@ -31,6 +31,21 @@
 ;; Exercise complete public APIs, receiver sharing, mutation discipline and effects.
 (def parameters-test
   (test-suite "object syntax and positional specialization"
+    (test-case "checked specialization admits exactly the snapshot used by its sole binder"
+      (def names (list 'T 'U)) (def source (.o .parameters: names))
+      (def seen #f) (def calls 0)
+      (def result (parameters.specialize/checked source '(7 #f)
+        (lambda (captured)
+          (set! seen captured) (set! calls (1+ calls))
+          ;; Source edits cannot change the already copied binding order.
+          (set-car! names 'U) (set-car! (cdr names) 'T))))
+      (check-equal? calls 1) (check-equal? seen '(T U))
+      (check-equal? (.get result T) 7) (check-equal? (.get result U) #f)
+      (check-equal? (.get result .parameters) [])
+      (check-equal? (.get source .parameters) '(U T))
+      (def cause (list 'admission-failed))
+      (check (try (parameters.specialize/checked source '(7 #f)
+        (lambda (_) (raise cause))) #f (catch (actual) (eq? cause actual))) => #t))
     (test-case "core signature projection preserves contracts defaults and generic fallback"
       (def events [])
       ;; Both defaults and contracts execute only at the core call boundary.

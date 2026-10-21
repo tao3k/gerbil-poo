@@ -46,6 +46,33 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 coherent Type parameter binding
+
+A source `.parameters` list could change order after schema admission but before
+ordinary positional specialization read it again. Pure instantiation then returned
+`(Pair UInt Bool)` with actual fields T=Bool and U=UInt. Prefix and inferred
+assembly now share `bind-type-parameters`, which compares the original variable
+order with the SAME name snapshot consumed by the existing positional binder.
+Reordered/added/removed valid names refuse `bounds` before cloning. No second
+getter follows admission; generic `specialize` also uses this single implementation.
+Gerbil's multi-binding `using` handles the new continuation's ordinary contracts;
+standard take/drop and existing persistent `.cc` still own construction.
+
+Eight typed entry paths and three metadata changes exercise the complete boundary.
+A generic control edits the source after snapshot admission and proves construction
+still uses that snapshot. Original getter/admission failures retain their cause.
+Repair through the supported slot protocol permits an independent request; the
+shared signature-service action then composes prefix specialization, inference,
+qualified declarations, recursive Function wrapping, refine and exact evidence/FUN/IO
+publication. Nonunique reports remain explicit application errors, not guessed Types.
+
+Lean's existing Parameters namespace proves original order, exact residual suffix,
+field mapping, excessive-argument refusal and incremental composition. The generic
+positional model's `declaration` refusal represents the typed host's `bounds` gate;
+source errors are transported separately. Host snapshot/admission/descriptor
+interpretation are premises, not compiler/heap/concurrent-mutation proofs. This
+advances the finite type future work without extending its research boundary.
+
 ### P2 original field selection during signature preparation
 
 A computed parameter getter could rewrite a caller-owned Object method path

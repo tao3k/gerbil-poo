@@ -1,13 +1,14 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
-        ../prototype-types ../method-declaration ../declaration ../object-contract
-        (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)
+        ../method-declaration ../declaration ../object-contract
+        (prefix-in ../multimethod dispatch.)
         (prefix-in ../method-combination combination.) (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../generalized-prototype observation.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in ./polymorphic-services service.))
 
-;; Function values require explicit semantic generation: arbitrary native closures
+;; Function values require explicit semantic generation: arbitrary procedures
 ;; cannot be synthesized from recognition alone. This fixture generates identity.
 (def Callback
   (.o self: callback inherit: [(Function [Integer] [Integer])]
@@ -71,3 +72,17 @@
       (defvalues (answer callback _run-owner) (invoke-declared (.get api run) (list input)))
       (defvalues (audit _audit-owner) (invoke-declared (.get api audit) [#f]))
       (publish (.o bind-these: #f answer: answer callback: callback audit: audit))))))
+
+;; Prepare one persistent Type prefix, infer the remaining shared assignment
+;; from Reader-supplied constraints, then reuse the whole qualified declaration
+;; and descriptor/refine/evidence/IO chain. This application requires a unique
+;; result; an ambiguous/no-solution report is retained as the error irritant,
+;; never coerced to a Type or sent to a method/consumer. Source effects before
+;; refusal are observable; retry uses a fresh request after repairing metadata.
+(def (specialized-action schema prefix candidates requests operation input context consume)
+  (.call observation.Observation. .bind
+    (service.signature-request-action schema prefix candidates requests operation)
+    (lambda (report)
+      (unless (eq? (.get report status) 'unique)
+        (error "service request requires unique type inference" report))
+      (service.descriptor-service-action (.get report instance) input context consume))))

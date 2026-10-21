@@ -3,7 +3,7 @@
 (import :std/test :std/error ../object ../mop ../prototype-types ../type-relation
         (only-in ../type-syntax map-type-children)
         ../declaration
-        (only-in ../slot-observation call-with-slot-read-observer slot-read-key)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
         (prefix-in ../multimethod dispatch.) (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../dispatch-extension extension.)
         (prefix-in ../method-combination combination.)
@@ -76,6 +76,108 @@
 ;; Complete end-to-end coverage includes kind, shape, rows, quotas and provenance.
 (def candidate-inference-test
   (test-suite "Candidate-dependent signatures and field layouts"
+    (test-case "all typed construction paths reject changed binding order at the actual read"
+      (def bounds '((T UInt) (UInt T) (U Bool) (Bool U)))
+      (def observations '((() (UInt Bool) (UInt Bool))))
+      (def built 0)
+      ;; No declaration builder may run when its original Type order was lost.
+      (def (build _) (set! built (1+ built)) [])
+      (def drivers
+        (list
+          (cons 2 (cut instantiate-prototype <> '(UInt Bool)))
+          (cons 2 (cut specialize-prototype-type <> '(UInt)))
+          (cons 2 (cut specialize-prototype-type <> '(UInt Bool)))
+          (cons 3 (cut infer-prototype <> '(UInt Bool) bounds))
+          (cons 3 (cut infer-prototype-calls <> '(UInt Bool) observations))
+          (cons 2 (cut instantiate-declared <> '(UInt Bool) build))
+          (cons 3 (cut infer-declared <> '(UInt Bool) bounds build))
+          (cons 3 (cut infer-declared-calls <> '(UInt Bool) observations build))))
+      (for-each (lambda (driver)
+        (for-each (lambda (changed)
+          (def names (list 'T 'U))
+          (def prototype (.o .parameters: names))
+          (def schema (prototype-type prototype '(T U) '(Function (T U) (T U)) []))
+          (def reads 0) (def edited? #f)
+          ;; Alter the original list at precisely the binder's source read.
+          ;; Both old and new metadata have valid unique names, including arity
+          ;; changes which must not silently truncate or extend the assignment.
+          (def (observe read)
+            (when (and (eq? (slot-read-receiver read) prototype)
+                       (eq? (slot-read-key read) '.parameters))
+              (set! reads (1+ reads))
+              (when (= reads (car driver))
+                (set! edited? #t)
+                (set-car! names (car changed)) (set-cdr! names (cdr changed)))))
+          (check-exception (call-with-slot-read-observer observe
+            (lambda () ((cdr driver) schema))) (refusal 'bounds))
+          (check-equal? edited? #t))
+          '((U T) (T) (T U V)))) drivers)
+      (check-equal? built 0))
+    (test-case "binding getter failure keeps its cause and independent retry restores exact fields"
+      (def names (list 'T 'U)) (def prototype (.o .parameters: names))
+      (def schema (prototype-type prototype '(T U) '(Pair T U) []))
+      (def reads 0) (def cause (list 'binding-source-failed))
+      ;; The original failure wins before the successful snapshot/order gate.
+      (def (observe read)
+        (when (and (eq? (slot-read-receiver read) prototype) (eq? (slot-read-key read) '.parameters))
+          (set! reads (1+ reads)) (when (= reads 2) (raise cause))))
+      (check (try (call-with-slot-read-observer observe
+        (cut instantiate-prototype schema '(UInt Bool))) #f
+        (catch (actual) (eq? cause actual))) => #t)
+      (def retry (instantiate-prototype schema '(UInt Bool)))
+      (check-equal? (.get retry expression) '(Pair UInt Bool))
+      (check (eq? (.get retry prototype T) (expression-type 'UInt)) => #t)
+      (check (eq? (.get retry prototype U) (expression-type 'Bool)) => #t)
+      ;; Partial and direct binding use the same mapping, with no old receiver edits.
+      (def partial (specialize-prototype-type schema '(UInt)))
+      (def staged (instantiate-prototype partial '(Bool)))
+      (check-equal? (.get staged expression) (.get retry expression))
+      (check-equal? (.get prototype .parameters) '(T U))
+      (check (eq? (.get staged prototype T) (.get retry prototype T)) => #t)
+      (check (eq? (.get staged prototype U) (.get retry prototype U)) => #t))
+    (test-case "repaired specialization closes inferred callbacks refinement and evidence publication"
+      (def names (list 'Input 'Output))
+      (def prototype (.o .parameters: names))
+      (def schema (prototype-type prototype '(Input Output)
+        '(Function (Output (Function (Output) (Input))) (Input)) '((Output Input))))
+      (def reads 0) (def bodies 0) (def consumed 0) (def observed 0)
+      ;; Preserve callback behavior through the existing recursive validator.
+      (def (operation value) (set! bodies (1+ bodies)) (values (abs value) abs))
+      ;; The Reader supplies the same residual inequalities after prefix binding.
+      (def (requests _context)
+        (set! observed (1+ observed))
+        '((Output UInt) (UInt Output)))
+      (def context (.o approved: #t))
+      ;; Reject at the prefix binder before inference, methods or IO can run.
+      (def (observe read)
+        (when (and (eq? (slot-read-receiver read) prototype) (eq? (slot-read-key read) '.parameters))
+          (set! reads (1+ reads))
+          (when (= reads 2) (set-car! names 'Output) (set-car! (cdr names) 'Input))))
+      (check-exception (call-with-slot-read-observer observe
+        (lambda () (selected.specialized-action schema '(Integer) '(UInt Bool)
+          requests operation -7 context void))) (refusal 'bounds))
+      (check-equal? bodies 0) (check-equal? observed 0) (check-equal? consumed 0)
+      ;; Repair through the ordinary supported slot protocol, then prepare a fresh
+      ;; prefix/request. The failed attempt returns no object to reuse as evidence.
+      (.setslot! prototype .parameters ($constant-slot-spec '(Input Output)))
+      (def seen #f)
+      (def action (selected.specialized-action schema '(Integer) '(UInt Bool)
+        requests operation -7 context
+        (lambda (subject) (set! consumed (1+ consumed)) (set! seen subject))))
+      (defvalues (evidence next failure) (action context))
+      (check-equal? failure #f) (check-equal? bodies 1) (check-equal? consumed 1)
+      (check-equal? observed 1) (check-equal? (.get seen answer) 7)
+      (check-equal? ((.get seen callback) -9) 9)
+      (check-exception ((.get seen callback) #f) TypeError?)
+      (check (eq? (.get evidence subject) seen) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check (eq? next context) => #t)
+      ;; A later approval failure may prepare a fresh pure declaration, but cannot
+      ;; invoke its method or publish a subject to IO.
+      (def denied (.o approved: #f))
+      (check-exception ((selected.specialized-action schema '(Integer) '(UInt Bool)
+        requests operation -7 denied void) denied) Error?)
+      (check-equal? bodies 1) (check-equal? consumed 1))
     (test-case "signature requests retain their field selection across source getters"
       (def catalog '(Object ((api (Object
         ((run (Function (UInt (Function (Integer) (Integer))) (Integer)))

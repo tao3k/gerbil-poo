@@ -107,6 +107,18 @@
     (.o bind-these: #f prototype: prototype variables: variables
         expression: expression bounds: bounds bound-parameters: bound)))
 
+;; Compare the admitted schema order at the actual binding read. The existing
+;; positional continuation then binds THAT owned snapshot, never a later getter
+;; result. All explicit, prefix and inferred construction share this gate/quota.
+;; Reordered/added/removed names refuse bounds before any receiver is returned.
+(def (bind-type-parameters scheme values work)
+  (def expected (.get scheme variables))
+  (positional.specialize/checked (.get scheme prototype) values
+    (lambda (names)
+      (bounded-type-data names work)
+      (unless (equal? expected names)
+        (refuse-type 'bounds "Type parameter order changed before binding")))))
+
 ;; Bind a ground Type prefix through the existing persistent positional protocol.
 ;; Remaining expressions/bounds stay explicit residual obligations, not approvals.
 ;; A complete prefix checks all bounds before cloning; partial bounds are checked
@@ -125,7 +137,7 @@
     (def expression (substitute-type (.get scheme expression) substitution work))
     (def bounds (map (lambda (bound) (map (cut substitute-type <> substitution work) bound)) (.get scheme bounds)))
     (def bound-values (map (cut compile-expression <> work) arguments))
-    (def receiver (apply positional.specialize (.get scheme prototype) bound-values))
+    (def receiver (bind-type-parameters scheme bound-values work))
     (prepare-prototype-type receiver (drop (.get scheme variables) count) expression bounds work
       (append (.get scheme bound-parameters) (capture-bindings (take (.get scheme variables) count) bound-values)))))
 
@@ -189,7 +201,7 @@
 (def (assemble-instance scheme arguments substitution expression work)
   (def descriptor (compile-expression expression work))
   (def bound-values (map (cut compile-expression <> work) arguments))
-  (def receiver (apply positional.specialize (.get scheme prototype) bound-values))
+  (def receiver (bind-type-parameters scheme bound-values work))
   (def bindings (append (.get scheme bound-parameters) (capture-bindings (.get scheme variables) bound-values)))
   (.o bind-these: #f prototype: receiver descriptor: descriptor
       expression: expression substitution: substitution bound-parameters: bindings))
