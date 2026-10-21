@@ -3,7 +3,9 @@
 (import (only-in ../number UInt Integer UInt256 JsInt) :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types
         (only-in ../optional-validation type-value-catalog)
         (only-in ../object-contract ObjectContract. refine)
-        (only-in ../slot-observation call-with-slot-read-observer slot-read-receiver)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
+        ../method-declaration
+        (prefix-in ../examples/signature-service signature.)
         (prefix-in ../examples/polymorphic-services service.))
 ;; Keep syntax/work refusal separate from a completed false judgment.
 (def (refusal kind)
@@ -11,6 +13,103 @@
 ;; Boundary, containment, carrier identity and whole workflow have independent controls.
 (def descriptor-inference-test
   (test-suite "Singleton width and byte descriptor inference"
+    (test-case "retained bindings stay current through preparation and actual construction"
+      (def queries '((U Bool) (Bool U) (V Integer) (Integer V)))
+      (def calls '((() ((List UInt) Bool Integer) ((List UInt) Bool Integer))))
+      (def builders 0)
+      ;; A later declaration refusal cannot hide that a builder ran too early.
+      (def (build _) (set! builders (1+ builders)) [])
+      (def drivers
+        (list
+          (cons '(1 2) (cut instantiate-prototype <> '(Bool Integer)))
+          (cons '(1) (cut specialize-prototype-type <> []))
+          (cons '(1 2) (cut specialize-prototype-type <> '(Bool)))
+          (cons '(1 2) (cut specialize-prototype-type <> '(Bool Integer)))
+          (cons '(1 2 3) (cut infer-prototype <> '(Bool Integer) queries))
+          (cons '(1 2 3) (cut infer-prototype-calls <> '(Bool Integer) calls))
+          (cons '(1 2) (cut instantiate-declared <> '(Bool Integer) build))
+          (cons '(1 2 3) (cut infer-declared <> '(Bool Integer) queries build))
+          (cons '(1 2 3) (cut infer-declared-calls <> '(Bool Integer) calls build))))
+      (for-each (lambda (driver)
+        (for-each (lambda (phase)
+          (for-each (lambda (revise)
+            (def original (prototype-type (.o .parameters: '(T U V)) '(T U V)
+              '(Function (T U V) (T U V)) []))
+            (def residual (specialize-prototype-type original '((List UInt))))
+            (def source (.get residual prototype)) (def retained (.get source T))
+            (def reads 0) (def edited? #f)
+            ;; Only supported edits to this fresh source/composite descriptor;
+            ;; no shared intrinsic Type is revised by these controls.
+            (def (observe read)
+              (when (and (eq? (slot-read-receiver read) source) (eq? (slot-read-key read) '.parameters))
+                (set! reads (1+ reads))
+                (when (= reads phase) (set! edited? #t) (revise source retained))))
+            (check-exception (call-with-slot-read-observer observe
+              (lambda () ((cdr driver) residual))) (refusal 'bounds))
+            (check-equal? edited? #t))
+            (list
+              (lambda (source _) (.setslot! source T ($constant-slot-spec Bool)))
+              (lambda (_ retained) (.setslot! retained audit ($constant-slot-spec 'changed))))))
+          (car driver))) drivers)
+      (check-equal? builders 0))
+    (test-case "getter errors keep their cause and supported repair permits independent retry"
+      (def original (prototype-type (.o .parameters: '(T U)) '(T U) '(Pair T U) []))
+      (def residual (specialize-prototype-type original '((List UInt))))
+      (def source (.get residual prototype)) (def retained (.get source T))
+      (def cause (list 'retained-getter-failed))
+      ;; Effects remain visible; a final success fence cannot replace the cause.
+      (def (observe read)
+        (when (and (eq? (slot-read-receiver read) source) (eq? (slot-read-key read) '.parameters))
+          (.setslot! source T ($constant-slot-spec Bool)) (raise cause)))
+      (check (try (call-with-slot-read-observer observe
+        (cut instantiate-prototype residual '(Bool))) #f (catch (actual) (eq? cause actual))) => #t)
+      (check (eq? (.get source T) Bool) => #t)
+      (.setslot! source T ($constant-slot-spec retained))
+      (def retry (instantiate-prototype residual '(Bool)))
+      (check-equal? (.get retry expression) '(Pair (List UInt) Bool))
+      (check (eq? (.get retry prototype T) retained) => #t)
+      (check-equal? (bound-parameters retry) '(T U))
+      (.setslot! retained audit ($constant-slot-spec 'changed))
+      (check-exception (instantiate-prototype residual '(Bool)) (refusal 'bounds))
+      ;; A revised descriptor requires a new residual, never a lowered revision.
+      (def rebuilt (instantiate-prototype (specialize-prototype-type original '((List UInt))) '(Bool)))
+      (check-equal? (bound-parameters rebuilt) '(T U))
+      (check (eq? (.get rebuilt prototype T) retained) => #f))
+    (test-case "retained higher-order failure rebuild and publication preserve all Function layers"
+      (def input '(Function (Integer) (UInt)))
+      (def output '(Function (UInt) (Integer)))
+      (def stale (specialize-prototype-type service.DescriptorServiceType (list input)))
+      (def source (.get stale prototype)) (def retained (.get source Input))
+      (def reads 0) (def bodies 0) (def consumed 0)
+      ;; The converter result is itself a Function and must remain wrapped.
+      (def (operation _callback)
+        (set! bodies (1+ bodies)) (values abs (lambda (_callback) abs)))
+      ;; Invalidate only at the final inferred binding read, after prior checks.
+      (def (observe read)
+        (when (and (eq? (slot-read-receiver read) source) (eq? (slot-read-key read) '.parameters))
+          (set! reads (1+ reads))
+          (when (= reads 3) (.setslot! retained audit ($constant-slot-spec 'changed)))))
+      (check-exception (call-with-slot-read-observer observe
+        (cut infer-prototype stale (list output) `((Output ,output) (,output Output)))) (refusal 'bounds))
+      (check-equal? reads 3) (check-equal? bodies 0)
+      (def fresh (specialize-prototype-type service.DescriptorServiceType (list input)))
+      (def context (.o approved: #t)) (def candidates (list output 'Bool))
+      (check-exception ((signature.callback-service-action fresh output candidates operation
+        identity context void #f) context) TypeError?)
+      (check-equal? bodies 1) (check-equal? consumed 0)
+      (def subject #f)
+      (def action (signature.callback-service-action fresh output candidates operation identity context
+        (lambda (value) (set! consumed (1+ consumed)) (set! subject value))))
+      (defvalues (evidence next issue) (action context))
+      (check-equal? issue #f) (check-equal? bodies 2) (check-equal? consumed 1)
+      (check-equal? ((.get subject answer) -7) 7)
+      (check-exception ((.get subject answer) #f) TypeError?)
+      (def converted ((.get subject callback) identity))
+      (check-equal? (converted -9) 9) (check-exception (converted #f) TypeError?)
+      (check-exception ((.get subject callback) #f) TypeError?)
+      (check (eq? (.get evidence subject) subject) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check (eq? next context) => #t))
     (test-case "empty dependent catalogs share finite emptiness and carrier rules"
       (for-each (lambda (dead)
         (check (subtype-expression? dead 'String) => #t)

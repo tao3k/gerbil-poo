@@ -1,5 +1,5 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
         ../method-declaration ../declaration ../object-contract
         (prefix-in ../multimethod dispatch.)
@@ -79,10 +79,19 @@
 ;; result; an ambiguous/no-solution report is retained as the error irritant,
 ;; never coerced to a Type or sent to a method/consumer. Source effects before
 ;; refusal are observable; retry uses a fresh request after repairing metadata.
-(def (specialized-action schema prefix candidates requests operation input context consume)
+(def (specialized-action schema prefix candidates requests operation input context consume (allowed? #t))
   (.call observation.Observation. .bind
     (service.signature-request-action schema prefix candidates requests operation)
     (lambda (report)
       (unless (eq? (.get report status) 'unique)
         (error "service request requires unique type inference" report))
-      (service.descriptor-service-action (.get report instance) input context consume))))
+      (service.descriptor-service-action (.get report instance) input context consume allowed?))))
+
+;; A residual DescriptorServiceType retains its already bound Input Function.
+;; Two finite inequalities select an equivalent Output without guessing Types.
+;; Reuse the whole declaration/refine/evidence/FUN/IO chain. Stale retained
+;; descriptors require a fresh residual; revision counters are never reset.
+(def (callback-service-action residual target candidates operation input context consume (allowed? #t))
+  (specialized-action residual [] candidates
+    (lambda (_context) `((Output ,target) (,target Output)))
+    operation input context consume allowed?))

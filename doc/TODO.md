@@ -46,6 +46,39 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 retained bindings through source refresh and construction
+
+A residual schema's earlier Type parameter could be replaced during a later
+`.parameters` getter, while its remaining names stayed unchanged. Pure construction
+returned `(Pair (List UInt) Bool)` with actual T=Bool; immediate bound inspection
+then rejected that already-returned instance. A direct revision edit to the retained
+composite descriptor exposed the same omission.
+
+One private `with-checked-bindings` continuation now reuses existing identity and
+revision admission around the whole consumer, followed by its callback-free final
+revision fence. Schema preparation, actual positional binding and public bound
+inspection share it. No getter runs after the fence; no second grammar walk or
+new constructor is introduced. Supported slot-definition changes and direct Type
+revisions refuse bounds before a successful result escapes. Original failures
+keep their cause and prior effects; repair/retry never lowers a revision stamp.
+
+Nine typed entry paths cover each relevant parameter-read phase for retained
+identity and revision changes, with no early builder. A higher-order residual
+service retains an Input Function, infers its Output Function and returns a
+converter producing another checked Function. Fresh reconstruction, policy
+refusal, recursive wrapping and exact evidence publication use the existing
+qualified declarations/refine/FUN/IO chain.
+
+Parameters.specializeCurrent composes existing retained-binding and checked-name
+models. Its five laws prove stale/order refusal, reuse, exact new fields/suffix
+and preservation of every disjoint retained identity/revision, plus original
+inspection errors. The existing prepareDeclaredSignature laws supply the enclosing
+before/after-callback admission; no parallel effect model is added. Faithful host
+snapshots and revision propagation for supported edits are premises. Arbitrary
+raw/concurrent mutation, transitive callback discovery and compiler correctness
+remain outside this finite future-work protocol. Full checks and resource limits
+remain unchanged.
+
 ### P2 coherent Type parameter binding
 
 A source `.parameters` list could change order after schema admission but before

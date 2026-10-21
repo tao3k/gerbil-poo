@@ -49,6 +49,17 @@
   (check-binding-revisions prototype revision bound work)
   bound)
 
+;; Enclose one consumer with the existing retained-binding admission and a
+;; final callback-free revision fence. Parameter getters and constructors may
+;; invalidate an earlier check; successful results escape only after ALL effects.
+;; Original failures propagate before the success fence, without effect rollback.
+(def (with-checked-bindings prototype bound variables work consume)
+  (def revision (object-revision prototype))
+  (def checked (check-bindings prototype bound variables work))
+  (def result (consume checked))
+  (check-binding-revisions prototype revision checked work)
+  result)
+
 ;; Return copied bound names after rechecking the current receiver and Type
 ;; descriptors. The same check guards residual inference and final publication.
 (def (bound-parameters instance (budget 8192))
@@ -68,13 +79,12 @@
     (def original (.get instance bound-parameters))
     (def captured (capture-type-data original work))
     (def prototype (.get instance prototype))
-    (def source-revision (object-revision prototype))
-    (def checked (check-bindings prototype captured [] work))
-    (def result (consume (map car checked)))
-    (unless (and (= revision (object-revision instance)) (equal? original captured))
-      (refuse-type 'bounds "Bound parameter metadata changed"))
-    (check-binding-revisions prototype source-revision checked work)
-    result))
+    (with-checked-bindings prototype captured [] work
+      (lambda (checked)
+        (def result (consume (map car checked)))
+        (unless (and (= revision (object-revision instance)) (equal? original captured))
+          (refuse-type 'bounds "Bound parameter metadata changed"))
+        result))))
 
 ;; Capture an immutable syntax snapshot before any specialization or computed
 ;; prototype field executes. Variable names are exactly existing .parameters;
@@ -91,21 +101,22 @@
         (bounds (capture-type-data bounds work)) (bound (capture-type-data bound work)))
     (bounded-type-data variables work)
     (require-value variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
-    (check-bindings prototype bound variables work)
-    (type-expression `(Tuple ,@variables) variables work)
-    (unless (and (andmap symbol? variables)
-                 (not (ormap type-constructor? variables))
-                 (= (length variables) (length (delete-duplicates/hash variables)))
-                 (equal? variables (positional.parameters prototype)))
-      (refuse-type 'malformed "Type variables must match unique prototype parameters" variables))
-    (type-expression expression variables work)
-    (bounded-type-data bounds work)
-    (unless (and (list? bounds) (andmap (lambda (bound) (and (list? bound) (= (length bound) 2))) bounds))
-      (refuse-type 'malformed "Subtype constraints need two expressions" bounds))
-    (for-each (lambda (bound) (for-each (cut type-expression <> variables work) bound)) bounds)
-    ;; Lazy fields close over the same owned inputs that admission checked.
-    (.o bind-these: #f prototype: prototype variables: variables
-        expression: expression bounds: bounds bound-parameters: bound)))
+    (with-checked-bindings prototype bound variables work
+      (lambda (_checked)
+        (type-expression `(Tuple ,@variables) variables work)
+        (unless (and (andmap symbol? variables)
+                     (not (ormap type-constructor? variables))
+                     (= (length variables) (length (delete-duplicates/hash variables)))
+                     (equal? variables (positional.parameters prototype)))
+          (refuse-type 'malformed "Type variables must match unique prototype parameters" variables))
+        (type-expression expression variables work)
+        (bounded-type-data bounds work)
+        (unless (and (list? bounds) (andmap (lambda (bound) (and (list? bound) (= (length bound) 2))) bounds))
+          (refuse-type 'malformed "Subtype constraints need two expressions" bounds))
+        (for-each (lambda (bound) (for-each (cut type-expression <> variables work) bound)) bounds)
+        ;; Lazy fields close over the same owned inputs that admission checked.
+        (.o bind-these: #f prototype: prototype variables: variables
+            expression: expression bounds: bounds bound-parameters: bound)))))
 
 ;; Compare the admitted schema order at the actual binding read. The existing
 ;; positional continuation then binds THAT owned snapshot, never a later getter
@@ -113,11 +124,14 @@
 ;; Reordered/added/removed names refuse bounds before any receiver is returned.
 (def (bind-type-parameters scheme values work)
   (def expected (.get scheme variables))
-  (positional.specialize/checked (.get scheme prototype) values
-    (lambda (names)
-      (bounded-type-data names work)
-      (unless (equal? expected names)
-        (refuse-type 'bounds "Type parameter order changed before binding")))))
+  (def prototype (.get scheme prototype))
+  (with-checked-bindings prototype (.get scheme bound-parameters) expected work
+    (lambda (_checked)
+      (positional.specialize/checked prototype values
+        (lambda (names)
+          (bounded-type-data names work)
+          (unless (equal? expected names)
+            (refuse-type 'bounds "Type parameter order changed before binding")))))))
 
 ;; Bind a ground Type prefix through the existing persistent positional protocol.
 ;; Remaining expressions/bounds stay explicit residual obligations, not approvals.
