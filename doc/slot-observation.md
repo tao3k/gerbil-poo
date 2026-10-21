@@ -5,6 +5,17 @@ The MOP exports `call-with-slot-read-observer` and `replay-slot-reads!`.
 presence queries and name enumeration. There is one value evaluator and one
 cycle guard. No consumer needs to patch an object engine or inventory fields.
 
+Internal replay-root consumers may call
+`%call-with-recorded-slot-reads action unique-roots?: #t`. The recording frame
+retains only the first reference to each original record, using `eq?` identity.
+Every delivery still invokes every observer in the original order, including
+duplicates and their exception/effect boundaries. No replacement token is made.
+The default remains an exact trace: native construction/slot computations use
+it to record dependency edge occurrences. Do not compact those signed lists.
+The optional identity table belongs only to the bounded recording call; it is
+not a registry, source-currentness cache, or approval cache. With no active
+recording frame, delivery allocates no collection/table.
+
 ```scheme
 (def records (make-hash-table-eq))
 (def result
