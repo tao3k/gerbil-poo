@@ -220,5 +220,7 @@
       ;; The library prerequisite owns its graph; linking a benchmark must not
       ;; prepare every unrelated library/example root for a second time.
       [`((exe: ,(string-append "t/" target) "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
-    (else [(append +gerbil-poo-build-spec+ (map path-strip-extension (test-files))) #f args])))
+    ;; gerbil build/clean select the package graph. The complete checked test
+    ;; inventory remains explicit in tests/batch and the bounded full-test driver.
+    (else [+gerbil-poo-build-spec+ #f args])))
 

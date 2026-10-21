@@ -51,7 +51,8 @@ _build-benchmark target max-seconds='90':
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
 
 clean:
-    {{ platform-env }} gxi build.ss clean
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} clean
 
 build *selection:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }

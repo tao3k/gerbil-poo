@@ -121,6 +121,11 @@ an end-to-end improvement on their own.
 ## Standard build entry and resource boundaries
 
 `build.ss` selects the project inventory and invokes Gerbil's `defbuild-script`.
+`gerbil clean` followed by `gerbil build` is the standard package recovery path;
+manual selection/deletion of numbered compiled modules is not the workflow.
+The default specification is the shared package graph, so the official package
+command does not expand all test roots in the same compiler heap. `just test`
+still compiles all disjoint test batches and runs all 121 modules in one process.
 Its standard `compile`, `clean`, `spec`, `meta`, `--release`, `--optimized` and
 `--debug` options pass through unchanged. `std/make` owns dependency checks,
 incremental compilation and backend scheduling. There is no second local build

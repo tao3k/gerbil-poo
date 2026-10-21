@@ -20,8 +20,9 @@
         '(0 -1 0.5 #f "4" 10000)))
     (test-case "standard build options and explicit output flow through inventory selection"
       (def library (car (build-request '("library" "spec"))))
-      (def complete (car (build-request '("spec"))))
-      (check-equal? (length complete) (+ (length library) (length (test-files))))
+      (check-equal? (car (build-request '("spec"))) library)
+      (check-equal? (car (build-request '("compile"))) library)
+      (check-equal? (car (build-request '("clean"))) library)
       (check-equal? (caddr (build-request '("compile" "--release"))) '("compile" "--release"))
       (check-equal? (cdr (build-request '("tests" "objects" "/tmp/poo-test-output" "compile" "--debug")))
         '("/tmp/poo-test-output" ("compile" "--debug")))
