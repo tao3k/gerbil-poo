@@ -2,13 +2,13 @@
 (export descriptor-alias descriptor-width fixed-integer-bounds range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type capture-type-data literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in ../optional-validation catalog-type? catalog-current! call-with-current-catalogs)
-        (only-in :std/number/misc uint-of-length? sint-of-length?) (only-in :std/list/list delete-duplicates/hash map-in-order)
+        (only-in :std/number/misc uint-of-length? sint-of-length? positive-integer?) (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ../support/base require-value))
 ;; Only built-in scalar recognizers enter finite derivation. This registry is
 ;; private; exported lookup never invokes a mutable POO descriptor or user Type.
 (def scalar-recognizers
   (list (cons 'Any true) (cons 'Never false) (cons 'Bool boolean?)
-        (cons 'Number number?) (cons 'Real real?) (cons 'Float flonum?)
+        (cons 'Number number?) (cons 'Real real?) (cons 'Rational rational?) (cons 'Float flonum?)
         (cons 'Integer exact-integer?) (cons 'UInt (lambda (value) (and (exact-integer? value) (>= value 0))))
         (cons 'Keyword keyword?) (cons 'String string?) (cons 'Symbol symbol?)
         (cons 'Null null?) (cons 'Unit void?) (cons 'Bytes u8vector?)
@@ -22,7 +22,7 @@
 ;; cannot become a free Type variable merely because a caller uses another phase.
 (def (type-constructor? name)
   (or (and (scalar-recognizer name) #t)
-      (and (memq name '(UIntN IntN BytesN IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Or Record
+      (and (memq name '(Z/ UIntN IntN BytesN IntegerRange Exactly Enum List Maybe OrFalse Tuple Pair Map Sum Union Or Record
                        TypeValuePair Function CaseFunction Object Row Mu)) #t)))
 ;; Protocol failures remain separate from false judgments and callback exceptions.
 (deferror-class TypeRefusal () type-refusal?)
@@ -107,6 +107,19 @@
     (work)
     (when (> remaining 64) (charge (- remaining 64))))
   width)
+;; Admit a literal positive modulus before constructing the existing Z/ Type.
+;; Bound and charge its bit metadata like widths; never enumerate its residues,
+;; execute modular arithmetic or interpret a Type parameter as a numeric value.
+(def (descriptor-modulus term work)
+  (unless (and (= (length term) 2) (positive-integer? (cadr term)))
+    (refuse-type 'malformed "Z/ needs one literal positive exact modulus" term))
+  (def modulus (cadr term))
+  (def bits (integer-length modulus))
+  (when (> bits 4096) (refuse-type 'unsupported "Modulus exceeds the 4096-bit metadata boundary"))
+  (let charge ((remaining bits))
+    (work)
+    (when (> remaining 64) (charge (- remaining 64))))
+  modulus)
 ;; Project an admitted numeric width to the existing inclusive interval algebra.
 ;; Keep its original descriptor kind and width in all source/artifact metadata.
 (def (fixed-integer-bounds term)
@@ -169,7 +182,7 @@
 ;; only explicit canonicalization puts Map arrows into their common shape.
 (def (map-type-children term transform (canonical? #f))
   (case (car term)
-    ((Exactly Enum UIntN IntN BytesN) term)
+    ((Exactly Enum Z/ UIntN IntN BytesN) term)
     ((IntegerRange) (if canonical? (canonical-range term) term))
     ((Function) (let (mapped (map-function-types term transform))
                   (if canonical? (canonical-function mapped) mapped)))
@@ -230,6 +243,7 @@
        ((and (list? value) (pair? value))
         (case (car value)
           ((IntegerRange) (range-bounds value))
+          ((Z/) (descriptor-modulus value work))
           ((UIntN IntN BytesN) (descriptor-width value work))
           ((Exactly Enum)
            (unless (and (or (eq? (car value) 'Enum) (= (length value) 2))

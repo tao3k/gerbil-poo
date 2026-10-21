@@ -7,8 +7,8 @@
         (only-in ../object-contract ObjectContract.)
         (only-in ../optional-validation type-value-catalog capture-type-values
                  catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)
-        (only-in ../number Number Real Float Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
-        (only-in ../type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
+        (only-in ../number Number Real Float Z/ Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
+        (only-in ../type Rational TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
 ;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
@@ -117,21 +117,24 @@
   (case term ((Integer) (cons #f #f)) ((UInt) (cons 0 #f))
     (else (let (term (or (descriptor-alias term) term)) (and (pair? term)
       (case (car term) ((IntegerRange) (range-bounds term))
-        ((UIntN IntN) (fixed-integer-bounds term)) (else #f)))))))
+        ((UIntN IntN) (fixed-integer-bounds term))
+        ((Z/) (cons 0 (1- (cadr term)))) (else #f)))))))
 ;; Empty ranges are numeric bottom, not work failure or a universal fallback.
 (def (empty-range? bounds)
   (and (car bounds) (cdr bounds) (> (car bounds) (cdr bounds))))
-;; Intrinsic number?/real?/flonum? inclusion shares the existing integer view.
+;; Intrinsic number?/real?/rational?/flonum? inclusion shares the existing integer view.
 ;; No ancestry is inspected, no values are coerced, and neither rational nor
 ;; floating values become exact integers. Interval inclusion checks endpoints.
 (def (numeric-subtype? source target)
   (def left (numeric-bounds source)) (def right (numeric-bounds target))
-  (cond ((eq? target 'Number) (and (or left (memq source '(Number Real Float))) #t))
-        ((eq? target 'Real) (and (or left (memq source '(Real Float))) #t))
-        (else (and left right
-    (or (empty-range? left)
-      (and (or (not (car right)) (and (car left) (<= (car right) (car left))))
-           (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))))
+  (cond ((eq? target 'Number) (and (or left (memq source '(Number Real Rational Float))) #t))
+        ((eq? target 'Real) (and (or left (memq source '(Real Rational Float))) #t))
+        ((eq? target 'Rational) (and (or left (eq? source 'Rational)) #t))
+        (else
+          (and left right
+            (or (empty-range? left)
+                (and (or (not (car right)) (and (car left) (<= (car right) (car left))))
+                     (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))))
 ;; A finite literal target covers a range only when every integer is present.
 ;; Reject unbounded/oversized intervals before reusing Enum's first-index table;
 ;; duplicate and noninteger literals cannot fill holes. Charge preparation and
@@ -153,7 +156,7 @@
 ;; from token transport; public Union-to-Union descriptor identity is invariant.
 (def (flat-type? term)
   (if (pair? term)
-    (case (car term) ((Exactly Enum IntegerRange UIntN IntN BytesN) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
+    (case (car term) ((Exactly Enum IntegerRange Z/ UIntN IntN BytesN) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
     (and (scalar-recognizer term) #t)))
 ;; Numeric families share their symbolic interval view; Bool has exactly two
 ;; intrinsic values. String/Symbol/Keyword require a same-family flat branch;
@@ -163,7 +166,7 @@
 ;; Keyword/escape transport, ordered Union identity and wrapper admission retain
 ;; their existing judgments; coverage does not execute user recognizers.
 (def (flat-union-source? source work)
-  (or (and (memq source '(Number Real Float Bool String Symbol Keyword Null Unit Bytes Bytes32 Bytes64)) #t) (and (numeric-bounds source) #t)
+  (or (and (memq source '(Number Real Rational Float Bool String Symbol Keyword Null Unit Bytes Bytes32 Bytes64)) #t) (and (numeric-bounds source) #t)
       (and (pair? source) (eq? (car source) 'BytesN))
       (and (pair? source) (memq (car source) '(Exactly Enum))
            (keyword-stable-type? source work))))
@@ -211,7 +214,7 @@
   (cond ((scalar-recognizer term) => (lambda (recognize) (recognize value)))
         (else (and (pair? term)
           (case (car term)
-            ((IntegerRange UIntN IntN)
+            ((IntegerRange Z/ UIntN IntN)
              (let (bounds (numeric-bounds term))
                (and (exact-integer? value) (or (not (car bounds)) (<= (car bounds) value))
                     (or (not (cdr bounds)) (<= value (cdr bounds))))))
@@ -256,6 +259,12 @@
          (range-literals-subtype? source (cdr target) work))
         ((and (pair? target) (eq? (car target) 'Union))
          (or (ormap (cut flat-subtype? source <> work) (cdr target))
+             ;; Every Gerbil real is rational or a flonum. Exceptional flonums
+             ;; are not rational; retain BOTH obligations and target order under
+             ;; the original quota. No literal floating-point metadata is needed.
+             (and (eq? source 'Real)
+                  (flat-subtype? 'Rational target work)
+                  (flat-subtype? 'Float target work))
              (range-union-subtype? source (cdr target) work)))
         (else (numeric-subtype? source target))))
 
@@ -506,7 +515,7 @@
          (lambda (recognize)
            (not (or (recognize mode:) (recognize #!key) (recognize #!rest)))))
         (else (case (car term)
-          ((IntegerRange UIntN IntN BytesN) #t)
+          ((IntegerRange Z/ UIntN IntN BytesN) #t)
           ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
           ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
           ((Union Or) (andmap (cut keyword-stable-type? <> work) (cdr term)))
@@ -794,7 +803,7 @@
         value)
       (def result
         (if (catalog-type? term) (catalog-contract term work) (case term
-          ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Number) Number) ((Real) Real) ((Float) Float) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
+          ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Number) Number) ((Real) Real) ((Rational) Rational) ((Float) Float) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
           (else
            (case (car term)
              ;; Reuse Class and its effective Slot protocol, including recursive
@@ -812,6 +821,7 @@
                 (if (eq? (caddr term) 'closed)
                   (.cc ObjectContract. responsibilities: fields)
                   (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+             ((Z/) (Z/ (cadr term)))
              ((UIntN) (UIntN (cadr term)))
              ((IntN) (IntN (cadr term)))
              ((BytesN) (BytesN (cadr term)))

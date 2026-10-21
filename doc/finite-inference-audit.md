@@ -726,3 +726,13 @@ replacement and publication controls. Host-faithful recording, source identities
 revisions and supported sequential mutation are explicit premises. This advances
 the article's type-protocol future work; it does not prove arbitrary callbacks,
 concurrent host heaps, GC behavior or the Gerbil compiler.
+
+## Rational and literal modulus closure
+
+The complete numeric protocol now admits the existing Rational and positive literal
+Z/ descriptors. It reuses types/syntax, types/relation, the original interval
+coverage solver and qualified descriptor-service declarations. See
+[intrinsic-descriptors.md](intrinsic-descriptors.md#rational-and-literal-modulus-protocol)
+for decidable bounds, failure classes, complete FUN/refine/evidence scenarios
+and the universal Lean interpretation laws. No floating literal, arbitrary
+predicate implication, modular arithmetic cast or codec law is inferred.
