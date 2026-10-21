@@ -1,8 +1,8 @@
 ;;; Existing Maybe/OrFalse sentinels and dependent TypeValuePair validation.
 (export optional-shape validate-optional type-value-shape validate-type-value type-value-catalog
-        capture-type-values catalog-type? catalog-current! catalog-descriptor catalog-contract)
+        capture-type-values catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources!)
 (import (only-in ./object .o .cc .ref .get .slot? .all-slots object?
-                 replay-slot-reads! reobserve-slot-reads!)
+                 depend-on-object! replay-slot-reads! reobserve-slot-reads!)
         (only-in :std/list/list delete-duplicates/hash map-in-order)
         ./slot-observation ./value-diagnostics
         (only-in ./mop Type Class element? validate raise-type-error)
@@ -93,13 +93,20 @@
 
 ;; Private tokens are immutable, snapshot-local Type identities, not names or
 ;; public sexp certificates. Aliases within one capture share a token.
-(defstruct catalog-type (descriptor name current) final: #t equal: #f)
+(defstruct catalog-type (descriptor name current stable sources) final: #t equal: #f)
 ;; Recheck the complete captured source set, including unused directory entries.
 (def (catalog-current! token (work void)) ((catalog-type-current token) work))
 ;; Resolve only after live admission; callers cannot use a stale raw descriptor.
 (def (catalog-descriptor token (work void))
   (catalog-current! token work)
   (catalog-type-descriptor token))
+
+;; Reuse authenticated directory owners for guarded Types AND dependent carriers.
+;; No getter runs here; one construction counter meters existing weak graph links.
+(def (link-catalog-sources! descriptor token work)
+  ((catalog-type-stable token) work)
+  (for-each (lambda (owner) (work) (depend-on-object! descriptor owner))
+    (catalog-type-sources token)))
 
 ;; Materialize an explicit finite directory once. Ordinary object getters own
 ;; dynamic Class/Schema selection. Extra roots declare otherwise hidden external
@@ -146,17 +153,25 @@
         (visit descriptor)
         (cons name descriptor)) keys))))
   (def captured-reads (delete-duplicates/hash reads table: (make-hash-table-eq) from-end?: #t))
+  ;; Register exactly the authenticated read owners, once per directory capture.
+  ;; The existing weak reverse graph propagates their edits to compiled Types;
+  ;; shared/unused entries belong to the same complete directory snapshot.
+  (def captured-sources (delete-duplicates/hash (map slot-read-receiver captured-reads)
+    table: (make-hash-table-eq)))
   ;; Deliver the same current read records through the ordinary cache-hit path.
   ;; This includes reads made by Type admission, not only explicit metadata
   ;; getters. Both guards prevent observer edits from becoming approvals.
   (def (current! tick)
     (reobserve-slot-reads! captured-reads tick))
+  ;; Final construction admission checks the same reads without invoking observers.
+  (def (stable! tick)
+    (replay-slot-reads! captured-reads (lambda (_receiver _key) (tick))))
   (current! work)
   (def tokens (make-hash-table-eq))
   (map (lambda (entry)
     (def descriptor (cdr entry))
     (cons (car entry) (or (hash-get tokens descriptor)
-      (let (token (make-catalog-type descriptor (car entry) current!))
+      (let (token (make-catalog-type descriptor (car entry) current! stable! captured-sources))
         (hash-put! tokens descriptor token) token)))) entries))
 
 ;; Wrap the actual Type methods with snapshot admission. Recursive normalization,
@@ -171,7 +186,7 @@
     (def result (action))
     (catalog-current! token)
     result)
-  (.cc source sexp: (catalog-type-name token)
+  (def descriptor (.cc source sexp: (catalog-type-name token)
     .element?: (lambda (value) (guard (lambda () (element? source value))))
     .validate: (lambda (value) (guard (lambda () (validate source value))))
     .diagnose: (lambda (value location) (guard (lambda () (diagnose-value source value location))))
@@ -180,3 +195,9 @@
         (if (.slot? source '.diagnose-shape)
           ((.ref source '.diagnose-shape) value location check-field)
           (check-field source value location)))))))
+  ;; A retained bound parameter may disappear from residual syntax. Carry the
+  ;; already known source edges into its Type revision, without rediscovering
+  ;; metadata or caching approval. Meter links with the same construction quota;
+  ;; registration invokes no source getter, so it needs no second metadata replay.
+  (link-catalog-sources! descriptor token work)
+  descriptor)

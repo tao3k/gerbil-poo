@@ -11,10 +11,13 @@
 ;; A bound descriptor carries its direct source revision. The private immutable
 ;; record is transport for ordinary metadata, not an arbitrary Type inclusion proof.
 (defstruct type-binding (descriptor revision) final: #t)
-;; Preserve field identity and descriptor revision for each newly bound parameter.
-(def (capture-bindings names descriptors)
-  (map (lambda (name descriptor) (cons name (make-type-binding descriptor (object-revision descriptor))))
-    names descriptors))
+;; Stamp each compiled Type before compiling the next one or reading parameter
+;; getters. Later directory callbacks must not turn a revised Type into a fresh
+;; binding baseline. Reuse the ordinary compiler and Gerbil's ordered map.
+(def (compile-bindings names expressions work)
+  (map-in-order (lambda (name expression)
+    (def descriptor (compile-expression expression work))
+    (cons name (make-type-binding descriptor (object-revision descriptor)))) names expressions))
 
 ;; Jointly check direct source revisions after ALL getters/consumers. This pure
 ;; fence invokes no getter or Type callback and charges the existing work quota.
@@ -53,11 +56,12 @@
 ;; final callback-free revision fence. Parameter getters and constructors may
 ;; invalidate an earlier check; successful results escape only after ALL effects.
 ;; Original failures propagate before the success fence, without effect rollback.
-(def (with-checked-bindings prototype bound variables work consume)
+;; Newly compiled bindings join that same final fence with their original stamps.
+(def (with-checked-bindings prototype bound variables work consume (added []))
   (def revision (object-revision prototype))
   (def checked (check-bindings prototype bound variables work))
   (def result (consume checked))
-  (check-binding-revisions prototype revision checked work)
+  (check-binding-revisions prototype revision (if (null? added) checked (append checked added)) work)
   result)
 
 ;; Return copied bound names after rechecking the current receiver and Type
@@ -122,16 +126,18 @@
 ;; positional continuation then binds THAT owned snapshot, never a later getter
 ;; result. All explicit, prefix and inferred construction share this gate/quota.
 ;; Reordered/added/removed names refuse bounds before any receiver is returned.
-(def (bind-type-parameters scheme values work)
+(def (bind-type-parameters scheme added work)
   (def expected (.get scheme variables))
   (def prototype (.get scheme prototype))
+  (def values (map (lambda (binding) (type-binding-descriptor (cdr binding))) added))
   (with-checked-bindings prototype (.get scheme bound-parameters) expected work
     (lambda (_checked)
       (positional.specialize/checked prototype values
         (lambda (names)
           (bounded-type-data names work)
           (unless (equal? expected names)
-            (refuse-type 'bounds "Type parameter order changed before binding")))))))
+            (refuse-type 'bounds "Type parameter order changed before binding")))))
+    added))
 
 ;; Bind a ground Type prefix through the existing persistent positional protocol.
 ;; Remaining expressions/bounds stay explicit residual obligations, not approvals.
@@ -150,10 +156,10 @@
     (def substitution (map cons (take (.get scheme variables) count) (map copy-type arguments)))
     (def expression (substitute-type (.get scheme expression) substitution work))
     (def bounds (map (lambda (bound) (map (cut substitute-type <> substitution work) bound)) (.get scheme bounds)))
-    (def bound-values (map (cut compile-expression <> work) arguments))
-    (def receiver (bind-type-parameters scheme bound-values work))
+    (def added (compile-bindings (take (.get scheme variables) count) arguments work))
+    (def receiver (bind-type-parameters scheme added work))
     (prepare-prototype-type receiver (drop (.get scheme variables) count) expression bounds work
-      (append (.get scheme bound-parameters) (capture-bindings (take (.get scheme variables) count) bound-values)))))
+      (append (.get scheme bound-parameters) added))))
 
 ;; Validate ordered substitutions and all declared bounds before touching the
 ;; prototype. Rejection returns no partially specialized receiver or descriptor.
@@ -214,9 +220,13 @@
 ;; is introduced: intrinsic leaves retain library identity; composite Types stay fresh.
 (def (assemble-instance scheme arguments substitution expression work)
   (def descriptor (compile-expression expression work))
-  (def bound-values (map (cut compile-expression <> work) arguments))
-  (def receiver (bind-type-parameters scheme bound-values work))
-  (def bindings (append (.get scheme bound-parameters) (capture-bindings (.get scheme variables) bound-values)))
+  (def revision (object-revision descriptor))
+  (def added (compile-bindings (.get scheme variables) arguments work))
+  (def bindings (append (.get scheme bound-parameters) added))
+  (def receiver (bind-type-parameters scheme added work))
+  ;; Argument compilation/binding must not invalidate the already compiled result.
+  (unless (= revision (object-revision descriptor))
+    (refuse-type 'bounds "Compiled result Type changed"))
   (.o bind-these: #f prototype: receiver descriptor: descriptor
       expression: expression substitution: substitution bound-parameters: bindings))
 

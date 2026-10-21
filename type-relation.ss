@@ -6,7 +6,7 @@
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./optional-validation type-value-catalog capture-type-values
-                 catalog-type? catalog-current! catalog-descriptor catalog-contract)
+                 catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources!)
         (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
         (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
@@ -777,61 +777,83 @@
 ;; Internal checked compiler shares its caller's work counter. Only finite terms
 ;; already admitted by type-expression may enter this lower-level operation.
 (def (compile-expression expression work)
-  (let build ((term (normalize-type expression work)))
-    (work)
-    (if (catalog-type? term) (catalog-contract term work) (case term
-      ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
-      (else
-       (case (car term)
-         ;; Reuse Class and its effective Slot protocol, including recursive
-         ;; validation and checked initialization. Defaults/hooks are host policy,
-         ;; supplied by deriving this descriptor, never executable inference data.
-         ((Record)
-          ;; .cc fields are lazy: finish child compilation while this request
-          ;; owns its counter. Runtime Class observation must not spend it again.
-          (let (slots (object<-alist (map (lambda (field)
-                  (cons (car field) (RecordSlot (build (cadr field)) optional: (eq? (caddr field) 'optional))))
-                  (cadr term))))
-            (.cc Class. sexp: (copy-type term) sealed: (eq? (caddr term) 'closed) slots: slots)))
-         ((Object)
-          (let (fields (object<-alist (map (lambda (field) (cons (car field) (build (cadr field)))) (cadr term))))
-            (if (eq? (caddr term) 'closed)
-              (.cc ObjectContract. responsibilities: fields)
-              (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
-         ((UIntN) (UIntN (cadr term)))
-         ((IntN) (IntN (cadr term)))
-         ((BytesN) (BytesN (cadr term)))
-         ((IntegerRange)
-          (let (bounds (range-bounds term)) (IntegerRange min: (car bounds) max: (cdr bounds))))
-         ((Exactly) (Exactly (cadr term)))
-         ((Enum)
-          ;; Snapshot before entering lazy slots: later caller syntax mutation
-          ;; cannot change the first observation's literal set or display syntax.
-          (let ((values (copy-type (cdr term))) (syntax (copy-type term)))
-            (.cc Enum. vals: values sexp: syntax)))
-         ((Pair) (Pair (build (cadr term)) (build (caddr term))))
-         ((TypeValuePair)
-          (let (tokens (filter catalog-type? (cdr term)))
-            (type-value-catalog TypeValuePair
-              (map (lambda (child) (if (catalog-type? child) (catalog-descriptor child work) (build child))) (cdr term))
-              (copy-type term) (lambda () (for-each catalog-current! tokens)))))
-         ((Map)
-          ;; Map is syntax, not a strict constructor. Capture compiled values
-          ;; before its lazy Key/Value slots can retain the request counter.
-          (let* ((value (build (cadr term))) (key (build (cadddr term))))
-            (Map value <- key)))
-         ((Sum) (apply Sum (cdr (map-sum-types term build))))
-         ((Union) (apply Union (map build (cdr term))))
-         ((Or) (apply Or (map build (cdr term))))
-         ((Maybe) (Maybe (build (cadr term))))
-         ((OrFalse) (OrFalse (build (cadr term))))
-         ((List) (List (build (cadr term))))
-         ((Tuple) (apply Tuple (map build (cdr term))))
-         ((CaseFunction) (apply CaseFunction (map build (cdr term))))
-         ((Function)
-          (call-with-function-types term
-            (lambda (outputs inputs optional keywords required rest)
-              (Function (map build outputs) (map build inputs)
-                optional: (map build optional)
-                keywords: (map (lambda (entry) (cons (car entry) (build (cdr entry)))) keywords)
-                required-keywords: required rest: (and rest (build rest))))))))))))
+  (defvalues (descriptor _dependent?)
+    (let build ((term (normalize-type expression work)))
+      (work)
+      (def dependent? (catalog-type? term))
+      (def dependencies [])
+      ;; Recursively compile once, retaining provenance only for catalog-derived
+      ;; children. Standard scalar-only constructors allocate no dependency edges.
+      (def (child expression)
+        (defvalues (value tracked?) (build expression))
+        (when tracked? (set! dependencies (cons (cons value (object-revision value)) dependencies)))
+        value)
+      (def result
+        (if (catalog-type? term) (catalog-contract term work) (case term
+          ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
+          (else
+           (case (car term)
+             ;; Reuse Class and its effective Slot protocol, including recursive
+             ;; validation and checked initialization. Defaults/hooks are host policy,
+             ;; supplied by deriving this descriptor, never executable inference data.
+             ((Record)
+              ;; .cc fields are lazy: finish child compilation while this request
+              ;; owns its counter. Runtime Class observation must not spend it again.
+              (let (slots (object<-alist (map (lambda (field)
+                      (cons (car field) (RecordSlot (child (cadr field)) optional: (eq? (caddr field) 'optional))))
+                      (cadr term))))
+                (.cc Class. sexp: (copy-type term) sealed: (eq? (caddr term) 'closed) slots: slots)))
+             ((Object)
+              (let (fields (object<-alist (map (lambda (field) (cons (car field) (child (cadr field)))) (cadr term))))
+                (if (eq? (caddr term) 'closed)
+                  (.cc ObjectContract. responsibilities: fields)
+                  (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+             ((UIntN) (UIntN (cadr term)))
+             ((IntN) (IntN (cadr term)))
+             ((BytesN) (BytesN (cadr term)))
+             ((IntegerRange)
+              (let (bounds (range-bounds term)) (IntegerRange min: (car bounds) max: (cdr bounds))))
+             ((Exactly) (Exactly (cadr term)))
+             ((Enum)
+              ;; Snapshot before entering lazy slots: later caller syntax mutation
+              ;; cannot change the first observation's literal set or display syntax.
+              (let ((values (copy-type (cdr term))) (syntax (copy-type term)))
+                (.cc Enum. vals: values sexp: syntax)))
+             ((Pair) (Pair (child (cadr term)) (child (caddr term))))
+             ((TypeValuePair)
+              (let (tokens (filter catalog-type? (cdr term)))
+                (set! dependent? (pair? tokens))
+                (def carrier (type-value-catalog TypeValuePair
+                  (map (lambda (entry) (if (catalog-type? entry) (catalog-descriptor entry work) (child entry))) (cdr term))
+                  (copy-type term) (lambda () (for-each catalog-current! tokens))))
+                (for-each (cut link-catalog-sources! carrier <> work) tokens)
+                carrier))
+             ((Map)
+              ;; Map is syntax, not a strict constructor. Capture compiled values
+              ;; before its lazy Key/Value slots can retain the request counter.
+              (let* ((value (child (cadr term))) (key (child (cadddr term))))
+                (Map value <- key)))
+             ((Sum) (apply Sum (cdr (map-sum-types term child))))
+             ((Union) (apply Union (map child (cdr term))))
+             ((Or) (apply Or (map child (cdr term))))
+             ((Maybe) (Maybe (child (cadr term))))
+             ((OrFalse) (OrFalse (child (cadr term))))
+             ((List) (List (child (cadr term))))
+             ((Tuple) (apply Tuple (map child (cdr term))))
+             ((CaseFunction) (apply CaseFunction (map child (cdr term))))
+             ((Function)
+              (call-with-function-types term
+                (lambda (outputs inputs optional keywords required rest)
+                  (Function (map child outputs) (map child inputs)
+                    optional: (map child optional)
+                    keywords: (map (lambda (entry) (cons (car entry) (child (cdr entry)))) keywords)
+                    required-keywords: required rest: (and rest (child rest)))))))))))
+      ;; Later child getters must not refresh an earlier child's revision stamp.
+      ;; Pure checks and weak links precede the parent's own binding snapshot.
+      (for-each (lambda (entry)
+        (work)
+        (unless (= (object-revision (car entry)) (cdr entry))
+          (refuse-type 'bounds "Compiled catalog child changed"))
+        (depend-on-object! result (car entry))) dependencies)
+      (values result (or dependent? (pair? dependencies)))))
+  descriptor)

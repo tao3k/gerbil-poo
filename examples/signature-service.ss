@@ -1,7 +1,8 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
         (only-in ../type-relation expression-type)
+        (only-in ../prototype-types prototype-type specialize-prototype-type)
         ../method-declaration ../declaration ../object-contract
         (prefix-in ../multimethod dispatch.)
         (prefix-in ../method-combination combination.) (prefix-in ../declarative-metadata metadata.)
@@ -104,3 +105,15 @@
 (def (checked-operation-action expression schema prefix candidates requests operation input context consume (allowed? #t))
   (def checked (validate (expression-type expression) operation))
   (specialized-action schema prefix candidates requests checked input context consume allowed?))
+
+;; Policy is retained configuration Type metadata, independently of the callable
+;; Input/Output signature. It must stay current even after prefix substitution
+;; removes it from the remaining inference problem. No approval is cached here.
+(def CatalogServiceType
+  (prototype-type (.o .parameters: '(Policy Input Output)) '(Policy Input Output)
+    (.get service.DescriptorServiceType expression) (.get service.DescriptorServiceType bounds)))
+;; Bind an explicit catalog token and input through the ordinary prefix factory.
+;; Callers reuse specialized-action for inference/declarations/FUN publication;
+;; revised directories require recapture and a fresh residual, never reset stamps.
+(def (catalog-service-type policy input)
+  (specialize-prototype-type CatalogServiceType (list policy input)))

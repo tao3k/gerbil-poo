@@ -16,7 +16,7 @@
     (inference container-inference record-inference candidate-inference optional-inference empty-inference descriptor-inference)
     (signatures function-coverage keyword-coverage keyword-prefix keyword-values keyword-rest function-options)
     (scalars scalar-inference range-inference union-inference)
-    (declarations declarative-metadata generalized-declaration recursive-declaration meta-prototype)
+    (declarations catalog-inference declarative-metadata generalized-declaration recursive-declaration meta-prototype)
     (closure closure closure-alignment component-closure)
     (construction construction-cache construction-workflow focused-closure)
     (components component-membership component-migration component-requests component-rounds)
