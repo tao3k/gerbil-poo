@@ -113,10 +113,12 @@
       (defvalues (_ _next retried) (action context))
       (check-equal? retried #f) (check-equal? consumed 2)
       (def invalid (make-hash-table)) (hash-put! invalid 1 +nan.0)
-      (def before events)
-      (check-exception ((service.descriptor-service-action (.get report instance) (cons invalid identity) context
-        (lambda (_) (set! consumed 99))) context) TypeError?)
-      (check-equal? consumed 2) (check-equal? events before)
+      ;; Snapshot after successful calls in an expression scope: an internal
+      ;; definition can initialize before the surrounding test expressions.
+      (let (before events)
+        (check-exception ((service.descriptor-service-action (.get report instance) (cons invalid identity) context
+          (lambda (_) (set! consumed 99))) context) TypeError?)
+        (check-equal? consumed 2) (check-equal? events before))
       (check-equal? (.get (numeric.infer-residue-service 7 '(Bool)) status) 'no-solution)
       (check-equal? (.get (numeric.infer-residue-service 7 (list output (numeric.residue-output 3))) status) 'ambiguous)
       (check-exception (numeric.infer-residue-service 0 (list output)) (refusal 'malformed))
