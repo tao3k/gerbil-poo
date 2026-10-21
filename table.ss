@@ -1,18 +1,22 @@
 ;;; Common declarations and methods for tables
 
-(export #t)
+(export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
+        iterator-map table-element? validate-table
+        table-delta? table-delta-count invert-table-delta
+        table-conflict? table-conflict-key)
 
 (import
   (only-in ./variant-validation validate-bindings)
   :std/interface
   :std/iter
+  (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/alist acons)
   (only-in :std/func compose)
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method)
   (only-in ./io marshal)
-  (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError?)
-  (only-in ./object .@ .call)
+  (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
+  (only-in ./object .@ .call object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair))
 
 (defstruct %mapped-iterator (source transform) final: #t)
@@ -46,6 +50,92 @@
     (.@ descriptor .key?) (.@ descriptor .acons)))
   (unless (element? descriptor checked) (raise-type-error descriptor checked))
   checked)
+
+;; Changes retain admitted values, including Function wrappers. Missing is #f;
+;; a stored false is (some #f). Neither constructors nor mutable edit lists escape.
+(defstruct table-change (key before after) final: #t)
+;; Bind a finite delta to its source protocol and child descriptor revisions.
+(defstruct table-delta (sources versions changes) final: #t)
+;; A conflict reports the first changed key whose expected old value disagrees.
+(defstruct table-conflict (key) final: #t)
+
+;; Match the existing .update/opt equality: structural data and opaque procedure
+;; identities, without requiring every type to implement an equality method.
+(def (table-option=? left right)
+  (if (some? left)
+    (and (some? right) (equal? (some-value left) (some-value right)))
+    (not (some? right))))
+
+;; Protect supported descriptor writes for the whole operation, including user
+;; recognizers/backend callbacks. Mutable leaf data remains a caller premise.
+(def (with-table-sources sources action)
+  (for-each instantiate-object! sources)
+  (parameterize ((active-object-constructions (append sources (active-object-constructions))))
+    (action)))
+
+;; Recognition does not normalize again: callers admit snapshots through validate
+;; or checked-action first, and deltas retain those exact normalized child values.
+(def (require-table descriptor source)
+  (unless (element? descriptor source) (raise-type-error descriptor source))
+  source)
+
+;; Enumerate each changed binding once: source order for updates/deletes, then
+;; target order for inserts. Gerbil's list builder owns finite ordered accumulation.
+;; Discovery scans both snapshots; only application is proportional to edit count.
+(def (diff-table descriptor before after)
+  (def sources (list descriptor (.@ descriptor Key) (.@ descriptor Value)))
+  (with-table-sources sources
+    (lambda ()
+      (require-table descriptor before)
+      (require-table descriptor after)
+      (make-table-delta sources (map object-revision sources)
+        (with-list-builder (emit)
+          (.call descriptor .for-each
+            (lambda (key value)
+              (def next (.call descriptor .ref/opt after key))
+              (unless (table-option=? (some value) next)
+                (emit (make-table-change key (some value) next)))) before)
+          (.call descriptor .for-each
+            (lambda (key value)
+              (unless (.call descriptor .key? before key)
+                (emit (make-table-change key #f (some value))))) after))))))
+
+;; Report edit count without exposing the owned edit list or its constructors.
+(def (table-delta-count delta) (length (table-delta-changes delta)))
+
+;; Undo in reverse order, retaining the exact callbacks and descriptor provenance.
+;; Stable values and pure backend callbacks are required for reversible observations.
+(def (invert-table-delta delta)
+  (make-table-delta (table-delta-sources delta) (table-delta-versions delta)
+    (map (lambda (change)
+      (make-table-change (table-change-key change) (table-change-after change)
+                         (table-change-before change)))
+      (reverse (table-delta-changes delta)))))
+
+;; Portable across persistent carriers with identical Key/Value descriptors.
+;; Refuse stale metadata before lookup; stage all writes privately, so a conflict
+;; exposes no partial table. Unrelated bindings may be rebased and remain intact.
+;; Source is admitted; shape checks retain their cost without repeated wrapping.
+(def (apply-table-delta descriptor source delta)
+  (unless (table-delta? delta) (error "table delta required"))
+  (def sources (table-delta-sources delta))
+  (with-table-sources (cons descriptor sources)
+    (lambda ()
+      (unless (and (equal? (table-delta-versions delta) (map object-revision sources))
+                   (eq? (.@ descriptor Key) (cadr sources))
+                   (eq? (.@ descriptor Value) (caddr sources)))
+        (error "stale or incompatible table delta"))
+      (.call descriptor .validate-shape source)
+      (foldl
+        (lambda (change staged)
+          (def key (table-change-key change))
+          (unless (table-option=? (table-change-before change)
+                    (.call descriptor .ref/opt staged key))
+            (raise (make-table-conflict key)))
+          (match (table-change-after change)
+            (#f (.call descriptor .remove staged key))
+            ((some value) (.call descriptor .acons key value staged))))
+        source (table-delta-changes delta)))))
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
@@ -107,6 +197,16 @@
             (.foldl (lambda (k va m) (.acons/opt k (f k (some va) (.ref/opt tb k)) m))
                     .empty ta)
             tb))
+
+  ;; Finite differences and optimistic persistent installation share this backend.
+  .diff: (lambda (before after) (diff-table @ before after))
+  .apply-delta: (lambda (source delta) (apply-table-delta @ source delta))
+
+  ;; Optional focus is total at missing keys and uses the existing Lens protocol.
+  ;; The setter receives value before state, as Lens.modify/compose require.
+  .lens/opt: (lambda (key)
+    (lens-of-get-set (cut .ref/opt <> key)
+      (lambda (value source) (.update/opt key (lambda (_) value) source))))
 
   ;; : Nat <- @
   .count: (lambda (t) (.foldl (lambda (_1 _2 a) (1+ a)) 0 t))

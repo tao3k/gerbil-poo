@@ -1215,6 +1215,25 @@ hold values of slots modified by side-effects.
 On top of Gerbil-POO, build an
 [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
 
+The first concrete unit is implemented: `methods.table` finite persistent deltas,
+old-value conflict checking, inverse installation and lookup-preserving transport
+between existing RationalDict/Trie carriers with identical Key/Value descriptors.
+Optional-key lenses compose with existing service lenses; admitted nested Function
+wrappers are retained without repeated wrapping during installation. Gerbil
+regressions include 48 mixed revisions, late conflict, rebase/retry and FUN IO
+consumption. See [collections.md](collections.md) for admission preconditions,
+metadata invalidation, the changed-key (not global snapshot/ABA) conflict boundary
+and the companion Lean completeness/inverse/frame/transport/lens proofs.
+
+Here incremental also means sharing an algorithm layer between existing typeclass
+implementations, as in the original proposal; data revision alone does not close
+its automatic translation/symmetry goals. This closes this finite delta unit,
+not the proposed general library. Arbitrary
+key/value-changing isomorphisms, inferred laws, maintained aggregates and backend
+complexity qualification remain open; arbitrary predicates and mutable hidden
+callback state are explicit proof premises, not newly inferred capabilities.
+
+
 ## Property-based testing
 
 The finite protocol, including automatic guarded recursive container graphs

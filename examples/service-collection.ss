@@ -1,10 +1,11 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision)
 (import :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map)
         ../object ../mop ../object-contract ../object-contract-flow ../support/option
         (prefix-in ../construction-cache cache.)
-        (prefix-in ../dependency-analysis code.))
+        (prefix-in ../dependency-analysis code.)
+        (only-in ../generalized-prototype Observation.))
 
 ;; Host ownership uses generated class fields; POO retains descriptor semantics.
 (defstruct %services (descriptor rows) final: #t)
@@ -59,3 +60,19 @@
   (checked-action submission
     (lambda (candidate)
       (consume-ledger descriptor key argument consume (.@ candidate ledger)))))
+
+;; Admit a proposed ledger through Reader/FUN once, retaining recursive Function
+;; wrappers inside the generated delta. Before is a previously admitted snapshot.
+;; Full admission may create fresh wrapper identities; use .diff directly between
+;; admitted snapshots when unchanged callbacks must retain identity. Discovery
+;; failure suppresses the consumer; no IO or source mutation occurs here.
+(def (prepare-ledger-revision descriptor before)
+  (checked-action descriptor (cut .call descriptor .diff before <>)))
+
+;; Compose optimistic installation with an IO consumer through the existing FUN
+;; map. The supplied current ledger is already admitted; revalidation here would
+;; create new Function identities and invalidate legitimate captured expectations.
+;; A conflict suppresses IO, leaving callers free to rediscover against the winner.
+(def (apply-ledger-revision descriptor delta consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map consume (cut .call descriptor .apply-delta <> delta))))
