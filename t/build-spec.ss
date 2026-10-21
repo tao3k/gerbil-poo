@@ -211,9 +211,14 @@
       [(map path-strip-extension (test-files group)) output options])
     (["batch" index . options]
       [(map path-strip-extension (test-batch (string->number index))) #f options])
-    ([(and mode (or "combination" "factory")) . options]
-      (let (target (if (equal? mode "factory") "t/factory-paired-benchmark" "t/combination-benchmark"))
-        [(append (filter (lambda (entry) (not (equal? entry target))) +gerbil-poo-build-spec+)
-           `((exe: ,target "-ld-options" ,(pkg-config-libs "openssl")))) #f options]))
+    (["benchmark" target . options]
+      (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
+                "closure-phases" "dispatch-benchmark" "metadata-benchmark"
+                "metadata-paired-benchmark" "combination-benchmark"
+                "factory-paired-benchmark" "object-scale-benchmark"))
+        (error "unknown benchmark target" target))
+      (let (module (string-append "t/" target))
+        [(append (filter (lambda (entry) (not (equal? entry module))) +gerbil-poo-build-spec+)
+           `((exe: ,module "-ld-options" ,(pkg-config-libs "openssl")))) #f options]))
     (else [(append +gerbil-poo-build-spec+ (map path-strip-extension (test-files))) #f args])))
 

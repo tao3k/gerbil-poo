@@ -8,14 +8,10 @@ physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || 
 # Keep package compilation in this project's managed output unless explicitly selected.
 export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
 export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
-build-verbose := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
-build-env := platform-env + " GERBIL_BUILD_VERBOSE=" + build-verbose
+export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 test-max-heap := "1G"
 test-debug := "q"
 test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
-# Query the selected toolchain's metadata only when an executable recipe needs
-# link flags. Preserve explicit overrides, including an intentionally empty one.
-closure-link-env := 'GERBIL_CLOSURE_LD_OPTIONS="${GERBIL_CLOSURE_LD_OPTIONS-$(pkg-config --libs openssl)}"'
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
 test: build
@@ -42,23 +38,24 @@ _test target max-seconds:
 
 benchmark-class-proto width='1000' samples='3':
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    POO_SLOT_BENCH_WIDTH="{{ width }}" POO_SLOT_BENCH_SAMPLES="{{ samples }}" {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} ./t/class-proto-benchmark.ss
+    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} ./t/class-proto-benchmark.ss "{{ width }}" "{{ samples }}"
 
 benchmark-object-scale:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if test -z "{{ timeout-executable }}"; then echo "GNU timeout is required" >&2; exit 127; fi
-    bench_dir="$(mktemp -d "${TMPDIR:-/tmp}/gerbil-poo-object-scale.XXXXXX")"
-    trap 'rm -rf "$bench_dir"' EXIT
-    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 300s gxc -d "$bench_dir" -exe -o "$bench_dir/object-scale" t/object-scale-benchmark.ss
-    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 90s "$bench_dir/object-scale"
+    just _build-benchmark object-scale-benchmark 300
+    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark"
+
+# Use the same standard graph and default executable directory for every study.
+# Retain each recipe's compiler deadline and the shared 1 GiB expansion bound.
+_build-benchmark target max-seconds='90':
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
 
 clean:
     {{ platform-env }} gxi build.ss clean
 
 build *selection:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    {{ build-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" {{ selection }}
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" {{ selection }}
 
 # Compile disjoint test roots into a separate artifact, retaining the shared imports.
 build-group group:
@@ -68,27 +65,27 @@ build-group group:
 benchmark-closure: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/closure
-    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-scale t/closure-scale-benchmark.ss
-    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss .build/closure/closure-scale "{{ timeout-executable }}" .build/closure/closure-benchmarks.scm
+    just _build-benchmark closure-scale-benchmark
+    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-suite.ss "$GERBIL_PATH/bin/closure-scale-benchmark" "{{ timeout-executable }}" .build/closure/closure-benchmarks.scm
 
 # Same-process warm comparisons with balanced queue order and bounded children.
 benchmark-closure-paired: build
     mkdir -p .build/closure
-    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-paired t/closure-paired-benchmark.ss
-    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-paired-suite.ss .build/closure/closure-paired "{{ timeout-executable }}" .build/closure/closure-paired.scm
+    just _build-benchmark closure-paired-benchmark
+    {{ platform-env }} gxi {{ test-runtime-options }} t/closure-paired-suite.ss "$GERBIL_PATH/bin/closure-paired-benchmark" "{{ timeout-executable }}" .build/closure/closure-paired.scm
 
 # Gambit CPU/GC/allocation phases, with natural and pre-collected controls.
 benchmark-closure-phases: build
     mkdir -p .build/closure
-    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/closure -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/closure/closure-phases t/closure-phases.ss
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/closure/closure-phases -:max-heap=1G .build/closure/closure-phases.scm
+    just _build-benchmark closure-phases
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s "$GERBIL_PATH/bin/closure-phases" -:max-heap=1G .build/closure/closure-phases.scm
 
 # Standalone Scheme signature/negative-watch costs; no Lean checkout required.
 benchmark-dispatch: build
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     mkdir -p .build/dispatch
-    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/dispatch -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/dispatch/dispatch-benchmark t/dispatch-benchmark.ss
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/dispatch/dispatch-benchmark -:max-heap=1G .build/dispatch/dispatch-benchmarks.scm .build/dispatch/dispatch-benchmark
+    just _build-benchmark dispatch-benchmark
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s "$GERBIL_PATH/bin/dispatch-benchmark" -:max-heap=1G .build/dispatch/dispatch-benchmarks.scm "$GERBIL_PATH/bin/dispatch-benchmark"
 
 # Composed metadata wrappers and complete cooked-family publication costs.
 benchmark-metadata:
@@ -96,8 +93,8 @@ benchmark-metadata:
     printf '%s\n' '(metadata-benchmarks (status incomplete))' > .build/metadata/metadata-benchmarks.scm
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     just build
-    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/metadata/metadata-benchmark t/metadata-benchmark.ss
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s .build/metadata/metadata-benchmark -:max-heap=1G .build/metadata/metadata-benchmarks.scm .build/metadata/metadata-benchmark
+    just _build-benchmark metadata-benchmark
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s "$GERBIL_PATH/bin/metadata-benchmark" -:max-heap=1G .build/metadata/metadata-benchmarks.scm "$GERBIL_PATH/bin/metadata-benchmark"
     {{ platform-env }} gxi {{ test-runtime-options }} t/metadata-report.ss .build/metadata/metadata-benchmarks.scm
 
 benchmark-metadata-paired:
@@ -105,27 +102,23 @@ benchmark-metadata-paired:
     printf '%s\n' '(metadata-paired (status incomplete))' > .build/metadata/metadata-paired.scm
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     just build
-    {{ closure-link-env }} && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe -ld-options "$GERBIL_CLOSURE_LD_OPTIONS" -o .build/metadata/metadata-paired t/metadata-paired-benchmark.ss
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} t/metadata-paired-suite.ss .build/metadata/metadata-paired "{{ timeout-executable }}" .build/metadata/metadata-paired.scm
+    just _build-benchmark metadata-paired-benchmark
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} t/metadata-paired-suite.ss "$GERBIL_PATH/bin/metadata-paired-benchmark" "{{ timeout-executable }}" .build/metadata/metadata-paired.scm
 
 # Whole continuation preparation and reused calls, with fresh-process ABBA/A-A controls.
 benchmark-combination: build
     mkdir -p .build/combination
-    {{ build-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gxi {{ test-runtime-options }} build.ss combination
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} t/combination-suite.ss .build/combination/combination-benchmark "{{ timeout-executable }}" .build/combination/results.scm
+    just _build-benchmark combination-benchmark
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} t/combination-suite.ss "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
 
-# Focused source gate for a new MOP primitive before building the compiled group.
-# Same released harness, heap fence and failure markers; no package installation.
-test-source-file file:
+# Standard source harness against the current shared library, before compiling
+# the test group. Use the configured Gerbil installation without load-path edits.
+test-source-file file: (build "library")
     #!/usr/bin/env bash
     set -euo pipefail
     log="$(mktemp "${TMPDIR:-/tmp}/poo-source-test.XXXXXX")"
-    sources="$(mktemp -d "${TMPDIR:-/tmp}/poo-source-tree.XXXXXX")"
-    trap 'rm -f "$log"; rm -rf "$sources"' EXIT
-    mkdir -p "$sources/clan"
-    ln -s "$PWD" "$sources/clan/poo"
-    export GERBIL_LOADPATH="$sources:${GERBIL_LOADPATH:-$HOME/.gerbil/lib}"
-    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 90s gerbil {{ test-runtime-options }} env gerbil {{ test-runtime-options }} test "{{ file }}" 2>&1 | tee "$log"
+    trap 'rm -f "$log"' EXIT
+    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 90s gerbil {{ test-runtime-options }} test "{{ file }}" 2>&1 | tee "$log"
     grep -F 'MODULE-OK {{ file }}' "$log"
     grep -F 'HARNESS-OK' "$log"
     grep -x 'OK' "$log"

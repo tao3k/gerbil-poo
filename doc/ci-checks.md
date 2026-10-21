@@ -132,6 +132,13 @@ explicit functional group/output directory. `gxi build.ss library spec` and
 Selection is expressed in arguments, rather than project-specific environment
 variables. Gerbil's own `GERBIL_PATH`, `GERBIL_BUILD_CORES` and
 `GERBIL_BUILD_VERBOSE` retain their standard meanings.
+Libraries and executables use Gerbil's default `lib` and `bin` under that
+installation; only CI group artifacts pass an explicit library output directory.
+Benchmark executables share `gxi build.ss benchmark TARGET` and the standard
+`pkg-config-libs` linker discovery. Result directories contain measurements only;
+there are no separate executable installations or custom linker environment switches.
+Source tests use the released harness after shared compilation, without a
+fabricated source symlink tree or changes to `GERBIL_LOADPATH`.
 
 `just build` keeps the existing complete local inventory: shared compilation,
 then four disjoint test batches through at most two fresh interpreters. The

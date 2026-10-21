@@ -1,6 +1,6 @@
 ;;; Source-bound admission for disjoint compiled test-group artifacts.
 (export main artifact-key-valid? artifact-root group-root check-group check-all read-one-file group-source-key)
-(import :std/misc/ports :std/crypto/digest :std/encoding/hex (only-in :std/list/list append-map) "test-groups.ss")
+(import :std/misc/ports :std/crypto/digest :std/encoding/hex "test-groups.ss")
 ;; Standard dynamic scope isolates admission fixtures from real compiler artifacts.
 (def artifact-root (make-parameter ".ci-tests/"))
 ;; One source tree per functional group; filenames never become module namespaces.

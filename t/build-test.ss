@@ -28,6 +28,7 @@
       (check-equal? (car (build-request '("tests" "objects" "/tmp/poo-test-output")))
         (map path-strip-extension (test-files "objects")))
       (check-equal? (car (build-request '("batch" "2"))) (map path-strip-extension (test-batch 2)))
+      (check-exception (build-request '("benchmark" "../outside")) true)
       (check-exception (build-request '("batch" "4")) true)
       (check-exception (build-request '("tests" "missing" "/tmp/poo-test-output")) true))
     (test-case "every test belongs to exactly one compilation group"
