@@ -1,6 +1,6 @@
 ;;; Ordered scalar/container Union coverage through the shared declaration protocol.
 (export union-inference-test)
-(import (only-in ../function-signature encode-arguments) :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types ../method-declaration
+(import (only-in ../function-signature encode-arguments) :std/test :std/error ../object ../mop ../type ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; The bounded control retains its descriptor alongside the unbounded cases.
 (def interval '(IntegerRange min: 0 max: 10))

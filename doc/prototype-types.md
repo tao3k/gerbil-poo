@@ -11,9 +11,17 @@ It does not provide the following solver as an existing paper implementation.
 Map-key invariance below applies to potentially inhabited entries; the final
 necessarily-empty Map section gives the explicit positive-witness exception.
 
+## Module interfaces
+
+The `types/` directory owns the shared type protocol: `syntax.ss` admits and
+transforms bounded metadata, `relation.ss` checks inclusion and compiles existing
+descriptors, and `validation.ss` performs recursive container validation. Import
+the module for the required responsibility; the root `type.ss` remains the
+executable descriptor interface. Build inputs and CI cache keys include `types/`.
+
 ## One composable protocol
 
-`type-relation.ss` admits this finite expression grammar:
+`types/relation.ss` admits this finite expression grammar:
 
 ```scheme
 Any | Never | Bool | Integer | UInt | Keyword | String | Symbol | declared-variable
@@ -495,7 +503,7 @@ Neither incomplete region traversal nor failed/ambiguous inference enters a buil
 
 ## Value-sensitive raw rows
 
-`type-syntax.ss` admits existing `Keyword`, `(Exactly literal)` and `(Enum literal ...)`
+`types/syntax.ss` admits existing `Keyword`, `(Exactly literal)` and `(Enum literal ...)`
 for immutable bool/integer/keyword/escape literals. These are metadata, not Type
 variables: normalization and prefix/residual substitution retain them unchanged.
 `expression-type` constructs the existing Type descriptors and validators. Enum
@@ -503,7 +511,7 @@ literal lists are copied before entering lazy descriptor slots, so subsequent
 caller syntax mutation cannot alter the first literal-set observation. This
 validation grammar does not extend JSON encoding to escape-token values.
 
-`type-relation.ss` checks each bounded region against the actual first source
+`types/relation.ss` checks each bounded region against the actual first source
 case. A request-local standard hash table memoizes completed suffix decisions by
 remaining positional Types, remaining supplied key/Type entries and raw offset.
 Ordinary data consumes one slot; key-escaped data consumes two; a keyword consumes
@@ -602,7 +610,7 @@ finite call lists, not execution on a physically cyclic/infinite argument list.
 ## Graph implementation and library reuse
 
 The cross-mode judgment composes product construction, backwards closure and
-independent certificate checking inside `type-relation.ss`. Both traversals use
+independent certificate checking inside `types/relation.ss`. Both traversals use
 one private arrow/target traversal, following the higher-order protocol in
 Gerbil `std/struct/dag`, while allowing finite cycles that `walk-dag` rejects.
 Visited nodes only record outgoing arrows; they never certify a subtype.

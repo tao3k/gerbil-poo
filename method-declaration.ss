@@ -8,7 +8,7 @@
         (only-in ./optional-validation call-with-current-catalogs)
         (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
         (prefix-in ./parameters positional.)
-        (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
+        (only-in ./types/relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
         (prefix-in ./multimethod dispatch.)
         (prefix-in ./method-combination combination.)
         (prefix-in ./declarative-metadata metadata.) (prefix-in ./dispatch-extension extension.))

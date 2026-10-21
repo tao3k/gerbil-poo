@@ -1,6 +1,6 @@
 ;;; Scalar families share one finite inference and original declaration chain.
 (export scalar-inference-test)
-(import :std/test :std/error (only-in :gerbil/runtime/gambit string->uninterned-symbol) ../object ../mop ../prototype-types ../type-relation ../method-declaration
+(import :std/test :std/error (only-in :gerbil/runtime/gambit string->uninterned-symbol) ../object ../mop ../prototype-types ../types/relation ../method-declaration
         (prefix-in ../examples/polymorphic-services service.)
         (prefix-in ../examples/numeric-services numeric.))
 ;; Distinguish typed refusal from ordinary false data and user target exceptions.

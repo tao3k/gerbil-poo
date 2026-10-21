@@ -1,6 +1,6 @@
 ;;; Real Gerbil using controls plus legacy failure and recursive wrapping parity.
 (export contract-checks-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../type-syntax ../prototype-types
+(import :std/test :std/error ../object ../mop ../types/relation ../types/syntax ../prototype-types
         (only-in ../support/base require-value) ../object-contract ../object-contract-flow ../object-diagnostics
         (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../function-signature signatures.)

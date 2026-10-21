@@ -1,6 +1,6 @@
 ;;; Existing sentinel validators across finite inference and method publication.
 (export optional-inference-test)
-(import :std/test :std/error ../object ../mop ../prototype-types ../type-relation ../method-declaration
+(import :std/test :std/error ../object ../mop ../prototype-types ../types/relation ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; Preserve protocol refusal independently of false data and failed user calls.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))

@@ -1,6 +1,6 @@
 ;;; Structural rows, guarded approximants and complete inferred contract workflows.
 (export row-types-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types
+(import :std/test :std/error ../object ../mop ../types/relation ../prototype-types
         (prefix-in ../examples/row-services service.))
 ;; Match controlled failure categories without swallowing unrelated exceptions.
 (def (refusal-kind? expected)

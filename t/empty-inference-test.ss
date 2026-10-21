@@ -1,6 +1,6 @@
 ;;; Witnessed emptiness in finite inference, declarations and guarded publication.
 (export empty-inference-test)
-(import :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types
+(import :std/test :std/error ../object ../mop ../type ../types/relation ../prototype-types
         (prefix-in ../examples/polymorphic-services service.))
 ;; Refusal classification must not turn exhaustion/callback errors into false.
 (def (refusal kind)

@@ -1,6 +1,6 @@
 ;;; Cross-mode calls retain the original raw row, including keywords and escapes.
 (export keyword-coverage-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types ../method-declaration
+(import :std/test :std/error ../object ../mop ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; Distinguish structural refusal/quota errors from callback and contract failures.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))

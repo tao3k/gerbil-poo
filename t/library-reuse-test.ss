@@ -16,7 +16,7 @@
         (only-in :std/list/alist plist->alist aremq arem)
         ../object ../mop ../number ../object-contract ../object-contract-flow ../support/option ../slot-layout
         (only-in ../type Record List Tuple)
-        (prefix-in ../type-validation containers.)
+        (prefix-in ../types/validation containers.)
         (prefix-in ../examples/service-collection service.)
         (prefix-in ../dependency-analysis code.)
         (prefix-in ../generalized-graph graph.)

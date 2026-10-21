@@ -2,7 +2,7 @@
 (export function-options-test)
 (import :std/test :std/error :std/iter :std/list/list-builder
         (only-in :std/list/list delete-duplicates/hash)
-        ../object ../mop ../type-relation ../prototype-types ../method-declaration
+        ../object ../mop ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; Keep resource refusal separate from a false subtype or a target exception.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))

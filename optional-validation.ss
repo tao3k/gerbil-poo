@@ -7,7 +7,7 @@
         (only-in :std/list/list delete-duplicates/hash map-in-order)
         ./slot-observation ./value-diagnostics
         (only-in ./mop Type Class element? validate raise-type-error)
-        (only-in ./type-validation validate-container))
+        (only-in ./types/validation validate-container))
 
 ;; Absent values bypass even child descriptor lookup. Present values keep the
 ;; supplied recursive checker, so nested refinements wait until wrapping.

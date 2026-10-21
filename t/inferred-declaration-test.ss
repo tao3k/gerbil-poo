@@ -1,5 +1,5 @@
 (export inferred-declaration-test)
-(import :std/test :std/error ../object ../mop ../number ../parameters ../prototype-types ../type-relation
+(import :std/test :std/error ../object ../mop ../number ../parameters ../prototype-types ../types/relation
         ../declaration ../method-declaration
         (prefix-in ../examples/polymorphic-services service.)
         (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)

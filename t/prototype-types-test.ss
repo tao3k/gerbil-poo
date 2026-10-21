@@ -1,6 +1,6 @@
 ;;; Bounded subtype, explicit polymorphism and complete finite inference controls.
 (export prototype-types-test)
-(import :std/test :std/error ../object ../mop ../number ../type-relation ../prototype-types
+(import :std/test :std/error ../object ../mop ../number ../types/relation ../prototype-types
         (prefix-in ../examples/polymorphic-services service.))
 
 ;; Require the exact bounded refusal so unrelated callback failures cannot pass.

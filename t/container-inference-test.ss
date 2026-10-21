@@ -1,6 +1,6 @@
 ;;; Finite container inference composes actual runtime validators and declarations.
 (export container-inference-test)
-(import :std/test :std/error ../object ../mop ../prototype-types ../type-relation ../method-declaration
+(import :std/test :std/error ../object ../mop ../prototype-types ../types/relation ../method-declaration
         (only-in ../type Map) (prefix-in ../examples/polymorphic-services service.))
 ;; Typed refusal categories distinguish syntax, kind, quota and rejected bounds.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))

@@ -1,9 +1,9 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export descriptor-alias descriptor-width fixed-integer-bounds range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
         type-expression substitute-type guarded-body? copy-type capture-type-data literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
-(import :std/error (only-in ./optional-validation catalog-type? catalog-current! call-with-current-catalogs)
+(import :std/error (only-in ../optional-validation catalog-type? catalog-current! call-with-current-catalogs)
         (only-in :std/number/misc uint-of-length? sint-of-length?) (only-in :std/list/list delete-duplicates/hash map-in-order)
-        (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
+        (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ../support/base require-value))
 ;; Only built-in scalar recognizers enter finite derivation. This registry is
 ;; private; exported lookup never invokes a mutable POO descriptor or user Type.
 (def scalar-recognizers

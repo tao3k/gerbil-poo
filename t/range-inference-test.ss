@@ -1,6 +1,6 @@
 ;;; Inclusive integer bounds across inference, specialization and publication.
 (export range-inference-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types ../method-declaration
+(import :std/test :std/error ../object ../mop ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; Keep malformed metadata and exhausted work separate from an empty numeric set.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))

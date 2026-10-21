@@ -1,6 +1,6 @@
 ;;; Literal precision and correlated infinite raw tails share one finite graph.
 (export keyword-rest-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types ../method-declaration
+(import :std/test :std/error ../object ../mop ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; Independent procedure wrappers provide the acceptance oracle, not graph states.
 (def (accepted? function row)

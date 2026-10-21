@@ -7,7 +7,7 @@
   (only-in :std/assert assert!)
   :std/iter
   ./value-diagnostics
-  ./type-validation
+  ./types/validation
   ./variant-validation
   ./optional-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)

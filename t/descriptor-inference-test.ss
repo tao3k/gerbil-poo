@@ -1,6 +1,6 @@
 ;;; Literal intrinsic descriptors share finite inference and qualified publication.
 (export descriptor-inference-test)
-(import (only-in ../number UInt Integer UInt256 JsInt) :std/test :std/error ../object ../mop ../type ../type-relation ../prototype-types
+(import (only-in ../number UInt Integer UInt256 JsInt) :std/test :std/error ../object ../mop ../type ../types/relation ../prototype-types
         (only-in ../optional-validation type-value-catalog)
         (only-in ../object-contract ObjectContract. refine)
         (only-in ../slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)

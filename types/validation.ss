@@ -3,9 +3,9 @@
 (import (only-in :std/list/list-builder with-list-builder) :std/iter
         (only-in :std/list/list map-in-order)
         (only-in :std/vector/vector vector-for-each/index)
-        ./value-diagnostics
-        (only-in ./object .o .slot? .get)
-        (only-in ./mop element? validate raise-type-error))
+        ../value-diagnostics
+        (only-in ../object .o .slot? .get)
+        (only-in ../mop element? validate raise-type-error))
 
 ;; Shape/arity refusal precedes child checks. Container indices are zero-based;
 ;; all child diagnostics remain ordered and no malformed list tail is traversed.

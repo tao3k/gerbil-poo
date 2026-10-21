@@ -282,7 +282,7 @@ accepted-value cache is added. Nested obligations may be checked more than once.
 Existing `type.List` and `type.Tuple` now supply `.validate`, `.diagnose` and
 `.diagnose-shape`. Their public constructors and representations are unchanged:
 List uses proper Scheme lists; Tuple uses vectors with exact heterogeneous arity.
-`type-validation` shares recursive structural traversal with ObjectContract.
+`types/validation` shares recursive structural traversal with ObjectContract.
 Diagnostics append zero-based indices to field paths, including across nested
 containers and schemas. Recognition never installs wrappers.
 

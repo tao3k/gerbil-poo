@@ -1,7 +1,7 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
 (export staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
-        (only-in ../type-relation expression-type)
+        (only-in ../types/relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
         ../method-declaration ../declaration ../object-contract
         (prefix-in ../multimethod dispatch.)

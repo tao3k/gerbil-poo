@@ -1,6 +1,6 @@
 ;;; Known directory sources invalidate retained Types through the existing graph.
 (export catalog-inference-test)
-(import :std/test :std/error ../object ../mop ../number ../prototype-types ../type-relation ../method-declaration
+(import :std/test :std/error ../object ../mop ../number ../prototype-types ../types/relation ../method-declaration
         (only-in ../type RecordSlot)
         (only-in ../optional-validation call-with-current-catalogs)
         (only-in ../slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)

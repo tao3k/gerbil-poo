@@ -1,6 +1,6 @@
 ;;; Finite Record inference reuses Class/Slot and checked inheritance construction.
 (export record-inference-test)
-(import :std/test :std/error ../object ../mop ../number ../type-relation ../prototype-types
+(import :std/test :std/error ../object ../mop ../number ../types/relation ../prototype-types
         ../method-declaration (only-in ../type Record)
         (prefix-in ../examples/polymorphic-services service.))
 ;; Compare failure categories without turning callback failures into no-solution.

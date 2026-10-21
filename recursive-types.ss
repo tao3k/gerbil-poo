@@ -1,6 +1,6 @@
 ;;; Finite guarded recursive Type approximants over existing Interaction/FUN.
 (export unfold-type)
-(import ./type-syntax ./object (only-in ./mop Any) (prefix-in ./recursive recursive.))
+(import ./types/syntax ./object (only-in ./mop Any) (prefix-in ./recursive recursive.))
 ;; Mu X n F denotes n applications of F to Never. The self request decreases n;
 ;; every copied term spends shared work, so branching expansion cannot evade quota.
 ;; No host recursive descriptor knot or active-pair coinductive success is used.

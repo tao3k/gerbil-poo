@@ -1,6 +1,6 @@
 ;;; Raw length regions preserve ordered source cases across keyword modes.
 (export keyword-prefix-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types ../method-declaration
+(import :std/test :std/error ../object ../mop ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; The target has one UInt value and an optional scale keyword.
 (def keyword-target '(Function (UInt) (UInt) keywords: ((scale: . UInt))))

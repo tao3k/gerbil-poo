@@ -1,7 +1,7 @@
 ;;; Candidate-dependent catalogs reuse the existing call and declaration protocol.
 (export candidate-inference-test)
-(import :std/test :std/error ../object ../mop ../prototype-types ../type-relation
-        (only-in ../type-syntax map-type-children)
+(import :std/test :std/error ../object ../mop ../prototype-types ../types/relation
+        (only-in ../types/syntax map-type-children)
         ../declaration
         (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
         (prefix-in ../multimethod dispatch.) (prefix-in ../declarative-metadata metadata.)

@@ -1,6 +1,6 @@
 ;;; Value-sensitive raw coverage uses exact protocol Types, never inferred Any.
 (export keyword-values-test)
-(import :std/test :std/error ../object ../mop ../type-relation ../prototype-types ../method-declaration
+(import :std/test :std/error ../object ../mop ../types/relation ../prototype-types ../method-declaration
         (prefix-in ../examples/polymorphic-services service.))
 ;; One numeric position and one independently supplied numeric keyword payload.
 (def target '(Function (UInt) (UInt) keywords: ((scale: . UInt))))
