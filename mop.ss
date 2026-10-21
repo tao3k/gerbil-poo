@@ -3,7 +3,8 @@
 ;; Slogan: A Type meta-object as a prototype is a class descriptor,
 ;; as an instance is a type descriptor.
 
-(export #t (import: ./slot-observation))
+(export #t (except-out (import: ./slot-observation) without-observation)
+        replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance)
 
 (import
   ./slot-observation
@@ -25,7 +26,8 @@
   (only-in ./support/json string<-json json<-string)
   (only-in ./support/syntax call<-formals)
   (only-in ./support/repr repr pr)
-  (only-in ./object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
+  (only-in ./object replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance
+           object object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
            .alist object<-alist

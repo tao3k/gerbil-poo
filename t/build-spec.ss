@@ -81,6 +81,7 @@
     "number"
     "prototype-map"
     "slot-layout"
+    "read-route"
     "slot-observation"
     "object-state"
     "inheritance-hooks"

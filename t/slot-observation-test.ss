@@ -8,6 +8,8 @@
   (values value (hash-keys records)))
 (def (stale? cause)
   (and (Error? cause) (equal? (Error-message cause) "stale slot dependency")))
+(def (write-refused? cause)
+  (and (Error? cause) (equal? (Error-message cause) "object mutation during read replay")))
 (def slot-observation-test
   (test-suite "MOP slot read records"
     (test-case "reobservation exposes nested cached dependencies without recomputing"
@@ -27,10 +29,13 @@
     (test-case "reobservation refuses edits made by an enclosing observer"
       (def source (.o amount: 7))
       (defvalues (_ records) (snapshot (cut .get source amount)))
+      (def revision (object-revision source))
       (check-exception
         (call-with-slot-read-observer
           (lambda (_) (.put! source 'amount 8))
-          (lambda () (reobserve-slot-reads! records))) stale?))
+          (lambda () (reobserve-slot-reads! records))) write-refused?)
+      (check-equal? (.get source amount) 7)
+      (check-equal? (object-revision source) revision))
     (test-case "cold capture and every warm value route replay dependencies"
       (def calls 0)
       (def source (.o port: 5432))
@@ -147,12 +152,15 @@
       (check-exception (replay-slot-reads! records (lambda (_self _key) (void))) stale?)
       (check-equal? calls 0))
 
-    (test-case "replay refuses a receiver changed by a later observation callback"
+    (test-case "replay refuses a supported callback write before changing the receiver"
       (def source (.o port: 5432))
       (defvalues (_result records) (snapshot (cut .get source port)))
+      (def revision (object-revision source))
       (check-exception
         (replay-slot-reads! records (lambda (receiver key) (.put! receiver 'port 5433)))
-        stale?))
+        write-refused?)
+      (check-equal? (.get source port) 5432)
+      (check-equal? (object-revision source) revision))
     (test-case "warm values retain cold MOP slot preparation inputs"
       (def source (.o port: 5432))
       (def value (.o port: 5432))

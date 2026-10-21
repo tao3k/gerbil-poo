@@ -2,11 +2,17 @@
 ;;; Values are still computed by object.ss; this module only records/replays.
 (export make-slot-read slot-read-key slot-read-receiver
         slot-read-revision slot-read-instance slot-read-value slot-read-dependencies
-        call-with-slot-read-observer replay-slot-reads! reobserve-slot-reads!
+        call-with-slot-read-observer without-observation
         %slot-read-active? %slot-read-demand! %deliver-slot-read
         %call-with-recorded-slot-reads)
 (import :std/error)
-(defstruct slot-read (receiver key revision instance value dependencies current?) final: #t)
+(defstruct slot-read (receiver key revision instance value dependencies current? birth)
+  final: #t constructor: :init!)
+;; Keep the public seven-argument raw constructor. It never mints provenance.
+(defmethod {:init! slot-read}
+  (lambda (self receiver key revision instance value dependencies current?)
+    (struct-instance-init! self
+      receiver key revision instance value dependencies current? #f)))
 (def read-frame (make-parameter #f))
 (def read-observers (make-parameter '()))
 (def read-prechecks (make-parameter '()))
@@ -42,39 +48,3 @@
   (parameterize ((read-observers (cons observe (read-observers)))
                  (read-prechecks (if before (cons before (read-prechecks)) (read-prechecks))))
     (action)))
-;; One checked depth-first closure owns replay and downstream observation.
-;; Callbacks keep their original traversal order and final source recheck.
-(def (replay-slot-reads roots observe)
-  (def seen (make-hash-table-eq))
-  (def ordered '())
-  (def (require-current! read)
-    (unless ((slot-read-current? read) read)
-      (error "stale slot dependency" (slot-read-key read))))
-  (without-observation
-    (lambda ()
-      (def (visit read)
-        (unless (hash-key? seen read)
-          (hash-put! seen read #t)
-          (require-current! read)
-          (set! ordered (cons read ordered))
-          (observe (slot-read-receiver read) (slot-read-key read))
-          (for-each visit (slot-read-dependencies read))))
-      (for-each visit roots)
-      ;; A later callback/dependency may invalidate a node visited earlier.
-      (for-each require-current! (hash-keys seen))
-      (reverse ordered))))
-
-;; Existing effect-only replay retains its callback order and refusal semantics.
-(def (replay-slot-reads! roots observe)
-  (replay-slot-reads roots observe)
-  (void))
-
-;; Cached metadata must expose the complete actual dependency closure, including
-;; nested getter reads, to an enclosing frame. Delivery is the usual cache-hit
-;; operation; no getter or computation is rerun. Observer edits refuse afterward.
-(def (reobserve-slot-reads! roots (work void))
-  (def reads (replay-slot-reads roots void))
-  (for-each (lambda (read)
-    (work)
-    (%deliver-slot-read read (slot-read-value read))) reads)
-  (replay-slot-reads! roots void))

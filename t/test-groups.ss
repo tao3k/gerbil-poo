@@ -6,7 +6,7 @@
 ;; Keep existing modules classified by responsibility. New modules are still
 ;; tested in an additional group until their author assigns a functional group.
 (def test-groups
-  '((objects support object mop parameters inheritance-hooks slot-observation)
+  '((objects support object mop parameters inheritance-hooks slot-observation issued-read)
     (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
     (collections table-validation library-reuse number polynomial rationaldict trie fq)
     ;; Bound compiler retention by responsibility, rather than increasing its

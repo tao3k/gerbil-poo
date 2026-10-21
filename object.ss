@@ -6,7 +6,9 @@
 ;; TODO: see Future Features and the Internals TODO sections in document above.
 
 ;; Reexport renamed version of core things we shadow
-(export #t @object? @make-object)
+(export (except-out #t object-record-read object-read-query object-read-bootstrap
+                    object-deliver-value require-object-read-route! object-issued-read-current?
+                    call-with-issued-reads active-read-replays) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -18,6 +20,8 @@
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   ./slot-observation
+  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set!) read-runtime.)
+  (only-in ./read-route require-read-route!)
   ./object-state
   ./prototype-map
   ./slot-layout
@@ -90,6 +94,9 @@
 ;; Active construction is separate from slot computation: no partial method table
 ;; or instance is published when an inherited hook tries to read its own receiver.
 (def active-object-constructions (make-parameter []))
+;; Private, dynamically scoped receiver sets, built only from authenticated reads.
+;; Nested replays retain outer ownership; no process-global read-only switch.
+(def active-read-replays (make-parameter '()))
 ;; Clear all derived state together. Explicit instance assignments remain separate.
 (def (clear-object-cache! self)
   (set! (object-%reads self) #f)
@@ -102,7 +109,9 @@
 (def (check-object-edit self state)
   (when (or (memq self (active-object-constructions))
             (any (lambda (entry) (eq? self (car entry))) (active-slot-computations)))
-    (error "object mutation during computation")))
+    (error "object mutation during computation"))
+  (when (any (lambda (receivers) (hash-key? receivers self)) (active-read-replays))
+    (error "object mutation during read replay")))
 ;; Explicit invalidation preserves specifications and reaches shared descendants once.
 (def (uninstantiate-object! self)
   (invalidate-state! self (object-%state self) check-object-edit clear-object-cache!))
@@ -299,6 +308,10 @@
   (or (object-%reads self)
       (let (table (make-hash-table)) (set! (object-%reads self) table) table)))
 (def (object-read-current? read)
+  (and (object-read-issued? read)
+       (begin (require-object-read-route! read)
+              (object-issued-read-current? read))))
+(def (object-issued-read-current? read)
   (def self (slot-read-receiver read))
   (def key (slot-read-key read))
   (and (= (slot-read-revision read) (object-revision self))
@@ -314,16 +327,126 @@
                (or (pair? key)
                    (eq? (slot-read-value read)
                         (hash-ref (object-%instance self) key absent-value))))))))
-(def (object-record-read self key value dependencies)
-  ;; Cold preparation may run before the getter frame starts. Preserve those
-  ;; reads on ALL value/structure tokens, including a value warmed outside admission.
-  (def preparation (and (object-%reads self) (hash-get (object-%reads self) '(preparation))))
-  (def inherited-dependencies
-    (if (and preparation
-             (not (and (pair? key) (memq (car key) '(preparation bootstrap)))))
-      (cons preparation dependencies) dependencies))
-  (make-slot-read self key (object-revision self) (object-%instance self)
-                  value inherited-dependencies object-read-current?))
+(defvalues (object-record-read object-read-issued? object-read-issuance)
+  (let ()
+    ;; Both sides are weak: the registry is not a root for records, receivers or
+    ;; birth closures. A live record itself keeps its original closure alive.
+    (def issued (make-hash-table test: eq? weak-keys: #t weak-values: #t))
+    (def record-class
+      (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)))
+    (def (same-list? current saved)
+      (if (null? saved) (null? current)
+        (and (pair? current) (eq? (car current) (car saved))
+             (same-list? (cdr current) (cdr saved)))))
+    (def (issue self key value dependencies)
+      (def preparation (and (object-%reads self)
+                           (hash-get (object-%reads self) '(preparation))))
+      (def parents
+        (if (and preparation
+                 (not (and (pair? key) (memq (car key) '(preparation bootstrap)))))
+          (cons preparation dependencies) dependencies))
+      (def revision (object-revision self))
+      (def instance (object-%instance self))
+      (def key-copy (and (pair? key) (map values key)))
+      (def parent-copy (map values parents))
+      (def checker object-read-current?)
+      (def read (make-slot-read self key revision instance value parents checker))
+      ;; Captured payload is not a public struct whose fields can be rewritten
+      ;; through runtime.slot-set!. The registry authenticates this procedure
+      ;; before it is invoked, so replacing birth with a true-returning closure
+      ;; does not turn another arbitrary callback into a trusted checker.
+      (def birth
+        (case-lambda
+          ;; Copy primitive metadata; do not dispatch a mutable class constructor.
+          (() (values read
+                (vector self key revision instance value
+                  (map values parent-copy) checker)
+                (and key-copy (map values key-copy))))
+          ((candidate)
+          (and (eq? candidate read)
+               (eq? (slot-read-receiver read) self)
+               (eq? (slot-read-key read) key)
+               (or (not key-copy) (same-list? key key-copy))
+               (= (slot-read-revision read) revision)
+               (eq? (slot-read-instance read) instance)
+               (eq? (slot-read-value read) value)
+               (eq? (read-runtime.slot-ref read 'current?) checker)
+               (same-list? (slot-read-dependencies read) parent-copy)))))
+      (read-runtime.slot-set! read 'birth birth)
+      (hash-put! issued read birth)
+      read)
+    (def (issued? read)
+      (and (eq? (read-runtime.object-class read) record-class)
+        (let (birth (read-runtime.slot-ref read 'birth))
+          (and (procedure? birth) (eq? birth (hash-get issued read)) (birth read)))))
+    ;; Inspect the actual private association, not a caller's alleged birth.
+    ;; Only the registered native closure is invoked, and only in copy mode.
+    (def (inspect read)
+      (unless (eq? (read-runtime.object-class read) record-class)
+        (error "foreign slot-read type"))
+      (def presented (read-runtime.slot-ref read 'birth))
+      (def original (hash-get issued read))
+      (if original
+        (let-values (((signed snapshot shape) (original)))
+          (values presented original signed snapshot shape))
+        (values presented #f #f #f #f)))
+    (values issue issued? inspect)))
+
+(def (require-object-read-route! read)
+  (def receiver (slot-read-receiver read))
+  (require-read-route! (slot-read-key read)
+    (object-%reads receiver) (object-%instance receiver)))
+
+(def (call-with-issued-reads roots consume)
+  (def seen (make-hash-table-eq))
+  (def receivers (make-hash-table-eq))
+  (def ordered '())
+  (def (require-issued! read)
+    (unless (object-read-issued? read) (error "unissued slot dependency")))
+  (def (collect read)
+    (unless (hash-key? seen read)
+      (require-issued! read)
+      (hash-put! seen read #t)
+      (hash-put! receivers (slot-read-receiver read) #t)
+      (set! ordered (cons read ordered))
+      (for-each collect (slot-read-dependencies read))))
+  (def (require-current! read)
+    (require-issued! read)
+    ;; Fixed native checker, never a procedure supplied by the record's caller.
+    (unless (object-read-current? read)
+      (error "stale slot dependency" (slot-read-key read))))
+  ;; Authenticate every edge before ANY consumer callback. Only native issuance
+  ;; builds the selected receiver set; misses need not enter a read cache.
+  (without-observation (lambda () (for-each collect roots)))
+  ;; This binding must happen AFTER collection, not in the internal definition
+  ;; group that prepares the visitor closures above.
+  (let (traversal (reverse ordered))
+    (parameterize ((active-read-replays (cons receivers (active-read-replays))))
+      (begin0 (consume traversal require-current!)
+        (without-observation (lambda () (for-each require-current! traversal)))))))
+
+(def (replay-slot-reads! roots observe)
+  (call-with-issued-reads roots
+    (lambda (reads current!)
+      (without-observation
+        (lambda ()
+          (for-each
+            (lambda (read)
+              (current! read)
+              (observe (slot-read-receiver read) (slot-read-key read))) reads))))))
+
+;; The Type catalog's warm path delivers ORIGINAL records into its caller's
+;; frame. Keep the same selected write protection across work and delivery, not
+;; only the initial check. Metadata inspection itself remains unobserved.
+(def (reobserve-slot-reads! roots (work void))
+  (call-with-issued-reads roots
+    (lambda (reads current!)
+      (without-observation (lambda () (for-each current! reads)))
+      (for-each
+        (lambda (read)
+          (work)
+          (%deliver-slot-read read (slot-read-value read))) reads))))
+
 (def (object-deliver-value self slot value)
   (def table (object-read-table self))
   (def read
