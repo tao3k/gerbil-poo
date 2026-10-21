@@ -627,6 +627,32 @@ acceptance, not a universal proof of all host Types or completion of every TODO.
 Existing checks, resource limits and the full single-process regression suite are
 required for this work unit; focused matrix success alone does not close it.
 
+### Whole observation admission and declaration continuation
+
+The concentrated P2 audit found a phase inconsistency: fixed signatures could
+reject an early call shape before a later sibling's malformed/unsupported Type
+metadata was admitted; candidate-dependent signatures preflighted that metadata.
+Both now snapshot and preflight the complete batch through the existing
+`signature.decode-arguments` and `type-expression` before projecting any queries.
+Projection reuses those checked payloads under the same work counter; undecoded
+wire tokens still refuse in the selected signature's interpretation mode.
+
+`infer-declared` and `infer-declared-calls` share one private higher-order
+continuation for unique-instance declaration. No builder runs on malformed input,
+exhaustion, ambiguity or no-solution. Known impossible shapes still refuse bounds;
+a well-formed incompatible candidate still contributes no solution. This closes
+an admission inconsistency, without extending the finite inference boundary.
+
+The shared report/recovery example binds Self, jointly infers Super from optional,
+keyword/rest and ordered case observations, retains a recursively wrapped return
+callback, and invokes both declared generics through the existing FUN approval
+and IO consumer. Regression controls cover empty universes, late bad metadata,
+failure-before-builder, first-error order, exhausted budgets and fresh retry.
+Lean proves complete observation admission, late-refusal propagation and exact
+projection preservation, composed with the existing declaration driver. Host
+keyword decoding/Type checks remain interpretation premises, not verified parser
+or compiler claims. Existing full checks and resource limits remain required.
+
 ### Certified typed method declaration closure
 
 The existing `method` form now admits a certified `signature` plus existing

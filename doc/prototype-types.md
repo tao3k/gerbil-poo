@@ -352,8 +352,12 @@ Wrong candidate kind, absent candidate field, disallowed row overlap, rejected
 call shape/output count or unsatisfied inequalities reject that candidate. Complete
 search returns `no-solution`, `unique`, or `ambiguous`; only `unique` may invoke
 the builder. Malformed/unsupported syntax or exhaustion aborts the entire request,
-even after a valid candidate. Invalid candidate-dependent observations are
-preflighted through the existing keyword decoder, including with an empty universe.
+even after a valid candidate. All observations, whether their signature is fixed
+or candidate-dependent, are snapshotted and preflighted through the existing
+keyword decoder before any shape/path projection, including with an empty universe.
+An early fixed shape refusal therefore cannot hide later unsupported/malformed
+metadata. Projection reuses admitted payload Types under the same counter; raw
+wire markers still need the selected signature's interpretation.
 Dangling/duplicate keyword rows are malformed; payloads must be ground supported
 Types. Literal missing paths in an already known schema remain unsupported.
 The shared quota, depth guard and recursive admission rules remain enforced.

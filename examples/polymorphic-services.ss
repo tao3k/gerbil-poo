@@ -2,6 +2,7 @@
 (export infer-tagged-worker-service infer-callback-directory-service infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export RetiredKeywordServiceType infer-retired-keyword-service)
 (export TokenCallbackServiceType infer-token-callback-service)
+(export shared-service-calls)
 (export MetadataServiceType infer-metadata-service metadata-service-request)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
@@ -882,3 +883,13 @@
   (infer-descriptor-service (list input) candidates
     (list (list [] (list input) (list input `(Function (,input) (,input)))))
     procedure record))
+
+;; A whole report/recovery batch constrains one residual Super after Self binding.
+;; The report uses optional, keyword and rest positions and returns a recursively
+;; wrapped callback; recovery selects the first existing CaseFunction clause.
+;; Consumers pass these observations to infer-shared-service, then publish through
+;; shared-service-action's Reader/FUN approval and checked output continuation.
+(def shared-service-calls
+  '(((.report) (Integer Integer scale: UInt Integer)
+       (UInt (Function (UInt) (Integer))))
+    ((.recover) (UInt) (Integer))))

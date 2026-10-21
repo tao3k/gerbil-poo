@@ -340,26 +340,23 @@
     (def work (type-work budget))
     (declare-instance (instantiate/checked scheme arguments work) build work)))
 
-;; The existing bounded exhaustive search owns classification. Ambiguous/no-solution
-;; reports are returned untouched, without calling build. Only a unique complete
-;; assignment enters guarded declaration elaboration and typed installation.
-(def (infer-declared scheme candidates queries build (budget 8192))
+;; Run the injected existing solver under one request counter, then admit exactly
+;; one complete instance. Both query and call inference share this publication
+;; gate; errors, incomplete search and ambiguity cannot enter the builder.
+(def (infer-and-declare infer scheme candidates requests build budget)
   (using (build :~ procedure?)
     (def work (type-work budget))
-    (def report (infer-prototype/checked scheme candidates queries work))
+    (def report (infer scheme candidates requests work))
     (if (eq? (.get report status) 'unique)
-      ;; Finish admission before the lazy report can escape this request.
       (let (instance (declare-instance (.get report instance) build work))
         (.cc report instance: instance)) report)))
 
-;; Joint call constraints feed the SAME uniquely completed inference/declaration
-;; driver. The whole receiver's typed groups must install before any instance is
-;; returned; a failed sibling group exposes no partially declared receiver.
+;; Raw inequalities use the existing exhaustive solver and shared declaration gate.
+;; Ambiguous/no-solution reports and original failures propagate unchanged.
+(def (infer-declared scheme candidates queries build (budget 8192))
+  (infer-and-declare infer-prototype/checked scheme candidates queries build budget))
+
+;; Complete observation preflight and joint inference precede this same gate.
+;; All sibling generics install before any instance escapes the request.
 (def (infer-declared-calls scheme candidates observations build (budget 8192))
-  (using (build :~ procedure?)
-    (def work (type-work budget))
-    (def report (infer-prototype-calls/checked scheme candidates observations work))
-    (if (eq? (.get report status) 'unique)
-      ;; Finish admission before the lazy report can escape this request.
-      (let (instance (declare-instance (.get report instance) build work))
-        (.cc report instance: instance)) report)))
+  (infer-and-declare infer-prototype-calls/checked scheme candidates observations build budget))

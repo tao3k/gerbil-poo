@@ -233,12 +233,11 @@
 ;; One observation is (field-path supplied-Type-arguments expected-output-Types).
 ;; #f outputs means no return obligation; () requires zero user values. Reuse the
 ;; runtime's first structural clause and keyword escapes, without invoking bodies,
-;; defaults or Type validators. An input contributes actual <: formal; an expected
-;; output contributes formal <: expected, including nested Function variance.
+;; defaults or Type validators. check-call has admitted every supplied Type before
+;; any projection, so candidate visits only collect constraints. Inputs contribute
+;; actual <: formal; expected outputs contribute formal <: expected, including
+;; nested Function variance.
 (def (call-constraints scheme observation work (template #f) (candidate? #f))
-  (unless (and (list? observation) (= (length observation) 3) (list? (cadr observation))
-               (or (not (caddr observation)) (list? (caddr observation))))
-    (refuse-type 'malformed "Call observation needs path, arguments and optional outputs" observation))
   (def term (or template (function-expression (.get scheme expression) (car observation) work
                           (if candidate? 'bounds 'unsupported))))
   (def clauses (function-signatures term))
@@ -252,9 +251,9 @@
       (work)
       ;; Escaped wire tokens may be positional only for a non-keyword candidate;
       ;; they are not ground Types. The preflight already checked every payload.
-      (when (and candidate? (or (keyword? actual) (eq? actual #!key) (eq? actual #!rest)))
-        (refuse-type 'bounds "Candidate does not interpret the observed keyword call"))
-      (type-expression actual [] work)
+      (when (or (keyword? actual) (eq? actual #!key) (eq? actual #!rest))
+        (refuse-type (if candidate? 'bounds 'unsupported)
+          "Signature does not interpret the observed keyword call"))
       (set! constraints (cons (list (copy-type actual) (copy-type formal)) constraints))
       actual))
   (def expected (caddr observation))
@@ -263,13 +262,12 @@
       (refuse-type 'bounds "Expected output count differs from the selected case" observation))
     (for-each (lambda (formal actual)
       (work)
-      (type-expression actual [] work)
       (set! constraints (cons (list (copy-type formal) (copy-type actual)) constraints)))
       (.get selected outputs) expected))
   (reverse constraints))
 
-;; Validate candidate-dependent wire data before enumeration, even for an empty
-;; universe. Reuse Gerbil keyword decoding; every supplied payload is a ground
+;; Validate every observation before ANY projection, even for fixed signatures,
+;; impossible earlier shapes and an empty universe. Reuse Gerbil keyword decoding; every supplied payload is a ground
 ;; Type, not a runtime value or a user callback to execute during inference.
 (def (check-call observation work)
   (unless (and (list? observation) (= (length observation) 3) (list? (car observation))
@@ -297,12 +295,10 @@
   (bounded-type-data observations work)
   (unless (list? observations) (refuse-type 'malformed "Call observations must form a list"))
   (def calls (map copy-type observations))
+  (for-each (cut check-call <> work) calls)
   (def templates (map-in-order (lambda (call)
-    (unless (and (list? call) (= (length call) 3))
-      (refuse-type 'malformed "Call observation needs path, arguments and optional outputs"))
     (def term (function-template (.get captured expression) (car call) (.get captured variables) work))
-    (if term (call-constraints captured call work term)
-      (begin (check-call call work) #f))) calls))
+    (and term (call-constraints captured call work term))) calls))
   (def dependent? (ormap not templates))
   (def constraints (if dependent? [] (apply append templates)))
   ;; One candidate layout owns every sibling call. Known templates retain their

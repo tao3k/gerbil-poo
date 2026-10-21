@@ -329,6 +329,61 @@
       (check-exception (infer-declared-calls schema [] '((() (mode:) #f)) forbidden) (refusal 'malformed))
       (check-exception (infer-declared-calls schema [] '((() (Unknown) #f)) forbidden) (refusal 'unsupported))
       (check-exception (infer-declared-calls schema [] '((() () (Unknown))) forbidden) (refusal 'unsupported)))
+    (test-case "whole observation admission precedes fixed or dependent shape refusal"
+      (def fixed (prototype-type (.o .parameters: '(T)) '(T)
+        '(Object ((run (Function (UInt) (Integer)))) closed) []))
+      (def observed 0)
+      ;; The first known shape cannot consume the request before a later sibling
+      ;; receives grammar/Type admission, even when no candidate will be searched.
+      (for-each (lambda (bad kind)
+        (def observations (list '((run) () (UInt)) bad))
+        (for-each (lambda (candidates)
+          (check-exception (infer-prototype-calls fixed candidates observations) (refusal kind))
+          (check-exception (infer-declared-calls fixed candidates observations
+            (lambda (_) (set! observed (1+ observed)) [])) (refusal kind)))
+          '(() (UInt))))
+        '(((run) (Unknown) (UInt)) ((run) (Integer) (Unknown))
+          ((run) (mode:) #f) ((run) () #t))
+        '(unsupported unsupported malformed malformed))
+      (check-equal? observed 0)
+      ;; Standard left-to-right admission retains the first metadata refusal.
+      (check-exception (infer-declared-calls fixed '(UInt)
+        '(((run) (Unknown) (UInt)) ((run) (mode:) #f)) forbidden) (refusal 'unsupported))
+      ;; Valid metadata keeps the old distinction: a fixed impossible shape is
+      ;; bounds refusal; a candidate-dependent incompatible layout is no-solution.
+      (check-exception (infer-prototype-calls fixed '(UInt) '(((run) () (UInt)))) (refusal 'bounds))
+      (check-equal? (.get (infer-prototype-calls schema '((Function (UInt) (Integer)))
+        '((() () (UInt)))) status) 'no-solution))
+    (test-case "failed whole-batch admission retries through specialized shared publication"
+      (def invoked 0) (def events []) (def consumed 0)
+      ;; Body effects begin only after complete inference and approved invocation.
+      (def (report value (extra 0) scale: (scale 1) . rest)
+        ;; Real Gerbil optional/keyword/rest formals own argument interpretation.
+        (set! invoked (1+ invoked))
+        (values (* scale (+ (abs value) extra (apply + rest))) abs))
+      ;; Recovery shares the same inferred Type assignment and checked receiver.
+      (def (recover value) (+ value 1))
+      ;; Record method order independently from the consumer's IO count.
+      (def (record event) (set! events (cons event events)))
+      (check-exception (service.infer-shared-service '(UInt) '(UInt Integer Bool)
+        (append (list '((.report) () #f)) '(((.recover) (Unknown) (Integer))))
+        report recover record) (refusal 'unsupported))
+      (check-equal? invoked 0) (check-equal? events [])
+      (def inferred (service.infer-shared-service '(UInt) '(UInt Integer Bool)
+        service.shared-service-calls report recover record))
+      (check-equal? (.get inferred status) 'unique)
+      (check-equal? (.get inferred solutions) '((Integer)))
+      (def action (service.shared-service-action (.get inferred instance) -4
+        (lambda (answer recovered callback)
+          (set! consumed (1+ consumed))
+          (check-equal? answer 10) (check-equal? recovered 11)
+          (check-equal? (callback -9) 9)
+          (check-exception (callback #f) TypeError?))))
+      (check-exception (action (.o approved: #f)) Error?)
+      (check-equal? invoked 0)
+      (action (.o approved: #t))
+      (check-equal? invoked 1) (check-equal? consumed 1)
+      (check-equal? (reverse events) '(report recover)))
     (test-case "a matched prefix cannot bypass exhaustion or recursive admission"
       (check-exception (infer-declared-calls schema (list good missing) calls forbidden 30) (refusal 'exhausted))
       (def nested (prototype-type (.o .parameters: '(T)) '(T) '(Mu X 1 (List T)) []))
