@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service checked-total-action)
-(import ../object ../mop ../number ../slot-layout ../object-contract-flow
+(export Service expanded-service checked-total-action)
+(import ../object ../prototype-map ../mop ../number ../slot-layout ../object-contract-flow
         (prefix-in ../object-contract contract.)
         (prefix-in ../generalized-prototype observation.))
 
@@ -29,3 +29,12 @@
     (.call observation.Observation. .bind
       (lambda (candidate) (.ref/inline candidate site))
       (lambda (amount) (lambda (candidate) (consume candidate amount))))))
+
+;; A real service crosses the compact contribution bound without changing its
+;; inheritance/contract protocol. Removing the five auxiliary direct fields later
+;; exposes the same inherited computation and returns storage to the compact case.
+;; Capacity still passes through checked-total-action before any consumer effect.
+(def (expanded-service capacity)
+  (let (base (.cc Service capacity: capacity tariff: 3 fee: 1 surcharge: 2))
+    (object-slots-set! base (prototype-map (object-slots base) policy: 'compact))
+    (.cc base region: 'north approval: #t audit: #f enabled: #t revision: 0)))

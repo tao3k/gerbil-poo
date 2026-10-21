@@ -9,7 +9,7 @@ in the original representation TODO; they are not a new claim of a complete MOP.
 
 ## Protocol and public operations
 
-`prototype-map.ss` uses V19 `std/struct/rbtree`, not a second tree implementation.
+`prototype-map.ss` uses private compact vectors and V19 `std/struct/rbtree`, not a second tree implementation.
 It stores ordered contributions and a first-name index. Persistent updates copy
 balanced-tree paths, preserve later same-name methods and append new names. Input
 and reflection list spines/entry pairs are owned; values and SlotSpecs are shared.
@@ -66,7 +66,101 @@ revocation or speed/allocation improvement is claimed.
 ## Remaining optimization ideas
 
 This closes the mapping/layout/invalidation protocol, not every speculative
-performance idea in the historical TODO. Small-map specialization, Patricia trees,
+performance idea in the historical TODO. Patricia trees,
 frequency sorting, automatic JIT/PIC selection, full hash removal and compiler
 constant-folding qualification remain unimplemented. Matched complete-workflow
 benchmarks are required before claiming any strategy is faster.
+
+## Compact persistent prototype maps
+
+The concrete small-map item in the representation TODO is now implemented through
+`prototype-map.ss`, without another public namespace or object API. The default policy remains `tree`. Explicit
+`prototype-map entries policy: 'compact` selects private vectors through eight
+**contributions**, including duplicates. Existing snapshots preserve their policy;
+explicit `tree`/`compact` conversion owns a new snapshot with identical entries.
+`prototype-map-policy` reports the selected policy, not the current physical backend. A first-name
+identity scan selects replacement; appending the ninth contribution promotes to
+Gerbil's existing RBTree representation. Removing all contributions for a name
+can demote the remaining ordered entries only under the selected compact policy. Missing removal retains the snapshot.
+The vector, entry pairs and mutable tree handles never escape; list observations
+return fresh spines/pairs, while values and SlotSpecs remain intentionally shared.
+This is source-level persistence, not deep immutability of arbitrary values.
+
+The limit bounds a compact scan at eight identity comparisons and a compact
+write's resulting row at nine cells, including promotion. Standard vector copying,
+`std/vector/vector` filtering and `std/struct/rbtree` perform the storage work.
+Promotion still pays tree construction; tree removal still rebuilds in order.
+There is no logarithmic removal, universal speedup or allocator/GC cost theorem.
+
+`representation-test.ss` compares 96 mixed revisions and every retained snapshot
+with an independent ordered-list oracle. Boundary, duplicate-name, index-zero,
+present-false, uninterned-symbol and failed-preflight controls cover both stores.
+`expanded-service` crosses the bound through actual persistent object construction;
+contraction, overrides, subsequent source edits, checked FUN observation, policy
+refusal and retry keep the existing source invalidation/contract protocol.
+
+Lean's existing `Prototype.Representation` namespace proves complete ordered
+observations, first-write/frame laws, representation and policy selection/preservation, bounded compact
+search/copy and arbitrary finite revision-trace equivalence. Its tree observation
+assumes faithful standard-library iteration; distinct Scheme symbol identities
+must map to distinct model keys. It does not verify RBTree balancing, vector
+primitives, the collector or compiler. Existing revision/layout theorems still
+supply cache rejection; changing map storage grants no new cache authority.
+
+`object-scale-benchmark` now records CPU, wall, GC CPU, collection count and raw
+allocation deltas via the existing shared Scheme sampler. Both natural and
+pre-collected regimes retain the complete cold construction/read, clone-only and
+clone/read workflows. Widths 1/4/8/9/16 supplement the original 8/64/256 cases;
+all original depths remain. The final executable accepts `natural|collected` and `tree|compact`, exercising
+both current policies through the same public map constructor and standard build.
+The added cold construction/clone/read phase includes the first promotion inside
+its measured workload. Balanced ABBA process order retains all widths/depths. Raw observations stay outside
+Git, and GC/history differences must not be reported as selector-only speedups.
+
+## Full-process acceptance and progress
+
+The standard single-process harness retains all 123 compiled test modules, the
+1 GiB heap and 300-second deadline. Its existing Gambit process counters now also
+observe cases through public `TestSuite` initialization and `TestCase` entry hooks;
+`dynamic-wind` records success, failure and continuation exits without replacing
+the standard setup/cleanup/check/error/order machinery. No alternate runner,
+forced GC, process splitting or new environment variable is used.
+
+For the earlier automatic-compact candidate (before explicit policy selection),
+the first complete attempt terminated with exit 137 after 57 modules; it is not
+counted as a pass. That candidate's subsequent fully observed process completed 123/123 at
+182.87 seconds overall, with 150.46 seconds recorded inside the runner, 34.03 CPU
+seconds and 3.64 GC CPU seconds. These are local receipts, not a universal latency
+bound or proof that the earlier timeout was caused by GC. The standard released
+`gerbil env` context remains necessary for dynamically loaded gxtest tools; a
+standalone entry-point probe did not establish complete dynamic-loader readiness.
+Raw logs and benchmark binaries remain outside Git. CI must pass at the published
+source commit separately from these local receipts.
+
+## Explicit policy after a rejected default experiment
+
+The first automatic compact candidate was rejected as a default: two ABBA samples
+per GC regime showed eight-contribution clone-only CPU increasing by 61.1% under
+natural GC and 90.9% after collection, aggregating the three retained depths.
+Tree reconstruction at persistent promotion is real work; lower aggregate wall
+observations did not certify this path. The latest design defaults to standard
+trees and exposes compact storage as a deliberate constructor policy. Writes,
+promotion, removal/demotion and conversion preserve that choice. Core `using`
+rejects unknown policies before construction; the standard `length<=n?` bounds
+compact admission without scanning a large input just to choose the backend.
+
+Lean now carries that policy in tree snapshots, proves selection/observation
+identity and write/removal/whole-trace policy preservation, and proves that a
+default tree write remains a tree even for small rows. A compact scan bound is
+not a total allocation bound: promotion still pays the standard tree builder.
+This implements the concrete selectable representation protocol. Automatic
+JIT/PIC selection and a universal speedup remain unimplemented qualification work.
+
+The final explicit-policy build and all four compiler batches passed. Its complete
+single process then checked all 123 modules successfully in 235.51 seconds overall
+under the unchanged 300-second/1-GiB bounds (runner: 222.86 wall, 33.04 CPU, 3.49 GC
+CPU seconds, 90 collections). This is a separate final-source receipt, not the
+earlier automatic-candidate timing. The same-binary policy benchmark uses existing
+constant SlotSpec recipes; it measures map construction, receiver binding, first
+promotion/clone and reads. Allocation of the input recipes themselves is outside
+that workload, and no general fresh-declaration construction speedup is claimed.

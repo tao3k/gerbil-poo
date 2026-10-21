@@ -39,12 +39,30 @@ further tuning of the corresponding workflow.
 | Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
 | Object keyword syntax / lexical slot bindings | Implemented: `.o` leading self/super/inherit/bind/bind-these options lower through the existing slot engine; legacy forms and match patterns retained; `t/parameters-test.ss` | Declared lexical grammar closed. Arbitrary lexical rewrites are not part of this grammar. See [parameters.md](parameters.md). |
 | Prototype mutability discipline | Explicit invalidating protocol implemented: registered weak reverse edges, once-per-owner clearing across diamonds, topology preflight, active-evaluation rejection and optional sealing; original parent-mutation tests retained | Sequential supported APIs only; external callback dependencies must be registered. Raw struct setters are internal escape hatches. Sealing locks direct source/instance edits, not all unsealed ancestors. |
-| Data representation / usual object optimizations | Implemented protocol: persistent ordered prototype maps, shared symbolic shapes, opt-in receiver-local vectors and guarded inline sites integrated into object reads/writes and descendant invalidation | Concrete protocol closed; full hash removal, small-map specialization, Patricia layouts and automatic JIT/PIC policy remain optimization work. See [representation.md](representation.md). Historical speed measurements do not close these. |
+| Data representation / usual object optimizations | Implemented protocol: persistent ordered prototype maps, shared symbolic shapes, opt-in receiver-local vectors and guarded inline sites integrated into object reads/writes and descendant invalidation | Concrete protocol closed; full hash removal, Patricia layouts and automatic JIT/PIC policy remain optimization work. See [representation.md](representation.md). Historical speed measurements do not close these. |
 | Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
 | Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `types/relation.ss` / `prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
 | Generic data structure library | Shared finite collection-validation protocol closed: methods.table / RationalDict / Trie / derived sets / Map retain recursively normalized keys and values, Function wrappers, carrier admission and refusal/retry; t/table-validation-test.ss | A general collection library with the proposed protocol and laws is open. |
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
+
+### Global acceptance audit: compact prototype representation
+
+The next concrete acceptance unit after the finite type protocol is the explicit
+small-map representation item under Data representation. It is implemented in
+the EXISTING prototype-map protocol: explicit compact-policy vectors through eight contributions (default: tree),
+standard RBTree promotion, deletion/demotion, ordered duplicate contributions,
+owned snapshots and unchanged object invalidation/FUN admission. Universal Lean
+revision-trace/policy-preservation and compact source-operation bounds accompany the independent
+96-revision oracle and complete service workflow. See [representation.md](representation.md).
+
+This closes that concrete representation subitem, not the whole original TODO.
+Full-vector/hash removal and measured strategy qualification remain optimization
+work. The proposed general incremental/isomorphism-aware collection library and
+Jsonnet/Nix interpreter remain separate substantial unimplemented projects.
+Alternative-order certification, unrestricted inference, arbitrary adapter laws
+and unrestricted recursive metalevel closure retain their stated research bounds;
+they are not being relabeled as reproducible bugs or closed by this work unit.
 
 ### P2 retained bindings through source refresh and construction
 
@@ -354,7 +372,7 @@ original feature backlog is explicitly grouped as follows:
 
 | Workstream | Concrete remaining acceptance target | Current anchor |
 | --- | --- | --- |
-| Representation optimization | Qualify small-map/full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
+| Representation optimization | Qualify full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
 | Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
 | Collection protocol | Proposed generic incremental/isomorphism-aware collection library and its laws, beyond existing containers | Generic Data Structure Library below |
 | General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
