@@ -79,3 +79,49 @@ keyword parser, arbitrary/mutable Type overrides, String/Symbol conversion,
 serialization, GC or primitive bit costs. Ordered validation requires fixed
 shape/membership and identity behavior. Full resource limits, complete local
 checks and exact-head CI remain required independently of the model proofs.
+
+## Intrinsic numeric families and complete publication
+
+The runtime already supplied Number, Real and Float in number.ss, but the finite
+syntax registry rejected those names. They now use the same private registry and
+recursive compiler as the other built-ins, with Gerbil's number?, real? and
+flonum? predicates. No replacement class/interface protocol or type namespace is
+introduced. The shared numeric judgment admits Float <: Real <: Number and every
+existing exact integer interval/width <: Real <: Number. These are intrinsic
+predicate facts, never general consequences of prototype ancestry.
+
+The complete syntax on both sides is admitted before comparison. A Float or Real
+source can use a matching Real/Number leaf in an entirely flat ordered Union.
+Finite literals and integer intervals cannot cover all Real or Number values:
+exact noninteger rationals and nonreal numbers remain distinct. Integer does not
+become Float, Bool does not become Number, direct Union order and inhabited Map
+keys stay invariant, and TypeValuePair retains actual descriptor identity. The
+existing literal language still rejects mutable strings and floating/complex
+literals; no numeric rounding, coercion, predicate implication, complement
+reasoning or serialization conversion is inferred. Keyword and escape tokens
+remain outside all three intrinsic numeric families.
+
+examples/numeric-services.ss uses the existing qualified declaration factory,
+prefix specialization and complete finite solver for a measurement Map paired
+with a higher-order calibrator. Gerbil's hash-key-value-map and compose implement
+explicit value conversion in the producer. Recursive Function wrappers protect
+both returned calibrators and the returned batch converter; inference does not
+execute them. descriptor-service-action retains the existing refine,
+bind-evidence and FUN/IO publication chain. Regressions cover independent host
+recognizers (including rational, nonreal, infinite and NaN inputs), unchanged
+values, variance, optional/keyword/rest and ordered case signatures, exact return
+counts, invariant keys/direct alternatives, stale-free independent retry,
+nonunique/no-solution requests and policy refusal before consumer effects.
+
+Lean's existing PrototypeTypes namespace adds NumericFamily and
+NumericObservation in PrototypeTypeDescriptors. numericFamilyCheck_sound proves
+universal inclusion, numericFunction_replacement composes the existing arrow
+variance theorem, and inferNumericFamily_sound reuses inferDeclared to retain
+both original bounds and the exact published artifact. Top-level
+Examples/PrototypeTypes.lean contains the corresponding controls. The abstract
+observation classes require faithful host predicate classification; these proofs
+do not verify floating-point arithmetic, conversion accuracy, codecs, arbitrary
+mutable descriptor overrides or the Scheme compiler/runtime. This advances the
+article's type-protocol future work, not a claim that its Racket reference already
+implements finite inference. Full checks and existing resource limits remain
+independent acceptance gates.

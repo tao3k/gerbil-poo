@@ -7,7 +7,7 @@
         (only-in ./object-contract ObjectContract.)
         (only-in ./optional-validation type-value-catalog capture-type-values
                  catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)
-        (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
+        (only-in ./number Number Real Float Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
         (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
 ;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
@@ -121,14 +121,17 @@
 ;; Empty ranges are numeric bottom, not work failure or a universal fallback.
 (def (empty-range? bounds)
   (and (car bounds) (cdr bounds) (> (car bounds) (cdr bounds))))
-;; Symbolic inclusion compares at most two exact endpoints, never enumerating
-;; inhabitants. Nonnumeric families are deliberately outside this rule.
+;; Intrinsic number?/real?/flonum? inclusion shares the existing integer view.
+;; No ancestry is inspected, no values are coerced, and neither rational nor
+;; floating values become exact integers. Interval inclusion checks endpoints.
 (def (numeric-subtype? source target)
   (def left (numeric-bounds source)) (def right (numeric-bounds target))
-  (and left right
+  (cond ((eq? target 'Number) (and (or left (memq source '(Number Real Float))) #t))
+        ((eq? target 'Real) (and (or left (memq source '(Real Float))) #t))
+        (else (and left right
     (or (empty-range? left)
       (and (or (not (car right)) (and (car left) (<= (car right) (car left))))
-           (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))
+           (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))))
 ;; A finite literal target covers a range only when every integer is present.
 ;; Reject unbounded/oversized intervals before reusing Enum's first-index table;
 ;; duplicate and noninteger literals cannot fill holes. Charge preparation and
@@ -160,7 +163,7 @@
 ;; Keyword/escape transport, ordered Union identity and wrapper admission retain
 ;; their existing judgments; coverage does not execute user recognizers.
 (def (flat-union-source? source work)
-  (or (and (memq source '(Bool String Symbol Keyword Null Unit Bytes Bytes32 Bytes64)) #t) (and (numeric-bounds source) #t)
+  (or (and (memq source '(Number Real Float Bool String Symbol Keyword Null Unit Bytes Bytes32 Bytes64)) #t) (and (numeric-bounds source) #t)
       (and (pair? source) (eq? (car source) 'BytesN))
       (and (pair? source) (memq (car source) '(Exactly Enum))
            (keyword-stable-type? source work))))
@@ -791,7 +794,7 @@
         value)
       (def result
         (if (catalog-type? term) (catalog-contract term work) (case term
-          ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
+          ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Number) Number) ((Real) Real) ((Float) Float) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
           (else
            (case (car term)
              ;; Reuse Class and its effective Slot protocol, including recursive

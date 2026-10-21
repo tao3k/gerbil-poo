@@ -49,6 +49,7 @@
     "type-relation"
     "prototype-types"
     "examples/polymorphic-services"
+    "examples/numeric-services"
     "examples/row-services"
     "examples/contract-interop"
     "examples/service-collection"

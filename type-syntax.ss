@@ -8,6 +8,7 @@
 ;; private; exported lookup never invokes a mutable POO descriptor or user Type.
 (def scalar-recognizers
   (list (cons 'Any true) (cons 'Never false) (cons 'Bool boolean?)
+        (cons 'Number number?) (cons 'Real real?) (cons 'Float flonum?)
         (cons 'Integer exact-integer?) (cons 'UInt (lambda (value) (and (exact-integer? value) (>= value 0))))
         (cons 'Keyword keyword?) (cons 'String string?) (cons 'Symbol symbol?)
         (cons 'Null null?) (cons 'Unit void?) (cons 'Bytes u8vector?)
