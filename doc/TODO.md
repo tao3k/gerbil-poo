@@ -46,6 +46,20 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 request-owned constraint evidence
+
+Closed a raw-query ownership omission: mutating or reusing the caller's query
+buffer could rewrite a completed report and every alternative's inequalities.
+Raw queries now receive one admitted finite snapshot before search; the solver,
+classification and diagnostics use that same snapshot. The call-observation path
+reuses its already owned constraints without another copying/validation pass.
+Unique, ambiguous and no-solution reports, declaration callbacks and later FUN
+requests retain their original evidence. Public report editing remains allowed;
+this is request ownership, not permanent authentication of mutable metadata.
+`signature-request-action` reuses existing prefix binding, declaration factories
+and Reader/FUN composition; tests continue into refine/bind-evidence publication.
+See prototype-types.md and finite-inference-audit.md for conditional proof scope.
+
 ### P2 signature preparation source admission
 
 Closed a real phase gap: standalone `instance-signature` accepted a stale bound

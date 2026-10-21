@@ -180,6 +180,19 @@
     (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
   (infer/checked captured candidates queries work))
 
+;; Admit the complete raw query batch, then give this request its own syntax.
+;; Caller buffers may be reused by later requests or declaration callbacks; their
+;; edits must not rewrite the evidence of an already completed search. Snapshot
+;; before Type admission so every check/search/report reads that same finite data.
+;; Existing Type admission charges all visits and preserves refusal ordering.
+(def (capture-queries queries variables work)
+  (bounded-type-data queries work)
+  (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))
+    (refuse-type 'malformed "Inference queries need actual/expected pairs"))
+  (def captured (map copy-type queries))
+  (for-each (lambda (query) (for-each (cut type-expression <> variables work) query)) captured)
+  captured)
+
 ;; The same finite solver accepts bounds on BOTH sides of a call constraint.
 ;; All callers pass one captured schema and one shared quota through construction.
 (def (infer/checked scheme candidates queries work (derive #f) (queries-checked? #f))
@@ -187,16 +200,10 @@
     (bounded-type-data candidates work)
     (require-value candidates list? (lambda () (refuse-type 'malformed "Type candidates must be a list")))
     (type-expression `(Tuple ,@candidates) [] work)
-    ;; Private call projection copies already admitted actual/formal expressions.
-    ;; Public raw queries still pass complete shape and syntax admission below.
-    ;; Reuse that judgment instead of reparsing every copied call constraint.
-    (unless queries-checked?
-      (bounded-type-data queries work)
-      (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))
-        (refuse-type 'malformed "Inference queries need actual/expected pairs"))
-      (for-each (lambda (query)
-                  (type-expression (car query) (.get scheme variables) work)
-                  (type-expression (cadr query) (.get scheme variables) work)) queries))
+    ;; Call projection already owns its copied constraints. Raw query inference
+    ;; uses the same solver only after complete admission and request capture.
+    (def captured-queries
+      (if queries-checked? queries (capture-queries queries (.get scheme variables) work)))
     (let ((solutions []) (domain (delete-duplicates/hash
                     (map-in-order (lambda (candidate) (canonical-type (copy-type candidate) work)) candidates))))
       (let search ((variables (.get scheme variables)) (arguments []))
@@ -205,7 +212,7 @@
           (for-each (lambda (candidate) (search (cdr variables) (cons candidate arguments))) domain)
           (let* ((ordered (reverse arguments))
                  (substitution (map cons (.get scheme variables) ordered))
-                 (derived queries) (layout #f) (ground #f))
+                 (derived captured-queries) (layout #f) (ground #f))
             (when (try
                     (begin
                       (set! ground (substitute-type (.get scheme expression) substitution work))
@@ -228,7 +235,7 @@
             alternatives: (map (lambda (solution)
               (.o bind-these: #f arguments: (inference-solution-arguments solution)
                 queries: (inference-solution-queries solution) expression: (inference-solution-expression solution))) ordered)
-            queries: (if (eq? status 'unique) (inference-solution-queries (car ordered)) queries))))))
+            queries: (if (eq? status 'unique) (inference-solution-queries (car ordered)) captured-queries))))))
 
 ;; One observation is (field-path supplied-Type-arguments expected-output-Types).
 ;; #f outputs means no return obligation; () requires zero user values. Reuse the

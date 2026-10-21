@@ -1326,3 +1326,40 @@ poison-counter correspondence premise.
 publication. Its illustrative 7/5 charges are not measured Scheme costs and do not
 prove every runtime visit is metered. This advances the article's type-protocol
 future work; the Racket appendix does not already implement finite inference.
+
+## Request-owned query evidence
+
+Raw `infer-prototype` / `infer-declared` queries are admitted as a complete finite
+pair batch and copied before Type admission and candidate enumeration. The same
+request-owned snapshot supplies the solver, selected/alternative inequalities and
+top-level diagnostics for unique, ambiguous and no-solution reports. Reusing the
+caller's buffer, even inside a declaration callback, cannot silently rewrite the
+constraints reported for an earlier solve. Original literal names, keyword markers,
+branch order and catalog token identities are preserved by existing `copy-type`;
+no canonicalization is applied to query evidence. Known call projections already
+own their constraints and do not gain a redundant copy or admission traversal.
+
+The existing bounded pair traversal rejects deep/cyclic input before copying;
+syntax failures, unsupported Types, bounds refusal, work exhaustion and callback
+errors keep their phases. Standard ordered traversal and the existing shared
+work counter remain in use. This does not promise an exact copying/GC cost model,
+thread-atomic capture of concurrently mutated input, immutable public reports,
+transitive Type purity or a permanent authorization certificate.
+
+`signature-request-action` reads each query batch through existing Reader/FUN
+bind and reuses a checked prefix and the complete declaration factory. Its
+regression workflow reuses one buffer across successful publication, no-solution,
+fresh requests and refinement refusal, retaining nested Function wrapping and
+exact bind-evidence contexts. Ordinary declaration callback reuse and all three
+classification results have independent controls.
+
+`LeanPoo.Functional.InferenceReports` extends the existing DeclarativeMetadata
+namespace and delegates to `inferDeclared`, rather than implementing another
+solver. `inferDeclaredQueries_sound` proves original reported-query equality,
+selected-candidate membership, all original bound/query subtype obligations and
+successful builder provenance. Companion laws preserve nonunique classifications, exhaustion and the exact
+builder cause even if the builder returns arbitrary changed caller state. Lean's
+lists model faithfully captured Scheme syntax; the actual heap copy and host Type
+interpretation are explicit correspondence premises, tested in Gerbil. This
+continues the article's finite type-system future work; unrestricted inference
+and semantic discovery remain outside the claim.

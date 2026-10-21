@@ -2,7 +2,7 @@
 (export infer-tagged-worker-service infer-callback-directory-service infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export RetiredKeywordServiceType infer-retired-keyword-service)
 (export TokenCallbackServiceType infer-token-callback-service)
-(export shared-service-calls observed-conversion-declarations)
+(export shared-service-calls observed-conversion-declarations signature-request-action)
 (export MetadataServiceType infer-metadata-service metadata-service-request)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
@@ -106,6 +106,20 @@
       (defvalues (answer next) (convert receiver value))
       (consume answer)
       (values answer next)))))
+
+;; Read each request's constraints through the existing Reader/FUN bind, then
+;; reuse one checked prefix and the complete typed declaration factory. Requests
+;; return classification data unchanged; only unique searches build methods.
+;; The caller may reuse its query buffer: completed reports retain their own
+;; admitted constraints. Publication remains catalog-service-action's existing
+;; refine/evidence/IO workflow, with no new approval authority or cached result.
+(def (signature-request-action schema prefix candidates requests procedure (record void))
+  (using (requests :~ procedure?)
+    (def residual (specialize-prototype-type schema prefix))
+    (.call observation.Observation. .bind requests
+      (lambda (queries) (lambda (_context)
+        (infer-declared residual candidates queries
+          (cut signature-service-declarations <> procedure record)))))))
 
 ;; The same rank-one schema now has optional/rest/keyword input positions and two
 ;; outputs, one itself a checked callback. Literal keyword names are not variables.
