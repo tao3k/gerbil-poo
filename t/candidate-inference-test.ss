@@ -2,6 +2,11 @@
 (export candidate-inference-test)
 (import :std/test :std/error ../object ../mop ../prototype-types ../type-relation
         (only-in ../type-syntax map-type-children)
+        ../declaration
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key)
+        (prefix-in ../multimethod dispatch.) (prefix-in ../declarative-metadata metadata.)
+        (prefix-in ../dispatch-extension extension.)
+        (prefix-in ../method-combination combination.)
         ../method-declaration (prefix-in ../examples/polymorphic-services service.))
 ;; Preserve typed failures while keeping ordinary builder errors observable.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))
@@ -70,6 +75,117 @@
 ;; Complete end-to-end coverage includes kind, shape, rows, quotas and provenance.
 (def candidate-inference-test
   (test-suite "Candidate-dependent signatures and field layouts"
+    (test-case "final parameter getters cannot change already admitted source metadata"
+      (for-each (lambda (revise)
+        (def instance (instantiate-prototype service.DescriptorServiceType '(Integer UInt)))
+        (def effects 0)
+        (check-exception (service.finalizing-service-declarations
+          (lambda (instance owner) (set! effects (1+ effects)) (revise instance owner))
+          instance (lambda (value) (values (abs value) abs)) void) (refusal 'bounds))
+        (check-equal? effects 1))
+        (list
+          (lambda (instance _) (.setslot! instance expression
+            ($constant-slot-spec '(Function (Bool) (Integer)))))
+          (lambda (instance _) (set-car! (cadr (.get instance expression)) 'Bool))
+          (lambda (instance _) (set-car! (car (.get instance bound-parameters)) 'Other))))
+      (def cause (list 'finalizer-failed))
+      (def instance (instantiate-prototype service.DescriptorServiceType '(Integer UInt)))
+      (check (try (service.finalizing-service-declarations
+        (lambda (_instance _owner) (raise cause)) instance (lambda (value) (values (abs value) abs)) void)
+        #f (catch (actual) (eq? actual cause))) => #t)
+      (def healthy (instantiate-prototype service.DescriptorServiceType '(Integer UInt)))
+      (def completions 0)
+      (check (pair? (service.finalizing-service-declarations
+        (lambda (_instance _owner) (set! completions (1+ completions)))
+        healthy (lambda (value) (values (abs value) abs)) void)) => #t)
+      (check-equal? completions 1))
+    (test-case "later binding getters cannot invalidate earlier direct descriptor checks"
+      (def schema (prototype-type (.o .parameters: '(A B)) '(A B) '(Function (A) (B)) []))
+      (def instance (instantiate-prototype schema '((List UInt) (List Integer))))
+      (def owner (.get instance prototype))
+      (def first (.get owner A)) (def second (.get owner B))
+      (.setslot! owner B ($computed-slot-spec (lambda (_self _inherited)
+        (.setslot! first audit ($constant-slot-spec 'changed)) second)))
+      (check-exception (bound-parameters instance) (refusal 'bounds))
+      (def fresh (instantiate-prototype schema '((List UInt) (List Integer))))
+      (check-equal? (bound-parameters fresh) '(A B))
+      (def cause (list 'binding-getter-failed))
+      (def failed-owner (.get fresh prototype))
+      (.setslot! failed-owner B ($computed-slot-spec (lambda (_self _inherited)
+        (.setslot! (.get failed-owner A) audit ($constant-slot-spec 'changed)) (raise cause))))
+      (check (try (bound-parameters fresh) #f (catch (actual) (eq? actual cause))) => #t))
+    (test-case "nested catalog getters cannot revise syntax after initial declaration admission"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result)
+        '(Object ((api (Object ((run (Function (Result) (Integer)))) closed))) closed) []))
+      (def armed? #f) (def edits 0) (def expression #f)
+      ;; Reuse the existing nested typed declaration and finite path protocol.
+      (def (build instance)
+        (def certified (instance-signature instance (lambda (_) [['Value]]) []
+          standard-combination combination.standard-contribution? #f 8192 1 '(api run)))
+        (def api (object<-declaration-forms MethodDeclaration. instance
+          [(typed-method-fragment 'run certified
+            [(metadata.replace "run" [(dispatch.prototype 'Value)]
+              (combination.primary (lambda (_ value) (abs value))))])]))
+        (set! expression (.get instance expression))
+        (set! armed? #t)
+        [(declaration-form 'public 'api (.o (constant api)))])
+      ;; The first real api value read happens during final catalog walking,
+      ;; after source admission. Reuse its existing finite signature projection.
+      (def (observe read)
+        (when (and armed? (eq? (slot-read-key read) 'api))
+          (set! armed? #f) (set! edits (1+ edits))
+          (set-car! (cadr (function-expression expression '(api run) (type-work 8192))) 'Bool)))
+      (check-exception (call-with-slot-read-observer observe
+        (lambda () (infer-declared-calls schema '(UInt)
+          '(((api run) (Integer) (UInt))) build))) (refusal 'bounds))
+      (check-equal? edits 1))
+    (test-case "failed finalization retries through inferred declarations wrapping and evidence"
+      (def partial (specialize-prototype-type service.DescriptorServiceType '(Integer)))
+      (def observations '((() (Integer) (UInt (Function (UInt) (Integer))))))
+      (def staged (infer-prototype-calls partial '(UInt Bool) observations))
+      (def effects 0) (def bodies 0) (def consumed 0) (def callback #f)
+      ;; Finalization effects remain observable even when no declaration escapes.
+      (def (finalize instance _owner)
+        (set! effects (1+ effects)) (set-car! (cadr (.get instance expression)) 'Bool))
+      ;; The returned function is recursively wrapped by the existing signature.
+      (def (operation value) (set! bodies (1+ bodies)) (values (abs value) abs))
+      (check-exception (service.finalizing-service-declarations finalize
+        (.get staged instance) operation void) (refusal 'bounds))
+      (check-equal? effects 1) (check-equal? bodies 0)
+      (def report (infer-declared-calls partial '(UInt Bool) observations
+        (cut service.signature-service-declarations <> operation void)))
+      (check-equal? (.get report solutions) '((UInt)))
+      (def context (.o approved: #t))
+      (check-exception ((service.descriptor-service-action (.get report instance) -7 context void #f) context) TypeError?)
+      (def action (service.descriptor-service-action (.get report instance) -7 context
+        (lambda (subject) (set! consumed (1+ consumed)) (set! callback (.get subject callback)))))
+      (defvalues (evidence next issue) (action context))
+      (check-equal? issue #f) (check-equal? consumed 1)
+      (check (eq? (.get evidence context) context) => #t) (check (eq? next context) => #t)
+      (check-equal? (callback -9) 9) (check-exception (callback #f) TypeError?))
+    (test-case "publication jointly rechecks compiled origins after final source getters"
+      (for-each (lambda (stage)
+        (def schema (prototype-type (.o .parameters: '(T)) '(T) '(Function (T) (Integer)) []))
+        (def descriptor #f) (def armed? #f) (def source-seen? #f) (def edits 0)
+        ;; Retain the real factory-owned signature, then use the same qualified
+        ;; stream. No method body may execute during whole declaration admission.
+        (def (build instance)
+          (def signature (instance-signature instance (lambda (_) [['Service]]) []))
+          (set! descriptor (dispatch.function-signature (extension.snapshot signature)))
+          (def forms (service.signature-service-declarations instance abs void signature))
+          (set! armed? #t) forms)
+        ;; Revise at the real source getter or the later root catalog read.
+        ;; The earlier forcing read cannot trigger the catalog-stage control.
+        (def (observe read)
+          (when armed?
+            (when (eq? (slot-read-key read) '.parameters) (set! source-seen? #t))
+            (when (and source-seen?
+                    (eq? (slot-read-key read) (if (eq? stage 'source) '.parameters '.invoke)))
+              (set! edits (1+ edits)) (set! armed? #f)
+              (.setslot! descriptor audit ($constant-slot-spec 'changed)))))
+        (check-exception (call-with-slot-read-observer observe
+          (lambda () (infer-declared schema '(UInt) [] build))) (refusal 'bounds))
+        (check-equal? edits 1)) '(source catalog)))
     (test-case "explicit and prefix requests own nested arguments before source refresh"
       (for-each (lambda (request)
         (def source (.o .parameters: '(T)))

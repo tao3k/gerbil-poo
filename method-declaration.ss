@@ -5,7 +5,7 @@
         instantiate-declared infer-declared infer-declared-calls instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop ./declaration
         (only-in ./reflection reflect-slots)
-        (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked)
+        (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
         (prefix-in ./parameters positional.)
         (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression copy-type refuse-type)
         (prefix-in ./multimethod dispatch.)
@@ -205,17 +205,27 @@
 ;; validate its current grammar, compare the captured snapshot, then recheck live
 ;; descriptor identities/revisions and the closed positional parameter suffix.
 ;; Work belongs to the caller; computed-slot failures retain their original cause.
-(def (admit-instance-source instance captured-expression captured-bindings work)
+(def (admit-instance-source instance captured-expression captured-bindings work (consume identity))
+  (def revision (object-revision instance))
   (def expression (.get instance expression))
   (type-expression expression [] work)
   (def bindings (.get instance bound-parameters))
   (bounded-type-data bindings work)
   (unless (and (equal? expression captured-expression) (equal? bindings captured-bindings))
     (refuse-type 'bounds "Captured type metadata changed"))
-  (def names (bound-parameters/checked instance work))
-  (unless (null? (positional.parameters (.get instance prototype)))
-    (refuse-type 'bounds "Type instance has unbound positional parameters"))
-  names)
+  (with-bound-parameters/checked instance work
+    (lambda (names)
+      (def remaining (positional.parameters (.get instance prototype)))
+      (unless (null? remaining)
+        (refuse-type 'bounds "Type instance has unbound positional parameters"))
+      (def result (consume names))
+      ;; No getter runs after these held-value comparisons. The enclosing
+      ;; binding continuation then finishes its pure joint revision fence.
+      (unless (= revision (object-revision instance))
+        (refuse-type 'bounds "Captured type source changed"))
+      (unless (and (equal? expression captured-expression) (equal? bindings captured-bindings))
+        (refuse-type 'bounds "Captured type metadata changed"))
+      result)))
 ;; Recompile the checked finite Function/CaseFunction expression. Required,
 ;; optional, keyword, rest and exact output rows use the existing validator;
 ;; clause order remains observable. Dispatch axes are fixed independently of
@@ -238,8 +248,9 @@
   (def checked (extension.check (if prepare (dispatch.prepared seed prepare) seed) watches))
   ;; Negative call watches can execute precedence callbacks. Successful checking
   ;; must not return a signature derived from a source revised by those callbacks.
+  (def origin (declared-source checked))
   (admit-instance-source instance captured-expression captured-bindings work)
-  (check-signature-source! (declared-source checked))
+  (check-signature-source! origin)
   checked)
 
 ;; Only explicit Object paths ending at Function/CaseFunction are declaration
@@ -256,50 +267,60 @@
 ;; Source/path/descriptor/revision mismatch refuses before publication. Nested
 ;; carriers reuse object construction guards; finite syntax/work bounds the walk.
 (def (admit-signatures instance receiver captured-expression captured-bindings catalog slots work)
-  (admit-instance-source instance captured-expression captured-bindings work)
-  ;; Only exact source equality above admits this private normalized snapshot.
-  ;; It derives from captured-expression, never the builder's mutable public AST.
-  (when (and (pair? catalog) (memq (car catalog) '(Function CaseFunction)))
-    (let (found? #f)
-      ;; declare-instance holds this receiver and its registered metadata sources
-      ;; under the construction guard from reflection through this final admission.
-      (for (entry slots)
-        (work)
-        (def slot (cdr entry))
-        (when (and (method-slot? slot) (.@ slot signature))
-          (let* ((group (.ref receiver (car entry))) (origin (declared-methods-source group)))
-            (when origin
-              (unless (and (null? (signature-origin-path origin))
-                           (equal? (signature-origin-expression origin) catalog))
-                (refuse-type 'bounds "Root declared signature differs from its captured expression" (car entry)))
-              (set! found? #t)))))
-      (unless found? (refuse-type 'bounds "No typed method implements the root Function signature"))))
-  (when (and (pair? catalog) (eq? (car catalog) 'Object))
-    (let walk ((term catalog) (owner receiver) (path []))
-      (work)
-      (unless (object? owner) (refuse-type 'bounds "Named signature carrier must be an Object" path))
-      (instantiate-object! owner)
-      (parameterize ((active-object-constructions (cons owner (active-object-constructions))))
-        (for-each (lambda (field)
-          (when (signature-catalog? (cadr field) work)
-            (let* ((name (car field)) (location (append path (list name))))
-            (unless (.slot? owner name) (refuse-type 'bounds "Missing declared signature" location))
-            (def value (.ref owner name))
-            (if (eq? (car (cadr field)) 'Object)
-              (walk (cadr field) value location)
-              (begin
-                (unless (declared-methods? value) (refuse-type 'bounds "Signature field needs a typed method group" location))
-                (let* ((snapshot (extension.snapshot (declared-snapshot value)))
-                       (descriptor (dispatch.function-signature snapshot))
-                       (origin (declared-methods-source value)))
-                  (unless (and (signature-origin? origin)
-                    (equal? (signature-origin-path origin) location)
-                    (equal? (signature-origin-expression origin) (cadr field))
-                    (eq? (signature-origin-descriptor origin) descriptor)
-                    (= (signature-origin-revision origin) (object-revision descriptor)))
-                    (refuse-type 'bounds "Declared signature source changed or differs from its catalog" location))))))))
-          (cadr term)))))
-  receiver)
+  (def origins [])
+  (def admitted (admit-instance-source instance captured-expression captured-bindings work
+    (lambda (_names)
+      ;; Only exact source equality above admits this private normalized snapshot.
+      ;; It derives from captured-expression, never the builder's mutable public AST.
+      (when (and (pair? catalog) (memq (car catalog) '(Function CaseFunction)))
+        (let (found? #f)
+          ;; declare-instance holds this receiver and its registered metadata sources
+          ;; under the construction guard from reflection through this final admission.
+          (for (entry slots)
+            (work)
+            (def slot (cdr entry))
+            (when (and (method-slot? slot) (.@ slot signature))
+              (let* ((group (.ref receiver (car entry))) (origin (declared-methods-source group)))
+                (when origin
+                  (unless (and (null? (signature-origin-path origin))
+                               (equal? (signature-origin-expression origin) catalog))
+                    (refuse-type 'bounds "Root declared signature differs from its captured expression" (car entry)))
+                  (set! origins (cons origin origins))
+                  (set! found? #t)))))
+          (unless found? (refuse-type 'bounds "No typed method implements the root Function signature"))))
+      (when (and (pair? catalog) (eq? (car catalog) 'Object))
+        (let walk ((term catalog) (owner receiver) (path []))
+          (work)
+          (unless (object? owner) (refuse-type 'bounds "Named signature carrier must be an Object" path))
+          (instantiate-object! owner)
+          (parameterize ((active-object-constructions (cons owner (active-object-constructions))))
+            (for-each (lambda (field)
+              (when (signature-catalog? (cadr field) work)
+                (let* ((name (car field)) (location (append path (list name))))
+                (unless (.slot? owner name) (refuse-type 'bounds "Missing declared signature" location))
+                (def value (.ref owner name))
+                (if (eq? (car (cadr field)) 'Object)
+                  (walk (cadr field) value location)
+                  (begin
+                    (unless (declared-methods? value) (refuse-type 'bounds "Signature field needs a typed method group" location))
+                    (let* ((snapshot (extension.snapshot (declared-snapshot value)))
+                           (descriptor (dispatch.function-signature snapshot))
+                           (origin (declared-methods-source value)))
+                      (unless (and (signature-origin? origin)
+                        (equal? (signature-origin-path origin) location)
+                        (equal? (signature-origin-expression origin) (cadr field))
+                        (eq? (signature-origin-descriptor origin) descriptor)
+                        (= (signature-origin-revision origin) (object-revision descriptor)))
+                        (refuse-type 'bounds "Declared signature source changed or differs from its catalog" location))
+                      (set! origins (cons origin origins))))))))
+              (cadr term)))))
+      receiver)))
+  ;; Catalog walking is the source gate's consumer: one grammar/binding admission
+  ;; surrounds every getter, followed by pure postconditions without reparsing.
+  ;; Later catalog/source getters may revise earlier compiled signatures too.
+  ;; These immutable origin stamps need only a final direct revision check.
+  (for-each (lambda (origin) (work) (check-signature-source! origin)) origins)
+  admitted)
 
 ;; Build from an already complete specialization under existing construction
 ;; guards. Freeze its receiver/context during the builder, normal declaration

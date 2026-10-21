@@ -1,5 +1,5 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
-(export instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked prototype-type specialize-prototype-type instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
+(export instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked prototype-type specialize-prototype-type instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
 (import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop map-in-order)
         ./object ./type-relation (only-in ./mop Type validate)
         (prefix-in ./parameters positional.)
@@ -16,9 +16,22 @@
   (map (lambda (name descriptor) (cons name (make-type-binding descriptor (object-revision descriptor))))
     names descriptors))
 
+;; Jointly check direct source revisions after ALL getters/consumers. This pure
+;; fence invokes no getter or Type callback and charges the existing work quota.
+;; Supported changes propagate through the established object revision protocol.
+(def (check-binding-revisions prototype revision bound work)
+  (unless (= revision (object-revision prototype))
+    (refuse-type 'bounds "Bound parameter source changed"))
+  (for-each (lambda (binding)
+    (work)
+    (def snapshot (cdr binding))
+    (unless (= (object-revision (type-binding-descriptor snapshot)) (type-binding-revision snapshot))
+      (refuse-type 'bounds "Bound type parameter changed" (car binding)))) bound))
+
 ;; Check the current parameter fields and direct descriptor revisions under one
 ;; quota. These snapshots do not certify transitive callback/Type behavior.
 (def (check-bindings prototype bound variables work)
+  (def revision (object-revision prototype))
   (bounded-type-data bound work)
   (unless (and (list? bound)
                (andmap (lambda (binding) (and (pair? binding) (symbol? (car binding)) (type-binding? (cdr binding)))) bound)
@@ -33,6 +46,7 @@
     (unless (and (eq? (.ref prototype (car binding)) descriptor)
                  (= (object-revision descriptor) (type-binding-revision snapshot)))
       (refuse-type 'bounds "Bound type parameter changed" (car binding)))) bound)
+  (check-binding-revisions prototype revision bound work)
   bound)
 
 ;; Return copied bound names after rechecking the current receiver and Type
@@ -43,7 +57,24 @@
 ;; Internal publication checks consume the caller's existing request quota.
 ;; A fresh public inspection still owns its independent validated budget.
 (def (bound-parameters/checked instance work)
-  (map car (check-bindings (.get instance prototype) (.get instance bound-parameters) [] work)))
+  (with-bound-parameters/checked instance work identity))
+
+;; Compose a source consumer with the SAME binding admission. Its successful
+;; result escapes only after a joint, callback-free revision/metadata check;
+;; original consumer errors propagate without replacement or effect rollback.
+(def (with-bound-parameters/checked instance work consume)
+  (using (consume :~ procedure?)
+    (def revision (object-revision instance))
+    (def original (.get instance bound-parameters))
+    (def captured (capture-type-data original work))
+    (def prototype (.get instance prototype))
+    (def source-revision (object-revision prototype))
+    (def checked (check-bindings prototype captured [] work))
+    (def result (consume (map car checked)))
+    (unless (and (= revision (object-revision instance)) (equal? original captured))
+      (refuse-type 'bounds "Bound parameter metadata changed"))
+    (check-binding-revisions prototype source-revision checked work)
+    result))
 
 ;; Capture an immutable syntax snapshot before any specialization or computed
 ;; prototype field executes. Variable names are exactly existing .parameters;

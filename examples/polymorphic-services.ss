@@ -6,6 +6,7 @@
 (export MetadataServiceType infer-metadata-service metadata-service-request)
 (export infer-observed-descriptor-service)
 (export infer-observed-descriptor-calls)
+(export finalizing-service-declarations)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -139,11 +140,11 @@
   slot: .invoke combination: invoke-declared)
 ;; A whole qualified declaration group shares one inferred signature and existing
 ;; standard preparer. No method executes until a shape/type-checked call succeeds.
-(def (signature-service-declarations instance procedure record)
-  (def certified (instance-signature instance (lambda (_) [['Service]]) []
+(def (signature-service-declarations instance procedure record (signature #f))
+  (def certified (or signature (instance-signature instance (lambda (_) [['Service]]) []
     standard-combination combination.standard-contribution?
     (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing service"))))
-    8192 1))
+    8192 1)))
   (def path [(dispatch.prototype 'Service)])
   [(typed-method-fragment '.invoke certified
     [(metadata.replace "service" path
@@ -152,6 +153,23 @@
      (metadata.contribute "audit-after" path (combination.after (lambda _ (record 'after))))
      (metadata.contribute "audit-around" path
        (combination.around (lambda (next . _arguments) (record 'around) (next))))])])
+;; Stage an explicit source-finalization hook during negative-call preparation.
+;; The last admission must retain its original instance/binding metadata. This
+;; staging API runs outside closed declaration construction; supported edits
+;; remain forbidden inside that existing guard, and effects are not rolled back.
+;; Reuse the same whole qualified stream and precompiled standard combination.
+(def (finalizing-service-declarations finalize instance procedure record)
+  (using (finalize :~ procedure?)
+    (def certified (instance-signature instance
+      (lambda (arguments)
+        (.setslot! (.get instance prototype) .parameters
+          ($computed-slot-spec (lambda (_self _inherited)
+            (finalize instance (.get instance prototype)) [])))
+        (if (= (car arguments) -1) [['Blocked]] [['Service]]))
+      [(extension.call -1)] standard-combination combination.standard-contribution?
+      (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing service"))))
+      8192 1))
+    (signature-service-declarations instance procedure record certified)))
 ;; Explicit complete binding uses the same declaration stream as residual inference.
 (def (instantiate-signature-service schema arguments procedure (record void))
   (instantiate-declared schema arguments (cut signature-service-declarations <> procedure record)))

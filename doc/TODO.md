@@ -46,6 +46,26 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 joint final-source admission
+
+Closed a success-time omission: a final computed parameter getter could change
+the instance expression after it had been compared, yet signature preparation
+still returned a certificate. A later binding getter could also invalidate an
+earlier descriptor after its individual check. Binding inspection now composes
+its consumer with one shared final direct-revision/metadata fence. Signature
+preparation performs no source getter after that joint gate, and whole nested
+catalog walking is its consumer: one admission surrounds all catalog getters,
+followed by pure postconditions without another grammar/Type validation pass.
+Required compiled signature origins receive their joint pure revision check too.
+Raw pair metadata receives a final held-value comparison; supported edits reuse
+the existing object revision protocol. Original callback failures retain their
+cause, effects are not rolled back, and all visits retain the request quota.
+Staged finalization, nested catalogs, fresh inference, recursive Function wrapping
+and refine/bind-evidence/FUN publication have integrated regression controls.
+Lean reuses existing source and binding gates with explicit post-getter source
+interpretation premises. Arbitrary transitive callback stability remains outside
+this finite future-work protocol; no whole read-dependency closure is traversed.
+
 ### P2 complete request capture before source refresh
 
 Closed the complementary request-input omission: computed parameter getters

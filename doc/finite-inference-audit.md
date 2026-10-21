@@ -37,6 +37,57 @@ Existing finite Function/case language, keyword-origin, Pair/Map/Sum/Union and
 explicit Object/Record protocols retain their documented bounds. This audit does
 not claim complete runtime Type coverage or mark every TODO complete.
 
+## Joint final-source admission after all getters
+
+An executable phase-order defect remained after request capture: negative-call
+preparation could arrange a final `.parameters` getter that changed the instance
+expression AFTER its equality check. The old API returned declaration forms while
+the source already had another signature. Individual bound checks likewise did
+not notice a later binding getter revising an earlier descriptor.
+
+The existing direct revision protocol now closes both cases. `check-bindings`
+finishes with a pure joint prototype/descriptor revision check.
+`with-bound-parameters/checked` composes the same admission with a consumer,
+retaining owned binding metadata and checking instance/prototype/Type revisions
+after successful consumption. Ordinary bound inspection uses identity as its
+consumer. `admit-instance-source` puts residual-parameter getters inside that
+continuation and compares its held syntax/binding values after the last getter.
+There are no source getters between those final pure checks and return. Signature
+origin lookup precedes this gate; its final descriptor-revision check is pure.
+Whole declaration admission passes catalog walking as that same gate's consumer:
+one original grammar/binding admission surrounds all getters, followed by pure
+postconditions. It does not repeat the full grammar or Type validation pass.
+The same walk retains its immutable signature origins; a final pure revision
+check covers every retained origin after the last source getter, for both root
+and nested generics. Existing catalog-current laws remain applicable to that
+actual final observation.
+
+This adds linear visits over the known bound descriptors, charged to the same
+quota. It does not traverse every cached read dependency, rerun getters or invoke
+another Type validator after the consumer. Direct observed object revisions must
+remain stable during admission; raw pair edits are checked against the owned
+snapshot. Supported edits use established invalidation. Arbitrary raw object-setter
+escapes, transitive callback semantics and concurrent unsynchronized mutation are
+not inferred safe. Failed callbacks keep their original exception before success
+checks, and prior effects remain observable.
+
+`finalizing-service-declarations` reuses the qualified service factory and standard
+combination for explicit staging outside closed construction. Existing construction
+guards still forbid source edits during declaration building. Regressions cover
+supported and raw late metadata edits, cross-binding descriptor invalidation,
+healthy finalizers, exact callback errors, actual nested catalog getter edits,
+failed staging and fresh inference/declaration/refine/evidence/FUN/IO publication
+with recursively wrapped returned Functions. No failed stage returns forms.
+
+Lean `finalizeDeclaredSource` composes the EXISTING `admitDeclaredSource` and
+`admitDeclaredBindings`; four laws retain exact source equality, original binding
+identity/revision, exact artifacts, refusal and original callback errors. The host
+must provide actual post-callback observations, including closed suffix metadata,
+and implement the direct revision discipline. Examples/Parameters.lean covers
+late syntax edits, reopened parameters, descriptor replacement and revision changes.
+These are conditional finite future-work laws, not heap/compiler verification or
+a performance claim. All existing process bounds and full checks remain required.
+
 ## Complete requests own their inputs before source refresh
 
 The earlier schema fix did not capture the surrounding request. A computed

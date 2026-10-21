@@ -511,6 +511,35 @@ callback effects/termination and transitive dependencies are not established by
 these conditional laws. This is finite type-system future work from the article,
 not a claim that its Racket sketches implement a full inference algorithm.
 
+### Final source admission includes every preceding getter
+
+Successful signature preparation now establishes one joint postcondition after
+all bound, residual-parameter and origin getters: the instance metadata still
+matches its captured syntax/bindings, parameters remain closed, and the known
+instance/prototype/Type revisions are current. The shared binding continuation
+finishes with pure revision checks; syntax checks retain actual values until the
+last getter. Original callback exceptions propagate before these success checks.
+Whole catalog walking is the same source gate's consumer, so an initial source
+check cannot authorize a later changed catalog. One grammar/binding validation
+surrounds the walk; final pure checks avoid reparsing and revalidating Types.
+Retained root/nested signature origins also receive a pure revision check after
+the last source getter, using the same existing origin stamps.
+
+`finalizing-service-declarations` stages this protocol through the existing service
+signature and qualified fragment factory, outside the closed construction guard.
+Healthy finalizers retain deferred bodies; changed sources yield no forms. The
+existing unified declared APIs, recursive wrappers and refinement/evidence/FUN/IO
+publisher handle a fresh retry. No new dispatch or source namespace is introduced.
+Joint checks visit only known bindings using existing revisions and quotas; they
+do not replay the entire cached read graph. Effects already executed are not
+rolled back and arbitrary transitive callback stability remains a premise.
+
+Lean's `finalizeDeclaredSource` composes existing source and bound-identity gates.
+Its four laws require faithful actual post-getter observations and the host's
+direct revision discipline. They preserve source equality, exact artifacts,
+descriptor identity/revision and original callback causes. They neither infer
+callback termination/purity nor verify the host compiler or heap.
+
 ### Complete request capture precedes source refresh
 
 Explicit binding, prefix specialization, raw inference and observed-call inference
