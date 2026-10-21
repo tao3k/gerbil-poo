@@ -1,5 +1,5 @@
 ;;; Finite structural Type expressions; no nominal-inheritance implication.
-(export capture-type-catalog capture-type-data function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
+(export check-function-path capture-type-catalog capture-type-data function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/list/alist plist->alist)
         (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./type-syntax ./recursive-types ./object
@@ -37,13 +37,19 @@
                (list 'Object (append fields (cadr row)) (caddr row))))))
         (else (map-type-children term (cut normalize-type <> work) #t))))
 
+;; Admit a finite symbolic method path under the request's existing quota.
+;; The caller decides ownership; this shared check executes no source getter.
+(def (check-function-path path work)
+  (bounded-type-data path work)
+  (unless (and (list? path) (andmap symbol? path))
+    (refuse-type 'malformed "Signature path must contain field names" path))
+  path)
+
 ;; Select a declared Function through explicit Object fields. An unresolved row
 ;; tail or Type variable cannot invent a named signature before substitution.
 ;; Callers validate syntax with their own variable set before this shared walk.
 (def (function-expression expression path work (missing 'unsupported))
-  (bounded-type-data path work)
-  (unless (and (list? path) (andmap symbol? path))
-    (refuse-type 'malformed "Signature path must contain field names" path))
+  (check-function-path path work)
   (let walk ((term expression) (path path))
     (work)
     (def current (if (and (pair? term) (eq? (car term) 'Mu)) (normalize-type term work) term))
@@ -61,9 +67,7 @@
 ;; detects only actual Type positions. Fixed absent paths still refuse up front.
 ;; Candidate projection later uses function-expression with bounds refusal.
 (def (function-template expression path variables work)
-  (bounded-type-data path work)
-  (unless (and (list? path) (andmap symbol? path))
-    (refuse-type 'malformed "Signature path must contain field names" path))
+  (check-function-path path work)
   ;; A private false marker detects free Type parameters without unfolding Mu.
   (def (dependent? term)
     (not (equal? term (substitute-type term (map (lambda (name) (cons name #f)) variables) work))))

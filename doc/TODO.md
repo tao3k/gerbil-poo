@@ -46,6 +46,25 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 original field selection during signature preparation
+
+A computed parameter getter could rewrite a caller-owned Object method path
+before `instance-signature` selected its Function. A different valid sibling
+therefore supplied the descriptor and private origin stamp. Signature preparation
+now admits and copies the complete finite symbolic path before any instance or
+binding getter. Selection and provenance use the same owned path; later requests
+observe subsequent buffer edits. Shared Function path admission replaces the two
+walkers' duplicate checks. Cycles, malformed paths and exhausted requests refuse
+before source effects; getter errors retain their original cause. Negative-watch
+payload immutability/purity remains the existing dispatch precondition.
+
+The nested run/audit example combines candidate inference, whole declaration
+admission, returned Function wrapping, refinement and exact evidence publication
+through FUN/IO, including approval/policy refusal and retry. Lean proves capture
+and refresh failure order and successful selection at the original path, under
+faithful host capture/refresh/compiler interpretation. This advances finite type
+future work; it proves neither arbitrary mutation/rollback nor Scheme compilation.
+
 ### P2 joint final-source admission
 
 Closed a success-time omission: a final computed parameter getter could change

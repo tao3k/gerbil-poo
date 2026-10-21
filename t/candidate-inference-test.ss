@@ -7,7 +7,8 @@
         (prefix-in ../multimethod dispatch.) (prefix-in ../declarative-metadata metadata.)
         (prefix-in ../dispatch-extension extension.)
         (prefix-in ../method-combination combination.)
-        ../method-declaration (prefix-in ../examples/polymorphic-services service.))
+        ../method-declaration (prefix-in ../examples/polymorphic-services service.)
+        (prefix-in ../examples/signature-service selected.))
 ;; Preserve typed failures while keeping ordinary builder errors observable.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))
 ;; A whole candidate may determine the signature kind and every named field.
@@ -75,6 +76,85 @@
 ;; Complete end-to-end coverage includes kind, shape, rows, quotas and provenance.
 (def candidate-inference-test
   (test-suite "Candidate-dependent signatures and field layouts"
+    (test-case "signature requests retain their field selection across source getters"
+      (def catalog '(Object ((api (Object
+        ((run (Function (UInt (Function (Integer) (Integer))) (Integer)))
+         (audit (Function (Bool) (Bool)))) closed))) closed))
+      (def schema (prototype-type (.o .parameters: '(T)) '(T) catalog []))
+      (def instance (instantiate-prototype schema '(UInt)))
+      (def path (list 'api 'run))
+      (def reads 0)
+      (.setslot! (.get instance prototype) .parameters
+        ($computed-slot-spec (lambda (_self _inherited)
+          (set! reads (1+ reads)) (set-car! (cdr path) 'audit) [])))
+      (def checked (instance-signature instance (lambda (_) [['Service]]) []
+        standard-combination combination.standard-contribution? #f 8192 1 path))
+      (def descriptor (dispatch.function-signature (extension.snapshot checked)))
+      (check-equal? path '(api audit))
+      (check-equal? (length (.get descriptor outputs)) 2)
+      (check (> reads 0) => #t)
+      ;; A subsequent request observes the edited path, never a cached old choice.
+      (def retry (instance-signature instance (lambda (_) [['Service]]) []
+        standard-combination combination.standard-contribution? #f 8192 1 path))
+      (check-equal? (length (.get (dispatch.function-signature (extension.snapshot retry)) outputs)) 1)
+      ;; Whole path admission precedes every source getter, including cycles and
+      ;; exhaustion. No cap is widened; an independent request can still retry.
+      (set! reads 0)
+      (for-each (lambda (bad)
+        (check-exception (instance-signature instance void [] standard-combination
+          combination.standard-contribution? #f 8192 1 bad) (refusal 'malformed)))
+        (list '(api . run) '(api 3)))
+      (def cycle (list 'api)) (set-cdr! cycle cycle)
+      (check-exception (instance-signature instance void [] standard-combination
+        combination.standard-contribution? #f 8192 1 cycle) (refusal 'exhausted))
+      (check-exception (instance-signature instance void [] standard-combination
+        combination.standard-contribution? #f 1 1 '(api run)) (refusal 'exhausted))
+      (check-equal? reads 0)
+      (def cause (list 'source-failed))
+      (.setslot! (.get instance prototype) .parameters
+        ($computed-slot-spec (lambda (_self _inherited) (raise cause))))
+      (check (try (instance-signature instance void [] standard-combination
+        combination.standard-contribution? #f 8192 1 '(api run)) #f
+        (catch (actual) (eq? cause actual))) => #t))
+    (test-case "captured nested selection closes inference declarations refine and evidence"
+      (def schema (prototype-type (.o .parameters: '(Result)) '(Result)
+        '(Object ((api (Object
+          ((run (Function (Result (Function (Integer) (Integer))) (Integer)))
+           (audit (Function (Bool) (Bool)))) closed))) closed) []))
+      (def path (list 'api 'run)) (def bodies 0) (def consumed 0)
+      ;; Return a callback so the publication contract must retain wrapping.
+      (def (operation value) (set! bodies (1+ bodies)) (values (abs value) abs))
+      ;; Refresh only a caller request buffer; the declared source stays unchanged.
+      (def (observe read)
+        (when (eq? (slot-read-key read) '.parameters) (set-car! (cdr path) 'audit)))
+      ;; Arm the observer inside the builder so schema preparation cannot pre-edit
+      ;; the request before its signature entry. Reuse the existing slot observer.
+      (def (build instance)
+        (call-with-slot-read-observer observe
+          (cut selected.selected-declarations instance path operation)))
+      (def report (infer-declared-calls schema '(UInt Bool)
+        '(((api run) (Integer) (UInt (Function (Integer) (Integer))))
+          ((api audit) (Bool) (Bool))) build))
+      (check-equal? (.get report solutions) '((UInt)))
+      (check-equal? bodies 0)
+      (def context (.o approved: #t))
+      (def seen #f)
+      ;; Approval refusal executes neither generic nor IO; policy refusal executes
+      ;; the body but publishes nothing. A fresh action succeeds with exact evidence.
+      (check-exception ((selected.selected-action (.get report instance) -7 (.o approved: #f) void) #f) Error?)
+      (check-equal? bodies 0)
+      (check-exception ((selected.selected-action (.get report instance) -7 context void 0) context) TypeError?)
+      (check-equal? bodies 1)
+      (def action (selected.selected-action (.get report instance) -7 context
+        (lambda (subject) (set! consumed (1+ consumed)) (set! seen subject))))
+      (defvalues (evidence next failure) (action context))
+      (check-equal? failure #f) (check-equal? consumed 1) (check-equal? bodies 2)
+      (check-equal? (.get seen answer) 7) (check-equal? (.get seen audit) #t)
+      (check-equal? ((.get seen callback) -9) 9)
+      (check-exception ((.get seen callback) #f) TypeError?)
+      (check (eq? (.get evidence subject) seen) => #t)
+      (check (eq? (.get evidence context) context) => #t)
+      (check (eq? next context) => #t))
     (test-case "final parameter getters cannot change already admitted source metadata"
       (for-each (lambda (revise)
         (def instance (instantiate-prototype service.DescriptorServiceType '(Integer UInt)))

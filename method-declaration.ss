@@ -7,7 +7,7 @@
         (only-in ./reflection reflect-slots)
         (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
         (prefix-in ./parameters positional.)
-        (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression copy-type refuse-type)
+        (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
         (prefix-in ./multimethod dispatch.)
         (prefix-in ./method-combination combination.)
         (prefix-in ./declarative-metadata metadata.) (prefix-in ./dispatch-extension extension.))
@@ -233,6 +233,10 @@
 (def (instance-signature instance precedence watches
        (combine standard-combination) (accept combination.standard-contribution?) (prepare #f) (budget 8192) (arity #f) (path []))
   (def work (type-work budget))
+  ;; Capture the complete field selection before computed source/binding getters.
+  ;; Only the finite symbolic spine is copied; Type and watch payload identities
+  ;; keep their existing contracts. Later buffer edits belong to later requests.
+  (def location (copy-type (check-function-path path work)))
   (def expression (.get instance expression))
   (type-expression expression [] work)
   (def captured-expression (copy-type expression))
@@ -240,8 +244,8 @@
   (bounded-type-data bindings work)
   (def captured-bindings (copy-type bindings))
   (admit-instance-source instance captured-expression captured-bindings work)
-  (def ground (function-expression (normalize-type captured-expression work) path work))
-  (def descriptor (signature-descriptor (compile-expression ground work) ground path))
+  (def ground (function-expression (normalize-type captured-expression work) location work))
+  (def descriptor (signature-descriptor (compile-expression ground work) ground location))
   (def first (car (.get descriptor signatures)))
   (def axes (or arity (length (.get first inputs))))
   (def seed (dispatch.make-function descriptor precedence combine axes accept))
