@@ -46,6 +46,19 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 signature preparation source admission
+
+Closed a real phase gap: standalone `instance-signature` accepted a stale bound
+instance that `bound-parameters` and whole declaration publication rejected.
+Signature preparation and final installation now share one source gate for
+current syntax, captured binding metadata, descriptor identity/revision and closed
+positional parameters. Successful negative-call callbacks are checked again;
+original callback errors remain unchanged and failed preparations publish nothing.
+Observed conversion declarations reuse the existing qualified stream and FUN
+workflow. This advances the article's finite type-system future work; arbitrary
+callback termination, transitive semantic stability and principal inference remain
+outside the proved scope. See method-declarations.md for the proof boundary.
+
 ### P2 tagged-object carrier acceptance
 
 CLOSED for Sum-to-open-Object/Record readable interfaces through the shared row

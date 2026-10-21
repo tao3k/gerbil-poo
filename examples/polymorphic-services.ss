@@ -2,7 +2,7 @@
 (export infer-tagged-worker-service infer-callback-directory-service infer-availability-service infer-plugin-service infer-retired-route-service infer-worker-service infer-measurement-service infer-handler-batch-service infer-single-handler-service infer-optional-handler-service infer-decision-service)
 (export RetiredKeywordServiceType infer-retired-keyword-service)
 (export TokenCallbackServiceType infer-token-callback-service)
-(export shared-service-calls)
+(export shared-service-calls observed-conversion-declarations)
 (export MetadataServiceType infer-metadata-service metadata-service-request)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
@@ -62,10 +62,10 @@
 ;; Turn the checked instance's ground Function into the existing typed dispatcher.
 ;; Multiple fragments share one signature; inherited operations still read the
 ;; specialized Self/Super fields. The preparer is the established standard policy.
-(def (conversion-declarations record instance)
-  (def certified (instance-signature instance (lambda (_) [['Number]])
+(def (conversion-declarations record instance (signature #f))
+  (def certified (or signature (instance-signature instance (lambda (_) [['Number]])
     [(extension.shape [['Blocked]])] standard-combination combination.standard-contribution?
-    (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing conversion"))))))
+    (lambda (methods) (combination.prepare-standard methods (lambda (_) (error "missing conversion")))))))
   (def path [(dispatch.prototype 'Number)])
   (def operation (.get instance prototype operation))
   [(typed-method-fragment '.convert certified
@@ -73,6 +73,18 @@
    (typed-method-fragment '.convert certified
      [(metadata.contribute "audit" path (combination.before (lambda (_) (record 'before))))
       (metadata.contribute "observe" path (combination.after (lambda (_) (record 'after))))])])
+;; Prepare an observed negative-call signature before reusing the SAME complete
+;; conversion declaration stream. The observer receives the specialized owner;
+;; it is not an approval authority. Source edits during successful observation
+;; refuse before any fragments escape; callback effects are not rolled back.
+(def (observed-conversion-declarations observe record instance)
+  (using (observe :~ procedure?)
+    (def signature (instance-signature instance
+      (lambda (arguments)
+        (observe (.get instance prototype))
+        (if (= (car arguments) -1) [['Blocked]] [['Number]]))
+      [(extension.call -1)] standard-combination combination.standard-contribution?))
+    (conversion-declarations record instance signature)))
 ;; Explicit ground substitution and declaration installation use the same entry.
 ;; The builder is a normal higher-order callback, not a second declaration DSL.
 (def (instantiate-conversion schema arguments record)

@@ -484,3 +484,29 @@ remain mandatory. See [prototype-types.md](prototype-types.md#ordered-case-call-
 and `t/keyword-coverage-test.ss`, `t/keyword-prefix-test.ss`, `t/keyword-values-test.ss` and `t/keyword-rest-test.ss` for FUN/refine/bind-evidence examples and refusal,
 shadowing, escape and no-builder controls. General mixed-wire inclusion is outside
 this conservative finite decision. This is hypothetical type-system future work.
+
+### Signature preparation and current bound sources
+
+`instance-signature` now uses the same complete source admission as final
+installation. Previously a supported edit of a bound Self field could make
+`bound-parameters` refuse while standalone signature preparation still issued a
+certificate. Before preparation, the factory checks captured ground syntax,
+bound metadata, actual Type identity/direct revision and a closed positional
+suffix. After successful negative-call checking it repeats that admission and
+checks the compiled signature's source revision. No callback exception is
+translated into stale-source refusal; earlier effects are not rolled back.
+
+`observed-conversion-declarations` composes an observed negative call with the
+existing conversion declaration stream, prefix inference, qualified methods and
+FUN approval/IO consumer. Regression controls exercise stale fields, same-identity
+descriptor edits, reopened parameters, changed expression/binding metadata,
+exception identity, restored-owner retry and retained result/cache validation.
+
+Lean's `prepareDeclaredSignature` reuses `admitDeclaredBindings` before and after
+preparation. Its laws prove stale-input suppression, unchanged callback causes,
+post-callback refusal and accepted artifact/binding provenance. The supplied
+before/after field and revision observations must correspond to the real host
+state. Gerbil source projection, syntax admission, parameter closure, arbitrary
+callback effects/termination and transitive dependencies are not established by
+these conditional laws. This is finite type-system future work from the article,
+not a claim that its Racket sketches implement a full inference algorithm.

@@ -200,6 +200,22 @@
   (set! origin (make-signature-origin (copy-type expression) (map identity path)
                  descriptor (object-revision descriptor)))
   descriptor)
+;; Reuse one complete source admission at signature preparation and declaration
+;; installation. Public syntax/binding metadata is not a permanent certificate:
+;; validate its current grammar, compare the captured snapshot, then recheck live
+;; descriptor identities/revisions and the closed positional parameter suffix.
+;; Work belongs to the caller; computed-slot failures retain their original cause.
+(def (admit-instance-source instance captured-expression captured-bindings work)
+  (def expression (.get instance expression))
+  (type-expression expression [] work)
+  (def bindings (.get instance bound-parameters))
+  (bounded-type-data bindings work)
+  (unless (and (equal? expression captured-expression) (equal? bindings captured-bindings))
+    (refuse-type 'bounds "Captured type metadata changed"))
+  (def names (bound-parameters/checked instance work))
+  (unless (null? (positional.parameters (.get instance prototype)))
+    (refuse-type 'bounds "Type instance has unbound positional parameters"))
+  names)
 ;; Recompile the checked finite Function/CaseFunction expression. Required,
 ;; optional, keyword, rest and exact output rows use the existing validator;
 ;; clause order remains observable. Dispatch axes are fixed independently of
@@ -209,12 +225,22 @@
   (def work (type-work budget))
   (def expression (.get instance expression))
   (type-expression expression [] work)
-  (def ground (function-expression (normalize-type expression work) path work))
+  (def captured-expression (copy-type expression))
+  (def bindings (.get instance bound-parameters))
+  (bounded-type-data bindings work)
+  (def captured-bindings (copy-type bindings))
+  (admit-instance-source instance captured-expression captured-bindings work)
+  (def ground (function-expression (normalize-type captured-expression work) path work))
   (def descriptor (signature-descriptor (compile-expression ground work) ground path))
   (def first (car (.get descriptor signatures)))
   (def axes (or arity (length (.get first inputs))))
   (def seed (dispatch.make-function descriptor precedence combine axes accept))
-  (extension.check (if prepare (dispatch.prepared seed prepare) seed) watches))
+  (def checked (extension.check (if prepare (dispatch.prepared seed prepare) seed) watches))
+  ;; Negative call watches can execute precedence callbacks. Successful checking
+  ;; must not return a signature derived from a source revised by those callbacks.
+  (admit-instance-source instance captured-expression captured-bindings work)
+  (check-signature-source! (declared-source checked))
+  checked)
 
 ;; Only explicit Object paths ending at Function/CaseFunction are declaration
 ;; requirements. Other data Types remain under ordinary contract validation; their
@@ -230,14 +256,7 @@
 ;; Source/path/descriptor/revision mismatch refuses before publication. Nested
 ;; carriers reuse object construction guards; finite syntax/work bounds the walk.
 (def (admit-signatures instance receiver captured-expression captured-bindings catalog slots work)
-  (def expression (.get instance expression))
-  ;; Recheck mutable builder output and live catalog revisions before equality.
-  ;; A private syntax snapshot does not certify mutable descriptor currency.
-  (type-expression expression [] work)
-  (def bindings (.get instance bound-parameters))
-  (bounded-type-data bindings work)
-  (unless (and (equal? expression captured-expression) (equal? bindings captured-bindings))
-    (refuse-type 'bounds "Declaration builder changed captured type metadata"))
+  (admit-instance-source instance captured-expression captured-bindings work)
   ;; Only exact source equality above admits this private normalized snapshot.
   ;; It derives from captured-expression, never the builder's mutable public AST.
   (when (and (pair? catalog) (memq (car catalog) '(Function CaseFunction)))
@@ -326,10 +345,7 @@
           (def descriptor (cdr entry))
           (when (and (method-slot? descriptor) (.@ descriptor signature))
             (declared-snapshot (.ref receiver (car entry)))))
-        (unless (null? (positional.parameters receiver))
-          (refuse-type 'bounds "Declarations reopened positional parameters"))
         (def published (.cc instance prototype: receiver))
-        (bound-parameters/checked published work)
         (admit-signatures published receiver captured-expression captured-bindings catalog slots work)
         published))))
 

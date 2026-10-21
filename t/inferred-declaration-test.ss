@@ -179,6 +179,55 @@
           [(typed-method-fragment '.test certified [(metadata.replace "bad" [(dispatch.prototype 'Number)]
             (combination.primary (lambda (_ __) -1)))])]) .test))))
       (check-exception (dispatch.call installed 1) TypeError?))
+    (test-case "standalone signature preparation rejects stale bindings and reopened parameters"
+      (def instance (instantiate-prototype service.ServiceType '(UInt Integer)))
+      (def owner (.get instance prototype))
+      (.setslot! owner Self ($constant-slot-spec Bool))
+      (check-exception (service.observed-conversion-declarations forbidden-builder void instance) (refusal 'bounds))
+      (.setslot! owner Self ($constant-slot-spec UInt))
+      (.setslot! owner .parameters ($constant-slot-spec '(Again)))
+      (check-exception (service.observed-conversion-declarations forbidden-builder void instance) (refusal 'bounds))
+      (.setslot! owner .parameters ($constant-slot-spec []))
+      (check (pair? (service.observed-conversion-declarations void void instance)) => #t))
+    (test-case "negative call observations cannot publish revised sources or hide callback failures"
+      ;; Each refusal runs outside the declaration construction guard too: the
+      ;; supported edit succeeds, but no certificate/declaration stream escapes.
+      (for-each (lambda (revise)
+        (def instance (instantiate-prototype service.ServiceType '(UInt Integer)))
+        (check-exception (service.observed-conversion-declarations
+          (lambda (owner) (revise instance owner)) void instance) (refusal 'bounds)))
+        (list
+          (lambda (_ owner) (.setslot! owner Self ($constant-slot-spec Bool)))
+          (lambda (_ owner) (.setslot! owner .parameters ($constant-slot-spec '(Again))))
+          (lambda (instance _) (.setslot! instance expression ($constant-slot-spec '(Function (Bool) (Bool)))))
+          (lambda (instance _) (.setslot! instance bound-parameters ($constant-slot-spec [])))))
+      (def instance (instantiate-prototype service.ServiceType '((List UInt) (List Integer))))
+      (check-exception (instance-signature instance
+        (lambda (_)
+          (.setslot! (.get instance prototype Self) audit ($constant-slot-spec 'changed))
+          [['Number]]) [(extension.call [])]) (refusal 'bounds))
+      (def cause (list 'observer-refused))
+      (def fresh (instantiate-prototype service.ServiceType '(UInt Integer)))
+      (check (eq? (caught (cut service.observed-conversion-declarations
+        (lambda (_) (raise cause)) void fresh)) cause) => #t))
+    (test-case "observed prefix inference retries through the complete conversion FUN workflow"
+      (def partial (specialize-prototype-type service.ServiceType '(UInt)))
+      (def observations 0) (def events []) (def consumed [])
+      (def build (lambda (instance)
+        (service.observed-conversion-declarations
+          (lambda (_) (set! observations (1+ observations)))
+          (lambda (event) (set! events (cons event events))) instance)))
+      (def report (infer-declared partial '(UInt Integer) '((Integer Super)) build))
+      (check-equal? (.get report status) 'unique)
+      (check-equal? observations 2) (check-equal? events [])
+      (def action (service.conversion-action (.get report instance) -9
+        (lambda (value) (set! consumed (cons value consumed)))))
+      (check-exception (action (.o approved: #f)) Error?)
+      (check-equal? consumed [])
+      (defvalues (answer next) (action (.o approved: #t)))
+      (check-equal? answer 9) (check-equal? consumed '(9))
+      (check-equal? (reverse events) '(before primary after))
+      (check-exception (invoke-declared next [#f]) TypeError?))
     (test-case "rich Function variance covers supplied call languages and ordered cases"
       (check (subtype-expression?
         '(Function (UInt) (Integer) optional: (Integer) keywords: ((scale: . Integer)) rest: Integer)
