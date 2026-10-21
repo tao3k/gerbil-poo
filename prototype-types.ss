@@ -56,11 +56,8 @@
 (def (prepare-prototype-type prototype variables expression bounds work (bound []))
   ;; Own every finite syntax spine before parameter getters or Type admission
   ;; can run. Leaf descriptor identities/private binding stamps stay unchanged.
-  (def (capture data)
-    (bounded-type-data data work)
-    (copy-type data))
-  (let ((variables (capture variables)) (expression (capture expression))
-        (bounds (capture bounds)) (bound (capture bound)))
+  (let ((variables (capture-type-data variables work)) (expression (capture-type-data expression work))
+        (bounds (capture-type-data bounds work)) (bound (capture-type-data bound work)))
     (bounded-type-data variables work)
     (require-value variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
     (check-bindings prototype bound variables work)
@@ -85,21 +82,21 @@
 ;; by later complete instantiation/inference. Every syntax/copy/build shares work.
 (def (specialize-prototype-type schema arguments (budget 8192))
   (def work (type-work budget))
-  (def scheme (prepare-prototype-type (.get schema prototype) (.get schema variables)
-    (.get schema expression) (.get schema bounds) work (.get schema bound-parameters)))
-  (bounded-type-data arguments work)
-  (unless (and (list? arguments) (<= (length arguments) (length (.get scheme variables))))
-    (refuse-type 'malformed "Type prefix exceeds prototype parameters"))
-  (for-each (cut type-expression <> [] work) arguments)
-  (def count (length arguments))
-  (when (= count (length (.get scheme variables))) (checked-substitution scheme arguments work))
-  (def substitution (map cons (take (.get scheme variables) count) (map copy-type arguments)))
-  (def expression (substitute-type (.get scheme expression) substitution work))
-  (def bounds (map (lambda (bound) (map (cut substitute-type <> substitution work) bound)) (.get scheme bounds)))
-  (def bound-values (map (cut compile-expression <> work) arguments))
-  (def receiver (apply positional.specialize (.get scheme prototype) bound-values))
-  (prepare-prototype-type receiver (drop (.get scheme variables) count) expression bounds work
-    (append (.get scheme bound-parameters) (capture-bindings (take (.get scheme variables) count) bound-values))))
+  (let (arguments (capture-type-data arguments work))
+    (def scheme (prepare-prototype-type (.get schema prototype) (.get schema variables)
+      (.get schema expression) (.get schema bounds) work (.get schema bound-parameters)))
+    (unless (and (list? arguments) (<= (length arguments) (length (.get scheme variables))))
+      (refuse-type 'malformed "Type prefix exceeds prototype parameters"))
+    (for-each (cut type-expression <> [] work) arguments)
+    (def count (length arguments))
+    (when (= count (length (.get scheme variables))) (checked-substitution scheme arguments work))
+    (def substitution (map cons (take (.get scheme variables) count) (map copy-type arguments)))
+    (def expression (substitute-type (.get scheme expression) substitution work))
+    (def bounds (map (lambda (bound) (map (cut substitute-type <> substitution work) bound)) (.get scheme bounds)))
+    (def bound-values (map (cut compile-expression <> work) arguments))
+    (def receiver (apply positional.specialize (.get scheme prototype) bound-values))
+    (prepare-prototype-type receiver (drop (.get scheme variables) count) expression bounds work
+      (append (.get scheme bound-parameters) (capture-bindings (take (.get scheme variables) count) bound-values)))))
 
 ;; Validate ordered substitutions and all declared bounds before touching the
 ;; prototype. Rejection returns no partially specialized receiver or descriptor.
@@ -130,11 +127,12 @@
 ;; Internal assembly shares the inference quota through compilation and binding.
 ;; Metadata is an explicit caller-owned schema, not an authenticated proof token.
 (def (instantiate/checked scheme arguments work)
-  (def prepared (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-    (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
-  (def substitution (checked-substitution prepared arguments work))
-  (assemble-instance prepared arguments substitution
-    (substitute-type (.get prepared expression) substitution work) work))
+  (let (arguments (capture-type-data arguments work))
+    (def prepared (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
+      (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
+    (def substitution (checked-substitution prepared arguments work))
+    (assemble-instance prepared arguments substitution
+      (substitute-type (.get prepared expression) substitution work) work)))
 
 ;; Only the private, fully searched solution can take this path. Recheck current
 ;; prototype parameters and bound descriptor revisions before any construction;
@@ -177,22 +175,20 @@
 ;; Internal declaration composition retains the same quota through publication.
 ;; The caller supplies the existing work closure, as in subtype/checked?.
 (def (infer-prototype/checked scheme candidates queries work)
-  (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-    (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
-  (infer/checked captured candidates queries work))
+  (let ((candidates (capture-type-data candidates work)) (queries (capture-type-data queries work)))
+    (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
+      (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
+    (infer/checked captured candidates queries work)))
 
-;; Admit the complete raw query batch, then give this request its own syntax.
-;; Caller buffers may be reused by later requests or declaration callbacks; their
-;; edits must not rewrite the evidence of an already completed search. Snapshot
-;; before Type admission so every check/search/report reads that same finite data.
-;; Existing Type admission charges all visits and preserves refusal ordering.
-(def (capture-queries queries variables work)
+;; Admit the complete request-owned query batch without another copy. Both raw
+;; and observed paths now capture their inputs before any source getter; Type
+;; admission, complete search and report evidence retain those same finite rows.
+(def (check-queries queries variables work)
   (bounded-type-data queries work)
   (unless (and (list? queries) (andmap (lambda (query) (and (list? query) (= (length query) 2))) queries))
     (refuse-type 'malformed "Inference queries need actual/expected pairs"))
-  (def captured (map copy-type queries))
-  (for-each (lambda (query) (for-each (cut type-expression <> variables work) query)) captured)
-  captured)
+  (for-each (lambda (query) (for-each (cut type-expression <> variables work) query)) queries)
+  queries)
 
 ;; The same finite solver accepts bounds on BOTH sides of a call constraint.
 ;; All callers pass one captured schema and one shared quota through construction.
@@ -204,9 +200,9 @@
     ;; Call projection already owns its copied constraints. Raw query inference
     ;; uses the same solver only after complete admission and request capture.
     (def captured-queries
-      (if queries-checked? queries (capture-queries queries (.get scheme variables) work)))
+      (if queries-checked? queries (check-queries queries (.get scheme variables) work)))
     (let ((solutions []) (domain (delete-duplicates/hash
-                    (map-in-order (lambda (candidate) (canonical-type (copy-type candidate) work)) candidates))))
+                    (map-in-order (cut canonical-type <> work) candidates))))
       (let search ((variables (.get scheme variables)) (arguments []))
         (work)
         (if (pair? variables)
@@ -298,22 +294,21 @@
 ;; The unified declaration driver supplies one counter for sibling projection,
 ;; exhaustive inference, binding and the final guarded signature admission.
 (def (infer-prototype-calls/checked scheme candidates observations work)
-  (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
-    (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
-  (bounded-type-data observations work)
-  (unless (list? observations) (refuse-type 'malformed "Call observations must form a list"))
-  (def calls (map copy-type observations))
-  (for-each (cut check-call <> work) calls)
-  (def templates (map-in-order (lambda (call)
-    (def term (function-template (.get captured expression) (car call) (.get captured variables) work))
-    (and term (call-constraints captured call work term))) calls))
-  (def dependent? (ormap not templates))
-  (def constraints (if dependent? [] (apply append templates)))
-  ;; One candidate layout owns every sibling call. Known templates retain their
-  ;; original order among newly projected queries; no per-method solving occurs.
-  (def derive (and dependent? (lambda (layout)
-    (def ground (.o bind-these: #f expression: layout))
-    (apply append (map-in-order (lambda (call known)
-      (or known (call-constraints ground call work #f #t))) calls templates)))))
-  (def report (infer/checked captured candidates constraints work derive #t))
-  (.cc report calls: calls))
+  (let ((candidates (capture-type-data candidates work)) (calls (capture-type-data observations work)))
+    (def captured (prepare-prototype-type (.get scheme prototype) (.get scheme variables)
+      (.get scheme expression) (.get scheme bounds) work (.get scheme bound-parameters)))
+    (unless (list? calls) (refuse-type 'malformed "Call observations must form a list"))
+    (for-each (cut check-call <> work) calls)
+    (def templates (map-in-order (lambda (call)
+      (def term (function-template (.get captured expression) (car call) (.get captured variables) work))
+      (and term (call-constraints captured call work term))) calls))
+    (def dependent? (ormap not templates))
+    (def constraints (if dependent? [] (apply append templates)))
+    ;; One candidate layout owns every sibling call. Known templates retain their
+    ;; original order among newly projected queries; no per-method solving occurs.
+    (def derive (and dependent? (lambda (layout)
+      (def ground (.o bind-these: #f expression: layout))
+      (apply append (map-in-order (lambda (call known)
+        (or known (call-constraints ground call work #f #t))) calls templates)))))
+    (def report (infer/checked captured candidates constraints work derive #t))
+    (.cc report calls: calls)))

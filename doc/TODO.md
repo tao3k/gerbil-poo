@@ -46,6 +46,23 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 complete request capture before source refresh
+
+Closed the complementary request-input omission: computed parameter getters
+could replace caller-owned candidates, raw constraints, call observations or
+explicit/prefix Type arguments before those inputs were copied. The four shared
+checked entry paths now capture their finite input spines before touching the
+schema. One existing bounded copier serves schema and request preparation;
+candidate canonicalization and raw/call admission reuse the owned rows instead
+of cloning them again. Pure and unified declared APIs retain the original finite
+universe, constraints, call metadata and Type identities through publication.
+Cycles/exhaustion refuse before getters/builders; later requests see new buffers.
+The observed descriptor-call example composes recursive wrapping, declaration,
+refine/bind-evidence/FUN/IO and refusal/retry. Lean proves original-universe
+membership and original constraints under faithful host capture/projection;
+arbitrary concurrent raw mutation, callback purity and rollback remain outside
+this finite future-work protocol. See finite-inference-audit.md.
+
 ### P2 schema capture before computed metadata
 
 Closed a preparation-order omission: computed `.parameters` could modify the

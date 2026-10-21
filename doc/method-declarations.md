@@ -511,6 +511,26 @@ callback effects/termination and transitive dependencies are not established by
 these conditional laws. This is finite type-system future work from the article,
 not a claim that its Racket sketches implement a full inference algorithm.
 
+### Complete request capture precedes source refresh
+
+Explicit binding, prefix specialization, raw inference and observed-call inference
+now capture their own finite request inputs before any schema getter. This closes
+the gap where a computed `.parameters` could change the caller's candidate list
+or requested call/constraint during schema preparation. The ordinary declared
+entry points reuse these checked workers and the same quota; no second declaration
+or inference implementation exists. Existing bounded copying also serves schema
+capture, while candidate canonicalization/query/call admission reuse owned inputs.
+
+The observed descriptor-call factory uses ordinary .cc on a residual receiver and
+the existing qualified builder. It exercises nested Function wrapping, full
+refinement/evidence/FUN publication, failure and later retry. Original getter
+exceptions remain exact; capture cycles/exhaustion cannot execute getters/builders.
+Later requests read their new inputs, and old reports retain original syntax.
+Lean's `inferCapturedRequest_unique` proves original-universe membership plus all
+original substituted bounds, under faithful host capture and candidate/call
+projection. Arbitrary concurrent raw-buffer mutation, callback purity, rollback
+and mutable-report authentication are not established by this protocol.
+
 ### Schema capture precedes computed parameter metadata
 
 Schema preparation now bounds and captures its finite variables, expression,

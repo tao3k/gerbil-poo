@@ -37,6 +37,42 @@ Existing finite Function/case language, keyword-origin, Pair/Map/Sum/Union and
 explicit Object/Record protocols retain their documented bounds. This audit does
 not claim complete runtime Type coverage or mark every TODO complete.
 
+## Complete requests own their inputs before source refresh
+
+The earlier schema fix did not capture the surrounding request. A computed
+`.parameters` getter could change a caller-supplied `(UInt)` candidate buffer to
+`(Bool)` during schema preparation, and inference then returned Bool even though
+it was absent from the original universe. The same ordering affected explicit
+and prefix arguments, inequalities and call observations.
+
+`capture-type-data` reuses the existing bounded traversal/copier. The four shared
+checked entry paths capture each input independently before schema reads: no
+extra batch nesting reduces the existing depth allowance. Schema preparation
+uses the same helper. Existing grammar admission, canonical deduplication and
+complete solver remain authoritative; raw queries and call rows reuse their
+owned syntax without another copy. Descriptor/token identity, keyword literals,
+branch order, shared quotas and callback errors retain their existing semantics.
+Finite capture exhaustion precedes getters and declaration builders. This is a
+sequential callback boundary, not an atomic snapshot of arbitrary concurrent
+mutation or a permanent certificate for editable public reports.
+
+`infer-observed-descriptor-calls` clones an existing residual receiver with .cc,
+then reuses complete call inference and qualified declarations. Its controls
+cover candidate/call buffer reuse during source refresh, nested returned Function
+wrappers, refine/bind-evidence/FUN/IO publication, rejected policy, a later
+no-solution request and fresh retry. Pure explicit/prefix/raw/call entry paths,
+all declared continuations and original getter exceptions are tested together.
+
+Lean's existing `PrototypeTypes.InferenceRequest` and `inferCapturedRequest`
+reuse `inferCaptured` and `inferBounded`. Four laws preserve capture/getter errors,
+exact complete classification, membership in the ORIGINAL candidate universe and
+every original substituted constraint. Examples/Parameters.lean changes both live
+buffers after capture, retains empty and ambiguous original universes, and refuses
+capture failure. Host syntax capture, Cartesian enumeration and call projection
+must faithfully interpret the request. Actual Scheme heap nonaliasing is checked
+by regressions, not proved by immutable Lean lists. Preparation adds bounded input
+visits; no wall-clock or allocation speedup is claimed.
+
 ## Schema admission owns inputs before callbacks
 
 The shared `prepare-prototype-type` previously read computed `.parameters`

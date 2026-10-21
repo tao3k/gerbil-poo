@@ -1,6 +1,6 @@
 ;;; Checked finite type syntax, row binders and explicit recursive approximants.
 (export descriptor-alias descriptor-width fixed-integer-bounds range-bounds scalar-recognizer type-constructor? type-refusal? type-refusal-kind refuse-type bounded-type-data type-work
-        type-expression substitute-type guarded-body? copy-type literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
+        type-expression substitute-type guarded-body? copy-type capture-type-data literal-type-value? function-options call-with-function-types map-function-types function-input-types map-sum-types map-type-children canonical-type)
 (import :std/error (only-in ./optional-validation catalog-type? catalog-current!)
         (only-in :std/number/misc uint-of-length? sint-of-length?) (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in :std/list/alist plist->alist) (only-in :std/list/plist alist->plist) (only-in ./support/base require-value))
@@ -48,6 +48,13 @@
 ;; Descriptor objects are compiled later and are not cached across publication.
 (def (copy-type term)
   (if (pair? term) (cons (copy-type (car term)) (copy-type (cdr term))) term))
+
+;; Own one finite syntax input before getters, Type admission or schema refresh.
+;; Reuse the shared depth/work guard and copier; leaf Type identities, literal
+;; tokens and private binding stamps are preserved, not reconstructed from sexp.
+(def (capture-type-data term work)
+  (bounded-type-data term work)
+  (copy-type term))
 
 ;; Only immutable scalar literals enter the decidable Exactly/Enum algebra.
 ;; Protocol escapes stay literal metadata, never Type variables or recognizers.
