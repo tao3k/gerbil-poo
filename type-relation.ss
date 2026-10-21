@@ -92,7 +92,15 @@
 ;; outputs covariant, with exact multiple-value counts. False means no rule here,
 ;; not a counterexample to arbitrary predicate inclusion or mutable-slot writes.
 (def (subtype-expression? source target (budget 8192))
-  (subtype/checked? source target (type-work budget)))
+  (def work (type-work budget))
+  (call-with-type-inputs [source target] work (cut subtype/checked? <> <> work)))
+
+;; Own EVERY public operand before live catalog admission can call observers.
+;; Gerbil's ordered map and apply compose the existing bounded copier with the
+;; original checker/compiler. Leaf identities, original errors and one quota stay
+;; intact; internal inference already owns its syntax and avoids another copy.
+(def (call-with-type-inputs inputs work consume)
+  (apply consume (map-in-order (cut capture-type-data <> work) inputs)))
 
 ;; Recursive comparisons share their caller's quota, including inference search.
 ;; This is exported only through the main judgment above; no active-pair success
@@ -711,6 +719,12 @@
 ;; Unsupported/malformed syntax and quota exhaustion retain their typed errors.
 (def (function-covers? source target (budget 8192))
   (def work (type-work budget))
+  (call-with-type-inputs [source target] work
+    (lambda (source target) (function-covers/checked? source target work))))
+
+;; The public gate owns both signatures before either live Type is inspected.
+;; Keep the original ordered call-language algorithm and quota in one consumer.
+(def (function-covers/checked? source target work)
   (type-expression source [] work) (type-expression target [] work)
   (def left (normalize-type source work)) (def right (normalize-type target work))
   (unless (and (pair? left) (pair? right)
@@ -754,9 +768,11 @@
 ;; Function validators. Wrapping remains at validate/contract boundaries, so this
 ;; never proves a host procedure's arity, totality or its result without a call.
 (def (expression-type expression (budget 8192))
-  (let (work (type-work budget))
-    (type-expression expression [] work)
-    (compile-expression expression work)))
+  (def work (type-work budget))
+  (call-with-type-inputs [expression] work
+    (lambda (expression)
+      (type-expression expression [] work)
+      (compile-expression expression work))))
 
 ;; Internal checked compiler shares its caller's work counter. Only finite terms
 ;; already admitted by type-expression may enter this lower-level operation.

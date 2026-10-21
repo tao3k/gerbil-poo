@@ -1,6 +1,7 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
+        (only-in ../type-relation expression-type)
         ../method-declaration ../declaration ../object-contract
         (prefix-in ../multimethod dispatch.)
         (prefix-in ../method-combination combination.) (prefix-in ../declarative-metadata metadata.)
@@ -95,3 +96,11 @@
   (specialized-action residual [] candidates
     (lambda (_context) `((Output ,target) (,target Output)))
     operation input context consume allowed?))
+
+;; Compile an explicit boundary contract before preparing the inferred service.
+;; Live directory observers may edit the caller's syntax during admission; the
+;; public compiler owns its complete input first. Reuse recursive Function
+;; wrapping, the existing declaration factory and its refine/evidence/FUN/IO chain.
+(def (checked-operation-action expression schema prefix candidates requests operation input context consume (allowed? #t))
+  (def checked (validate (expression-type expression) operation))
+  (specialized-action schema prefix candidates requests checked input context consume allowed?))
