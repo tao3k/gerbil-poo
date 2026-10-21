@@ -199,5 +199,7 @@ jobs:
         run: |
           gxi t/build-artifacts.ss collect "$BASE_KEY" "$(git rev-parse HEAD)"
           for group in .ci-tests/*; do cp -a "$group/lib/." .ci-library/lib/; done
+      - name: Link the complete test program against admitted interfaces
+        run: just build test-program
       - name: Run the entire suite in one bounded process
         run: just _test t 300

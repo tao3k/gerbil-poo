@@ -104,7 +104,8 @@
     (match request
       ([]
         (run-build-stage root timeout runtime cores '("library"))
-        (with-test-project root (lambda (project) (build-test-groups project timeout runtime cores))))
+        (with-test-project root (lambda (project) (build-test-groups project timeout runtime cores)))
+        (run-build-stage root timeout runtime cores '("test-program")))
       (["tests" group output]
         (test-files group)
         (with-test-project root (lambda (project)

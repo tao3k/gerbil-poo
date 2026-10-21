@@ -125,7 +125,7 @@ an end-to-end improvement on their own.
 manual selection/deletion of numbered compiled modules is not the workflow.
 The default specification is the shared package graph, so the official package
 command does not expand all test roots in the same compiler heap. `just test`
-still compiles all disjoint test batches and runs all 121 modules in one process.
+still compiles all disjoint test batches and runs all 123 modules in one process.
 Its standard `compile`, `clean`, `spec`, `meta`, `--release`, `--optimized` and
 `--debug` options pass through unchanged. `std/make` owns dependency checks,
 incremental compilation and backend scheduling. There is no second local build
@@ -162,3 +162,29 @@ selects another installation. Just settings can tighten heap/runtime options
 without adding environment switches. Full payloads remain outside Git. See
 `performance/build-summary.org` for historical macOS receipts and unresolved
 cold-build acceptance; they are not current Linux performance controls.
+
+
+## Single-process test linkage
+
+The final local build stage and CI's complete-suite job select `test-program`
+through the existing `defbuild-script` entry. It selects shared runtime roots from the existing library specification,
+reads their compiled interfaces and uses Gerbil's ordinary executable linker.
+The original runner still loads and prepares every test module. Code freshness follows
+std/make dependencies and CI's existing source/revision admission. At startup it
+checks the complete test inventory against its captured filenames and requires
+each selected shared library to be a linked builtin in the standard runtime loader.
+
+`just _test t 300` uses the released `gerbil env` command to execute that program with the existing 1 GiB heap and
+300-second deadline, including launcher and executable initialization. The timeout
+owns the process group so cancellation also reaches the test child. No toolchain
+paths or environment variables are synthesized. The original released
+gxtest runner still owns export discovery, preparation, setup/cleanup, module and
+case order, assertions and failure status. Individual-file checks use the same
+released runner through gxi and retain their existing 90-second boundary.
+
+`TEST-LOAD-END` now reports Gambit's CPU, elapsed, GC CPU and collection counters
+without forcing GC. In the linked program, data initialization occurs before the
+runner starts; complete startup comparisons therefore include external process
+wall time. Raw measurements remain outside Git. See
+[the loading study](performance/test-loading-summary.org) for the cold-path
+controls, first-link cost and the boundaries of the performance evidence.

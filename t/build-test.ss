@@ -1,10 +1,10 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
-(import :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash)
+(import :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
   (only-in "test-groups.ss" test-files test-batch checked-groups)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key)
-  (only-in "build-spec.ss" build-request))
+  (only-in "build-spec.ss" build-request library-modules))
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
@@ -29,6 +29,11 @@
       (check-equal? (car (build-request '("tests" "objects" "/tmp/poo-test-output")))
         (map path-strip-extension (test-files "objects")))
       (check-equal? (car (build-request '("batch" "2"))) (map path-strip-extension (test-batch 2)))
+      (check (and (member "object" (library-modules)) #t) => #t)
+      (check (andmap (lambda (file) (not (or (string-prefix? "examples/" file)
+        (string-prefix? "t/" file)))) (library-modules)) => #t)
+      (check-equal? (take (caar (build-request '("test-program" "spec"))) 2) '(exe: "t/test-program"))
+      (check-equal? (caddr (build-request '("test-program" "compile" "--debug"))) '("compile" "--debug"))
       (check-exception (build-request '("benchmark" "../outside")) true)
       (check-exception (build-request '("batch" "4")) true)
       (check-exception (build-request '("tests" "missing" "/tmp/poo-test-output")) true))

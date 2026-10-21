@@ -1,5 +1,5 @@
 ;;; Shared build inventories and explicit project target selection.
-(export build-request)
+(export build-request library-modules)
 
 (import
   (only-in :std/make include-gambit-sharp pkg-config-libs)
@@ -203,6 +203,18 @@
     "t/test-matrix"
     "t/test-runner"))
 
+;; Shared runtime roots come from the authoritative package specification.
+;; Examples and test tools retain their ordinary delayed loading; macro-only
+;; roots are filtered by interface metadata in the test program's declaration.
+(def (library-modules)
+  (filter (lambda (file)
+    (not (or (string-prefix? "examples/" file) (string-prefix? "t/" file))))
+    (map (lambda (spec)
+      (match spec
+        ((? string?) spec)
+        ([gxc: file . _] file)
+        (else (error "unsupported library root" spec)))) +gerbil-poo-build-spec+)))
+
 ;; Keep selection explicit. Standard compile/clean/spec/meta arguments pass
 ;; unchanged to defbuild-script; only project inventories are selected here.
 (def (build-request args)
@@ -212,6 +224,9 @@
       [(map path-strip-extension (test-files group)) output options])
     (["batch" index . options]
       [(map path-strip-extension (test-batch (string->number index))) #f options])
+    (["test-program" . options]
+      [`((exe: "t/test-program"
+          "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
     (["benchmark" target . options]
       (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
                 "closure-phases" "dispatch-benchmark" "metadata-benchmark"

@@ -1,0 +1,86 @@
+#+title: Bounded single-process test loading
+
+* Scope and unchanged acceptance
+The complete suite still contains 123 modules and runs through the released
+Gerbil gxtest harness in one test process. Export discovery, setup/cleanup,
+module/case order, assertions and failure status remain owned by that harness.
+The heap remains 1 GiB and the complete-run deadline remains 300 seconds.
+Compilation remains parallel through std/make and GERBIL_BUILD_CORES; independent
+CI semantic jobs remain parallel. This additional single-process gate detects
+state retained between modules, which isolated module processes cannot check.
+
+* Diagnosis on macOS
+The same compiled baseline passed in two separate processes with these counters:
+
+| Control | Harness wall seconds | Process CPU seconds | GC CPU seconds | Collections |
+|---------+----------------------+---------------------+----------------+-------------|
+| Existing prefix | 82.384 | 36.404 | 3.373 | 78 |
+| Fresh APFS-cloned library path | 274.248 | 32.217 | 3.371 | 78 |
+
+The fresh-path root-loading intervals summed to 154.493 seconds. Both runs had
+131 cached expansion contexts, 134 evaluation requests and 695 runtime module
+entries, with no interpreted runtime fallback. Evaluation requests are not counts
+of repeated module bodies. A loader sample placed 240 of 276 samples in dyld's
+mapSegments/fcntl path under dlopen. The elapsed difference is not explained by
+GC CPU and does not establish a repeated-validation defect. These are fresh-path
+controls, not global disk-cache purges or randomized performance trials.
+
+* Standard executable and launch
+The test-only executable imports runtime library roots from the existing build
+specification. Compiled interfaces identify macro-only roots without expanding
+all library sources. Gerbil's standard executable linker prelinks 90 shared
+runtime roots; test bodies still load through the unchanged gxtest runner.
+The program rejects a changed filename inventory or a missing builtin root.
+These guards supplement standard make freshness and CI source admission; they
+do not establish arbitrary binary authenticity.
+
+The build target uses defbuild-script, default output directories, default
+compiler optimization settings and pkg-config-libs for OpenSSL. The released
+=gerbil env= command supplies the installation environment for execution. No
+hardcoded release prefix, extra load path or project environment switch is used.
+The timeout owns the launcher and test child's process group, including startup.
+Actual make and per-module test progress is flushed; no artificial heartbeat or
+forced collection is used. Root statistics report wall, CPU, GC CPU and collection
+counts; external process timing includes executable initialization and launcher.
+
+The first successful shared-root link took 80.353 seconds. An existing-artifact
+complete run through the standard launcher took 103.80 seconds, with all 123
+MODULE-OK records and the original HARNESS-OK / OK result. Root loading summed
+to 11.075 seconds. This warm run is not evidence of a cold-start speedup.
+
+* Rejected routes and retained costs
+Linking all test bodies took 298.173 seconds in one successful link; that route
+was rejected because first-build cost approached the existing stage deadline.
+A separate test-export harness was also rejected after a 305.67-second killed
+run; it retained the dyld waits and would duplicate harness responsibilities.
+Neither prototype remains in the implementation.
+
+Interrupted linker experiments left 24 orphan standard compiler object locks.
+After confirming no owned compiler remained, those stale locks were moved to a
+temporary diagnostic directory. Standard compilation then completed without
+changing host limits or compiler flags. No custom lock-recovery algorithm was
+added to the package. Raw logs, samples, binaries and full payloads remain outside
+version control. First build, incremental build, launcher startup and execution
+must be reported separately; a lower allocation count alone is not a speed claim.
+
+* Current-source acceptance
+After rebuilding the modified runner and build tests, the shared-root relink
+completed in 74.58 seconds (68.933 seconds inside its build stage). All compiler
+settings and the twelve-worker std/make budget were unchanged.
+A new APFS-cloned library and executable path then passed all 123 modules in
+251.03 seconds of external wall time, including the official launcher, program
+initialization and natural exit. Runner counters were 238.038 seconds wall,
+32.169 seconds CPU, 3.500 seconds GC CPU and 88 collections; root loading summed
+to 111.533 seconds. The 1261 suite/case labels and their order matched the baseline.
+The existing-artifact and fresh-path runs both retained the 300-second deadline
+and 1 GiB heap. The fresh path has about 49 seconds of deadline margin on this
+run; it is not a guaranteed worst-case latency bound. Baseline harness-only
+counters and candidate external timing are different boundaries, so they do not
+support a claimed end-to-end speedup percentage. Linux CI is a separate gate.
+
+The no-change standard executable build passed in 27.63 seconds (19.727 seconds
+inside its build stage), with zero compile/link jobs. This exposes remaining
+metadata preparation and process-startup overhead rather than hiding it behind
+a custom cache. Adding one uncompiled filename in a temporary source inventory
+was rejected before any test module executed, with the original nonzero process
+failure propagated through gerbil env. The temporary fixture is not committed.

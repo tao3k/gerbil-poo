@@ -7,6 +7,7 @@ platform-env := if os() == "macos" { "env -u SDKROOT -u CPATH -u LIBRARY_PATH -u
 physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN` } else { `getconf _NPROCESSORS_ONLN` }
 # Keep package compilation in this project's managed output unless explicitly selected.
 export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
+# std/make backend workers use the machine budget; gxtest execution is separate.
 export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
 export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 test-max-heap := "1G"
@@ -30,7 +31,15 @@ _test target max-seconds:
     if test -z "{{ timeout-executable }}"; then echo "GNU timeout is required (install Homebrew coreutils on macOS)" >&2; exit 127; fi
     test_log="$(mktemp "${TMPDIR:-/tmp}/gerbil-poo-test.XXXXXX")"
     trap 'rm -f "$test_log"' EXIT
-    {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s {{ max-seconds }}s gxi {{ test-runtime-options }} t/test-runner.ss "{{ target }}" 2>&1 | tee "$test_log"
+    # The released package launcher supplies the toolchain environment.
+    # One test process retains shared-state coverage; the deadline owns its group.
+    if test "{{ target }}" = t; then
+      test -x "$GERBIL_PATH/bin/test-program"
+      test_command=(gerbil "{{ test-runtime-options }}" env "$GERBIL_PATH/bin/test-program" "{{ test-runtime-options }}" "{{ target }}")
+    else
+      test_command=(gxi "{{ test-runtime-options }}" t/test-runner.ss "{{ target }}")
+    fi
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s {{ max-seconds }}s "${test_command[@]}" 2>&1 | tee "$test_log"
     grep -q '^MODULE-OK ' "$test_log"
     grep -q '^HARNESS-OK ' "$test_log"
     grep -qx 'OK' "$test_log"
