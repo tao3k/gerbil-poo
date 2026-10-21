@@ -6,7 +6,7 @@
         (only-in ./mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ./object-contract ObjectContract.)
         (only-in ./optional-validation type-value-catalog capture-type-values
-                 catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources!)
+                 catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)
         (only-in ./number Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
         (only-in ./type TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
 
@@ -100,7 +100,8 @@
 ;; original checker/compiler. Leaf identities, original errors and one quota stay
 ;; intact; internal inference already owns its syntax and avoids another copy.
 (def (call-with-type-inputs inputs work consume)
-  (apply consume (map-in-order (cut capture-type-data <> work) inputs)))
+  (def captured (map-in-order (cut capture-type-data <> work) inputs))
+  (call-with-current-catalogs work (lambda () (apply consume captured)) #t))
 
 ;; Recursive comparisons share their caller's quota, including inference search.
 ;; This is exported only through the main judgment above; no active-pair success

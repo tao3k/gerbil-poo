@@ -1,5 +1,5 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object ../mop ../type ../number ../function-testing ../property-testing
         (only-in ../type-relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
@@ -117,3 +117,19 @@
 ;; revised directories require recapture and a fresh residual, never reset stamps.
 (def (catalog-service-type policy input)
   (specialize-prototype-type CatalogServiceType (list policy input)))
+
+;; Stage explicit external metadata during the existing declaration callback.
+;; Even candidate/query directories absent from the selected callable signature
+;; must remain current until the whole solve/build returns. Reuse Reader/FUN,
+;; qualified methods and the original refine/evidence/IO service consumer.
+(def (staged-service-action residual candidates queries operation stage input context consume (allowed? #t))
+  (.call observation.Observation. .bind
+    (lambda (_context)
+      (infer-declared residual candidates queries
+        (lambda (instance)
+          (stage instance)
+          (service.signature-service-declarations instance operation void))))
+    (lambda (report)
+      (unless (eq? (.get report status) 'unique)
+        (error "staged service requires unique type inference" report))
+      (service.descriptor-service-action (.get report instance) input context consume allowed?))))

@@ -1,6 +1,7 @@
 ;;; Existing Maybe/OrFalse sentinels and dependent TypeValuePair validation.
 (export optional-shape validate-optional type-value-shape validate-type-value type-value-catalog
-        capture-type-values catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources!)
+        capture-type-values catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources!
+        call-with-current-catalogs)
 (import (only-in ./object .o .cc .ref .get .slot? .all-slots object?
                  depend-on-object! replay-slot-reads! reobserve-slot-reads!)
         (only-in :std/list/list delete-duplicates/hash map-in-order)
@@ -94,8 +95,32 @@
 ;; Private tokens are immutable, snapshot-local Type identities, not names or
 ;; public sexp certificates. Aliases within one capture share a token.
 (defstruct catalog-type (descriptor name current stable sources) final: #t equal: #f)
+;; One request owns its actually admitted directory tokens. Allocate storage only
+;; when a dynamic token is observed; intrinsic-only judgments retain no directory.
+(def active-catalog-admission (make-parameter #f))
+;; Compose existing consumers under one final observer-free source check. Nested
+;; compiler/inference/declaration calls reuse the SAME frame and quota. Original
+;; callback errors escape unchanged; only successful return receives final checks.
+(def (call-with-current-catalogs work consume (fresh? #f))
+  (def parent (active-catalog-admission))
+  (if (and parent (not fresh?)) (consume)
+    (let ((tokens #f) (ordered []))
+      ;; Identity keys preserve snapshot-local aliases without replaying observers.
+      (def (retain token)
+        (when parent (parent token))
+        (unless tokens (set! tokens (make-hash-table-eq)))
+        (def stable (catalog-type-stable token))
+        (unless (hash-key? tokens stable)
+          (hash-put! tokens stable #t)
+          (set! ordered (cons stable ordered))))
+      (parameterize ((active-catalog-admission retain))
+        (def result (consume))
+        (for-each (lambda (stable) (stable work)) (reverse ordered))
+        result))))
 ;; Recheck the complete captured source set, including unused directory entries.
-(def (catalog-current! token (work void)) ((catalog-type-current token) work))
+(def (catalog-current! token (work void))
+  ((catalog-type-current token) work)
+  (when (active-catalog-admission) ((active-catalog-admission) token)))
 ;; Resolve only after live admission; callers cannot use a stale raw descriptor.
 (def (catalog-descriptor token (work void))
   (catalog-current! token work)

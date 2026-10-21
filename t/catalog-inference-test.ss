@@ -2,6 +2,7 @@
 (export catalog-inference-test)
 (import :std/test :std/error ../object ../mop ../number ../prototype-types ../type-relation ../method-declaration
         (only-in ../type RecordSlot)
+        (only-in ../optional-validation call-with-current-catalogs)
         (only-in ../slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
         (prefix-in ../examples/signature-service signature.))
 ;; Refusal must come from stale bound admission, not an unrelated host exception.
@@ -19,6 +20,102 @@
 ;; All entry paths share existing bound revision checks and the same work quotas.
 (def catalog-inference-test
   (test-suite "Retained catalog Type sources and declaration publication"
+    (test-case "whole requests reject cross-directory drift even on false or nonunique results"
+      (for-each (lambda (request)
+        (def first (.o Item: UInt)) (def second (.o Item: UInt))
+        (def left (agetq 'Item (capture-type-catalog first '(Item))))
+        (def right (agetq 'Item (capture-type-catalog second '(Item))))
+        (def changed? #f)
+        ;; Later directory delivery revises a previously admitted, independent root.
+        (def (observe read)
+          (when (and (not changed?) (eq? (slot-read-receiver read) second))
+            (set! changed? #t) (.setslot! first Item ($constant-slot-spec Bool))))
+        (check-exception (call-with-slot-read-observer observe
+          (lambda () (request left right)))
+          (lambda (cause) (and (Error? cause) (equal? (error-message cause) "stale slot dependency"))))
+        (check-equal? changed? #t))
+        (list
+          (lambda (left right) (subtype-expression? (list 'Tuple left right) '(Tuple Bool Bool)))
+          (lambda (left right) (function-covers? (list 'Function (list left right) '(Integer))
+            '(Function (UInt) (Integer Integer))))
+          (lambda (left right) (expression-type (list 'Tuple left right)))
+          (lambda (left right) (prototype-type (.o .parameters: '(T)) '(T) (list 'Tuple left right) []))
+          (lambda (left right) (infer-prototype
+            (prototype-type (.o .parameters: '(T)) '(T) 'T [])
+            (list left right) '((T UInt))))
+          (lambda (left right) (infer-prototype
+            (prototype-type (.o .parameters: '(T)) '(T) 'T [])
+            '(UInt Bool) (list (list left right))))
+          (lambda (left right) (infer-prototype-calls
+            (prototype-type (.o .parameters: '(T)) '(T) '(Function (T) (Integer)) [])
+            '(UInt Bool) (list (list [] '(Integer) (list (list 'Tuple left right)))))))))
+    (test-case "whole declaration frame retains unused candidate directories until publication"
+      (def provider (.o Item: UInt))
+      (def token (agetq 'Item (capture-type-catalog provider '(Item))))
+      (def residual (signature.catalog-service-type 'Bool 'Integer))
+      (def queries '((Output UInt) (UInt Output)))
+      (def bodies 0) (def staged 0) (def consumed 0) (def subject #f)
+      (def context (.o approved: #t))
+      ;; The unused candidate does not occur in the selected Type or bound slots.
+      (def (stage _instance)
+        (set! staged (1+ staged)) (.setslot! provider Item ($constant-slot-spec Bool)))
+      (def (operation value) (set! bodies (1+ bodies)) (values (abs value) abs))
+      (def (consume value) (set! consumed (1+ consumed)) (set! subject value))
+      (def pending (signature.staged-service-action residual (list token 'UInt 'Bool) queries
+        operation stage -7 context consume))
+      (check-exception (pending context)
+        (lambda (cause) (and (Error? cause) (equal? (error-message cause) "stale slot dependency"))))
+      (check-equal? staged 1) (check-equal? bodies 0) (check-equal? consumed 0)
+      ;; Source effects persist; a fresh directory/request can independently retry.
+      (def fresh (agetq 'Item (capture-type-catalog provider '(Item))))
+      (def denied (signature.staged-service-action residual (list fresh 'UInt 'Bool) queries
+        operation void -7 context consume #f))
+      (check-exception (denied context) TypeError?)
+      (check-equal? bodies 1) (check-equal? consumed 0)
+      (def action (signature.staged-service-action residual (list fresh 'UInt 'Bool) queries
+        operation void -7 context consume))
+      (defvalues (evidence next issue) (action context))
+      (check-equal? issue #f) (check-equal? bodies 2) (check-equal? consumed 1)
+      (check-equal? ((.get subject callback) -9) 9)
+      (check-exception ((.get subject callback) #f) TypeError?)
+      (check (eq? (.get evidence subject) subject) => #t)
+      (check (eq? (.get evidence context) context) => #t) (check (eq? next context) => #t))
+    (test-case "nested public requests keep independent final checks and original failures"
+      (def first (.o Item: UInt)) (def second (.o Item: UInt))
+      (def left (agetq 'Item (capture-type-catalog first '(Item))))
+      (def right (agetq 'Item (capture-type-catalog second '(Item))))
+      (def cause (list 'directory-callback-failed)) (def edited? #f)
+      ;; A real callback failure must precede any later success-only stale fence.
+      (def (fail read)
+        (when (eq? (slot-read-receiver read) second)
+          (set! edited? #t) (.setslot! first Item ($constant-slot-spec Bool)) (raise cause)))
+      (check (try (call-with-slot-read-observer fail
+        (cut subtype-expression? (list 'Tuple left right) '(Tuple Bool Bool))) #f
+        (catch (actual) (eq? actual cause))) => #t)
+      (check-equal? edited? #t)
+      (def renewed (agetq 'Item (capture-type-catalog first '(Item))))
+      (def nested? #f) (def nested-refused? #f)
+      ;; A nested public request cannot defer its own invalid source until the
+      ;; enclosing request returns; its local failure is observable immediately.
+      (def (observe read)
+        (when (and (not nested?) (eq? (slot-read-receiver read) second))
+          (set! nested? #t)
+          (set! nested-refused? (try (subtype-expression? left left) #f (catch (_) #t)))))
+      (check (call-with-slot-read-observer observe
+        (cut subtype-expression? (list 'Tuple renewed right) '(Tuple Bool Bool))) => #f)
+      (check-equal? nested-refused? #t)
+      ;; Aliases share one directory replay: final checks deliver no extra reads.
+      (def observed 0)
+      (def (count read) (when (eq? (slot-read-receiver read) second) (set! observed (1+ observed))))
+      (def delivered #f)
+      (call-with-slot-read-observer count
+        (lambda ()
+          (call-with-current-catalogs (type-work 8192)
+            (lambda ()
+              (check (subtype-expression? right right) => #t)
+              (set! delivered observed)))))
+      (check (> delivered 0) => #t)
+      (check-equal? observed delivered))
     (test-case "new Type stamps precede binding getters and later directory compilation"
       (fixture (lambda (_provider policy _slot token)
         (def prototype (.o .parameters: '(Policy Output)))

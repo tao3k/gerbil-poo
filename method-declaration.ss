@@ -5,6 +5,7 @@
         instantiate-declared infer-declared infer-declared-calls instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop ./declaration
         (only-in ./reflection reflect-slots)
+        (only-in ./optional-validation call-with-current-catalogs)
         (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
         (prefix-in ./parameters positional.)
         (only-in ./type-relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
@@ -334,52 +335,54 @@
 ;; source capture, live binding checks and signature admission share one quota;
 ;; callbacks retain their own semantics and the process resource limits.
 (def (declare-instance instance build work)
-  (using (build :~ procedure?)
-    (def source (.get instance prototype))
-    (instantiate-object! source)
-    (parameterize ((active-object-constructions
-                    (cons instance (cons source (active-object-constructions)))))
-      (def expression (.get instance expression))
-      (type-expression expression [] work)
-      ;; Copy admitted syntax before normalizing it: normalization may retain
-      ;; literal subtrees, which must not alias the later builder's public AST.
-      (def captured-expression (copy-type expression))
-      (def catalog (normalize-type captured-expression work))
-      ;; Record describes Class DATA callbacks, including optional absence and
-      ;; initialization. It is valid in Function inputs/results; a method-group
-      ;; interface must use the existing explicit Object catalog instead.
-      (when (and (pair? catalog) (eq? (car catalog) 'Record))
-        (refuse-type 'unsupported "Record value contract is not an Object method catalog"))
-      (def bound-names (bound-parameters/checked instance work))
-      (def bindings (.get instance bound-parameters))
-      (bounded-type-data bindings work)
-      (def captured-bindings (copy-type bindings))
-      (def forms (begin (work) (build instance)))
-      (def entries (begin (work) (expand-declarations MethodDeclaration. instance forms)))
-      (when (ormap (lambda (entry) (or (eq? (car entry) '.parameters) (memq (car entry) bound-names))) entries)
-        (refuse-type 'bounds "Declarations cannot replace bound type parameters"))
-      (def receiver (object<-expanded-declarations instance entries supers: [source]))
-      (instantiate-object! receiver)
-      (parameterize ((active-object-constructions (cons receiver (active-object-constructions))))
-        ;; One effective catalog serves forcing and root-signature admission.
-        ;; Registered source/Slot edits would reach this guarded receiver and
-        ;; refuse before invalidation; nested Object catalogs still walk normally.
-        (def slots (reflect-slots receiver include-hidden?: #t))
-        (for (entry slots)
-          (work)
-          (def descriptor (cdr entry))
-          (when (and (method-slot? descriptor) (.@ descriptor signature))
-            (declared-snapshot (.ref receiver (car entry)))))
-        (def published (.cc instance prototype: receiver))
-        (admit-signatures published receiver captured-expression captured-bindings catalog slots work)
-        published))))
+  (call-with-current-catalogs work (lambda ()
+    (using (build :~ procedure?)
+      (def source (.get instance prototype))
+      (instantiate-object! source)
+      (parameterize ((active-object-constructions
+                      (cons instance (cons source (active-object-constructions)))))
+        (def expression (.get instance expression))
+        (type-expression expression [] work)
+        ;; Copy admitted syntax before normalizing it: normalization may retain
+        ;; literal subtrees, which must not alias the later builder's public AST.
+        (def captured-expression (copy-type expression))
+        (def catalog (normalize-type captured-expression work))
+        ;; Record describes Class DATA callbacks, including optional absence and
+        ;; initialization. It is valid in Function inputs/results; a method-group
+        ;; interface must use the existing explicit Object catalog instead.
+        (when (and (pair? catalog) (eq? (car catalog) 'Record))
+          (refuse-type 'unsupported "Record value contract is not an Object method catalog"))
+        (def bound-names (bound-parameters/checked instance work))
+        (def bindings (.get instance bound-parameters))
+        (bounded-type-data bindings work)
+        (def captured-bindings (copy-type bindings))
+        (def forms (begin (work) (build instance)))
+        (def entries (begin (work) (expand-declarations MethodDeclaration. instance forms)))
+        (when (ormap (lambda (entry) (or (eq? (car entry) '.parameters) (memq (car entry) bound-names))) entries)
+          (refuse-type 'bounds "Declarations cannot replace bound type parameters"))
+        (def receiver (object<-expanded-declarations instance entries supers: [source]))
+        (instantiate-object! receiver)
+        (parameterize ((active-object-constructions (cons receiver (active-object-constructions))))
+          ;; One effective catalog serves forcing and root-signature admission.
+          ;; Registered source/Slot edits would reach this guarded receiver and
+          ;; refuse before invalidation; nested Object catalogs still walk normally.
+          (def slots (reflect-slots receiver include-hidden?: #t))
+          (for (entry slots)
+            (work)
+            (def descriptor (cdr entry))
+            (when (and (method-slot? descriptor) (.@ descriptor signature))
+              (declared-snapshot (.ref receiver (car entry)))))
+          (def published (.cc instance prototype: receiver))
+          (admit-signatures published receiver captured-expression captured-bindings catalog slots work)
+          published))))))
 
 ;; Complete explicit binding precedes all declaration builders and installation.
 ;; Existing type refusal and declaration failure objects propagate unchanged.
 (def (instantiate-declared scheme arguments build (budget 8192))
   (using (build :~ procedure?)
     (def work (type-work budget))
-    (declare-instance (instantiate/checked scheme arguments work) build work)))
+    (call-with-current-catalogs work
+      (lambda () (declare-instance (instantiate/checked scheme arguments work) build work)) #t)))
 
 ;; Run the injected existing solver under one request counter, then admit exactly
 ;; one complete instance. Both query and call inference share this publication
@@ -387,10 +390,11 @@
 (def (infer-and-declare infer scheme candidates requests build budget)
   (using (build :~ procedure?)
     (def work (type-work budget))
-    (def report (infer scheme candidates requests work))
-    (if (eq? (.get report status) 'unique)
-      (let (instance (declare-instance (.get report instance) build work))
-        (.cc report instance: instance)) report)))
+    (call-with-current-catalogs work (lambda ()
+      (def report (infer scheme candidates requests work))
+      (if (eq? (.get report status) 'unique)
+        (let (instance (declare-instance (.get report instance) build work))
+          (.cc report instance: instance)) report)) #t)))
 
 ;; Raw inequalities use the existing exhaustive solver and shared declaration gate.
 ;; Ambiguous/no-solution reports and original failures propagate unchanged.
