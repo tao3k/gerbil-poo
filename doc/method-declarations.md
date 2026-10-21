@@ -510,3 +510,43 @@ state. Gerbil source projection, syntax admission, parameter closure, arbitrary
 callback effects/termination and transitive dependencies are not established by
 these conditional laws. This is finite type-system future work from the article,
 not a claim that its Racket sketches implement a full inference algorithm.
+
+### Constructor-owned Function declaration topology
+
+All Function consumers now share ownership at the existing MOP constructor.
+`Function` copies outputs, required inputs, optional inputs, keyword bindings and
+required-key lists before the existing Type admission. Keyword entries receive
+fresh pairs as well as a fresh outer spine. `CaseFunction` copies its ordered
+clause spine; the original clause descriptors and leaf Type identities remain.
+Rest is a Type identity, not a list to clone. Invalid rows are retained for the
+existing validation order and cause. No body, default or extra validator runs as
+part of copying.
+
+This closes a runtime bug, not just a diagnostic difference. The required-key list
+of an expression-compiled Function could previously alias its caller's source
+syntax: replacing quota: with gate: let an existing wrapper accept a call missing
+quota:, while its object revision remained unchanged. Direct constructor row and
+keyword-pair edits could similarly alter arity, Types or structural dispatch.
+Source-buffer reuse now leaves the constructed contract's language unchanged.
+One shallow construction-time copy is linear in declaration list cells; hot
+invocation uses the existing descriptor and does not recopy metadata. No measured
+speedup or exact allocation/GC claim follows from this fix.
+
+`infer-function-contract-service` compiles a rich Function, captures its actual
+identity in the existing finite TypeValuePair directory, and reuses the qualified
+inference/declaration factory. `descriptor-service-action` continues through the
+existing Reader/FUN, recursive wrapping, refinement and exact bind-evidence/IO
+publication. Tests retain missing-key refusal after caller reuse, nested wrapper
+transport, descriptor identity, supported source invalidation and successful
+fresh construction/publication after refusal.
+
+Lean's existing FunctionSignature namespace supplies `TypedSignature.capture`,
+value/shape and specialization preservation, ordered selection, original missing-key
+refusal before normalizers/bodies, and complete invokeValues equivalence. The host
+must provide faithful nonaliased row projections and Type interpretation; immutable
+Lean lists do not prove the actual Scheme heap separation. Source-buffer ownership
+also does not seal public descriptors, clone Type bodies or establish arbitrary
+transitive callback purity/termination. Supported Type edits retain the existing
+invalidation discipline. This advances the article's finite type-system future
+work rather than attributing a complete type inference implementation to its
+Racket sketches.

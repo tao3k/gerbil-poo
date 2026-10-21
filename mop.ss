@@ -247,40 +247,52 @@
 ;; declarations are malformed descriptors, not target procedure failures.
 (def (Function outputs inputs optional: (optional []) keywords: (keywords [])
                required-keywords: (required-keywords []) rest: (rest #f))
-  (for-each (lambda (row)
-    (unless (list? row) (error "Function types must form a proper list"))
-    (for-each (cut validate Type <>) row)) (list outputs inputs optional))
-  (unless (and (list? keywords) (every (lambda (entry) (and (pair? entry) (keyword? (car entry)))) keywords)
-               (list? required-keywords) (every keyword? required-keywords))
-    (error "invalid Function keyword declaration"))
-  (def names (map car keywords))
-  (unless (and (= (length names) (length (delete-duplicates/hash names)))
-               (= (length required-keywords) (length (delete-duplicates/hash required-keywords)))
-               (every (cut memq <> names) required-keywords))
-    (error "duplicate or undeclared Function keyword"))
-  (for-each (lambda (entry) (validate Type (cdr entry))) keywords)
-  (when rest (validate Type rest))
-  {(:: @ Function.) (outputs) (inputs) (optional) (keywords) (required-keywords) (rest)
-   sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs))
-                    (@list ,@(map (cut .@ <> sexp) inputs))
-                    ,@(if (and (null? optional) (null? keywords) (not rest)) []
-                      `(optional: (@list ,@(map (cut .@ <> sexp) optional))
-                        keywords: (@list ,@(map (lambda (entry)
-                          `(cons ,(car entry) ,(.@ (cdr entry) sexp))) keywords))
-                        required-keywords: (quote ,required-keywords)
-                        rest: ,(and rest (.@ rest sexp)))))})
+  ;; Capture declaration topology before Type admission can invoke callbacks.
+  ;; Keep malformed rows unchanged for the existing admission/error order. Type
+  ;; objects remain shared identities; keyword entries need their own pair too.
+  (def (capture row (entry identity))
+    (if (list? row) (map entry row) row))
+  (let ((outputs (capture outputs)) (inputs (capture inputs))
+        (optional (capture optional)) (required-keywords (capture required-keywords))
+        (keywords (capture keywords (lambda (entry)
+          (if (pair? entry) (cons (car entry) (cdr entry)) entry)))))
+    (for-each (lambda (row)
+      (unless (list? row) (error "Function types must form a proper list"))
+      (for-each (cut validate Type <>) row)) (list outputs inputs optional))
+    (unless (and (list? keywords) (every (lambda (entry) (and (pair? entry) (keyword? (car entry)))) keywords)
+                 (list? required-keywords) (every keyword? required-keywords))
+      (error "invalid Function keyword declaration"))
+    (def names (map car keywords))
+    (unless (and (= (length names) (length (delete-duplicates/hash names)))
+                 (= (length required-keywords) (length (delete-duplicates/hash required-keywords)))
+                 (every (cut memq <> names) required-keywords))
+      (error "duplicate or undeclared Function keyword"))
+    (for-each (lambda (entry) (validate Type (cdr entry))) keywords)
+    (when rest (validate Type rest))
+    {(:: @ Function.) (outputs) (inputs) (optional) (keywords) (required-keywords) (rest)
+     sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs))
+                      (@list ,@(map (cut .@ <> sexp) inputs))
+                      ,@(if (and (null? optional) (null? keywords) (not rest)) []
+                        `(optional: (@list ,@(map (cut .@ <> sexp) optional))
+                          keywords: (@list ,@(map (lambda (entry)
+                            `(cons ,(car entry) ,(.@ (cdr entry) sexp))) keywords))
+                          required-keywords: (quote ,required-keywords)
+                          rest: ,(and rest (.@ rest sexp)))))}))
 
 ;; Ordered signature alternatives share the normal Function Type and recursive
 ;; wrapping path. Structural first-match selection never probes a function body.
 (def (CaseFunction . cases)
-  (unless (and (pair? cases) (every (lambda (case)
-      (and (object? case) (element? Type case) (.has? case signatures)
-           (let (signatures (.get case signatures))
-             (and (= (length signatures) 1) (eq? (car signatures) case))))) cases))
-    (error "CaseFunction requires nonempty single-signature Functions"))
-  (.cc Function. outputs: [] inputs: [] signatures: cases
-       arity: (apply min (map (lambda (case) (.get case arity)) cases))
-       sexp: `(CaseFunction ,@(map (cut .@ <> sexp) cases))))
+  ;; Own the ordered clause spine as well, including calls through apply. The
+  ;; original Function descriptors retain their identity and mutation protocol.
+  (let (cases (map identity cases))
+    (unless (and (pair? cases) (every (lambda (case)
+        (and (object? case) (element? Type case) (.has? case signatures)
+             (let (signatures (.get case signatures))
+               (and (= (length signatures) 1) (eq? (car signatures) case))))) cases))
+      (error "CaseFunction requires nonempty single-signature Functions"))
+    (.cc Function. outputs: [] inputs: [] signatures: cases
+         arity: (apply min (map (lambda (case) (.get case arity)) cases))
+         sexp: `(CaseFunction ,@(map (cut .@ <> sexp) cases)))))
 
 ;; The expander complains "Syntax Error: Ambiguous pattern".
 ;; TODO: Use syntax-case, detect when there are opposite arrows, curry when there are multiple ones?

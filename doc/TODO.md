@@ -46,6 +46,20 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 constructor-owned Function declarations
+
+Closed an executable call-language omission: Function construction retained
+caller-owned rows/keyword pairs, including the required-key list borrowed by
+expression-type. Reusing that list could weaken an already wrapped function's
+required-key gate without changing its descriptor revision. Function now captures
+all declaration list topology before admission; CaseFunction owns its ordered
+clause spine. Existing Type identities, host defaults, structural selection,
+wrapping, causes and result/cache transport remain under the same mechanisms.
+Finite catalog/inference/refinement/evidence publication, supported invalidation
+and fresh reconstruction have integrated controls. Public Type edits and arbitrary
+callback stability are still governed by the existing source protocol. See
+method-declarations.md for the conditional Lean and heap-copy boundary.
+
 ### P2 request-owned constraint evidence
 
 Closed a raw-query ownership omission: mutating or reusing the caller's query
