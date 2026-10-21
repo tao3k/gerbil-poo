@@ -217,8 +217,8 @@
                 "metadata-paired-benchmark" "combination-benchmark"
                 "factory-paired-benchmark" "object-scale-benchmark"))
         (error "unknown benchmark target" target))
-      (let (module (string-append "t/" target))
-        [(append (filter (lambda (entry) (not (equal? entry module))) +gerbil-poo-build-spec+)
-           `((exe: ,module "-ld-options" ,(pkg-config-libs "openssl")))) #f options]))
+      ;; The library prerequisite owns its graph; linking a benchmark must not
+      ;; prepare every unrelated library/example root for a second time.
+      [`((exe: ,(string-append "t/" target) "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
     (else [(append +gerbil-poo-build-spec+ (map path-strip-extension (test-files))) #f args])))
 

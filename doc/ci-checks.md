@@ -134,9 +134,12 @@ variables. Gerbil's own `GERBIL_PATH`, `GERBIL_BUILD_CORES` and
 `GERBIL_BUILD_VERBOSE` retain their standard meanings.
 Libraries and executables use Gerbil's default `lib` and `bin` under that
 installation; only CI group artifacts pass an explicit library output directory.
-Benchmark executables share `gxi build.ss benchmark TARGET` and the standard
+After library preparation, benchmark executables share
+`gxi build.ss benchmark TARGET` and the standard
 `pkg-config-libs` linker discovery. Result directories contain measurements only;
 there are no separate executable installations or custom linker environment switches.
+Each executable specification contains only its own root; it does not repeat
+the complete library/example inventory already handled by the prerequisite.
 Source tests use the released harness after shared compilation, without a
 fabricated source symlink tree or changes to `GERBIL_LOADPATH`.
 

@@ -40,7 +40,7 @@ benchmark-class-proto width='1000' samples='3':
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 300s gxi {{ test-runtime-options }} ./t/class-proto-benchmark.ss "{{ width }}" "{{ samples }}"
 
-benchmark-object-scale:
+benchmark-object-scale: (build "library")
     just _build-benchmark object-scale-benchmark 300
     {{ platform-env }} {{ timeout-executable }} --foreground --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark"
 
