@@ -1228,9 +1228,14 @@ and the companion Lean completeness/inverse/frame/transport/lens proofs.
 Here incremental also means sharing an algorithm layer between existing typeclass
 implementations, as in the original proposal; data revision alone does not close
 its automatic translation/symmetry goals. This closes this finite delta unit,
-not the proposed general library. Arbitrary
-key/value-changing isomorphisms, inferred laws, maintained aggregates and backend
-complexity qualification remain open; arbitrary predicates and mutable hidden
+not the proposed general library. Explicit typed key/value Wrapper isomorphisms
+now lift to collection and paired-base delta conversion. The same target-backend
+registry covers both snapshot domains, rejects collisions, preserves edit order
+and admitted Function leaves, and retains origin/converter invalidation lineage.
+FUN composition covers conversion, installation, consumer suppression and retry.
+Lean proves roundtrips, injectivity and discovery/write/install/undo commutation,
+including the first mapped conflict key. Automatically inferred isomorphisms,
+inferred laws, maintained aggregates and backend complexity qualification remain open; arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 
 

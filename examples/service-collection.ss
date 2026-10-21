@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action)
 (import :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map)
         ../object ../mop ../object-contract ../object-contract-flow ../support/option
@@ -76,3 +76,15 @@
 (def (apply-ledger-revision descriptor delta consume)
   (using (consume :~ procedure?)
     (.call Observation. .map consume (cut .call descriptor .apply-delta <> delta))))
+
+;; Compose explicit collection/delta conversion, target installation and IO through
+;; the existing Reader/FUN maps. Input is an admitted (base . delta) pair; every
+;; conversion/law/conflict refusal suppresses consume, and no Function is rewrapped.
+(def (transport-ledger-action mapping consume)
+  (using (consume :~ procedure?)
+    (def target (.@ mapping Codomain))
+    (def changes (.@ mapping Delta))
+    (.call Observation. .map consume
+      (.call Observation. .map
+        (lambda (staged) (.call target .apply-delta (car staged) (cdr staged)))
+        (cut .call changes .ap <>)))))

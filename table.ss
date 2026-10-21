@@ -2,7 +2,8 @@
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
         iterator-map table-element? validate-table
-        table-delta? table-delta-count invert-table-delta
+        table-delta? table-delta-count invert-table-delta table-isomorphism
+        table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 
 (import
@@ -10,13 +11,15 @@
   :std/interface
   :std/iter
   (only-in :std/list/list-builder with-list-builder)
+  (only-in :std/list/list delete-duplicates/hash)
   (only-in :std/list/alist acons)
   (only-in :std/func compose)
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method)
   (only-in ./io marshal)
   (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
-  (only-in ./object .@ .call object-revision active-object-constructions instantiate-object!)
+  (only-in ./fun Wrapper.)
+  (only-in ./object .@ .call .cc object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair))
 
 (defstruct %mapped-iterator (source transform) final: #t)
@@ -55,7 +58,7 @@
 ;; a stored false is (some #f). Neither constructors nor mutable edit lists escape.
 (defstruct table-change (key before after) final: #t)
 ;; Bind a finite delta to its source protocol and child descriptor revisions.
-(defstruct table-delta (sources versions changes) final: #t)
+(defstruct table-delta (key value sources versions changes) final: #t)
 ;; A conflict reports the first changed key whose expected old value disagrees.
 (defstruct table-conflict (key) final: #t)
 
@@ -88,7 +91,7 @@
     (lambda ()
       (require-table descriptor before)
       (require-table descriptor after)
-      (make-table-delta sources (map object-revision sources)
+      (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
         (with-list-builder (emit)
           (.call descriptor .for-each
             (lambda (key value)
@@ -106,7 +109,8 @@
 ;; Undo in reverse order, retaining the exact callbacks and descriptor provenance.
 ;; Stable values and pure backend callbacks are required for reversible observations.
 (def (invert-table-delta delta)
-  (make-table-delta (table-delta-sources delta) (table-delta-versions delta)
+  (make-table-delta (table-delta-key delta) (table-delta-value delta)
+    (table-delta-sources delta) (table-delta-versions delta)
     (map (lambda (change)
       (make-table-change (table-change-key change) (table-change-after change)
                          (table-change-before change)))
@@ -122,8 +126,8 @@
   (with-table-sources (cons descriptor sources)
     (lambda ()
       (unless (and (equal? (table-delta-versions delta) (map object-revision sources))
-                   (eq? (.@ descriptor Key) (cadr sources))
-                   (eq? (.@ descriptor Value) (caddr sources)))
+                   (eq? (.@ descriptor Key) (table-delta-key delta))
+                   (eq? (.@ descriptor Value) (table-delta-value delta)))
         (error "stale or incompatible table delta"))
       (.call descriptor .validate-shape source)
       (foldl
@@ -136,6 +140,118 @@
             (#f (.call descriptor .remove staged key))
             ((some value) (.call descriptor .acons key value staged))))
         source (table-delta-changes delta)))))
+
+;; A failed finite law/collision check reports its kind and offending value.
+;; No partially converted carrier or change sequence is included in this payload.
+(defstruct table-isomorphism-failure (kind value) final: #t)
+;; One captured direction uses the existing Wrapper operations with explicit Types.
+;; Its inverse swaps the two descriptors and the two pairs of pure callbacks.
+(defstruct table-translation (source target key unkey value unvalue) final: #t)
+
+;; Check actual encountered values without normalizing admitted children again.
+;; Both callbacks must map admitted values to admitted values and respect equal?.
+;; Membership alone cannot establish Function wrapping or universal inverse laws.
+(def (translate-table-value source target forward backward input (observe void))
+  (def output (forward input))
+  (unless (element? target output) (raise-type-error target output 'table-isomorphism))
+  (observe output)
+  (def recovered (backward output))
+  (unless (and (element? source recovered) (equal? recovered input))
+    (raise (make-table-isomorphism-failure 'left-inverse input)))
+  (unless (equal? (forward recovered) output)
+    (raise (make-table-isomorphism-failure 'right-inverse output)))
+  output)
+
+;; Each attempt owns one typed persistent key registry using the TARGET backend.
+;; It detects the backend's own collisions, including keys deleted in one snapshot
+;; and inserted in the next. Repeated occurrences of the same source key are legal.
+(def (table-translators direction)
+  (def source (table-translation-source direction))
+  (def target (table-translation-target direction))
+  (def owners (.cc target Value: (.@ source Key)))
+  (def seen (.@ owners .empty))
+  ;; Register before testing the inverse, so a lossy key map reports collision.
+  (def (key input)
+    (translate-table-value (.@ source Key) (.@ target Key)
+      (table-translation-key direction) (table-translation-unkey direction) input
+      (lambda (output)
+        (def previous (.call owners .ref/opt seen output))
+        (when (and (some? previous) (not (equal? input (some-value previous))))
+          (raise (make-table-isomorphism-failure 'collision output)))
+        (set! seen (.call owners .acons output input seen)))))
+  ;; Rebuild privately with existing folds/insertion; retained Function leaves
+  ;; remain the same admitted procedures in the converter's returned structures.
+  (def (table input)
+    (require-table source input)
+    (require-table target
+      (.call source .foldl
+        (lambda (k v result)
+          (.call target .acons (key k)
+            (translate-table-value (.@ source Value) (.@ target Value)
+              (table-translation-value direction) (table-translation-unvalue direction) v) result))
+        (.@ target .empty) input)))
+  (values key table))
+
+;; Lift explicit typed Key/Value Wrappers to collection and delta Wrappers.
+;; Domain/Codomain must match exactly. Captured metadata is checked on every use;
+;; callback exceptions propagate, and supported metadata writes refuse in scope.
+;; Finite checks are controls for supplied laws, never universal proof discovery.
+(def (table-isomorphism source target key value)
+  (unless (and (eq? (.@ key Domain) (.@ source Key))
+               (eq? (.@ key Codomain) (.@ target Key))
+               (eq? (.@ value Domain) (.@ source Value))
+               (eq? (.@ value Codomain) (.@ target Value)))
+    (error "incompatible table isomorphism types"))
+  (def sources (delete-duplicates/hash
+    (list source target key value (.@ source Key) (.@ source Value) (.@ target Key) (.@ target Value))
+    table: (make-hash-table-eq) from-end?: #t))
+  (with-table-sources sources
+    (lambda ()
+      (def versions (map object-revision sources))
+      (def ka (.@ key .ap)) (def ku (.@ key .unap))
+      (def va (.@ value .ap)) (def vu (.@ value .unap))
+      (using ((ka :~ procedure?) (ku :~ procedure?) (va :~ procedure?) (vu :~ procedure?))
+        (def forward (make-table-translation source target ka ku va vu))
+        (def backward (make-table-translation target source ku ka vu va))
+        ;; Own guards across the whole conversion, including delta origin metadata.
+        (def (guard dependencies action)
+          (with-table-sources dependencies
+            (lambda ()
+              (unless (equal? versions (map object-revision sources))
+                (error "stale table isomorphism"))
+              (action))))
+        ;; Collection-only conversion has no retained global memo or registry.
+        (def (convert direction input)
+          (guard sources
+            (lambda ()
+              (defvalues (_ table) (table-translators direction))
+              (table input))))
+        ;; The Pair carries admitted base . delta. Install in source first, then
+        ;; translate both snapshots through ONE registry, retaining edit order.
+        ;; Read converted before/after bindings to avoid repeated Function wrapping.
+        (def (changes direction input)
+          (unless (and (pair? input) (table-delta? (cdr input)))
+            (error "table isomorphism Delta requires base and delta"))
+          (def delta (cdr input))
+          (def dependencies (delete-duplicates/hash (append sources (table-delta-sources delta))
+            table: (make-hash-table-eq) from-end?: #t))
+          (guard dependencies
+            (lambda ()
+              (def from (table-translation-source direction))
+              (def to (table-translation-target direction))
+              (def after (.call from .apply-delta (car input) delta))
+              (defvalues (key table) (table-translators direction))
+              (def before* (table (car input)))
+              (def after* (table after))
+              (cons before*
+                (make-table-delta (.@ to Key) (.@ to Value) dependencies (map object-revision dependencies)
+                  (map (lambda (change)
+                    (def k (key (table-change-key change)))
+                    (make-table-change k (.call to .ref/opt before* k) (.call to .ref/opt after* k)))
+                    (table-delta-changes delta)))))))
+        (.cc Wrapper. Domain: source Codomain: target
+          .ap: (cut convert forward <>) .unap: (cut convert backward <>)
+          Delta: (.cc Wrapper. .ap: (cut changes forward <>) .unap: (cut changes backward <>)))))))
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
