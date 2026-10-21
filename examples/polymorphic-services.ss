@@ -4,6 +4,7 @@
 (export TokenCallbackServiceType infer-token-callback-service)
 (export shared-service-calls observed-conversion-declarations signature-request-action infer-function-contract-service)
 (export MetadataServiceType infer-metadata-service metadata-service-request)
+(export infer-observed-descriptor-service)
 (export infer-schema-service infer-type-value-service DescriptorServiceType infer-descriptor-service descriptor-service-action EmptyCallbackServiceType infer-empty-callback-service empty-callback-action scalar-union-service-type infer-scalar-service scalar-service-action BooleanServiceType infer-boolean-service boolean-service-action UnsignedUnionServiceType UnboundedUnionServiceType UnionServiceType EnumServiceType RangeServiceType infer-range-service TextServiceType infer-text-service text-service-action OptionalRoutingServiceType infer-optional-routing-service infer-signature-alias-service RecordServiceView infer-record-view-service CorrelatedRestCallback LiteralRestCallback RestCallbackServiceType LiteralCallbackServiceType infer-correlated-rest-service infer-literal-rest-service KeywordValueCallback infer-keyword-value-service KeywordPrefixCallback infer-keyword-prefix-service PositionalCallbackServiceType KeywordCallbackServiceType infer-positional-callback-service infer-keyword-callback-service CoveredServiceType infer-covered-service infer-shared-catalog-service catalog-service-action CatalogServiceType infer-catalog-service RecordServiceType record-service record-service-class infer-record-service record-service-action RoutingServiceType route-service routing-declarations infer-routing-service routing-service-action SharedServiceType report-service recover-service shared-service-declarations
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
@@ -751,6 +752,18 @@
 ;; The caller supplies the host operation; returned callbacks are checked later.
 (def (infer-descriptor-service prefix candidates observations procedure (record void))
   (infer-signature-calls DescriptorServiceType prefix candidates observations procedure record))
+;; A computed parameter declaration may inspect/reuse configuration buffers.
+;; Schema admission owns their original topology before this observer executes;
+;; its effects are not rolled back or accepted as replacement type evidence.
+;; Prefix binding, complete inference and qualified declarations reuse the same
+;; factory; descriptor-service-action supplies refine/bind-evidence and FUN/IO.
+(def (infer-observed-descriptor-service observe prefix candidates observations procedure (record void))
+  (using (observe :~ procedure?)
+    (def expression (copy-type (.get DescriptorServiceType expression)))
+    (def bounds (copy-type (.get DescriptorServiceType bounds)))
+    (def source (.o (.parameters (begin (observe expression bounds) '(Input Output)))))
+    (def schema (prototype-type source '(Input Output) expression bounds))
+    (infer-signature-calls schema prefix candidates observations procedure record)))
 ;; Reuse FUN approval, recursive result wrapping, refinement and exact evidence.
 ;; A policy failure occurs after method effects and before consumer admission.
 (def (descriptor-service-action instance input context consume (allowed? #t))

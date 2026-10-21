@@ -511,6 +511,28 @@ callback effects/termination and transitive dependencies are not established by
 these conditional laws. This is finite type-system future work from the article,
 not a claim that its Racket sketches implement a full inference algorithm.
 
+### Schema capture precedes computed parameter metadata
+
+Schema preparation now bounds and captures its finite variables, expression,
+bounds and binding-list topology before `.parameters` or Type admission can run.
+Previously a computed parameter getter could mutate a caller-owned bound from
+`(Self Super)` to `(Self Self)` before capture, admitting `(Integer UInt)` under
+the weaker bound. The shared gate covers initial construction, residual prefixes,
+explicit instantiation and both inference modes; it keeps existing leaf Type
+identities and private revision stamps. Callback errors retain their exact cause;
+callbacks that already ran are not rolled back. Finite capture exhaustion occurs
+before getters. No callback purity or arbitrary transitive dependency discovery
+is inferred from owning the syntax.
+
+The observed descriptor-service example reuses complete qualified declarations
+and the existing refine/bind-evidence/FUN/IO publisher, including nested returned
+Functions, rejected policy and retry. Lean's existing PrototypeTypes namespace
+adds `inferCaptured` and laws for original bounds, complete classification and
+refusal order. The host must implement a faithful finite capture before refresh;
+runtime regressions establish list nonaliasing. These are finite type-protocol
+future-work results, not claims that the reference Racket sketches implement this
+solver or that its compiler/runtime has been verified.
+
 ### Constructor-owned Function declaration topology
 
 All Function consumers now share ownership at the existing MOP constructor.

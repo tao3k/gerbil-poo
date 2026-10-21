@@ -46,6 +46,19 @@ further tuning of the corresponding workflow.
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
+### P2 schema capture before computed metadata
+
+Closed a preparation-order omission: computed `.parameters` could modify the
+caller's variables, expression and bounds before they were copied, including
+weakening `Self <: Super` into `Self <: Self`. One shared preparation gate now
+bounds and owns all four syntax/binding spines before any getter or Type
+admission. Initial schemas, residual prefixes, explicit instances and both
+inference paths use that same captured data. Complete qualified declaration,
+refine/bind-evidence/FUN publication and failure/retry controls remain under the
+existing protocols. This advances the article's finite type-system future work;
+it does not establish arbitrary callback purity or rollback. See
+method-declarations.md for the capture/host correspondence boundary.
+
 ### P2 constructor-owned Function declarations
 
 Closed an executable call-language omission: Function construction retained

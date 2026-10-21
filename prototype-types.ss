@@ -54,10 +54,16 @@
 ;; Revalidate and snapshot public schema metadata for every inference/instance.
 ;; No mutable descriptor record is trusted as an enduring proof certificate.
 (def (prepare-prototype-type prototype variables expression bounds work (bound []))
-  (bounded-type-data variables work)
-  (require-value variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
-  (check-bindings prototype bound variables work)
-  (let ()
+  ;; Own every finite syntax spine before parameter getters or Type admission
+  ;; can run. Leaf descriptor identities/private binding stamps stay unchanged.
+  (def (capture data)
+    (bounded-type-data data work)
+    (copy-type data))
+  (let ((variables (capture variables)) (expression (capture expression))
+        (bounds (capture bounds)) (bound (capture bound)))
+    (bounded-type-data variables work)
+    (require-value variables list? (lambda () (refuse-type 'malformed "Type variables must be a list")))
+    (check-bindings prototype bound variables work)
     (type-expression `(Tuple ,@variables) variables work)
     (unless (and (andmap symbol? variables)
                  (not (ormap type-constructor? variables))
@@ -69,14 +75,9 @@
     (unless (and (list? bounds) (andmap (lambda (bound) (and (list? bound) (= (length bound) 2))) bounds))
       (refuse-type 'malformed "Subtype constraints need two expressions" bounds))
     (for-each (lambda (bound) (for-each (cut type-expression <> variables work) bound)) bounds)
-    ;; .o formulas are lazy: force private copies before constructing the schema,
-    ;; otherwise a later first observation would copy already-mutated source data.
-    (let ((captured-variables (map identity variables))
-          (captured-expression (copy-type expression))
-          (captured-bounds (map copy-type bounds))
-          (captured-bindings (map (lambda (binding) (cons (car binding) (cdr binding))) bound)))
-      (.o bind-these: #f prototype: prototype variables: captured-variables
-          expression: captured-expression bounds: captured-bounds bound-parameters: captured-bindings))))
+    ;; Lazy fields close over the same owned inputs that admission checked.
+    (.o bind-these: #f prototype: prototype variables: variables
+        expression: expression bounds: bounds bound-parameters: bound)))
 
 ;; Bind a ground Type prefix through the existing persistent positional protocol.
 ;; Remaining expressions/bounds stay explicit residual obligations, not approvals.

@@ -37,6 +37,33 @@ Existing finite Function/case language, keyword-origin, Pair/Map/Sum/Union and
 explicit Object/Record protocols retain their documented bounds. This audit does
 not claim complete runtime Type coverage or mark every TODO complete.
 
+## Schema admission owns inputs before callbacks
+
+The shared `prepare-prototype-type` previously read computed `.parameters`
+before copying the schema. A getter could change an original Self/Super bound
+and make an otherwise forbidden ground instantiation succeed. It now bounds and
+copies variables, expression, bounds and private binding-list topology before
+the first getter or Type callback. Existing descriptor identities and binding
+stamps remain shared; all validation and complete candidate search use the
+captured syntax, not a later reread of caller buffers. Revalidation through
+instantiation, prefix specialization and both inference modes shares this gate.
+No replacement relation, callback implementation or namespace was added.
+
+`infer-observed-descriptor-service` exercises computed configuration, prefix
+binding, call inference, qualified declarations, nested Function wrapping and
+the existing descriptor-service-action refinement/evidence/FUN/IO chain. Tests
+cover bound weakening, variable/expression mutation, cycles before getter effects,
+original getter exceptions, failed publication and retry. Capturing adds linear
+declaration preparation work; no elapsed-time improvement is claimed.
+
+Lean `PrototypeTypes.inferCaptured` composes immutable initial constraint capture,
+source refresh and the existing complete bounded solver. Its laws preserve
+capture/getter refusal order, exact classification and every original accepted
+bound after arbitrary successful refresh. Top-level Examples/Parameters.lean
+shows that rereading the weakened live constraint would accept an extra candidate.
+Faithful host capture/nonaliasing and syntax/descriptor interpretation are runtime
+premises; no Scheme heap, compiler or arbitrary effect equivalence is proved.
+
 ## Implemented judgment
 
 ### Optional sentinel and payload coverage
