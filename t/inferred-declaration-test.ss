@@ -467,7 +467,7 @@
         '((Integer Bool gate: UInt) (Integer gate: Bool) (Integer Integer gate: UInt Bool)))
       (check-exception (infer-prototype-calls schema '(UInt Integer) '((() (Integer) (UInt)))) (refusal 'bounds))
       (check-exception (infer-prototype-calls schema '(UInt Integer)
-        '((() (Integer gate: UInt gate: UInt) (UInt)))) (refusal 'bounds))
+        '((() (Integer gate: UInt gate: UInt) (UInt)))) (refusal 'malformed))
       (check-exception (infer-prototype-calls schema '(UInt Integer)
         '((() (Integer other: UInt) (UInt)))) (refusal 'bounds)))
     (test-case "ordered call inference never falls through after first-shape type failure"
