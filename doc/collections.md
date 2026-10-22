@@ -150,6 +150,84 @@ keys, Tuple/Pair values with shared checked Functions, forward/inverse deltas,
 conflict/retry, consumer suppression, cross-history collision and metadata refusal.
 The top-level Lean example models callback identities as opaque handles.
 
-Automatically inferred isomorphisms, incrementally maintained folds and asymptotic
-backend optimization remain outside this unit. The general library remains open
+Automatically inferred isomorphisms and asymptotic backend optimization remain
+outside this unit. The general library remains open
 in TODO.md; explicit conversions advance the original proposal's future work.
+
+## Delta-driven retractable folds
+
+`table-fold descriptor aggregate project` reuses `Wrapper.` and the existing
+`.zero`, `.add`, `.sub` arithmetic protocol. `aggregate` is an explicit Type
+(including a Tuple with pointwise arithmetic); `project` maps admitted keys and
+values to admitted contributions. No unrestricted descriptor or inferred inverse
+is substituted for a missing algebra.
+
+* `.ap admitted-table` initializes an opaque, owner-bound state containing the
+  original table, folded value and metadata revisions.
+* `.get state` observes the aggregate; `.unap state` recovers the retained table.
+  Both reject foreign/stale states. Recovery uses the retained source, not an
+  impossible inverse from a lossy sum alone.
+* `.apply-delta state delta` first runs complete existing old-value, origin and
+  carrier checks. Only after successful private installation does it retract each
+  present old contribution with `.sub`, then add each present replacement with
+  `.add`. It returns one new state containing both results. It does not refold
+  unchanged bindings or revalidate/rewrap Function leaves.
+
+Initialization scans recognition plus one fold. Accepted updates project at most
+`2 * delta-count` bindings, with one arithmetic operation per present side. Empty
+updates perform no projections but still check metadata/shape and retain the new
+origin lineage in a fresh state. Application retains the existing backend shape,
+lookup and persistent-write costs: Trie shape recognition may scan its structure.
+Aggregate membership, arbitrary callbacks, equality, object preparation, revision
+lineage, state allocation and GC have their own costs. Unique metadata dependencies
+are deduplicated, not assumed constant across all future origins.
+
+The semantic premise is the **optional-write fold law**. If `F` is the complete
+fold, `w(k, none) = zero` and `w(k, some(v)) = project(k,v)`, then:
+
+```
+F(replace(view, k, after)) = F(view) - w(k, view(k)) + w(k, after)
+```
+
+Operations and admitted payloads must be pure/stable on successful paths. Exact
+integer sums and pointwise count/sum metrics satisfy this law for a unique finite
+inventory covering all updated keys. Arbitrary order-sensitive left folds,
+floating-point sums and arbitrary predicates do not acquire that law by providing
+methods with these names. Existing `.foldl/.foldr` remain available for them.
+
+Inverting a successfully installed delta restores both original observations and
+lawful aggregate values. A conflict or stale origin refuses **before project**.
+Late project/arithmetic exceptions preserve their cause; bad aggregate membership
+raises TypeError; supported metadata writes refuse through the construction guard.
+No partial state escapes and the old state remains usable for retry. Hidden
+mutable callback state and external effects cannot be rolled back or certified by
+recognition. `fold-ledger-action` composes staging and the consumer through the
+existing Observation/FUN map; consumer failure is not an atomic publication proof.
+
+Retained states carry all accepted delta origins, including isomorphism metadata,
+through inverse and empty updates. Supported changes invalidate subsequent `.get`,
+`.unap` or update; create a fresh fold/state after changing the fold descriptors.
+A fresh admitted winner can be initialized and a new delta discovered for retry.
+
+For explicit key/value isomorphisms, initialize the target fold with the mapped
+source once and use the existing paired-base `Delta` Wrapper for later revisions.
+The target contribution pulls back through both inverse maps. Its aggregate then
+agrees with the source fold, while converted deltas preserve Function handles and
+first conflicts. Initial target folding and isomorphism delta conversion still scan
+snapshots: the **complete conversion workflow is not O(delta-count)**.
+
+Regression coverage includes 24 rounds on each RationalDict/Trie backend against
+an independent complete sum, a backend refusing accidental fold enumeration during
+updates, count/weighted-sum ledgers sharing checked Functions under UInt/String
+and Tuple/Pair conversion, inverse recovery, late conflicts without project calls,
+consumer suppression, late failures and retry, wrong result types, foreign states,
+metadata guards, and converter lineage retained through empty updates.
+
+The companion Lean `foldl_correct` proves the general optional-write law sufficient
+for arbitrary accumulators. `foldView_replace` derives it for a complete finite
+exact-integer fold; `foldChanges_correct` and `applyFold_correct` connect that oracle
+to installation. Further proofs cover inverse recovery, full/sparse/isomorphic fold
+commutation (including the mapped error key), and the `foldWork_bound` projection
+bound. These are semantic and source-work bounds, not a Scheme compiler, allocator,
+callback termination, GC or wall-clock proof. Automatically inferred algebras and
+asymptotic backend optimization remain future work; Scheme requires no Lean files.

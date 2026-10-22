@@ -2,7 +2,7 @@
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
         iterator-map table-element? validate-table
-        table-delta? table-delta-count invert-table-delta table-isomorphism
+        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 
@@ -140,6 +140,78 @@
             (#f (.call descriptor .remove staged key))
             ((some value) (.call descriptor .acons key value staged))))
         source (table-delta-changes delta)))))
+
+;; Owned aggregate states retain admitted snapshots and all revision dependencies.
+;; Only the creating Wrapper can inspect/update them; no constructor is exported.
+(defstruct table-fold-state (owner sources versions table value) final: #t)
+
+;; Lift a retractable fold through existing Wrapper and numeric/algebra methods.
+;; Aggregate supplies .zero/.add/.sub and recognition; project maps admitted k/v
+;; to admitted contributions. Pure stable operations and the optional-write fold
+;; law are caller premises, not inferred from these method names or membership.
+(def (table-fold descriptor aggregate project)
+  (using (project :~ procedure?)
+    (def sources (delete-duplicates/hash
+      (list descriptor (.@ descriptor Key) (.@ descriptor Value) aggregate)
+      table: (make-hash-table-eq) from-end?: #t))
+    (with-table-sources sources
+      (lambda ()
+        (def versions (map object-revision sources))
+        (def owner (list descriptor aggregate project))
+        (def add (.@ aggregate .add))
+        (def sub (.@ aggregate .sub))
+        ;; Recognition preserves admitted aggregate leaves instead of rewrapping.
+        (def (checked value)
+          (unless (element? aggregate value) (raise-type-error aggregate value 'table-fold)) value)
+        (def zero (checked (.@ aggregate .zero)))
+        ;; Guard all captured metadata over callbacks and private construction.
+        (def (guard dependencies action)
+          (with-table-sources dependencies (lambda ()
+            (unless (equal? versions (map object-revision sources)) (error "stale table fold"))
+            (action))))
+        ;; A foreign or stale state never supplies an aggregate or source snapshot.
+        (def (require-state state)
+          (unless (and (table-fold-state? state) (eq? owner (table-fold-state-owner state)))
+            (error "incompatible table fold state"))
+          (unless (equal? (table-fold-state-versions state)
+                          (map object-revision (table-fold-state-sources state)))
+            (error "stale table fold state")))
+        ;; Fresh initialization scans the admitted table once, without normalization.
+        (def (initialize table)
+          (guard sources (lambda ()
+            (require-table descriptor table)
+            (def value (.call descriptor .foldl
+              (lambda (k v acc) (checked (add acc (checked (project k v))))) zero table))
+            (make-table-fold-state owner sources versions table value))))
+        ;; Read either part under the same freshness/owner checks as installation.
+        (def (observe state access)
+          (unless (table-fold-state? state) (error "incompatible table fold state"))
+          (guard (table-fold-state-sources state) (lambda () (require-state state) (access state))))
+        ;; Complete old-value and origin checks before any contribution callback.
+        ;; A later projection/arithmetic failure exposes neither staged result.
+        (def (update state delta)
+          (unless (and (table-fold-state? state) (table-delta? delta))
+            (error "table fold state and delta required"))
+          (def dependencies (delete-duplicates/hash
+            (append sources (table-fold-state-sources state) (table-delta-sources delta))
+            table: (make-hash-table-eq) from-end?: #t))
+          (guard dependencies (lambda ()
+            (require-state state)
+            (def next (.call descriptor .apply-delta (table-fold-state-table state) delta))
+            (def value (foldl (lambda (change acc)
+              (def k (table-change-key change))
+              (def before (table-change-before change))
+              (def after (table-change-after change))
+              (def removed (if (some? before)
+                (checked (sub acc (checked (project k (some-value before))))) acc))
+              (if (some? after)
+                (checked (add removed (checked (project k (some-value after))))) removed))
+              (table-fold-state-value state) (table-delta-changes delta)))
+            (make-table-fold-state owner dependencies (map object-revision dependencies) next value))))
+        (using ((add :~ procedure?) (sub :~ procedure?))
+          (.cc Wrapper. Domain: descriptor Value: aggregate .ap: initialize
+            .unap: (cut observe <> table-fold-state-table)
+            .get: (cut observe <> table-fold-state-value) .apply-delta: update))))))
 
 ;; A failed finite law/collision check reports its kind and offending value.
 ;; No partially converted carrier or change sequence is included in this payload.

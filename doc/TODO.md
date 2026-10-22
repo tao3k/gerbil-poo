@@ -1235,7 +1235,17 @@ and admitted Function leaves, and retains origin/converter invalidation lineage.
 FUN composition covers conversion, installation, consumer suppression and retry.
 Lean proves roundtrips, injectivity and discovery/write/install/undo commutation,
 including the first mapped conflict key. Automatically inferred isomorphisms,
-inferred laws, maintained aggregates and backend complexity qualification remain open; arbitrary predicates and mutable hidden
+inferred laws and backend complexity qualification remain open. The next unit is
+implemented: `table-fold` initializes owner-bound states and maintains retractable
+aggregates through checked deltas, inverse recovery, isomorphism transport and
+failure retry. It reuses `.zero/.add/.sub`, existing Wrapper, metadata guards and
+FUN consumption. Complete conflict checks precede projections; accepted updates
+visit only edit contributions, retaining source/aggregate and origin lineage
+together. Lean proves the general optional-write law sufficient, derives exact
+finite integer sums, and proves transport/inverse and projection-work bounds.
+Arbitrary order-sensitive folds and automatically inferred retractable algebras
+are outside this unit, not silently approximated; see collections.md for costs.
+As before, arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 
 

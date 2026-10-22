@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action)
 (import :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map)
         ../object ../mop ../object-contract ../object-contract-flow ../support/option
@@ -88,3 +88,10 @@
       (.call Observation. .map
         (lambda (staged) (.call target .apply-delta (car staged) (cdr staged)))
         (cut .call changes .ap <>)))))
+
+;; Reader/FUN stages the aggregate and source snapshot together, then invokes IO.
+;; The consumer receives the new opaque state only after complete success. Keep the
+;; previous state for retry or apply an inverted delta; no mutable cache is installed.
+(def (fold-ledger-action folding state consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map consume (cut .call folding .apply-delta state <>))))
