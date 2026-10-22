@@ -44,7 +44,7 @@ jobs:
             .ci-library/lib
             .ci-library/build-source-key
             .ci-library/producer-revision
-          key: scheme-library-v2-${{ runner.os }}-${{ runner.arch }}-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee-${{ steps.compiler.outputs.identity }}-${{ hashFiles('*.ss', 'types/**/*.ss', 'support/**/*.ss', 'examples/**/*.ss', 't/**/*.ss', '!t/*-test.ss', 'gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
+          key: scheme-library-v2-${{ runner.os }}-${{ runner.arch }}-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee-${{ steps.compiler.outputs.identity }}-${{ hashFiles('*.ss', 'table/**/*.scm', 'types/**/*.ss', 'support/**/*.ss', 'examples/**/*.ss', 't/**/*.ss', '!t/*-test.ss', 'gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
       - name: Compile the shared Scheme modules once
         if: steps.library-cache.outputs.cache-hit != 'true'
         run: just build library

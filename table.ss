@@ -1,13 +1,14 @@
 ;;; Common declarations and methods for tables
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
-        iterator-map table-element? validate-table
+        iterator-map table-element? validate-table table-styles
         table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-wrapper
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 
 (import
   (only-in ./variant-validation validate-bindings)
+  (only-in :gerbil/runtime/thread with-lock)
   :std/interface
   :std/iter
   (only-in :std/list/list-builder with-list-builder)
@@ -863,3 +864,7 @@
 
 (define-type (FocusableZipping. @ [Zipping.]
   .refocus)) ;; Zipper <- FocusKey Zipper
+
+;; Derive style ownership in the existing interface; .admit normalizes raw input,
+;; whereas .ap and transitions retain admitted Function wrappers and batch ordering.
+(include "table/styles.scm")

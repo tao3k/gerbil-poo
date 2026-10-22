@@ -107,7 +107,8 @@
     "polynomial"
     "proto"
     "rationaldict"
-    "table"
+    ;; std/make tracks the standard include as an explicit compiler input.
+    (gxc: "table" (extra-inputs: ("table/styles.scm")))
     "trie"
     "type"
     "generation-graph"

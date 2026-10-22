@@ -1242,10 +1242,19 @@ recognizes its carrier and declares child Types; it need not implement a tree.
 Sixteen Lean laws cover conjugated read/write/install, inverse and multi-stage
 derivation, ordered folds and source guards. See
 [table-representations.md](table-representations.md). This is explicit law-governed
-derivation; generated style conversion, declarative correlated indexes,
+derivation; declarative correlated indexes,
 comparator-aware extensions and backend cost qualification remain concrete work.
 Arbitrary symmetry/optimization discovery is a research boundary. The concentrated
 remaining-acceptance table is in table-representations.md.
+
+Pure/mutable/linear **style derivation** now shares one admitted persistent backend
+through `table-styles`: all nine conversions, nonconsuming snapshot reads, atomic
+ordered batches, owned-reference transfer, generation conflict rejection and
+explicit retry. `Wrapper` / Reader / IO retain the existing checked Functions;
+normalization is separate from ownership transfer. See [table-styles.md](table-styles.md)
+for failure, observation, concurrency and proof boundaries. Destructive backend
+reuse and automatic ownership inference are not asserted.
+
 
 Here incremental also means sharing an algorithm layer between existing typeclass
 implementations, as in the original proposal; data revision alone does not close

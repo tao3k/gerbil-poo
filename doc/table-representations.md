@@ -90,7 +90,7 @@ JSON parser or arbitrary numeric normalization.
 | Unit | Current boundary / next concrete acceptance |
 | --- | --- |
 | Explicit representation derivation | Closed for the shared persistent `methods.table` protocol; source-specific seek/range extensions are not inferred. |
-| Pure/mutable/linear style generation | Open: derive one complete style conversion with explicit ownership, failure and observational laws, rather than opaque wrappers alone. |
+| Pure/mutable/linear style generation | Closed for an admitted persistent table: full transfer matrix, atomic delta/batch installation, observation and explicit retry; see [table-styles.md](table-styles.md). Destructive backend reuse remains separate. |
 | Declarative correlated indexes | Open: maintain multiple declared indexes from one specification, including uniqueness conflicts, atomic delta application and inverse laws. |
 | Order-aware extension | Open: transport an explicit comparator and certify source-specific seek/range operations; current folds preserve transported backend order. |
 | Backend cost qualification | Open: measure the generated complete workflow against the source under matched controls and retain conversion/equality costs. |

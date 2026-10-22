@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles)
 (import :std/iter (prefix-in :std/instance std.)
-        (only-in ../table iterator-map table-fold table-wrapper)
+        (only-in ../table iterator-map table-fold table-wrapper table-styles)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -145,3 +145,16 @@
     .ap: (lambda (v) (cons (vector-ref v 1) (vector-ref v 0)))
     .unap: (lambda (v) (vector (cdr v) (car v)))))
   (table-wrapper source carrier keys values))
+
+;; Reuse an admitted snapshot, transfer mutable ownership to a consuming reference, install a
+;; complete batch and extract a pure snapshot before the existing Reader/IO map.
+;; Any earlier refusal suppresses consume; a later IO failure retains no ownership
+;; for automatic replay, so callers must choose a fresh explicit retry from base.
+(def (revise-ledger-styles table base batch consume)
+  (using (consume :~ procedure?)
+    (def styles (table-styles table))
+    (def mutable (.@ styles Mutable))
+    (def linear (.@ styles Linear))
+    (def owned (.call mutable .ap base))
+    (def next (.call linear .apply-batch (.call mutable .convert owned 'linear) batch))
+    ((.call Observation. .map consume (cut .call linear .convert <> 'pure)) next)))
