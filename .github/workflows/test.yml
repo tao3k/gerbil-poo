@@ -203,3 +203,5 @@ jobs:
         run: just build test-program
       - name: Run the entire suite in one bounded process
         run: just _test t 300
+      - name: Run every collection study phase in the linked runtime
+        run: just benchmark-collections 2 1 4

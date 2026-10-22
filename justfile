@@ -14,6 +14,9 @@ test-max-heap := "1G"
 test-debug := "q"
 test-runtime-options := "-:max-heap=" + test-max-heap + ",debug=" + test-debug
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
+# Released CI activation already supplies this standard variable. Otherwise ask
+# the installed compiler for its home; linked programs need it to load tool modules.
+export GERBIL_HOME := if env_var_or_default("GERBIL_HOME", "") != "" { env_var("GERBIL_HOME") } else { shell('exec "$@"', timeout-executable, "--signal=TERM", "--kill-after=3s", "90s", "gxi", test-runtime-options, "-e", "(display (gerbil-home))") }
 
 test: build
     just _test t 300
@@ -31,11 +34,11 @@ _test target max-seconds:
     if test -z "{{ timeout-executable }}"; then echo "GNU timeout is required (install Homebrew coreutils on macOS)" >&2; exit 127; fi
     test_log="$(mktemp "${TMPDIR:-/tmp}/gerbil-poo-test.XXXXXX")"
     trap 'rm -f "$test_log"' EXIT
-    # The released package launcher supplies the toolchain environment.
-    # One test process retains shared-state coverage; the deadline owns its group.
+    # The standard linked program initializes Gerbil itself; do not start a
+    # second Gerbil tool VM around it. The deadline owns the complete test group.
     if test "{{ target }}" = t; then
       test -x "$GERBIL_PATH/bin/test-program"
-      test_command=(gerbil "{{ test-runtime-options }}" env "$GERBIL_PATH/bin/test-program" "{{ test-runtime-options }}" "{{ target }}")
+      test_command=("$GERBIL_PATH/bin/test-program" "{{ test-runtime-options }}" "{{ target }}")
     else
       test_command=(gxi "{{ test-runtime-options }}" t/test-runner.ss "{{ target }}")
     fi
@@ -58,6 +61,14 @@ benchmark-object-scale: (build "library")
 _build-benchmark target max-seconds='90':
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
+
+# Reuse the standard shared executable; compile/load only the collection study.
+# Preparation keeps the ordinary compiler stage bounds; workload compile stays 90s.
+benchmark-collections width='64' samples='10' pairs='6':
+    just build library
+    just build test-program
+    just _build-benchmark collection-paired-benchmark
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/test-program" {{ test-runtime-options }} benchmark collection-paired-benchmark "{{ width }}" "{{ samples }}" "{{ pairs }}"
 
 clean:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }

@@ -1253,7 +1253,12 @@ chained states refuse. Full inverse fallback retains origin lineage. Tests cover
 scanner refusal, pointer reuse, shared Functions, collisions and failure retry;
 Lean proves sparse/full equivalence and dependency framing. A paired Scheme study
 retains AB/BA and A/A controls across GC regimes and full workflow/undo/retry phases.
-Cold conversion and original source shape admission retain their stated costs.
+Cold conversion and original source shape admission retain their stated costs. Direction preparation
+is now shared without allocating an unused ordinary/Delta transport inside each
+fold bridge. The collection study compiles as a standard module and reuses the
+existing linked test runtime; no second shared-library link is required per study.
+Shared setup, workload compilation and execution retain their original bounds.
+Finite metadata-preparation fusion is proved separately from allocation/GC costs.
 As before, arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 

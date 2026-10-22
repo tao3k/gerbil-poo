@@ -234,9 +234,13 @@
                 "metadata-paired-benchmark" "combination-benchmark"
                 "factory-paired-benchmark" "collection-paired-benchmark" "object-scale-benchmark"))
         (error "unknown benchmark target" target))
-      ;; The library prerequisite owns its graph; linking a benchmark must not
-      ;; prepare every unrelated library/example root for a second time.
-      [`((exe: ,(string-append "t/" target) "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
+      ;; Collections reuse test-program's already linked shared runtime. Standard
+      ;; make compiles this workload once as a loadable module, without relinking
+      ;; every shared C object. Other standalone studies retain their exe targets.
+      [(if (equal? target "collection-paired-benchmark")
+         '("t/collection-paired-benchmark")
+         `((exe: ,(string-append "t/" target) "-ld-options" ,(pkg-config-libs "openssl"))))
+       #f options])
     ;; gerbil build/clean select the package graph. The complete checked test
     ;; inventory remains explicit in tests/batch and the bounded full-test driver.
     (else [+gerbil-poo-build-spec+ #f args])))

@@ -63,6 +63,18 @@
     (set! refuse? #f)
     (action delta))
   (case scenario
+    ;; Factory isolates checked metadata/closure construction from any snapshot.
+    ((factory)
+      (values
+        (lambda ()
+          (def m (table-isomorphism source target keys payloads))
+          (def f (table-fold target Integer target-score))
+          (unless (and (eq? (.@ m Domain) source) (eq? (.@ f Value) Integer))
+            (error "baseline factory oracle")) #t)
+        (lambda ()
+          (def m (.call source-fold .isomorphism target keys payloads))
+          (unless (and (eq? (.@ m Domain) source-fold) (eq? (.@ (.@ m Codomain) Value) Integer))
+            (error "derived factory oracle")) #t)))
     ((cold)
       (values
         (lambda ()
@@ -102,7 +114,7 @@
                (exact-integer? pairs) (<= 4 pairs 12) (even? pairs))
     (error "invalid bounded collection study"))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (for* ((scenario '(cold hit revision workflow retry)) (regime '(natural collected)) (control? '(#f #t)))
+  (for* ((scenario '(factory cold hit revision workflow retry)) (regime '(natural collected)) (control? '(#f #t)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
       (defvalues (baseline candidate) (workload n scenario))

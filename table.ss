@@ -285,66 +285,72 @@
         (.@ target .empty) input)))
   (values key table owners (lambda () seen)))
 
-;; Lift explicit typed Key/Value Wrappers to collection and delta Wrappers.
-;; Domain/Codomain must match exactly. Captured metadata is checked on every use;
-;; callback exceptions propagate, and supported metadata writes refuse in scope.
-;; Finite checks are controls for supplied laws, never universal proof discovery.
-(def (table-isomorphism source target key value)
+;; Prepare typed directions once under the complete construction scope. Both
+;; public transport and fold derivation reuse these checks and callbacks; deriving
+;; a fold does not allocate unused transport/Delta Wrappers or their metadata.
+(def (call-with-table-translations source target key value extra action)
   (unless (and (eq? (.@ key Domain) (.@ source Key))
                (eq? (.@ key Codomain) (.@ target Key))
                (eq? (.@ value Domain) (.@ source Value))
                (eq? (.@ value Codomain) (.@ target Value)))
     (error "incompatible table isomorphism types"))
   (def sources (delete-duplicates/hash
-    (list source target key value (.@ source Key) (.@ source Value) (.@ target Key) (.@ target Value))
+    (append (list source target key value (.@ source Key) (.@ source Value) (.@ target Key) (.@ target Value)) extra)
     table: (make-hash-table-eq) from-end?: #t))
   (with-table-sources sources
     (lambda ()
-      (def versions (map object-revision sources))
       (def ka (.@ key .ap)) (def ku (.@ key .unap))
       (def va (.@ value .ap)) (def vu (.@ value .unap))
       (using ((ka :~ procedure?) (ku :~ procedure?) (va :~ procedure?) (vu :~ procedure?))
         (def forward (make-table-translation source target ka ku va vu))
         (def backward (make-table-translation target source ku ka vu va))
-        ;; Own guards across the whole conversion, including delta origin metadata.
-        (def (guard dependencies action)
-          (with-table-sources dependencies
-            (lambda ()
-              (unless (equal? versions (map object-revision sources))
-                (error "stale table isomorphism"))
-              (action))))
-        ;; Collection-only conversion has no retained global memo or registry.
-        (def (convert direction input)
-          (guard sources
-            (lambda ()
-              (defvalues (_ table _owners _seen) (table-translators direction))
-              (table input))))
-        ;; The Pair carries admitted base . delta. Install in source first, then
-        ;; translate both snapshots through ONE registry, retaining edit order.
-        ;; Read converted before/after bindings to avoid repeated Function wrapping.
-        (def (changes direction input)
-          (unless (and (pair? input) (table-delta? (cdr input)))
-            (error "table isomorphism Delta requires base and delta"))
-          (def delta (cdr input))
-          (def dependencies (delete-duplicates/hash (append sources (table-delta-sources delta))
-            table: (make-hash-table-eq) from-end?: #t))
-          (guard dependencies
-            (lambda ()
-              (def from (table-translation-source direction))
-              (def to (table-translation-target direction))
-              (def after (.call from .apply-delta (car input) delta))
-              (defvalues (key table _owners _seen) (table-translators direction))
-              (def before* (table (car input)))
-              (def after* (table after))
-              (cons before*
-                (make-table-delta (.@ to Key) (.@ to Value) dependencies (map object-revision dependencies)
-                  (map (lambda (change)
-                    (def k (key (table-change-key change)))
-                    (make-table-change k (.call to .ref/opt before* k) (.call to .ref/opt after* k)))
-                    (table-delta-changes delta)))))))
-        (.cc Wrapper. Domain: source Codomain: target
-          .ap: (cut convert forward <>) .unap: (cut convert backward <>)
-          Delta: (.cc Wrapper. .ap: (cut changes forward <>) .unap: (cut changes backward <>)))))))
+        (action sources forward backward)))))
+
+;; Lift explicit typed Key/Value Wrappers to collection and delta Wrappers.
+;; Captured revisions and first-conflict behavior remain owned by this protocol.
+(def (table-isomorphism source target key value)
+  (call-with-table-translations source target key value []
+    (lambda (sources forward backward)
+      (def versions (map object-revision sources))
+      ;; Own guards across the whole conversion, including delta origin metadata.
+      (def (guard dependencies action)
+        (with-table-sources dependencies
+          (lambda ()
+            (unless (equal? versions (map object-revision sources))
+              (error "stale table isomorphism"))
+            (action))))
+      ;; Collection-only conversion has no retained global memo or registry.
+      (def (convert direction input)
+        (guard sources
+          (lambda ()
+            (defvalues (_ table _owners _seen) (table-translators direction))
+            (table input))))
+      ;; The Pair carries admitted base . delta. Install in source first, then
+      ;; translate both snapshots through ONE registry, retaining edit order.
+      ;; Read converted before/after bindings to avoid repeated Function wrapping.
+      (def (changes direction input)
+        (unless (and (pair? input) (table-delta? (cdr input)))
+          (error "table isomorphism Delta requires base and delta"))
+        (def delta (cdr input))
+        (def dependencies (delete-duplicates/hash (append sources (table-delta-sources delta))
+          table: (make-hash-table-eq) from-end?: #t))
+        (guard dependencies
+          (lambda ()
+            (def from (table-translation-source direction))
+            (def to (table-translation-target direction))
+            (def after (.call from .apply-delta (car input) delta))
+            (defvalues (key table _owners _seen) (table-translators direction))
+            (def before* (table (car input)))
+            (def after* (table after))
+            (cons before*
+              (make-table-delta (.@ to Key) (.@ to Value) dependencies (map object-revision dependencies)
+                (map (lambda (change)
+                  (def k (key (table-change-key change)))
+                  (make-table-change k (.call to .ref/opt before* k) (.call to .ref/opt after* k)))
+                  (table-delta-changes delta)))))))
+      (.cc Wrapper. Domain: source Codomain: target
+        .ap: (cut convert forward <>) .unap: (cut convert backward <>)
+        Delta: (.cc Wrapper. .ap: (cut changes forward <>) .unap: (cut changes backward <>))))))
 
 ;; One private pairing per transport, including only the currently live key owners.
 ;; Replacing the pairing never retains a chain of prior snapshots or global memo.
@@ -355,100 +361,96 @@
 ;; Cold/foreign-state recovery may scan; hits and warm edits do not enumerate.
 (def (make-table-fold-isomorphism folding source aggregate project
        adopt-source read-source update-source target key value)
-  (def mapping (table-isomorphism source target key value))
-  (def base-sources (delete-duplicates/hash
-    (list folding source target aggregate mapping key value
-      (.@ source Key) (.@ source Value) (.@ target Key) (.@ target Value))
-    table: (make-hash-table-eq) from-end?: #t))
-  (with-table-sources base-sources (lambda ()
-    (def ka (.@ key .ap)) (def ku (.@ key .unap))
-    (def va (.@ value .ap)) (def vu (.@ value .unap))
-    (def forward (make-table-translation source target ka ku va vu))
-    (defvalues (target-fold adopt-target read-target)
-      (make-table-fold target aggregate (lambda (k v) (project (ku k) (vu v))) base-sources))
-    (def sources (cons target-fold base-sources))
-    (instantiate-object! target-fold)
-    (def versions (map object-revision sources))
-    (def paired #f)
-    ;; Hold common metadata and the particular input's origins for the entire use.
-    ;; A stale old cache cannot poison a different, independently fresh input.
-    (def (guard origins action)
-      (with-table-sources (append sources origins) (lambda ()
-        (unless (equal? versions (map object-revision sources))
-          (error "stale table fold isomorphism"))
-        (action))))
-    ;; Unforgeable fold ownership is checked by the creating protocol's reader.
-    (def (origins state)
-      (unless (table-fold-state? state) (error "table fold state required"))
-      (table-fold-state-sources state))
-    ;; Prepare a pairing privately: commit it only after the complete caller succeeds.
-    (def (prepare state)
-      (def original (read-source state))
-      (if (and paired (eq? state (table-fold-pair-source paired)))
-        (begin (read-target (table-fold-pair-target paired)) paired)
-        (if (and paired (eq? (table-fold-state-table original)
-                             (table-fold-state-table (table-fold-pair-source paired))))
-          ;; Fresh independent admission of the SAME immutable source root can
-          ;; rebind the representation, even if old origin stamps expired. Never
-          ;; copy the old aggregate or accept an expired input state to do this.
-          (make-table-fold-pair original
-            (adopt-target (table-fold-state-table (table-fold-pair-target paired))
-              (table-fold-state-value original) (origins original))
-            (table-fold-pair-owners paired))
-          (let ()
-            (defvalues (_ convert _owners seen) (table-translators forward))
-            (def converted (convert (table-fold-state-table original)))
-            (def result (adopt-target converted (table-fold-state-value original) (origins original)))
-            (make-table-fold-pair original result (seen))))))
-    ;; Identical source-state hits reuse target identity, without reinitializing it.
-    (def (convert state)
-      (guard (origins state) (lambda ()
-        (def next (prepare state))
-        (set! paired next)
-        (table-fold-pair-target next))))
-    ;; A paired inverse recovers the exact original source state. A valid target
-    ;; updated outside this transport uses checked full conversion, but never refolds.
-    (def (recover state)
-      (guard (origins state) (lambda ()
-        (def original (read-target state))
-        (if (and paired (eq? state (table-fold-pair-target paired)))
-          (begin (read-source (table-fold-pair-source paired)) (table-fold-pair-source paired))
-          (let ()
-            (def converted (.call mapping .unap (table-fold-state-table original)))
-            (def result (adopt-source converted (table-fold-state-value original) (origins original)))
-            ;; A cold inverse reconstructs only key ownership after conversion.
-            ;; It retains incoming lineage rather than laundering stale provenance.
-            (defvalues (translate _table _owners seen) (table-translators forward))
-            (.call source .for-each (lambda (k _v) (translate k)) converted)
-            (set! paired (make-table-fold-pair result original (seen)))
-            result)))))
-    ;; Source installation checks every conflict before conversion or publication.
-    ;; Warm translation uses the cached bijection and touches only changed bindings.
-    ;; Failed callbacks discard local registry/writes, preserving the prior pairing.
-    (def (update state delta)
-      (unless (table-delta? delta) (error "table delta required"))
-      (guard (append (origins state) (table-delta-sources delta)) (lambda ()
-        (read-source state)
-        (def next-source (update-source state delta))
-        (def previous (prepare state))
-        (def current (read-target (table-fold-pair-target previous)))
-        (defvalues (translate _table owners seen)
-          (table-translators forward (some (table-fold-pair-owners previous))))
-        ;; Removed owners stay visible until all new keys pass union-domain checks.
-        (def staged (foldl (lambda (change acc)
-          (def k (translate (table-change-key change)))
-          (match (table-change-after change)
-            (#f (cons (.call target .remove (car acc) k) (cons k (cdr acc))))
-            ((some v)
-              (def converted (translate-table-value (.@ source Value) (.@ target Value) va vu v))
-              (cons (.call target .acons k converted (car acc)) (cdr acc)))))
-          (cons (table-fold-state-table current) []) (table-delta-changes delta)))
-        (def live-owners (foldl (lambda (k registry) (.call owners .remove registry k)) (seen) (cdr staged)))
-        (def result (adopt-target (car staged) (table-fold-state-value next-source) (origins next-source)))
-        (set! paired (make-table-fold-pair next-source result live-owners))
-        result)))
-    (.cc Wrapper. Domain: folding Codomain: target-fold
-      .ap: convert .unap: recover .apply-delta: update))))
+  (call-with-table-translations source target key value (list folding aggregate)
+    (lambda (base-sources forward backward)
+      (def ku (table-translation-unkey forward))
+      (def va (table-translation-value forward)) (def vu (table-translation-unvalue forward))
+      (defvalues (target-fold adopt-target read-target)
+        (make-table-fold target aggregate (lambda (k v) (project (ku k) (vu v))) base-sources))
+      (def sources (cons target-fold base-sources))
+      (instantiate-object! target-fold)
+      (def versions (map object-revision sources))
+      (def paired #f)
+      ;; Hold common metadata and the particular input's origins for the entire use.
+      ;; A stale old cache cannot poison a different, independently fresh input.
+      (def (guard origins action)
+        (with-table-sources (append sources origins) (lambda ()
+          (unless (equal? versions (map object-revision sources))
+            (error "stale table fold isomorphism"))
+          (action))))
+      ;; Unforgeable fold ownership is checked by the creating protocol's reader.
+      (def (origins state)
+        (unless (table-fold-state? state) (error "table fold state required"))
+        (table-fold-state-sources state))
+      ;; Prepare a pairing privately: commit it only after the complete caller succeeds.
+      (def (prepare state)
+        (def original (read-source state))
+        (if (and paired (eq? state (table-fold-pair-source paired)))
+          (begin (read-target (table-fold-pair-target paired)) paired)
+          (if (and paired (eq? (table-fold-state-table original)
+                               (table-fold-state-table (table-fold-pair-source paired))))
+            ;; Fresh independent admission of the SAME immutable source root can
+            ;; rebind the representation, even if old origin stamps expired. Never
+            ;; copy the old aggregate or accept an expired input state to do this.
+            (make-table-fold-pair original
+              (adopt-target (table-fold-state-table (table-fold-pair-target paired))
+                (table-fold-state-value original) (origins original))
+              (table-fold-pair-owners paired))
+            (let ()
+              (defvalues (_ convert _owners seen) (table-translators forward))
+              (def converted (convert (table-fold-state-table original)))
+              (def result (adopt-target converted (table-fold-state-value original) (origins original)))
+              (make-table-fold-pair original result (seen))))))
+      ;; Identical source-state hits reuse target identity, without reinitializing it.
+      (def (convert state)
+        (guard (origins state) (lambda ()
+          (def next (prepare state))
+          (set! paired next)
+          (table-fold-pair-target next))))
+      ;; A paired inverse recovers the exact original source state. A valid target
+      ;; updated outside this transport uses checked full conversion, but never refolds.
+      (def (recover state)
+        (guard (origins state) (lambda ()
+          (def original (read-target state))
+          (if (and paired (eq? state (table-fold-pair-target paired)))
+            (begin (read-source (table-fold-pair-source paired)) (table-fold-pair-source paired))
+            (let ()
+              (defvalues (_key convert _backward-owners _backward-seen) (table-translators backward))
+              (def converted (convert (table-fold-state-table original)))
+              (def result (adopt-source converted (table-fold-state-value original) (origins original)))
+              ;; A cold inverse reconstructs only key ownership after conversion.
+              ;; It retains incoming lineage rather than laundering stale provenance.
+              (defvalues (translate _table _owners seen) (table-translators forward))
+              (.call source .for-each (lambda (k _v) (translate k)) converted)
+              (set! paired (make-table-fold-pair result original (seen)))
+              result)))))
+      ;; Source installation checks every conflict before conversion or publication.
+      ;; Warm translation uses the cached bijection and touches only changed bindings.
+      ;; Failed callbacks discard local registry/writes, preserving the prior pairing.
+      (def (update state delta)
+        (unless (table-delta? delta) (error "table delta required"))
+        (guard (append (origins state) (table-delta-sources delta)) (lambda ()
+          (read-source state)
+          (def next-source (update-source state delta))
+          (def previous (prepare state))
+          (def current (read-target (table-fold-pair-target previous)))
+          (defvalues (translate _table owners seen)
+            (table-translators forward (some (table-fold-pair-owners previous))))
+          ;; Removed owners stay visible until all new keys pass union-domain checks.
+          (def staged (foldl (lambda (change acc)
+            (def k (translate (table-change-key change)))
+            (match (table-change-after change)
+              (#f (cons (.call target .remove (car acc) k) (cons k (cdr acc))))
+              ((some v)
+                (def converted (translate-table-value (.@ source Value) (.@ target Value) va vu v))
+                (cons (.call target .acons k converted (car acc)) (cdr acc)))))
+            (cons (table-fold-state-table current) []) (table-delta-changes delta)))
+          (def live-owners (foldl (lambda (k registry) (.call owners .remove registry k)) (seen) (cdr staged)))
+          (def result (adopt-target (car staged) (table-fold-state-value next-source) (origins next-source)))
+          (set! paired (make-table-fold-pair next-source result live-owners))
+          result)))
+      (.cc Wrapper. Domain: folding Codomain: target-fold
+        .ap: convert .unap: recover .apply-delta: update))))
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and

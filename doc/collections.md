@@ -316,23 +316,29 @@ invalidation, collisions, old-state retention and failure/retry.
 
 ### Fair paired study
 
-Build through the existing `defbuild-script` target selection:
+Build and run through the existing standard package targets:
 
 ```
-just build library
-just _build-benchmark collection-paired-benchmark
-# Run the emitted test binary under the existing 1 GiB / 300-second boundary.
-gtimeout --signal=TERM --kill-after=3s 300s .build/package/bin/collection-paired-benchmark -:max-heap=1G,debug=q 64 3 6
+just benchmark-collections 64 10 6
 ```
 
-The example uses the standard managed package output. If GERBIL_PATH is selected
-explicitly when building, run its emitted binary instead; no loader override is
-required. The same compiled workload can run as an ordinary Gerbil module,
-using `gxc -O -d "$GERBIL_PATH/lib" t/collection-paired-benchmark.ss` followed by
-`gerbil env gxi -e '(import :clan/poo/t/collection-paired-benchmark) (main "64" "10" "6")'`.
-Keep the compiler's 90-second and runtime's 300-second watchdogs and `-:max-heap=1G,debug=q`
-on both entry points. On Linux use the available `timeout` executable.
-No Lean checkout or test-data JSON is used.
+`defbuild-script` prepares the library and existing `test-program` executable.
+That executable statically links the shared library roots once, checks the complete
+123-module inventory, and uses Gerbil's `load-module` to run the compiled collection
+workload. The collection target is an ordinary module specification, so repeated
+studies do not compile/link another copy of the shared C closure. The dispatch
+inventory is fixed; arbitrary module names and symbols are refused.
+
+The existing shared-executable construction still belongs to preparation and keeps
+its original 300-second stage bound. It is not a new 90-second cold-build claim.
+The workload compiler retains 90 seconds, execution retains 300 seconds, and both
+retain the existing 1 GiB heap bound. Standard GERBIL_PATH/defbuild-script own the
+outputs; no loader-path override, custom artifact cache or Lean checkout is used.
+The complete one-process test suite remains unchanged. CI runs all study phases
+as an additional smoke check after the full suite. The linked program starts
+directly rather than starting another Gerbil tools VM around it. It uses the
+standard GERBIL_HOME from release activation; when absent, Just asks the installed
+compiler `(gerbil-home)` under a bounded query. No installation path is baked in.
 
 The study compares the prior source-update / full snapshot transport / target-fold
 path with the paired path in the same process. Fresh fixtures per pair share
@@ -342,7 +348,8 @@ controls, natural and pre-collected GC regimes retain raw CPU, wall, GC and sign
 allocation observations; allocation is attributable only on GC-free nonnegative
 samples. Positive signed differences mean regression. No adverse row is dropped.
 
-Cold measures fresh mapping/fold factory construction and materialization in an
+Factory isolates metadata/closure construction and checks the resulting protocols
+without materializing a snapshot. Cold measures fresh mapping/fold factory construction and materialization in an
 already loaded, prefix-warmed runtime; it is not process cold start. Hit measures
 repeated materialization. Revision includes forward and inverse transport; workflow
 also includes delta discovery; retry includes an expected failed attempt and a
@@ -350,7 +357,7 @@ successful retry/undo. Warm phases declare their common setup outside measuremen
 Raw observations are emitted to stdout and must remain outside Git; summaries do
 not replace the semantic oracles or prove an end-to-end performance theorem.
 
-### Local observation, 2026-10-22
+### Earlier local observation, 2026-10-22
 
 Darwin arm64, Gerbil `1cfb032` / Gambit `ea114fc`, compiled module through the
 standard package environment, 64 bindings, 10 operations per observation, six
@@ -385,3 +392,127 @@ An initial harness run refused before sampling because results were read before
 the measurement loop; sequential `let` bindings fix that ordering. Both complete
 reported runs use the corrected harness. Full observations and failure logs remain
 outside Git.
+
+### Shared direction preparation
+
+Ordinary isomorphisms and fold derivations now call the same private direction
+preparer. It performs exact Domain/Codomain matching, checks all four callbacks
+with Gerbil `using`, and holds the union of the relevant descriptor scopes. Fold
+derivation no longer constructs a private ordinary transport Wrapper, its unused
+Delta Wrapper, a duplicate forward direction, or that private transport's revision
+capture. The original source fold and derived fold guards remain in place.
+Cold inverse recovery uses the already checked backward direction and the same
+existing translator, under the bridge's complete dependency guard.
+
+This removes confirmed preparation/construction work. It does not equate a noisy
+wall-time difference with the cost of one descriptor lookup. The factory phase
+isolates combined metadata/closure work; the cold phase also includes conversion
+and materialization, and GC statistics remain separate in every measured pair.
+The previous +5.211 ms cold natural median had much larger A/A variation and no
+median GC difference, so it did not establish a stable GC-driven regression.
+
+Lean `stampMatches_append` and `stampMatches_dedup` preserve the complete dependency
+predicate under scope union/deduplication. `prepareStamped_fuse` proves that fused
+preparation has exactly the same success or uniform refusal as nested preparation
+on one stable stamp snapshot. Arbitrary callback exceptions, compiler cache validity,
+linker behavior, allocation and GC remain outside that theorem. Regression checks
+cover malformed callbacks in every direction, no callback invocation at construction,
+existing stale-reference refusal and the original full collection protocol.
+
+The first full-suite attempt in this revision reported 123 module successes but
+exceeded the outer deadline after the harness OK marker (exit 137). It is a failed
+process-level acceptance, despite the harness OK marker; it remains recorded
+outside Git. A direct start without release home also correctly refused missing
+tool modules. The final direct route supplies only the compiler-discovered standard
+home and retains the original heap/deadline and complete inventory.
+
+### Prior-core shared-runtime paired observation, 2026-10-22
+
+This observation precedes the `096da65` weak-identity merge and uses the preceding
+`4a39774` core plus this contribution. It is not acceptance for the later core.
+The same Darwin/Gerbil/Gambit release ran 64 bindings, 10 operations, six balanced
+AB/BA and four A/A pairs in each regime, now including the separate factory phase.
+All 240 observations and all result/refusal/undo oracles completed. The runtime
+is the standard linked program, so these are within-run comparisons; the earlier
+gxi-module run is not a matched before/after runtime comparison.
+
+Median candidate-minus-baseline differences per operation:
+
+| Phase | Natural wall ms | Collected wall ms | Natural CPU ms | Collected CPU ms |
+| --- | ---: | ---: | ---: | ---: |
+| Factory metadata/closures | -0.122 | -0.018 | -0.028 | -0.005 |
+| Cold materialization | -0.870 | +0.085 | -0.338 | -0.397 |
+| Repeated materialization | -7.349 | -22.280 | -3.120 | -3.232 |
+| Revision/inverse | -12.279 | -30.155 | -4.699 | -4.999 |
+| Discovery/revision/inverse | -29.995 | -43.987 | -4.396 | -5.286 |
+| Refusal/retry/inverse | -23.213 | -30.515 | -7.591 | -7.435 |
+
+Cold natural/collected A/A wall medians were +3.834/+1.537 ms, and AB/BA ranges
+were -9.104..+4.870 / -12.152..+17.358 ms. Factory collected pairs ranged -0.414..+14.734 ms as well. Cold improvement remains unresolved
+against that noise; +0.085 ms is retained rather than declared away. Cold median
+paired GC CPU differences were +0.004/-0.025 ms, versus the CPU differences above;
+these samples do not establish a GC explanation for the earlier +5.211 ms.
+The complete natural workflow also retained a +5.165 ms adverse pair. No adverse
+sample or collection was removed, and arbitrary allocation/GC speedup is not proved.
+
+After the already required shared binary was built, first module compilation
+completed in 41.30 s (9.95 user/1.31 system CPU), with two ordinary compile jobs
+and no link job. An unchanged repeat completed in 26.21 s (6.23/0.75 CPU), with
+zero compile/link jobs. Metadata/startup/freshness still cost time on the repeat;
+cache reuse is not an instant-build claim. The shared executable itself took
+192.89 s inside its unchanged 300-second stage. Avoiding its duplicate link does
+not erase that preparation cost or prove a fresh standalone executable links in
+90 seconds. The existing static roots remain linked and checked in the runtime.
+
+Final full-suite acceptance used the same direct Just entry, 123/123 modules,
+heap/deadline unchanged, exit 0; harness wall 147.23 s, CPU 35.90 s, GC CPU 3.82 s.
+Another direct attempt had reached the harness OK marker but timed out (124),
+and remains a failed attempt. Read-only process sampling in the accepted run
+reported peak footprint about 607M; the clock variation and that sample do not
+prove the cause of the earlier timeouts. Power logs did not show system sleep
+in those attempts. No other tasks were stopped, and no resource limit was raised.
+
+
+### Integrated-core verification, 2026-10-22
+
+The same contribution was rebased onto `096da65`, preserving the merged weak
+identity backends, and the complete build, single-process inventory and paired
+study were repeated. This section supersedes the prior-core observation for
+current acceptance. Width 64, ten operations, six balanced AB/BA pairs and four
+A/A pairs per phase/regime completed all 240 observations and 24 summaries.
+Every result, refusal, inverse and retry oracle passed.
+
+Median candidate-minus-baseline differences per operation:
+
+| Phase | Natural wall ms | Collected wall ms | Natural CPU ms | Collected CPU ms |
+| --- | ---: | ---: | ---: | ---: |
+| Factory metadata/closures | +0.005 | -0.002 | +0.005 | -0.001 |
+| Cold materialization | +0.198 | -1.692 | -0.363 | -0.401 |
+| Repeated materialization | -14.692 | -8.811 | -2.946 | -3.186 |
+| Revision/inverse | -16.515 | -20.053 | -4.300 | -5.183 |
+| Discovery/revision/inverse | -13.239 | -16.703 | -4.418 | -4.730 |
+| Refusal/retry/inverse | -33.706 | -39.810 | -7.553 | -7.325 |
+
+Cold natural/collected A/A wall medians were +2.649/-1.517 ms. AB/BA ranges
+were -3.466..+23.451 / -13.570..+1.944 ms; these retain substantial adverse pairs.
+Cold paired GC CPU medians were +0.028/-0.018 ms. Reduced cold CPU is observed,
+but cold wall-time improvement remains unresolved against the A/A variation.
+Factory natural A/A was +0.044 ms, versus the +0.005 ms AB/BA median.
+The collected complete-workflow A/A median was +11.834 ms; its AB/BA median
+was -16.703 ms with a retained +6.131 ms adverse pair. No observations were
+dropped. This does not prove a stable universal construction or GC speedup.
+
+The integrated library build took 212.11 s; the required shared executable link
+took 131.97 s within its original 300-second stage. Subsequent benchmark module
+preparation took 75.31 s (two compile jobs, zero link jobs), and an unchanged
+repeat took 65.97 s (zero compile/link jobs), both within the original 90-second
+module stage. The remaining startup, dependency and metadata freshness costs are
+real; eliminating duplicate compilation/linking does not eliminate those costs.
+This route reuses the required linked test runtime rather than certifying that a
+fresh standalone benchmark executable links within 90 seconds.
+
+Full single-process acceptance completed all 123 modules and returned normally:
+harness wall 271.14 s, CPU 23.75 s, GC CPU 4.01 s, 90 collections. The subsequent
+public benchmark recipe completed with `COLLECTION-PAIRED-OK`. All resource
+limits and the complete inventory remain unchanged. Earlier timeout attempts
+remain failures, and earlier wall times are not relabeled as current results.

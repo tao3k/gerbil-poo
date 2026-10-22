@@ -32,8 +32,8 @@
 ;; preparation, module/case order, setup/cleanup and original test failures.
 ;; Runtime loading keeps its tool dependencies out of the executable's link
 ;; closure; releases need not provide static objects for Gerbil command tools.
-(def (main target)
-  (unless (and (equal? target "t") (equal? linked-test-files (test-files)))
+(def (main . request)
+  (unless (equal? linked-test-files (test-files))
     (error "linked test inventory changed; rebuild test-program"))
   (def modules (list-modules))
   (for-each (lambda (file)
@@ -41,5 +41,14 @@
     (unless (and entry (eq? (cdr entry) 'builtin))
       (error "shared library module is not linked" file))) linked-libraries)
   (displayln "TEST-LINKED libraries=" (length linked-libraries) " modules=" (length linked-test-files)) (force-output)
-  (load-module "clan/poo/t/test-runner")
-  ((eval 'clan/poo/t/test-runner#main) target))
+  ;; A fixed dispatch inventory prevents arbitrary module/symbol evaluation.
+  ;; Benchmarks share precisely the linked library objects used by full tests;
+  ;; their own code is a normal compiled module loaded by Gerbil's loader.
+  (match request
+    (["t"]
+      (load-module "clan/poo/t/test-runner")
+      ((eval 'clan/poo/t/test-runner#main) "t"))
+    (["benchmark" "collection-paired-benchmark" . args]
+      (load-module "clan/poo/t/collection-paired-benchmark")
+      (apply (eval 'clan/poo/t/collection-paired-benchmark#main) args))
+    (else (error "unknown linked program request" request))))
