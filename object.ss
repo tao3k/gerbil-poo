@@ -23,7 +23,7 @@
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   ./slot-observation
-  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set!) read-runtime.)
+  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method) read-runtime.)
   (only-in ./read-route require-read-route!)
   ./object-state
   ./prototype-map
@@ -400,33 +400,79 @@
   (require-read-route! (slot-read-key read)
     (object-%reads receiver) (object-%instance receiver)))
 
-(def (call-with-issued-reads roots consume)
-  (def seen (make-hash-table-eq))
-  (def receivers (make-hash-table-eq))
-  (def ordered '())
-  (def (require-issued! read)
-    (unless (object-read-issued? read) (error "unissued slot dependency")))
-  (def (collect read)
-    (unless (hash-key? seen read)
+(def call-with-issued-reads
+  (let ()
+    ;; The index owns neither roots nor cache receivers. A live projection keeps
+    ;; its ordinary native cache owner alive; GC eviction is always a cold miss.
+    ;; No mutable visitation set or successful validation result is retained.
+    (def owners (make-table test: eq? weak-keys: #t weak-values: #t))
+    (defstruct projection (owner roots reads receivers) final: #t)
+    ;; A cold cache owner must not dispatch an injected CLOS initializer during
+    ;; authentication. Changed constructor metadata keeps the original DFS path.
+    (def object-init (read-runtime.find-method object::t #f ':init!))
+    (def state-class (read-runtime.object-class (make-object-state)))
+    (def state-init (read-runtime.find-method state-class #f ':init!))
+    (def (construction-current?)
+      (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
+           (eq? state-init (read-runtime.find-method state-class #f ':init!))))
+    (def (require-issued! read)
+      (unless (object-read-issued? read) (error "unissued slot dependency")))
+    (def (require-current! read)
       (require-issued! read)
-      (hash-put! seen read #t)
-      (hash-put! receivers (slot-read-receiver read) #t)
-      (set! ordered (cons read ordered))
-      (for-each collect (slot-read-dependencies read))))
-  (def (require-current! read)
-    (require-issued! read)
-    ;; Fixed native checker, never a procedure supplied by the record's caller.
-    (unless (object-read-current? read)
-      (error "stale slot dependency" (slot-read-key read))))
-  ;; Authenticate every edge before ANY consumer callback. Only native issuance
-  ;; builds the selected receiver set; misses need not enter a read cache.
-  (without-observation (lambda () (for-each collect roots)))
-  ;; This binding must happen AFTER collection, not in the internal definition
-  ;; group that prepares the visitor closures above.
-  (let (traversal (reverse ordered))
-    (parameterize ((active-read-replays (cons receivers (active-read-replays))))
-      (begin0 (consume traversal require-current!)
-        (without-observation (lambda () (for-each require-current! traversal)))))))
+      ;; Keep the original issuance/route/currentness order and diagnostics.
+      (unless (object-read-current? read)
+        (error "stale slot dependency" (slot-read-key read))))
+    (def (same-roots? roots saved)
+      (if (null? saved) (null? roots)
+        (and (pair? roots) (eq? (car roots) (car saved))
+             (same-roots? (cdr roots) (cdr saved)))))
+    (def (build owner roots)
+      (def seen (make-hash-table-eq))
+      (def receivers (make-hash-table-eq))
+      (def ordered '())
+      (def (collect read)
+        (unless (hash-key? seen read)
+          (require-issued! read)
+          (hash-put! seen read #t)
+          (hash-put! receivers (slot-read-receiver read) #t)
+          (set! ordered (cons read ordered))
+          (for-each collect (slot-read-dependencies read))))
+      ;; Preserve the original full preflight, even for malformed root input.
+      ;; Only successful traversal copies roots and publishes a cached value.
+      (for-each collect roots)
+      (make-projection owner (map values roots) (reverse ordered) receivers))
+    (def (obtain roots)
+      (def owner (table-ref owners roots #f))
+      (def instance (and owner (object-%instance owner)))
+      (def cached (if instance (hash-ref instance 'projection absent-value) absent-value))
+      (cond
+       ((and (not (eq? cached absent-value))
+             (same-roots? roots (projection-roots cached)))
+        (begin
+          ;; Signed dependency sequences are reauthenticated on EVERY hit.
+          ;; Their equality proves this exact preorder remains complete; it
+          ;; does not prove live revisions, values or external sources current.
+          (for-each require-issued! (projection-reads cached))
+          cached))
+       ((construction-current?)
+        (let* ((owner (make-object slots:
+                        (list (cons 'projection
+                          ($self-slot-spec (lambda (self) (build self roots)))))))
+               (next (.ref owner 'projection)))
+          ;; Existing native slot computation owns success/failure caching.
+          ;; Do not install a failed or partially authenticated projection.
+          (table-set! owners roots owner)
+          next))
+       (else (build #f roots))))
+    (lambda (roots consume)
+      (def selected (without-observation (lambda () (obtain roots))))
+      (def traversal (projection-reads selected))
+      ;; The receiver set is private/read-only. Nested frames and unwind remain
+      ;; per call; sharing structure never shares a populated DFS seen table.
+      (parameterize ((active-read-replays
+                      (cons (projection-receivers selected) (active-read-replays))))
+        (begin0 (consume traversal require-current!)
+          (without-observation (lambda () (for-each require-current! traversal))))))))
 
 (def (replay-slot-reads! roots observe)
   (call-with-issued-reads roots

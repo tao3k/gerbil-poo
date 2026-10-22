@@ -62,6 +62,42 @@ False values remain distinguishable from missing cache entries.
 
 ## Refusal and scope
 
+### Issuer-owned traversal projection
+
+`call-with-issued-reads` privately retains preorder and receiver membership in
+an ordinary native object slot. A weak key/value index locates the cache receiver
+by the original root-list identity; it is not a second evaluator or a successful
+admission cache. The index is not a strong root for tokens, receivers or cache
+owners. Collection may evict it at any time and cause the original DFS to run.
+
+Every hit compares the copied ordered root sequence and authenticates all saved
+records in original DFS order. Native issuance checks every dependency sequence
+against the original private birth closure; altered edges cannot hide behind a
+cached preorder. The private membership table is read-only after construction.
+The mutable DFS `seen` table is never retained. Nested protection frames still
+enter/unwind independently, and route/currentness checks before delivery and
+after the consumer are unchanged. Temporary cache-miss tokens remain valid inputs
+without being inserted in receiver read caches.
+
+The retained value describes **structure**, not live validity. Changed receiver
+revision, instance/value or filled cache absence still fails the fresh check.
+New tokens or changed root order require new structure. A failed construction
+installs no cache entry. Source-file checks and final application admission still
+belong to their consumers and must run at their original boundaries.
+
+Cold cache-owner construction compares actual native object/state initializer
+identities. Replacing either CLOS initializer takes the original non-cached DFS
+instead of introducing an opaque callback into authentication. This is derived
+from runtime metadata, not a caller-supplied purity marker. The existing trusted
+module-initialization and serial supported-runtime premises remain; this does
+not claim protection against arbitrary VM/FFI rewriting or concurrent mutation.
+
+The existing `issued-read` suite covers immediate no-GC reuse, root-order change,
+forged dependencies, transient-miss staleness without revision change, child
+isolation, weak eviction and replaced constructors, in addition to its original
+issuance, observer and frame-unwind controls. Its private extern access is only
+for checking structural identity; no new public MOP entry is exported.
+
 Replay refuses a stale token with `stale slot dependency` and its key. It does
 not rerun potentially effectful getters. Native prototype invalidation remains
 unchanged; arbitrary dynamic cross-object reads are validated on replay rather
