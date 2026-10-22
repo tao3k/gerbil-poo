@@ -1234,6 +1234,19 @@ conflict/refusal suppresses aggregate projections and consumers. Universal finit
 batch laws and integrated Scheme/Lean examples are described in
 [table-batches.md](table-batches.md). This does not close the proposed general library.
 
+Explicit representation-driven **algorithm derivation** is now implemented by
+`table-wrapper`: one source backend plus typed carrier/key/value Wrappers supplies
+a complete new `methods.table`, with FUN Wrap, guarded metadata, both traversal
+orders, lenses, deltas, batches and incremental aggregates. A raw target only
+recognizes its carrier and declares child Types; it need not implement a tree.
+Fifteen Lean laws cover conjugated read/write/install, inverse and multi-stage
+derivation, ordered folds and source guards. See
+[table-representations.md](table-representations.md). This is explicit law-governed
+derivation; generated style conversion, declarative correlated indexes,
+comparator-aware extensions and backend cost qualification remain concrete work.
+Arbitrary symmetry/optimization discovery is a research boundary. The concentrated
+remaining-acceptance table is in table-representations.md.
+
 Here incremental also means sharing an algorithm layer between existing typeclass
 implementations, as in the original proposal; data revision alone does not close
 its automatic translation/symmetry goals. This closes this finite delta unit,

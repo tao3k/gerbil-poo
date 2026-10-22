@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger)
 (import :std/iter (prefix-in :std/instance std.)
-        (only-in ../table iterator-map table-fold)
+        (only-in ../table iterator-map table-fold table-wrapper)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -125,3 +125,23 @@
 (def (batch-ledger-action descriptor folding state consume)
   (.call Observation. .map (fold-ledger-action folding state consume)
     (cut .call descriptor .compose-deltas <>)))
+
+;; Gerbil owns this carrier's representation and accessor; no tree algorithm is copied.
+(defstruct %mirrored-ledger (tree) transparent: #t final: #t)
+
+;; Derive a descending-key service table from RationalDict, retaining shared checked
+;; callbacks while swapping Tuple/Pair fields. The raw target only recognizes its
+;; host carrier and declares child Types; table-wrapper supplies every table method.
+(def (make-mirrored-ledger)
+  (def callback (Fun Integer <- Integer))
+  (def payload (Tuple callback UInt))
+  (def cooked (Pair UInt callback))
+  (def source (RationalDict payload))
+  (def target (.cc Type. Key: (.@ source Key) Value: cooked .element?: %mirrored-ledger?))
+  (def carrier (.cc Wrapper. Domain: source Codomain: target
+    .ap: make-%mirrored-ledger .unap: %mirrored-ledger-tree))
+  (def keys (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ target Key) .ap: - .unap: -))
+  (def values (.cc Wrapper. Domain: payload Codomain: cooked
+    .ap: (lambda (v) (cons (vector-ref v 1) (vector-ref v 0)))
+    .unap: (lambda (v) (vector (cdr v) (car v)))))
+  (table-wrapper source carrier keys values))

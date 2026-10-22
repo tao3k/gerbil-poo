@@ -2,7 +2,7 @@
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
         iterator-map table-element? validate-table
-        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold
+        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-wrapper
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 
@@ -18,8 +18,8 @@
   (only-in ./brace @method)
   (only-in ./io marshal)
   (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
-  (only-in ./fun Wrapper.)
-  (only-in ./object .@ .call .cc object-revision active-object-constructions instantiate-object!)
+  (only-in ./fun Wrapper. Wrap.)
+  (only-in ./object .@ .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair))
 
 (defstruct %mapped-iterator (source transform) final: #t)
@@ -87,11 +87,17 @@
   (unless (element? descriptor source) (raise-type-error descriptor source))
   source)
 
+;; Close an operation's metadata scope over explicitly derived table origins.
+;; Raw target shape Types have no extra origins; ordinary tables inherit [].
+(def (table-sources descriptor)
+  (append (list descriptor (.@ descriptor Key) (.@ descriptor Value))
+    (if (.has? descriptor .sources) (.@ descriptor .sources) [])))
+
 ;; Enumerate each changed binding once: source order for updates/deletes, then
 ;; target order for inserts. Gerbil's list builder owns finite ordered accumulation.
 ;; Discovery scans both snapshots; only application is proportional to edit count.
 (def (diff-table descriptor before after)
-  (def sources (list descriptor (.@ descriptor Key) (.@ descriptor Value)))
+  (def sources (table-sources descriptor))
   (with-table-sources sources
     (lambda ()
       (require-table descriptor before)
@@ -139,7 +145,7 @@
     (for-each (lambda (delta)
       (unless (table-delta? delta) (error "table delta required"))) deltas)
     (def sources (delete-duplicates/hash
-      (append (list descriptor (.@ descriptor Key) (.@ descriptor Value))
+      (append (table-sources descriptor)
               (apply append (map table-delta-sources deltas)))
       table: (make-hash-table-eq) from-end?: #t))
     (with-table-sources sources
@@ -156,7 +162,7 @@
 (def (apply-table-delta descriptor source delta)
   (unless (table-delta? delta) (error "table delta required"))
   (def sources (table-delta-sources delta))
-  (with-table-sources (cons descriptor sources)
+  (with-table-sources (append (table-sources descriptor) sources)
     (lambda ()
       (require-table-delta descriptor delta)
       (.call descriptor .validate-shape source)
@@ -188,7 +194,7 @@
 (def (make-table-fold descriptor aggregate project extra-sources)
   (using (project :~ procedure?)
     (def sources (delete-duplicates/hash
-      (append (list descriptor (.@ descriptor Key) (.@ descriptor Value) aggregate) extra-sources)
+      (append (table-sources descriptor) (list aggregate) extra-sources)
       table: (make-hash-table-eq) from-end?: #t))
     (with-table-sources sources
       (lambda ()
@@ -325,7 +331,7 @@
                (eq? (.@ value Codomain) (.@ target Value)))
     (error "incompatible table isomorphism types"))
   (def sources (delete-duplicates/hash
-    (append (list source target key value (.@ source Key) (.@ source Value) (.@ target Key) (.@ target Value)) extra)
+    (append (table-sources source) (table-sources target) (list key value) extra)
     table: (make-hash-table-eq) from-end?: #t))
   (with-table-sources sources
     (lambda ()
@@ -335,6 +341,94 @@
         (def forward (make-table-translation source target ka ku va vu))
         (def backward (make-table-translation target source ku ka vu va))
         (action sources forward backward)))))
+
+;; Derive a complete persistent table protocol from an existing backend and
+;; explicit carrier/key/value isomorphisms. Target supplies shape and child Types,
+;; never a second implementation of insertion, balancing, lookup or traversal.
+(def (table-wrapper source representation key value)
+  (unless (eq? (.@ representation Domain) source)
+    (error "incompatible table representation domain"))
+  (def target (.@ representation Codomain))
+  (call-with-table-translations source target key value (list representation)
+    (lambda (sources forward backward)
+      (def versions (map object-revision sources))
+      (def wrap (.@ representation .ap)) (def unwrap (.@ representation .unap))
+      (def result #f)
+      ;; Hold captured sources and the public derived receiver through callbacks.
+      ;; Supported source revisions refuse; no old protocol is silently refreshed.
+      (def (guard action)
+        (with-table-sources (if result (cons result sources) sources)
+          (lambda ()
+            (unless (equal? versions (map object-revision sources))
+              (error "stale table wrapper"))
+            (action))))
+      ;; Carrier admission checks shape only. Children are checked at the public
+      ;; table boundary; point operations must not enumerate unrelated bindings.
+      (def (shape input)
+        (unless (element? target input) (raise-type-error target input 'table-wrapper)) input)
+      ;; Check encountered carrier inverses without rebuilding or normalizing leaves.
+      ;; Equality and user conversion costs remain explicit, not constant-time laws.
+      (def (encode input)
+        (.call source .validate-shape input)
+        (def output (shape (wrap input)))
+        (unless (equal? (unwrap output) input)
+          (raise (make-table-isomorphism-failure 'left-inverse input)))
+        (unless (equal? (wrap (unwrap output)) output)
+          (raise (make-table-isomorphism-failure 'right-inverse output))) output)
+      ;; A foreign shape or broken inverse refuses before backend reads or writes.
+      (def (decode input)
+        (shape input)
+        (def output (unwrap input))
+        (.call source .validate-shape output)
+        (unless (equal? (wrap output) input)
+          (raise (make-table-isomorphism-failure 'left-inverse input)))
+        (unless (equal? (unwrap (wrap output)) output)
+          (raise (make-table-isomorphism-failure 'right-inverse output))) output)
+      ;; Reuse typed inverse/law checks for both key and value directions.
+      (def (translate direction key? input)
+        (def from (table-translation-source direction))
+        (def to (table-translation-target direction))
+        (def domain (if key? (.@ from Key) (.@ from Value)))
+        (unless (element? domain input) (raise-type-error domain input 'table-wrapper))
+        (translate-table-value domain (if key? (.@ to Key) (.@ to Value))
+          (if key? (table-translation-key direction) (table-translation-value direction))
+          (if key? (table-translation-unkey direction) (table-translation-unvalue direction)) input))
+      ;; Standard Wrap supplies wrap/bind/map and IO; checked conversions retain
+      ;; source ownership. Complete table operations share the same outer guard.
+      (def checked (.cc Wrapper. Domain: source Codomain: target
+        .ap: (lambda (input) (guard (cut encode input)))
+        .unap: (lambda (input) (guard (cut decode input)))))
+      ;; One higher-order traversal factory preserves the source's two fold orders.
+      ;; Reversing keys does not independently reverse or sort the traversal.
+      (def (fold method)
+        (lambda (f seed input)
+          (guard (lambda ()
+            (method
+              (lambda (k v acc) (f (translate forward #t k) (translate forward #f v) acc))
+              seed (decode input))))))
+      (using ((wrap :~ procedure?) (unwrap :~ procedure?))
+        (set! result
+          (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: checked .wrap?: (lambda (input) (element? target input))))
+            Key: (.@ target Key) Value: (.@ target Value)
+            .sources: sources
+            ;; Delegate FUN operations while protecting the complete user callback.
+            .bind/wrap: (lambda (input f) (guard (lambda () (.call checked .bind input f))))
+            .map/wrap: (lambda (f input) (guard (lambda () (.call checked .map f input))))
+            .validate-shape: (lambda (input) (guard (lambda () (decode input) input)))
+            .empty: (guard (lambda () (encode (.@ source .empty))))
+            .empty?: (lambda (input) (guard (lambda () (.call source .empty? (decode input)))))
+            .ref: (lambda (input k (missing (lambda () (error "missing key"))))
+              (guard (lambda ()
+                (def found (.call source .ref/opt (decode input) (translate backward #t k)))
+                (if (some? found) (translate forward #f (some-value found)) (missing)))))
+            .acons: (lambda (k v input)
+              (guard (lambda ()
+                (encode (.call source .acons (translate backward #t k)
+                  (translate backward #f v) (decode input))))))
+            .remove: (lambda (input k)
+              (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k))))))
+            .foldl: (fold (.@ source .foldl)) .foldr: (fold (.@ source .foldr))))
+        result))))
 
 ;; Lift explicit typed Key/Value Wrappers to collection and delta Wrappers.
 ;; Captured revisions and first-conflict behavior remain owned by this protocol.
@@ -511,6 +605,9 @@
        .remove ;; : @ <- @ Key
        .foldl ;; : (Fun o <- (Fun o <- Key Value o) o @)
        .foldr) ;; : (Fun o <- (Fun o <- Key Value o) o @)
+
+  ;; Derived protocols publish their complete explicit origins to deltas and folds.
+  .sources: []
 
   ;; Recognition never normalizes children. This keeps nested List/Schema shape
   ;; checks and postconditions from constructing or discarding Function wrappers.

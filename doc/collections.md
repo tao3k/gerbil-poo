@@ -948,3 +948,6 @@ test, deadline or heap check was relaxed.
 
 Ordered multi-round composition, intermediate-value transport, retained live key
 ownership and full failure/retry laws are documented in [table-batches.md](table-batches.md).
+
+Explicit carrier/key/value Wrappers now derive a complete table protocol without
+a target backend; see [table-representations.md](table-representations.md).

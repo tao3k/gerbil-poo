@@ -316,12 +316,13 @@
   ;; For actual ratios between integers, we should have a separate type "Ratnum" or some such.
   .Pair: (Pair Integer UInt) ;; Pair isn't defined until a later file. Commenting out for now.
   .pair<-: (lambda (x) (cons (numerator x) (denominator x)))
-  .<-pair: (lambda (numerator denominator) (/ numerator denominator))
+  ;; Pair decoders and compose supply one admitted pair, not two arguments.
+  .<-pair: (lambda (parts) (/ (car parts) (cdr parts)))
   .marshal: (lambda (x port) (marshal .Pair (.pair<- x) port))
   .unmarshal: (compose .<-pair (.@ .Pair .unmarshal))
   .bytes<-: (u8vector<-<-marshal .marshal)
   .<-bytes: (<-u8vector<-unmarshal .unmarshal)
-  .json<-: (compose (.@ .Pair .json<-) .<-pair)
+  .json<-: (compose (.@ .Pair .json<-) .pair<-)
   .<-json: (compose .<-pair (.@ .Pair .<-json)))
 
 (define-type (Maybe. @ [methods.bytes<-marshal Type.] type)
