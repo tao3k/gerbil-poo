@@ -4,7 +4,7 @@
   (only-in "test-groups.ss" test-files test-batch checked-groups)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key)
-  (only-in "build-spec.ss" build-request library-modules))
+  (only-in "build-spec.ss" build-request benchmark-request library-modules))
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
@@ -34,13 +34,13 @@
         (string-prefix? "t/" file)))) (library-modules)) => #t)
       (check-equal? (take (caar (build-request '("test-program" "spec"))) 2) '(exe: "t/test-program"))
       (check-equal? (caddr (build-request '("test-program" "compile" "--debug"))) '("compile" "--debug"))
-      (check-equal? (car (build-request '("benchmark" "collection-paired-benchmark")))
-        '("t/collection-paired-benchmark"))
-      (check-equal? (caddr (build-request '("benchmark" "collection-paired-benchmark" "compile" "--debug")))
+      (check-equal? (car (benchmark-request '("collection-paired-benchmark")))
+        '("collection-paired-benchmark"))
+      (check-equal? (caddr (benchmark-request '("collection-paired-benchmark" "compile" "--debug")))
         '("compile" "--debug"))
-      (check-equal? (take (caar (build-request '("benchmark" "factory-paired-benchmark"))) 2)
-        '(exe: "t/factory-paired-benchmark"))
-      (check-exception (build-request '("benchmark" "../outside")) true)
+      (check-equal? (take (caar (benchmark-request '("factory-paired-benchmark"))) 2)
+        '(exe: "factory-paired-benchmark"))
+      (check-exception (benchmark-request '("../outside")) true)
       (check-exception (build-request '("batch" "4")) true)
       (check-exception (build-request '("tests" "missing" "/tmp/poo-test-output")) true))
     (test-case "every test belongs to exactly one compilation group"

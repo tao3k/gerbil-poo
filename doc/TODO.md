@@ -1259,6 +1259,13 @@ fold bridge. The collection study compiles as a standard module and reuses the
 existing linked test runtime; no second shared-library link is required per study.
 Shared setup, workload compilation and execution retain their original bounds.
 Finite metadata-preparation fusion is proved separately from allocation/GC costs.
+Benchmark consumers now use the existing t/ source root and clan/poo/t prefix
+through defbuild-script, after the complete public library check. This avoids
+re-expanding producer sources during unchanged benchmark checks. Mutation scopes
+reuse only exact list sharing or an empty outer scope; all instantiation checks
+remain. A membership-filtering experiment regressed hot calls and was rejected.
+The companion finite proof preserves protection membership and metadata refusal;
+compiler freshness and allocation/GC behavior remain independently measured.
 As before, arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 

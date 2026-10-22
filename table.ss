@@ -72,9 +72,14 @@
 ;; Protect supported descriptor writes for the whole operation, including user
 ;; recognizers/backend callbacks. Mutable leaf data remains a caller premise.
 (def (with-table-sources sources action)
+  ;; Keep every instantiation check, including recursive-construction refusal.
+  ;; Reuse exact list identity or an empty outer scope; do not scan membership
+  ;; on hot calls. Partial overlaps retain the original complete protection.
   (for-each instantiate-object! sources)
-  (parameterize ((active-object-constructions (append sources (active-object-constructions))))
-    (action)))
+  (def active (active-object-constructions))
+  (if (eq? sources active) (action)
+    (parameterize ((active-object-constructions (if (null? active) sources (append sources active))))
+      (action))))
 
 ;; Recognition does not normalize again: callers admit snapshots through validate
 ;; or checked-action first, and deltas retain those exact normalized child values.

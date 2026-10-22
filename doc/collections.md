@@ -516,3 +516,105 @@ harness wall 271.14 s, CPU 23.75 s, GC CPU 4.01 s, 90 collections. The subsequen
 public benchmark recipe completed with `COLLECTION-PAIRED-OK`. All resource
 limits and the complete inventory remain unchanged. Earlier timeout attempts
 remain failures, and earlier wall times are not relabeled as current results.
+
+
+### Consumer build scope and constant-time guards, 2026-10-22
+
+The preceding 65.97 s unchanged build was not reproduced on this Darwin run:
+unchanged source took 4.83 s before this contribution (4.41 user/0.37 system),
+plain interpreter startup 0.14 s, and build metadata selection 0.48 s. The earlier
+65.97 s is retained as historical wall evidence, not attributed entirely to startup.
+Standard make's instrumented dependency check took 3.97 s, including 0.74 s GC,
+and cumulatively allocated 2.98 GB. Cumulative allocation is not resident memory;
+the heap bound remains 1 GiB. No backend compile or link jobs ran in that check.
+
+The benchmark consumer now expands under t/, using defbuild-script and the existing
+clan/poo/t prefix. Root producer source paths no longer shadow checked package
+interfaces in this consumer graph. Public preparation still checks the complete
+library and required shared executable first; standard make retains source/output
+and compiled-dependency freshness. Single-target build entries omit the extra
+batching-driver interpreter while keeping the original 300 s stage bound; full
+builds and test batches retain the complete bounded driver. Stdout progress and
+standard wall/user/system timing remain visible. No custom cache, load path,
+namespace, compiler patch or extra environment variable is introduced.
+
+Four fresh-process AB/BA pairs compared the original root graph with the t/
+consumer graph against identical source/output bytes, with two A/A pairs. No
+compilation, linking, other local build or forced collection ran alongside it:
+
+| Observation | Root graph | Consumer graph |
+| --- | ---: | ---: |
+| Complete process wall range | 4.457–4.979 s | 1.486–1.546 s |
+| Cumulative make allocation | about 2.984 GB | about 233.85 MB |
+| Make GC collections | 15 | 2 |
+| Make GC wall range | 0.624–0.708 s | 0.043–0.046 s |
+
+The paired wall median difference was -3.281 s; the two A/A differences were
++0.022/+0.108 s. This establishes improvement for the measured unchanged consumer
+check, not a claim that every 65-second historical run is now 1.5 seconds.
+The allocation/GC counters come from Gambit's standard time form around make.
+The root control is reproducible with the same compiled library and source tree:
+
+```sh
+# Run the two bounded commands in AB/BA and A/A order, with no concurrent build.
+# Use the same official package output for both controls and public preparation.
+export GERBIL_PATH="$PWD/.build/package"
+just build library
+just build test-program
+gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
+  -e '(import :std/make (only-in "./t/build-spec.ss" build-benchmark))' \
+  -e '(time (make (quote ("t/collection-paired-benchmark")) srcdir: (current-directory)))'
+gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
+  -e '(import :std/make (only-in "./t/build-spec.ss" build-benchmark))' \
+  -e '(time (build-benchmark "collection-paired-benchmark"))'
+```
+
+A general scope-membership filter was rejected: it added about 0.28/0.14 us
+natural/collected hot-call wall time and retained retry regressions. The accepted
+guard implementation instead uses constant-time exact-list-identity and empty-outer
+checks. Partial overlaps keep the original append. Every descriptor instantiation
+still runs before either fast path; active membership never implies readiness.
+Existing provenance, revision and callback mutation checks remain authoritative.
+Lean proves equal protection membership under faithful sharing, exact empty/shared
+scope reuse, a list-length bound, and unchanged metadata acceptance/refusal. The
+proof does not cover arbitrary callback effects, GC, pointer implementation or
+compiler cache validity. Regression covers nested discovery during initialization,
+mutation refusal, cleanup, retry, and recursive-construction refusal.
+
+Four balanced old/new process pairs loaded the same compiled study module from
+retained linked programs, with six inner AB/BA and four A/A pairs for all six
+phases and both GC regimes. All 1,920 observations and semantic oracles completed.
+Each table cell below is the median of the four differences between per-process
+median observations on the reused algorithm, current minus prior, in microseconds:
+
+| Phase | Natural wall | Collected wall | Natural CPU | Collected CPU |
+| --- | ---: | ---: | ---: | ---: |
+| Factory metadata/closures | +1.532 | -2.062 | +1.450 | -2.000 |
+| Cold materialization | -29.153 | -56.338 | -30.450 | -52.750 |
+| Repeated materialization | +0.006 | +0.030 | -0.025 | -0.025 |
+| Revision/inverse | -11.700 | -15.432 | -9.650 | -13.950 |
+| Discovery/revision/inverse | -5.275 | -25.529 | -5.825 | -25.725 |
+| Refusal/retry/inverse | -17.077 | -16.922 | -14.800 | -15.450 |
+
+Cold paired wall ranges retained -47.708..+136.936 / -128.233..+1897.049 us.
+Cold paired GC CPU medians were +5.725/-15.425 us. Factory natural and collected
+retain adverse pairs, and workflow/retry ranges also retain positive differences.
+Thus the cold medians improve in this study, while tail wall-time stability and a
+universal GC explanation remain unresolved. Hot-call wall differences are near
+zero; no adverse row was discarded. Neither the earlier 5.211 ms difference nor
+this run's CPU change is presented as a runtime or compiler correctness theorem.
+Full logs, retained binaries and machine observations remain outside Git.
+
+
+Current integrated acceptance retained all checks and resource limits: full build
+51.42 s; all 123 modules passed in one process and exited 0, command wall 28.92 s
+(harness wall 24.87 s, CPU 17.46 s, GC CPU 2.91 s, 88 collections). The public
+complete study command took 24.40 s and passed every phase/oracle. The earlier
+31.83 s unchanged-source public entry is a separate, unpaired receipt, so its
+difference is not an isolated causal speedup claim. Post-suite unchanged workload
+checks took 1.86 s and 1.63 s with no compile/link jobs. Advancing an imported
+compiled interface's freshness forced the expected two workload compile jobs
+(4.48 s), followed by a zero-compile/zero-link check. Namespace/output paths
+remained clan/poo/t; the standard dependency invalidation was not bypassed.
+The companion complete Lean gate passed all 343 atoms with 14 workers, with
+original process/heap limits, independently of these runtime timing claims.

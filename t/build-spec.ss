@@ -1,8 +1,10 @@
 ;;; Shared build inventories and explicit project target selection.
-(export build-request library-modules)
+(export build-request benchmark-request build-benchmark library-modules)
 
 (import
   (only-in :std/make include-gambit-sharp pkg-config-libs)
+  (only-in :std/build-script defbuild-script)
+  (only-in :std/source this-source-file)
   (only-in "test-groups.ss" test-files test-batch))
 
 ;; Keep the package build graph explicit. V19 std/make owns dependency
@@ -228,7 +230,17 @@
     (["test-program" . options]
       [`((exe: "t/test-program"
           "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
-    (["benchmark" target . options]
+    ;; gerbil build/clean select the package graph. The complete checked test
+    ;; inventory remains explicit in tests/batch and the bounded full-test driver.
+    (else [+gerbil-poo-build-spec+ #f args])))
+
+
+;; Benchmarks are consumers of the checked package, not producers of its library.
+;; Keep their standard source directory at t/ so make resolves shared imports
+;; through GERBIL_PATH interfaces instead of expanding the entire source library.
+(def (benchmark-request args)
+  (match args
+    ([target . options]
       (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
                 "closure-phases" "dispatch-benchmark" "metadata-benchmark"
                 "metadata-paired-benchmark" "combination-benchmark"
@@ -238,10 +250,14 @@
       ;; make compiles this workload once as a loadable module, without relinking
       ;; every shared C object. Other standalone studies retain their exe targets.
       [(if (equal? target "collection-paired-benchmark")
-         '("t/collection-paired-benchmark")
-         `((exe: ,(string-append "t/" target) "-ld-options" ,(pkg-config-libs "openssl"))))
+         '("collection-paired-benchmark")
+         `((exe: ,target "-ld-options" ,(pkg-config-libs "openssl"))))
        #f options])
-    ;; gerbil build/clean select the package graph. The complete checked test
-    ;; inventory remains explicit in tests/batch and the bounded full-test driver.
-    (else [+gerbil-poo-build-spec+ #f args])))
+    (else (error "benchmark target required" args))))
 
+;; defbuild-script owns freshness, dependencies, options and compiler scheduling.
+;; This is the package's existing module prefix, with its standard t/ source root.
+(def (build-benchmark . args)
+  (def request (benchmark-request args))
+  (defbuild-script (car request) prefix: "clan/poo/t")
+  (apply main (caddr request)))
