@@ -945,3 +945,6 @@ normal exit under the original 300-second / 1-GiB limits. An earlier full run
 failed the OpenSSL metadata check because the test process lacked the same
 standard `PKG_CONFIG_PATH` used for building; its failed log is retained. No
 test, deadline or heap check was relaxed.
+
+Ordered multi-round composition, intermediate-value transport, retained live key
+ownership and full failure/retry laws are documented in [table-batches.md](table-batches.md).

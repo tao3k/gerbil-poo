@@ -121,6 +121,34 @@
                          (table-change-before change)))
       (reverse (table-delta-changes delta)))))
 
+;; Share descriptor identity and complete origin checks across installation and
+;; composition. Empty deltas still carry dependencies and may become stale.
+(def (require-table-delta descriptor delta)
+  (unless (table-delta? delta) (error "table delta required"))
+  (unless (and (equal? (table-delta-versions delta)
+                      (map object-revision (table-delta-sources delta)))
+               (eq? (.@ descriptor Key) (table-delta-key delta))
+               (eq? (.@ descriptor Value) (table-delta-value delta)))
+    (error "stale or incompatible table delta")))
+
+;; Compose ordered revisions without enumerating snapshots or invoking projections.
+;; Retain intermediate writes: cancelling edits still carry their conflict checks.
+;; Installation decides base compatibility atomically; no intermediate result escapes.
+(def (compose-table-deltas descriptor deltas)
+  (using (deltas :~ list?)
+    (for-each (lambda (delta)
+      (unless (table-delta? delta) (error "table delta required"))) deltas)
+    (def sources (delete-duplicates/hash
+      (append (list descriptor (.@ descriptor Key) (.@ descriptor Value))
+              (apply append (map table-delta-sources deltas)))
+      table: (make-hash-table-eq) from-end?: #t))
+    (with-table-sources sources
+      (lambda ()
+        (for-each (cut require-table-delta descriptor <>) deltas)
+        (make-table-delta (.@ descriptor Key) (.@ descriptor Value)
+          sources (map object-revision sources)
+          (apply append (map table-delta-changes deltas)))))))
+
 ;; Portable across persistent carriers with identical Key/Value descriptors.
 ;; Refuse stale metadata before lookup; stage all writes privately, so a conflict
 ;; exposes no partial table. Unrelated bindings may be rebased and remain intact.
@@ -130,10 +158,7 @@
   (def sources (table-delta-sources delta))
   (with-table-sources (cons descriptor sources)
     (lambda ()
-      (unless (and (equal? (table-delta-versions delta) (map object-revision sources))
-                   (eq? (.@ descriptor Key) (table-delta-key delta))
-                   (eq? (.@ descriptor Value) (table-delta-value delta)))
-        (error "stale or incompatible table delta"))
+      (require-table-delta descriptor delta)
       (.call descriptor .validate-shape source)
       (foldl
         (lambda (change staged)
@@ -332,7 +357,7 @@
             (table input))))
       ;; The Pair carries admitted base . delta. Install in source first, then
       ;; translate both snapshots through ONE registry, retaining edit order.
-      ;; Read converted before/after bindings to avoid repeated Function wrapping.
+      ;; Translate admitted optional payloads directly, retaining intermediate edits.
       (def (changes direction input)
         (unless (and (pair? input) (table-delta? (cdr input)))
           (error "table isomorphism Delta requires base and delta"))
@@ -346,12 +371,19 @@
             (def after (.call from .apply-delta (car input) delta))
             (defvalues (key table _owners _seen) (table-translators direction))
             (def before* (table (car input)))
-            (def after* (table after))
+            ;; Admit both endpoint domains through the same collision registry.
+            ;; Intermediate edits are translated below, never collapsed to endpoints.
+            (table after)
+            (def (option-value input)
+              (map/option (lambda (v)
+                (translate-table-value (.@ from Value) (.@ to Value)
+                  (table-translation-value direction) (table-translation-unvalue direction) v)) input))
             (cons before*
               (make-table-delta (.@ to Key) (.@ to Value) dependencies (map object-revision dependencies)
                 (map (lambda (change)
                   (def k (key (table-change-key change)))
-                  (make-table-change k (.call to .ref/opt before* k) (.call to .ref/opt after* k)))
+                  (make-table-change k (option-value (table-change-before change))
+                                       (option-value (table-change-after change))))
                   (table-delta-changes delta)))))))
       (.cc Wrapper. Domain: source Codomain: target
         .ap: (cut convert forward <>) .unap: (cut convert backward <>)
@@ -450,7 +482,10 @@
                 (def converted (translate-table-value (.@ source Value) (.@ target Value) va vu v))
                 (cons (.call target .acons k converted (car acc)) (cdr acc)))))
             (cons (table-fold-state-table current) []) (table-delta-changes delta)))
-          (def live-owners (foldl (lambda (k registry) (.call owners .remove registry k)) (seen) (cdr staged)))
+          ;; A key deleted then reinserted in this batch is still a live owner.
+          (def live-owners (foldl (lambda (k registry)
+            (if (.call target .key? (car staged) k) registry (.call owners .remove registry k)))
+            (seen) (cdr staged)))
           (def result (adopt-target (car staged) (table-fold-state-value next-source) (origins next-source)))
           (set! paired (make-table-fold-pair next-source result live-owners))
           result)))
@@ -521,6 +556,8 @@
   ;; Finite differences and optimistic persistent installation share this backend.
   .diff: (lambda (before after) (diff-table @ before after))
   .apply-delta: (lambda (source delta) (apply-table-delta @ source delta))
+  ;; Ordered batches retain all origins and first-conflict semantics, including undo.
+  .compose-deltas: (lambda (deltas) (compose-table-deltas @ deltas))
 
   ;; Optional focus is total at missing keys and uses the existing Lens protocol.
   ;; The setter receives value before state, as Lens.modify/compose require.

@@ -1225,6 +1225,15 @@ consumption. See [collections.md](collections.md) for admission preconditions,
 metadata invalidation, the changed-key (not global snapshot/ABA) conflict boundary
 and the companion Lean completeness/inverse/frame/transport/lens proofs.
 
+Ordered multi-round revision batches are now a complete additional unit:
+`.compose-deltas` retains all intermediate expectations and origin dependencies,
+including empty origins, repeated keys and deletion/reinsertion. Ordinary
+installation, inverse, typed isomorphism, fold and FUN share this same delta.
+Endpoint-only transport and premature fold key-owner removal are corrected;
+conflict/refusal suppresses aggregate projections and consumers. Universal finite
+batch laws and integrated Scheme/Lean examples are described in
+[table-batches.md](table-batches.md). This does not close the proposed general library.
+
 Here incremental also means sharing an algorithm layer between existing typeclass
 implementations, as in the original proposal; data revision alone does not close
 its automatic translation/symmetry goals. This closes this finite delta unit,

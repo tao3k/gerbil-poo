@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action)
 (import :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -118,3 +118,10 @@
   (.o source: source-type target: target-type folding: source-fold
     transport: (.call source-fold .isomorphism target-type keys values)
     state: (.call source-fold .ap (validate source-type (.call source-type .<-list rows)))))
+
+;; Stage an ordered revision batch once, then reuse the existing checked fold/FUN
+;; continuation. A late conflict suppresses the consumer; retry supplies a fresh
+;; source state and rediscovered deltas, without exposing an intermediate ledger.
+(def (batch-ledger-action descriptor folding state consume)
+  (.call Observation. .map (fold-ledger-action folding state consume)
+    (cut .call descriptor .compose-deltas <>)))
