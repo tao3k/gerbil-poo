@@ -232,7 +232,7 @@
       (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
                 "closure-phases" "dispatch-benchmark" "metadata-benchmark"
                 "metadata-paired-benchmark" "combination-benchmark"
-                "factory-paired-benchmark" "object-scale-benchmark"))
+                "factory-paired-benchmark" "collection-paired-benchmark" "object-scale-benchmark"))
         (error "unknown benchmark target" target))
       ;; The library prerequisite owns its graph; linking a benchmark must not
       ;; prepare every unrelated library/example root for a second time.

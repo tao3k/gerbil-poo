@@ -1,7 +1,10 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger)
 (import :std/iter (prefix-in :std/instance std.)
-        (only-in ../table iterator-map)
+        (only-in ../table iterator-map table-fold)
+        (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
+        (only-in ../type Fun Tuple Pair) (only-in ../rationaldict RationalDict)
+        (only-in ../trie SimpleTrie)
         ../object ../mop ../object-contract ../object-contract-flow ../support/option
         (prefix-in ../construction-cache cache.)
         (prefix-in ../dependency-analysis code.)
@@ -95,3 +98,23 @@
 (def (fold-ledger-action folding state consume)
   (using (consume :~ procedure?)
     (.call Observation. .map consume (cut .call folding .apply-delta state <>))))
+
+;; Admit shared service callbacks once, and derive a capacity-preserving Trie view
+;; from the source fold. Key XOR and Tuple/Pair conversion are explicit inverses.
+;; Callers edit through the source table's optional lenses, discover a delta, then
+;; reuse fold-ledger-action with transport; .unap recovers the paired source state.
+(def (make-capacity-ledger rows)
+  (def callback (Fun Integer <- Integer))
+  (def payload (Tuple callback UInt))
+  (def cooked (Pair UInt callback))
+  (def source-type (.cc (RationalDict payload) Key: UInt))
+  (def target-type (SimpleTrie UInt cooked))
+  (def keys (.cc Wrapper. Domain: UInt Codomain: UInt
+    .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
+  (def values (.cc Wrapper. Domain: payload Codomain: cooked
+    .ap: (lambda (v) (cons (vector-ref v 1) (vector-ref v 0)))
+    .unap: (lambda (v) (vector (cdr v) (car v)))))
+  (def source-fold (table-fold source-type Integer (lambda (_ v) (vector-ref v 1))))
+  (.o source: source-type target: target-type folding: source-fold
+    transport: (.call source-fold .isomorphism target-type keys values)
+    state: (.call source-fold .ap (validate source-type (.call source-type .<-list rows)))))

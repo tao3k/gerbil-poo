@@ -231,3 +231,157 @@ commutation (including the mapped error key), and the `foldWork_bound` projectio
 bound. These are semantic and source-work bounds, not a Scheme compiler, allocator,
 callback termination, GC or wall-clock proof. Automatically inferred algebras and
 asymptotic backend optimization remain future work; Scheme requires no Lean files.
+
+## Reusing aggregate states across representations
+
+`(.call source-fold .isomorphism target key-wrapper value-wrapper)` derives a
+Wrapper whose Domain is the source fold and Codomain is a target fold. The target
+contribution is the source contribution pulled back through both supplied inverse
+maps. The caller does not hand-write a second score and claim it equivalent.
+The underlying `table-isomorphism` supplies the same descriptor/law checks.
+
+* `.ap source-state` converts once and adopts its already admitted aggregate.
+  Repeating the identical state returns the same target state, after freshness
+  checks, without table enumeration, conversion or aggregate initialization.
+  A different independently fresh state with the exact same immutable table root
+  rebinds that representation and takes its aggregate/origins from the fresh input;
+  empty updates therefore need no conversion either.
+* `.unap target-state` returns the retained source state directly on a pairing hit.
+  A valid target updated outside the bridge uses full inverse conversion plus
+  key-ownership reconstruction, but still reuses the aggregate without refolding.
+* `.apply-delta source-state delta` first completes the existing source fold update.
+  A warm pairing then translates only changed keys and present replacement values,
+  writes them persistently, and adopts the new source aggregate. The derived target
+  fold is never initialized again and never reprojects unchanged or old values.
+  Recover the new source with `.unap`, or apply an inverted source delta for undo.
+
+The one-pair cache is private to that Wrapper. It holds two opaque fold states and
+the current target-key-to-source-key registry, not a global or weak-key memo. Each
+attempt starts from the immutable registry root. Deleted keys stay registered until
+**all** edits pass union-domain collision checks, then their owners are removed.
+Only complete success replaces the pairing. A late conversion, aggregate or backend
+exception leaves the previous pairing intact; `fold-ledger-action` can consume this
+same `.apply-delta` protocol, suppressing its consumer on failure and allowing retry.
+`make-capacity-ledger` combines checked shared Functions, UInt key XOR, Tuple/Pair
+layouts, optional-key lenses, FUN consumption and inverse recovery.
+
+Invalidation is scoped. The source fold captures its own descriptor/aggregate;
+a bridge and its target states additionally capture the conversion descriptors.
+Changing an unrelated converter preserves the pairing. Changing this converter
+rejects this bridge and dependent target states, including chained descendants;
+it does not invalidate an independently retained original source aggregate.
+Construct a fresh bridge to convert that source again without reinitializing it.
+Incoming delta origins remain dependencies of new source and target states. A stale
+cached pair cannot poison a different independently fresh input: it is replaced by
+private materialization only after that attempt succeeds. Cold inverse fallback
+retains incoming lineage. Same-root rebinding requires an independently fresh input
+and unchanged converter/type captures; it does not make either old state fresh.
+The successful memo is not an IO/approval cache. Consumer failure does not roll back
+already completed memoization or external effects; its original source remains
+available for retry.
+
+The invariant is `target = map(source)` with equal lawful aggregates. Supplied maps,
+operations, admitted leaves and backend equality must remain stable and satisfy the
+existing inverse/fold/carrier laws. Metadata guards cover captured POO descriptors;
+mutation hidden inside Scheme closures or raw mutable payloads is not detected or
+proved safe. In particular, membership alone does not certify Function wrapping.
+Target writes skip repeated carrier admission only on the privately established
+paired path, not on arbitrary public snapshots.
+
+### Costs and proof boundary
+
+A cold miss still recognizes/converts the complete source and target snapshots and
+builds their ownership registry. It performs zero target aggregate projections.
+A hit performs metadata/state checks but no snapshot work. A warm edit path performs
+at most two **source** projections per edit, no target projections, and key/value
+conversion and persistent writes only for edited bindings. Existing source carrier
+admission remains: Trie shape checks may still traverse the source. Metadata
+preparation and lineage comparisons, aggregate recognition, finite roundtrip checks,
+registry lookup/write, allocations and GC retain their costs. The registry is
+bounded by the live key domain; retained metadata depends on distinct origins.
+Cold inverse fallback may scan both the target representation and recovered keys.
+This is not a claim that every operation or arbitrary backend is O(delta-count).
+
+Lean `applyChanges_writeChanges` proves that successful source checking justifies
+write-only replay. `transport_writeChanges` preserves the paired-view invariant;
+`reuseFold_correct` equates reused execution with full target fold execution,
+including the first mapped error. Inverse recovery reuses the prior bridge laws.
+Selective invalidation reuses the existing table frame theorem for captured stamp
+scopes, with a separate changed-stamp refusal theorem. `reuseFoldWork_bound` counts
+source projections and zero target full scans on the paired path. These annotations
+are source-work counts; they do not verify Scheme pointer identity, arbitrary
+callback effects, backend allocation, GC, scheduler or compiler behavior. Runtime
+regressions check identity, scanner refusal, shared Function wrappers, chained
+invalidation, collisions, old-state retention and failure/retry.
+
+### Fair paired study
+
+Build through the existing `defbuild-script` target selection:
+
+```
+just build library
+just _build-benchmark collection-paired-benchmark
+# Run the emitted test binary under the existing 1 GiB / 300-second boundary.
+gtimeout --signal=TERM --kill-after=3s 300s .build/package/bin/collection-paired-benchmark -:max-heap=1G,debug=q 64 3 6
+```
+
+The example uses the standard managed package output. If GERBIL_PATH is selected
+explicitly when building, run its emitted binary instead; no loader override is
+required. The same compiled workload can run as an ordinary Gerbil module,
+using `gxc -O -d "$GERBIL_PATH/lib" t/collection-paired-benchmark.ss` followed by
+`gerbil env gxi -e '(import :clan/poo/t/collection-paired-benchmark) (main "64" "10" "6")'`.
+Keep the compiler's 90-second and runtime's 300-second watchdogs and `-:max-heap=1G,debug=q`
+on both entry points. On Linux use the available `timeout` executable.
+No Lean checkout or test-data JSON is used.
+
+The study compares the prior source-update / full snapshot transport / target-fold
+path with the paired path in the same process. Fresh fixtures per pair share
+input size, admitted base, exact deltas, source contribution and result oracles.
+Both variants execute the same fixed prefix. Alternating AB/BA pairs, baseline A/A
+controls, natural and pre-collected GC regimes retain raw CPU, wall, GC and signed
+allocation observations; allocation is attributable only on GC-free nonnegative
+samples. Positive signed differences mean regression. No adverse row is dropped.
+
+Cold measures fresh mapping/fold factory construction and materialization in an
+already loaded, prefix-warmed runtime; it is not process cold start. Hit measures
+repeated materialization. Revision includes forward and inverse transport; workflow
+also includes delta discovery; retry includes an expected failed attempt and a
+successful retry/undo. Warm phases declare their common setup outside measurement.
+Raw observations are emitted to stdout and must remain outside Git; summaries do
+not replace the semantic oracles or prove an end-to-end performance theorem.
+
+### Local observation, 2026-10-22
+
+Darwin arm64, Gerbil `1cfb032` / Gambit `ea114fc`, compiled module through the
+standard package environment, 64 bindings, 10 operations per observation, six
+balanced AB/BA pairs and four A/A pairs per phase/regime. Every result oracle
+passed. Medians below are **candidate minus baseline per operation**, in ms;
+negative is an improvement. GC samples are retained, not filtered out.
+
+| Phase | Natural wall | Collected wall | Natural CPU | Collected CPU |
+| --- | ---: | ---: | ---: | ---: |
+| Factory/materialization | +5.211 | -9.090 | -0.376 | -0.101 |
+| Repeated materialization | -26.603 | -4.197 | -2.802 | -2.665 |
+| Revision and inverse | -11.026 | -16.342 | -4.450 | -4.281 |
+| Discovery/revision/inverse workflow | -16.907 | -15.943 | -4.573 | -4.597 |
+| Refusal/retry/inverse | -25.978 | -9.424 | -6.497 | -6.589 |
+
+All warm AB/BA wall differences were negative in this run and the earlier
+three-operation run. However, A/A wall medians span -35.359 to +32.829 ms and
+individual controls span -63.285 to +60.017 ms. Factory differences cross zero;
+**cold wall-time improvement is not established**, and the warm medians are local
+observations rather than portable speedup guarantees. Eight of 200 observations
+contained collections (all in the natural regime); per-phase median paired GC
+CPU differences were zero. That does not establish a reduction in GC cost or
+make signed allocation differences attributable on those rows.
+
+The executable's first static compilation exceeded the unchanged 90-second
+watchdog. Subsequent attempts also exposed closed output locks left by cancellation;
+those failures remain failures. Only after checking that no process held the
+locks were they removed. Static linking still exceeded that deadline, so this
+study used successful bounded standard module compilation and execution, not the
+old executable. These results do not certify cold executable-build performance.
+An initial harness run refused before sampling because results were read before
+the measurement loop; sequential `let` bindings fix that ordering. Both complete
+reported runs use the corrected harness. Full observations and failure logs remain
+outside Git.

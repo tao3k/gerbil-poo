@@ -1,0 +1,131 @@
+;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
+(export main)
+(import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
+        (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie)
+        (only-in "closure-measure.ss" measure median))
+
+;; Every variant consumes the same admitted source, delta and exact sum oracle.
+;; Factory setup is measured in cold; other phases retain their declared setup.
+(def (workload size scenario)
+  (def source (.cc (RationalDict Integer) Key: UInt))
+  (def target (SimpleTrie UInt Integer))
+  (def failure (list 'conversion-refused))
+  (def refuse? #f)
+  (def replacement 1000000)
+  (def keys (.cc Wrapper. Domain: UInt Codomain: UInt
+    .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
+  (def payloads (.cc Wrapper. Domain: Integer Codomain: Integer
+    .ap: (lambda (v) (when (and refuse? (= v replacement)) (raise failure)) (- v)) .unap: -))
+  ;; Both source and target contributions implement the same exact pullback.
+  (def (score k v) (+ (* 2 k) v))
+  (def (target-score k v) (score (bitwise-xor k 1) (- v)))
+  (def source-fold (table-fold source Integer score))
+  (def base (.call source .<-list (for/collect (k (in-range 1 (+ size 1))) (cons k k))))
+  (def original (.call source-fold .ap base))
+  (def total (/ (* 3 size (+ size 1)) 2))
+  (def next-total (+ total (- replacement 1)))
+  (def mapping (table-isomorphism source target keys payloads))
+  (def target-fold (table-fold target Integer target-score))
+  (def mapped (.call mapping .ap base))
+  (def bstate original)
+  (def btarget (.call target-fold .ap mapped))
+  (def bridge (.call source-fold .isomorphism target keys payloads))
+  (def cstate original)
+  (def ctarget (.call bridge .ap original))
+  (def derived (.@ bridge Codomain))
+  (def delta (.call source .diff base (.call source .acons 1 replacement base)))
+  ;; Oracles run inside each measured complete operation, never only its setup.
+  (def (consume folding state expected)
+    (unless (= (.call folding .get state) expected) (error "collection fold oracle")) #t)
+  ;; The prior path updates source, maps both snapshots, then updates target's fold.
+  (def (baseline-update edit)
+    (def before (.call source-fold .unap bstate))
+    (def next (.call source-fold .apply-delta bstate edit))
+    (def staged (.call (.@ mapping Delta) .ap (cons before edit)))
+    (def changed (.call target-fold .apply-delta btarget (cdr staged)))
+    (consume source-fold next next-total) (consume target-fold changed next-total)
+    (set! bstate (.call source-fold .apply-delta next (invert-table-delta edit)))
+    (set! btarget (.call target-fold .apply-delta changed (invert-table-delta (cdr staged))))
+    (consume source-fold bstate total) (consume target-fold btarget total))
+  ;; Reused transport updates source once, writes mapped edits, and retains totals.
+  (def (candidate-update edit)
+    (def changed (.call bridge .apply-delta cstate edit))
+    (def next (.call bridge .unap changed))
+    (consume source-fold next next-total) (consume derived changed next-total)
+    (set! ctarget (.call bridge .apply-delta next (invert-table-delta edit)))
+    (set! cstate (.call bridge .unap ctarget))
+    (consume source-fold cstate total) (consume derived ctarget total))
+  ;; Failure is expected, preserves its identity, and precedes an identical retry.
+  (def (retry action)
+    (set! refuse? #t)
+    (let (cause (try (action delta) #f (catch (cause) cause)))
+      (unless (eq? cause failure) (error "collection retry oracle" cause)))
+    (set! refuse? #f)
+    (action delta))
+  (case scenario
+    ((cold)
+      (values
+        (lambda ()
+          (def m (table-isomorphism source target keys payloads))
+          (def f (table-fold target Integer target-score))
+          (consume f (.call f .ap (.call m .ap base)) total))
+        (lambda ()
+          (def m (.call source-fold .isomorphism target keys payloads))
+          (consume (.@ m Codomain) (.call m .ap original) total))))
+    ((hit)
+      (values (lambda () (consume target-fold (.call target-fold .ap (.call mapping .ap base)) total))
+        (lambda () (consume derived (.call bridge .ap cstate) total))))
+    ((revision) (values (cut baseline-update delta) (cut candidate-update delta)))
+    ((workflow)
+      (values
+        (lambda ()
+          (def before (.call source-fold .unap bstate))
+          (baseline-update (.call source .diff before (.call source .acons 1 replacement before))))
+        (lambda ()
+          (def before (.call source-fold .unap cstate))
+          (candidate-update (.call source .diff before (.call source .acons 1 replacement before))))))
+    ((retry) (values (cut retry baseline-update) (cut retry candidate-update)))
+    (else (error "unknown collection phase" scenario))))
+
+;; Raw signed allocation remains visible. Only GC-free, nonnegative samples have
+;; an attributable allocation value; GC CPU is reported separately from core CPU.
+(def (allocation metrics)
+  (and (= (vector-ref metrics 3) 0) (>= (vector-ref metrics 4) 0) (vector-ref metrics 4)))
+
+;; Both regimes use fresh matched fixtures per pair and the same fixed prefix.
+;; A/A controls retain candidate prefix work too; no natural-regime GC is forced.
+;; Full observations go to stdout, never a versioned data file or archive.
+(def (main (width "64") (count "3") (rounds "6"))
+  (def n (string->number width)) (def repetitions (string->number count))
+  (def pairs (string->number rounds))
+  (unless (and (exact-integer? n) (<= 2 n 1024) (exact-integer? repetitions) (<= 1 repetitions 100)
+               (exact-integer? pairs) (<= 4 pairs 12) (even? pairs))
+    (error "invalid bounded collection study"))
+  (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
+  (for* ((scenario '(cold hit revision workflow retry)) (regime '(natural collected)) (control? '(#f #t)))
+    (def observations [])
+    (for (round (in-range (if control? 4 pairs)))
+      (defvalues (baseline candidate) (workload n scenario))
+      (def order (if (even? round) '(baseline candidate) '(candidate baseline)))
+      (for* ((_ (in-range 2)) (side order)) ((if (eq? side 'baseline) baseline candidate)))
+      (def results [])
+      (for (side order)
+        (def action (if (or control? (eq? side 'baseline)) baseline candidate))
+        (defvalues (ok metrics) (measure action repetitions (eq? regime 'collected)))
+        (unless ok (error "collection measured oracle"))
+        (write (vector 'collection-pair scenario regime control? round side metrics (allocation metrics)))
+        (newline) (force-output)
+        (set! results (cons (cons side metrics) results)))
+      ;; Read observations after both measured actions; internal definitions are
+      ;; expanded ahead of expressions by Gerbil and must not snapshot results.
+      (let ((a (cdr (assq 'baseline results))) (b (cdr (assq 'candidate results))))
+        (set! observations (cons (vector a b) observations))))
+    ;; Positive signed differences mean regression; controls and ranges remain visible.
+    (def (deltas index)
+      (map (lambda (pair) (* (/ 1e6 repetitions)
+        (- (vector-ref (vector-ref pair 1) index) (vector-ref (vector-ref pair 0) index)))) observations))
+    (let (wall (deltas 1))
+      (displayln "COLLECTION-SUMMARY " scenario "/" regime "/" (if control? 'aa 'ab)
+        " wall-us=" (median wall) " min=" (apply min wall) " max=" (apply max wall)
+        " cpu-us=" (median (deltas 0)) " gc-us=" (median (deltas 2)))))
+  (displayln "COLLECTION-PAIRED-OK"))

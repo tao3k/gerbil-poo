@@ -1245,6 +1245,15 @@ together. Lean proves the general optional-write law sufficient, derives exact
 finite integer sums, and proves transport/inverse and projection-work bounds.
 Arbitrary order-sensitive folds and automatically inferred retractable algebras
 are outside this unit, not silently approximated; see collections.md for costs.
+Aggregate-state transport now derives the target score through explicit inverses,
+retains one source/target pair and live key-owner registry, skips repeated full
+initialization, and applies mapped writes only to changed bindings on warm paths.
+Source aggregates survive unrelated converter invalidation; dependent target and
+chained states refuse. Full inverse fallback retains origin lineage. Tests cover
+scanner refusal, pointer reuse, shared Functions, collisions and failure retry;
+Lean proves sparse/full equivalence and dependency framing. A paired Scheme study
+retains AB/BA and A/A controls across GC regimes and full workflow/undo/retry phases.
+Cold conversion and original source shape admission retain their stated costs.
 As before, arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 
