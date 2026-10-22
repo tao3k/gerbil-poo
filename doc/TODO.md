@@ -1242,7 +1242,8 @@ recognizes its carrier and declares child Types; it need not implement a tree.
 Sixteen Lean laws cover conjugated read/write/install, inverse and multi-stage
 derivation, ordered folds and source guards. See
 [table-representations.md](table-representations.md). This is explicit law-governed
-derivation; comparator-aware extensions and backend cost qualification remain concrete work.
+derivation; explicit comparator transport and finite ranges are implemented below;
+backend-specific seek and cost qualification remain concrete work.
 Arbitrary symmetry/optimization discovery is a research boundary. The concentrated
 remaining-acceptance table is in table-representations.md.
 
@@ -1258,8 +1259,17 @@ Declarative correlated **indexes** now share one primary and atomic installation
 protocol through `table-indexes`: typed unique-owner and grouped tables, multiple
 backends, final-state uniqueness, ordered primary conflicts, inverse observations,
 empty-delta origins and all existing table styles. See [table-indexes.md](table-indexes.md)
-for explicit laws, equality/admission premises and cost boundaries. Range/multikey
-indexes and automatic query optimization are separate work.
+for explicit laws, equality/admission premises and cost boundaries.
+
+Explicit **order and range queries** now compose with these indexes and all styles:
+`table-comparer` captures a lawful comparer; `table-comparer-wrapper` transports it
+through typed key isomorphisms; `table-order` derives ordered table methods and
+`.index-range` delegates bounds to the declared backend. Complete queries reject
+stale origins, malformed/reversed bounds, broken encountered inverses and invalid
+signs. Functions retain identity through revision, conflict retry and inverse
+recovery. See [table-order.md](table-order.md) for laws and the explicit finite
+sort/filter cost. Backend-specific seek, multikey indexes and automatic query
+optimization remain separate work.
 
 
 

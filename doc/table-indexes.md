@@ -115,3 +115,11 @@ Local full acceptance passed all 127 modules / 1,229 cases in the standard linke
 single-process runner: exit 0, wall 29.818 s, CPU 18.469 s and GC CPU 3.327 s.
 The 1 GiB heap, 300 s whole-suite limit and all original checks remain unchanged.
 This receipt is not a matched performance comparison.
+
+## Explicit ordered backends
+
+Declare `table-order backend comparer` as an index table to enable `.index-range`.
+It applies the same comparator and Option bounds to unique owners or grouped
+primary buckets. Revision, uniqueness, retry, inverse and style ownership are
+unchanged. See [table-order.md](table-order.md) for the finite sort/filter
+implementation and its explicit law, invalidation and cost boundaries.

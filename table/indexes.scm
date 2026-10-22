@@ -136,6 +136,16 @@
           (def type (.@ (%table-index-table recipe) Key))
           (unless (element? type key) (raise-type-error type key 'table-indexes))
           (.call (%table-index-table recipe) .ref/opt (cdr (assq name (%indexed-table-indexes state))) key))))
+        ;; Ordered backends own comparator and bound semantics; never infer order
+        ;; from projection values or expose the private cache root to callers.
+        .index-range: (lambda (state name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+          (observe state (lambda (_)
+            (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))
+            (unless recipe (error "unknown table index" name))
+            (def table (%table-index-table recipe))
+            (unless (.has? table .range) (error "unordered table index" name))
+            (.call table .range (cdr (assq name (%indexed-table-indexes state)))
+              lower upper lower-inclusive? upper-inclusive?))))
         .bind/wrap: (lambda (state f) (observe state (lambda (_) (.call wrapper .bind state f))))
         .map/wrap: (lambda (f state) (observe state (lambda (_) (.call wrapper .map f state))))))
     result))
