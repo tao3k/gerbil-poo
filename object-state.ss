@@ -1,7 +1,7 @@
 ;;; Mutation ownership and transitive invalidation, independent of slot evaluation.
 (export make-object-state object-state-revision object-state-sealed?
         object-state-sealed?-set! depend-on-state! invalidate-state!)
-(import :std/iter)
+(import :std/iter (only-in :gerbil/runtime/hash HashTable))
 ;; Weak child keys prevent a retained prototype from keeping abandoned instances alive.
 (defstruct object-state (revision sealed? dependents) constructor: :init!)
 ;; Allocate dependency storage lazily; leaf objects need no weak table.
@@ -13,7 +13,7 @@
 ;; Register an immediate source edge; values contain state, never the weak key itself.
 (def (depend-on-state! parent child child-state)
   (unless (object-state-dependents parent)
-    (set! (object-state-dependents parent) (make-hash-table test: eq? weak-keys: #t)))
+    (set! (object-state-dependents parent) (HashTable (make-table test: eq? weak-keys: #t))))
   (hash-put! (object-state-dependents parent) child child-state))
 ;; Check the ENTIRE affected closure before clearing anything. Diamonds visit once;
 ;; source edits clear all cached values, method closures, order and reflection views.

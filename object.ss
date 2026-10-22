@@ -11,6 +11,7 @@
                     call-with-issued-reads active-read-replays) @object? @make-object)
 
 (import
+  (only-in :gerbil/runtime/hash HashTable)
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
   (only-in ./support/object-syntax parse-object-options)
   (for-syntax :std/iter
@@ -331,7 +332,7 @@
   (let ()
     ;; Both sides are weak: the registry is not a root for records, receivers or
     ;; birth closures. A live record itself keeps its original closure alive.
-    (def issued (make-hash-table test: eq? weak-keys: #t weak-values: #t))
+    (def issued (HashTable (make-table test: eq? weak-keys: #t weak-values: #t)))
     (def record-class
       (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)))
     (def (same-list? current saved)
