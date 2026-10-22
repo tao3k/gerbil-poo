@@ -3,7 +3,8 @@
 (import (only-in :gerbil/runtime/gambit eval)
         (only-in :gerbil/runtime/loader load-module list-modules)
         (only-in "test-groups.ss" test-files)
-        (for-syntax (only-in :gerbil/expander genident import-module module-context-export module-export-phi)
+        (for-syntax (only-in :std/source this-source-directory)
+                    (only-in :gerbil/expander genident import-module module-context-export module-export-phi)
                     (only-in "test-groups.ss" test-files)
                     (only-in "build-spec.ss" library-modules)))
 
@@ -20,9 +21,13 @@
        (def files (filter (lambda (file)
          (ormap (lambda (export) (= (module-export-phi export) 0))
            (module-context-export (import-module (interface file) #f #f)))) (library-modules)))
+       ;; Inventory belongs to the project source, not make's consumer directory.
+       ;; Only this read uses the source root; compilation keeps its t/ scope.
+       (def test-inventory (parameterize ((current-directory (path-expand ".." (this-source-directory))))
+         (test-files)))
        (with-syntax (((module ...) (map (lambda (file) (datum->syntax #'libraries (interface file))) files))
                      ((prefix ...) (map (lambda (_) (genident 'library)) files))
-                     ((file ...) files) ((test ...) (test-files)))
+                     ((file ...) files) ((test ...) test-inventory))
          #'(begin (import (prefix-in module prefix) ...)
                   (def libraries '(file ...))
                   (def inventory '(test ...))))))))

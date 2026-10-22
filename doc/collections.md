@@ -562,11 +562,11 @@ export GERBIL_PATH="$PWD/.build/package"
 just build library
 just build test-program
 gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
-  -e '(import :std/make (only-in "./t/build-spec.ss" build-benchmark))' \
+  -e '(import :std/make (only-in "./t/build-spec.ss" build-consumer))' \
   -e '(time (make (quote ("t/collection-paired-benchmark")) srcdir: (current-directory)))'
 gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
-  -e '(import :std/make (only-in "./t/build-spec.ss" build-benchmark))' \
-  -e '(time (build-benchmark "collection-paired-benchmark"))'
+  -e '(import :std/make (only-in "./t/build-spec.ss" build-consumer))' \
+  -e '(time (build-consumer "benchmark" "collection-paired-benchmark"))'
 ```
 
 A general scope-membership filter was rejected: it added about 0.28/0.14 us
@@ -618,3 +618,101 @@ compiled interface's freshness forced the expected two workload compile jobs
 remained clan/poo/t; the standard dependency invalidation was not bypassed.
 The companion complete Lean gate passed all 343 atoms with 14 workers, with
 original process/heap limits, independently of these runtime timing claims.
+
+## Shared consumer construction and timing boundaries
+
+The linked test program now joins the existing benchmark consumer in
+`t/build-spec.ss`: `build-consumer` uses the standard `defbuild-script` source
+directory and the existing `clan/poo/t` prefix. The complete library producer
+check still runs first. Consumer dependency discovery uses its compiled
+interfaces; standard make retains all dependency and output freshness checks.
+No dependency database, load path, cache policy or environment flag is added.
+`pkg-config` still selects OpenSSL linker options. The shared program's macro
+reads the test inventory through `this-source-directory`; the inventory does
+not depend on make's current directory. Runtime admission still checks the
+current test inventory and that every shared runtime root is actually linked.
+
+The measurement helper retains its five existing columns and original explicit
+GC placement. An optional observer receives the same before/after Gambit
+statistics snapshots after the timed action. It is not called when the action
+raises; the original exception propagates. The collection study records runtime
+identity, cumulative startup, fixture preparation and each sample's history.
+History contains cumulative GC/allocation, most recent GC wall/heap/live size,
+then interval GC wall and minor/major page faults. Statistics slot 9 remains
+statistics-object overhead, not live heap. Natural samples never force GC.
+Diagnostic formatting occurs outside the measured interval; its effect on
+subsequent history is shared by both strategies and the A/A controls. These
+observations cannot be directly substituted for older uninstrumented samples.
+
+The companion finite Lean laws preserve acceptance/refusal under faithful
+source-to-interface metadata relabeling and prove that stale producer refusal
+precedes consumer admission. They assume matching captured/current stamps at
+every corresponding dependency. They do not verify the compiler, make, linker,
+filesystem timestamps or GC, and do not authorize omitting the producer check.
+
+### Complete-entry paired receipt
+
+On the same macOS host, Gerbil `1cfb032` / Gambit `ea114fc`, the public command
+`just benchmark-collections 64 10 6` was measured in four balanced old/new process
+pairs, followed by two old/old process pairs. The control routes only test-program
+through the former root source graph; both routes use the same already linked
+program and compiled workload. All 12 complete invocations retained the producer
+check, consumer check, study check, 90 linked roots, 123-module inventory, 240
+samples, 24 summaries and all semantic controls. None compiled or linked a job.
+
+| Complete process pair | Order | Old wall (s) | New wall (s) | New minus old (s) |
+| --- | --- | ---: | ---: | ---: |
+| 1 | old/new | 27.462 | 20.649 | -6.813 |
+| 2 | new/old | 24.678 | 20.698 | -3.980 |
+| 3 | old/new | 24.365 | 20.183 | -4.182 |
+| 4 | new/old | 24.649 | 20.634 | -4.014 |
+
+The four-process wall medians were 24.663 / 20.642 s (16.3% lower); the median
+paired difference was -4.098 s. The two A/A second-minus-first differences were
++1.966 / -0.028 s. Both controls, including the slower first old observation, are
+retained. The producer check stayed 8.70–9.49 s in the four comparison pairs. The
+unchanged test-program stage changed from 5.72–6.04 s to 1.89–1.97 s. This localizes
+the principal gain to redundant consumer dependency traversal, not faster C
+compilation or a changed collection algorithm. The earlier unpaired 24.40 s
+receipt is historical, not the control for this comparison. Actual relinking
+still cost 23.69 s after support changes; it is not described as a cache-hit check.
+
+Across all 2,880 instrumented observations, the existing baseline/reuse cold
+algorithm comparisons had process-median wall differences -249 / -238 us in
+natural/collected regimes. Their largest signed cold differences were -99 /
+-156 us. This does not reproduce or eliminate the historical +1.897 ms tail,
+and is not a new runtime speedup caused by the build-scope change. The largest
+positive cold A/A observations were +198 / +325 us: respectively GC wall
++85/+11 us and non-GC wall +113/+314 us, with no major page faults. The collected
++325 us observation had CPU +127 us, so neither GC alone nor CPU alone accounts
+for its wall time. Factory natural comparisons had median wall +54 us, largely
+GC wall +51 us, while natural A/A was -54 us; this shows history/order sensitivity
+and is not evidence of a causal factory-construction regression. Collected
+factory differences were about +1.2 us with no interval GC. No adverse observation
+is dropped and no universal tail-stability claim is made.
+
+Freshness regression advanced an imported compiled interface and observed standard
+consumer recompilation/relinking; the following check ran no compile/link jobs.
+Adding a source-only test inventory entry made the linked program refuse before
+benchmark dispatch, then removing it restored ordinary admission. The observer
+regression checks exact action count, post-action timing snapshots, collected-mode
+GC before timing, the five-column result shape and original exception propagation.
+Every original deadline and heap bound remains in force. Full observations and
+control scripts remain outside Git.
+
+Final complete acceptance passed all 123 modules in one process, naturally
+exited 0 and retained the 300-second/1-GiB limits. Harness wall was 34.672 s,
+CPU 19.001 s, GC CPU 3.116 s, 88 collections. The instrumented public entry then
+completed in 21.77 s with all controls: producer 9.55 s, linked consumer 2.10 s,
+workload module 1.46 s, workload process 7.53 s. Their sum is 20.64 s; the remaining
+1.13 s includes recipe/process setup and is not attributed entirely to Gerbil
+startup. Standard shell `time -p` now reports module and workload stages, matching
+the existing producer/consumer timing; progress output and original bounds remain.
+Across the 12 paired runs, runtime startup statistics had wall median 13.4 ms
+(range 12.3 ms–1.341 s), CPU median 17.8 ms and GC-wall median 0.929 ms. The slow
+startup is retained and not called a GC stall. Each run prepared 120 fixtures;
+setup and measured-action intervals are recorded separately from fixed warmup,
+printing, explicit collected-mode GC and startup. For example, the first new run
+had setup wall 0.625 s (GC wall 0.067 s), measured wall 5.860 s (GC wall 0.480 s).
+Factory actions include descriptor/closure construction; these numbers do not
+separately establish a cost for each individual metadata operation.

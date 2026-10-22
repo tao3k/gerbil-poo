@@ -1,16 +1,20 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
 (export run-child measure read-datum write-datum source-digests median mean)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
-;; Result columns: CPU, wall, GC CPU, collections, allocated bytes.
-(def (measure thunk repetitions (collect? #f))
+;; Result columns stay CPU, wall, GC CPU, collections, allocated bytes.
+;; An optional observer receives the SAME raw boundary snapshots after timing;
+;; diagnostics allocate outside the interval and never force natural-regime GC.
+(def (measure thunk repetitions (collect? #f) (observe #f))
   (when collect? (##gc))
   (def before (##process-statistics))
   (def result (for/fold (last #f) (_ (in-range repetitions)) (thunk)))
   (def after (##process-statistics))
   (unless (= (f64vector-length after) 20) (error "unsupported Gambit statistics layout"))
   (def (delta index) (- (f64vector-ref after index) (f64vector-ref before index)))
-  (values result (vector (+ (delta 0) (delta 1)) (delta 2) (+ (delta 3) (delta 4))
-                        (inexact->exact (delta 6)) (inexact->exact (- (delta 7) (f64vector-ref after 9))))))
+  (def metrics (vector (+ (delta 0) (delta 1)) (delta 2) (+ (delta 3) (delta 4))
+                        (inexact->exact (delta 6)) (inexact->exact (- (delta 7) (f64vector-ref after 9)))))
+  (when observe (observe before after))
+  (values result metrics))
 (def (read-datum path)
   (call-with-input-file path
     (lambda (port)

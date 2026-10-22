@@ -23,6 +23,29 @@
 ;; and allocation refusals. Synthetic samples test admission only, never speed.
 (def metadata-paired-test
   (test-suite "fresh-process paired protocol admission"
+    (test-case "measurement observers run after actions and preserve five result columns"
+      (def calls 0) (def observed #f)
+      (def initial (##process-statistics))
+      (defvalues (result metrics)
+        (measure (lambda () (set! calls (+ calls 1)) calls) 3 #t
+          (lambda (before after)
+            (check-equal? calls 3)
+            (check-equal? (f64vector-length before) 20)
+            (check-equal? (f64vector-length after) 20)
+            ;; Collected mode performs its explicit GC BEFORE the timed boundary.
+            (check (>= (f64vector-ref before 6) (+ 1 (f64vector-ref initial 6))) => #t)
+            (check (>= (f64vector-ref after 6) (f64vector-ref before 6)) => #t)
+            (set! observed #t))))
+      (check-equal? result 3)
+      (check-equal? (vector-length metrics) 5)
+      (check observed => #t)
+      (def failure (list 'measurement-refused))
+      (set! observed #f)
+      (def caught (try
+        (measure (lambda () (raise failure)) 1 #f (lambda (_before _after) (set! observed #t)))
+        #f (catch (cause) cause)))
+      (check (eq? caught failure) => #t)
+      (check observed => #f))
     (test-case "all semantic controls implement the same public observations"
       (for* ((scenario study.scenarios) (action (workload scenario))) (check (action) => #t)))
     (test-case "missing duplicate swapped side stale and invalid metrics refuse"

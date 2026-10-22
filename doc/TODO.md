@@ -1266,6 +1266,12 @@ reuse only exact list sharing or an empty outer scope; all instantiation checks
 remain. A membership-filtering experiment regressed hot calls and was rejected.
 The companion finite proof preserves protection membership and metadata refusal;
 compiler freshness and allocation/GC behavior remain independently measured.
+The linked test-program consumer now uses that same standard t/ graph after
+complete producer checking. Source-relative inventory and runtime linked-root
+admission remain mandatory. Paired complete-entry timing and GC-wall/history
+diagnostics are recorded in collections.md; metadata relabeling and stale-producer
+refusal have separate finite Lean proofs. This changes preparation cost, not the
+completion boundary of the proposed general collection library.
 As before, arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 

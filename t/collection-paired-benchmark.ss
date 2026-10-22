@@ -104,6 +104,19 @@
 (def (allocation metrics)
   (and (= (vector-ref metrics 3) 0) (>= (vector-ref metrics 4) 0) (vector-ref metrics 4)))
 
+;; Gambit history fields: cumulative collections/allocation, then the last GC's
+;; wall time, heap size and live bytes. Interval fields are GC wall/minor/major
+;; faults. Slot 9 is statistics-structure overhead, never a live-heap estimate.
+(def (measurement-history before after)
+  ;; Keep cumulative history separate from this observation's interval deltas.
+  (def (prefix stats)
+    (vector (f64vector-ref stats 6) (f64vector-ref stats 7)
+      (f64vector-ref stats 14) (f64vector-ref stats 15) (f64vector-ref stats 17)))
+  (vector (prefix before) (prefix after)
+    (- (f64vector-ref after 5) (f64vector-ref before 5))
+    (- (f64vector-ref after 10) (f64vector-ref before 10))
+    (- (f64vector-ref after 11) (f64vector-ref before 11))))
+
 ;; Both regimes use fresh matched fixtures per pair and the same fixed prefix.
 ;; A/A controls retain candidate prefix work too; no natural-regime GC is forced.
 ;; Full observations go to stdout, never a versioned data file or archive.
@@ -113,19 +126,32 @@
   (unless (and (exact-integer? n) (<= 2 n 1024) (exact-integer? repetitions) (<= 1 repetitions 100)
                (exact-integer? pairs) (<= 4 pairs 12) (even? pairs))
     (error "invalid bounded collection study"))
+  (displayln "COLLECTION-RUNTIME gerbil=" (gerbil-version-string) " gambit=" (system-version-string))
+  (let (startup (##process-statistics))
+    (displayln "COLLECTION-STARTUP cpu=" (+ (f64vector-ref startup 0) (f64vector-ref startup 1))
+      " wall=" (f64vector-ref startup 2) " gc-cpu=" (+ (f64vector-ref startup 3) (f64vector-ref startup 4))
+      " gc-wall=" (f64vector-ref startup 5) " history=" (measurement-history startup startup)))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (for* ((scenario '(factory cold hit revision workflow retry)) (regime '(natural collected)) (control? '(#f #t)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
-      (defvalues (baseline candidate) (workload n scenario))
+      (def setup-history #f)
+      (defvalues (actions setup-metrics)
+        (measure (lambda () (call-with-values (cut workload n scenario) vector)) 1 #f
+          (lambda (before after) (set! setup-history (measurement-history before after)))))
+      (def baseline (vector-ref actions 0))
+      (def candidate (vector-ref actions 1))
+      (displayln "COLLECTION-SETUP " (vector scenario regime control? round setup-metrics setup-history))
       (def order (if (even? round) '(baseline candidate) '(candidate baseline)))
       (for* ((_ (in-range 2)) (side order)) ((if (eq? side 'baseline) baseline candidate)))
       (def results [])
       (for (side order)
         (def action (if (or control? (eq? side 'baseline)) baseline candidate))
-        (defvalues (ok metrics) (measure action repetitions (eq? regime 'collected)))
+        (def history #f)
+        (defvalues (ok metrics) (measure action repetitions (eq? regime 'collected)
+          (lambda (before after) (set! history (measurement-history before after)))))
         (unless ok (error "collection measured oracle"))
-        (write (vector 'collection-pair scenario regime control? round side metrics (allocation metrics)))
+        (write (vector 'collection-pair scenario regime control? round side metrics (allocation metrics) history))
         (newline) (force-output)
         (set! results (cons (cons side metrics) results)))
       ;; Read observations after both measured actions; internal definitions are

@@ -1,5 +1,5 @@
 ;;; Shared build inventories and explicit project target selection.
-(export build-request benchmark-request build-benchmark library-modules)
+(export build-request consumer-request build-consumer library-modules)
 
 (import
   (only-in :std/make include-gambit-sharp pkg-config-libs)
@@ -227,20 +227,19 @@
       [(map path-strip-extension (test-files group)) output options])
     (["batch" index . options]
       [(map path-strip-extension (test-batch (string->number index))) #f options])
-    (["test-program" . options]
-      [`((exe: "t/test-program"
-          "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
     ;; gerbil build/clean select the package graph. The complete checked test
     ;; inventory remains explicit in tests/batch and the bounded full-test driver.
     (else [+gerbil-poo-build-spec+ #f args])))
 
 
-;; Benchmarks are consumers of the checked package, not producers of its library.
+;; The linked test program and studies consume the same checked package interfaces.
 ;; Keep their standard source directory at t/ so make resolves shared imports
 ;; through GERBIL_PATH interfaces instead of expanding the entire source library.
-(def (benchmark-request args)
+(def (consumer-request args)
   (match args
-    ([target . options]
+    (["test-program" . options]
+      [`((exe: "test-program" "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
+    (["benchmark" target . options]
       (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
                 "closure-phases" "dispatch-benchmark" "metadata-benchmark"
                 "metadata-paired-benchmark" "combination-benchmark"
@@ -253,11 +252,11 @@
          '("collection-paired-benchmark")
          `((exe: ,target "-ld-options" ,(pkg-config-libs "openssl"))))
        #f options])
-    (else (error "benchmark target required" args))))
+    (else (error "consumer target required" args))))
 
 ;; defbuild-script owns freshness, dependencies, options and compiler scheduling.
 ;; This is the package's existing module prefix, with its standard t/ source root.
-(def (build-benchmark . args)
-  (def request (benchmark-request args))
+(def (build-consumer . args)
+  (def request (consumer-request args))
   (defbuild-script (car request) prefix: "clan/poo/t")
   (apply main (caddr request)))
