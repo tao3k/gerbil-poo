@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services)
 (import :std/iter (prefix-in :std/instance std.)
-        (only-in ../table iterator-map table-fold table-wrapper table-styles)
+        (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -158,3 +158,16 @@
     (def owned (.call mutable .ap base))
     (def next (.call linear .apply-batch (.call mutable .convert owned 'linear) batch))
     ((.call Observation. .map consume (cut .call linear .convert <> 'pure)) next)))
+
+;; Two unique service identifiers and a shared-team index are declared once.
+;; Buckets reuse the primary persistent table, preserving each checked callback.
+;; The returned descriptor works directly with deltas, batches, lenses and styles.
+(def (make-indexed-services)
+  (def source (RationalDict (Tuple UInt UInt UInt (Fun Integer <- Integer))))
+  (def badge (.cc Type. name: 'badge table: (RationalDict (.@ source Key))
+    project: (lambda (_ row) (vector-ref row 0)) unique?: #t))
+  (def endpoint (.cc Type. name: 'endpoint table: (RationalDict (.@ source Key))
+    project: (lambda (_ row) (vector-ref row 1)) unique?: #t))
+  (def team (.cc Type. name: 'team table: (SimpleTrie UInt source)
+    project: (lambda (_ row) (vector-ref row 2)) unique?: #f))
+  (values (table-indexes source (list badge endpoint team)) source (list badge endpoint team)))

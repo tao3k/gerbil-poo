@@ -1,7 +1,9 @@
 ;;; Common declarations and methods for tables
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
-        iterator-map table-element? validate-table table-styles
+        iterator-map table-element? validate-table table-styles table-indexes
+        table-index-conflict? table-index-conflict-name table-index-conflict-key
+        table-index-conflict-existing table-index-conflict-incoming
         table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-wrapper
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
@@ -12,7 +14,7 @@
   :std/interface
   :std/iter
   (only-in :std/list/list-builder with-list-builder)
-  (only-in :std/list/list delete-duplicates/hash)
+  (only-in :std/list/list delete-duplicates/hash append-map find)
   (only-in :std/list/alist acons)
   (only-in :std/func compose)
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
@@ -868,3 +870,6 @@
 ;; Derive style ownership in the existing interface; .admit normalizes raw input,
 ;; whereas .ap and transitions retain admitted Function wrappers and batch ordering.
 (include "table/styles.scm")
+
+;; Correlated indexes share the same public table namespace and backend contracts.
+(include "table/indexes.scm")

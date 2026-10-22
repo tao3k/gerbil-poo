@@ -1242,8 +1242,7 @@ recognizes its carrier and declares child Types; it need not implement a tree.
 Sixteen Lean laws cover conjugated read/write/install, inverse and multi-stage
 derivation, ordered folds and source guards. See
 [table-representations.md](table-representations.md). This is explicit law-governed
-derivation; declarative correlated indexes,
-comparator-aware extensions and backend cost qualification remain concrete work.
+derivation; comparator-aware extensions and backend cost qualification remain concrete work.
 Arbitrary symmetry/optimization discovery is a research boundary. The concentrated
 remaining-acceptance table is in table-representations.md.
 
@@ -1254,6 +1253,14 @@ explicit retry. `Wrapper` / Reader / IO retain the existing checked Functions;
 normalization is separate from ownership transfer. See [table-styles.md](table-styles.md)
 for failure, observation, concurrency and proof boundaries. Destructive backend
 reuse and automatic ownership inference are not asserted.
+
+Declarative correlated **indexes** now share one primary and atomic installation
+protocol through `table-indexes`: typed unique-owner and grouped tables, multiple
+backends, final-state uniqueness, ordered primary conflicts, inverse observations,
+empty-delta origins and all existing table styles. See [table-indexes.md](table-indexes.md)
+for explicit laws, equality/admission premises and cost boundaries. Range/multikey
+indexes and automatic query optimization are separate work.
+
 
 
 Here incremental also means sharing an algorithm layer between existing typeclass
