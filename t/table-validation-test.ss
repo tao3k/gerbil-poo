@@ -1,6 +1,7 @@
 ;;; Persistent collection admission shares recursive binding normalization.
 (export table-validation-test)
-(import :std/test :std/iter (only-in :std/error Error? Error-message ContractViolation?)
+(import :std/test :std/iter
+        (only-in :gerbil/runtime/mop slot-ref slot-set!) (only-in :std/error Error? Error-message ContractViolation?)
         (only-in :std/list/alist aset arem alist?)
         (only-in :std/list/list foldr)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
@@ -39,6 +40,20 @@
 ;; Cover default tables, ordered dictionaries, Patricia tries, derived sets and Map.
 (def table-validation-test
   (test-suite "recursive persistent table binding protocol"
+    (test-case "fold guards refuse truncated extended and malformed captured revisions"
+      (def source (RationalDict Integer))
+      (def folding (table-fold source Integer (lambda (_ value) value)))
+      (def state (.call folding .ap (.call source .<-list '((1 . 7)))))
+      (def versions (slot-ref state 'versions))
+      ;; Exercise hostile representation edits through the actual public reader;
+      ;; no private guard helper or constructor is exported for this control.
+      (try
+        (for (bad (list (cdr versions) (append versions '(0))
+                       (cons 'malformed (cdr versions))))
+          (slot-set! state 'versions bad)
+          (check-exception (.call folding .get state) (message? "stale table fold state")))
+        (finally (slot-set! state 'versions versions)))
+      (check-equal? (.call folding .get state) 7))
     (test-case "RationalDict and Trie preserve nested Function wrappers and source identity"
       ;; One nested descriptor checks containers below each table value.
       (def payload (List (Tuple (Fun Integer <- Integer) (Map (Fun Integer <- Integer) <- String))))

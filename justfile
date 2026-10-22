@@ -63,11 +63,9 @@ _build-benchmark target max-seconds='90':
     time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
 
 # Reuse the standard shared executable; compile/load only the collection study.
+# Standard recipe dependencies share entry preparation without nested just startups.
 # Preparation keeps the ordinary compiler stage bounds; workload compile stays 90s.
-benchmark-collections width='64' samples='10' pairs='6':
-    just build library
-    just build test-program
-    just _build-benchmark collection-paired-benchmark
+benchmark-collections width='64' samples='10' pairs='6': (build "library") (build "test-program") (_build-benchmark "collection-paired-benchmark")
     time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/test-program" {{ test-runtime-options }} benchmark collection-paired-benchmark "{{ width }}" "{{ samples }}" "{{ pairs }}"
 
 clean:

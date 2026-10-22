@@ -822,3 +822,126 @@ a separate loading/initialization wait contribution, not a measured compute or
 GC regression. Its OS/loader cause has not been established. This cold suite
 receipt is separate from the paired complete benchmark command. Full raw data,
 source snapshots and temporary controls remain outside Git.
+
+### Hygienic declaration preparation and shared benchmark entry
+
+The object macro's constant-hash identifier table put every slot name into one
+comparison bucket. It now uses Gerbil compiler/base's
+`make-bound-identifier-table`, with the same complete `bound-identifier=?`
+predicate and standard first-occurrence deduplication. Slot normalization and
+lexical capture live in the existing `support/object-syntax` module; `object.ss`
+is 927 lines. Name hashing does not equate different contexts or marks.
+
+A bounded compiler-phase Scheme study compares the actual helper with the former
+constant-hash reference, using repeated identical syntax objects, two fixed
+warmups, ten repetitions and four alternating AB/BA pairs. Both actions check
+retained syntax identity and order. Median wall milliseconds per preparation:
+
+| Distinct slot names | Constant hash | Compiler identifier table |
+| --- | ---: | ---: |
+| 64 | 0.825 | 0.043 |
+| 256 | 16.594 | 0.140 |
+| 512 | 62.153 | 0.348 |
+
+These are declaration-preparation measurements, not runtime cold-factory results
+or complete build-speed ratios. The 512-name ranges are 61.416–64.110 ms and
+0.343–0.359 ms. Full finite identifier equality remains authoritative, even when
+hashes collide. Lean's sequence-equivalence and candidate-list bounds assume a
+consistent discriminator; they do not verify Gerbil's compiler or allocator.
+
+A separate candidate replaced mapped revision snapshots with length-guarded
+standard `andmap`. It was rejected: four complete-entry pairs gave medians
+20.798 s before and 20.919 s after, with mixed signed differences including a
++1.016 s adverse pair. Existing mapped runtime guards remain installed. Public
+reader regressions protect against truncated, extended and malformed snapshots;
+plain two-list `andmap` would otherwise accept a matching shorter prefix.
+
+The accepted entry uses standard `just` recipe dependencies. Library freshness,
+linked-program freshness, workload-module freshness and the full workload remain
+in the same order with their original heap and deadline limits. It removes three
+nested `just` invocations without introducing a build cache or environment
+protocol. In a fixed-source/output comparison, four full-command AB/BA pairs had
+signed wall differences -0.49, -0.11, -0.27 and -0.33 s; medians were
+20.745/20.525 s. The additional new/new control differed by +0.56 s, so the modest
+entry gain does not establish a universal tail-latency guarantee. An outer
+system timer and the Scheme process driver agreed within milliseconds, ruling
+out substantial driver waiting in those observations.
+
+Earlier constructor/guard candidates, cold A/A outliers and the adverse entry
+pair remain part of the assessment. Full data and sampling profiles stay in the
+temporary evidence directory and are not committed. System sampling of the
+existing binary shows object reads, dynamic environments, table operations and
+GC; it does not attribute the historical 1.75 ms cold outlier to one mechanism.
+Non-GC time can still depend on GC history through subsequent table maintenance.
+The peak must not be called eliminated merely because it was absent in a finite
+rerun. Scheme sources and tests do not import or locate a Lean checkout.
+
+To reproduce the declaration study, build the library and run the following
+Scheme source with the same standard `GERBIL_PATH`. Save the script outside the
+checkout and keep the 90-second / 1-GiB invocation bound, for example
+`gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q /tmp/slot-preparation.ss`.
+It prints observations only; no generated matrix is part of the package.
+
+```scheme
+(import
+ (only-in :clan/poo/support/object-syntax deduplicate-slot-identifiers)
+ (for-syntax :std/iter
+  (only-in :std/list/list delete-duplicates/hash)
+  (only-in :clan/poo/t/closure-measure measure)))
+;; Compare the actual compiler-phase helper with its independent constant-hash oracle.
+;; These are declaration-preparation controls, not runtime collection measurements.
+(defsyntax (study stx)
+ (for (width '(64 256 512))
+  (def unique (map (lambda (n) (datum->syntax (stx-car stx) (string->symbol
+    (string-append "field-" (number->string n))))) (iota width)))
+  (def input (append unique unique))
+  (def (old)
+    (delete-duplicates/hash input
+      table: (make-hash-table test: bound-identifier=? hash: (lambda (_) 0)) from-end?: #t))
+  (def (new) (deduplicate-slot-identifiers input))
+  (def (checked action)
+    (lambda ()
+      (def output (action))
+      (unless (and (= (length output) width) (andmap eq? output unique))
+        (error "declaration preparation identity or order changed" width)) #t))
+  (for (round (in-range 4))
+    (def actions (if (even? round) (list (checked old) (checked new)) (list (checked new) (checked old))))
+    (for* ((_ (in-range 2)) (action actions)) (action))
+    (let-values (((ignored-a a) (measure (car actions) 10))
+                 ((ignored-b b) (measure (cadr actions) 10)))
+      (displayln "SLOT-PREPARE width=" width " round=" round " old-first=" (even? round)
+        " first=" a " second=" b))))
+ #'(void))
+(study)
+```
+
+Final-code confirmation restored the original mapped guards before rebuilding
+and running the entire 123-module suite. Two further full-entry AB/BA pairs
+recorded 25.41/22.12 s and 25.56/24.27 s (before/after); the new/new control
+recorded 21.52/21.06 s. Stage costs themselves varied substantially, including
+workload walls of 7.68–10.41 s and library checks of 8.86–11.26 s. These full
+results therefore do **not** establish a stable integrated speedup or justify
+attributing the large apparent improvements to three fewer launches.
+
+Cold A/A also rebounded. Signed microseconds per call (the sign only identifies
+which invocation of the identical action was slower):
+
+| Observation | Wall | GC wall | Non-GC wall | Non-GC CPU | Non-GC wall minus CPU |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Historical natural outlier | +1746.1 | +193.6 | +1552.5 | +1482.5 | +70.0 |
+| Final-code natural outlier | -1346.2 | -304.7 | -1041.5 | -439.5 | -602.0 |
+| Final-code collected outlier | -1838.7 | -552.0 | -1286.7 | -732.1 | -554.6 |
+
+All three reported zero minor/major fault differences. The historical 1.55 ms
+non-GC difference is predominantly CPU work; it cannot be explained away as
+process waiting. The later outliers mix CPU work and a much larger wall/CPU
+residual. That residual includes waiting, scheduling and counter overhead; it
+is not a proof of one OS cause. Absolute A/A deviations must be retained in
+both directions. The expensive historical CPU path has not been isolated to
+one function, and the cold-tail issue remains open.
+
+The complete configured local suite passed 123 modules and 1187 cases with
+normal exit under the original 300-second / 1-GiB limits. An earlier full run
+failed the OpenSSL metadata check because the test process lacked the same
+standard `PKG_CONFIG_PATH` used for building; its failed log is retained. No
+test, deadline or heap check was relaxed.

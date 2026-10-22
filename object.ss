@@ -13,7 +13,9 @@
 (import
   (only-in :gerbil/runtime/hash HashTable)
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
-  (only-in ./support/object-syntax parse-object-options)
+  (only-in ./support/object-syntax parse-object-options
+           deduplicate-slot-identifiers prepare-shared-slot-specs
+           normalize-slot-specs normalize-slot-specs-for-match)
   (for-syntax :std/iter
               (only-in :std/list/list push! delete-duplicates/hash)
               (only-in :std/list/list-builder with-list-builder))
@@ -662,114 +664,6 @@
        (with-syntax ((self self) (super super) (parents parents)
                      (bindings bindings) (include? include?) (rest rest))
          #'(object/configured ctx self parents bindings include? super . rest))))))
-
-(begin-syntax
-  ;; TODO: is there a better option than (stx-car stx) to introduce correct identifier scope?
-  ;; the stx argument is the original syntax #'(.o args ...) or #'(@method args ...)
-  (def (unkeywordify-syntax ctx k)
-    (datum->syntax (stx-car ctx)
-                   (string->symbol (keyword->string (syntax->datum k)))))
-
-  ;; A NormalizedSlotSpec is one of:
-  ;;  - (slot-name value-expr)                           ; ignore parent, override
-  ;;  - (slot-name => function-expr extra-arg-expr ...)  ; invoke parent, pass into function
-  ;;  - (slot-name (inherited-computation) value-expr)   ; lazy reference to parent
-  ;;  - (slot-name)                                      ; same-named var from surrounding scope
-  ;;  - (slot-name =>.+ object-expr)                     ; override parent with a mixin
-  ;;  - (slot-name ?: default-expr)                      ; default for the slot
-  ;; Interpretation according to `doc/poo.md` section `POO Definition Syntax`
-
-  (def (normalize-slot-specs ctx specs)
-    (def methods (make-hash-table-symbolic))
-    (def defaults (make-hash-table-symbolic))
-    (def defaults-list '())
-    (def (d x) (push! x defaults-list))
-    (def slot-methods
-      (with-list-builder (c) (%normalize-slot-specs ctx specs methods defaults c d)))
-    [slot-methods (reverse defaults-list)])
-
-  (def (%normalize-slot-specs ctx specs methods defaults c d)
-    (def (loop more) (%normalize-slot-specs ctx more methods defaults c d))
-    (syntax-case specs ()
-      (() (void))
-      ((arg . more)
-       (let ((e (syntax-e #'arg)))
-         (cond
-          ((pair? e) (%normalize-slot-spec ctx #'arg methods defaults c d) (loop #'more))
-          ((symbol? e) (%normalize-slot-spec ctx #'(arg) methods defaults c d) (loop #'more))
-          ((keyword? e) (%normalize-named-slot-specs
-                         ctx (unkeywordify-syntax ctx #'arg) #'more methods defaults c d))
-          (else (raise-syntax-error #f "bad slot spec" #'arg ctx)))))))
-
-  (def (%normalize-slot-spec ctx spec methods defaults c d)
-    (def (do-method name more)
-      (def sym (syntax-e name))
-      (unless (symbol? sym) (raise-syntax-error #f "Slot name not a symbol" ctx name))
-      (if (hash-key? methods sym)
-        (raise-syntax-error #f "Multiple slot methods specified" name ctx)
-        (hash-put! methods sym #t))
-      (c [name . more]))
-    (def (do-defaults name value)
-      (def sym (syntax-e name))
-      (unless (symbol? sym) (raise-syntax-error #f "Slot name not a symbol" ctx name))
-      (if (hash-key? defaults sym)
-        (raise-syntax-error #f "Multiple slot defaults specified" name ctx)
-        (hash-put! defaults sym #f))
-      (d [name value]))
-    (syntax-case spec (?)
-      ((name value) (do-method #'name #'(value)))
-      ((name ? value) (do-defaults #'name #'value))
-      ((name ? . more) (raise-syntax-error #f "Invalid slot default specified" ctx #'name))
-      ((name . more) (do-method #'name #'more))))
-
-  (def (%normalize-named-slot-specs ctx name specs methods defaults c d)
-    (def (loop spec more)
-      (%normalize-slot-spec ctx spec methods defaults c d)
-      (%normalize-slot-specs ctx more methods defaults c d))
-    (with-syntax ((name name))
-      (syntax-case specs (=> =>.+ ?)
-        ((=> value-spec . more) (loop #'(name => value-spec) #'more))
-        ((=>.+ value-spec . more) (loop #'(name =>.+ value-spec) #'more))
-        ((? value-spec . more) (loop #'(name ? value-spec) #'more))
-        ((value-spec . more) (loop #'(name value-spec) #'more))
-        (() (raise-syntax-error #f "missing value after slot name" #'name (syntax->datum #'name) ctx (syntax->datum ctx))))))
-
-  (def (normalize-slot-specs-for-match ctx specs)
-    (with ([slot-methods defaults] (normalize-slot-specs ctx specs))
-      (unless (null? defaults) (raise-syntax-error #f "? not allowed in patterns" ctx))
-      (for/collect ((s slot-methods))
-        (syntax-case s (=> =>.+ ?)
-          ((slot form) #'(slot form))
-          ((slot) #'(slot slot))
-          ((slot ? . _) (raise-syntax-error #f "? not allowed in patterns" ctx))
-          ((slot => . _) (raise-syntax-error #f "=> not allowed in patterns" ctx))
-          ((slot =>.+ . _) (raise-syntax-error #f "=>.+ not allowed in patterns" ctx))
-          ((slot (next-method) form) (raise-syntax-error #f "(inherited-computation) not allowed in patterns" ctx)))))))
-
-;; A prototype may name the same slot in its inherited, default, and direct
-;; declarations.  Syntax bindings only need one entry for identifiers that
-;; denote the same lexical slot.
-(begin-syntax
-  ;; Identifier equality includes lexical scope. A constant hash is deliberate:
-  ;; no datum-based hash may equate hygienically different identifiers. The standard
-  ;; deduplicator retains the first syntax object; collision cost stays quadratic.
-  (def (deduplicate-slot-identifiers slots)
-    (delete-duplicates/hash (syntax->list slots)
-      table: (make-hash-table test: bound-identifier=? hash: (lambda (_) 0))
-      from-end?: #t))
-
-  (def (prepare-shared-slot-specs specs)
-    (let loop ((rest specs) (bindings []) (result []))
-      (match rest
-        ([] [(reverse bindings) (reverse result)])
-        ([spec . tail]
-         (syntax-case spec ()
-           ((slot)
-            (with-syntax ((value (genident 'slot-value)))
-              (loop tail
-                    [#'(value slot) . bindings]
-                    [#'(slot lexical-slot-value value) . result])))
-           (_ (loop tail bindings [spec . result]))))))))
 
 ;; the ctx argument exists for macro-scope purposes
 (defrule (object/slots ctx self parents bindings specs ...)
