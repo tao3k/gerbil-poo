@@ -100,3 +100,22 @@ Local full acceptance ran all 125 modules / 1,204 cases in one process and exite
 normally with status 0, retaining the existing 1 GiB / 300 s limits. No checks were
 removed. Targeted failures found during development (codec arity and classification
 of stale delta/inverse failures) remain local diagnostic logs, not Git artifacts.
+
+Pair JSON decoding delegates to both child descriptors, including the existing
+integer-string and nested-container codecs. Exact rationals with 80/100-bit
+components and nested Pair/List controls cover that boundary; `pair_codec_roundtrip`
+retains the separate child-codec premises. Raw JSON children are not returned as
+though they were already decoded values.
+
+Pair child decoders run explicitly left to right; a left failure preserves its
+original cause and suppresses the right decoder, as checked by an effect trace
+and the corresponding ordered Except example.
+
+Serialization requires existing child codecs. Opaque Function closures remain
+unsupported on the wire; no closure serialization is inferred from membership.
+
+Final integrated acceptance, including child-codec regressions and the current
+object-read changes, passed all 125 modules / 1,209 cases in the standard linked
+single-process test program: status 0, wall 148.244 s, CPU 20.318 s and GC CPU
+3.675 s, under the unchanged 1 GiB / 300 s limits. This is an acceptance receipt,
+not a paired performance claim.

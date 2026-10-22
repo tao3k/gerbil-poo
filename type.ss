@@ -286,7 +286,9 @@
   .element?: (lambda (v) (and (pair? v) (element? left (car v)) (element? right (cdr v))))
   .sexp<-: (lambda (v) `(cons ,(sexp<- left (car v)) ,(sexp<- right (cdr v))))
   .json<-: (lambda (v) [(json<- left (car v)) (json<- right (cdr v))])
-  .<-json: (lambda (j) (cons (car j) (cadr j)))
+  ;; Decode each child through its descriptor, including integer strings and containers.
+  .<-json: (lambda (j)
+    (let* ((a (<-json left (car j))) (d (<-json right (cadr j)))) (cons a d)))
   .marshal: (lambda (v port)
               (marshal left (car v) port)
               (marshal right (cdr v) port))

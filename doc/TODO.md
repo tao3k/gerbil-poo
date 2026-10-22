@@ -1239,7 +1239,7 @@ Explicit representation-driven **algorithm derivation** is now implemented by
 a complete new `methods.table`, with FUN Wrap, guarded metadata, both traversal
 orders, lenses, deltas, batches and incremental aggregates. A raw target only
 recognizes its carrier and declares child Types; it need not implement a tree.
-Fifteen Lean laws cover conjugated read/write/install, inverse and multi-stage
+Sixteen Lean laws cover conjugated read/write/install, inverse and multi-stage
 derivation, ordered folds and source guards. See
 [table-representations.md](table-representations.md). This is explicit law-governed
 derivation; generated style conversion, declarative correlated indexes,
