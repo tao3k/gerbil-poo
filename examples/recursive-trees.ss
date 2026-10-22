@@ -1,7 +1,13 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
 (export Tree Message Batch tree-tests tree-total)
-(import ../object ../mop ../type ../number ../property-testing
-        (prefix-in ../recursive recursive.))
+(import ../object
+        ../mop
+        ../type
+        ../number
+        ../property-testing
+        (runtime: :clan/poo/recursive)
+        (prefix-in (only-in ../recursive Generator. bind map-interaction request
+                   solve value value-result value?) recursive.))
 
 ;; Integer leaves and recursive lists admit a base even at shallow depth. The
 ;; compiler discovers this knot by descriptor identity instead of unfolding it.

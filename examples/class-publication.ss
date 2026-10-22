@@ -1,9 +1,13 @@
 ;;; Inherited Record defaults/computed methods, checked initialization and FUN.
 (export Transform BaseRecord LimitsRecord ServiceRecord InitializedRecord EnvelopeContract service-action)
 (import (only-in :std/list/list foldl)
-        ../object ../mop ../number ../object-contract
+        ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type Record String Maybe List)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.))
 

@@ -1,7 +1,16 @@
 ;;; Add/remove feedback bridges with shared invalidation and joint service approval.
 (export keys compact-keys source code-edits reconfigure build-group value report admit publish revision-action)
-(import ../object ../mop ../brace ../support/option ../generalized-closure ../feedback-cache ../feedback-graph ../lens-laws
-        (prefix-in ../generalized-graph graph.) (prefix-in ../examples/service-revisions service.))
+(import ../object
+        ../mop
+        ../brace
+        ../support/option
+        ../generalized-closure
+        ../feedback-cache
+        ../feedback-graph
+        ../lens-laws
+        (runtime: :clan/poo/generalized-graph)
+        (prefix-in (only-in ../generalized-graph reconfigure) graph.)
+        (prefix-in ../examples/service-revisions service.))
 ;; Explicit lens universe is reused; only supported components may be observed.
 (def keys service.keys)
 ;; Initially two endpoint components have no support and must not have receipts.

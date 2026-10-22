@@ -1,11 +1,36 @@
 ;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
 (export standard-model simple-model forwarding-model inner-model simula-model
         cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template sized-simula-model bound-simula-model empty-storage-simula-model bound-preflight context-preflight forwarder preflight start revise)
-(import ../object (only-in ../mop Any Object element? validate) (only-in :std/values first-value)
-        (prefix-in ../dispatch-extension extension.) (only-in ../number IntegerRange)
-        (only-in ../type Unit) (only-in ../support/option some) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.)
-        (prefix-in ../declarative-metadata metadata.) (prefix-in ../staged-publication staged.) (prefix-in ../generic-family family.)
-        (prefix-in ./shared-contracts shared.) (prefix-in ./cyclic-access access.))
+(import ../object
+        (only-in ../mop Any Object element? validate)
+        (only-in :std/values first-value)
+        (runtime: :clan/poo/dispatch-extension)
+        (prefix-in (only-in ../dispatch-extension check prepare-shape shape snapshot) extension.)
+        (only-in ../number IntegerRange)
+        (only-in ../type Unit)
+        (only-in ../support/option some)
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod bind-context call forwarding-standard inner
+                   make nested prepare-shape prepared prepared-context
+                   prepared-forwarding-standard prepared-inner prepared-simple
+                   prepared-simula prepared-standard prototype simple simula standard) dispatch.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination SimplePolicy. after around before
+                   compile-simula compile-simula-context forward-around
+                   forward-primary item prepare-simula primary simula-body
+                   simula-body?) combination.)
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata compile contribute install
+                   predicate replace) metadata.)
+        (prefix-in ../staged-publication staged.)
+        (runtime: :clan/poo/generic-family)
+        (prefix-in (only-in ../generic-family methods.refresh<-empty-storage
+                   methods.refresh<-sized-projection) family.)
+        (runtime: :clan/poo/examples/shared-contracts)
+        (prefix-in (only-in ./shared-contracts budgeted-model expanded-generics
+                   repeated-source) shared.)
+        (runtime: :clan/poo/examples/cyclic-access)
+        (prefix-in (only-in ./cyclic-access config equations) access.))
 ;; Reserve arguments retain their ordinary runtime Type; dispatch has one C4 axis.
 (def units-type (IntegerRange min: 0))
 ;; Shared immutable projection reconstructs the same policy/view for seed and edits.

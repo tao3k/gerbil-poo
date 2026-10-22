@@ -1,7 +1,15 @@
 ;;; Test-only control for the pre-optimization b14c15d finite-observation algorithm.
 (export prepare observe step eager-cook eager-service profile)
-(import ../object (prefix-in ../generalized-prototype gp.)
-        (prefix-in ../method-combination combination.) (prefix-in ../examples/generalized-checkout checkout.))
+(import ../object
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype assemble bind-observer cook-fields
+                   prepare-inheritance) gp.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination prepare-simple sum) combination.)
+        (runtime: :clan/poo/examples/generalized-checkout)
+        (prefix-in (only-in ../examples/generalized-checkout base declarations
+                   nested-base nested-declarations nested-protocol nested-root
+                   protocol root) checkout.))
 ;; Keep the original three-field prepared representation private to the control.
 (defstruct snapshot (protocol fragments program) final: #t)
 ;; Match the preceding eager preparation of both method groups before slot selection.

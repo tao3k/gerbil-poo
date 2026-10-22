@@ -1,9 +1,18 @@
 ;;; Current qualified versus compact item factories share C3/lenses/FUN/policy code.
 (export main workload)
-(import :std/iter ../object (prefix-in ../generalized-prototype gp.)
-  (prefix-in ../examples/generalized-checkout checkout.)
-  (prefix-in ../method-combination combination.) (prefix-in "factory-cases.ss" study.)
-  (only-in "closure-measure.ss" run-child))
+(import :std/iter
+        ../object
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Prepared? approximate
+                   bind-context-observer prepared-protocol) gp.)
+        (runtime: :clan/poo/examples/generalized-checkout)
+        (prefix-in (only-in ../examples/generalized-checkout
+                   bind-envelope-items-report bind-envelope-report envelope-base
+                   prepare-envelope prepare-envelope-items) checkout.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination item) combination.)
+        (prefix-in "factory-cases.ss" study.)
+        (only-in "closure-measure.ss" run-child))
 ;; Identical fixed-field projection on both sides, matching the actual public report.
 (def (fields view)
   (list (view 'price) (view 'rebate) (view 'service) (view 'tenant) (view 'approved)))

@@ -1,8 +1,13 @@
 ;;; JSON configuration, nested checked callbacks and exact publication binding.
 (export EngineContract WorkflowContract workflow-action)
-(import ../object ../mop ../number ../io ../object-contract
+(import ../object
+        ../mop
+        ../number
+        ../io
+        ../object-contract
         (only-in ../type String Json)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.))
 

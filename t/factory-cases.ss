@@ -1,7 +1,9 @@
 ;;; Qualified versus statically item-only raw method representation.
 (export specification scenarios repetitions sources)
-(import (only-in :std/list/list delete-duplicates/hash) ../object
-  (prefix-in "metadata-paired-cases.ss" metadata.))
+(import (only-in :std/list/list delete-duplicates/hash)
+        ../object
+        (runtime: :clan/poo/t/metadata-paired-cases)
+        (prefix-in (only-in "metadata-paired-cases.ss" sources) metadata.))
 ;; Keep fresh factory, raw construction, warm dependency cooking and cache phases distinct.
 (def scenarios '(factory factory-history preparation binding construction cooking
   item-construct item-cold item-warm revision factory-allocation construction-allocation cooking-allocation))

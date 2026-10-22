@@ -1,7 +1,12 @@
 ;;; Shared assertions for original and failure-isolated coordinator workflows.
 (export check-revisions)
-(import :std/test ../object ../mop ../brace ../feedback-graph
-        (prefix-in ../joint-publication joint.)
+(import :std/test
+        ../object
+        ../mop
+        ../brace
+        ../feedback-graph
+        (runtime: :clan/poo/joint-publication)
+        (prefix-in (only-in ../joint-publication approval current head) joint.)
         (prefix-in ../examples/joint-topology service.)
         ../examples/joint-coordination-rounds)
 ;; Checkpoint provenance retains the reply for its specific coordinator.

@@ -1,8 +1,17 @@
 ;;; RecursiveCatalog / RecursiveDispatch: shared requests with current Type admission.
 (export program registry expected run-service)
-(import ../object (only-in ../mop Any Type. validate) (only-in ../number IntegerRange)
-        (prefix-in ../proto proto.) (prefix-in ../recursive recursive.)
-        (prefix-in ../recursive-handling handling.) (prefix-in ../multimethod dispatch.) (prefix-in ../method-combination combination.))
+(import ../object
+        (only-in ../mop Any Type. validate)
+        (only-in ../number IntegerRange)
+        (prefix-in ../proto proto.)
+        (runtime: :clan/poo/recursive)
+        (prefix-in (only-in ../recursive Interaction. close source-error value) recursive.)
+        (runtime: :clan/poo/recursive-handling)
+        (prefix-in (only-in ../recursive-handling Signature. call-batch result-next) handling.)
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod contribute prototype standard) dispatch.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination primary) combination.))
 ;; Immutable source requests use the final self. The inherited head implementation
 ;; is overridden below, so every chain observes the same composed final program.
 (def (base self _)

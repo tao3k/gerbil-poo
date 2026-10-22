@@ -1,6 +1,10 @@
 ;;; Several native joint candidates share ONE proposed approval object and source.
 (export approve-revisions)
-(import ../object ../mop ../brace (prefix-in ../joint-publication joint.)
+(import ../object
+        ../mop
+        ../brace
+        (runtime: :clan/poo/joint-publication)
+        (prefix-in (only-in ../joint-publication approve current stage-at) joint.)
         (prefix-in ./component-rounds rounds.))
 ;; Capture one current bundle for all described alternatives. Each alternative is
 ;; an endpoint/Change. list using the existing phase/input declaration protocol.

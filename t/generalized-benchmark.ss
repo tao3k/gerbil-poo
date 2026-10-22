@@ -1,8 +1,15 @@
 (export main workload)
-(import ../object (prefix-in ../examples/generalized-checkout checkout.)
-        (only-in "closure-measure.ss" run-child) (prefix-in "generalized-cases.ss" study.)
+(import ../object
+        (runtime: :clan/poo/examples/generalized-checkout)
+        (prefix-in (only-in ../examples/generalized-checkout base declarations
+                   nested-base nested-declarations nested-protocol nested-root
+                   prepare-checkout prepare-nested protocol root) checkout.)
+        (only-in "closure-measure.ss" run-child)
+        (prefix-in "generalized-cases.ss" study.)
         (prefix-in "generalized-observation-reference.ss" reference.)
-        (prefix-in ../generalized-prototype gp.))
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype bind-observer observe
+                   prepare-inheritance step) gp.))
 ;; Use actual old/new public interfaces; phase ablations change one construction
 ;; choice at a time. Instrumented callback counters are tested outside timed loops.
 (def (workload scenario)

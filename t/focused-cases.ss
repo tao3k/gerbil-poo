@@ -1,7 +1,9 @@
 ;;; Focused-assembly study: current fused versus current per-fragment construction.
 (export specification scenarios repetitions sources)
-(import (only-in :std/list/list delete-duplicates/hash) ../object
-        (prefix-in "metadata-paired-cases.ss" metadata.))
+(import (only-in :std/list/list delete-duplicates/hash)
+        ../object
+        (runtime: :clan/poo/t/metadata-paired-cases)
+        (prefix-in (only-in "metadata-paired-cases.ss" sources) metadata.))
 ;; Keep complete observations, controlled heap history and isolated phases separate.
 (def scenarios '(nested nested-history cold construction hook cooking binding envelope revision
   nested-allocation construction-allocation envelope-allocation))

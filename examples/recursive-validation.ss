@@ -1,11 +1,26 @@
 ;;; Finite cyclic objects, positive computed facts and memoized bounded requests.
 (export Handler program registry build close-service envelope service-action)
-(import ../object ../mop ../number ../object-contract
+(import ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type Record String)
-        (prefix-in ../recursive recursive.) (prefix-in ../recursive-handling handling.)
-        (prefix-in ../recursive-validation validation.) (prefix-in ../closure closure.)
-        (prefix-in ../generalized-prototype observation.)
-        (prefix-in ./object-contracts config.) (prefix-in ./contract-publication publication.))
+        (runtime: :clan/poo/recursive)
+        (prefix-in (only-in ../recursive Generator. Interaction. request source-error
+                   value) recursive.)
+        (runtime: :clan/poo/recursive-handling)
+        (prefix-in (only-in ../recursive-handling Signature. call-slot result-failure
+                   result-next result-reused result-value) handling.)
+        (runtime: :clan/poo/recursive-validation)
+        (prefix-in (only-in ../recursive-validation closed-ref closed-type
+                   validation-action) validation.)
+        (runtime: :clan/poo/closure)
+        (prefix-in (only-in ../closure closure-ref compile-closure either fact literal
+                   solve-closure) closure.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (prefix-in ./object-contracts config.)
+        (prefix-in ./contract-publication publication.))
 
 ;; Functions receive explicit recursive session state; no mutable memo is hidden
 ;; in a supposedly pure getter or shared between unrelated program owners.

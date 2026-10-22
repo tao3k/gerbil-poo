@@ -1,8 +1,14 @@
 ;;; Replace endpoints in two SCCs while migrating their shared input atomically.
 (export source contributions reconfigure revision-action admit value report build-group)
-(import ../object ../mop ../brace ../feedback-graph ../lens-laws
+(import ../object
+        ../mop
+        ../brace
+        ../feedback-graph
+        ../lens-laws
         (prefix-in ../component-revision revision.)
-        (prefix-in ./service-revisions recipes.) (prefix-in ./component-membership service.))
+        (runtime: :clan/poo/examples/service-revisions)
+        (prefix-in (only-in ./service-revisions recipe) recipes.)
+        (prefix-in ./component-membership service.))
 ;; Reuse the original compact source and the existing stable lens/closure family.
 (def source service.source)
 ;; The fixed carrier and current-owner observations are shared with prior examples.

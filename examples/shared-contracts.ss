@@ -1,10 +1,20 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
 ;;; Generalized-prototype future work: immutable closed inputs, native mixins.
 (export configured-source repeated-source selection-prices source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-cached-model expanded-cached-workflow-model budgeted-source budgeted-model budgeted-workflow-model shared-checks-source shared-checks-model shared-checks-workflow-model shared-checks-cached-model shared-checks-cached-workflow-model specialized-construct expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
-(import ../object (prefix-in ../contract-family family.) (prefix-in ../generic-family generics.)
-        (prefix-in ../declarative-metadata metadata.)
+(import ../object
+        (runtime: :clan/poo/contract-family)
+        (prefix-in (only-in ../contract-family PreparationCosts. SelectionCache.
+                   SelectionCacheCosts. Source. TemplateCosts. choose-checks
+                   choose-source methods.inputs<-cached-selection
+                   methods.inputs<-selection methods.inputs<-shared) family.)
+        (runtime: :clan/poo/generic-family)
+        (prefix-in (only-in ../generic-family methods.instantiate<-shared-expansion) generics.)
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata atom contract predicate
+                   with-meaning) metadata.)
         (prefix-in ./construction-workflow workflow.)
-        (prefix-in ./service-metadata service.) (prefix-in ./service-bundle bundle.))
+        (prefix-in ./service-metadata service.)
+        (prefix-in ./service-bundle bundle.))
 ;; Close only over the current invoice; accept an event containing the consenting
 ;; customer and that invoice. Input/output shape checks are supplied by the template.
 (def (cancellation-meaning invoice)

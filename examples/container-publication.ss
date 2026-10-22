@@ -1,9 +1,13 @@
 ;;; Finite named schemas, heterogeneous tuples and lists in one FUN workflow.
 (export TaskSchema BatchSchema batch-action)
 (import (only-in :std/list/list foldl)
-        ../object ../mop ../number ../object-contract
+        ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type String List Tuple)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.))
 

@@ -1,21 +1,49 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import :gerbil/runtime/gambit :std/iter (only-in ../object .cc .@ .o .call) ../support/option (only-in :std/values first-value)
+(import :gerbil/runtime/gambit
+        :std/iter
+        (only-in ../object .cc .@ .o .call)
+        ../support/option
+        (only-in :std/values first-value)
         "closure-measure.ss"
-        (prefix-in ../declarative-metadata metadata.)
-        (only-in ../mop element?) (only-in ../number IntegerRange)
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata atom both contract contract?
+                   failure-phase failure? invoke predicate publish wrap) metadata.)
+        (only-in ../mop element?)
+        (only-in ../number IntegerRange)
         (prefix-in ../examples/service-metadata service.)
-        (prefix-in ../examples/cyclic-access access.)
-        (prefix-in ../cyclic-publication publication.)
+        (runtime: :clan/poo/examples/cyclic-access)
+        (prefix-in (only-in ../examples/cyclic-access config equations) access.)
+        (runtime: :clan/poo/cyclic-publication)
+        (prefix-in (only-in ../cyclic-publication failure-cause failure-stage
+                   failure? invoke version-cache version-contract-family
+                   version-contract-invoker version-family version-service
+                   version-source version-view version?) publication.)
         (prefix-in ../examples/service-bundle bundle.)
         (prefix-in ../examples/protected-dispatch protected.)
-        (prefix-in ../contract-family contracts.)
-        (prefix-in ../examples/shared-contracts shared.)
-        (prefix-in ../generic-family family.) (prefix-in ../staged-publication staged.)
-        (prefix-in ../multimethod multimethod.)
-        (prefix-in ../dispatch-extension dispatch.)
-        (prefix-in ../construction-cache cache.) (prefix-in ../generalized-graph graph.)
-        (prefix-in ../dependency-analysis code.) (prefix-in ../examples/construction-workflow workflow.))
+        (runtime: :clan/poo/contract-family)
+        (prefix-in (only-in ../contract-family choose-preparation family-bound
+                   family-built family-invoker family-prepared? family-ref prepare
+                   refresh) contracts.)
+        (runtime: :clan/poo/examples/shared-contracts)
+        (prefix-in (only-in ../examples/shared-contracts construct independent-source
+                   model prepare-shared project-direct project-shared selected-model
+                   selected-source shared-input source workflow-model) shared.)
+        (runtime: :clan/poo/generic-family)
+        (prefix-in (only-in ../generic-family failure-stage family-built family-reused
+                   prepare refresh) family.)
+        (prefix-in ../staged-publication staged.)
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod cache-size) multimethod.)
+        (runtime: :clan/poo/dispatch-extension)
+        (prefix-in (only-in ../dispatch-extension snapshot) dispatch.)
+        (prefix-in ../construction-cache cache.)
+        (runtime: :clan/poo/generalized-graph)
+        (prefix-in (only-in ../generalized-graph define reschedule schedule
+                   schedule-order set-base) graph.)
+        (runtime: :clan/poo/dependency-analysis)
+        (prefix-in (only-in ../dependency-analysis make-success need) code.)
+        (prefix-in ../examples/construction-workflow workflow.))
 (def sources '("contract-family.ss" "build.ss" "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
                "closure.ss" "object.ss" "mop.ss" "type.ss" "number.ss" "justfile"
                "examples/shared-contracts.ss" "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"

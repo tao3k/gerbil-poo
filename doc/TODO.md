@@ -1272,6 +1272,11 @@ admission remain mandatory. Paired complete-entry timing and GC-wall/history
 diagnostics are recorded in collections.md; metadata relabeling and stale-producer
 refusal have separate finite Lean proofs. This changes preparation cost, not the
 completion boundary of the proposed general collection library.
+Whole-module runtime imports now retain the existing facade stamp/initializer
+while selecting used aliases. Public exports, dependency order and loader code
+are audited unchanged; facade invalidation and finite regrouping/work bounds have
+regression/proof coverage. Paired whole-entry results retain adverse cases and
+do not establish stable wall-time improvement; see collections.md.
 As before, arbitrary predicates and mutable hidden
 callback state are explicit proof premises, not newly inferred capabilities.
 

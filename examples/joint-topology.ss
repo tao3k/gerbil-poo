@@ -1,7 +1,14 @@
 ;;; Asymmetric component lifecycles share one atomic approval/head bundle.
 (export Change. start stage-current value joint-approved?)
-(import ../object ../mop ../brace (prefix-in ../joint-publication joint.)
-        (prefix-in ../construction-cache cache.) (prefix-in ./component-membership initial.)
+(import ../object
+        ../mop
+        ../brace
+        (runtime: :clan/poo/joint-publication)
+        (prefix-in (only-in ../joint-publication approval head publication stage-with) joint.)
+        (runtime: :clan/poo/construction-cache)
+        (prefix-in (only-in ../construction-cache Builder.) cache.)
+        (runtime: :clan/poo/examples/component-membership)
+        (prefix-in (only-in ./component-membership publish) initial.)
         (prefix-in ./component-rounds service.))
 ;; Each endpoint contributes an existing lifecycle phase and optional source edits.
 ;; This is ordinary POO metadata, not a new graph/closure representation.

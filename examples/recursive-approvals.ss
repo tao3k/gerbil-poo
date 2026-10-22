@@ -1,12 +1,19 @@
 ;;; Shared graph/approval revisions composed with existing entry observers.
 (export policy local-admit? joint-admit? stage-transition entry-action)
-(import ../object ../mop ../object-contract
-        (prefix-in ../recursive-validation graph.)
-        (prefix-in ../recursive-publication publication.)
-        (prefix-in ../recursive-approvals approvals.)
+(import ../object
+        ../mop
+        ../object-contract
+        (runtime: :clan/poo/recursive-validation)
+        (prefix-in (only-in ../recursive-validation closed-ref) graph.)
+        (runtime: :clan/poo/recursive-publication)
+        (prefix-in (only-in ../recursive-publication snapshot-graph
+                   snapshot-metadata) publication.)
+        (runtime: :clan/poo/recursive-approvals)
+        (prefix-in (only-in ../recursive-approvals stage-with) approvals.)
         (prefix-in ./recursive-restaging restaging.)
         (prefix-in ./recursive-publication entry.)
-        (prefix-in ./recursive-topology service.))
+        (runtime: :clan/poo/examples/recursive-topology)
+        (prefix-in (only-in ./recursive-topology envelope) service.))
 
 ;; Immutable-in-use approval metadata declares per-entry ceilings and one shared
 ;; budget, plus the exact current shape/reader expected by whole-value refinement.

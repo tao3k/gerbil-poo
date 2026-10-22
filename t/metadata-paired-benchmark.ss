@@ -1,12 +1,32 @@
 ;;; Each child builds every control in the same order, warms every control a fixed
 ;;; number of times, then measures ONE side. Nothing from another sample survives.
 (export main workload)
-(import :gerbil/runtime/gambit :std/iter (only-in :std/values first-value)
-        ../object "closure-measure.ss" (prefix-in "metadata-paired-cases.ss" study.)
-        (prefix-in ../contract-family contracts.) (prefix-in ../generic-family generics.)
-        (prefix-in ../staged-publication staged.) (prefix-in ../cyclic-publication publication.)
-        (prefix-in ../examples/service-combination qualified.) (prefix-in ../examples/service-bundle bundle.)
-        (prefix-in ../examples/cyclic-access access.) (prefix-in ../multimethod dispatch.))
+(import :gerbil/runtime/gambit
+        :std/iter
+        (only-in :std/values first-value)
+        ../object
+        "closure-measure.ss"
+        (prefix-in "metadata-paired-cases.ss" study.)
+        (runtime: :clan/poo/contract-family)
+        (prefix-in (only-in ../contract-family family-bound family-built) contracts.)
+        (runtime: :clan/poo/generic-family)
+        (prefix-in (only-in ../generic-family family-built family-has? family-ref
+                   refresh) generics.)
+        (prefix-in ../staged-publication staged.)
+        (runtime: :clan/poo/cyclic-publication)
+        (prefix-in (only-in ../cyclic-publication failure-stage invoke probe
+                   version-cache version-contract-family version-family
+                   version-view) publication.)
+        (runtime: :clan/poo/examples/service-combination)
+        (prefix-in (only-in ../examples/service-combination bound-preflight
+                   bound-simula-model cached-simula-model compiled-context-model
+                   context-preflight empty-storage-simula-model prepared-simula-model
+                   shape-prepared-simula-model staged-simula-model) qualified.)
+        (prefix-in ../examples/service-bundle bundle.)
+        (runtime: :clan/poo/examples/cyclic-access)
+        (prefix-in (only-in ../examples/cyclic-access config equations) access.)
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod multimethod?) dispatch.))
 ;; One view-independent child supplies the actual no-binding control. Construction
 ;; is common module setup, not silently charged to any timed binding sample.
 (def shared-context-program (qualified.context-preflight #t))

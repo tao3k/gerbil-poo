@@ -3,7 +3,8 @@
         residue-input residue-output infer-residue-service real-batch-input real-batch-output infer-real-batch-service)
 (import (only-in :std/func compose)
         (only-in :std/hash/misc hash-key-value-map)
-        (prefix-in ./polymorphic-services service.))
+        (runtime: :clan/poo/examples/polymorphic-services)
+        (prefix-in (only-in ./polymorphic-services infer-descriptor-service) service.))
 
 ;; A readable measurement batch preserves its UInt keys and accepts real results
 ;; from calibrators whose inputs are flonums. No wire or descriptor cast is implied.

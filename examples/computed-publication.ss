@@ -1,9 +1,13 @@
 ;;; Receiver-bound inherited computation through checked factories and FUN.
 (export Transform BaseRecord ServiceRecord InitializedRecord EnvelopeContract service-action)
 (import (only-in :std/list/list foldl)
-        ../object ../mop ../number ../object-contract
+        ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type Record List)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./object-contracts config.)
         (prefix-in ./contract-publication publication.))
 

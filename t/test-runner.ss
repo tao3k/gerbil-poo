@@ -1,9 +1,12 @@
 ;;; Execute the checked compiled inventory using the released Gerbil test runner.
 (export main compiled-tests)
-(import (prefix-in :gerbil/tools/gxtest tests.)
+;; Import the expander as one standard import set. Prefixing its entire public
+;; interface flattens it into individual dependency records for every export.
+;; Only the harness entry needs a renamed binding; its module still initializes.
+(import (prefix-in (only-in :gerbil/tools/gxtest main) tests.)
         (only-in :std/test/base TestSuite? TestObject-info TestObject-init! TestObject-init!-set!
                  TestObject-subtests TestCase-main TestCase-main-set!)
-        (prefix-in :gerbil/expander x.)
+        :gerbil/expander
         (only-in "test-groups.ss" test-files))
 
 ;; Keep source-file selection explicit, but pass compiled interfaces to gxtest.
@@ -49,7 +52,7 @@
   (def process-start (##process-statistics))
   (def files (compiled-tests target))
   (def paths (map path-normalize files))
-  (def evaluate (x.current-expander-module-eval))
+  (def evaluate (current-expander-module-eval))
   ;; Gambit's counters distinguish CPU/GC from loader waits, without collecting,
   ;; warming modules or changing heap policy. The caller times executable startup.
   (def (statistics before)
@@ -62,7 +65,7 @@
   ;; Report actual initialization work, including dependent bundle loading;
   ;; preserve values and let the original exception propagate on failure.
   (def (observe module)
-    (def path (and (x.module-context? module) (x.module-context-path module)))
+    (def path (and (module-context? module) (module-context-path module)))
     (if (and (string? path) (member (path-normalize path) paths))
       (let ((start (real-time)) (before (##process-statistics)))
         (displayln "TEST-LOAD-START " path) (force-output)
@@ -71,16 +74,16 @@
             ;; Reuse the same resolved runtime exports selected by gxtest.
             ;; No source expansion, new test discovery or alternate runner occurs.
             (for-each (lambda (export)
-              (when (and (= (x.module-export-phi export) 0)
-                         (string-suffix? "-test" (symbol->string (x.module-export-name export))))
-                (let (suite (eval (x.binding-id (x.core-resolve-module-export export))))
+              (when (and (= (module-export-phi export) 0)
+                         (string-suffix? "-test" (symbol->string (module-export-name export))))
+                (let (suite (eval (binding-id (core-resolve-module-export export))))
                   (when (TestSuite? suite) (observe-cases! suite statistics)))))
-              (x.module-context-export module))
+              (module-context-export module))
             (displayln "TEST-LOAD-END " path " wall=" (- (real-time) start) " statistics=" (statistics before))
             (force-output) (apply values result))))
       (evaluate module)))
   (displayln "TEST-MODE compiled modules=" (length files)) (force-output)
-  (parameterize ((x.current-expander-module-eval observe))
+  (parameterize ((current-expander-module-eval observe))
     (def status (apply tests.main "-v" "5" files))
     (displayln "TEST-HARNESS-END statistics=" (statistics process-start))
     (force-output)

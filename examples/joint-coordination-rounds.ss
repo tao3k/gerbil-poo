@@ -1,11 +1,14 @@
 ;;; Continuing cross-service revisions, independent of supervision policy.
 (export coordinate-revisions observation observation? make-observation
         observation-receipt observation-snapshot observation-failure)
-(import ../object ../mop ../brace
+(import ../object
+        ../mop
+        ../brace
         (prefix-in ../examples/joint-topology service.)
         (prefix-in ../examples/joint-receipts receipts.)
         (prefix-in ../examples/joint-workers workers.)
-        (prefix-in ../construction-cache cache.))
+        (runtime: :clan/poo/construction-cache)
+        (prefix-in (only-in ../construction-cache Builder.) cache.))
 ;; Never reconstruct the independent shared dependency while revising SCCs.
 (def builder (.cc cache.Builder. allow: (lambda (key) (not (eq? key 'stable)))))
 ;; Preserve receipt identity, whole snapshots and explicit refusal reasons.

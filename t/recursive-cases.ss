@@ -1,6 +1,9 @@
 ;;; Fixed recursive study descriptor for the shared strict native paired harness.
 (export specification scenarios strategies repetitions workload-sources)
-(import (only-in :std/list/list delete-duplicates/hash) ../object (prefix-in "metadata-paired-cases.ss" metadata.))
+(import (only-in :std/list/list delete-duplicates/hash)
+        ../object
+        (runtime: :clan/poo/t/metadata-paired-cases)
+        (prefix-in (only-in "metadata-paired-cases.ss" sources) metadata.))
 ;; Keep complete calls, source failures, cyclic revocation and current re-admission separate.
 (def scenarios '(attestation catalog source-error output-refusal batch-resume publication))
 ;; Fresh recomputation is the control; A/A duplicates have the exact same semantics.

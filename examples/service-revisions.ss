@@ -1,9 +1,21 @@
 ;;; Simultaneous SCC regrouping, shared quota migration and joint service revision.
 (export keys recipe source revise build-group report admit publish revision-action)
-(import (only-in :std/list/list foldl) ../object ../mop ../brace ../support/option
-        ../component-closure ../generalized-closure ../feedback-cache ../feedback-graph ../lens-laws
-        (prefix-in ../generalized-graph graph.) (prefix-in ../dependency-analysis code.)
-        (prefix-in ./closed-declarations product.))
+(import (only-in :std/list/list foldl)
+        ../object
+        ../mop
+        ../brace
+        ../support/option
+        ../component-closure
+        ../generalized-closure
+        ../feedback-cache
+        ../feedback-graph
+        ../lens-laws
+        (runtime: :clan/poo/generalized-graph)
+        (prefix-in (only-in ../generalized-graph declaration revise) graph.)
+        (runtime: :clan/poo/dependency-analysis)
+        (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
+        (runtime: :clan/poo/examples/closed-declarations)
+        (prefix-in (only-in ./closed-declarations vector-focus) product.))
 ;; Stable support includes two quota sources, six service endpoints and a monitor.
 (def keys '(quota spare shared a b c d e f monitor settlement stable))
 ;; Refuse unknown names so a migration never aliases a different storage position.

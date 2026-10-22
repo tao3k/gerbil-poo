@@ -1,7 +1,12 @@
 ;;; Functional TODO chain: checked classes, nested optics and receiver-local fallback.
 (export Account Service make-service revise-service report revision-action)
-(import ../object ../mop ../number ../brace (only-in ../type Symbol)
-        (prefix-in ../generalized-prototype gp.))
+(import ../object
+        ../mop
+        ../number
+        ../brace
+        (only-in ../type Symbol)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) gp.))
 ;; Typed fields are checked before this construction hook enforces the cross-field law.
 (define-type (Account @ Class.)
   slots: =>.+ {capacity: {type: Integer} used: {type: Integer}}

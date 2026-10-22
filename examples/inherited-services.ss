@@ -1,8 +1,16 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
 (export make-services report revision-action protocol-action combined-action)
-(import ../object ../mop ../number ../brace ../reflection ../inheritance-hooks
-        (prefix-in ../generalized-prototype gp.)
-        (prefix-in ../method-combination combination.))
+(import ../object
+        ../mop
+        ../number
+        ../brace
+        ../reflection
+        ../inheritance-hooks
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) gp.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination compile-simula-context
+                   simula-body) combination.))
 ;; Derive an audited protocol using ordinary inherited method continuations.
 ;; Compilation is lazy with respect to slot bodies; the log runs only on demand.
 (def (service-protocol log)

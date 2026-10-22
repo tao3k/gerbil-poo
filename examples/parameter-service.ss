@@ -1,8 +1,13 @@
 ;;; Parameterized service construction composes syntax, C3, generic calls and FUN.
 (export Service specialize-action quote-service)
-(import ../object ../mop ../number (prefix-in ../object-contract contract.) ../object-contract-flow
+(import ../object
+        ../mop
+        ../number
+        (prefix-in ../object-contract contract.)
+        ../object-contract-flow
         (prefix-in ../parameters parameters.)
-        (prefix-in ../generalized-prototype observation.))
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.))
 
 ;; Canonical generic formals evaluate defaults at the call boundary exactly once.
 (.defgeneric (quote-service self units (discount 0) currency: (currency 'USD) . notes) slot: quote)

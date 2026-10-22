@@ -1,7 +1,11 @@
 ;;; Explicit coordinator recovery shares one recursive graph/approval publication.
 (export coordinate-recovery!)
-(import ../object ../mop (prefix-in ../recursive-approvals approvals.)
-        (prefix-in ../recursive-publication publication.)
+(import ../object
+        ../mop
+        (runtime: :clan/poo/recursive-approvals)
+        (prefix-in (only-in ../recursive-approvals call-with-submissions observe!) approvals.)
+        (runtime: :clan/poo/recursive-publication)
+        (prefix-in (only-in ../recursive-publication snapshot snapshot-metadata) publication.)
         (prefix-in ./recursive-approvals service.))
 
 ;; observer-for receives (round, install/retry) and returns an existing FUN reader.

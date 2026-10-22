@@ -1,8 +1,12 @@
 ;;; Pair → Map → Sum → Union → refined Function fields in one FUN workflow.
 (export TransformSchema Operation RoutingSchema routing-action)
-(import ../object ../mop ../number ../object-contract
+(import ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type Pair Map Sum Union String)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.))
 

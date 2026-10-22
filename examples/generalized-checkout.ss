@@ -1,8 +1,16 @@
 ;;; A diamond checkout composes inheritance, two lenses, effective methods and FUN.
 (export protocol base root declarations prepare-checkout total report nested-protocol nested-base nested-root nested-declarations prepare-nested prepare-nested-unfused nested-report
         envelope-base envelope-root envelope-declarations prepare-envelope envelope-report bind-envelope-report prepare-envelope-items bind-envelope-items-report)
-(import ../object (only-in ../mop define-type Lens lens-of-get-set slot-lens) (prefix-in ../generalized-prototype gp.)
-        (prefix-in ../method-combination combination.))
+(import ../object
+        (only-in ../mop define-type Lens lens-of-get-set slot-lens)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation. Protocol.
+                   bind-context-observer cook-fields focus-compiler focus-protocol
+                   lens-compiler observation-action observe prepare-focused-inheritance
+                   prepare-inheritance sum-compiler) gp.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination item prepare-simple
+                   prepare-simple-items sum) combination.))
 ;; Raw fields are price contributions, rebate contributions and an untouched audit.
 (def base (list [] [] 'audit))
 ;; Replace one nested method list while preserving the other list and audit frame.

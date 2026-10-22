@@ -1,7 +1,13 @@
 ;;; Closed recursive service trees with inferred row extensions and FUN admission.
 (export Tree ServiceType service-expression admit-service shared-service publish-service)
-(import ../object ../mop ../types/relation ../prototype-types ../object-contract ../object-contract-flow
-        (prefix-in ./polymorphic-services publication.))
+(import ../object
+        ../mop
+        ../types/relation
+        ../prototype-types
+        ../object-contract
+        ../object-contract-flow
+        (runtime: :clan/poo/examples/polymorphic-services)
+        (prefix-in (only-in ./polymorphic-services publish-service) publication.))
 ;; A finite guarded approximation accepts leaves with no children. Three unfoldings
 ;; bound observations without tying a host recursive descriptor knot.
 (def Tree '(Mu Node 3 (Object ((value UInt) (adjust (Function (UInt) (Integer)))

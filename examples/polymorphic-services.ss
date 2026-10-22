@@ -11,12 +11,29 @@
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in :std/list/list delete-duplicates/hash)
-        (only-in ../function-signature encode-arguments) (only-in ../type Record) ../number ../types/relation ../object ../mop ../prototype-types ../object-contract ../object-contract-flow
-        (prefix-in ../declarative-metadata metadata.) ../method-declaration
-        (prefix-in ../generalized-prototype observation.)
+        (only-in ../function-signature encode-arguments)
+        (only-in ../type Record)
+        ../number
+        ../types/relation
+        ../object
+        ../mop
+        ../prototype-types
+        ../object-contract
+        ../object-contract-flow
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata bind-evidence contract contribute
+                   predicate publish replace truth) metadata.)
+        ../method-declaration
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./contract-publication publication.)
-        (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)
-        (prefix-in ../method-combination combination.))
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod prototype) dispatch.)
+        (runtime: :clan/poo/dispatch-extension)
+        (prefix-in (only-in ../dispatch-extension call shape) extension.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination after around before
+                   prepare-standard primary standard-contribution?) combination.))
 
 ;; Ordinary prototype parameters remain Type descriptors. Computed inherited
 ;; methods bind to the specialized receiver, with no new metaclass or registry.

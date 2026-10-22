@@ -1,9 +1,18 @@
 ;;; ConstructionWorkflow's shared settlement graph, using native computations.
 (export graph model start revise value)
-(import :std/iter ../object ../support/option
-        (prefix-in ../dependency-analysis code.) (prefix-in ../generalized-graph graph.)
-        (prefix-in ../construction-cache cache.) (prefix-in ../staged-publication staged.)
-        (prefix-in ../cyclic-publication publication.) (prefix-in ./service-bundle bundle.))
+(import :std/iter
+        ../object
+        ../support/option
+        (runtime: :clan/poo/dependency-analysis)
+        (prefix-in (only-in ../dependency-analysis both choose deny inspect make-success
+                   need success-value success?) code.)
+        (runtime: :clan/poo/generalized-graph)
+        (prefix-in (only-in ../generalized-graph declaration) graph.)
+        (runtime: :clan/poo/construction-cache)
+        (prefix-in (only-in ../construction-cache Builder. cache-ref) cache.)
+        (prefix-in ../staged-publication staged.)
+        (prefix-in ../cyclic-publication publication.)
+        (prefix-in ./service-bundle bundle.))
 (def keys '(total release invoice settlement tax risk reserve freight cover audit gate input discount blocked permit))
 (def (need key transform) (code.need key transform))
 (def (both left right combine) (code.both (need left identity) (need right identity) combine))

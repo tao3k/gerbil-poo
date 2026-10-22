@@ -1,9 +1,15 @@
 ;;; Membership edits, shared-provider migration and computed-reader replacement.
 (export provider peer summary report meter idle envelope publish-action)
-(import ../object ../mop ../number ../object-contract
+(import ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type Record)
-        (prefix-in ../recursive-validation graph.)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/recursive-validation)
+        (prefix-in (only-in ../recursive-validation closed-ref closed-type
+                   validation-node) graph.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./contract-publication publication.))
 
 ;; A provider recipe may be removed and later resubmitted with the SAME identity.

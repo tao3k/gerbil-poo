@@ -1,7 +1,11 @@
 ;;; Strengthened structural contracts and exact invocation binding through FUN.
 (export CapacityContract publication-action evidence-view)
-(import ../object ../object-contract ../object-diagnostics ../object-contract-flow
-        (prefix-in ../declarative-metadata metadata.)
+(import ../object
+        ../object-contract
+        ../object-diagnostics
+        ../object-contract-flow
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata bind-evidence publish) metadata.)
         (prefix-in ./object-contracts service.))
 
 ;; Keep all five service fields and both original relations, then add a local

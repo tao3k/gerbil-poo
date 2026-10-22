@@ -1,9 +1,22 @@
 ;;; Shared quota and cross-service feedback, with automatic merge/split grouping.
 (export keys source revise build-group report publish)
-(import (only-in :std/list/list foldl) ../object ../mop ../brace ../support/option
-        ../component-closure ../generalized-declaration ../generalized-closure ../feedback-cache ../feedback-graph ../lens-laws
-        (prefix-in ../generalized-graph graph.) (prefix-in ../dependency-analysis code.)
-        (prefix-in ./closed-declarations product.))
+(import (only-in :std/list/list foldl)
+        ../object
+        ../mop
+        ../brace
+        ../support/option
+        ../component-closure
+        ../generalized-declaration
+        ../generalized-closure
+        ../feedback-cache
+        ../feedback-graph
+        ../lens-laws
+        (runtime: :clan/poo/generalized-graph)
+        (prefix-in (only-in ../generalized-graph declaration define) graph.)
+        (runtime: :clan/poo/dependency-analysis)
+        (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
+        (runtime: :clan/poo/examples/closed-declarations)
+        (prefix-in (only-in ./closed-declarations vector-focus) product.))
 ;; Stable finite support maps service names onto a non-record vector carrier.
 (def keys '(quota left right settlement stable))
 ;; Each slot denotes a COMPLETE equation; nested lens updates preserve other slots.

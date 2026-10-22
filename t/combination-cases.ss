@@ -1,6 +1,8 @@
 ;;; Preparation and invocation use the same binary and fixed control prefix.
 (export specification scenarios repetitions)
-(import ../object (prefix-in "metadata-paired-cases.ss" base.))
+(import ../object
+        (runtime: :clan/poo/t/metadata-paired-cases)
+        (prefix-in (only-in "metadata-paired-cases.ss" sources) base.))
 ;; Keep construction and reused calls distinct; both include a result oracle.
 (def scenarios '(registration-admission registration-construction registration-family registration-complete
   prepare-inner call-inner prepare-simula call-simula generic-allocation generic-hot generic-workflow generic-construction generic-factory-allocation generic-construction-allocation generic-transport generic-hot-conditioned generic-workflow-conditioned generic-construction-conditioned generic-factory generic-account generic-workflow-allocation))

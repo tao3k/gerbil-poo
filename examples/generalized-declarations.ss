@@ -1,8 +1,15 @@
 ;;; Heterogeneous fragments on nested vectors and on a procedure carrier.
 (export base rate-part prepare-service report callable-service rate-focus)
-(import (only-in :gerbil/runtime/gambit vector-copy) ../object ../mop ../brace ../declaration
-        ../generalized-declaration (prefix-in ../generalized-prototype gp.)
-        (prefix-in ../method-combination combination.))
+(import (only-in :gerbil/runtime/gambit vector-copy)
+        ../object
+        ../mop
+        ../brace
+        ../declaration
+        ../generalized-declaration
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype cook-fields) gp.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination around prepare-standard primary) combination.))
 ;; A functional native vector lens copies before update, preserving caller storage.
 (def (vector-focus index)
   (lens-of-get-set (cut vector-ref <> index)

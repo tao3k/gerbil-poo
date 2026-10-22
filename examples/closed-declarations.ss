@@ -1,9 +1,16 @@
 ;;; Comparable non-record raw state, controlled dependency closure and callable cooking.
 (export base vector-focus cook rate-focus fee-focus reserve-focus checks prepare-service report)
-(import (only-in :gerbil/runtime/gambit vector-copy) ../object ../mop ../brace
-        ../generalized-declaration ../generalized-closure ../lens-laws
-        (prefix-in ../method-combination combination.)
-        (prefix-in ../generalized-prototype gp.))
+(import (only-in :gerbil/runtime/gambit vector-copy)
+        ../object
+        ../mop
+        ../brace
+        ../generalized-declaration
+        ../generalized-closure
+        ../lens-laws
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination around prepare-standard primary) combination.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype cook-fields) gp.))
 ;; Custom vector getters/setters use functional copying; their product analogues
 ;; have universal Lean laws, while native checks cover supplied immutable points.
 (def (vector-focus index)

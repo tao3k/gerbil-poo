@@ -1,8 +1,19 @@
 ;;; CyclicAccess's ten equations and lossy cooked view on real POO objects.
 (export config equations cook services start revise attestation start-attested revise-attested rebase-attested invoke-attested
         attested? attested-memo attested-input attested-enabled attested-closure attestation-failure? attestation-failure-stage attestation-failure-cause)
-(import (prefix-in ../recursive recursive.) (prefix-in ../recursive-cache cached.) (only-in ../mop Any Bool Type.) (only-in :std/values first-value) :std/iter ../closure ../object
-        (prefix-in ../cyclic-publication cyclic-publication.))
+(import (runtime: :clan/poo/recursive)
+        (prefix-in (only-in ../recursive Generator. bind map-interaction request
+                   source-error source-error-message source-error? value value-result) recursive.)
+        (runtime: :clan/poo/recursive-cache)
+        (prefix-in (only-in ../recursive-cache diagnostic? empty receipt-result run) cached.)
+        (only-in ../mop Any Bool Type.)
+        (only-in :std/values first-value)
+        :std/iter
+        ../closure
+        ../object
+        (runtime: :clan/poo/cyclic-publication)
+        (prefix-in (only-in ../cyclic-publication invoke prepare publish
+                   version-view) cyclic-publication.))
 ;; Construct immutable trust, training, team and compliance policy.
 (def (config (trusted #t) (trained #t) (team-member #t) (compliant #t))
   (.o (trust trusted) (training trained) (team team-member) (compliance compliant)))

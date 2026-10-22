@@ -1,9 +1,18 @@
 ;;; Fresh-process factory/publication phases; no approval or result is cached.
 (export main compare)
-(import ../object ../mop ../prototype-types
-        (prefix-in ../declarative-metadata metadata.)
-        (prefix-in ../examples/polymorphic-services service.)
-        :std/iter "closure-benchmark-support.ss")
+(import ../object
+        ../mop
+        ../prototype-types
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata bind-evidence contract predicate
+                   truth) metadata.)
+        (runtime: :clan/poo/examples/polymorphic-services)
+        (prefix-in (only-in ../examples/polymorphic-services DescriptorServiceType
+                   SignatureServiceType catalog-service-action
+                   descriptor-service-action infer-descriptor-service
+                   infer-signature-service signature-service-declarations) service.)
+        :std/iter
+        "closure-benchmark-support.ss")
 ;; Both installed implementations initialize the same semantic cases and prefix.
 ;; Artifact roots select baseline/candidate externally; the workload is identical.
 (def (workload scenario)

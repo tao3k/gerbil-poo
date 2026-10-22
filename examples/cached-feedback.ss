@@ -1,8 +1,16 @@
 ;;; Shared-input invalidation across closed feedback groups and joint admission.
 (export source keys required-keys build-group admit report publish)
-(import ../object ../mop ../support/option ../lens-laws ../feedback-cache ../generalized-closure
-        (prefix-in ../generalized-graph graph.)
-        (prefix-in ../dependency-analysis code.) (prefix-in ./feedback-services service.))
+(import ../object
+        ../mop
+        ../support/option
+        ../lens-laws
+        ../feedback-cache
+        ../generalized-closure
+        (runtime: :clan/poo/generalized-graph)
+        (prefix-in (only-in ../generalized-graph declaration) graph.)
+        (runtime: :clan/poo/dependency-analysis)
+        (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
+        (prefix-in ./feedback-services service.))
 ;; Group support is explicit; internal feedback is closed atomically in each node.
 (def keys '(quota left right stable))
 ;; Every service group must be available before joint approval may run.

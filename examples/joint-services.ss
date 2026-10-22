@@ -1,7 +1,13 @@
 ;;; Consistent multi-service deployment with atomic shared policy replacement.
 (export start stage stage-current value policy)
-(import ../object ../mop ../brace (prefix-in ../joint-publication joint.)
-        (prefix-in ../construction-cache cache.) (prefix-in ./component-membership initial.)
+(import ../object
+        ../mop
+        ../brace
+        (prefix-in ../joint-publication joint.)
+        (runtime: :clan/poo/construction-cache)
+        (prefix-in (only-in ../construction-cache Builder.) cache.)
+        (runtime: :clan/poo/examples/component-membership)
+        (prefix-in (only-in ./component-membership publish) initial.)
         (prefix-in ./component-rounds service.))
 ;; Immutable-in-practice native approval objects are replaced, never edited in place.
 (def (policy ceiling (permit #t)) (.o (limit ceiling) (allowed permit)))

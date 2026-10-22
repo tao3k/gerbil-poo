@@ -1,7 +1,9 @@
 ;;; Immutable-source context binding and Reader composition study.
 (export specification scenarios repetitions sources)
-(import (only-in :std/list/list delete-duplicates/hash) ../object
-        (prefix-in "metadata-paired-cases.ss" metadata.))
+(import (only-in :std/list/list delete-duplicates/hash)
+        ../object
+        (runtime: :clan/poo/t/metadata-paired-cases)
+        (prefix-in (only-in "metadata-paired-cases.ss" sources) metadata.))
 ;; Separate pure projection, binder construction, full observation and preparation.
 (def scenarios '(map map-allocation binding binding-allocation nested nested-history revision factory preparation
   nested-allocation revision-allocation factory-allocation))

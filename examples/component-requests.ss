@@ -1,9 +1,15 @@
 ;;; Competing staged services share an authoritative component publication.
 (export start stage policies build-group value submit-current!)
-(import ../object ../mop ../brace ../lens-laws
+(import ../object
+        ../mop
+        ../brace
+        ../lens-laws
         (prefix-in ../component-publication publication.)
-        (prefix-in ../construction-cache cache.)
-        (prefix-in ./component-membership initial.) (prefix-in ./component-rounds service.))
+        (runtime: :clan/poo/construction-cache)
+        (prefix-in (only-in ../construction-cache Builder.) cache.)
+        (runtime: :clan/poo/examples/component-membership)
+        (prefix-in (only-in ./component-membership publish) initial.)
+        (prefix-in ./component-rounds service.))
 ;; Both services have independent current approval metadata.
 (def (policies) [(.o (allowed #t) (limit 30)) (.o (allowed #t) (limit 30))])
 ;; Existing complete source equations and lawful fixed lenses close every SCC.

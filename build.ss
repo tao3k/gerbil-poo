@@ -13,6 +13,8 @@
 ;; ordinary compile/clean/spec/meta options pass through to defbuild-script.
 (def (main . args)
   (match args
+    ;; Standard Gambit timing reports make work/GC separately from whole-process timing.
+    (["library" . _] (time (apply build-selected (build-request args))))
     (["benchmark" . _] (apply build-consumer args))
     (["test-program" . _] (apply build-consumer args))
     (else (apply build-selected (build-request args)))))

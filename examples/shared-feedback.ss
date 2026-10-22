@@ -1,8 +1,18 @@
 ;;; Shared quota → cross-service feedback ring → joint approval and fresh revision.
 (export base prepare-services admit report revise)
-(import (only-in :std/number/misc uint?) ../object ../mop ../brace ../generalized-declaration ../generalized-closure ../feedback-revision
-        (prefix-in ./closed-declarations product.)
-        (prefix-in ../generalized-prototype gp.) (prefix-in ../method-combination combination.))
+(import (only-in :std/number/misc uint?)
+        ../object
+        ../mop
+        ../brace
+        ../generalized-declaration
+        ../generalized-closure
+        ../feedback-revision
+        (runtime: :clan/poo/examples/closed-declarations)
+        (prefix-in (only-in ./closed-declarations vector-focus) product.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype cook-fields) gp.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination around prepare-standard primary) combination.))
 ;; Two service groups share one computed quota, approval and independent audit.
 (def base (vector 0 (vector 0 0) (vector 0 0) #f 'audit))
 ;; Both service groups depend on this same raw quota node, not copied policy reads.

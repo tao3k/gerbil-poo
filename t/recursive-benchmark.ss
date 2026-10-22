@@ -1,11 +1,23 @@
 ;;; Native matched controls: same full setup, different explicit memo lifetimes.
 (export main workload)
-(import :std/iter (only-in :std/values first-value) ../object
+(import :std/iter
+        (only-in :std/values first-value)
+        ../object
         (only-in "closure-measure.ss" run-child)
-        (prefix-in "recursive-cases.ss" study.) (prefix-in ../recursive recursive.)
-        (prefix-in ../recursive-cache cached.) (prefix-in ../recursive-handling handling.)
-        (prefix-in ../examples/recursive-catalog catalog.) (prefix-in ../examples/cyclic-access access.)
-        (prefix-in ../cyclic-publication publication.))
+        (prefix-in "recursive-cases.ss" study.)
+        (runtime: :clan/poo/recursive)
+        (prefix-in (only-in ../recursive value-result) recursive.)
+        (runtime: :clan/poo/recursive-cache)
+        (prefix-in (only-in ../recursive-cache empty receipt-result receipt? run) cached.)
+        (runtime: :clan/poo/recursive-handling)
+        (prefix-in (only-in ../recursive-handling call-batch call-slot failure-stage
+                   result-failure result-next result-value session) handling.)
+        (prefix-in ../examples/recursive-catalog catalog.)
+        (runtime: :clan/poo/examples/cyclic-access)
+        (prefix-in (only-in ../examples/cyclic-access attestation attested-closure
+                   config rebase-attested revise-attested start-attested) access.)
+        (runtime: :clan/poo/cyclic-publication)
+        (prefix-in (only-in ../cyclic-publication version-view) publication.))
 ;; Each control constructs both programs/sessions/publication in identical order.
 ;; Completed errors/output refusals are expected observations, never timing failures.
 (def (workload scenario)

@@ -1,17 +1,30 @@
 ;;; ServiceBundle: C4 method combination, negative watches and joint metadata.
 (export Policy. model declarations admit cache-admit start revise)
-(import :std/iter (only-in :std/values first-value)
-        ../object (only-in ../mop define-type Any Bool) (only-in ../number IntegerRange)
+(import :std/iter
+        (only-in :std/values first-value)
+        ../object
+        (only-in ../mop define-type Any Bool)
+        (only-in ../number IntegerRange)
         (only-in ../type String)
-        (prefix-in ../contract-family contract-family.)
-        (prefix-in ../generic-family family.)
+        (runtime: :clan/poo/contract-family)
+        (prefix-in (only-in ../contract-family Source.) contract-family.)
+        (runtime: :clan/poo/generic-family)
+        (prefix-in (only-in ../generic-family Model. Projection.
+                   methods.refresh<-projection) family.)
         (prefix-in ../staged-publication staged.)
-        (prefix-in ../cyclic-publication publication.)
-        (prefix-in ../declarative-metadata metadata.)
-        (prefix-in ../multimethod multimethod.)
-        (prefix-in ../dispatch-extension dispatch.)
+        (runtime: :clan/poo/cyclic-publication)
+        (prefix-in (only-in ../cyclic-publication probe same-service?
+                   version-service version-view) publication.)
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata atom both check contribute family
+                   guarded remove replace) metadata.)
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod cache-size make prototype) multimethod.)
+        (runtime: :clan/poo/dispatch-extension)
+        (prefix-in (only-in ../dispatch-extension call shape snapshot) dispatch.)
         (prefix-in ./protected-dispatch protected.)
-        (prefix-in ./cyclic-access access.)
+        (runtime: :clan/poo/examples/cyclic-access)
+        (prefix-in (only-in ./cyclic-access config equations) access.)
         (prefix-in ./service-metadata service.))
 (define-type (Policy. @ [] capacity price invoice)
   reserve-shift: 0 cancel-shift: "" broken-reserve: #f forbidden-cancel: #f

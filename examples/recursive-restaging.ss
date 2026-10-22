@@ -1,9 +1,12 @@
 ;;; Explicit current-catalog preparation while requests from older rounds wait.
 (export transition-action)
-(import (only-in :std/list/list filter) ../object
-        (prefix-in ../recursive-validation graph.)
+(import (only-in :std/list/list filter)
+        ../object
+        (runtime: :clan/poo/recursive-validation)
+        (prefix-in (only-in ../recursive-validation closed-names) graph.)
         (prefix-in ../recursive-staging staging.)
-        (prefix-in ./recursive-topology service.)
+        (runtime: :clan/poo/examples/recursive-topology)
+        (prefix-in (only-in ./recursive-topology peer-recipes primary secondary) service.)
         (prefix-in ./recursive-migration migration.))
 
 ;; Adapt the same immutable service recipes to the catalog observed on EACH

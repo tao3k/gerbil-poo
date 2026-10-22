@@ -1,8 +1,10 @@
 ;;; Repeated approval invalidation and competing joint revisions over actual SCCs.
 (export transitions compete!)
-(import (prefix-in ../recursive-approvals approvals.)
+(import (runtime: :clan/poo/recursive-approvals)
+        (prefix-in (only-in ../recursive-approvals submit-sequence!) approvals.)
         (prefix-in ./recursive-approvals service.)
-        (prefix-in ./recursive-topology topology.))
+        (runtime: :clan/poo/examples/recursive-topology)
+        (prefix-in (only-in ./recursive-topology crossed merged original split) topology.))
 
 ;; Fresh policy objects keep each execution independent. Future proposals can be
 ;; carried to the next round and explicitly re-staged after a competing publication.

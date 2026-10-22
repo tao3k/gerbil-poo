@@ -1,14 +1,29 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
 (export RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
-(import ../object ../mop ../type ../number ../function-testing ../property-testing
+(import ../object
+        ../mop
+        ../type
+        ../number
+        ../function-testing
+        ../property-testing
         (only-in ../types/relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
-        ../method-declaration ../declaration ../object-contract
-        (prefix-in ../multimethod dispatch.)
-        (prefix-in ../method-combination combination.) (prefix-in ../declarative-metadata metadata.)
-        (prefix-in ../generalized-prototype observation.)
+        ../method-declaration
+        ../declaration
+        ../object-contract
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod prototype) dispatch.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination primary standard-contribution?) combination.)
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata contract predicate replace truth) metadata.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./contract-publication publication.)
-        (prefix-in ./polymorphic-services service.))
+        (runtime: :clan/poo/examples/polymorphic-services)
+        (prefix-in (only-in ./polymorphic-services DescriptorServiceType
+                   descriptor-service-action signature-request-action
+                   signature-service-declarations) service.))
 
 ;; Function values require explicit semantic generation: arbitrary procedures
 ;; cannot be synthesized from recognition alone. This fixture generates identity.

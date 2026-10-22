@@ -1,7 +1,9 @@
 ;;; Native generalized-hook study, using the shared strict source-bound driver.
 (export specification scenarios strategies repetitions)
-(import (only-in :std/list/list delete-duplicates/hash) ../object
-        (prefix-in "metadata-paired-cases.ss" metadata.))
+(import (only-in :std/list/list delete-duplicates/hash)
+        ../object
+        (runtime: :clan/poo/t/metadata-paired-cases)
+        (prefix-in (only-in "metadata-paired-cases.ss" sources) metadata.))
 ;; Cold captures construction; repeated finite observation and cooked calls stay distinct.
 (def scenarios '(cold observation reuse field-cooking binding hook self-sharing nested cold-allocation observation-allocation nested-allocation))
 ;; A/A controls duplicate each implementation in balanced independent processes.

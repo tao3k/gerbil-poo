@@ -1,6 +1,6 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
-(import :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
+(import :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
   (only-in "test-groups.ss" test-files test-batch checked-groups)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key)
@@ -8,6 +8,42 @@
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
+    (test-case "runner retains the complete standard expander dependency and harness identity"
+      (def runner (import-module (path-expand "lib/clan/poo/t/test-runner.ssi" (gerbil-path)) #f #f))
+      (def imports (module-context-import runner))
+      (def grouped (filter (lambda (entry) (and (import-set? entry)
+        (eq? (expander-context-id (import-set-source entry)) 'gerbil/expander))) imports))
+      ;; Grouping must keep the entire facade as a dependency, not just used leaves.
+      (check-equal? (length grouped) 1)
+      (check (eq? (import-set-source (car grouped)) (import-module ':gerbil/expander #f #f)) => #t)
+      (def harness (filter (lambda (entry) (and (module-import? entry)
+        (eq? (module-import-name entry) 'tests.main))) imports))
+      (check-equal? (length harness) 1)
+      (def entry (module-import-source (car harness)))
+      (check (eq? (module-export-context entry) (import-module ':gerbil/tools/gxtest #f #f)) => #t)
+      (check-equal? (module-export-name entry) 'main))
+    (test-case "selected aliases retain facade dependencies and exact public exports"
+      (def checked 0)
+      (for (spec (car (build-request '("library"))))
+        (when (and (string? spec) (or (string-prefix? "examples/" spec) (string-prefix? "t/" spec)))
+          (let* ((path (path-expand (string-append "lib/clan/poo/" spec ".ssi") (gerbil-path)))
+                 (context (import-module path #f #f)) (imports (module-context-import context)))
+            (for (facade (filter module-context? imports))
+              ;; The runtime-only import retains initialization and whole-module freshness.
+              (def aliases (filter (lambda (entry) (and (module-import? entry)
+                (eq? (module-export-context (module-import-source entry)) facade)
+                (not (eq? (module-import-name entry) (module-export-name (module-import-source entry)))))) imports))
+              (when (pair? aliases)
+                ;; The official loader emits the same initialization for a full
+                ;; prefixed interface and a retained facade with selected aliases.
+                (check-equal?
+                  (apply-generate-loader (cons '%#import
+                    (map core-module-export->import (module-context-export facade))))
+                  (apply-generate-loader (cons '%#import (cons facade aliases)))))
+              (for (entry aliases)
+                (check (and (memq (module-import-source entry) (module-context-export facade)) #t) => #t)
+                (set! checked (+ checked 1)))))))
+      (check (> checked 0) => #t))
     (test-case "local compiler batches cover the unchanged CI inventory exactly once"
       (for (count '(1 2 4))
         (def batches (for/collect (index (in-range count)) (test-batch index count)))

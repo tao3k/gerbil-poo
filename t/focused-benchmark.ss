@@ -1,6 +1,14 @@
 (export main workload)
-(import :std/iter ../object (prefix-in ../examples/generalized-checkout checkout.)
-        (prefix-in ../generalized-prototype gp.) (prefix-in "focused-cases.ss" study.)
+(import :std/iter
+        ../object
+        (runtime: :clan/poo/examples/generalized-checkout)
+        (prefix-in (only-in ../examples/generalized-checkout envelope-base
+                   envelope-report nested-base prepare-envelope prepare-nested
+                   prepare-nested-unfused) checkout.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation. approximate bind-observer
+                   observe prepared-protocol step) gp.)
+        (prefix-in "focused-cases.ss" study.)
         (only-in "closure-measure.ss" run-child))
 ;; Lift the real public result oracle through native FUN map, then bind its seed.
 (def (checked-action action seed fields expected)

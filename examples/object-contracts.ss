@@ -1,9 +1,16 @@
 ;;; JSON input, persistent lens revision and checked FUN execution on one value.
 (export ServiceContract decode-service revise-action)
-(import ../object ../mop ../brace ../number ../io
+(import ../object
+        ../mop
+        ../brace
+        ../number
+        ../io
         (only-in ../type String Json)
-        ../object-contract ../object-diagnostics ../object-contract-flow
-        (prefix-in ../generalized-prototype observation.))
+        ../object-contract
+        ../object-diagnostics
+        ../object-contract-flow
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.))
 ;; Reuse the Type recognizer protocol for the finite port domain.
 (define-type (Port @ Type.)
   .element?: (lambda (value) (and (exact-integer? value) (<= 1 value 65535))))

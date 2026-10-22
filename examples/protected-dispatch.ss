@@ -5,8 +5,11 @@
         (only-in ../mop Object Bool)
         (only-in ../number IntegerRange)
         (only-in ../type List)
-        (prefix-in ../multimethod multimethod.)
-        (prefix-in ../dispatch-extension dispatch-extension.))
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod make prototype prototype-precedence
+                   register) multimethod.)
+        (runtime: :clan/poo/dispatch-extension)
+        (prefix-in (only-in ../dispatch-extension call check shape) dispatch-extension.))
 (def document (.o))
 (def financial (.o (:: @ document)))
 (def sensitive (.o (:: @ document)))

@@ -716,3 +716,109 @@ printing, explicit collected-mode GC and startup. For example, the first new run
 had setup wall 0.625 s (GC wall 0.067 s), measured wall 5.860 s (GC wall 0.480 s).
 Factory actions include descriptor/closure construction; these numbers do not
 separately establish a cost for each individual metadata operation.
+
+## Whole-module import scopes and check costs
+
+The tool/example import boundary now uses Gerbil's core `runtime:` import to
+retain the complete existing facade dependency and initialization, alongside
+`prefix-in` / `only-in` for the names actually used. Canonical runtime paths name
+the existing `clan/poo/...` modules; existing aliases and public exports are kept.
+The runner uses the official expander as one ordinary import set, rather than
+flattening its complete interface into renamed bindings. The harness entry still
+resolves to the official `gerbil/tools/gxtest` main. No facade wrapper, namespace,
+cache database, load-path override or environment variable is introduced. These
+are static import declarations, not a new discovery or build algorithm.
+
+An audit using the official expander checked 73 changed modules: public export
+names/phases, ordered module dependency coverage and the compiler-generated
+runtime initialization code are unchanged. Dependency records fell from 6,343
+to 1,502; the runner alone changed from 1,462 to 10. The declaration-only changes
+retain function bodies; the runner's former private expander prefixes become
+direct references to the same official functions. Reflective declaration helpers
+with generated names are left unchanged. Standard make still checks every source,
+extra input, output and dependency. Its complete original target list is retained.
+
+Regression checks every selected alias against the retained facade's actual
+public export object. The official loader generator produces the same initialization
+for its former full prefixed interface and retained facade plus selected aliases.
+A facade freshness control advances the polymorphic-service compiled interface,
+requires its numeric-service consumer to recompile, then requires the unchanged
+repeat to run no compile jobs. This retains invalidation by the whole facade,
+including changes unrelated to the single retained service alias.
+
+The finite Lean model now covers positive binding groups, identical module-label
+coverage after regrouping, exact admission/refusal preservation and a compositional
+inspection-count bound. It separately shows that an empty group would incorrectly
+omit a stale dependency. These laws assume faithful module stamps in a stable
+snapshot; they do not verify Gerbil's compiler, filesystem timestamp semantics,
+allocation, GC or wall-clock speed. This cost work does not close the general
+incremental/isomorphism-aware library proposal.
+
+### Matched complete-entry observations
+
+On macOS with the same Gerbil `1cfb032` / Gambit `ea114fc` installation, four
+balanced process pairs compare the original and selected import declarations.
+Every timed invocation follows one identical complete untimed workflow, keeping
+all build checks, workloads and oracles. Both controls use the same original
+collection workload and measurement procedure. Each timed run retains 240 samples,
+24 summaries, all six phases and both GC regimes, with no compile/link jobs. Two
+additional new/new process pairs are retained as A/A controls. All deadlines,
+heap limits and worker budgets are unchanged. A standard `time` form reports
+make's own interval/GC in both controls; shell timing still covers the full process.
+
+| Pair | Order | Original wall (s) | Selected wall (s) | Difference (s) |
+| --- | --- | ---: | ---: | ---: |
+| 1 | original/selected | 21.157 | 20.864 | -0.293 |
+| 2 | selected/original | 20.765 | 21.931 | +1.166 |
+| 3 | original/selected | 21.209 | 20.856 | -0.352 |
+| 4 | selected/original | 21.364 | 21.021 | -0.343 |
+
+Complete-entry medians are 21.183 / 20.943 s (1.1% lower); the median signed
+paired difference is -0.318 s. New/new differences are -0.333 / -0.602 s. The
+remaining adverse pair and A/A variation prevent a stable end-to-end speedup
+claim. The historical unpaired 21.77 s observation is not substituted for these
+controls. The final independent acceptance command completed in 20.59 s.
+
+| Median component | Original | Selected |
+| --- | ---: | ---: |
+| Library process wall (s) | 9.135 | 8.975 |
+| Make interval wall (s) | 8.341 | 8.165 |
+| Make CPU (s) | 8.289 | 8.117 |
+| Make GC wall (s) | 1.564 | 1.596 |
+| Make non-GC wall (s) | 6.787 | 6.569 |
+| Cumulative make allocation (decimal GB) | 8.451 | 7.954 |
+| Linked consumer wall (s) | 2.055 | 2.005 |
+| Workload module check wall (s) | 1.505 | 1.495 |
+| Workload process wall (s) | 7.765 | 7.755 |
+
+Allocation is cumulative, not peak memory. Lower allocation did not establish
+less GC wall time. The roughly 0.8 s library process residual includes startup,
+script preparation and timing output; it is not attributed entirely to startup.
+The remaining dominant make cost is non-GC source expansion/preparation, not the
+linked consumer, whose unchanged dependency scope was already narrowed.
+
+The four comparison processes' largest cold A/A observations are 236/33 us in
+the original natural/collected regimes and 73/107 us in the selected regimes.
+The selected +107 us observation contains GC wall +16 us, non-GC wall +91 us and
+CPU +109 us, with no interval major/minor faults. Cold action code is unchanged,
+so these observations do not prove that the historical +325 us tail was eliminated
+or causally improved by the build import change. GC history and non-GC preparation
+remain separate costs. The extra new/new controls also contain a natural cold A/A observation of
++1,746 us: GC wall +194 us, non-GC wall +1,553 us and CPU +1,639 us, with no
+interval major/minor faults. Thus the complete data do NOT establish resolution
+of the earlier +325 us variance; reporting only the four matched comparisons
+would understate the tail. Every adverse row remains in the unversioned observations.
+
+A deferred-output sampler was tried and rejected: a matched study retained a
++604 us cold A/A observation, including +589 us non-GC wall, worse than the cited
++325 us tail. Its helper and call-chain changes are not included. A scope-splitting
+pilot also supplied no convincing benefit and is not retained.
+
+Full local build and all 123 modules passed in one process with natural exit 0
+under the original 300-second / 1-GiB bound. After rebuilding many modules, harness
+wall was 140.811 s versus CPU 17.870 s, GC CPU 3.013 s and 90 collections. The 123
+load/initialization intervals sum to 120.476 s wall but 1.997 s CPU; this identifies
+a separate loading/initialization wait contribution, not a measured compute or
+GC regression. Its OS/loader cause has not been established. This cold suite
+receipt is separate from the paired complete benchmark command. Full raw data,
+source snapshots and temporary controls remain outside Git.

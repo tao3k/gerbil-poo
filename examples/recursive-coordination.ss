@@ -1,8 +1,12 @@
 ;;; Multiple named coordinators recover repeatedly around one continuing publication.
 (export coordinate-interleaving!)
-(import ../object ../mop (prefix-in ../recursive-coordination coordination.)
-        (prefix-in ../recursive-approvals approvals.)
-        (prefix-in ../recursive-publication publication.)
+(import ../object
+        ../mop
+        (prefix-in ../recursive-coordination coordination.)
+        (runtime: :clan/poo/recursive-approvals)
+        (prefix-in (only-in ../recursive-approvals observe!) approvals.)
+        (runtime: :clan/poo/recursive-publication)
+        (prefix-in (only-in ../recursive-publication snapshot snapshot-metadata) publication.)
         (prefix-in ./recursive-approvals service.))
 
 ;; Reuse the existing service staging Reader; the coordinator adds only its fence.

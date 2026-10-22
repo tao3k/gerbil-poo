@@ -1,8 +1,14 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export Service expanded-service checked-total-action)
-(import ../object ../prototype-map ../mop ../number ../slot-layout ../object-contract-flow
+(import ../object
+        ../prototype-map
+        ../mop
+        ../number
+        ../slot-layout
+        ../object-contract-flow
         (prefix-in ../object-contract contract.)
-        (prefix-in ../generalized-prototype observation.))
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.))
 
 ;; Shared inherited data remains a live registered dependency of both branches.
 (def base (.o capacity: 10 tariff: 3))

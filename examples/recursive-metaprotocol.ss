@@ -1,8 +1,16 @@
 ;;; Positive metalevel feedback controls a safe, nonlocal service declaration chain.
 (export make-expander fragments build-service)
-(import ../object ../mop ../number ../brace ../closure ../meta-prototype
-        ../declaration ../recursive-declaration ../reflection
-        (prefix-in ../recursive recursive.))
+(import ../object
+        ../mop
+        ../number
+        ../brace
+        ../closure
+        ../meta-prototype
+        ../declaration
+        ../recursive-declaration
+        ../reflection
+        (runtime: :clan/poo/recursive)
+        (prefix-in (only-in ../recursive Interaction. request source-error value) recursive.))
 ;; A real cyclic metadata component: typed expansion and reflection mutually
 ;; depend on each other, grounded by explicit seed. An unsupported cycle stays false.
 ;; cook selects the kernel from that least solution before self-hosted construction.

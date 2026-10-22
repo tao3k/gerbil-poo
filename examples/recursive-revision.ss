@@ -1,9 +1,14 @@
 ;;; Revision of a cyclic service pair sharing a checked Function provider.
 (export recipes envelope publish-action)
-(import ../object ../mop ../number ../object-contract
+(import ../object
+        ../mop
+        ../number
+        ../object-contract
         (only-in ../type Record)
-        (prefix-in ../recursive-validation graph.)
-        (prefix-in ../generalized-prototype observation.)
+        (runtime: :clan/poo/recursive-validation)
+        (prefix-in (only-in ../recursive-validation closed-type validation-node) graph.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./contract-publication publication.))
 
 ;; Recipes are immutable revision tokens. Shared changes rebuild both readers,

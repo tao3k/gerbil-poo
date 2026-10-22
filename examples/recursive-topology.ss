@@ -1,9 +1,17 @@
 ;;; Multiple SCC merges/splits, shared migration and computed-reader changes.
 (export names original merged split crossed primary secondary peer-recipes report initial envelope publish-action)
-(import :std/iter (only-in :std/list/list foldl filter)
-        ../object ../mop ../number ../object-contract (only-in ../type Record Tuple)
-        (prefix-in ../recursive-validation graph.)
-        (prefix-in ../generalized-prototype observation.)
+(import :std/iter
+        (only-in :std/list/list foldl filter)
+        ../object
+        ../mop
+        ../number
+        ../object-contract
+        (only-in ../type Record Tuple)
+        (runtime: :clan/poo/recursive-validation)
+        (prefix-in (only-in ../recursive-validation closed-ref closed-type
+                   revise-validation validation-node) graph.)
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
         (prefix-in ./recursive-migration service.)
         (prefix-in ./contract-publication publication.))
 

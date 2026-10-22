@@ -1,15 +1,27 @@
 ;;; ServiceMetadata: cooked refinements on a heterogeneous declared family.
 ;;; Generalized-prototype future work; the finite cyclic graph is CyclicAccess's.
 (export reservation specialized-reservation declarations contracts services cook start revise release-rule)
-(import :std/iter (only-in :std/func compose) (only-in ../mop element?) (only-in :std/values first-value)
+(import :std/iter
+        (only-in :std/func compose)
+        (only-in ../mop element?)
+        (only-in :std/values first-value)
         (only-in :std/list/list delete-duplicates/hash append-map)
-        ../object (only-in ../mop Any Bool) (only-in ../number Integer IntegerRange)
+        ../object
+        (only-in ../mop Any Bool)
+        (only-in ../number Integer IntegerRange)
         (only-in ../type String List)
-        (prefix-in ../declarative-metadata metadata.)
-        (prefix-in ../multimethod multimethod.)
-        (prefix-in ../dispatch-extension dispatch-extension.)
-        (prefix-in ../cyclic-publication publication.)
-        (prefix-in ./cyclic-access access.))
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata atom both check contract
+                   declaration-name install predicate replace with-meaning) metadata.)
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod make) multimethod.)
+        (runtime: :clan/poo/dispatch-extension)
+        (prefix-in (only-in ../dispatch-extension check) dispatch-extension.)
+        (runtime: :clan/poo/cyclic-publication)
+        (prefix-in (only-in ../cyclic-publication invoke prepare publish
+                   version-view) publication.)
+        (runtime: :clan/poo/examples/cyclic-access)
+        (prefix-in (only-in ./cyclic-access cook equations) access.))
 ;; Nonnegative native integer Type used by all declared service argument rows.
 (def units-type (IntegerRange min: 0))
 ;; Interpret permission and conservation against the supplied current capacity.

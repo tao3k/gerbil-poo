@@ -1,10 +1,23 @@
 ;;; Same-binary original-algorithm controls for continuation preparation.
 (export main)
-(import (only-in ../support/base require-value) ../object ../mop ../method-declaration
-  (prefix-in ../examples/declared-methods service.) (prefix-in ../generalized-prototype gp.)
-  (only-in ../reflection read-slot) :std/iter (only-in :std/list/list foldr) (only-in :std/func compose1)
-  (prefix-in ../method-combination combination.) "combination-cases.ss"
-  (only-in "closure-measure.ss" run-child))
+(import (only-in ../support/base require-value)
+        ../object
+        ../mop
+        ../method-declaration
+        (runtime: :clan/poo/examples/declared-methods)
+        (prefix-in (only-in ../examples/declared-methods make-account
+                   make-reporting-family typed-summary-action) service.)
+        (prefix-in ../generalized-prototype gp.)
+        (only-in ../reflection read-slot)
+        :std/iter
+        (only-in :std/list/list foldr)
+        (only-in :std/func compose1)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination Contribution.
+                   compile-simula-context contribution prepare-inner simula-body
+                   standard-contribution?) combination.)
+        "combination-cases.ss"
+        (only-in "closure-measure.ss" run-child))
 ;; Rejected candidate: lift to unary continuation builders and use std compose1.
 ;; This remains a study control, not another runtime strategy or public namespace.
 (def (composed-inner methods terminal)

@@ -1,7 +1,14 @@
 ;;; Self-hosted declaration expansion followed by shared service publication.
 (export make-service-expander service-action report)
-(import ../object ../mop ../number ../brace ../reflection
-        ../meta-prototype ../declaration (prefix-in ../generalized-prototype gp.))
+(import ../object
+        ../mop
+        ../number
+        ../brace
+        ../reflection
+        ../meta-prototype
+        ../declaration
+        (runtime: :clan/poo/generalized-prototype)
+        (prefix-in (only-in ../generalized-prototype Observation.) gp.))
 ;; One property expands nonlocally into its public slot/getter and private revision
 ;; annotation. Ordinary metadata carries the current context; no slot body runs here.
 (def (property-declarations context form inherited)
