@@ -20,7 +20,7 @@
   (only-in :std/list/alist acons)
   (only-in :std/func compose)
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
-  (only-in ./brace @method)
+  (only-in ./brace @method @@method)
   (only-in ./io marshal)
   (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
   (only-in ./fun Wrapper. Wrap.)

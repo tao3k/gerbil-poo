@@ -1255,6 +1255,17 @@ normalization is separate from ownership transfer. See [table-styles.md](table-s
 for failure, observation, concurrency and proof boundaries. Destructive backend
 reuse and automatic ownership inference are not asserted.
 
+**Posh/classy receiver derivation** is implemented through the same factory:
+`Posh` attaches pure style and `Classy` attaches mutable style using Gerbil's
+standard class-method dispatch. All 25 transfers preserve admitted roots and
+Function wrappers; target construction precedes source retirement. Receiver-bound
+point operations, reads, ordered batches, inverse recovery and Reader/IO share the
+existing guarded installer. See [table-styles.md](table-styles.md) for the complete
+protocol, failure semantics, examples and Lean observation/ownership laws. This
+advances the collection proposal's future work; exclusive physical ownership,
+destructive backend selection and automatic symmetry discovery remain explicit
+research boundaries.
+
 Declarative correlated **indexes** now share one primary and atomic installation
 protocol through `table-indexes`: typed unique-owner and grouped tables, multiple
 backends, final-state uniqueness, ordered primary conflicts, inverse observations,

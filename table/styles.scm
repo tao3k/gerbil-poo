@@ -1,4 +1,4 @@
-;;; Pure values, mutable identities and consuming state references share one backend.
+;;; Interface-passing and receiver-bound collection styles share one backend.
 
 ;; A fresh immutable head identifies a generation even when the value returns to
 ;; an equal snapshot. False denotes consumed ownership, never a stored table value.
@@ -6,7 +6,47 @@
 ;; Constructors and mutable fields remain private to the existing table module.
 (defstruct %table-reference (owner style head lock) final: #t)
 
-;; Derive all three styles from one persistent table. Operations stage callbacks
+;; The official Gerbil receiver carries its originating FUN protocol and private
+;; state. Neither the constructor nor the state accessors leave this module.
+(defstruct %table-object (protocol state) final: #t)
+
+;; Observe through the originating protocol, including metadata and ownership checks.
+(defmethod (@@method snapshot %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .unap self)))
+;; Retain FUN observation without making the private update capability public.
+(defmethod (@@method bind %table-object)
+  (lambda (self consumer) (.call (%table-object-protocol self) .bind self consumer)))
+;; Pure receivers return successors; mutable receivers retain their own identity.
+(defmethod (@@method step %table-object)
+  (lambda (self transform) (.call (%table-object-protocol self) .step self transform)))
+;; Delegate ordered changes to the existing atomic table installer.
+(defmethod (@@method apply-delta %table-object)
+  (lambda (self delta) (.call (%table-object-protocol self) .apply-delta self delta)))
+;; A whole batch stages before the shared ownership commit.
+(defmethod (@@method apply-batch %table-object)
+  (lambda (self batch) (.call (%table-object-protocol self) .apply-batch self batch)))
+;; Conversion prepares the complete target representation before retiring aliases.
+(defmethod (@@method convert %table-object)
+  (lambda (self target) (.call (%table-object-protocol self) .convert self target)))
+
+;; Lookup preserves the backend's missing-key/default convention.
+(defmethod (@@method ref %table-object)
+  (lambda (self key . default)
+    (apply (.@ (%table-object-protocol self) .ref) self key default)))
+;; Count observes the current generation, never a cached receiver field.
+(defmethod (@@method count %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .count self)))
+;; Materialize the backend's own iteration order without sorting again.
+(defmethod (@@method list<- %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .list<- self)))
+;; Point insertion shares the same validation and commit path as whole batches.
+(defmethod (@@method acons %table-object)
+  (lambda (self key value) (.call (%table-object-protocol self) .acons key value self)))
+;; Point deletion retains the backend's absent-key semantics.
+(defmethod (@@method remove %table-object)
+  (lambda (self key) (.call (%table-object-protocol self) .remove self key)))
+
+;; Derive all five styles from one persistent table. Operations stage callbacks
 ;; outside the lock, then compare the captured head before one whole installation.
 ;; Pure backend callbacks and immutable leaves are explicit ownership premises.
 (def (table-styles source)
@@ -40,44 +80,62 @@
         (error "stale table reference"))
       (set! (%table-reference-head input) next))))
   ;; One higher-order constructor supplies the same complete API for every style.
-  (def (derive style)
+  (def (derive style (receiver? #f))
+    ;; Authenticate receiver provenance by its private protocol, not public fields.
+    (def (unwrap input)
+      (if receiver?
+        (if (and (%table-object? input) (eq? (%table-object-protocol input) protocol))
+          (%table-object-state input) (error "incompatible table receiver"))
+        input))
+    ;; Presentation is staged before any ownership commit; no detached cache exists.
+    (def (present state)
+      (if receiver? (make-%table-object protocol state) state))
     ;; Wrap an already admitted snapshot without replacing Function identities.
     (def (create value)
       (guard (lambda ()
         (def admitted (require-table source value))
-        (if (eq? style 'pure) admitted (reference style admitted)))))
+        (present (if (eq? style 'pure) admitted (reference style admitted))))))
     ;; Snapshot observation never consumes ownership; returned pure roots are shared.
     (def (read input)
       (guard (lambda ()
-        (if (eq? style 'pure) (require-table source input)
-          (%table-head-value (capture style input))))))
+        (let (state (unwrap input))
+          (if (eq? style 'pure) (require-table source state)
+            (%table-head-value (capture style state)))))))
     ;; Stage a single-result pure transformation, then admit without rewrapping.
     ;; Refusal, exception or conflict before installation preserves the old head.
     (def (step input transform)
       (using (transform :~ procedure?)
         (guard (lambda ()
-          (def expected (and (not (eq? style 'pure)) (capture style input)))
-          (def before (if expected (%table-head-value expected) (require-table source input)))
+          (def state (unwrap input))
+          (def expected (and (not (eq? style 'pure)) (capture style state)))
+          (def before (if expected (%table-head-value expected) (require-table source state)))
           (def after (require-table source (transform before)))
           (case style
-            ((pure) after)
-            ((mutable) (install input expected (make-%table-head after)) input)
+            ((pure) (present after))
+            ((mutable) (install state expected (make-%table-head after)) input)
             ((linear)
              ;; Prepare the successor before consuming; allocation failure cannot
              ;; retire the only reference. A losing staged successor never escapes.
-             (let (successor (reference 'linear after))
-               (install input expected #f)
+             (let (successor (present (reference 'linear after)))
+               (install state expected #f)
                successor)))))))
     ;; Conversion transfers owned references, including same-style conversion.
     ;; Use .unap for a nonconsuming snapshot; pure sources need no retirement.
     (def (convert input target)
-      (unless (memq target '(pure mutable linear)) (error "unknown table style" target))
+      (def target-protocol (case target
+        ((pure) (.@ family Pure)) ((mutable) (.@ family Mutable))
+        ((linear) (.@ family Linear)) ((posh) (.@ family Posh))
+        ((classy) (.@ family Classy)) (else (error "unknown table style" target))))
       (guard (lambda ()
-        (def expected (and (not (eq? style 'pure)) (capture style input)))
-        (def value (if expected (%table-head-value expected) (require-table source input)))
-        (def result (if (eq? target 'pure) value (reference target value)))
-        (when expected (install input expected #f))
+        (def state (unwrap input))
+        (def expected (and (not (eq? style 'pure)) (capture style state)))
+        (def value (if expected (%table-head-value expected) (require-table source state)))
+        ;; FUN construction includes receiver allocation and admission before retirement.
+        (def result (.call target-protocol .ap value))
+        (when expected (install state expected #f))
         result)))
+    ;; One protocol identity authenticates its receiver-bound states.
+    (def protocol
     (.cc Wrapper.
       Domain: source
       ;; Raw input has a separate normalization boundary; .ap preserves admitted roots.
@@ -86,8 +144,20 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      ;; Read through FUN binding so backend callbacks retain the source guard.
+      .ref: (lambda (input key . default)
+        (guard (lambda () (apply (.@ source .ref) (read input) key default))))
+      .count: (lambda (input) (guard (lambda () (.call source .count (read input)))))
+      .list<-: (lambda (input) (guard (lambda () (.call source .list<- (read input)))))
+      ;; Point operations reuse the exact staged transformation engine.
+      .acons: (lambda (key value input) (step input (cut .call source .acons key value <>)))
+      .remove: (lambda (input key) (step input (cut .call source .remove <> key)))
       ;; Whole deltas/batches reuse the original optimistic conflict protocol.
       .apply-delta: (lambda (input delta) (step input (cut .call source .apply-delta <> delta)))
       .apply-batch: (lambda (input batch) (step input (lambda (before)
         (.call source .apply-delta before (.call source .compose-deltas batch)))))))
-  (.cc Type. Pure: (derive 'pure) Mutable: (derive 'mutable) Linear: (derive 'linear)))
+    protocol)
+  ;; Posh/classy attach the existing pure/mutable FUN protocols to host receivers.
+  (def family (.cc Type. Pure: (derive 'pure) Mutable: (derive 'mutable)
+    Linear: (derive 'linear) Posh: (derive 'pure #t) Classy: (derive 'mutable #t)))
+  family)

@@ -1,8 +1,8 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
-        (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
+        (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
         ../object ../mop ../object-contract ../object-contract-flow ../support/option
@@ -175,6 +175,18 @@
     (def owned (.call mutable .ap base))
     (def next (.call linear .apply-batch (.call mutable .convert owned 'linear) batch))
     ((.call Observation. .map consume (cut .call linear .convert <> 'pure)) next)))
+
+;; Derive receiver-bound pure/mutable collections over the same checked carrier.
+;; The ordered batch must complete before conversion and Reader/IO observation;
+;; failure exposes no staged receiver and never replays an external consumer.
+(def (revise-ledger-receivers table base batch consume)
+  (using (consume :~ procedure?)
+    (def styles (table-styles table))
+    (def posh (.call (.@ styles Posh) .ap base))
+    (def classy (@@method posh.convert 'classy))
+    (@@method classy.apply-batch batch)
+    (def next (@@method classy.convert 'posh))
+    ((.call Observation. .map consume (lambda (receiver) (@@method receiver.snapshot))) next)))
 
 ;; Two unique service identifiers and a shared-team index are declared once.
 ;; Buckets reuse the primary persistent table, preserving each checked callback.

@@ -99,10 +99,10 @@
         (set! winner (.call linear .convert owned 'mutable)) before)) (message? "stale table reference"))
       (check-exception (.call linear .unap owned) (message? "consumed table reference"))
       (check (.call table .empty? (.call mutable .unap winner)) => #t))
-    (test-case "concurrent staging has one winner and one refusal in both owned styles"
+    (test-case "concurrent staging has one winner and one refusal in every owned presentation"
       (def table (RationalDict Integer))
       (def styles (table-styles table))
-      (for (name '(Mutable Linear))
+      (for (name '(Mutable Linear Classy))
         (def style (.ref styles name))
         (def input (.call style .ap (.@ table .empty)))
         (def outcomes (race style input table))
