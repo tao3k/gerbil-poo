@@ -26,16 +26,33 @@
   (only-in ./object .@ .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair))
 
-(defstruct %mapped-iterator (source transform) final: #t)
+(defstruct %mapped-iterator (source transform guard) final: #t)
+;; Pull through the standard Iterator exactly once; preserve EOF without mapping it.
+(def (%mapped-next source transform)
+  (using (source :- Iterator)
+    (def value (source.next!))
+    (if (eq? value #!eof) #!eof (transform value))))
 (implement Iterator %mapped-iterator
-  (next!
-   (lambda (self)
-     (using ((source self.source :- Iterator))
-       (def value (source.next!))
-       (if (eq? value #!eof) #!eof (self.transform value))))))
+  (next! (lambda (self)
+    (if self.guard (self.guard (lambda () (%mapped-next self.source self.transform)))
+      (%mapped-next self.source self.transform)))))
 
-(def (iterator-map transform source)
-  (Iterator (%mapped-iterator (iter source) transform)))
+;; Optional guards cover the complete pull, even EOF. Ordinary iterator mapping
+;; keeps its original unguarded path and allocates no per-pull guard thunk.
+(def (iterator-map transform source (guard #f))
+  (Iterator (%mapped-iterator (iter source) transform guard)))
+
+;; Explicit seek backends promise pure shape recognition and persistent roots.
+;; Standard weak keys retain no snapshots: successful admission is reused by identity,
+;; failed admission is never cached. Callers still guard source metadata every time.
+(def (table-shape-checker source)
+  (if (.has? source Comparer .seek<-)
+    (let (admitted (make-table test: eq? weak-keys: #t))
+      (lambda (root)
+        (unless (table-ref admitted root #f)
+          (.call source .validate-shape root)
+          (table-set! admitted root #t)) root))
+    (.@ source .validate-shape)))
 
 ;; Recognize carrier and child membership without constructing normalized wrappers.
 ;; Catch only typed refusal; user/backend exceptions preserve their original cause.
@@ -355,6 +372,10 @@
   (def target (.@ representation Codomain))
   (call-with-table-translations source target key value (list representation)
     (lambda (sources forward backward)
+      (when (.has? source Comparer .seek<-)
+        (set! sources (append sources (list (.@ source Comparer)) (.@ (.@ source Comparer) .sources))))
+      (set! sources (delete-duplicates/hash sources table: (make-hash-table-eq) from-end?: #t))
+      (def admit-source (table-shape-checker source))
       (def versions (map object-revision sources))
       (def wrap (.@ representation .ap)) (def unwrap (.@ representation .unap))
       (def result #f)
@@ -373,7 +394,7 @@
       ;; Check encountered carrier inverses without rebuilding or normalizing leaves.
       ;; Equality and user conversion costs remain explicit, not constant-time laws.
       (def (encode input)
-        (.call source .validate-shape input)
+        (admit-source input)
         (def output (shape (wrap input)))
         (unless (equal? (unwrap output) input)
           (raise (make-table-isomorphism-failure 'left-inverse input)))
@@ -383,7 +404,7 @@
       (def (decode input)
         (shape input)
         (def output (unwrap input))
-        (.call source .validate-shape output)
+        (admit-source output)
         (unless (equal? (wrap output) input)
           (raise (make-table-isomorphism-failure 'left-inverse input)))
         (unless (equal? (unwrap (wrap output)) output)
@@ -410,9 +431,20 @@
             (method
               (lambda (k v acc) (f (translate forward #t k) (translate forward #f v) acc))
               seed (decode input))))))
+      ;; Transfer only an explicit backend seek/order capability. The transported
+      ;; comparer is shared by identity; callers must not guess numeric target order.
+      (def ordering (if (.has? source Comparer .seek<-)
+        (let (comparer (table-comparer-wrapper (.@ source Comparer) key))
+          (.cc Type. Comparer: comparer
+            .seek<-: (lambda (input lower inclusive?)
+              (guard (lambda ()
+                (iterator-map (lambda (entry)
+                  (cons (translate forward #t (car entry)) (translate forward #f (cdr entry))))
+                  (.call source .seek<- (decode input)
+                    (map/option (cut translate backward #t <>) lower) inclusive?) guard)))))) Type.))
       (using ((wrap :~ procedure?) (unwrap :~ procedure?))
         (set! result
-          (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: checked .wrap?: (lambda (input) (element? target input))))
+          (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: checked .wrap?: (lambda (input) (element? target input))) ordering)
             Key: (.@ target Key) Value: (.@ target Value)
             .sources: sources
             ;; Delegate FUN operations while protecting the complete user callback.

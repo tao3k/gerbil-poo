@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services make-seek-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -184,3 +184,20 @@
   (def declaration (.cc Type. name: 'priority table: ordered unique?: #t
     project: (lambda (_ row) (- (vector-ref row 0)))))
   (values (table-indexes source (list declaration)) source comparer key))
+
+;; Transfer Trie positioning through an explicit xor-key isomorphism. Numeric
+;; external order differs from source order, so the transported Comparer is shared
+;; explicitly. Correlated publication and FUN ownership remain unchanged.
+(def (make-seek-services)
+  (def source (SimpleTrie UInt (Tuple UInt (Fun Integer <- Integer))))
+  (def backend (SimpleTrie UInt UInt))
+  (def target (.cc Type. Key: UInt Value: UInt .element?: (.@ (.@ backend T) .element?)))
+  (def carrier (.cc Wrapper. Domain: backend Codomain: target .ap: identity .unap: identity))
+  (def keys (.cc Wrapper. Domain: UInt Codomain: UInt
+    .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
+  (def payloads (.cc Wrapper. Domain: UInt Codomain: UInt .ap: identity .unap: identity))
+  (def derived (table-wrapper backend carrier keys payloads))
+  (def ordered (table-order derived (.@ derived Comparer)))
+  (def declaration (.cc Type. name: 'priority table: ordered unique?: #t
+    project: (lambda (_ row) (bitwise-xor (vector-ref row 0) 1))))
+  (values (table-indexes source (list declaration)) source derived))

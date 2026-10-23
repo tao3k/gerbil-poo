@@ -922,10 +922,14 @@
          ((Leaf _) (values t #f))
          (_ (invalid '.divide t))))))
 
-  ;; : (Iterator (Pair Key Value)) <- @ ?Key
+  ;; Advertise the existing unsigned key order; the descriptor captures Key revisions.
+  Comparer: (table-comparer Key number-comparer)
+
+  ;; Standard ordered iterator with prefix pruning. Only the lower-bound spine
+  ;; is descended before the first hit; complete subtrees below it are skipped.
+  ;; Reuse the original traversal, replacing the old split-and-rebuild preparation.
   .iter<-:
   (lambda (t (from 0))
-    (when (positive? from) (let-values (((_1 _2 r) (.split (1- from) t))) (set! t r)))
     (in-coroutine
      (lambda (yield)
        (let loop ((entries [[0 . t]]))
@@ -934,9 +938,19 @@
            ([[k . t] . rest]
             (match (.unwrap t)
               ((Empty) (loop rest))
-              ((Leaf v) (yield [k . v]) (loop rest))
-              ((Branch h l r) (loop [[k . l] [(.right-key h k) . r] . rest]))
-              ((Skip h l b c) (loop [[(.skip-key h l b k) . c] . rest]))))))))))
+              ((Leaf v) (when (>= k from) (yield [k . v])) (loop rest))
+              ((Branch h l r)
+               (def right-key (.right-key h k))
+               (loop (if (>= from right-key) [[right-key . r] . rest]
+                       [[k . l] [right-key . r] . rest])))
+              ((Skip h l b c)
+               (if (>= from (+ k (arithmetic-shift 1 (1+ h)))) (loop rest)
+                 (loop [[(.skip-key h l b k) . c] . rest]))))))))))
+
+  ;; A table-order capability accepts Option bounds; UInt successors implement
+  ;; exclusive bounds exactly without overflow or an unrelated comparison mode.
+  .seek<-: (lambda (t lower inclusive?)
+    (.iter<- t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
 
 (define-type (TrieSet. @ Set<-Table.)
   Table: {(:: @ Trie.) Value: Unit}

@@ -1,7 +1,7 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
-        (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie)
+        (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie)
         (only-in "closure-measure.ss" measure median))
 
 ;; Every variant consumes the same admitted source, delta and exact sum oracle.
@@ -99,6 +99,51 @@
     ((retry) (values (cut retry baseline-update) (cut retry candidate-update)))
     (else (error "unknown collection phase" scenario))))
 
+;; Matched ordered-index workload: both sides keep the same source, projections,
+;; admission and ownership work. Only comparator capability selection differs.
+;; Cold includes factories/caches; workflow includes diff, install, ownership and undo.
+(def (order-workload size scenario)
+  (def source (SimpleTrie UInt UInt))
+  (def backend (SimpleTrie UInt UInt))
+  (def base (.call source .<-list (for/collect (k (in-range size)) (cons k k))))
+  (def lower (max 0 (- size 4)))
+  (def expected (for/collect (k (in-range lower size)) (cons k k)))
+  ;; Different function identity forces the conservative, semantically equal oracle.
+  (def (factory optimized?)
+    (def compare (if optimized? number-comparer (lambda (a b) (number-comparer a b))))
+    (def ordered (table-order backend (table-comparer UInt compare)))
+    (table-indexes source (list (.cc Type. name: 'value table: ordered unique?: #t
+      project: (lambda (_ row) row)))))
+  ;; Validate actual results inside every timed complete operation.
+  (def (consume indexed state rows)
+    (unless (equal? (.call indexed .index-range state 'value (some lower) (some (1- size))) rows)
+      (error "ordered collection range oracle")) #t)
+  ;; Each side owns its prepared state and style, sharing only immutable input rows.
+  (def (action optimized?)
+    (def indexed (factory optimized?))
+    (def state (.call indexed .wrap base))
+    (def linear (.@ (table-styles indexed) Linear))
+    (case scenario
+      ((order-cold) (lambda ()
+        (def fresh (factory optimized?))
+        (consume fresh (.call fresh .wrap base) expected)))
+      ((order-seek)
+        (let (ordered (table-order source (table-comparer UInt
+          (if optimized? number-comparer (lambda (a b) (number-comparer a b))))))
+          (lambda ()
+            (unless (equal? (.call ordered .seek base (some lower)) (some (cons lower lower)))
+              (error "ordered collection seek oracle")) #t)))
+      ((order-range) (lambda () (consume indexed state expected)))
+      ((order-workflow) (lambda ()
+        (def after (.call source .acons lower (+ size 1) base))
+        (def delta (.call source .diff base after))
+        (def next (.call linear .apply-delta (.call linear .ap state) delta))
+        (def pure (.call linear .convert next 'pure))
+        (consume indexed pure (cdr expected))
+        (consume indexed (.call indexed .apply-delta pure (invert-table-delta delta)) expected)))
+      (else (error "unknown ordered collection phase" scenario))))
+  (values (action #f) (action #t)))
+
 ;; Raw signed allocation remains visible. Only GC-free, nonnegative samples have
 ;; an attributable allocation value; GC CPU is reported separately from core CPU.
 (def (allocation metrics)
@@ -132,12 +177,14 @@
       " wall=" (f64vector-ref startup 2) " gc-cpu=" (+ (f64vector-ref startup 3) (f64vector-ref startup 4))
       " gc-wall=" (f64vector-ref startup 5) " history=" (measurement-history startup startup)))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (for* ((scenario '(factory cold hit revision workflow retry)) (regime '(natural collected)) (control? '(#f #t)))
+  (for* ((scenario '(factory cold hit revision workflow retry order-cold order-seek order-range order-workflow)) (regime '(natural collected)) (control? '(#f #t)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
       (def setup-history #f)
       (defvalues (actions setup-metrics)
-        (measure (lambda () (call-with-values (cut workload n scenario) vector)) 1 #f
+        (measure (lambda () (call-with-values
+          (if (memq scenario '(order-cold order-seek order-range order-workflow))
+            (cut order-workload n scenario) (cut workload n scenario)) vector)) 1 #f
           (lambda (before after) (set! setup-history (measurement-history before after)))))
       (def baseline (vector-ref actions 0))
       (def candidate (vector-ref actions 1))

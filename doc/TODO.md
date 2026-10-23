@@ -1268,8 +1268,13 @@ through typed key isomorphisms; `table-order` derives ordered table methods and
 stale origins, malformed/reversed bounds, broken encountered inverses and invalid
 signs. Functions retain identity through revision, conflict retry and inverse
 recovery. See [table-order.md](table-order.md) for laws and the explicit finite
-sort/filter cost. Backend-specific seek, multikey indexes and automatic query
-optimization remain separate work.
+sort/filter cost. Explicit Trie positioning and its typed Wrapper transfer now remove full sorting
+from matching-order warm queries, including correlated indexes and all styles.
+First shape admission remains explicit; successful persistent roots use Gerbil
+weak keys, and invalidated or failed admissions are not silently reused. The shared
+paired study includes cold, seek, range and complete publication/undo phases.
+Other backend-specific seek, multikey indexes and automatic query optimization
+remain separate work.
 
 
 

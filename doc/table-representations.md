@@ -92,7 +92,7 @@ JSON parser or arbitrary numeric normalization.
 | Explicit representation derivation | Closed for the shared persistent `methods.table` protocol; source-specific seek/range extensions are not inferred. |
 | Pure/mutable/linear style generation | Closed for an admitted persistent table: full transfer matrix, atomic delta/batch installation, observation and explicit retry; see [table-styles.md](table-styles.md). Destructive backend reuse remains separate. |
 | Declarative correlated indexes | Closed for stable single-key declarations over persistent backends: synchronized unique/grouped caches, atomic delta/batch installation, inverse observations and styles; see [table-indexes.md](table-indexes.md). |
-| Order-aware extension | Closed for explicit lawful comparator transport, ordered finite folds and range queries via `table-order`; see [table-order.md](table-order.md). Source-specific seek is not inferred. |
+| Order-aware extension | Closed for explicit lawful comparator transport, ordered finite folds and range queries via `table-order`; see [table-order.md](table-order.md). Declared Trie seek transfers through the existing Wrapper; source-specific seek is not inferred. |
 | Backend cost qualification | Open: measure the generated complete workflow against the source under matched controls and retain conversion/equality costs. |
 | Arbitrary symmetry / optimization discovery | Research boundary; not treated as a defect in the explicit constructor. |
 
