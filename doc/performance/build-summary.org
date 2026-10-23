@@ -331,3 +331,39 @@ critical-path wall time so ordinary library compilation and disjoint test
 compilation are not silently moved outside the claim. A changed artifact graph
 is not itself evidence of end-to-end speedup; cold CI acceptance supplies that
 separate measurement. Historical timings above retain their original boundaries.
+
+* Shared library cold-cost audit
+The cache-miss producer of run 39902961928 at a55bf38 took 135.78 seconds
+with the standard four-core budget. It compiled 187 module roots and submitted
+436 distinct backend filenames: no repeated backend filename appears in that
+invocation. The first module compilation message followed the entry by about
+15.83 seconds; the last frontend submission was at 33.72 seconds, and the first
+backend job message at 38.01 seconds. The remaining backend window was about
+97.78 seconds. These are log boundaries, not exclusive profiler spans.
+
+Standard make first imports the declared graph, reusing expander contexts, then
+coordinates dependencies and generates runtime/loader/macro output. Source
+reading, macro expansion and dependency discovery share that first interval;
+the following frontend interval also includes scheduling and code generation.
+Neither interval can honestly be reported as pure macro expansion. The released
+Linux compiler drains its standard pending backend queue after frontend work;
+the project's worker setting does not enable streaming overlap in that release.
+
+Gambit's process counters measured 46.41 parent CPU seconds and 6.96 GC wall
+seconds. Shell timing, including compiler descendants, measured 410.84 CPU
+seconds. Their approximate difference is 364.43 child CPU seconds across the
+97.78-second backend window, consistent with substantial four-core utilization.
+GC is already included in elapsed time; the counters and log windows must not be
+added together as independent phases. This evidence supports neither a disabled
+parallel build diagnosis nor a per-macro cost attribution.
+
+The current build graph, generated runtime/loader/macro outputs and source-key
+admission are retained. Standard compiler verbosity 9 on the producer now records
+actual backend commands alongside the consumer's existing trace. No project
+scheduler, extra environment switch, skipped output, source fallback or relaxed
+limit is introduced. Further overlapping of this compiler's frontend and backend
+belongs to a qualified compiled SDK release. With no demonstrated project-level
+repeated compile left in this observation, work returns to the concrete collection
+TODO instead of expanding the build machinery. A new cold CI run must retain all
+producer/group/consumer cache misses and report the whole workflow separately
+from the admitted consumer entry.

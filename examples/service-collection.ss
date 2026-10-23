@@ -1,9 +1,9 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
-        (only-in ../type Fun Tuple Pair) (only-in ../rationaldict RationalDict)
+        (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
         ../object ../mop ../object-contract ../object-contract-flow ../support/option
         (prefix-in ../construction-cache cache.)
@@ -171,6 +171,18 @@
   (def team (.cc Type. name: 'team table: (SimpleTrie UInt source)
     project: (lambda (_ row) (vector-ref row 2)) unique?: #f))
   (values (table-indexes source (list badge endpoint team)) source (list badge endpoint team)))
+
+;; Each checked service owns several aliases and belongs to several teams.
+;; Empty/duplicate memberships, ordered ranges and linear publication all use
+;; the existing correlated index protocol; callbacks retain their admitted identity.
+(def (make-tagged-services)
+  (def source (SimpleTrie UInt (Tuple (List UInt) (List UInt) (Fun Integer <- Integer))))
+  (def aliases (.cc Type. name: 'aliases table: (SimpleTrie UInt UInt) unique?: #t multiple?: #t
+    project: (lambda (_ row) (vector-ref row 0))))
+  (def backend (SimpleTrie UInt source))
+  (def teams (.cc Type. name: 'teams table: (table-order backend (.@ backend Comparer))
+    unique?: #f multiple?: #t project: (lambda (_ row) (vector-ref row 1))))
+  (values (table-indexes source (list aliases teams)) source (list aliases teams)))
 
 ;; An explicit transported order indexes negative external service identifiers in
 ;; positive internal priority order. Existing table indexes own atomic publication;

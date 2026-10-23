@@ -1285,8 +1285,8 @@ admission, preserving the generic old-changes-then-inserts sequence, errors and
 inverse installation. The original generic callback stream remains an oracle;
 full publication has separate discovery/index/ownership/factory controls. See
 table-order.md for the immutable backend/alignment laws and cost boundaries.
-Other backend-specific seek, multikey indexes and automatic query optimization
-remain separate work.
+Finite multikey indexes are implemented below. Other backend-specific seek and
+automatic query optimization remain separate work.
 
 
 
@@ -1405,3 +1405,19 @@ The nested ledger example connects FUN, schema refinement and checked callbacks
 to IO without revalidating the normalized ledger. The corresponding Lean table
 laws and executable tests close this concrete validation protocol, not the general
 incremental/isomorphism-aware collection library. See object-contracts.md.
+
+### Finite multiple-key correlated indexes
+
+The concrete multiple-key unit is now implemented in `table-indexes`:
+`multiple?: #t` admits a finite proper projection list, checks every typed key,
+and reuses Gerbil's stable duplicate elimination plus the original unique/grouped
+backend operations. Atomic alias swaps, shared team migration, empty memberships,
+ordered ranges, shared Function identities, linear FUN consumption, exact late
+conflicts, refusal/retry and inverse restoration share the existing installer.
+Declaration cardinality changes retain existing metadata invalidation.
+
+The companion finite index laws establish membership correlation, sparse delta
+rebuilding, duplicate stability, single-key correspondence and ordered claim
+failure. Arbitrary projection termination/purity, callback-effect rollback,
+automatic query discovery and concrete backend complexity remain boundaries;
+this advances the general collection proposal rather than declaring it complete.

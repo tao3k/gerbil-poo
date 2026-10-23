@@ -119,3 +119,8 @@ object-read changes, passed all 125 modules / 1,209 cases in the standard linked
 single-process test program: status 0, wall 148.244 s, CPU 20.318 s and GC CPU
 3.675 s, under the unchanged 1 GiB / 300 s limits. This is an acceptance receipt,
 not a paired performance claim.
+
+Finite multiple-key declarations now extend the correlated-index unit through
+`multiple?: #t`; see table-indexes.md. They reuse the same atomic installer,
+existing styles and ordered backends. This does not close backend cost
+qualification or arbitrary symmetry discovery.

@@ -15,10 +15,14 @@
     (def recipes (map (lambda (declaration)
       (def name (.@ declaration name)) (def table (.@ declaration table))
       (def project (.@ declaration project)) (def unique? (.@ declaration unique?))
-      (using ((name :~ symbol?) (project :~ procedure?) (unique? :~ boolean?))
+      (def multiple? (and (.has? declaration multiple?) (.@ declaration multiple?)))
+      (using ((name :~ symbol?) (project :~ procedure?) (unique? :~ boolean?) (multiple? :~ boolean?))
         (unless (eq? (.@ table Value) (if unique? (.@ source Key) source))
           (error "incompatible table index value type" name))
-        (make-%table-index name table project unique?))) declarations))
+        ;; Prepare one finite-key projection for both declaration cardinalities.
+        ;; A list-valued single key stays one key unless multiple? is explicit.
+        (make-%table-index name table
+          (if multiple? project (lambda (key row) (list (project key row)))) unique?))) declarations))
     (def names (map %table-index-name recipes))
     (unless (= (length names) (length (delete-duplicates/hash names table: (make-hash-table-eq))))
       (error "duplicate table index name"))
@@ -44,17 +48,22 @@
     (def (observe state action)
       (check state)
       (guard (%indexed-table-sources state) (lambda () (check state) (action state))))
-    ;; Project an already admitted row without replacing its Functions or index keys.
-    ;; Projections must be stable and return admitted keys, not raw wrapping candidates.
+    ;; Validate the complete finite key list before any cache update. Standard
+    ;; stable deduplication preserves first-conflict order and callback identities.
+    ;; Empty lists mean no membership; list-valued keys remain unambiguous.
     (def (project recipe key row)
-      (def value ((%table-index-project recipe) key row))
+      (def keys ((%table-index-project recipe) key row))
       (def type (.@ (%table-index-table recipe) Key))
-      (unless (element? type value) (raise-type-error type value 'table-indexes)) value)
-    ;; Add a final row. A grouped bucket shares the exact admitted row value.
-    ;; Repeated touched keys are harmless and do not require a separate key set.
-    (def (insert recipe cache key row)
+      (using (keys :~ list?)
+        (for-each (lambda (value)
+          (unless (element? type value) (raise-type-error type value 'table-indexes))) keys)
+        ;; Empty/single-key lists are already unique; keep their path hash-free.
+        (if (and (pair? keys) (pair? (cdr keys)))
+          (delete-duplicates/hash keys from-end?: #t) keys)))
+    ;; Insert one membership using the existing unique-owner or grouped backend.
+    ;; A grouped bucket shares the exact admitted row, including its Functions.
+    (def (insert-key recipe cache key row projected)
       (def table (%table-index-table recipe))
-      (def projected (project recipe key row))
       (def existing (.call table .ref/opt cache projected))
       (if (%table-index-unique? recipe)
         (begin
@@ -63,11 +72,9 @@
           (.call table .acons projected key cache))
         (.call table .acons projected
           (.call source .acons key row (option-get/default existing (lambda () (.@ source .empty)))) cache)))
-    ;; Retract the old row before any final insertion, permitting atomic key swaps.
-    ;; Empty grouped buckets disappear, preserving canonical absence observations.
-    (def (retract recipe cache key row)
+    ;; Retract one membership. Empty buckets disappear, preserving absence.
+    (def (retract-key recipe cache key row projected)
       (def table (%table-index-table recipe))
-      (def projected (project recipe key row))
       (def existing (.call table .ref/opt cache projected))
       (if (not (some? existing)) cache
         (if (%table-index-unique? recipe) (.call table .remove cache projected)
@@ -75,6 +82,14 @@
                         (.call source .remove (some-value existing) key) (some-value existing)))
             (if (.call source .empty? bucket) (.call table .remove cache projected)
               (.call table .acons projected bucket cache))))))
+    ;; Fold all memberships through the same persistent insertion protocol.
+    (def (insert recipe cache key row)
+      (foldl (lambda (projected cache) (insert-key recipe cache key row projected))
+        cache (project recipe key row)))
+    ;; Remove all old memberships before any final-row insertion or unique check.
+    (def (retract recipe cache key row)
+      (foldl (lambda (projected cache) (retract-key recipe cache key row projected))
+        cache (project recipe key row)))
     ;; Allocate only after every declared cache has completed; failed callbacks
     ;; expose neither an updated primary nor a partially prepared index list.
     (def (snapshot primary indexes origins)

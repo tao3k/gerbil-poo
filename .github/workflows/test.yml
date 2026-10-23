@@ -14,6 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Standard compiler tracing distinguishes frontend work and backend jobs.
+    env:
+      GERBIL_BUILD_VERBOSE: 9
     outputs:
       matrix: ${{ steps.groups.outputs.matrix }}
       source-key: ${{ steps.library-cache.outputs.cache-primary-key }}
