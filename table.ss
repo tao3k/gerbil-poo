@@ -483,6 +483,19 @@
             (method
               (lambda (k v acc) (f (translate forward #t k) (translate forward #f v) acc))
               seed (decode input))))))
+      ;; Conjugate binding callbacks, not point writes: the source bulk operation
+      ;; owns final-state index preparation. Caller-visible keys/values retain
+      ;; their declared representation; failed translation exposes no target root.
+      (def (binding-map optional? transform input)
+        (using (transform :~ procedure?)
+          (guard (lambda ()
+            (def before (decode input))
+            (def after (.call source .filter-map/2 (lambda (k v)
+              (def response (transform (translate forward #t k) (translate forward #f v)))
+              (def next (require-table-option result
+                (if optional? (map/option identity response) (some response))))
+              (map/option (cut translate backward #f <>) next)) before))
+            (if (eq? before after) input (encode after #t))))))
       ;; Transfer only an explicit backend seek/order capability. The transported
       ;; comparer is shared by identity; callers must not guess numeric target order.
       (def ordering (if (.has? source Comparer .seek<-)
@@ -515,6 +528,8 @@
                   (translate backward #f v) (decode input)) #t))))
             .remove: (lambda (input k)
               (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k)) #t))))
+            .map/2: (cut binding-map #f <> <>)
+            .filter-map/2: (cut binding-map #t <> <>)
             .foldl: (fold (.@ source .foldl)) .foldr: (fold (.@ source .foldr))))
         ;; Publish the complete receiver scope once after private construction.
         (set! protected (cons result sources))
@@ -702,7 +717,7 @@
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)
 ;; vs for-each* / foldl* / afoldr (iterating with two separate arguments for k v)
-;; (3) implement additional APIs like drop, decons, map/2, convert, etc.
+;; (3) implement additional APIs like drop, decons, convert, etc.; checked map/2 is implemented below.
 ;; We could also reorder the arguments between object vs typeclass styles,
 ;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
@@ -732,6 +747,11 @@
 
   ;; Selection shares the same admitted binding traversal, without normalization.
   .filter: (lambda (predicate input) (car (select-table @ predicate input #f)))
+  ;; Two-argument callbacks transform values at the original keys; FUN .map
+  ;; remains a whole-root operation on style protocols.
+  .map/2: (lambda (transform input) (map-table-bindings @ transform input #f))
+  ;; Optional results can remove bindings, but cannot introduce or relabel keys.
+  .filter-map/2: (lambda (transform input) (map-table-bindings @ transform input #t))
   ;; Partition prepares and recognizes both branches before exposing either root.
   .partition: (lambda (predicate input)
     (def branches (select-table @ predicate input #t))
@@ -928,6 +948,7 @@
   .refocus)) ;; Zipper <- FocusKey Zipper
 
 (include "table/focus.scm")
+(include "table/mapping.scm")
 
 ;; Derive style ownership in the existing interface; .admit normalizes raw input,
 ;; whereas .ap and transitions retain admitted Function wrappers and batch ordering.

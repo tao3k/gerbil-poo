@@ -108,7 +108,7 @@
     "proto"
     "rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.
-    (gxc: "table" (extra-inputs: ("table/focus.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm")))
+    (gxc: "table" (extra-inputs: ("table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm")))
     (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
     "type"
     "generation-graph"

@@ -1260,6 +1260,15 @@ and composition retain one captured-generation update, preventing a reentrant
 winner from being overwritten. See [table-focus.md](table-focus.md) for metadata,
 Function preservation, partial-refinement boundaries and the Lean observation laws.
 
+**Key-preserving bulk mapping** now supplies checked `.map/2` and
+`.filter-map/2` over the original snapshot, with the same complete protocol across
+five styles and receiver calls. Existing Trie traversal is reused; the generic
+path submits one changed-binding delta, preserving final-state unique swaps even
+through explicit representation Wrappers. Function identity, strict Option semantics,
+late refusal/retry, reentrant winners and FUN/IO have integrated controls and
+finite Lean laws. See [table-mapping.md](table-mapping.md) for callback order,
+root refinements, ownership, declared backend premises and charged costs.
+
 Ordered multi-round revision batches are now a complete additional unit:
 `.compose-deltas` retains all intermediate expectations and origin dependencies,
 including empty origins, repeated keys and deletion/reinsertion. Ordinary

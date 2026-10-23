@@ -1,5 +1,5 @@
 ;;; Whole table algorithms are derived from explicit representation symmetries.
-(export table-wrapper-test)
+(export table-wrapper-test box-table)
 (import :std/test :std/iter :std/error
         (only-in ../slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer
                  slot-read-receiver slot-read-key)

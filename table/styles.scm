@@ -65,6 +65,12 @@
 (defmethod (@@method remove %table-object)
   (lambda (self key) (.call (%table-object-protocol self) .remove self key)))
 
+;; Required bulk mapping retains keys and validates the complete staged root.
+(defmethod (@@method map/2 %table-object)
+  (lambda (self transform) (.call (%table-object-protocol self) .map/2 transform self)))
+;; Optional bulk mapping can remove keys; one shared owner installation commits it.
+(defmethod (@@method filter-map/2 %table-object)
+  (lambda (self transform) (.call (%table-object-protocol self) .filter-map/2 transform self)))
 ;; Filtering keeps the receiver's style and original predicate arity.
 (defmethod (@@method filter %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .filter predicate self)))
@@ -302,6 +308,9 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      ;; Binding callbacks remain distinct from FUN's whole-root .map operation.
+      .map/2: (lambda (transform input) (step input (cut .call source .map/2 transform <>)))
+      .filter-map/2: (lambda (transform input) (step input (cut .call source .filter-map/2 transform <>)))
       .ref/opt: (lambda (input key) (guard (lambda ()
         (require-table-key source key) (.call source .ref/opt (read input) key))))
       .update/opt: update-opt
