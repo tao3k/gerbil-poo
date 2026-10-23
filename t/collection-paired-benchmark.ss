@@ -100,9 +100,9 @@
     (else (error "unknown collection phase" scenario))))
 
 ;; Matched ordered-index workload: both sides keep the same source, projections,
-;; admission and ownership work. Cold/workflow compare full successor validation
-;; with shape-preserving output reuse, using identical positioned comparers. Seek/range
-;; retain the separate positioned-versus-sorted comparison.
+;; admission and ownership work. Cold/preparation compare full successor validation
+;; with shape-preserving output reuse. Revision phases compare only generic versus
+;; shared discovery; seek/range retain the positioned-versus-sorted comparison.
 ;; Cold includes factories/caches; workflow includes diff, install, ownership and undo.
 (def (order-workload size scenario)
   (def source (SimpleTrie UInt UInt))
@@ -236,7 +236,7 @@
   (when (eq? regime 'collected) (##gc))
   (vector (capture action repetitions) first preparation))
 
-;; Both regimes use fresh matched fixtures per pair and the same fixed prefix.
+;; Every regime uses fresh matched fixtures per pair and the same fixed prefix.
 ;; A/A and B/B retain both prefix histories and alternate measurement slots. The
 ;; candidate control distinguishes its own noise from the slower reference's noise.
 ;; No natural-regime GC is forced.
