@@ -1225,6 +1225,17 @@ consumption. See [collections.md](collections.md) for admission preconditions,
 metadata invalidation, the changed-key (not global snapshot/ABA) conflict boundary
 and the companion Lean completeness/inverse/frame/transport/lens proofs.
 
+**Finite set algebra** is now closed over the existing Unit-valued table
+presentation: union/intersection/difference/symmetric difference, subset,
+disjointness and extensional equality share complete admission and origin guards.
+The existing Trie subset specialization remains, with admission before shortcuts.
+Boolean membership lenses now follow the same value-before-state convention as
+service lenses. Set policy revisions reuse ordinary table deltas, cross-backend
+installation, styles, inverse recovery and Reader/IO. The implementation, 512-pair
+independent oracle, failure/retry controls and Lean laws are documented in
+[set-algebra.md](set-algebra.md). Explicit backend ordering remains a capability;
+automatic comparison or destructive storage is not inferred.
+
 Ordered multi-round revision batches are now a complete additional unit:
 `.compose-deltas` retains all intermediate expectations and origin dependencies,
 including empty origins, repeated keys and deletion/reinsertion. Ordinary

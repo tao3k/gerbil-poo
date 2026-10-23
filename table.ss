@@ -1,7 +1,7 @@
 ;;; Common declarations and methods for tables
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
-        iterator-map table-element? validate-table table-for-each-change table-styles table-indexes
+        with-set-tables iterator-map table-element? validate-table table-for-each-change table-styles table-indexes
         table-comparer table-comparer-wrapper table-order
         table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
@@ -25,7 +25,7 @@
   (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
   (only-in ./fun Wrapper. Wrap.)
   (only-in ./object .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
-  (only-in ./type List Pair))
+  (only-in ./type List Pair Unit))
 
 (defstruct %mapped-iterator (source transform guard) final: #t)
 ;; Pull through the standard Iterator exactly once; preserve EOF without mapping it.
@@ -896,62 +896,8 @@
   .marshal: (lambda (x port) (marshal .Bindings (.list<- x) port))
   .unmarshal: (compose .<-list (.@ .Bindings .unmarshal)))
 
-(define-type (Set<-Table. @ Type. Table sexp)
-  ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
-  Elt: (.@ Table Key) ;; : Type
-  .validate: (.@ Table .validate) ;; : @ <- Any
-  .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
-  .empty: (.@ Table .empty)  ;; : @
-  .empty?: (.@ Table .empty?) ;; : Bool <- @
-  .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
-  .cons: (cut .call Table .acons <> (void) <>) ;; : @ <- Elt @
-  .singleton: (lambda (elt) (.call Table .singleton elt (void))) ;; : @ <- Elt
-  .remove: (.@ Table .remove) ;; : @ <- @ Elt
-  .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
-  .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
-  .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
-  .foldr: (lambda (f a t) (.call Table .foldr (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
-  .every: (lambda (f t) (.call Table .every (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
-  .any: (lambda (f t) (.call Table .any (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
-  .filter: (lambda (f t) (.call Table .filter (lambda (e _) (f e)) t)) ;; : @ <- (Bool <- Elt) @
-  .partition: (lambda (f t) (.call Table .partition (lambda (e _) (f e)) t)) ;; : @ @ <- (Bool <- Elt) @
-  .count: (.@ Table .count) ;; : Nat <- @
-  .list<-: (lambda (t) (map car (.call Table .list<- t))) ;; : (List Elt) <- @
-  .<-list: (lambda (l) (foldl .cons .empty l)) ;; : @ <- (List Elt)
-  .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(map (.@ Elt sexp<-) (.list<- x))))) ;; : Sexp <- @
-  .min-elt: (lambda (t) (car (.call Table .min-binding t))) ;; : Elt <- @
-  .min-elt/opt: (lambda (t) (map/option car (.call Table .min-binding/opt t))) ;; : (Option Elt) <- @
-  .max-elt: (lambda (t) (car (.call Table .max-binding t))) ;; : Elt <- @
-  .max-elt/opt: (lambda (t) (map/option car (.call Table .max-binding/opt t))) ;; : (Option Elt) <- @
-  .choose: .min-elt ;; : Elt <- @
-  .choose-opt: .min-elt/opt ;; : (Option Elt) <- @
-  .split: (lambda (elt t) (defvalues (a v b) (.call Table .split elt t)) (values a (some? v) b)) ;; : @ Bool @ <- Elt @
-  .find-first/opt: (lambda (f t) (map/option car (.call Table .find-first/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
-  .find-first: (lambda (f t) (option-ref (.find-first/opt f t))) ;; : Elt <- (Bool <- Elt) @
-  .find-last/opt: (lambda (f t) (map/option car (.call Table .find-last/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
-  .find-last: (lambda (f t) (option-ref (.find-last/opt f t))) ;; : Elt <- (Bool <- Elt) @
-  .iter<-: (lambda (t from: (from #f)) ;; : (Iterator Elt) <- @ ?Elt
-              (iterator-map car
-                            (if (not from)
-                              (.call Table .iter<- t)
-                              (.call Table .iter<- t from))))
-  .<-iter: (lambda (s (t .empty)) (for/fold (t t) (elt s) (.cons elt t))) ;; : @ <- (Iterator Elt) ?@
-  .List: (List Elt)
-  .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @
-  .<-json: (compose .<-list (.@ .List .<-json)) ;; : @ <- Json
-  .bytes<-: (compose (.@ .List .bytes<-) .list<-) ;; : Bytes <- @
-  .<-bytes: (compose .<-list (.@ .List .<-bytes)) ;; : @ <- Bytes
-  .marshal: (lambda (x port) (marshal .List (.list<- x) port))
-  .unmarshal: (compose .<-list (.@ .List .unmarshal))
-  ;; TODO: for union, inter, diff, compare, equal, subset,
-  ;; optimize for full subtables, by caching count in wrapper?
-  .union: (lambda (a b) (.call Table .merge (lambda (_1 _2 _3) (some (void))) a b)) ;; : @ <- @ @
-  .inter: (lambda (a b) (.call Table .merge (lambda (_ a b) (and a b (some (void)))) a b)) ;; : @ <- @ @
-  .diff: (lambda (a b) (.call Table .merge (lambda (_ a b) (and (not b) a)))) ;; : @ <- @ @
-  .compare: (lambda (a b) (.call Table .compare (lambda (_1 _2) 0) a b)) ;; : : Integer <- @ @
-  .=?: (lambda (a b) (.call Table .=? a b)) ;; : Bool <- @ @
-  .lens: (lambda (e) {get: (lambda (t) (.elt? t e)) set: (lambda (t v) (if v (.cons e t) (.remove t e)))})) ;; : (Lens Bool <- @) <- Elt
-
+;; Set presentation and algebra remain in the existing table module.
+(include "table/sets.scm")
 
 (define-type (PreZipping. @ [Type.]
   ;; StepF :: Type <- Type

@@ -1,5 +1,5 @@
 ;;; Persistent collection admission shares recursive binding normalization.
-(export table-validation-test)
+(export table-validation-test alist-table)
 (import :std/test :std/iter
         (only-in :gerbil/runtime/mop slot-ref slot-set!) (only-in :std/error Error? Error-message ContractViolation?)
         (only-in :std/list/alist aset arem alist?)

@@ -966,6 +966,8 @@
   Table: {(:: @ Trie.) Value: Unit}
   .subset?: ;; is a a subset of b
   (lambda (a b)
+    ;; Keep the existing shared-subtree shortcut inside complete set admission.
+    (with-set-tables Table a b (lambda ()
     (let/cc return
       (when (eq? a b) (return #t))
       (.call Table .recurse/trie-pair
@@ -976,7 +978,7 @@
              branch: true
              skip: true
              onlya: (lambda (_1 _2) (return #f))
-             onlyb: true))))
+             onlyb: true))))))
 
 (def (SimpleTrie Key Value)
   {(:: @ [Trie. IdWrap]) (Key) (Value)
