@@ -11,6 +11,7 @@
 
 (import
   (only-in ./variant-validation validate-bindings)
+  (only-in ./slot-observation %slot-read-active?)
   (only-in :gerbil/runtime/thread with-lock)
   :std/interface
   :std/iter
@@ -328,8 +329,17 @@
 ;; No partially converted carrier or change sequence is included in this payload.
 (defstruct table-isomorphism-failure (kind value) final: #t)
 ;; One captured direction uses the existing Wrapper operations with explicit Types.
-;; Its inverse swaps the two descriptors and the two pairs of pure callbacks.
-(defstruct table-translation (source target key unkey value unvalue) final: #t)
+;; Its inverse swaps descriptors, captured child Types and pure callbacks. Child
+;; identities are stable only within the existing complete revision/guard scope;
+;; capturing them adds record fields, not four extra converter closures.
+(defstruct table-translation (source target source-key target-key source-value target-value
+                              key unkey value unvalue) final: #t)
+
+;; Observed execution must demand and deliver the real metadata read. The
+;; ordinary unobserved path reuses the guarded child identity without allocating
+;; a converter closure or fabricating/replaying a read token.
+(defrule (table-child-type direction accessor owner slot)
+  (if (%slot-read-active?) (.@ (owner direction) slot) (accessor direction)))
 
 ;; Check actual encountered values without normalizing admitted children again.
 ;; Both callbacks must map admitted values to admitted values and respect equal?.
@@ -351,11 +361,11 @@
 (def (table-translators direction (initial #f))
   (def source (table-translation-source direction))
   (def target (table-translation-target direction))
-  (def owners (.cc target Value: (.@ source Key)))
+  (def owners (.cc target Value: (table-child-type direction table-translation-source-key table-translation-source Key)))
   (def seen (if (some? initial) (some-value initial) (.@ owners .empty)))
   ;; Register before testing the inverse, so a lossy key map reports collision.
   (def (key input)
-    (translate-table-value (.@ source Key) (.@ target Key)
+    (translate-table-value (table-child-type direction table-translation-source-key table-translation-source Key) (table-child-type direction table-translation-target-key table-translation-target Key)
       (table-translation-key direction) (table-translation-unkey direction) input
       (lambda (output)
         (def previous (.call owners .ref/opt seen output))
@@ -370,7 +380,7 @@
       (.call source .foldl
         (lambda (k v result)
           (.call target .acons (key k)
-            (translate-table-value (.@ source Value) (.@ target Value)
+            (translate-table-value (table-child-type direction table-translation-source-value table-translation-source Value) (table-child-type direction table-translation-target-value table-translation-target Value)
               (table-translation-value direction) (table-translation-unvalue direction) v) result))
         (.@ target .empty) input)))
   (values key table owners (lambda () seen)))
@@ -392,8 +402,12 @@
       (def ka (.@ key .ap)) (def ku (.@ key .unap))
       (def va (.@ value .ap)) (def vu (.@ value .unap))
       (using ((ka :~ procedure?) (ku :~ procedure?) (va :~ procedure?) (vu :~ procedure?))
-        (def forward (make-table-translation source target ka ku va vu))
-        (def backward (make-table-translation target source ku ka vu va))
+        ;; Bind the four child Types once while every source is protected. The
+        ;; private directions retain the same origins as public delta/fold guards.
+        (def sk (.@ source Key)) (def tk (.@ target Key))
+        (def sv (.@ source Value)) (def tv (.@ target Value))
+        (def forward (make-table-translation source target sk tk sv tv ka ku va vu))
+        (def backward (make-table-translation target source tk sk tv sv ku ka vu va))
         (action sources forward backward)))))
 
 ;; Derive a complete persistent table protocol from an existing backend and
@@ -447,11 +461,10 @@
               (raise (make-table-isomorphism-failure 'right-inverse output))) output)))
       ;; Reuse typed inverse/law checks for both key and value directions.
       (def (translate direction key? input)
-        (def from (table-translation-source direction))
-        (def to (table-translation-target direction))
-        (def domain (if key? (.@ from Key) (.@ from Value)))
+        (def domain (if key? (table-child-type direction table-translation-source-key table-translation-source Key) (table-child-type direction table-translation-source-value table-translation-source Value)))
         (unless (element? domain input) (raise-type-error domain input 'table-wrapper))
-        (translate-table-value domain (if key? (.@ to Key) (.@ to Value))
+        (translate-table-value domain
+          (if key? (table-child-type direction table-translation-target-key table-translation-target Key) (table-child-type direction table-translation-target-value table-translation-target Value))
           (if key? (table-translation-key direction) (table-translation-value direction))
           (if key? (table-translation-unkey direction) (table-translation-unvalue direction)) input))
       ;; Standard Wrap supplies wrap/bind/map and IO; checked conversions retain
@@ -542,7 +555,7 @@
             (table after)
             (def (option-value input)
               (map/option (lambda (v)
-                (translate-table-value (.@ from Value) (.@ to Value)
+                (translate-table-value (table-child-type direction table-translation-source-value table-translation-source Value) (table-child-type direction table-translation-target-value table-translation-target Value)
                   (table-translation-value direction) (table-translation-unvalue direction) v)) input))
             (cons before*
               (make-table-delta (.@ to Key) (.@ to Value) dependencies (map object-revision dependencies)
@@ -645,7 +658,8 @@
             (match (table-change-after change)
               (#f (cons (.call target .remove (car acc) k) (cons k (cdr acc))))
               ((some v)
-                (def converted (translate-table-value (.@ source Value) (.@ target Value) va vu v))
+                (def converted (translate-table-value (table-child-type forward table-translation-source-value table-translation-source Value)
+                  (table-child-type forward table-translation-target-value table-translation-target Value) va vu v))
                 (cons (.call target .acons k converted (car acc)) (cdr acc)))))
             (cons (table-fold-state-table current) []) (table-delta-changes delta)))
           ;; A key deleted then reinserted in this batch is still a live owner.

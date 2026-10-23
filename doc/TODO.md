@@ -1453,3 +1453,9 @@ conversion calls without dropping either encountered inverse check. See [table-r
 for matched controls, concrete receipts and conditional Lean cost laws. This closes
 this bounded acceptance unit; it does not close arbitrary optimization discovery or
 assert that a guarded representation has zero overhead relative to its raw source.
+
+Child Type selection now reuses guarded identities only outside slot-read
+observation. Observed conversion retains live getter refusal and dependency
+provenance. The same acceptance suite adds preparation/observation/equality
+slices and post-GC workflow/retry controls; these do not replace full publication
+or make field-access counts a timing proof.

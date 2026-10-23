@@ -1,6 +1,8 @@
 ;;; Whole table algorithms are derived from explicit representation symmetries.
 (export table-wrapper-test)
 (import :std/test :std/iter :std/error
+        (only-in ../slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer
+                 slot-read-receiver slot-read-key)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper.)
         (prefix-in ../examples/service-collection service.))
@@ -148,6 +150,54 @@
       (check (table-isomorphism-failure? refused) => #t)
       (check-equal? (table-isomorphism-failure-kind refused) 'right-inverse)
       (check-equal? calls 2))
+    (test-case "captured child Types reject replaced and revised metadata before conversion"
+      (def payload (.cc Integer))
+      (def source (RationalDict payload))
+      (def conversions 0)
+      (defvalues (table _carrier _keys) (box-table source
+        (lambda (tree) (set! conversions (+ conversions 1)) (make-boxed-table tree))))
+      (def base (.call table .acons -1 10 (.@ table .empty)))
+      (def empty (.call table .diff base base))
+      ;; Capture after all setup: Gerbil can lift internal definitions, so the
+      ;; mutation, negative controls and fresh reconstruction use explicit lets.
+      (let (before conversions)
+        (.set! source Key (.cc (.@ source Key)))
+        (check-exception (.call table .ref base -1) (message? "stale table wrapper"))
+        (check-exception (.call table .apply-delta base empty) (message? "stale or incompatible table delta"))
+        (check-equal? conversions before))
+      (let-values (((fresh _carrier2 _keys2) (box-table source)))
+        (check-equal? (.call fresh .ref base -1) 10)
+        ;; Captured children stay protected as well as their source. A supported
+        ;; write during traversal refuses; a later write invalidates this context.
+        (let (revision (object-revision payload))
+          (check-exception (.call fresh .foldl
+            (lambda (_k _v _acc) (.set! payload sexp 'changed)) #f base)
+            (message? "object mutation during computation"))
+          (check-equal? (object-revision payload) revision))
+        (.set! payload sexp 'changed-after-traversal)
+        (check-exception (.call fresh .ref base -1) (message? "stale table wrapper")))
+      (let-values (((rebound _carrier3 _keys3) (box-table source)))
+        (check-equal? (.call rebound .ref base -1) 10)))
+    (test-case "observed contexts retain live getter refusal and stale read provenance"
+      (def source (RationalDict Integer))
+      (defvalues (table _carrier _keys) (box-table source))
+      (def base (.call table .acons -1 10 (.@ table .empty)))
+      (def denied (list 'source-key-denied))
+      ;; An observed access still executes the source Key getter demand; its
+      ;; original cause cannot be replaced by a captured child Type.
+      (check (eq? (try
+        (call-with-slot-read-observer void (cut .call table .ref base -1)
+          before: (lambda (owner key)
+            (when (and (eq? owner source) (eq? key 'Key)) (raise denied))))
+        #f (catch (e) e)) denied) => #t)
+      (let-values (((value roots) (%call-with-recorded-slot-reads (cut .call table .ref base -1))))
+        (check-equal? value 10)
+        (let (selected (filter (lambda (read)
+          (and (eq? (slot-read-receiver read) source) (eq? (slot-read-key read) 'Key))) roots))
+          (check (pair? selected) => #t)
+          (.set! source Key (.cc (.@ source Key)))
+          (check (object-read-current? (car selected)) => #f)))
+      (check-exception (.call table .ref base -1) (message? "stale table wrapper")))
     (test-case "point operations reuse the backend without enumerating snapshots"
       (def original (RationalDict Integer))
       (def blocked (.cc original .foldl: (lambda _ (error "unexpected scan"))

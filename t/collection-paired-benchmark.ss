@@ -4,6 +4,18 @@
         (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie Trie. trie-for-each-change) (only-in ../fun IdWrap)
         (only-in "closure-measure.ss" measure median))
 
+;; One inventory drives diagnostic setup and the full measured suite.
+(def +backend-phases+
+  '(backend-rational-prepare backend-rational-cold backend-rational-observe backend-rational-equality
+    backend-rational-workflow backend-rational-retry
+    backend-trie-prepare backend-trie-cold backend-trie-observe backend-trie-equality
+    backend-trie-workflow backend-trie-retry))
+
+;; Ordered diagnostics retain the existing complete publication and ownership phases.
+(def +order-phases+
+  '(order-factory order-prepare order-cold order-seek order-range order-diff order-stage
+    order-owner order-workflow order-publication))
+
 ;; Every variant consumes the same admitted source, delta and exact sum oracle.
 ;; Factory setup is measured in cold; other phases retain their declared setup.
 (def (workload size scenario)
@@ -215,7 +227,7 @@
   (def raw-value (Tuple Integer callback))
   (def cooked-value (Pair callback Integer))
   (def checked (validate callback (lambda (x) (+ x 1))))
-  (def trie? (memq scenario '(backend-trie-cold backend-trie-workflow backend-trie-retry)))
+  (def trie? (string-prefix? "backend-trie-" (symbol->string scenario)))
   ;; Diagnostic counters run separately from timed observations. Backend reads,
   ;; writes and folds are distinct from carrier, key and payload conversions.
   (def (observe index f)
@@ -275,20 +287,47 @@
     (consume table next derived? (+ total size 10))
     (unless (= calls (if retry? 2 1)) (error "backend capture oracle" calls))
     (consume table (.call table .apply-delta next (invert-table-delta delta)) derived? (if retry? (- total 1) total)))
-  (def cold? (memq scenario '(backend-rational-cold backend-trie-cold)))
-  (def retry? (memq scenario '(backend-rational-retry backend-trie-retry)))
+  (def cold? (string-suffix? "-cold" (symbol->string scenario)))
+  (def retry? (string-suffix? "-retry" (symbol->string scenario)))
   ;; Setup is common and recorded separately; only cold constructs within timing.
   (def generated (derive source))
   (def target (.call generated .wrap base))
-  (values
-    (lambda ()
-      (def selected (if cold? (make-source) source))
-      (publish selected (if cold? (.call selected .<-list rows) base) #f retry?))
-    (lambda ()
-      (def selected-source (if cold? (make-source) source))
-      (def selected (if cold? (derive selected-source) generated))
-      (publish selected
-        (if cold? (.call selected .wrap (.call selected-source .<-list rows)) target) #t retry?))))
+  ;; Structural equality is measured directly on fresh, equal/unequal Tuple/Pair
+  ;; fixtures. This is an independent control, not a subtraction-based attribution
+  ;; of equality CPU inside the full workflow. No conversion occurs in this slice.
+  (def (equality-fixture derived?)
+    (for/collect (k (in-range size))
+      (if derived?
+        (vector (cons checked k) (cons checked k) (cons checked (+ k 1)))
+        (vector (vector k checked) (vector k checked) (vector (+ k 1) checked)))))
+  ;; Slice selection occurs during reported setup; complete publication still
+  ;; retains all metadata, conversion, equality, callback and inverse work.
+  (def (action derived?)
+    (cond
+      ((string-suffix? "-prepare" (symbol->string scenario))
+        (lambda ()
+          (unless (.has? (if derived? (derive (make-source)) (make-source)) .apply-delta)
+            (error "backend preparation oracle")) #t))
+      ((string-suffix? "-observe" (symbol->string scenario))
+        (if derived? (cut consume generated target #t total) (cut consume source base #f total)))
+      ((string-suffix? "-equality" (symbol->string scenario))
+        (let (entries (equality-fixture derived?))
+          (lambda ()
+            (for (entry entries)
+              (unless (and (equal? (vector-ref entry 0) (vector-ref entry 1))
+                           (not (equal? (vector-ref entry 0) (vector-ref entry 2))))
+                (error "backend equality oracle"))) #t)))
+      (derived?
+        (lambda ()
+          (def selected-source (if cold? (make-source) source))
+          (def selected (if cold? (derive selected-source) generated))
+          (publish selected
+            (if cold? (.call selected .wrap (.call selected-source .<-list rows)) target) #t retry?)))
+      (else
+        (lambda ()
+          (def selected (if cold? (make-source) source))
+          (publish selected (if cold? (.call selected .<-list rows) base) #f retry?)))))
+  (values (action #f) (action #t)))
 
 ;; Keep attribution outside timing. Actual equality CPU is included in complete
 ;; wall/CPU samples; these counts are invocations, never unit-time assumptions.
@@ -353,11 +392,10 @@
   (order-shape-work n #f)
   (order-shape-work n #t)
   (displayln "COLLECTION-BACKEND-COLUMNS #(carrier-ap carrier-unap key-ap key-unap value-ap value-unap read write fold)")
-  (for (scenario '(backend-rational-cold backend-rational-workflow backend-rational-retry
-                    backend-trie-cold backend-trie-workflow backend-trie-retry))
+  (for (scenario +backend-phases+)
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (for* ((scenario '(backend-rational-cold backend-rational-workflow backend-rational-retry backend-trie-cold backend-trie-workflow backend-trie-retry factory cold hit revision workflow retry order-factory order-prepare order-cold order-seek order-range order-diff order-stage order-owner order-workflow order-publication)) (regime (if (memq scenario '(order-diff order-stage order-owner order-workflow order-publication))
+  (for* ((scenario (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+)) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry order-diff order-stage order-owner order-workflow order-publication))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -365,10 +403,9 @@
       (defvalues (actions setup-metrics)
         (measure (lambda () (call-with-values
           (cond
-            ((memq scenario '(backend-rational-cold backend-rational-workflow backend-rational-retry
-                              backend-trie-cold backend-trie-workflow backend-trie-retry))
+            ((memq scenario +backend-phases+)
              (cut representation-workload n scenario))
-            ((memq scenario '(order-factory order-prepare order-cold order-seek order-range order-diff order-stage order-owner order-workflow order-publication))
+            ((memq scenario +order-phases+)
              (cut order-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
           (lambda (before after) (set! setup-history (measurement-history before after)))))
