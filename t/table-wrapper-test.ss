@@ -92,6 +92,62 @@
       (check-equal? (.call source .list<- (.call mapping .unap next)) (.call source .list<- final))
       (check-equal? (.call target .list<- (.call target .apply-delta next (invert-table-delta (cdr staged))))
                     (.call target .list<- (car staged))))
+    (test-case "derived FUN publication preserves callbacks refusal and explicit retry"
+      (def table (service.make-mirrored-ledger))
+      (def initial (validate table (.call table .<-list
+        (list (cons -1 (cons 10 (lambda (x) (+ x 1))))
+              (cons -9 (cons 90 (lambda (x) (+ x 2))))))))
+      (def callback (cdr (.call table .ref initial -1)))
+      (def calls 0) (def consumed 0)
+      ;; A malformed replacement refuses before the consumer, without poisoning
+      ;; the checked conversions or revalidating the admitted Function payload.
+      (check-exception (service.revise-ledger-point table initial -1
+        (lambda (_) (set! calls (+ calls 1)) (some (cons "bad" callback)))
+        (lambda (_) (set! consumed (+ consumed 1)))) TypeError?)
+      (check-equal? consumed 0)
+      (def next (service.revise-ledger-point table initial -1
+        (lambda (_) (set! calls (+ calls 1)) (some (cons 20 callback)))
+        (lambda (state) (set! consumed (+ consumed 1)) state)))
+      (check-equal? calls 2)
+      (check-equal? consumed 1)
+      (check (eq? (cdr (.call table .ref next -1)) callback) => #t)
+      (check-equal? (callback 7) 8)
+      (def request (.call table .diff initial next))
+      (check-exception (service.revise-ledger-styles table next (list request)
+        (lambda (_) (set! consumed (+ consumed 1)))) table-conflict?)
+      (check-equal? consumed 1)
+      (def restored (service.revise-ledger-styles table next (list (invert-table-delta request)) identity))
+      (check-equal? (.call table .list<- restored) (.call table .list<- initial)))
+    (test-case "carrier checks share only local pure conversions and keep both inverse tests"
+      (def source (RationalDict Integer))
+      (def wraps 0) (def unwraps 0)
+      (defvalues (table _carrier _keys) (box-table source
+        (lambda (tree) (set! wraps (+ wraps 1)) (make-boxed-table tree))
+        (lambda (box) (set! unwraps (+ unwraps 1)) (boxed-table-raw box))))
+      (def raw (.call source .acons 1 10 (.@ source .empty)))
+      ;; Counters observe actual callbacks, outside any performance interval.
+      (set! wraps 0) (set! unwraps 0)
+      (def boxed (.call table .wrap raw))
+      (check-equal? (list wraps unwraps) '(2 1))
+      (set! wraps 0) (set! unwraps 0)
+      (check (eq? (.call table .unwrap boxed) raw) => #t)
+      (check-equal? (list wraps unwraps) '(1 2))
+      (set! wraps 0) (set! unwraps 0)
+      (check-exception (.call table .wrap 'foreign) TypeError?)
+      (check-exception (.call table .unwrap 'foreign) TypeError?)
+      (check-equal? (list wraps unwraps) '(0 0))
+      ;; A changing converter violates the pure law: keep the encountered right
+      ;; inverse check and reject it, rather than silently accepting its output.
+      (def calls 0) (def broken? #f)
+      (defvalues (unstable _carrier2 _keys2) (box-table source
+        (lambda (tree)
+          (set! calls (+ calls 1))
+          (make-boxed-table (if (and broken? (even? calls)) (.@ source .empty) tree)))))
+      (set! calls 0) (set! broken? #t)
+      (def refused (try (.call unstable .wrap raw) #f (catch (e) e)))
+      (check (table-isomorphism-failure? refused) => #t)
+      (check-equal? (table-isomorphism-failure-kind refused) 'right-inverse)
+      (check-equal? calls 2))
     (test-case "point operations reuse the backend without enumerating snapshots"
       (def original (RationalDict Integer))
       (def blocked (.cc original .foldl: (lambda _ (error "unexpected scan"))

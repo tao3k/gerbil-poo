@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -145,6 +145,14 @@
     .ap: (lambda (v) (cons (vector-ref v 1) (vector-ref v 0)))
     .unap: (lambda (v) (vector (cdr v) (car v)))))
   (table-wrapper source carrier keys values))
+
+;; Capture an optional-field request once, then publish through the existing
+;; Reader/FUN continuation. The consumer is reached only after complete checked
+;; installation; callers retain before and the inverse request for explicit undo.
+(def (revise-ledger-point table before key transform consume)
+  (using ((transform :~ procedure?) (consume :~ procedure?))
+    (def delta (.call table .delta/opt key transform before))
+    ((.call Observation. .map consume (cut .call table .apply-delta before <>)) delta)))
 
 ;; Reuse an admitted snapshot, transfer mutable ownership to a consuming reference, install a
 ;; complete batch and extract a pure snapshot before the existing Reader/IO map.

@@ -1243,7 +1243,7 @@ Sixteen Lean laws cover conjugated read/write/install, inverse and multi-stage
 derivation, ordered folds and source guards. See
 [table-representations.md](table-representations.md). This is explicit law-governed
 derivation; explicit comparator transport and finite ranges are implemented below;
-backend-specific seek and cost qualification remain concrete work.
+backend-specific seek requires explicit capability admission; bounded backend cost acceptance is documented in table-representations.md.
 Arbitrary symmetry/optimization discovery is a research boundary. The concentrated
 remaining-acceptance table is in table-representations.md.
 
@@ -1442,3 +1442,14 @@ difference discovery. Typed optional capture, stable private Option shells,
 non-replayed callbacks, exact conflict/refusal, no-op origin retention, inverse
 and explicit retry have executable controls and finite Lean laws; see collections.md.
 Admission and backend complexity qualification remain explicit separate costs.
+
+
+### Backend cost acceptance
+
+The explicit RationalDict/Trie source/derived workflow now charges cold protocol
+preparation, conversion, structural equality, capture/install, complete observation,
+conflict/restaging and undo. Local sharing removes duplicate carrier
+conversion calls without dropping either encountered inverse check. See [table-representations.md](table-representations.md)
+for matched controls, concrete receipts and conditional Lean cost laws. This closes
+this bounded acceptance unit; it does not close arbitrary optimization discovery or
+assert that a guarded representation has zero overhead relative to its raw source.

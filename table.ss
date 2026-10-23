@@ -425,23 +425,26 @@
       (def (shape input)
         (unless (element? target input) (raise-type-error target input 'table-wrapper)) input)
       ;; Check encountered carrier inverses without rebuilding or normalizing leaves.
+      ;; Share one pure conversion result within this check, never across calls.
       ;; Equality and user conversion costs remain explicit, not constant-time laws.
       (def (encode input)
         (admit-source input)
-        (def output (shape (wrap input)))
-        (unless (equal? (unwrap output) input)
-          (raise (make-table-isomorphism-failure 'left-inverse input)))
-        (unless (equal? (wrap (unwrap output)) output)
-          (raise (make-table-isomorphism-failure 'right-inverse output))) output)
-      ;; A foreign shape or broken inverse refuses before backend reads or writes.
+        (let* ((output (shape (wrap input))) (recovered (unwrap output)))
+          (unless (equal? recovered input)
+            (raise (make-table-isomorphism-failure 'left-inverse input)))
+          (unless (equal? (wrap recovered) output)
+            (raise (make-table-isomorphism-failure 'right-inverse output))) output))
+      ;; Explicit lets retain refusal order: foreign shape precedes unwrap, source
+      ;; admission precedes wrap, and a failed left inverse suppresses the right.
       (def (decode input)
         (shape input)
-        (def output (unwrap input))
-        (admit-source output)
-        (unless (equal? (wrap output) input)
-          (raise (make-table-isomorphism-failure 'left-inverse input)))
-        (unless (equal? (unwrap (wrap output)) output)
-          (raise (make-table-isomorphism-failure 'right-inverse output))) output)
+        (let (output (unwrap input))
+          (admit-source output)
+          (let (encoded (wrap output))
+            (unless (equal? encoded input)
+              (raise (make-table-isomorphism-failure 'left-inverse input)))
+            (unless (equal? (unwrap encoded) output)
+              (raise (make-table-isomorphism-failure 'right-inverse output))) output)))
       ;; Reuse typed inverse/law checks for both key and value directions.
       (def (translate direction key? input)
         (def from (table-translation-source direction))
