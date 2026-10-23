@@ -951,3 +951,41 @@ ownership and full failure/retry laws are documented in [table-batches.md](table
 
 Explicit carrier/key/value Wrappers now derive a complete table protocol without
 a target backend; see [table-representations.md](table-representations.md).
+
+## Captured optional point updates
+
+`.delta/opt key update before` captures the same optional replacement used by
+`.update/opt`, returning an ordinary revision-bound table delta. It admits the
+source and Key, reads that key, calls `update` exactly once, then checks that its
+result is false (absence) or `some` of an already admitted Value. It does not
+normalize a Function again. Callback exceptions retain their exact causes;
+malformed options and wrong child Types refuse before any backend write or delta
+publication. Descriptor guards cover capture as in `.diff`.
+
+Capture does not construct a trial carrier and never invokes `.for-each-change`.
+An unchanged binding produces an empty delta with complete origins. This matches
+`.diff` and `.update/opt`: an empty request is not an assertion that the old value
+will remain unchanged on a later installation. A changed request retains the
+original expectation, so a stale target refuses with that exact key; unrelated
+bindings may be rebased. Applying a delta never calls `update` again.
+
+The callback owns its argument/result Option shells. Capture copies these shells
+with the existing `map/option`, preserving the exact admitted leaves; later box
+mutation cannot change the recorded expectation or replacement. Immutable leaf
+values, stable recognizers, pure persistent backend laws and serialized metadata
+mutation remain premises. Callback/IO effects are not rolled back.
+
+Point requests reuse ordinary ordered batches, inverse deltas, explicit key/value
+isomorphisms, incremental folds and all three ownership styles. Correlated index
+`.acons` / `.remove` now use this capture protocol instead of constructing a trial
+primary and discovering a whole-table difference. `update-indexed-service` shares
+the existing linear FUN/IO installer with whole-table revision workflows, including
+multi-key alias/team indexes, uniqueness refusal, explicit retry and shared checked
+Functions.
+
+Lean's `pointChanges` equals finite discovery restricted to the written key. Its
+laws prove installation, unrelated-base rebasing, exact stale-key refusal, inverse
+recovery, at most one emitted edit, callback failure and explicit isomorphism
+commutation. This is a finite semantic/work bound. Source admission, lookup,
+metadata preparation, callback/type recognition and actual backend costs remain;
+no unconditional O(1), allocation, GC or wall-time improvement is claimed.

@@ -122,11 +122,11 @@
               (if (some? new) (insert recipe cache key (some-value new)) cache)) stripped keys)))
             recipes (%indexed-table-indexes state)))
           (snapshot after indexes origins))))))
-    ;; Single writes reuse discovery/installation rather than a second index mutator.
-    (def (edit state transform)
+    ;; Capture one optional point edit without a trial carrier/full difference scan.
+    ;; The original installer still owns primary conflicts and atomic index updates.
+    (def (edit state key transform)
       (observe state (lambda (_)
-        (def before (%indexed-table-primary state))
-        (update state (.call source .diff before (transform before))))))
+        (update state (.call source .delta/opt key transform (%indexed-table-primary state))))))
     ;; Existing Wrap supplies IO and FUN operations. Guard complete callbacks and
     ;; rebuild only for an explicit representation-wide .map/wrap transformation.
     (def wrapper (.cc Wrapper. .ap: initialize .unap: (lambda (state)
@@ -140,8 +140,8 @@
         .validate-shape: (lambda (state) (observe state (lambda (_) state)))
         .ref: (lambda (state key (missing (lambda () (error "missing key"))))
           (observe state (lambda (_) (.call source .ref (%indexed-table-primary state) key missing))))
-        .acons: (lambda (key row state) (edit state (cut .call source .acons key row <>)))
-        .remove: (lambda (state key) (edit state (cut .call source .remove <> key)))
+        .acons: (lambda (key row state) (edit state key (lambda (_) (some row))))
+        .remove: (lambda (state key) (edit state key (lambda (_) #f)))
         .foldl: (lambda (f seed state) (observe state (lambda (_) (.call source .foldl f seed (%indexed-table-primary state)))))
         .foldr: (lambda (f seed state) (observe state (lambda (_) (.call source .foldr f seed (%indexed-table-primary state)))))
         .apply-delta: update

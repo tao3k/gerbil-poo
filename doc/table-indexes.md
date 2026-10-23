@@ -105,7 +105,8 @@ installation invokes at most two projections per edit per declaration; missing
 old/new rows invoke fewer. Unaffected primary rows and their cached entries are
 not projected or scanned by that installer. Point backend work, grouped bucket
 updates, metadata admission, and recognition retain their own costs. Single writes
-currently use full difference discovery; style admission/recognition may enumerate.
+now capture one optional delta without a trial carrier or full difference discovery;
+source/style admission and recognition may still enumerate.
 The 100-row regression verifies two projections for a one-row delta, not constant
 end-to-end time or a wall-clock speedup. Explicit ordered ranges and finite multiple-key projections are implemented below.
 Automatic query/representation optimization remains separate work.

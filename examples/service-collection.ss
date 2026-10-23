@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -232,13 +232,22 @@
     project: (lambda (_ row) (vector-ref row 1))))
   (values (table-indexes source (list priority team)) source))
 
-;; Discover a persistent revision through the source protocol, then reuse the
-;; existing FUN/IO ownership chain. A refused edit/index update never reaches
-;; consume, and callers can retry from the original admitted indexed snapshot.
+;; Install a captured revision through the existing linear FUN/IO chain. A refused
+;; primary/index update never reaches consume; normalization is not repeated.
+(def (apply-indexed-revision indexed base delta consume)
+  (def linear (.@ (table-styles indexed) Linear))
+  (def next (.call linear .apply-delta (.call linear .ap base) delta))
+  ((.call Observation. .map consume (cut .call linear .convert <> 'pure)) next))
+
+;; Discover a complete revision, sharing the same installer as single-key requests.
+;; Callback effects are not replayed or rolled back; retry is explicitly requested.
 (def (revise-indexed-services indexed source base revise consume)
   (using ((revise :~ procedure?) (consume :~ procedure?))
     (def before (.call indexed .unwrap base))
-    (def delta (.call source .diff before (revise before)))
-    (def linear (.@ (table-styles indexed) Linear))
-    (def next (.call linear .apply-delta (.call linear .ap base) delta))
-    ((.call Observation. .map consume (cut .call linear .convert <> 'pure)) next)))
+    (apply-indexed-revision indexed base (.call source .diff before (revise before)) consume)))
+
+;; Capture one optional service update once, then install every correlated index
+;; atomically before IO. The delta retains expected old values and opaque Functions.
+(def (update-indexed-service indexed base key revise consume)
+  (using ((revise :~ procedure?) (consume :~ procedure?))
+    (apply-indexed-revision indexed base (.call indexed .delta/opt key revise base) consume)))

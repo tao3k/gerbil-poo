@@ -1432,3 +1432,13 @@ or namespace is introduced. Nested service publication, inverse/retry, callback
 identity and stale-origin regression controls accompany finite Lean guard and
 observation laws. Backend-specific positioning complexity and automatic query
 optimization remain their stated separate boundaries; see table-order.md.
+
+### Captured single-key revision protocol
+
+`methods.table .delta/opt` now closes the single-key request path shared by batches,
+explicit isomorphisms, incremental folds, index installation and style/FUN workflows.
+Correlated point writes no longer construct a trial primary or run whole-table
+difference discovery. Typed optional capture, stable private Option shells,
+non-replayed callbacks, exact conflict/refusal, no-op origin retention, inverse
+and explicit retry have executable controls and finite Lean laws; see collections.md.
+Admission and backend complexity qualification remain explicit separate costs.

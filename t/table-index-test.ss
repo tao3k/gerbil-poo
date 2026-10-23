@@ -28,6 +28,36 @@
 ;; Simultaneous identifier swaps, shared-team migration and undo use one protocol.
 (def table-index-test
   (test-suite "declarative correlated table indexes"
+    (test-case "point index writes build no trial table and preserve multi-key FUN retry"
+      (defvalues (original source declarations) (service.make-tagged-services))
+      (def writes 0)
+      (def observed (.cc source
+        .acons: (lambda (key row root) (set! writes (+ writes 1)) (.call source .acons key row root))
+        .for-each-change: (lambda _ (error "unexpected difference scan"))))
+      ;; Grouped indexes require exactly the same source descriptor for buckets.
+      (def indexed (table-indexes observed (list (car declarations))))
+      (def f (validate (Fun Integer <- Integer) identity))
+      (def base (.call source .<-list (list (cons 1 (vector '(101) '(10) f))
+        (cons 2 (vector '(102) '(20) f)))))
+      (def state (.call indexed .wrap base))
+      (set! writes 0)
+      (def next (.call indexed .acons 1 (vector '(103 113) '(30) f) state))
+      (check-equal? writes 1)
+      (check-equal? (.call indexed .index-ref/opt next 'aliases 101) #f)
+      (check-equal? (.call indexed .index-ref/opt next 'aliases 113) (some 1))
+      (check (eq? (vector-ref (.call indexed .ref next 1) 2) f) => #t)
+      (def calls 0)
+      (check-exception (service.update-indexed-service original (.call original .wrap base) 1
+        (lambda (_) (some (vector '(102) '(30) f)))
+        (lambda (_) (set! calls (+ calls 1)))) table-index-conflict?)
+      (check-equal? calls 0)
+      (def retried (service.update-indexed-service original (.call original .wrap base) 1
+        (lambda (_) (some (vector '(103 113) '(30 40) f))) identity))
+      (check-equal? (.call original .index-ref/opt retried 'aliases 113) (some 1))
+      (check-equal? (map car (.call original .index-range retried 'teams (some 30) (some 40))) '(30 40))
+      (check (eq? (vector-ref (.call original .ref retried 1) 2) f) => #t)
+      (def removed (.call indexed .remove next 1))
+      (check-equal? (.call indexed .index-ref/opt removed 'aliases 113) #f))
     (test-case "multiple aliases and teams migrate atomically through FUN ownership and undo"
       (defvalues (indexed source _declarations) (service.make-tagged-services))
       (def f (validate (Fun Integer <- Integer) (lambda (n) (+ n 1))))

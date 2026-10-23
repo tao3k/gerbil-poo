@@ -143,6 +143,31 @@
           (.call descriptor .for-each-change
             (lambda (key old next) (emit (make-table-change key old next))) before after))))))
 
+;; Capture a single optional update without constructing a trial table or scanning
+;; for differences. Admission is non-normalizing; callback/typed refusal produces
+;; no delta, writes no carrier and retains the original cause. No-op deltas still
+;; carry every source revision, exactly as ordinary .diff does.
+(def (update-table-delta descriptor key transform before)
+  (using (transform :~ procedure?)
+    (def sources (table-sources descriptor))
+    (with-table-sources sources (lambda ()
+      (require-table descriptor before)
+      (unless (element? (.@ descriptor Key) key)
+        (raise-type-error (.@ descriptor Key) key 'update-table-delta))
+      (def old (.call descriptor .ref/opt before key))
+      ;; Option boxes are callback-owned; copy their shells, retaining exact leaves.
+      ;; Mutating an argument/result box cannot rewrite a captured expectation.
+      (def response (transform (map/option identity old)))
+      (match response
+        (#f (void))
+        ((some value)
+          (unless (element? (.@ descriptor Value) value)
+            (raise-type-error (.@ descriptor Value) value 'update-table-delta)))
+        (else (error "table update must return Option" response)))
+      (def after (map/option identity response))
+      (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
+        (if (table-option=? old after) [] (list (make-table-change key old after))))))))
+
 ;; Report edit count without exposing the owned edit list or its constructors.
 (def (table-delta-count delta) (length (table-delta-changes delta)))
 
@@ -700,6 +725,9 @@
 
   ;; Finite differences and optimistic persistent installation share this backend.
   .diff: (lambda (before after) (diff-table @ before after))
+  ;; Capture one .update/opt request for later batch, transport, fold or installation.
+  ;; The callback runs once now; subsequent application never replays it.
+  .delta/opt: (lambda (key transform before) (update-table-delta @ key transform before))
   .apply-delta: (lambda (source delta) (apply-table-delta @ source delta))
   ;; Ordered batches retain all origins and first-conflict semantics, including undo.
   .compose-deltas: (lambda (deltas) (compose-table-deltas @ deltas))
