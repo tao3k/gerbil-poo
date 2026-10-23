@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
-        (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
+        (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -312,3 +312,19 @@
     (def proposed (.call descriptor .diff (.call descriptor .union before grants) revoked))
     (def delta (.call table .diff before proposed))
     (.call Observation. .map consume (cut .call table .apply-delta <> delta))))
+
+;; Compose element-level algebra and ownership transfer through the existing
+;; Reader/FUN map. Intermediate owned states remain local; only the final posh
+;; receiver reaches IO. Failure suppresses consume; retry starts from a fresh root.
+(def (access-style-action descriptor grants revoked consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map consume (lambda (before)
+      (def styles (set-styles descriptor))
+      (def classy (.@ styles Classy))
+      (def current (.call classy .ap before))
+      (def additions (.call classy .ap grants))
+      (def removals (.call classy .ap revoked))
+      (@@method current.union additions)
+      (@@method current.diff removals)
+      (def linear (@@method current.convert 'linear))
+      (.call (.@ styles Linear) .convert linear 'posh)))))

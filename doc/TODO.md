@@ -1236,6 +1236,16 @@ independent oracle, failure/retry controls and Lean laws are documented in
 [set-algebra.md](set-algebra.md). Explicit backend ordering remains a capability;
 automatic comparison or destructive storage is not inferred.
 
+**Set style derivation** now closes the element-level presentation gap:
+`set-styles` reuses the exact table ownership/installation engine for all five
+styles and 25 transfers. Membership/insertion, finite algebra and relations,
+element Iterable/folds, explicit ordered queries and original table deltas compose
+without exposing Unit pairs. Binary updates commit only the left owner; distinct
+right owners are observed. Custom set recognition and declared set/table origins
+are checked before installation and during deferred pulls. See
+[set-algebra.md](set-algebra.md) for aliasing, failure/retry, examples and SetStyle
+proofs. This does not introduce a static ownership checker or destructive backend.
+
 Ordered multi-round revision batches are now a complete additional unit:
 `.compose-deltas` retains all intermediate expectations and origin dependencies,
 including empty origins, repeated keys and deletion/reinsertion. Ordinary

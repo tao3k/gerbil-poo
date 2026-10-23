@@ -80,11 +80,41 @@
   (lambda (self name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
     (.call (%table-object-protocol self) .index-range self name lower upper lower-inclusive? upper-inclusive?)))
 
+;; Set membership observes an element through the receiver's originating protocol.
+(defmethod (@@method elt? %table-object)
+  (lambda (self element) (.call (%table-object-protocol self) .elt? self element)))
+;; Set insertion uses the same staged update and ownership commit as table writes.
+(defmethod (@@method cons %table-object)
+  (lambda (self element) (.call (%table-object-protocol self) .cons element self)))
+;; Binary set operations update the left receiver and only observe the right.
+(defmethod (@@method union %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .union self other)))
+;; Intersection retains admitted elements without another normalization boundary.
+(defmethod (@@method inter %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .inter self other)))
+;; Set difference is distinct from the backing table's delta-discovery operation.
+(defmethod (@@method diff %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .diff self other)))
+;; Symmetric difference delegates the existing finite set merge selector.
+(defmethod (@@method symdiff %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .symdiff self other)))
+;; Relations observe two compatible live states without transferring ownership.
+(defmethod (@@method subset? %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .subset? self other)))
+;; Disjointness preserves the original backend's short-circuit behavior.
+(defmethod (@@method disjoint? %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .disjoint? self other)))
+;; Equality is membership equality, with no new comparison of Function elements.
+(defmethod (@@method =? %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .=? self other)))
+
 ;; Derive all five styles from one persistent table. Operations stage callbacks
 ;; outside the lock, then compare the captured head before one whole installation.
 ;; Pure backend callbacks and immutable leaves are explicit ownership premises.
-(def (table-styles source)
-  (def sources (table-sources source))
+(def (derive-table-styles source (set #f))
+  (def sources (append
+    (if set (cons set (if (.has? set .sources) (.@ set .sources) [])) [])
+    (table-sources source)))
   (def versions (map object-revision sources))
   (def owner (list source))
   ;; Retain every backend/converter origin across admission and user callbacks.
@@ -93,6 +123,12 @@
       (unless (equal? versions (map object-revision sources))
         (error "stale table styles"))
       (action))))
+  ;; A customized set recognizer may refine its backing carrier. Keep both
+  ;; obligations without normalizing keys or trusting a broader custom predicate.
+  (def (admitted value)
+    (require-table source value)
+    (when set (require-table set value))
+    value)
   ;; Allocate one private capability; no capability constructor is public.
   (def (reference style value)
     (make-%table-reference owner style (make-%table-head value) (make-mutex 'table-reference)))
@@ -127,27 +163,27 @@
     ;; Wrap an already admitted snapshot without replacing Function identities.
     (def (create value)
       (guard (lambda ()
-        (def admitted (require-table source value))
-        (present (if (eq? style 'pure) admitted (reference style admitted))))))
+        (def snapshot (admitted value))
+        (present (if (eq? style 'pure) snapshot (reference style snapshot))))))
     ;; Snapshot observation never consumes ownership; returned pure roots are shared.
     (def (read input)
       (guard (lambda ()
         (let (state (unwrap input))
-          (if (eq? style 'pure) (require-table source state)
+          (if (eq? style 'pure) (admitted state)
             (%table-head-value (capture style state)))))))
     ;; Capture once before invoking a backend observer. Reentrant publication may
     ;; change the owner, but this operation retains one persistent snapshot.
     ;; Unsupported capabilities refuse rather than inventing an ordering policy.
-    (def (observe input method args (deferred? #f))
+    (def (observe input method args (deferred? #f) (descriptor source))
       (guard (lambda ()
         (def snapshot (read input))
-        (unless (.slot? source method) (error "unsupported table observation" method))
-        (def result (apply (.ref source method) snapshot args))
+        (unless (.slot? descriptor method) (error "unsupported table observation" method))
+        (def result (apply (.ref descriptor method) snapshot args))
         (if deferred? (iterator-map identity result guard) result))))
     ;; Fold signatures place the snapshot last, as required by methods.table.
-    (def (fold input method f seed)
+    (def (fold input method f seed (descriptor source))
       (using (f :~ procedure?)
-        (guard (lambda () ((.ref source method) f seed (read input))))))
+        (guard (lambda () ((.ref descriptor method) f seed (read input))))))
     ;; Stage a single-result pure transformation, then admit without rewrapping.
     ;; Refusal, exception or conflict before installation preserves the old head.
     (def (step input transform)
@@ -155,8 +191,8 @@
         (guard (lambda ()
           (def state (unwrap input))
           (def expected (and (not (eq? style 'pure)) (capture style state)))
-          (def before (if expected (%table-head-value expected) (require-table source state)))
-          (def after (require-table source (transform before)))
+          (def before (if expected (%table-head-value expected) (admitted state)))
+          (def after (admitted (transform before)))
           (case style
             ((pure) (present after))
             ((mutable) (install state expected (make-%table-head after)) input)
@@ -166,6 +202,15 @@
              (let (successor (present (reference 'linear after)))
                (install state expected #f)
                successor)))))))
+    ;; Observe a compatible right state before beginning the left update callback.
+    ;; Captured immutable roots remain stable; only the left capability commits.
+    (def (combine method left right)
+      (guard (lambda ()
+        (def other (read right))
+        (step left (lambda (before) ((.ref set method) before other))))))
+    ;; Relations share complete guards and never install or retire either owner.
+    (def (relate method left right)
+      (guard (lambda () ((.ref set method) (read left) (read right)))))
     ;; Conversion transfers owned references, including same-style conversion.
     ;; Use .unap for a nonconsuming snapshot; pure sources need no retirement.
     (def (convert input target)
@@ -176,17 +221,17 @@
       (guard (lambda ()
         (def state (unwrap input))
         (def expected (and (not (eq? style 'pure)) (capture style state)))
-        (def value (if expected (%table-head-value expected) (require-table source state)))
+        (def value (if expected (%table-head-value expected) (admitted state)))
         ;; FUN construction includes receiver allocation and admission before retirement.
         (def result (.call target-protocol .ap value))
         (when expected (install state expected #f))
         result)))
     ;; One protocol identity authenticates its receiver-bound states.
     (def protocol
-    (.cc Wrapper.
-      Domain: source
+    (let (base (.cc Wrapper.
+      Domain: (or set source)
       ;; Raw input has a separate normalization boundary; .ap preserves admitted roots.
-      .admit: (lambda (value) (guard (lambda () (create (validate source value)))))
+      .admit: (lambda (value) (guard (lambda () (create (validate (or set source) value)))))
       .ap: create .unap: read
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
@@ -215,8 +260,42 @@
       .apply-delta: (lambda (input delta) (step input (cut .call source .apply-delta <> delta)))
       .apply-batch: (lambda (input batch) (step input (lambda (before)
         (.call source .apply-delta before (.call source .compose-deltas batch)))))))
+      (if (not set) base
+        ;; Presentation changes callback/element arity, never the installation engine.
+        (.cc base
+          .list<-: (lambda (input) (observe input '.list<- [] #f set))
+          .iter<-: (lambda (input) (observe input '.iter<- [] #t set))
+          .foldl: (lambda (f seed input) (fold input '.foldl f seed set))
+          .foldr: (lambda (f seed input) (fold input '.foldr f seed set))
+          ;; Ordered capabilities belong to the backing table; project entries only.
+          .seek<-: (lambda (input lower (inclusive? #t))
+            (iterator-map car (observe input '.seek<- (list lower inclusive?) #t)))
+          .seek: (lambda (input lower (inclusive? #t))
+            (map/option car (observe input '.seek (list lower inclusive?))))
+          .range: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+            (map car (observe input '.range (list lower upper lower-inclusive? upper-inclusive?))))
+          .elt?: (lambda (input element) (guard (lambda () (.call set .elt? (read input) element))))
+          .cons: (lambda (element input) (step input (cut .call set .cons element <>)))
+          .remove: (lambda (input element) (step input (cut .call set .remove <> element)))
+          .union: (cut combine '.union <> <>) .inter: (cut combine '.inter <> <>)
+          .diff: (cut combine '.diff <> <>) .symdiff: (cut combine '.symdiff <> <>)
+          .subset?: (cut relate '.subset? <> <>) .disjoint?: (cut relate '.disjoint? <> <>)
+          .=?: (cut relate '.=? <> <>)))))
     protocol)
   ;; Posh/classy attach the existing pure/mutable FUN protocols to host receivers.
   (def family (.cc Type. Pure: (derive 'pure) Mutable: (derive 'mutable)
     Linear: (derive 'linear) Posh: (derive 'pure #t) Classy: (derive 'mutable #t)))
   family)
+
+;; Public table derivation retains the existing signature and exact protocol shape.
+(def (table-styles source) (derive-table-styles source))
+
+;; Set styles reuse the Unit-valued backing carrier and the same ownership family.
+;; Explicit descriptor identities prevent a forged Elt from changing admission.
+(def (set-styles descriptor)
+  (def source (.@ descriptor Table))
+  (with-table-sources (append (list descriptor)
+    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources source)) (lambda ()
+    (unless (and (eq? (.@ source Value) Unit) (eq? (.@ descriptor Elt) (.@ source Key)))
+      (error "incompatible set style descriptor"))
+    (derive-table-styles source descriptor))))

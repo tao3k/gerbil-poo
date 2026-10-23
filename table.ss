@@ -1,7 +1,7 @@
 ;;; Common declarations and methods for tables
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
-        with-set-tables iterator-map table-element? validate-table table-for-each-change table-styles table-indexes
+        with-set-tables iterator-map table-element? validate-table table-for-each-change table-styles set-styles table-indexes
         table-comparer table-comparer-wrapper table-order
         table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming

@@ -91,7 +91,7 @@ JSON parser or arbitrary numeric normalization.
 | --- | --- |
 | Explicit representation derivation | Closed for the shared persistent `methods.table` protocol; source-specific seek/range extensions are not inferred. |
 | Pure/mutable/linear and posh/classy style generation | Closed for an admitted persistent table: 25 transfers, atomic delta/batch installation, standard Iterable/fold, explicit ordered/indexed observations and retry; see [table-styles.md](table-styles.md). Destructive backend reuse remains separate. |
-| Finite set algebra | Closed over Unit-valued table keys: four operations, subset/disjointness/equality, typed membership lens and ordinary delta/style/FUN integration; see [set-algebra.md](set-algebra.md). |
+| Finite set algebra | Closed over Unit-valued table keys: four operations, subset/disjointness/equality, typed membership lens, five element-level styles/25 transfers and ordinary delta/FUN integration; see [set-algebra.md](set-algebra.md). |
 | Declarative correlated indexes | Closed for stable finite single/multiple-key declarations over persistent backends: synchronized unique/grouped caches, atomic delta/batch installation, inverse observations and styles; see [table-indexes.md](table-indexes.md). |
 | Order-aware extension | Closed for explicit lawful comparator transport, ordered finite folds and range queries via `table-order`; see [table-order.md](table-order.md). Declared Trie seek transfers through the existing Wrapper; source-specific seek is not inferred. |
 | Backend cost qualification | Bounded RationalDict/Trie source/derived workflow acceptance is documented below, including preparation, conversions, equality, retry and inverse. Arbitrary backend/callback costs remain explicit premises. |
