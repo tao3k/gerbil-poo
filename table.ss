@@ -24,7 +24,7 @@
   (only-in ./io marshal)
   (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
   (only-in ./fun Wrapper. Wrap.)
-  (only-in ./object .@ .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
+  (only-in ./object .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair))
 
 (defstruct %mapped-iterator (source transform guard) final: #t)

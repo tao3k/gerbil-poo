@@ -1266,6 +1266,16 @@ advances the collection proposal's future work; exclusive physical ownership,
 destructive backend selection and automatic symmetry discovery remain explicit
 research boundaries.
 
+**Style observation** now retains the whole existing read protocol: standard
+Gerbil Iterable/Iterator, both backend folds, explicit seek/range and correlated
+index queries. All five styles share snapshot capture; deferred pulls retain
+metadata checks through EOF even after ownership transfer. Missing backend
+capabilities refuse explicitly rather than inventing order or scanning to restore
+seek. The checked service example composes snapshot-bound FUN observation,
+correlated ranges, wrapped Function invocation and Reader/IO. Finite cursor,
+refusal and snapshot laws are in `TableObservation.lean`; detailed costs and
+failure/retry boundaries are in [table-styles.md](table-styles.md).
+
 Declarative correlated **indexes** now share one primary and atomic installation
 protocol through `table-indexes`: typed unique-owner and grouped tables, multiple
 backends, final-state uniqueness, ordered primary conflicts, inverse observations,

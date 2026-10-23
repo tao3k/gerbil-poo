@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -187,6 +187,18 @@
     (@@method classy.apply-batch batch)
     (def next (@@method classy.convert 'posh))
     ((.call Observation. .map consume (lambda (receiver) (@@method receiver.snapshot))) next)))
+
+;; Select a correlated index range from one captured snapshot through FUN bind.
+;; Checked service callbacks complete in index order before the outer IO consumer;
+;; a query or callback refusal suppresses consume without replaying earlier effects.
+(def (observe-indexed-receiver descriptor name lower upper argument consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map consume (lambda (receiver)
+      (@@method receiver.bind (lambda (snapshot)
+        (for/collect (entry (.call descriptor .index-range snapshot name lower upper))
+          (def key (cdr entry))
+          (def row (.call descriptor .ref snapshot key))
+          (cons key ((vector-ref row 2) argument)))))))))
 
 ;; Two unique service identifiers and a shared-team index are declared once.
 ;; Buckets reuse the primary persistent table, preserving each checked callback.

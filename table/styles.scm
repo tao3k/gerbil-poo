@@ -46,6 +46,40 @@
 (defmethod (@@method remove %table-object)
   (lambda (self key) (.call (%table-object-protocol self) .remove self key)))
 
+;; Register the receiver directly with Gerbil's Iterable protocol. Standard for
+;; and iter use the same snapshot-bound cursor as explicit FUN observation.
+(implement Iterable %table-object
+  (iter (lambda (self) (iter (.call (%table-object-protocol self) .iter<- self)))))
+
+;; Explicit cursor construction shares the standard Iterable implementation.
+(defmethod (@@method iter<- %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .iter<- self)))
+;; Left folds delegate backend traversal and keep its callback/result convention.
+(defmethod (@@method foldl %table-object)
+  (lambda (self f seed) (.call (%table-object-protocol self) .foldl f seed self)))
+;; Right folds retain backend order rather than reversing a materialized list.
+(defmethod (@@method foldr %table-object)
+  (lambda (self f seed) (.call (%table-object-protocol self) .foldr f seed self)))
+;; Ordered positioning is an explicit backend capability, never inferred by style.
+(defmethod (@@method seek<- %table-object)
+  (lambda (self lower (inclusive? #t))
+    (.call (%table-object-protocol self) .seek<- self lower inclusive?)))
+;; Single binding lookup retains the backend's Option and bound semantics.
+(defmethod (@@method seek %table-object)
+  (lambda (self lower (inclusive? #t))
+    (.call (%table-object-protocol self) .seek self lower inclusive?)))
+;; Range observation forwards inclusive/exclusive bounds without another sort.
+(defmethod (@@method range %table-object)
+  (lambda (self lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+    (.call (%table-object-protocol self) .range self lower upper lower-inclusive? upper-inclusive?)))
+;; Correlated lookups observe the same captured primary/index snapshot.
+(defmethod (@@method index-ref/opt %table-object)
+  (lambda (self name key) (.call (%table-object-protocol self) .index-ref/opt self name key)))
+;; Index comparators and failure classifications remain owned by the backend.
+(defmethod (@@method index-range %table-object)
+  (lambda (self name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+    (.call (%table-object-protocol self) .index-range self name lower upper lower-inclusive? upper-inclusive?)))
+
 ;; Derive all five styles from one persistent table. Operations stage callbacks
 ;; outside the lock, then compare the captured head before one whole installation.
 ;; Pure backend callbacks and immutable leaves are explicit ownership premises.
@@ -101,6 +135,19 @@
         (let (state (unwrap input))
           (if (eq? style 'pure) (require-table source state)
             (%table-head-value (capture style state)))))))
+    ;; Capture once before invoking a backend observer. Reentrant publication may
+    ;; change the owner, but this operation retains one persistent snapshot.
+    ;; Unsupported capabilities refuse rather than inventing an ordering policy.
+    (def (observe input method args (deferred? #f))
+      (guard (lambda ()
+        (def snapshot (read input))
+        (unless (.slot? source method) (error "unsupported table observation" method))
+        (def result (apply (.ref source method) snapshot args))
+        (if deferred? (iterator-map identity result guard) result))))
+    ;; Fold signatures place the snapshot last, as required by methods.table.
+    (def (fold input method f seed)
+      (using (f :~ procedure?)
+        (guard (lambda () ((.ref source method) f seed (read input))))))
     ;; Stage a single-result pure transformation, then admit without rewrapping.
     ;; Refusal, exception or conflict before installation preserves the old head.
     (def (step input transform)
@@ -144,6 +191,18 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      ;; Deferred observations retain source guards through every pull and EOF.
+      .iter<-: (lambda (input) (observe input '.iter<- [] #t))
+      .foldl: (lambda (f seed input) (fold input '.foldl f seed))
+      .foldr: (lambda (f seed input) (fold input '.foldr f seed))
+      ;; Capability lifting forwards the backend's own order, bounds and errors.
+      .seek<-: (lambda (input lower (inclusive? #t)) (observe input '.seek<- (list lower inclusive?) #t))
+      .seek: (lambda (input lower (inclusive? #t)) (observe input '.seek (list lower inclusive?)))
+      .range: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+        (observe input '.range (list lower upper lower-inclusive? upper-inclusive?)))
+      .index-ref/opt: (lambda (input name key) (observe input '.index-ref/opt (list name key)))
+      .index-range: (lambda (input name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+        (observe input '.index-range (list name lower upper lower-inclusive? upper-inclusive?)))
       ;; Read through FUN binding so backend callbacks retain the source guard.
       .ref: (lambda (input key . default)
         (guard (lambda () (apply (.@ source .ref) (read input) key default))))
