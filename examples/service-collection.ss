@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services make-seek-services)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services make-seek-services make-ordered-service-indexes)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -201,3 +201,18 @@
   (def declaration (.cc Type. name: 'priority table: ordered unique?: #t
     project: (lambda (_ row) (bitwise-xor (vector-ref row 0) 1))))
   (values (table-indexes source (list declaration)) source derived))
+
+;; Declare unique priority and shared-team caches on the persistent ordered backend.
+;; Cold construction reuses shape-preserving updates; admitted service callbacks
+;; remain shared through grouped buckets, atomic deltas and FUN style conversion.
+(def (make-ordered-service-indexes)
+  (def source (SimpleTrie UInt (Tuple UInt UInt (Fun Integer <- Integer))))
+  (def owners (SimpleTrie UInt UInt))
+  (def groups (SimpleTrie UInt source))
+  (def priority (.cc Type. name: 'priority unique?: #t
+    table: (table-order owners (.@ owners Comparer))
+    project: (lambda (_ row) (vector-ref row 0))))
+  (def team (.cc Type. name: 'team unique?: #f
+    table: (table-order groups (.@ groups Comparer))
+    project: (lambda (_ row) (vector-ref row 1))))
+  (values (table-indexes source (list priority team)) source))

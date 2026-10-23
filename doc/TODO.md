@@ -1273,6 +1273,13 @@ from matching-order warm queries, including correlated indexes and all styles.
 First shape admission remains explicit; successful persistent roots use Gerbil
 weak keys, and invalidated or failed admissions are not silently reused. The shared
 paired study includes cold, seek, range and complete publication/undo phases.
+Declared shape-preserving persistent point updates now reuse constructor output
+admission, eliminating repeated whole-prefix shape checks in cold index building.
+Undeclared backends retain full checks; metadata invalidation, typed Key checks,
+exception retry and Function identity remain covered. The paired study separates
+factory declarations, cold index preparation and complete construction and retains
+reference A/A plus candidate B/B controls and GC history. This proves no universal
+backend or GC bound; see table-order.md.
 Other backend-specific seek, multikey indexes and automatic query optimization
 remain separate work.
 

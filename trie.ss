@@ -923,6 +923,9 @@
          (_ (invalid '.divide t))))))
 
   ;; Advertise the existing unsigned key order; the descriptor captures Key revisions.
+  ;; For persistent roots, admitted UInt keys and successful point updates preserve
+  ;; carrier shape. Direct host mutation of shared nodes violates this backend law.
+  .shape-preserving?: #t
   Comparer: (table-comparer Key number-comparer)
 
   ;; Standard ordered iterator with prefix pruning. Only the lower-bound spine

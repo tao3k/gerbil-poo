@@ -42,17 +42,21 @@
 (def (iterator-map transform source (guard #f))
   (Iterator (%mapped-iterator (iter source) transform guard)))
 
-;; Explicit seek backends promise pure shape recognition and persistent roots.
-;; Standard weak keys retain no snapshots: successful admission is reused by identity,
-;; failed admission is never cached. Callers still guard source metadata every time.
+;; Persistent seek backends admit roots by identity. Point-update outputs may be
+;; recorded only under the explicit .shape-preserving? law, after an admitted input
+;; and Key. Weak keys retain no snapshots; failures and arbitrary inputs never gain
+;; provenance. Callers guard metadata before either admission or output recording.
 (def (table-shape-checker source)
   (if (.has? source Comparer .seek<-)
-    (let (admitted (make-table test: eq? weak-keys: #t))
-      (lambda (root)
-        (unless (table-ref admitted root #f)
-          (.call source .validate-shape root)
-          (table-set! admitted root #t)) root))
-    (.@ source .validate-shape)))
+    (let ((admitted (make-table test: eq? weak-keys: #t))
+          (preserves? (and (.has? source .shape-preserving?) (eq? (.@ source .shape-preserving?) #t))))
+      (lambda (root (updated? #f))
+        (cond
+          (updated? (when preserves? (table-set! admitted root #t)))
+          ((not (table-ref admitted root #f))
+            (.call source .validate-shape root)
+            (table-set! admitted root #t))) root))
+    (lambda (root (updated? #f)) (if updated? root (.call source .validate-shape root)))))
 
 ;; Recognize carrier and child membership without constructing normalized wrappers.
 ;; Catch only typed refusal; user/backend exceptions preserve their original cause.

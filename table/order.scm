@@ -65,6 +65,14 @@
       (unless (equal? versions (map object-revision sources)) (error "stale table order"))
       (admit-source state)
       (action))))
+  ;; A typed point update preserves shape only when the backend declares that law.
+  ;; Run the operation before recording its result: raised callbacks retain no root.
+  ;; Unknown roots still pass full admission, including after a failed update.
+  (def (update state key action)
+    (observe state (lambda ()
+      (unless (element? (.@ source Key) key)
+        (raise-type-error (.@ source Key) key 'table-order))
+      (admit-source (action) #t))))
   ;; Sorting reorders pairs only; existing admitted row and Function identities stay.
   (def (bindings state)
     (list-sort (lambda (left right) (< (.call comparer .compare (car left) (car right)) 0))
@@ -114,8 +122,8 @@
     .empty?: (lambda (state) (observe state (lambda () (.call source .empty? state))))
     .ref: (lambda (state key (missing (lambda () (error "missing key"))))
       (observe state (lambda () (.call source .ref state key missing))))
-    .acons: (lambda (key row state) (observe state (lambda () (.call source .acons key row state))))
-    .remove: (lambda (state key) (observe state (lambda () (.call source .remove state key))))
+    .acons: (lambda (key row state) (update state key (lambda () (.call source .acons key row state))))
+    .remove: (lambda (state key) (update state key (lambda () (.call source .remove state key))))
     .range: range .seek: seek
     .foldl: (lambda (f seed state) (observe state (lambda ()
       (for/fold (acc seed) (entry (entries state #f #t)) (f (car entry) (cdr entry) acc)))))
