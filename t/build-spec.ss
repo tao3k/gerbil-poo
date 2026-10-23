@@ -109,7 +109,7 @@
     "rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.
     (gxc: "table" (extra-inputs: ("table/styles.scm" "table/indexes.scm" "table/order.scm")))
-    "trie"
+    (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
     "type"
     "generation-graph"
     "recursive-generation"

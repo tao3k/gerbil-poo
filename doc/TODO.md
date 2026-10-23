@@ -1280,6 +1280,11 @@ exception retry and Function identity remain covered. The paired study separates
 factory declarations, cold index preparation and complete construction and retains
 reference A/A plus candidate B/B controls and GC history. This proves no universal
 backend or GC bound; see table-order.md.
+Shared Trie delta discovery now reuses ordered pair recursion after complete
+admission, preserving the generic old-changes-then-inserts sequence, errors and
+inverse installation. The original generic callback stream remains an oracle;
+full publication has separate discovery/index/ownership/factory controls. See
+table-order.md for the immutable backend/alignment laws and cost boundaries.
 Other backend-specific seek, multikey indexes and automatic query optimization
 remain separate work.
 

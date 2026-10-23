@@ -43,6 +43,8 @@
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 (def ($Path-key path) ($Costep-key ($Path-costep path))) ;; key used in a path
 
+(include "trie/changes.scm")
+
 (define-type (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
@@ -408,6 +410,10 @@
   (lambda (key value zipper)
     (match (.refocus ($Costep -1 key) zipper)
       ((cons t path) (cons (.leaf value) path))))
+
+  ;; Share admitted subtrees during ordered delta discovery; generic admission
+  ;; and opaque payload retention remain owned by the table protocol.
+  .for-each-change: (cut trie-for-each-change @ <> <> <>)
 
   ;; : @ <- Key Value @
   .acons:
@@ -849,7 +855,8 @@
                                 ((bleft bright) (.skip-choice h bbits-height bbits bchild bdiffheight)))
                      (left-to-right
                       branch ksame sameheight
-                      (recurse r k aleft bleft)
+                      ;; Both cut children start after the shared high prefix.
+                      (recurse r ksame aleft bleft)
                       (recurse r (.right-key sameheight ksame) aright bright))))))
            (if (zero? samelength)
              same-result

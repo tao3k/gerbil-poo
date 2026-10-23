@@ -1,7 +1,7 @@
 ;;; Common declarations and methods for tables
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
-        iterator-map table-element? validate-table table-styles table-indexes
+        iterator-map table-element? validate-table table-for-each-change table-styles table-indexes
         table-comparer table-comparer-wrapper table-order
         table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
@@ -118,9 +118,20 @@
   (append (list descriptor (.@ descriptor Key) (.@ descriptor Value))
     (if (.has? descriptor .sources) (.@ descriptor .sources) [])))
 
-;; Enumerate each changed binding once: source order for updates/deletes, then
-;; target order for inserts. Gerbil's list builder owns finite ordered accumulation.
-;; Discovery scans both snapshots; only application is proportional to edit count.
+;; The generic ordered change stream visits old updates/deletions first, then
+;; new insertions. Payloads are admitted already and are never normalized here.
+;; Backends may override this traversal, preserving exact order and Option values.
+(def (table-for-each-change descriptor emit before after)
+  (.call descriptor .for-each
+    (lambda (key value)
+      (def next (.call descriptor .ref/opt after key))
+      (unless (table-option=? (some value) next) (emit key (some value) next))) before)
+  (.call descriptor .for-each
+    (lambda (key value)
+      (unless (.call descriptor .key? before key) (emit key #f (some value)))) after))
+
+;; Complete admission and origins are independent of change discovery. Even
+;; identical/shared roots undergo both checks; empty deltas retain their lineage.
 (def (diff-table descriptor before after)
   (def sources (table-sources descriptor))
   (with-table-sources sources
@@ -129,15 +140,8 @@
       (require-table descriptor after)
       (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
         (with-list-builder (emit)
-          (.call descriptor .for-each
-            (lambda (key value)
-              (def next (.call descriptor .ref/opt after key))
-              (unless (table-option=? (some value) next)
-                (emit (make-table-change key (some value) next)))) before)
-          (.call descriptor .for-each
-            (lambda (key value)
-              (unless (.call descriptor .key? before key)
-                (emit (make-table-change key #f (some value))))) after))))))
+          (.call descriptor .for-each-change
+            (lambda (key old next) (emit (make-table-change key old next))) before after))))))
 
 ;; Report edit count without exposing the owned edit list or its constructors.
 (def (table-delta-count delta) (length (table-delta-changes delta)))
@@ -689,6 +693,10 @@
             (.foldl (lambda (k va m) (.acons/opt k (f k (some va) (.ref/opt tb k)) m))
                     .empty ta)
             tb))
+
+  ;; Ordered callbacks let persistent backends skip shared subtrees while keeping
+  ;; .diff admission, metadata protection and private delta construction centralized.
+  .for-each-change: (lambda (emit before after) (table-for-each-change @ emit before after))
 
   ;; Finite differences and optimistic persistent installation share this backend.
   .diff: (lambda (before after) (diff-table @ before after))

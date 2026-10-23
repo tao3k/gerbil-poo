@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services make-seek-services make-ordered-service-indexes)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-styles make-indexed-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -216,3 +216,14 @@
     table: (table-order groups (.@ groups Comparer))
     project: (lambda (_ row) (vector-ref row 1))))
   (values (table-indexes source (list priority team)) source))
+
+;; Discover a persistent revision through the source protocol, then reuse the
+;; existing FUN/IO ownership chain. A refused edit/index update never reaches
+;; consume, and callers can retry from the original admitted indexed snapshot.
+(def (revise-indexed-services indexed source base revise consume)
+  (using ((revise :~ procedure?) (consume :~ procedure?))
+    (def before (.call indexed .unwrap base))
+    (def delta (.call source .diff before (revise before)))
+    (def linear (.@ (table-styles indexed) Linear))
+    (def next (.call linear .apply-delta (.call linear .ap base) delta))
+    ((.call Observation. .map consume (cut .call linear .convert <> 'pure)) next)))

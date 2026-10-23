@@ -1,7 +1,7 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
-        (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie Trie.) (only-in ../fun IdWrap)
+        (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie Trie. trie-for-each-change) (only-in ../fun IdWrap)
         (only-in "closure-measure.ss" measure median))
 
 ;; Every variant consumes the same admitted source, delta and exact sum oracle.
@@ -109,18 +109,22 @@
   ;; Both descriptors use the same backend/order; only output-admission reuse differs.
   (def backend (.cc (.mix Trie. IdWrap) Key: UInt Value: UInt .shape-preserving?: #t))
   (def reference-backend (.cc (.mix Trie. IdWrap) Key: UInt Value: UInt .shape-preserving?: #f))
+  (def reference-source #f)
+  (set! reference-source (.cc source .for-each-change:
+    (lambda (emit before after) (table-for-each-change reference-source emit before after))))
+  (def revision? (memq scenario '(order-diff order-stage order-owner order-workflow order-publication)))
   (def base (.call source .<-list (for/collect (k (in-range size)) (cons k k))))
   (def lower (max 0 (- size 4)))
   (def expected (for/collect (k (in-range lower size)) (cons k k)))
-  (def preparation? (memq scenario '(order-factory order-prepare order-cold order-workflow)))
+  (def preparation? (or revision? (memq scenario '(order-factory order-prepare order-cold))))
   ;; Preparation compares only admission reuse. Query-only phases separately force
   ;; the sorting reference with an extensionally equal but distinct procedure.
   (def (factory optimized?)
     (def compare (if optimized? number-comparer (lambda (a b) (number-comparer a b))))
     (def ordered (table-order
-      (if (or optimized? (not preparation?)) backend reference-backend)
+      (if (or revision? optimized? (not preparation?)) backend reference-backend)
       (table-comparer UInt (if preparation? number-comparer compare))))
-    (table-indexes source (list (.cc Type. name: 'value table: ordered unique?: #t
+    (table-indexes (if (and revision? (not optimized?)) reference-source source) (list (.cc Type. name: 'value table: ordered unique?: #t
       project: (lambda (_ row) row)))))
   ;; Validate actual results inside every timed complete operation.
   (def (consume indexed state rows)
@@ -131,6 +135,17 @@
     (def indexed (factory optimized?))
     (def state (.call indexed .wrap base))
     (def linear (.@ (table-styles indexed) Linear))
+    (def producer (if (and revision? (not optimized?)) reference-source source))
+    (def after (and (memq scenario '(order-diff order-stage)) (.call producer .acons lower (+ size 1) base)))
+    (def prepared (and (eq? scenario 'order-stage) (.call producer .diff base after)))
+    ;; The retained and newly constructed workflows share the exact same body.
+    ;; Admission, ownership transfer, range observation and undo stay inside timing.
+    (def (publish table state style)
+      (def delta (.call producer .diff base (.call producer .acons lower (+ size 1) base)))
+      (def next (.call style .apply-delta (.call style .ap state) delta))
+      (def pure (.call style .convert next 'pure))
+      (consume table pure (cdr expected))
+      (consume table (.call table .apply-delta pure (invert-table-delta delta)) expected))
     (case scenario
       ((order-factory) (lambda ()
         (unless (.has? (factory optimized?) .index-range) (error "ordered factory oracle")) #t))
@@ -147,13 +162,17 @@
             (unless (equal? (.call ordered .seek base (some lower)) (some (cons lower lower)))
               (error "ordered collection seek oracle")) #t)))
       ((order-range) (lambda () (consume indexed state expected)))
-      ((order-workflow) (lambda ()
-        (def after (.call source .acons lower (+ size 1) base))
-        (def delta (.call source .diff base after))
-        (def next (.call linear .apply-delta (.call linear .ap state) delta))
-        (def pure (.call linear .convert next 'pure))
-        (consume indexed pure (cdr expected))
-        (consume indexed (.call indexed .apply-delta pure (invert-table-delta delta)) expected)))
+      ((order-diff) (lambda ()
+        (unless (= (table-delta-count (.call producer .diff base after)) 1)
+          (error "ordered discovery oracle")) #t))
+      ((order-stage) (lambda () (consume indexed (.call indexed .apply-delta state prepared) (cdr expected))))
+      ((order-owner) (lambda ()
+        (unless (eq? (.call linear .convert (.call linear .ap state) 'pure) state)
+          (error "ordered ownership oracle")) #t))
+      ((order-workflow) (cut publish indexed state linear))
+      ((order-publication) (lambda ()
+        (def fresh (factory optimized?))
+        (publish fresh (.call fresh .wrap base) (.@ (table-styles fresh) Linear))))
       (else (error "unknown ordered collection phase" scenario))))
   (values (action #f) (action #t)))
 
@@ -201,6 +220,22 @@
     (- (f64vector-ref after 10) (f64vector-ref before 10))
     (- (f64vector-ref after 11) (f64vector-ref before 11))))
 
+;; Capture the same bounded observation protocol for a batch, forced collection,
+;; or first post-GC call. The diagnostic charges preparation instead of hiding it.
+(def (measure-collection-action action repetitions regime)
+  ;; The observer allocates only after the measured interval has ended.
+  (def (capture thunk count)
+    (def history #f)
+    (defvalues (ok metrics) (measure thunk count #f
+      (lambda (before after) (set! history (measurement-history before after)))))
+    (unless ok (error "collection measured oracle"))
+    (vector metrics history))
+  (def preparation (and (eq? regime 'post-gc)
+    (capture (lambda () (##gc) #t) 1)))
+  (def first (and preparation (capture action 1)))
+  (when (eq? regime 'collected) (##gc))
+  (vector (capture action repetitions) first preparation))
+
 ;; Both regimes use fresh matched fixtures per pair and the same fixed prefix.
 ;; A/A and B/B retain both prefix histories and alternate measurement slots. The
 ;; candidate control distinguishes its own noise from the slower reference's noise.
@@ -220,13 +255,14 @@
   (order-shape-work n #f)
   (order-shape-work n #t)
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (for* ((scenario '(factory cold hit revision workflow retry order-factory order-prepare order-cold order-seek order-range order-workflow)) (regime '(natural collected)) (control? '(#f #t candidate)))
+  (for* ((scenario '(factory cold hit revision workflow retry order-factory order-prepare order-cold order-seek order-range order-diff order-stage order-owner order-workflow order-publication)) (regime (if (memq scenario '(order-diff order-stage order-owner order-workflow order-publication))
+      '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
       (def setup-history #f)
       (defvalues (actions setup-metrics)
         (measure (lambda () (call-with-values
-          (if (memq scenario '(order-factory order-prepare order-cold order-seek order-range order-workflow))
+          (if (memq scenario '(order-factory order-prepare order-cold order-seek order-range order-diff order-stage order-owner order-workflow order-publication))
             (cut order-workload n scenario) (cut workload n scenario)) vector)) 1 #f
           (lambda (before after) (set! setup-history (measurement-history before after)))))
       (def baseline (vector-ref actions 0))
@@ -237,23 +273,47 @@
       (def results [])
       (for (side order)
         (def action (cond ((eq? control? 'candidate) candidate) ((or control? (eq? side 'baseline)) baseline) (else candidate)))
-        (def history #f)
-        (defvalues (ok metrics) (measure action repetitions (eq? regime 'collected)
-          (lambda (before after) (set! history (measurement-history before after)))))
-        (unless ok (error "collection measured oracle"))
+        (def measured (measure-collection-action action repetitions regime))
+        (def batch (vector-ref measured 0))
+        (def metrics (vector-ref batch 0))
+        (def history (vector-ref batch 1))
+        (when (eq? regime 'post-gc)
+          (write (vector 'collection-preparation scenario control? round side
+            (vector-ref measured 2) (vector-ref measured 1)))
+          (newline))
         (write (vector 'collection-pair scenario regime control? round side metrics (allocation metrics) history))
         (newline) (force-output)
-        (set! results (cons (cons side metrics) results)))
+        (set! results (cons (cons side measured) results)))
       ;; Read observations after both measured actions; internal definitions are
       ;; expanded ahead of expressions by Gerbil and must not snapshot results.
       (let ((a (cdr (assq 'baseline results))) (b (cdr (assq 'candidate results))))
-        (set! observations (cons (vector a b) observations))))
+        (set! observations (cons (vector (vector-ref (vector-ref a 0) 0) (vector-ref (vector-ref b 0) 0)
+          (vector-ref (vector-ref a 0) 1) (vector-ref (vector-ref b 0) 1) a b) observations))))
     ;; Positive signed differences mean regression; controls and ranges remain visible.
     (def (deltas index)
       (map (lambda (pair) (* (/ 1e6 repetitions)
         (- (vector-ref (vector-ref pair 1) index) (vector-ref (vector-ref pair 0) index)))) observations))
+    ;; Signed residuals distinguish CPU work and GC wall from elapsed time; a
+    ;; wall-minus-CPU difference is not automatically an OS scheduling diagnosis.
+    (def (derived-deltas select)
+      (map (lambda (pair) (* (/ 1e6 repetitions)
+        (- (select (vector-ref pair 1) (vector-ref pair 3))
+           (select (vector-ref pair 0) (vector-ref pair 2))))) observations))
+    ;; Inclusive diagnostic cost charges one forced collection, the first call and
+    ;; every batch call. This is a synthetic control, never the production policy.
+    (when (eq? regime 'post-gc)
+      (let (charged (map (lambda (pair)
+        (def (wall side)
+          (apply + (map (lambda (record) (vector-ref (vector-ref record 0) 1))
+            (vector->list side))))
+        (* (/ 1e6 (+ repetitions 1)) (- (wall (vector-ref pair 5)) (wall (vector-ref pair 4))))) observations))
+        (displayln "COLLECTION-CHARGED " scenario "/" control?
+          " wall-us=" (median charged) " min=" (apply min charged) " max=" (apply max charged))))
     (let (wall (deltas 1))
       (displayln "COLLECTION-SUMMARY " scenario "/" regime "/" (cond ((eq? control? 'candidate) 'bb) (control? 'aa) (else 'ab))
         " wall-us=" (median wall) " min=" (apply min wall) " max=" (apply max wall)
-        " cpu-us=" (median (deltas 0)) " gc-us=" (median (deltas 2)))))
+        " cpu-us=" (median (deltas 0)) " gc-us=" (median (deltas 2))
+        " non-gc-cpu-us=" (median (derived-deltas (lambda (m _) (- (vector-ref m 0) (vector-ref m 2)))))
+        " wall-minus-cpu-us=" (median (derived-deltas (lambda (m _) (- (vector-ref m 1) (vector-ref m 0)))))
+        " gc-wall-us=" (median (derived-deltas (lambda (_ h) (vector-ref h 2)))))))
   (displayln "COLLECTION-PAIRED-OK"))
