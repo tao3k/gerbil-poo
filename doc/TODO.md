@@ -1253,6 +1253,13 @@ installation; strict Boolean classification, late refusal/retry, wrapper retenti
 and stale-owner rejection share the existing guards. See [set-algebra.md](set-algebra.md)
 for ownership, finite Lean laws, complexity and callback-effect boundaries.
 
+**Typed key focuses** now complete required/optional table lenses and the
+five-style point-update protocol. Required setters use value-before-state order;
+optional writes reject invalid keys, payloads and Option shells. Lens modification
+and composition retain one captured-generation update, preventing a reentrant
+winner from being overwritten. See [table-focus.md](table-focus.md) for metadata,
+Function preservation, partial-refinement boundaries and the Lean observation laws.
+
 Ordered multi-round revision batches are now a complete additional unit:
 `.compose-deltas` retains all intermediate expectations and origin dependencies,
 including empty origins, repeated keys and deletion/reinsertion. Ordinary

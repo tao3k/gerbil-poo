@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -340,3 +340,16 @@
       (def owner (.call protocol .ap before))
       (defvalues (accepted rejected) (.call protocol .partition classify owner))
       (list (.call protocol .list<- accepted) (.call protocol .list<- rejected))))))
+
+;; Compose the existing service lens with a guarded linear key focus. Lens.modify
+;; delegates the entire user callback to one captured generation; Reader/FUN map
+;; exposes only a completely admitted snapshot to IO. Refusal leaves base intact
+;; so the caller can explicitly retry; consumer effects are never replayed here.
+(def (revise-focused-ledger table base key transform consume)
+  (using ((transform :~ procedure?) (consume :~ procedure?))
+    (def protocol (.@ (table-styles table) Linear))
+    (def state (.o ledger: (.call protocol .ap base) sibling: 'retained))
+    (def focus (.call Lens .compose (.lens ledger) (.call protocol .lens key)))
+    ((.call Observation. .map consume (lambda (service)
+      (.call protocol .unap (.@ service ledger))))
+      (.call Lens .modify focus transform state))))

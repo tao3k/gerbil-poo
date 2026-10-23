@@ -153,18 +153,12 @@
     (def sources (table-sources descriptor))
     (with-table-sources sources (lambda ()
       (require-table descriptor before)
-      (unless (element? (.@ descriptor Key) key)
-        (raise-type-error (.@ descriptor Key) key 'update-table-delta))
+      (require-table-key descriptor key)
       (def old (.call descriptor .ref/opt before key))
       ;; Option boxes are callback-owned; copy their shells, retaining exact leaves.
       ;; Mutating an argument/result box cannot rewrite a captured expectation.
       (def response (transform (map/option identity old)))
-      (match response
-        (#f (void))
-        ((some value)
-          (unless (element? (.@ descriptor Value) value)
-            (raise-type-error (.@ descriptor Value) value 'update-table-delta)))
-        (else (error "table update must return Option" response)))
+      (require-table-option descriptor response)
       (def after (map/option identity response))
       (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
         (if (table-option=? old after) [] (list (make-table-change key old after))))))))
@@ -790,9 +784,7 @@
 
   ;; Optional focus is total at missing keys and uses the existing Lens protocol.
   ;; The setter receives value before state, as Lens.modify/compose require.
-  .lens/opt: (lambda (key)
-    (lens-of-get-set (cut .ref/opt <> key)
-      (lambda (value source) (.update/opt key (lambda (_) value) source))))
+  .lens/opt: (lambda (key) (table-key-focus @ key #t))
 
   ;; : Nat <- @
   .count: (lambda (t) (.foldl (lambda (_1 _2 a) (1+ a)) 0 t))
@@ -848,14 +840,7 @@
   .find-last: (lambda (p t) (option-ref (.find-last/opt p t)))
 
   ;; : @ <- Key (Fun (Option Value) <- (Option Value)) @
-  .update/opt:
-  (lambda (k f t)
-    (def o (.ref/opt t k))
-    (def u (f o))
-    (if (equal? o u) t
-        (match u
-          (#f (.remove t k))
-          ((some v) (.acons k v t)))))
+  .update/opt: (lambda (key transform input) (update-table-focus @ key transform input))
 
   ;; : @ <- Key (Fun Value <- Value) @ ?(Fun Value <-)
   .update: (lambda (k f t (default false))
@@ -913,7 +898,7 @@
   .iter<-: (lambda (x) (iter (.list<- x)))
 
   ;; : (Lens Value <- @) <- Key
-  .lens: (lambda (k) {get: (lambda (t) (.ref t k)) set: (lambda (t v) (.acons k v t))})
+  .lens: (lambda (key) (table-key-focus @ key #f))
 
   .Binding: (Pair Key Value)
   .Bindings: (List .Binding)
@@ -941,6 +926,8 @@
 
 (define-type (FocusableZipping. @ [Zipping.]
   .refocus)) ;; Zipper <- FocusKey Zipper
+
+(include "table/focus.scm")
 
 ;; Derive style ownership in the existing interface; .admit normalizes raw input,
 ;; whereas .ap and transitions retain admitted Function wrappers and batch ordering.

@@ -28,6 +28,7 @@ It does not introduce a static linear type system or destructive tree backend.
 | `.unap state` | Nonconsuming snapshot read; retains the current owner. |
 | `.bind state consumer` | Existing FUN snapshot observation under the full source metadata guard. |
 | `.map transform state` / `.step state transform` | Stage one transformation of an admitted snapshot; require an admitted persistent result. |
+| `.ref/opt`, `.update/opt`, `.update`, `.delta/opt`, `.lens`, `.lens/opt` | Typed key access and focused modification retain this factory and its captured-generation commit; see [table-focus.md](table-focus.md). |
 | `.apply-delta state delta` | Reuse the original guarded optimistic installer. |
 | `.apply-batch state deltas` | Reuse `.compose-deltas` and `.apply-delta`, retaining intermediate conflicts. |
 | `.convert state target` | Transfer ownership to `pure`, `mutable` or `linear` without normalizing again. |

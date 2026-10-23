@@ -33,6 +33,25 @@
 (defmethod (@@method ref %table-object)
   (lambda (self key . default)
     (apply (.@ (%table-object-protocol self) .ref) self key default)))
+;; Optional lookup preserves absence versus a stored false through the same guard.
+(defmethod (@@method ref/opt %table-object)
+  (lambda (self key) (.call (%table-object-protocol self) .ref/opt self key)))
+;; Optional modification stages exactly one callback before the ownership commit.
+(defmethod (@@method update/opt %table-object)
+  (lambda (self key transform) (.call (%table-object-protocol self) .update/opt key transform self)))
+;; Required modification retains the existing missing/default thunk convention.
+(defmethod (@@method update %table-object)
+  (lambda (self key transform . default)
+    (apply (.@ (%table-object-protocol self) .update) key transform self default)))
+;; Delta discovery captures a snapshot but does not install or consume its owner.
+(defmethod (@@method delta/opt %table-object)
+  (lambda (self key transform) (.call (%table-object-protocol self) .delta/opt key transform self)))
+;; Required key focuses compose with the existing Lens protocol over receivers.
+(defmethod (@@method lens %table-object)
+  (lambda (self key) (.call (%table-object-protocol self) .lens key)))
+;; Optional receiver focuses support insertion and deletion without changing arity.
+(defmethod (@@method lens/opt %table-object)
+  (lambda (self key) (.call (%table-object-protocol self) .lens/opt key)))
 ;; Count observes the current generation, never a cached receiver field.
 (defmethod (@@method count %table-object)
   (lambda (self) (.call (%table-object-protocol self) .count self)))
@@ -229,6 +248,16 @@
             ((pure) (present after)) ((mutable) input)
             ((linear) (present (reference style after)))))
           (publish state expected after result)))))
+    ;; Reuse the checked root transformation within the captured owner generation.
+    ;; Callback/refinement refusal leaves it live; a reentrant winner stays visible.
+    (def (update-opt key transform input)
+      (using (transform :~ procedure?)
+        (step input (cut update-table-focus source key transform <>))))
+    ;; Focus creation retains this factory's guard and never leaks a raw setter.
+    (def (focus key optional?)
+      (make-table-key-focus source key optional?
+        (lambda (input) ((.ref source (if optional? '.ref/opt '.ref)) (read input) key))
+        (lambda (input transform) (update-opt key transform input)) guard))
     ;; Set descriptors change predicate arity only. Backend traversal and both
     ;; return values are retained; stage authenticates input before any callback.
     (def (select method predicate input)
@@ -273,6 +302,15 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      .ref/opt: (lambda (input key) (guard (lambda ()
+        (require-table-key source key) (.call source .ref/opt (read input) key))))
+      .update/opt: update-opt
+      .update: (lambda (key transform input (default false))
+        (using (transform :~ procedure?)
+          (update-opt key (lambda (old) (some (transform (option-get/default old default)))) input)))
+      .delta/opt: (lambda (key transform input)
+        (guard (lambda () (.call source .delta/opt key transform (read input)))))
+      .lens: (cut focus <> #f) .lens/opt: (cut focus <> #t)
       .filter: (cut select '.filter <> <>)
       .partition: (cut select '.partition <> <>)
       ;; Deferred observations retain source guards through every pull and EOF.

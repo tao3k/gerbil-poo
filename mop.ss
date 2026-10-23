@@ -515,12 +515,21 @@
     .set: { }} ;; 'a -> 's -> 's
   .get: (lambda (l s) (.call l .get s))
   .set: (lambda (l a s) (.call l .set a s))
+  ;; An owned focus supplies a single captured-generation modification. Ordinary
+  ;; getter/setter lenses keep their derived operation; composition retains hooks.
   .modify: (lambda (l f s)
-             (.call l .set (f (.call l .get s)) s)) ;; over in haskell
+             (if (.has? l .modify) (.call l .modify f s)
+               (.call l .set (f (.call l .get s)) s))) ;; over in haskell
   ;; Same order as in Haskell, opposite to OCaml. (compose x y) will access x then y
   ;; (Lens 'a 'c)  <- (Lens 'a 'b) (Lens 'b 'c)
-  .compose: (lambda (l1 l2) {.get: (lambda (s) (.call l2 .get (.call l1 .get s)))
-                        .set: (lambda (a s) (.modify l1 (cut .call l2 .set a <>) s))}))
+  .compose: (lambda (l1 l2)
+    ;; Capture the Lens operation before entering the object syntax: its .modify
+    ;; field otherwise shadows the class operation inside the composed callbacks.
+    (let (modify .modify)
+      {.modify: (lambda (f s) (modify l1 (cut modify l2 f <>) s))
+       .get: (lambda (s) (.call l2 .get (.call l1 .get s)))
+       .set: (lambda (a s) (modify l1 (cut .call l2 .set a <>) s))})))
+
 
 (define-type (Type @ Class.)
   slots: {sexp: {type: Any}
