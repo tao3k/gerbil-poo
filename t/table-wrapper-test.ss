@@ -4,7 +4,8 @@
         (only-in ../slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer
                  slot-read-receiver slot-read-key)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
-        (only-in ../fun Wrapper.)
+        (only-in ../fun Wrapper. IdWrap)
+        (only-in ../trie SimpleTrie Trie. Branch Leaf)
         (prefix-in ../examples/service-collection service.))
 
 ;; Official host records supply a raw carrier with no table operations of its own.
@@ -178,6 +179,49 @@
         (check-exception (.call fresh .ref base -1) (message? "stale table wrapper")))
       (let-values (((rebound _carrier3 _keys3) (box-table source)))
         (check-equal? (.call rebound .ref base -1) 10)))
+    (test-case "persistent shape outputs reuse admission through GC refusal retry and undo"
+      ;; Fresh private backends compare the same typed operations with/without
+      ;; the explicit law. Full inverse checks and admitted leaves stay active.
+      (def (exercise preserves?)
+        (def visits 0) (def refuse? #f) (def failure (list 'update-refused))
+        (def raw (.cc (.mix Trie. IdWrap) Key: UInt Value: Integer
+          .shape-preserving?: preserves?
+          .unwrap: (lambda (tree) (set! visits (+ visits 1)) tree)))
+        (def source (.cc raw .acons: (lambda (k v t)
+          (when refuse? (raise failure)) (.call raw .acons k v t))))
+        (def target (.cc Type. Key: Integer Value: Integer .element?: boxed-table?))
+        (def carrier (.cc Wrapper. Domain: source Codomain: target
+          .ap: make-boxed-table .unap: boxed-table-raw))
+        (def keys (.cc Wrapper. Domain: UInt Codomain: Integer .ap: - .unap: -))
+        (def payloads (.cc Wrapper. Domain: Integer Codomain: Integer .ap: identity .unap: identity))
+        (def table (table-wrapper source carrier keys payloads))
+        (def base (.call table .<-list (for/collect (n (in-range 64)) (cons (- n) n))))
+        (set! visits 0)
+        (let* ((next (.call table .acons -1 70 base))
+               (delta (.call table .delta/opt -2 (lambda (_) (some 80)) next)))
+          ;; Collect while roots remain live, then reject a backend failure without
+          ;; granting its candidate root any admission. Retry and inverse still work.
+          (##gc)
+          (set! refuse? #t)
+          (check-exception (.call table .apply-delta next delta) (cut eq? <> failure))
+          (set! refuse? #f)
+          (let (published (.call table .apply-delta next delta))
+            (check-equal? (.call table .ref published -2) 80)
+            (check-equal? (.call table .ref
+              (.call table .apply-delta published (invert-table-delta delta)) -2) 2))
+          ;; Observation must still demand the live validator for a new output.
+          (let (denied (list 'validator-denied))
+            (check-exception (call-with-slot-read-observer void
+              (lambda () (.call table .acons -3 90 base))
+              before: (lambda (receiver field)
+                (when (and (eq? receiver source) (eq? field '.validate-shape)) (raise denied))))
+              (cut eq? <> denied)))
+          (check-exception (.call table .wrap (Branch 1 (Leaf 1) (Leaf 2))) TypeError?)
+          (check-equal? (.call table .ref base -1) 1)
+          visits))
+      (let ((reference (exercise #f)) (reused (exercise #t)))
+        (check (< reused reference) => #t)
+        (displayln "TABLE-WRAPPER-SHAPE reference=" reference " reused=" reused)))
     (test-case "paired revision checks retain every origin and prepared receiver scope"
       ;; Each iteration owns its Types; no shared library Type is mutated.
       (for (index (in-range 6))

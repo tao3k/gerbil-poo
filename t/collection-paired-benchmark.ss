@@ -2,14 +2,15 @@
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
         (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie Trie. trie-for-each-change) (only-in ../fun IdWrap)
-        (only-in "closure-measure.ss" measure median))
+        (only-in "closure-measure.ss" measure median mean))
 
 ;; One inventory drives diagnostic setup and the full measured suite.
 (def +backend-phases+
   '(backend-rational-prepare backend-rational-cold backend-rational-observe backend-rational-equality
     backend-rational-workflow backend-rational-retry
     backend-trie-prepare backend-trie-cold backend-trie-observe backend-trie-equality
-    backend-trie-workflow backend-trie-retry))
+    backend-trie-workflow backend-trie-retry
+    backend-trie-shape-cold backend-trie-shape-workflow backend-trie-shape-retry))
 
 ;; Ordered diagnostics retain the existing complete publication and ownership phases.
 (def +order-phases+
@@ -228,14 +229,18 @@
   (def cooked-value (Pair callback Integer))
   (def checked (validate callback (lambda (x) (+ x 1))))
   (def trie? (string-prefix? "backend-trie-" (symbol->string scenario)))
+  (def shape? (memq scenario '(backend-trie-shape-cold backend-trie-shape-workflow backend-trie-shape-retry)))
   ;; Diagnostic counters run separately from timed observations. Backend reads,
   ;; writes and folds are distinct from carrier, key and payload conversions.
   (def (observe index f)
     (if counts (lambda args
       (vector-set! counts index (+ 1 (vector-ref counts index))) (apply f args)) f))
   ;; Fresh receivers have independent metadata and normal standard-library storage.
-  (def (make-source)
-    (def source (if trie? (SimpleTrie UInt raw-value) (.cc (RationalDict raw-value) Key: UInt)))
+  (def (make-source (preserves? #t))
+    (def backend (if trie? (SimpleTrie UInt raw-value) (.cc (RationalDict raw-value) Key: UInt)))
+    ;; Both diagnostic sides own equivalent protocols, differing only in the
+    ;; existing explicit law. No GC-regime switch enters the library.
+    (def source (if shape? (.cc backend .shape-preserving?: preserves?) backend))
     (.cc source
       .ref: (observe 6 (.@ source .ref)) .acons: (observe 7 (.@ source .acons))
       .foldl: (observe 8 (.@ source .foldl))))
@@ -292,6 +297,10 @@
   ;; Setup is common and recorded separately; only cold constructs within timing.
   (def generated (derive source))
   (def target (.call generated .wrap base))
+  ;; Independent same-process reference keeps every derived inverse/Function
+  ;; check; disabling the declaration restores output-shape admission.
+  (def reference (and shape? (derive (make-source #f))))
+  (def reference-target (and reference (.call reference .wrap base)))
   ;; Structural equality is measured directly on fresh, equal/unequal Tuple/Pair
   ;; fixtures. This is an independent control, not a subtraction-based attribution
   ;; of equality CPU inside the full workflow. No conversion occurs in this slice.
@@ -317,12 +326,13 @@
               (unless (and (equal? (vector-ref entry 0) (vector-ref entry 1))
                            (not (equal? (vector-ref entry 0) (vector-ref entry 2))))
                 (error "backend equality oracle"))) #t)))
-      (derived?
+      ((or derived? shape?)
         (lambda ()
-          (def selected-source (if cold? (make-source) source))
-          (def selected (if cold? (derive selected-source) generated))
+          (def selected-source (if cold? (make-source derived?) source))
+          (def selected (if cold? (derive selected-source) (if derived? generated reference)))
           (publish selected
-            (if cold? (.call selected .wrap (.call selected-source .<-list rows)) target) #t retry?)))
+            (if cold? (.call selected .wrap (.call selected-source .<-list rows))
+              (if derived? target reference-target)) #t retry?)))
       (else
         (lambda ()
           (def selected (if cold? (make-source) source))
@@ -373,6 +383,18 @@
   (when (eq? regime 'collected) (##gc))
   (vector (capture action repetitions) first preparation))
 
+;; Describe every retained pair, including loss count and empirical upper tail.
+;; A small sample quantile is diagnostic, never a future latency guarantee.
+(def (report-collection-tail label differences)
+  (def ordered (list-sort < differences))
+  (def n (length ordered))
+  (displayln "COLLECTION-TAIL " label " n=" n
+    " wins=" (length (filter negative? differences))
+    " losses=" (length (filter positive? differences))
+    " mean-us=" (mean differences)
+    " p90-us=" (list-ref ordered (- (quotient (+ (* 9 n) 9) 10) 1))
+    " min=" (car ordered) " max=" (list-ref ordered (- n 1))))
+
 ;; Every regime uses fresh matched fixtures per pair and the same fixed prefix.
 ;; A/A and B/B retain both prefix histories and alternate measurement slots. The
 ;; candidate control distinguishes its own noise from the slower reference's noise.
@@ -395,7 +417,7 @@
   (for (scenario +backend-phases+)
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (for* ((scenario (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+)) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry order-diff order-stage order-owner order-workflow order-publication))
+  (for* ((scenario (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+)) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -458,8 +480,25 @@
             (vector->list side))))
         (* (/ 1e6 (+ repetitions 1)) (- (wall (vector-ref pair 5)) (wall (vector-ref pair 4))))) observations))
         (displayln "COLLECTION-CHARGED " scenario "/" control?
-          " wall-us=" (median charged) " min=" (apply min charged) " max=" (apply max charged))))
+          " wall-us=" (median charged) " min=" (apply min charged) " max=" (apply max charged))
+        (report-collection-tail (list scenario 'inclusive control?) charged)
+        ;; Means of disjoint components add to the inclusive mean; medians do not.
+        (for (component '(0 1 2))
+          (def (component-deltas select)
+            (map (lambda (pair)
+              (def (amount side)
+                (select (vector-ref (vector-ref (vector-ref side component) 0) 0)
+                        (vector-ref (vector-ref (vector-ref side component) 0) 1)
+                        (vector-ref (vector-ref (vector-ref side component) 0) 2)))
+              (* (/ 1e6 (+ repetitions 1))
+                (- (amount (vector-ref pair 5)) (amount (vector-ref pair 4))))) observations))
+          (displayln "COLLECTION-COMPONENT " (list scenario control? (list-ref '(batch first forced-gc) component))
+            " wall-mean-us=" (mean (component-deltas (lambda (_cpu wall _gc) wall)))
+            " non-gc-mean-us=" (mean (component-deltas (lambda (cpu _wall gc) (- cpu gc))))
+            " gc-mean-us=" (mean (component-deltas (lambda (_cpu _wall gc) gc)))
+            " residual-mean-us=" (mean (component-deltas (lambda (cpu wall _gc) (- wall cpu))))))))
     (let (wall (deltas 1))
+      (report-collection-tail (list scenario regime control?) wall)
       (displayln "COLLECTION-SUMMARY " scenario "/" regime "/" (cond ((eq? control? 'candidate) 'bb) (control? 'aa) (else 'ab))
         " wall-us=" (median wall) " min=" (apply min wall) " max=" (apply max wall)
         " cpu-us=" (median (deltas 0)) " gc-us=" (median (deltas 2))

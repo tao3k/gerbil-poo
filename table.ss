@@ -442,7 +442,12 @@
       ;; Check encountered carrier inverses without rebuilding or normalizing leaves.
       ;; Share one pure conversion result within this check, never across calls.
       ;; Equality and user conversion costs remain explicit, not constant-time laws.
-      (def (encode input)
+      (def (encode input (updated? #f))
+        ;; Only successful typed point updates may reuse the backend's existing
+        ;; persistent-shape law. Other backends still take normal admission.
+        ;; Observed execution retains the real validator demand/refusal for
+        ;; fresh roots; the law is not a replacement for read authority.
+        (when (and updated? (not (%slot-read-active?))) (admit-source input #t))
         (admit-source input)
         (let* ((output (shape (wrap input))) (recovered (unwrap output)))
           (unless (equal? recovered input)
@@ -510,9 +515,9 @@
             .acons: (lambda (k v input)
               (guard (lambda ()
                 (encode (.call source .acons (translate backward #t k)
-                  (translate backward #f v) (decode input))))))
+                  (translate backward #f v) (decode input)) #t))))
             .remove: (lambda (input k)
-              (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k))))))
+              (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k)) #t))))
             .foldl: (fold (.@ source .foldl)) .foldr: (fold (.@ source .foldr))))
         ;; Publish the complete receiver scope once after private construction.
         (set! protected (cons result sources))

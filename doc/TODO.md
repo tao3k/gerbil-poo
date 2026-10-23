@@ -1465,3 +1465,9 @@ Prepared receiver scopes reuse the existing complete-scope fast path, preserving
 all revision checks. A paired-list revision candidate was withdrawn after adverse
 whole-workflow measurements; retry tails and full-entry variability remain bounded
 evidence limits, not closed performance guarantees. See table-representations.md.
+
+Represented persistent point-update outputs now reuse the already declared
+shape-preservation/admission law from ordered tables. Full initial/refusal checks
+remain; GC/first/batch cost means, paired loss counts and empirical upper tails are
+reported separately. Full-entry stability remains an evidence limit. See the
+final persistent-output receipt in table-representations.md.
