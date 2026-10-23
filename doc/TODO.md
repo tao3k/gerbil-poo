@@ -1491,3 +1491,25 @@ The whole-entry fixture-pruning experiment was withdrawn after adverse cold-call
 tails, despite its lower aggregate mean. All default preparation/checks remain;
 setup work is separately visible. The bounded investigation is complete without
 claiming stable future wall latency; see table-representations.md.
+
+### Shared translation-declaration preparation closure
+
+Table transport, representation derivation and fold isomorphism now protect the
+complete endpoint-admission/callback-selection interval. Later computed getters
+cannot rewrite a previously checked converter, table or child Type and then capture
+apparently current stamps. The shared source-discovery/complete-scope continuation
+reuses existing object guards and `using`; original getter failures, incompatible
+endpoint priority, fresh retry and Function identity share one protocol. The
+Reader/FUN `prepare-ledger-transport` example reparses no grammar and creates no
+alternate publisher: it prepares a fresh current mapping per request, then reuses
+ordinary delta transport, conflict refusal, IO consumption and inverse recovery.
+
+Lean's exact finite endpoint/frame law is conditional on faithful metadata and
+supported writes; raw mutation, arbitrary callback termination, inferred
+isomorphisms and runtime/compiler verification retain their separate scope.
+Twelve constructor/victim combinations and the complete service flow are in
+`t/table-validation-test.ss`. This closes this concrete preparation unit, not the
+whole proposed collection library. The complete-entry heap-policy experiment is
+retained but not enabled: whole wall improved in four pairs while individual
+workflow tails still regressed. See table-representations.md for the full-cost
+split, paired maxima, same-policy controls and unmodified resource limits.

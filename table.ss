@@ -385,30 +385,33 @@
         (.@ target .empty) input)))
   (values key table owners (lambda () seen)))
 
-;; Prepare typed directions once under the complete construction scope. Both
-;; public transport and fold derivation reuse these checks and callbacks; deriving
-;; a fold does not allocate unused transport/Delta Wrappers or their metadata.
+;; Discover child/origin sources under parent/converter protection, then admit
+;; all four endpoints before binding callbacks under the complete source scope.
+;; Both public transport and fold derivation reuse this preparation; a computed
+;; getter cannot revise an earlier participant and certify the new revision stamp.
 (def (call-with-table-translations source target key value extra action)
-  (unless (and (eq? (.@ key Domain) (.@ source Key))
-               (eq? (.@ key Codomain) (.@ target Key))
-               (eq? (.@ value Domain) (.@ source Value))
-               (eq? (.@ value Codomain) (.@ target Value)))
-    (error "incompatible table isomorphism types"))
-  (def sources (delete-duplicates/hash
-    (append (table-sources source) (table-sources target) (list key value) extra)
-    table: (make-hash-table-eq) from-end?: #t))
-  (with-table-sources sources
+  (with-table-sources (append (list source target key value) extra)
     (lambda ()
-      (def ka (.@ key .ap)) (def ku (.@ key .unap))
-      (def va (.@ value .ap)) (def vu (.@ value .unap))
-      (using ((ka :~ procedure?) (ku :~ procedure?) (va :~ procedure?) (vu :~ procedure?))
-        ;; Bind the four child Types once while every source is protected. The
-        ;; private directions retain the same origins as public delta/fold guards.
-        (def sk (.@ source Key)) (def tk (.@ target Key))
-        (def sv (.@ source Value)) (def tv (.@ target Value))
-        (def forward (make-table-translation source target sk tk sv tv ka ku va vu))
-        (def backward (make-table-translation target source tk sk tv sv ku ka vu va))
-        (action sources forward backward)))))
+      (def sources (delete-duplicates/hash
+        (append (table-sources source) (table-sources target) (list key value) extra)
+        table: (make-hash-table-eq) from-end?: #t))
+      (with-table-sources sources
+        (lambda ()
+          (unless (and (eq? (.@ key Domain) (.@ source Key))
+                       (eq? (.@ key Codomain) (.@ target Key))
+                       (eq? (.@ value Domain) (.@ source Value))
+                       (eq? (.@ value Codomain) (.@ target Value)))
+            (error "incompatible table isomorphism types"))
+          ;; Keep endpoint refusal ahead of callback getters; internal definitions
+          ;; must not hoist those getters above the compatibility boundary.
+          (let ((ka (.@ key .ap)) (ku (.@ key .unap))
+                (va (.@ value .ap)) (vu (.@ value .unap)))
+            (using ((ka :~ procedure?) (ku :~ procedure?) (va :~ procedure?) (vu :~ procedure?))
+              (def sk (.@ source Key)) (def tk (.@ target Key))
+              (def sv (.@ source Value)) (def tv (.@ target Value))
+              (def forward (make-table-translation source target sk tk sv tv ka ku va vu))
+              (def backward (make-table-translation target source tk sk tv sv ku ka vu va))
+              (action sources forward backward))))))))
 
 ;; Derive a complete persistent table protocol from an existing backend and
 ;; explicit carrier/key/value isomorphisms. Target supplies shape and child Types,

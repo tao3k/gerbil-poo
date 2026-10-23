@@ -1,5 +1,5 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
-(export run-child measure read-datum write-datum source-digests median mean)
+(export run-child measure measure-pair read-datum write-datum source-digests median mean)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
 ;; Result columns stay CPU, wall, GC CPU, collections, allocated bytes.
 ;; An optional observer receives the SAME raw boundary snapshots after timing;
@@ -15,6 +15,19 @@
                         (inexact->exact (delta 6)) (inexact->exact (- (delta 7) (f64vector-ref after 9)))))
   (when observe (observe before after))
   (values result metrics))
+
+;; Complete the ordered pair before reporting, keeping formatting/flush allocation
+;; outside the gap between samples. On refusal report every completed sample once
+;; before propagating the original cause, provided report succeeds. Reporting
+;; failures are fatal too; report must not mutate actions.
+;; A reporter may expose partial progress but never re-executes a sample.
+(def (measure-pair order sample report)
+  (def results [])
+  (try
+    (for (side order) (set! results (cons (cons side (sample side)) results)))
+    (finally (report (reverse results))))
+  results)
+
 (def (read-datum path)
   (call-with-input-file path
     (lambda (port)

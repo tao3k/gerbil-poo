@@ -2,7 +2,7 @@
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
         (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie Trie. trie-for-each-change) (only-in ../fun IdWrap)
-        (only-in "closure-measure.ss" measure median mean))
+        (only-in "closure-measure.ss" measure measure-pair median mean))
 
 ;; One inventory drives diagnostic setup and the full measured suite.
 (def +backend-phases+
@@ -445,25 +445,30 @@
           (for* ((_ (in-range 2)) (side order)) ((if (eq? side 'baseline) baseline candidate)))
           #t) 1 #f (lambda (before after) (set! history (measurement-history before after)))))
         (displayln "COLLECTION-PREFIX " (vector scenario regime control? round metrics history)))
-      (def results [])
-      (for (side order)
-        (def action (cond ((eq? control? 'candidate) candidate) ((or control? (eq? side 'baseline)) baseline) (else candidate)))
-        (def measured (measure-collection-action action repetitions regime))
-        (def batch (vector-ref measured 0))
-        (def metrics (vector-ref batch 0))
-        (def history (vector-ref batch 1))
-        (when (eq? regime 'post-gc)
-          (write (vector 'collection-preparation scenario control? round side
-            (vector-ref measured 2) (vector-ref measured 1)))
-          (newline))
-        (write (vector 'collection-pair scenario regime control? round side metrics (allocation metrics) history))
-        (newline) (force-output)
-        (set! results (cons (cons side measured) results)))
+      ;; Report after both sides, so serialization cannot perturb the second
+      ;; sample's natural GC history. The whole entry still charges every write;
+      ;; finally retains partial diagnostics on refusal and one flush per pair.
+      (let ((results (measure-pair order
+        (lambda (side)
+          (def action (cond ((eq? control? 'candidate) candidate) ((or control? (eq? side 'baseline)) baseline) (else candidate)))
+          (measure-collection-action action repetitions regime))
+        (lambda (completed)
+          (for (([side . measured] completed))
+            (def batch (vector-ref measured 0))
+            (def metrics (vector-ref batch 0))
+            (def history (vector-ref batch 1))
+            (when (eq? regime 'post-gc)
+              (write (vector 'collection-preparation scenario control? round side
+                (vector-ref measured 2) (vector-ref measured 1)))
+              (newline))
+            (write (vector 'collection-pair scenario regime control? round side metrics (allocation metrics) history))
+            (newline))
+          (force-output)))))
       ;; Read observations after both measured actions; internal definitions are
       ;; expanded ahead of expressions by Gerbil and must not snapshot results.
       (let ((a (cdr (assq 'baseline results))) (b (cdr (assq 'candidate results))))
         (set! observations (cons (vector (vector-ref (vector-ref a 0) 0) (vector-ref (vector-ref b 0) 0)
-          (vector-ref (vector-ref a 0) 1) (vector-ref (vector-ref b 0) 1) a b) observations))))
+          (vector-ref (vector-ref a 0) 1) (vector-ref (vector-ref b 0) 1) a b) observations)))))
     ;; Positive signed differences mean regression; controls and ranges remain visible.
     (def (deltas index)
       (map (lambda (pair) (* (/ 1e6 repetitions)

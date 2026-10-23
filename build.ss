@@ -15,6 +15,6 @@
   (match args
     ;; Standard Gambit timing reports make work/GC separately from whole-process timing.
     (["library" . _] (time (apply build-selected (build-request args))))
-    (["benchmark" . _] (apply build-consumer args))
-    (["test-program" . _] (apply build-consumer args))
+    (["benchmark" . _] (time (apply build-consumer args)))
+    (["test-program" . _] (time (apply build-consumer args)))
     (else (apply build-selected (build-request args)))))

@@ -40,6 +40,72 @@
 ;; Cover default tables, ordered dictionaries, Patricia tries, derived sets and Map.
 (def table-validation-test
   (test-suite "recursive persistent table binding protocol"
+    (test-case "all translation constructors protect endpoint preflight and preserve getter failures"
+      (for* ((kind '(transport fold representation)) (victim '(converter source target child)))
+        (def key-type (.cc UInt))
+        (def source (.cc (RationalDict Integer) Key: key-type)) (def target (.cc source))
+        (def keys (.cc Wrapper. Domain: key-type Codomain: key-type .ap: identity .unap: identity))
+        (def changed (case victim ((converter) keys) ((source) source) ((target) target) (else key-type)))
+        (def interfere? #t) (def fail? #f) (def failure (list kind victim 'endpoint-refused))
+        (def values (.o (:: @ Wrapper.) Codomain: Integer .ap: identity .unap: identity
+          (Domain (begin
+            (when fail? (raise failure))
+            (when interfere?
+              (case victim
+                ((converter) (.set! keys Domain String))
+                ((source) (.set! source Key String))
+                ((target) (.set! target Key String))
+                (else (.set! key-type sexp 'changed))))
+            Integer))))
+        (def carrier (.cc Wrapper. Domain: source Codomain: target .ap: identity .unap: identity))
+        (def folding (table-fold source Integer (lambda (_ v) v)))
+        ;; Use the public constructor for each independent protected preparation.
+        (def (prepare (converter values))
+          (case kind
+            ((transport) (table-isomorphism source target keys converter))
+            ((fold) (.call folding .isomorphism target keys converter))
+            (else (table-wrapper source carrier keys converter))))
+        (def version (object-revision changed))
+        (check-exception (prepare) (message? "object mutation during computation"))
+        (check-equal? (object-revision changed) version)
+        (set! interfere? #f) (set! fail? #t)
+        (check (eq? (cause-of prepare) failure) => #t)
+        (set! fail? #f)
+        (prepare)
+        ;; The incompatible endpoint refuses before a later callback getter.
+        (def incompatible (.o (:: @ Wrapper.) Domain: String Codomain: Integer
+          .unap: identity (.ap (raise failure))))
+        (check-exception (prepare incompatible) (message? "incompatible table isomorphism types"))))
+    (test-case "fresh FUN transport closes refused construction, conflict retry and callback-preserving undo"
+      (def payload (Tuple (Fun Integer <- Integer) UInt))
+      (def source (.cc (RationalDict payload) Key: UInt)) (def target (.cc source))
+      (def keys (.cc Wrapper. Domain: UInt Codomain: UInt .ap: identity .unap: identity))
+      (def interfere? #t)
+      (def values (.o (:: @ Wrapper.) Codomain: payload .ap: identity .unap: identity
+        (Domain (begin (when interfere? (.set! keys Domain String)) payload))))
+      (def callback (validate (Fun Integer <- Integer) (lambda (n) (+ n 1))))
+      (def base (.call source .<-list (list (cons 1 (vector callback 10)) (cons 9 (vector callback 90)))))
+      (def next (.call source .acons 1 (vector callback 20) base))
+      (def delta (.call source .diff base next)) (def consumed 0)
+      (def publish (service.prepare-ledger-transport source target keys values
+        (lambda (root) (set! consumed (+ consumed 1)) root)))
+      (check-exception (publish (cons base delta)) (message? "object mutation during computation"))
+      (check-equal? consumed 0)
+      (set! interfere? #f)
+      (def accepted (publish (cons base delta)))
+      (check-equal? consumed 1)
+      (check (eq? (vector-ref (.call target .ref accepted 1) 0) callback) => #t)
+      (check-exception (callback "bad") TypeError?)
+      (check-exception (publish (cons accepted delta)) table-conflict?)
+      (check-equal? consumed 1)
+      (def fresh (.call source .diff accepted (.call source .acons 1 (vector callback 30) accepted)))
+      (def retried (publish (cons accepted fresh)))
+      (check-equal? consumed 2)
+      (check-equal? (vector-ref (.call target .ref retried 1) 1) 30)
+      (def restored (publish (cons retried (invert-table-delta fresh))))
+      (check-equal? consumed 3)
+      (check (eq? (vector-ref (.call target .ref restored 9) 0) callback) => #t)
+      (check-equal? (vector-ref (.call target .ref restored 1) 1) 20))
     (test-case "fold guards refuse truncated extended and malformed captured revisions"
       (def source (RationalDict Integer))
       (def folding (table-fold source Integer (lambda (_ value) value)))
