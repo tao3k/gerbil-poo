@@ -209,7 +209,10 @@
     .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
   (def payloads (.cc Wrapper. Domain: UInt Codomain: UInt .ap: identity .unap: identity))
   (def derived (table-wrapper backend carrier keys payloads))
-  (def ordered (table-order derived (.@ derived Comparer)))
+  ;; Repeated order views retain positioning through the transported key domain.
+  ;; No layer materializes/sorts a complete list merely to restore the capability.
+  (def inner (table-order derived (.@ derived Comparer)))
+  (def ordered (table-order inner (.@ inner Comparer)))
   (def declaration (.cc Type. name: 'priority table: ordered unique?: #t
     project: (lambda (_ row) (bitwise-xor (vector-ref row 0) 1))))
   (values (table-indexes source (list declaration)) source derived))

@@ -42,8 +42,8 @@
     (lambda (left right) (.call comparer .compare (decode left) (decode right)))
     (append (list comparer key domain) (.@ comparer .sources))))
 
-;; Reuse the original persistent carrier and point operations, replacing only
-;; traversal with Gerbil's list-sort. No ordered backend or balancing is copied.
+;; Reuse the original persistent carrier, point operations and positioned traversal.
+;; Gerbil list-sort supplies only the fallback; no balancing algorithm is copied.
 ;; Inclusive/exclusive bounds use Option, so false remains a possible key.
 (def (table-order source comparer)
   (unless (eq? (.@ source Key) (.@ comparer Key)) (error "incompatible table order key"))
@@ -95,6 +95,14 @@
       (iter (filter (lambda (entry)
         (or (not lower) (let (sign (.call comparer .compare (car entry) (some-value lower)))
           (if inclusive? (>= sign 0) (> sign 0))))) (bindings state)))))
+  ;; Publish the same ordered cursor for further order/Wrapper composition.
+  ;; Existing Iterator mapping guards every deferred pull, including EOF, without
+  ;; copying entries or keeping metadata protection across coroutine suspension.
+  (def (position state lower inclusive?)
+    (observe state (lambda ()
+      (bounds lower #f inclusive? #t)
+      (iterator-map identity (entries state lower inclusive?)
+        (lambda (action) (observe state action))))))
   ;; A fresh positioned iterator stops on the first upper-bound failure. The
   ;; enclosing guard covers positioning, every pull and bound comparison.
   (def (range state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
@@ -124,7 +132,7 @@
       (observe state (lambda () (.call source .ref state key missing))))
     .acons: (lambda (key row state) (update state key (lambda () (.call source .acons key row state))))
     .remove: (lambda (state key) (update state key (lambda () (.call source .remove state key))))
-    .range: range .seek: seek
+    .range: range .seek: seek .seek<-: position
     .foldl: (lambda (f seed state) (observe state (lambda ()
       (for/fold (acc seed) (entry (entries state #f #t)) (f (car entry) (cdr entry) acc)))))
     .foldr: (lambda (f seed state) (observe state (lambda ()

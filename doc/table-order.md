@@ -317,3 +317,29 @@ qualified. Allocations and interval GC history alone do not explain residuals.
 The final single-process check passes all 128 modules / 1,249 cases within the
 unchanged 300-second / 1-GiB bound (24.15 seconds measured test wall). No checks,
 failed observations, resource limits or complete admissions were removed.
+
+## Composable ordered cursors
+
+`table-order` publishes `.seek<-` as well as `.seek` and `.range`. Its cursor is
+an ordinary Gerbil `Iterator`, using the existing `iterator-map` guard mechanism.
+A second order view with the same constructor-owned comparer delegates to that
+cursor; a typed `table-wrapper` can transfer it again. Entries, including admitted
+Function leaves, are passed through unchanged. Each layer checks its captured
+sources on creation and on every deferred pull, including EOF. A failed check
+precedes the underlying pull; no new entry or advanced tail is returned.
+
+This capability states ordered enumeration, not logarithmic positioning. A
+RationalDict fallback still sorts once per cursor creation through its public
+operations. Composing an unchanged order view does not sort it again. A mismatched
+or modified comparer retains the reference sort/filter route. Guard work grows
+with the number of composed views; no universal constant-time, allocation or GC
+bound follows. Persistent carrier and lawful comparer obligations are unchanged.
+
+The nested service fixture combines transported xor keys, two order views,
+correlated unique indexes, linear FUN publication, inverse recovery and conflict
+retry. Regression controls prohibit full enumeration on a warm Trie path, preserve
+opaque callback identity, reject invalid bounds and stale partially consumed or
+exhausted cursors. Lean's `checkedTablePull` laws model revision refusal before a
+single backend pull, exact payload/tail retention and nested-guard conjunction;
+`tableRangePrefix_identity` preserves the existing finite prefix and pull count.
+They do not verify Gerbil's coroutine implementation or user callback purity.

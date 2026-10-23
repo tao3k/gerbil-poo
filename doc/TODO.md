@@ -1421,3 +1421,14 @@ rebuilding, duplicate stability, single-key correspondence and ordered claim
 failure. Arbitrary projection termination/purity, callback-effect rollback,
 automatic query discovery and concrete backend complexity remain boundaries;
 this advances the general collection proposal rather than declaring it complete.
+
+### Ordered cursor composition
+
+The ordered collection protocol now retains `.seek<-` through nested `table-order`
+views and existing typed Wrapper transfer. This closes the accidental capability
+loss that forced a composed view back through full enumeration/sorting. Existing
+Gerbil Iterator guards cover each delayed pull and EOF; no parallel cursor engine
+or namespace is introduced. Nested service publication, inverse/retry, callback
+identity and stale-origin regression controls accompany finite Lean guard and
+observation laws. Backend-specific positioning complexity and automatic query
+optimization remain their stated separate boundaries; see table-order.md.
