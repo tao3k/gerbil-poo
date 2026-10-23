@@ -1246,6 +1246,13 @@ are checked before installation and during deferred pulls. See
 [set-algebra.md](set-algebra.md) for aliasing, failure/retry, examples and SetStyle
 proofs. This does not introduce a static ownership checker or destructive backend.
 
+**Checked selection and atomic partition** now close the dangling set
+`.filter`/`.partition` declarations through `methods.table`, all five table/set
+styles and Gerbil receivers. Complete branch admission precedes one ownership
+installation; strict Boolean classification, late refusal/retry, wrapper retention
+and stale-owner rejection share the existing guards. See [set-algebra.md](set-algebra.md)
+for ownership, finite Lean laws, complexity and callback-effect boundaries.
+
 Ordered multi-round revision batches are now a complete additional unit:
 `.compose-deltas` retains all intermediate expectations and origin dependencies,
 including empty origins, repeated keys and deletion/reinsertion. Ordinary

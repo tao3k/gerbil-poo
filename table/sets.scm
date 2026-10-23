@@ -36,6 +36,23 @@
         (observe source (lambda ()
           (if present? (.call table .acons key (void) source) (.call table .remove source key))))))))
 
+;; Preserve set-specific recognition and declared origins on direct selection,
+;; including empty inputs. Table methods own traversal; this only changes arity
+;; and admits both returned roots before exposing any result to the caller.
+(def (select-set descriptor predicate input split?)
+  (using (predicate :~ procedure?)
+    (def table (.@ descriptor Table))
+    (with-table-sources (append (list descriptor)
+      (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
+      (unless (eq? (.@ table Value) Unit) (error "set algebra requires Unit values"))
+      (require-table descriptor input)
+      (def classify (lambda (element _) (predicate element)))
+      (def roots (if split?
+        (let-values (((yes no) (.call table .partition classify input))) (list yes no))
+        (list (.call table .filter classify input))))
+      (for-each (cut require-table descriptor <>) roots)
+      (apply values roots)))))
+
 (define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
@@ -53,8 +70,10 @@
   .foldr: (lambda (f a t) (.call Table .foldr (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
   .every: (lambda (f t) (.call Table .every (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
   .any: (lambda (f t) (.call Table .any (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
-  .filter: (lambda (f t) (.call Table .filter (lambda (e _) (f e)) t)) ;; : @ <- (Bool <- Elt) @
-  .partition: (lambda (f t) (.call Table .partition (lambda (e _) (f e)) t)) ;; : @ @ <- (Bool <- Elt) @
+  ;; Checked selection protects custom set refinements as well as backing Types.
+  .filter: (lambda (f t) (select-set @ f t #f)) ;; : @ <- (Bool <- Elt) @
+  ;; Both branches satisfy the same set descriptor before either escapes.
+  .partition: (lambda (f t) (select-set @ f t #t)) ;; : @ @ <- (Bool <- Elt) @
   .count: (.@ Table .count) ;; : Nat <- @
   .list<-: (lambda (t) (map car (.call Table .list<- t))) ;; : (List Elt) <- @
   .<-list: (lambda (l) (foldl .cons .empty l)) ;; : @ <- (List Elt)

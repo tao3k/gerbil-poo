@@ -46,6 +46,13 @@
 (defmethod (@@method remove %table-object)
   (lambda (self key) (.call (%table-object-protocol self) .remove self key)))
 
+;; Filtering keeps the receiver's style and original predicate arity.
+(defmethod (@@method filter %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .filter predicate self)))
+;; Partition returns two same-style results after one ownership installation.
+(defmethod (@@method partition %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .partition predicate self)))
+
 ;; Register the receiver directly with Gerbil's Iterable protocol. Standard for
 ;; and iter use the same snapshot-bound cursor as explicit FUN observation.
 (implement Iterable %table-object
@@ -184,8 +191,33 @@
     (def (fold input method f seed (descriptor source))
       (using (f :~ procedure?)
         (guard (lambda () ((.ref descriptor method) f seed (read input))))))
-    ;; Stage a single-result pure transformation, then admit without rewrapping.
-    ;; Refusal, exception or conflict before installation preserves the old head.
+    ;; Commit an already prepared result once. This shared boundary never calls
+    ;; user code while holding the lock and never exposes a losing successor.
+    (def (publish state expected first result)
+      (unless (eq? style 'pure)
+        (install state expected (and (eq? style 'mutable) (make-%table-head first))))
+      result)
+    ;; Stage a nonempty private list of roots. All roots, capabilities and receiver
+    ;; presentations are ready before the single head comparison/installation.
+    ;; Mutable style retains input as the first result; extra owners are fresh.
+    ;; Linear style retires input once and returns only fresh live successors.
+    (def (stage input transform)
+      (guard (lambda ()
+        (def state (unwrap input))
+        (def expected (and (not (eq? style 'pure)) (capture style state)))
+        (def before (if expected (%table-head-value expected) (admitted state)))
+        (def roots (map admitted (transform before)))
+        (def first (car roots))
+        (def results (cons
+          (case style
+            ((pure) (present first))
+            ((mutable) input)
+            ((linear) (present (reference style first))))
+          (map (lambda (root)
+            (present (if (eq? style 'pure) root (reference style root)))) (cdr roots))))
+        (publish state expected first results))))
+    ;; Single-result writes retain their direct path: partition's root/result lists
+    ;; are not allocated for ordinary point updates, deltas or FUN mapping.
     (def (step input transform)
       (using (transform :~ procedure?)
         (guard (lambda ()
@@ -193,15 +225,20 @@
           (def expected (and (not (eq? style 'pure)) (capture style state)))
           (def before (if expected (%table-head-value expected) (admitted state)))
           (def after (admitted (transform before)))
-          (case style
-            ((pure) (present after))
-            ((mutable) (install state expected (make-%table-head after)) input)
-            ((linear)
-             ;; Prepare the successor before consuming; allocation failure cannot
-             ;; retire the only reference. A losing staged successor never escapes.
-             (let (successor (present (reference 'linear after)))
-               (install state expected #f)
-               successor)))))))
+          (def result (case style
+            ((pure) (present after)) ((mutable) input)
+            ((linear) (present (reference style after)))))
+          (publish state expected after result)))))
+    ;; Set descriptors change predicate arity only. Backend traversal and both
+    ;; return values are retained; stage authenticates input before any callback.
+    (def (select method predicate input)
+      (using (predicate :~ procedure?)
+        (def descriptor (or set source))
+        (if (eq? method '.filter)
+          (step input (lambda (before) (.call descriptor .filter predicate before)))
+          (apply values (stage input (lambda (before)
+            (defvalues (yes no) (.call descriptor .partition predicate before))
+            (list yes no)))))))
     ;; Observe a compatible right state before beginning the left update callback.
     ;; Captured immutable roots remain stable; only the left capability commits.
     (def (combine method left right)
@@ -236,6 +273,8 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      .filter: (cut select '.filter <> <>)
+      .partition: (cut select '.partition <> <>)
       ;; Deferred observations retain source guards through every pull and EOF.
       .iter<-: (lambda (input) (observe input '.iter<- [] #t))
       .foldl: (lambda (f seed input) (fold input '.foldl f seed))

@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -328,3 +328,15 @@
       (@@method current.diff removals)
       (def linear (@@method current.convert 'linear))
       (.call (.@ styles Linear) .convert linear 'posh)))))
+
+;; Route one admitted access snapshot into accepted/rejected receiver branches.
+;; The classifier runs once per element; both branches finish admission before
+;; linear retirement. Reader/FUN map invokes IO only after the pair is complete.
+;; Predicate/refinement failure leaves the caller's persistent root for retry.
+(def (partition-access-action descriptor classify consume)
+  (using ((classify :~ procedure?) (consume :~ procedure?))
+    (.call Observation. .map (lambda (branches) (apply consume branches)) (lambda (before)
+      (def protocol (.@ (set-styles descriptor) Linear))
+      (def owner (.call protocol .ap before))
+      (defvalues (accepted rejected) (.call protocol .partition classify owner))
+      (list (.call protocol .list<- accepted) (.call protocol .list<- rejected))))))

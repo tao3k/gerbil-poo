@@ -683,6 +683,27 @@
       (.cc Wrapper. Domain: folding Codomain: target-fold
         .ap: convert .unap: recover .apply-delta: update))))
 
+;; Select admitted bindings with the backend fold and insertion protocol. The
+;; predicate runs once per visited binding, in fold order, and must return Bool.
+;; Both branches remain private until complete recognition succeeds; Function
+;; keys/values retain identity. Callback effects themselves cannot be rolled back.
+(def (select-table descriptor predicate input split?)
+  (using (predicate :~ procedure?)
+    (with-table-sources (table-sources descriptor) (lambda ()
+      (require-table descriptor input)
+      (def branches (.call descriptor .foldl (lambda (key value branches)
+        (def selected? (predicate key value))
+        (using (selected? :~ boolean?)
+          (if selected?
+            (cons (.call descriptor .acons key value (car branches)) (cdr branches))
+            (if split?
+              (cons (car branches) (.call descriptor .acons key value (cdr branches)))
+              branches))))
+        (cons (.@ descriptor .empty) (.@ descriptor .empty)) input))
+      (require-table descriptor (car branches))
+      (when split? (require-table descriptor (cdr branches)))
+      branches))))
+
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)
@@ -714,6 +735,13 @@
   ;; Both Key and Value recursively normalize after complete carrier admission.
   ;; Persistent reconstruction retains every replacement and rejects key collisions.
   .validate: (lambda (source) (validate-table @ source))
+
+  ;; Selection shares the same admitted binding traversal, without normalization.
+  .filter: (lambda (predicate input) (car (select-table @ predicate input #f)))
+  ;; Partition prepares and recognizes both branches before exposing either root.
+  .partition: (lambda (predicate input)
+    (def branches (select-table @ predicate input #t))
+    (values (car branches) (cdr branches)))
 
   ;; : (Fun Bool <- @)
   .empty?: (lambda (t) (eqv? t .empty))
