@@ -70,7 +70,11 @@ benchmark-collections width='64' samples='10' pairs='6': (build "library") (buil
 # CI has already admitted the exact shared library and every disjoint test group.
 # Construct the standard consumer once, run the complete suite, then compile and
 # run all study phases. Content-key admission is not an mtime-based make cache.
-_check-collections width='2' samples='1' pairs='4': (build "test-program") (_test "t" "300") (_build-benchmark "collection-paired-benchmark") (_run-collections width samples pairs)
+_check-collections width='2' samples='1' pairs='4': (build "test-program") (_check-linked-collections width samples pairs)
+
+# A cache hit has already admitted the compiler/library bytes and linked inventory.
+# Only construction is reused; the complete bounded suite and study run on every hit.
+_check-linked-collections width='2' samples='1' pairs='4': (_test "t" "300") (_build-benchmark "collection-paired-benchmark") (_run-collections width samples pairs)
 
 # Both standalone and admitted workflows execute the identical bounded study.
 _run-collections width samples pairs:

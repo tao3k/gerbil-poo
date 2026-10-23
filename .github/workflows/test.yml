@@ -18,12 +18,14 @@ jobs:
       matrix: ${{ steps.groups.outputs.matrix }}
       source-key: ${{ steps.library-cache.outputs.cache-primary-key }}
       binary-key: ${{ steps.library-bytes.outputs.key }}
-      compiler-key: ${{ steps.compiler.outputs.identity }}
+      compiler-key: ${{ steps.gerbil.outputs.compiler-key }}
       test-key: ${{ steps.groups.outputs.test-key }}
+      inventory-key: ${{ steps.groups.outputs.inventory-key }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: taiki-e/install-action@just
       - uses: ./.github/actions/setup-gerbil
+        id: gerbil
       - name: Validate every test module and emit its functional group
         id: groups
         env:
@@ -32,11 +34,8 @@ jobs:
           matrix="$(gxi t/test-matrix.ss)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "test-key=$TEST_SOURCE_KEY" >> "$GITHUB_OUTPUT"
-      - name: Identify the C toolchain used by the released compiler
-        id: compiler
-        run: |
-          identity="$( { cc --version; ld --version; uname -m; } | sha256sum | cut -d ' ' -f 1)"
-          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          inventory="$(timeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q t/test-matrix.ss inventory)"
+          echo "inventory-key=$inventory" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: library-cache
         with:
@@ -44,7 +43,7 @@ jobs:
             .ci-library/lib
             .ci-library/build-source-key
             .ci-library/producer-revision
-          key: scheme-library-v2-${{ runner.os }}-${{ runner.arch }}-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee-${{ steps.compiler.outputs.identity }}-${{ hashFiles('*.ss', 'table/**/*.scm', 'trie/**/*.scm', 'types/**/*.ss', 'support/**/*.ss', 'examples/**/*.ss', 't/**/*.ss', '!t/*-test.ss', 'gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
+          key: scheme-library-v2-${{ runner.os }}-${{ runner.arch }}-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('*.ss', 'table/**/*.scm', 'trie/**/*.scm', 'types/**/*.ss', 'support/**/*.ss', 'examples/**/*.ss', 't/**/*.ss', '!t/*-test.ss', 'gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
       - name: Compile the shared Scheme modules once
         if: steps.library-cache.outputs.cache-hit != 'true'
         run: just build library
@@ -98,6 +97,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: taiki-e/install-action@just
       - uses: ./.github/actions/setup-gerbil
+        id: gerbil
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: scheme-library-${{ github.sha }}
@@ -105,12 +105,7 @@ jobs:
       - name: Require this run's checked revision
         run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
       - name: Require the shared library's C toolchain
-        env:
-          EXPECTED_COMPILER: ${{ needs.build.outputs.compiler-key }}
-        run: |
-          set -euo pipefail
-          actual="$( { cc --version; ld --version; uname -m; } | sha256sum | cut -d ' ' -f 1)"
-          test "$actual" = "$EXPECTED_COMPILER"
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - uses: actions/cache/restore@v4
         id: tests-cache
         with:
@@ -154,6 +149,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: taiki-e/install-action@just
       - uses: ./.github/actions/setup-gerbil
+        id: gerbil
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: scheme-library-${{ github.sha }}
@@ -174,6 +170,9 @@ jobs:
       - name: Run independent Scheme module tests
         run: printf '%s\n' ${{ matrix.modules }} | xargs -P 2 -n 1 just test-file
   single-process:
+    # Standard compiler progress exposes C generation, object commands and linking.
+    env:
+      GERBIL_BUILD_VERBOSE: 9
     needs: [build, compile-tests]
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
@@ -182,6 +181,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: taiki-e/install-action@just
       - uses: ./.github/actions/setup-gerbil
+        id: gerbil
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: scheme-library-${{ github.sha }}
@@ -199,5 +199,23 @@ jobs:
         run: |
           gxi t/build-artifacts.ss collect "$BASE_KEY" "$(git rev-parse HEAD)"
           for group in .ci-tests/*; do cp -a "$group/lib/." .ci-library/lib/; done
-      - name: Run the complete admitted suite and every collection study phase
+      - name: Require the shared library's C toolchain
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - uses: actions/cache/restore@v4
+        id: program-cache
+        with:
+          path: .ci-library/bin/test-program
+          key: scheme-test-program-v1-${{ needs.build.outputs.source-key }}-${{ needs.build.outputs.binary-key }}-${{ needs.build.outputs.inventory-key }}
+      - name: Construct and check the complete consumer on a cache miss
+        if: steps.program-cache.outputs.cache-hit != 'true'
         run: time -p just _check-collections 2 1 4
+      - name: Check the complete cached consumer
+        if: steps.program-cache.outputs.cache-hit == 'true'
+        run: |
+          test -x .ci-library/bin/test-program
+          time -p just _check-linked-collections 2 1 4
+      - uses: actions/cache/save@v4
+        if: steps.program-cache.outputs.cache-hit != 'true'
+        with:
+          path: .ci-library/bin/test-program
+          key: ${{ steps.program-cache.outputs.cache-primary-key }}

@@ -1,5 +1,9 @@
 name: Released Gerbil
 description: Download and verify the compiled Linux release; no compiler build.
+outputs:
+  compiler-key:
+    description: C compiler, linker, architecture, libc and OpenSSL build inputs
+    value: ${{ steps.compiler.outputs.identity }}
 runs:
   using: composite
   steps:
@@ -25,3 +29,10 @@ runs:
         echo "$GERBIL_PREFIX/bin" >> "$GITHUB_PATH"
         printf '%s\n' "GERBIL_HOME=$GERBIL_HOME" "GAMBOPT=$GAMBOPT" >> "$GITHUB_ENV"
         gxi --version
+    - name: Identify the released compiler's host build dependencies
+      id: compiler
+      shell: bash
+      run: |
+        set -euo pipefail
+        identity="$( { cc --version; ld --version; uname -m; getconf GNU_LIBC_VERSION; pkg-config --modversion openssl; pkg-config --cflags --libs openssl; } | sha256sum | cut -d ' ' -f 1)"
+        echo "identity=$identity" >> "$GITHUB_OUTPUT"

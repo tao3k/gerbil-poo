@@ -240,3 +240,58 @@ not a cold Linux CI speedup or a statistical tail-latency guarantee. It retains
 all outcomes and does not infer GC effects from wall time. The historical Linux
 CI preparation regression is verified separately from its completed job logs.
 Raw full logs remain outside Git; no full datasets or archives are committed.
+
+* Reusing the checked test executable
+Run 39891329319 measured 148.65 seconds for the complete admitted entry, including
+117.19 seconds in =test-program=. The executable backend was entered about four
+seconds after construction began. The remaining backend interval includes Gambit
+C generation, per-module static-object compilation and final linkage; the old
+verbosity does not isolate each subinterval. The installed separate-compilation
+driver's Linux branch queues this executable phase as one task and walks its
+object jobs serially. A larger make worker budget alone does not split that task.
+Cold-run standard =GERBIL_BUILD_VERBOSE=9 now exposes the actual backend commands.
+
+The existing Actions cache covered library and disjoint test-group outputs but
+excluded =bin/test-program=. The single-process job now caches that standard
+Gerbil executable after successful full acceptance. Its immutable key binds the
+existing shared source key, exact compiled library bytes, and ordered test-file
+inventory. The source key already binds release identity, OS/architecture and
+host compiler identity. The existing =setup-gerbil= action now computes that host
+identity once per job, including compiler, linker, libc and pkg-config OpenSSL
+version/flags. Producer, test compilers and executable consumer use that same
+output instead of separate implementations or selection environment switches.
+
+Test bodies remain bound by each group's existing complete source digest and
+current-run revision admission. A body-only edit preserves the executable's file
+inventory key while invalidating its group source key. Adding a test changes the
+inventory key; a missing declared test refuses before cache lookup. Regressions
+exercise these cases on a temporary complete source inventory, and ask Just to
+resolve miss, hit and standalone recipe graphs. A hit still runs the original
+whole-suite harness and every collection study phase with the same limits.
+
+A cold miss still constructs and checks the executable through =defbuild-script=.
+A hit checks executable permissions and uses =_check-linked-collections= after
+all source/compiler/group admission. The executable also retains its runtime
+inventory and linked-library checks. Standard Actions cache owns transfer and
+reuse; no second object scheduler or custom on-disk cache protocol is introduced.
+A genuinely new compiled library requires a new executable. Cache restoration,
+miss construction, full execution and cache save are distinct measured intervals.
+
+** Warm local entry control
+The same macOS compiled inputs were run in AB/BA order with full-entry Bash wall
+timing. A calls =_check-collections=; B reuses the same executable through
+=_check-linked-collections=. Every observation passes 128 modules, 1,251 cases,
+111 study summaries and =COLLECTION-PAIRED-OK=.
+
+| Order | Entry | Complete wall seconds |
+|-------+-------+-----------------------|
+| A0 | standard construction check | 42.77 |
+| B1 | checked linked consumer | 38.01 |
+| B2 | checked linked consumer | 31.15 |
+| A3 | standard construction check | 32.72 |
+
+The paired reductions are 4.76 and 1.57 seconds. These already-warm macOS objects
+are not a Linux first-construction control, and this local route comparison does
+not include Actions cache transfer. Linux miss/hit runs are qualified separately
+on the same source head, with cache lookup/restore included in their entry window.
+Cold compilation and tail-latency improvements are not inferred from a cache hit.

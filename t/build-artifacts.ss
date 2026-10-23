@@ -1,5 +1,5 @@
 ;;; Source-bound admission for disjoint compiled test-group artifacts.
-(export main artifact-key-valid? artifact-root group-root check-group check-all read-one-file group-source-key)
+(export main artifact-key-valid? artifact-root group-root check-group check-all read-one-file group-source-key test-inventory-key)
 (import :std/misc/ports :std/crypto/digest :std/encoding/hex "test-groups.ss")
 ;; Standard dynamic scope isolates admission fixtures from real compiler artifacts.
 (def artifact-root (make-parameter ".ci-tests/"))
@@ -23,6 +23,11 @@
   (hex-encode (sha256 (string->utf8 (call-with-output-string (lambda (port) (write
     (map (lambda (file) (cons file (hex-encode
       (sha256 (call-with-input-file file read-all-as-u8vector))))) (test-files group)) port)))))))
+;; Executable linkage embeds the ordered filenames, not test bodies. Group keys
+;; separately bind every body; cached consumers must never stand in for that check.
+(def (test-inventory-key (files (test-files)))
+  (hex-encode (sha256 (string->utf8
+    (call-with-output-string (lambda (port) (write files port)))))))
 ;; Check source identity and every required compiled interface before loading it.
 ;; Missing runtime code is also rejected by the ordinary module loader/tests.
 (def (check-group group base-key)

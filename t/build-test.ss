@@ -3,7 +3,7 @@
 (import (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
   (only-in "test-groups.ss" test-files test-batch checked-groups)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
-    group-source-key)
+    group-source-key test-inventory-key)
   (only-in "build-spec.ss" build-request consumer-request library-modules))
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
@@ -138,20 +138,43 @@
           read-all-as-lines))
       (def admitted (commands "_check-collections"))
       (def standalone (commands "benchmark-collections"))
+      (def linked (commands "_check-linked-collections"))
       ;; The producer owns library freshness; the admitted entry owns one consumer.
       (check-equal? (filter (cut string-prefix? "set -- " <>) admitted) '("set -- test-program"))
       (check-equal? (filter (cut string-prefix? "set -- " <>) standalone)
         '("set -- library" "set -- test-program"))
-      (for (lines (list admitted standalone))
+      (check-equal? (filter (cut string-prefix? "set -- " <>) linked) [])
+      (for (lines (list admitted standalone linked))
         (check-equal? (length (filter
           (cut string-suffix? "build.ss benchmark \"collection-paired-benchmark\"" <>) lines)) 1)
         (check-equal? (length (filter
           (cut string-suffix? "benchmark collection-paired-benchmark \"2\" \"1\" \"4\"" <>) lines)) 1))
-      ;; All modules still run through the existing bounded single-process harness.
-      (check-equal? (length (filter
-        (cut string-suffix? "test_command=(\"$GERBIL_PATH/bin/test-program\" \"-:max-heap=1G,debug=q\" \"t\")" <>) admitted)) 1)
-      (check-equal? (length (filter
-        (cut string-suffix? "300s \"${test_command[@]}\" 2>&1 | tee \"$test_log\"" <>) admitted)) 1))
+      ;; Cache hits retain exactly the same bounded complete harness as misses.
+      (for (lines (list admitted linked))
+        (check-equal? (length (filter
+          (cut string-suffix? "test_command=(\"$GERBIL_PATH/bin/test-program\" \"-:max-heap=1G,debug=q\" \"t\")" <>) lines)) 1)
+        (check-equal? (length (filter
+          (cut string-suffix? "300s \"${test_command[@]}\" 2>&1 | tee \"$test_log\"" <>) lines)) 1)))
+    (test-case "consumer inventory reuse never replaces test-body or group admission"
+      (def files (test-files))
+      (def expected (test-inventory-key))
+      (def group (caar (filter (lambda (group) (member (car files) (cdr group))) (checked-groups))))
+      (call-with-temporary-directory "poo-linked-inventory-"
+        (lambda (directory)
+          (create-directory (path-expand "t/" directory))
+          (parameterize ((current-directory directory))
+            (for-each (lambda (file) (call-with-output-file file void)) files)
+            (let (bodies (group-source-key group))
+              (check-equal? (test-inventory-key) expected)
+              (call-with-output-file (list path: (car files) truncate: #t)
+                (lambda (port) (display ";; changed test body" port)))
+              (check-equal? (test-inventory-key) expected)
+              (check (not (equal? (group-source-key group) bodies)) => #t)
+              (call-with-output-file "t/added-test.ss" void)
+              (check (not (equal? (test-inventory-key) expected)) => #t)
+              (delete-file "t/added-test.ss")
+              (delete-file (car files))
+              (check-exception (test-inventory-key) true))))))
     (test-case "source keys cover each full group and preserve the checked inventory"
       (for-each (lambda (group)
         (def key (group-source-key (car group)))
