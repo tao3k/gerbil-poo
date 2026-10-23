@@ -28,6 +28,69 @@
 ;; Simultaneous identifier swaps, shared-team migration and undo use one protocol.
 (def table-index-test
   (test-suite "declarative correlated table indexes"
+    (test-case "computed declarations refuse peer mutation before FUN publication and permit fresh retry"
+      (def source (RationalDict (Tuple UInt (Fun Integer <- Integer))))
+      (def backend (RationalDict (.@ source Key)))
+      (def earlier (.cc Type. name: 'earlier table: backend unique?: #t
+        project: (lambda (_ row) (vector-ref row 0))))
+      (def interfere? #t) (def revised 0) (def consumed 0)
+      (def later (.o (:: @ Type.) name: 'later table: backend unique?: #t
+        (project (begin
+          (when interfere? (.set! earlier project (lambda (_ row) (+ 100 (vector-ref row 0)))))
+          (lambda (_ row) (vector-ref row 0))))))
+      (def callback (validate (Fun Integer <- Integer) (lambda (n) (+ n 1))))
+      (def base (.call source .<-list (list (cons 1 (vector 7 callback)) (cons 2 (vector 9 callback)))))
+      ;; One service action covers cold preparation, exact callback retention,
+      ;; unique failure, explicit retry and inverse restoration after publication.
+      (def (publish value)
+        (service.publish-indexed-services source (list earlier later) base
+          (lambda (root) (set! revised (+ revised 1)) (.call source .acons 1 (vector value callback) root))
+          (lambda (indexed state)
+            (set! consumed (+ consumed 1))
+            (check-equal? (.call indexed .index-ref/opt state 'earlier value) (some 1))
+            (check-equal? (.call indexed .index-ref/opt state 'later value) (some 1))
+            (check (eq? (vector-ref (.call indexed .ref state 1) 1) callback) => #t)
+            (cons indexed state))))
+      (def revision (object-revision earlier))
+      (check-exception (publish 8) (message? "object mutation during computation"))
+      (check-equal? revised 0) (check-equal? consumed 0)
+      (check-equal? (object-revision earlier) revision)
+      (set! interfere? #f)
+      (check-exception (publish 9) table-index-conflict?)
+      (check-equal? revised 1) (check-equal? consumed 0)
+      (def published (publish 8))
+      (def indexed (car published)) (def state (cdr published))
+      (check-equal? revised 2) (check-equal? consumed 1)
+      (check-equal? (callback 7) 8) (check-exception (callback "bad") TypeError?)
+      (def delta (.call source .diff base (.call indexed .unwrap state)))
+      (def restored (.call indexed .apply-delta state (invert-table-delta delta)))
+      (check-equal? (.call indexed .index-ref/opt restored 'earlier 7) (some 1))
+      (.set! earlier project (lambda (_ row) (+ 100 (vector-ref row 0))))
+      (check-exception (.call indexed .ref state 1) (message? "stale indexed table")))
+    (test-case "computed recipes protect every discovered backend and child Type"
+      (for (which '(backend child source))
+        (def source (RationalDict Integer)) (def backend (RationalDict (.@ source Key)))
+        (def changed (case which ((backend) backend) ((child) (.@ backend Key)) (else source)))
+        (def revision (object-revision changed))
+        (def declaration (.o (:: @ Type.) name: 'value table: backend unique?: #t
+          (project (begin (.set! changed sexp 'changed) (lambda (_ value) value)))))
+        (check-exception (table-indexes source (list declaration)) (message? "object mutation during computation"))
+        (check-equal? (object-revision changed) revision)))
+    (test-case "computed getters cannot replace the original declaration request spine"
+      (def source (RationalDict Integer)) (def backend (RationalDict (.@ source Key)))
+      (def original (.cc Type. name: 'original table: backend unique?: #t project: (lambda (_ v) v)))
+      (def replacement (.cc original name: 'replacement))
+      (def declarations (list #f original))
+      (def first (.o (:: @ Type.) name: 'first table: backend unique?: #t
+        (project (begin (set-car! (cdr declarations) replacement) (lambda (_ v) v)))))
+      (set-car! declarations first)
+      (def indexed (table-indexes source declarations))
+      (def base (.call source .acons 1 7 (.@ source .empty)))
+      (def state (.call indexed .wrap base))
+      (check-equal? (.call indexed .index-ref/opt state 'original 7) (some 1))
+      (check-exception (.call indexed .index-ref/opt state 'replacement 7) (message? "unknown table index"))
+      (def fresh (table-indexes source declarations))
+      (check-equal? (.call fresh .index-ref/opt (.call fresh .wrap base) 'replacement 7) (some 1)))
     (test-case "point index writes build no trial table and preserve multi-key FUN retry"
       (defvalues (original source declarations) (service.make-tagged-services))
       (def writes 0)

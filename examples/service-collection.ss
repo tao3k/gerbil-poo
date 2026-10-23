@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service)
+(export approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table iterator-map table-fold table-wrapper table-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -259,3 +259,12 @@
 (def (update-indexed-service indexed base key revise consume)
   (using ((revise :~ procedure?) (consume :~ procedure?))
     (apply-indexed-revision indexed base (.call indexed .delta/opt key revise base) consume)))
+
+;; Prepare a whole declared index family before revising through the existing
+;; linear FUN/IO action. Failed metadata preparation or installation reaches
+;; neither the next phase nor the consumer; retry constructs a fresh family.
+(def (publish-indexed-services source declarations before revise consume)
+  (using ((revise :~ procedure?) (consume :~ procedure?))
+    (def indexed (table-indexes source declarations))
+    (revise-indexed-services indexed source (.call indexed .wrap before) revise
+      (cut consume indexed <>))))

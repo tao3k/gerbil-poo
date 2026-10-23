@@ -1471,3 +1471,23 @@ shape-preservation/admission law from ordered tables. Full initial/refusal check
 remain; GC/first/batch cost means, paired loss counts and empirical upper tails are
 reported separately. Full-entry stability remains an evidence limit. See the
 final persistent-output receipt in table-representations.md.
+
+
+### Declared index preparation closure
+
+Closed a construction-time consistency omission in the incremental collection
+unit: later computed declaration getters could rewrite already compiled peer
+recipes before revision stamps were captured. `table-indexes` now owns the request
+spine, discovers backends under declaration/source protection, then compiles the
+whole family under backend/child/origin protection using the existing object
+mutation protocol. Refusal, repaired fresh preparation, unique conflict, retry,
+Function retention, inverse restoration and later invalidation share the existing
+FUN/IO publisher and installer. Lean supplies protected-frame and current-stamp
+laws under supported-edit/source interpretation premises; see table-indexes.md.
+This advances the proposed collection library; arbitrary symmetry discovery,
+backend complexity and interpreter work retain their explicit separate scope.
+
+The whole-entry fixture-pruning experiment was withdrawn after adverse cold-call
+tails, despite its lower aggregate mean. All default preparation/checks remain;
+setup work is separately visible. The bounded investigation is complete without
+claiming stable future wall latency; see table-representations.md.

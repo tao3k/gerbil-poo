@@ -345,6 +345,9 @@
   (for (side '(0 1))
     (def counts (make-vector 9 0))
     (def actions (call-with-values (cut representation-workload size scenario counts) vector))
+    ;; Retain setup work separately; removing apparently unused cold fixtures
+    ;; changed subsequent cold-call tails in paired controls and was withdrawn.
+    (displayln "COLLECTION-BACKEND-SETUP-WORK " (vector scenario side counts))
     (vector-fill! counts 0)
     ((vector-ref actions side))
     (displayln "COLLECTION-BACKEND-WORK " (vector scenario side counts))))
