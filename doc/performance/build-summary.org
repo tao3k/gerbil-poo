@@ -183,3 +183,60 @@ later jobs. Exact macro-only and scheduler-only wall totals, and a successful
 complete current-revision macOS cold build, remain open acceptance items. The
 command observer provides finer boundaries only on runs that actually reach
 those commands; an interrupted prepass cannot produce valid backend totals.
+
+* Admitted CI consumer entry
+The single-process CI job previously called =just build test-program=, ran the
+complete suite, and then called the standalone =just benchmark-collections=.
+That standalone recipe correctly owns library and executable preparation for an
+ordinary checkout. Re-entering it after artifact admission repeated both stages.
+In run 39889131748 the benchmark step recompiled shared modules for 88.37 seconds,
+then rebuilt/relinked the executable for 88.90 seconds; the workload compilation
+was 5.93 seconds and the actual study 1.51 seconds. These are Linux CI receipts,
+not macOS or proof-checker measurements.
+
+Gerbil's released =std/make= tests source/output/dependency timestamps, including
+SSI and static Scheme outputs. CI Actions cache admission instead checks complete
+source keys, compiler-output identity, group membership and the current revision.
+An admitted artifact is not a warm producer filesystem with its original freshness
+relationships. In this run the second library entry issued 141 shared compilation
+commands, followed by the executable and workload compilation. It was real work,
+not merely the time taken to enumerate dependencies.
+
+The job now retains the existing current-revision and complete disjoint-group
+admission, then times one =just _check-collections 2 1 4= entry. Standard
+=defbuild-script= constructs the consumer once. The entry runs the entire bounded
+single-process suite, compiles the collection workload through the existing
+standard consumer target, and executes every original phase/control. Public
+=benchmark-collections= still owns normal library/executable preparation; both
+routes share the identical =_run-collections= command. No new build-selection
+environment variable, timestamp rewriting, dependency resolver or cache format
+is introduced. Existing Actions caches remain the owners of cross-job reuse.
+
+The recipe-graph regression asks Just itself to resolve both routes. It checks
+one executable preparation in the admitted entry, library plus executable in
+the standalone entry, one workload compilation and one full study in each, and
+the original bounded whole-suite invocation. Existing stale/missing/extra-group
+and revision controls remain active. The interpreter heap is still 1 GiB;
+compiler/test stages retain their original 300/90-second deadlines, process-group
+cleanup and complete test inventory. The job still has its ten-minute limit.
+
+** Matched complete-entry warm control
+On the same macOS checkout and admitted compiled test/library bytes, the old
+three-command sequence and the new single entry were run in AB/BA order. Both
+execute 128 modules, 1,250 cases (including the new graph regression), and all
+111 study summaries with =COLLECTION-PAIRED-OK=. Standard Bash =time -p= wraps
+the complete entry, including Just/compiler startup, dependency preparation,
+whole-suite execution and the study; inner workload time is not substituted.
+
+| Order | Entry | Complete wall seconds |
+|-------+-------+-----------------------|
+| A0 | old three commands | 41.84 |
+| B1 | admitted single entry | 25.27 |
+| B2 | admitted single entry | 25.97 |
+| A3 | old three commands | 38.21 |
+
+Paired savings are 16.57 and 12.24 seconds. This is a two-pair warm local control,
+not a cold Linux CI speedup or a statistical tail-latency guarantee. It retains
+all outcomes and does not infer GC effects from wall time. The historical Linux
+CI preparation regression is verified separately from its completed job logs.
+Raw full logs remain outside Git; no full datasets or archives are committed.

@@ -65,7 +65,15 @@ _build-benchmark target max-seconds='90':
 # Reuse the standard shared executable; compile/load only the collection study.
 # Standard recipe dependencies share entry preparation without nested just startups.
 # Preparation keeps the ordinary compiler stage bounds; workload compile stays 90s.
-benchmark-collections width='64' samples='10' pairs='6': (build "library") (build "test-program") (_build-benchmark "collection-paired-benchmark")
+benchmark-collections width='64' samples='10' pairs='6': (build "library") (build "test-program") (_build-benchmark "collection-paired-benchmark") (_run-collections width samples pairs)
+
+# CI has already admitted the exact shared library and every disjoint test group.
+# Construct the standard consumer once, run the complete suite, then compile and
+# run all study phases. Content-key admission is not an mtime-based make cache.
+_check-collections width='2' samples='1' pairs='4': (build "test-program") (_test "t" "300") (_build-benchmark "collection-paired-benchmark") (_run-collections width samples pairs)
+
+# Both standalone and admitted workflows execute the identical bounded study.
+_run-collections width samples pairs:
     time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/test-program" {{ test-runtime-options }} benchmark collection-paired-benchmark "{{ width }}" "{{ samples }}" "{{ pairs }}"
 
 clean:

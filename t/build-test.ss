@@ -1,6 +1,6 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
-(import :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
+(import (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
   (only-in "test-groups.ss" test-files test-batch checked-groups)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key)
@@ -130,6 +130,28 @@
             (save (path-expand "lib/clan/poo/t/object-test.ssi" root) 'interface-fixture)
             (create-directory (group-root "unexpected"))
             (check-exception (check-all "base" "current") true)))))
+    (test-case "admitted collection entry constructs one consumer and retains the full study"
+      ;; Ask Just to resolve the real recipe graph, without starting compilers.
+      (def (commands recipe)
+        (call-with-input-string
+          (run-process ["just" "--dry-run" recipe "2" "1" "4"] stderr-redirection: #t)
+          read-all-as-lines))
+      (def admitted (commands "_check-collections"))
+      (def standalone (commands "benchmark-collections"))
+      ;; The producer owns library freshness; the admitted entry owns one consumer.
+      (check-equal? (filter (cut string-prefix? "set -- " <>) admitted) '("set -- test-program"))
+      (check-equal? (filter (cut string-prefix? "set -- " <>) standalone)
+        '("set -- library" "set -- test-program"))
+      (for (lines (list admitted standalone))
+        (check-equal? (length (filter
+          (cut string-suffix? "build.ss benchmark \"collection-paired-benchmark\"" <>) lines)) 1)
+        (check-equal? (length (filter
+          (cut string-suffix? "benchmark collection-paired-benchmark \"2\" \"1\" \"4\"" <>) lines)) 1))
+      ;; All modules still run through the existing bounded single-process harness.
+      (check-equal? (length (filter
+        (cut string-suffix? "test_command=(\"$GERBIL_PATH/bin/test-program\" \"-:max-heap=1G,debug=q\" \"t\")" <>) admitted)) 1)
+      (check-equal? (length (filter
+        (cut string-suffix? "300s \"${test_command[@]}\" 2>&1 | tee \"$test_log\"" <>) admitted)) 1))
     (test-case "source keys cover each full group and preserve the checked inventory"
       (for-each (lambda (group)
         (def key (group-source-key (car group)))
