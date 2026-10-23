@@ -1,20 +1,34 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
 (export run-child measure measure-pair read-datum write-datum source-digests median mean)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
+;; Use the released runtime clock, without replacing process-statistics wall
+;; time. mach_absolute_time and system time can disagree across suspension or
+;; clock correction; neither disagreement is attributed to workload execution.
+(def monotonic-frequency
+  (let (clock (make-u64vector 1 0))
+    (##get-monotonic-time-frequency! clock 0)
+    (let (frequency (u64vector-ref clock 0))
+      (unless (> frequency 0) (error "unsupported monotonic clock"))
+      (exact->inexact frequency))))
 ;; Result columns stay CPU, wall, GC CPU, collections, allocated bytes.
-;; An optional observer receives the SAME raw boundary snapshots after timing;
-;; diagnostics allocate outside the interval and never force natural-regime GC.
+;; The optional observer receives raw snapshots and an independent monotonic
+;; duration after timing. Its scratch storage is prepared before the boundary;
+;; diagnostics never force natural-regime GC or replace the original wall field.
 (def (measure thunk repetitions (collect? #f) (observe #f))
+  (def clock (and observe (make-u64vector 2 0)))
   (when collect? (##gc))
-  (def before (##process-statistics))
-  (def result (for/fold (last #f) (_ (in-range repetitions)) (thunk)))
-  (def after (##process-statistics))
-  (unless (= (f64vector-length after) 20) (error "unsupported Gambit statistics layout"))
-  (def (delta index) (- (f64vector-ref after index) (f64vector-ref before index)))
-  (def metrics (vector (+ (delta 0) (delta 1)) (delta 2) (+ (delta 3) (delta 4))
-                        (inexact->exact (delta 6)) (inexact->exact (- (delta 7) (f64vector-ref after 9)))))
-  (when observe (observe before after))
-  (values result metrics))
+  (let (before (##process-statistics))
+    (when clock (##get-monotonic-time! clock 0))
+    (let (result (for/fold (last #f) (_ (in-range repetitions)) (thunk)))
+      (when clock (##get-monotonic-time! clock 1))
+      (let (after (##process-statistics))
+        (unless (= (f64vector-length after) 20) (error "unsupported Gambit statistics layout"))
+        (def (delta index) (- (f64vector-ref after index) (f64vector-ref before index)))
+        (def metrics (vector (+ (delta 0) (delta 1)) (delta 2) (+ (delta 3) (delta 4))
+          (inexact->exact (delta 6)) (inexact->exact (- (delta 7) (f64vector-ref after 9)))))
+        (when observe (observe before after
+          (/ (- (u64vector-ref clock 1) (u64vector-ref clock 0)) monotonic-frequency)))
+        (values result metrics)))))
 
 ;; Complete the ordered pair before reporting, keeping formatting/flush allocation
 ;; outside the gap between samples. On refusal report every completed sample once

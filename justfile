@@ -60,7 +60,7 @@ benchmark-object-scale: (build "library")
 # Retain each recipe's compiler deadline and the shared 1 GiB expansion bound.
 _build-benchmark target max-seconds='90':
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
+    {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
 
 # Reuse the standard shared executable; compile/load only the collection study.
 # Standard recipe dependencies share entry preparation without nested just startups.
@@ -78,7 +78,7 @@ _check-linked-collections width='2' samples='1' pairs='4': (_test "t" "300") (_b
 
 # Both standalone and admitted workflows execute the identical bounded study.
 _run-collections width samples pairs:
-    time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/test-program" {{ test-runtime-options }} benchmark collection-paired-benchmark "{{ width }}" "{{ samples }}" "{{ pairs }}"
+    {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/test-program" {{ test-runtime-options }} benchmark collection-paired-benchmark "{{ width }}" "{{ samples }}" "{{ pairs }}"
 
 clean:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
@@ -96,7 +96,7 @@ build *selection:
         exec {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" "$@" ;;
       *)
         echo "BUILD-STAGE-START command=$* cores=$GERBIL_BUILD_CORES"
-        time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} build.ss "$@"
+        {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} build.ss "$@"
         echo "BUILD-STAGE-END command=$*" ;;
     esac
 

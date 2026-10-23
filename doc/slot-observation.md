@@ -220,3 +220,148 @@ giving it a second issuer or a purity annotation. Raw reflective writes, foreign
 code and concurrent external changes retain the limitations above. In particular,
 these APIs do not authenticate an effect that was changed and restored outside
 the supported mutation boundary.
+
+## Unified observation scopes and complete-entry cost
+
+This is a concrete performance refinement of the generalized prototype protocol
+proposed as future work. It reuses Gerbil `make-parameter` / `parameterize`, the
+existing receiver read records and the existing FUN/IO publication paths.
+
+### Representation and semantics
+
+One private dynamic parameter carries all three existing channels. False disables
+observation; capture alone retains the original frame directly; an observer scope
+contains that same frame and the original ordered observer/precheck lists. The
+already-disabled `without-observation` path invokes its action directly. Active
+scopes suppress all channels together. No global publication cache or alternate
+object path is introduced.
+
+The standard dynamic environment owns nesting, errors, continuations and thread
+inheritance. Recording replaces only the capture frame. Storage deduplication does
+not deduplicate delivery; callbacks/prechecks retain order, identity, effects and
+original failures. `t/slot-observation-test.ss` covers disabled multivalues/refusal,
+nested prechecks, exact repeated reads, continuation escape/reentry and separately
+created thread scopes, in addition to the existing stale/replay controls.
+
+The companion Lean `Object/SlotObservation` model reuses `DictionaryBridge` and
+proves exact scope unpack/pack, canonical representation, capture-only frame reuse
+and preservation of arbitrary interpreted results. Its primitive-cost bound
+charges tag tests, field reads and the additional capture-entry premium, including
+context allocation when observers already exist. Explicit price assumptions are
+required. An expensive-capture counterexample refutes unconditional improvement.
+This does not verify Gerbil's compiler, collector, scheduler or arbitrary callback
+termination. Scheme neither imports nor locates a Lean checkout.
+
+### Clock and accounting boundary
+
+Gambit `ea114fc` process-statistics uses the system clock for its real-time field.
+The original five columns (CPU, real wall, GC CPU, collections, signed allocated
+bytes) remain unchanged. An independent released-runtime monotonic duration is
+appended as the sixth history field; no real-wall observation is replaced.
+Scratch preparation precedes each boundary and observer reporting follows it.
+Natural-regime collection is unchanged. Unsupported clock frequency refuses.
+
+The 20-element runtime layout is checked. History fields for faults are the
+runtime's `getrusage(RUSAGE_SELF)` minor/major counters, not context switches.
+Negative/GC-affected allocation remains raw and unattributable. A clock difference,
+wall-minus-CPU residual or context-switch count alone is not a cause or speedup.
+The unchanged measurement-observer regression checks actual work, positive elapsed
+time, all five result columns, collection placement and exact failure propagation.
+
+### Matched complete-entry receipt, 2026-10-23
+
+Baseline is `071cbf3` with the identical timing harness; candidate changes the
+observation representation. Both use the same released Gerbil/Gambit, ordinary
+`just benchmark-collections 64 10 6`, 12 standard backend workers, and independent
+standard build outputs. Every run retains 219 summaries, fresh fixtures, fixed
+prefixes, AB/BA, A/A, B/B, natural/collected/post-GC, forced collection, first call,
+full workflow, retry and inverse oracles. Limits remain 1 GiB, 300 seconds for
+library/test-program/execution and 90 seconds for benchmark compilation.
+
+Each accepted pair starts by the standard `build.ss benchmark
+collection-paired-benchmark clean`, then runs the full entry. Cleaning, dependency
+preparation, consumer preparation, compilation, loading and execution are all
+charged. This is a benchmark-target-cold study, not a cold OS or cold whole-package
+claim. Order is baseline/candidate then candidate/baseline, with no concurrent
+owned build or other timed workload. The enclosing standard Scheme process uses
+`run-process/batch` and the released runtime monotonic clock; POSIX real time is
+retained independently. No production environment selector or scheduler is added.
+
+| Accepted pair | Baseline | Candidate |
+| --- | ---: | ---: |
+| First complete real wall (s) | 74.34 | 71.26 |
+| First complete monotonic (s) | 73.733 | 70.855 |
+| First library / program preparation (s) | 10.77 / 2.72 | 11.77 / 2.40 |
+| First benchmark compile (s) | 9.62 | 7.36 |
+| First loaded CPU / wall (s) | 40.672 / 47.286 | 35.980 / 46.006 |
+| First loaded GC CPU (s) | 4.699 | 4.367 |
+| Reverse complete real wall (s) | 58.52 | 53.87 |
+| Reverse complete monotonic (s) | 58.240 | 53.581 |
+| Reverse library / program preparation (s) | 9.06 / 2.04 | 9.11 / 2.12 |
+| Reverse benchmark compile (s) | 7.05 | 7.07 |
+| Reverse loaded CPU / wall (s) | 36.971 / 37.584 | 32.889 / 33.004 |
+| Reverse loaded GC CPU (s) | 4.213 | 3.887 |
+
+Complete real wall improves 3.08 / 4.65 seconds, about 4.1% / 7.9%. The empirical
+maximum across these two entries improves 74.34 to 71.26 seconds. Non-GC CPU
+improves 4.360 / 3.757 seconds. These are finite paired observations, not a future
+latency guarantee. Compiler wall does NOT consistently improve: the reverse pair
+is 0.02 seconds worse. The benchmark remains one module with its ordinary three
+backend C jobs; there is no claim of eliminating this legitimate cold compilation.
+
+The first post-ablation entry is retained separately: 126.06 seconds, including
+61.82 seconds of ordinary `test-program` reconstruction after the build-spec input
+changed. It is not paired against a warm consumer or subtracted to manufacture a
+complete-entry speedup. Subsequent unchanged consumers reuse standard artifacts.
+
+### Rejected split and retained adverse observations
+
+A three-fixture-module split was tested and withdrawn. Its four complete pairs
+were 50.98→53.77, 52.92→47.66, 58.04→56.56 and 98.51→88.31 seconds. The first pair
+regressed 2.79 seconds; startup increased 1.458→5.496 seconds. Cold compile pairs
+7.32→5.38 and 9.42→10.51 seconds did not establish a consistent compile win.
+The extra first-load cost defeated treating module splitting as the optimization.
+All fixtures remain in the original benchmark module and no helper package was
+introduced. The counterexamples are retained rather than relabeled as passes.
+
+The large residual was reproduced: baseline loaded real/monotonic were both about
+74.139 seconds versus 42.779 CPU, leaving 31.361 seconds. Disjoint timed partitions
+locate 3.311 seconds in setup, 4.789 in prefixes, 22.234 in measured batches, 0.187
+in first calls and 0.061 in explicitly measured GC preparation. Remaining reporting,
+untimed collection and oracles together account for only about 0.779 seconds of
+the residual. Thus reporting alone cannot explain the old 25.92-second gap.
+
+All 22.234 batch residual seconds occurred with zero measured major faults.
+Another fast baseline also had 58 interval major faults but only 0.613 seconds of
+whole-loaded residual. Paging counts therefore do not establish the cause. GC
+wall minus CPU was about 3.128 seconds in the slow entry, also insufficient.
+
+Adverse within-workflow samples remain. In a candidate B/B control, the SAME
+retry action took 0.018971 CPU / 0.150661 wall seconds, with about 0.002213 GC wall
+and zero major faults; its sibling took 0.023206 CPU / 0.069035 wall. One cross-run
+sample difference reached +14.447 ms per call. This is not accepted as a stable
+all-tail speedup merely because the complete-entry maximum improved.
+
+A separate macOS `time -l` diagnostic, still bounded at 1 GiB / 300 seconds,
+reported reference/candidate 35.49/34.09 seconds and 9,382/22,921 involuntary context
+switches. Those runs did not reproduce the large gap, and switch counts are not
+pause durations. Its extra diagnostic permission is not required by normal recipes.
+No claim assigns the unresolved off-CPU tail to GC, paging, a particular competing
+process or the source transformation. Scheduler/physical wait tails remain an
+explicit unresolved performance boundary; no timeout or check was relaxed.
+
+### Reproduction and acceptance
+
+Use two independent standard builds. Install the same released SDK and OpenSSL
+metadata discoverable by `pkg-config`; run `just build` and the complete suite in
+each. Copy the candidate timing-only `t/closure-measure.ss`,
+`t/collection-paired-benchmark.ss`, matching observer test and POSIX timing recipe
+to the baseline. Keep baseline `slot-observation.ss` unchanged. Prepare each
+consumer normally, alternate roots in the order above, clean only the benchmark
+target through `build.ss`, then invoke the full entry. Retain every stdout/stderr,
+exit status, source/artifact identity and failure outside Git. Never compare an
+old executable with a different library output or rewrite artifact mtimes.
+
+Initial final-core checks passed all 128 modules / 1,279 cases on both sides.
+The final comment/test cleanup is rechecked by the same full bounded suite. Raw
+observations, generated JSON and compressed archives are not repository inputs.

@@ -1513,3 +1513,14 @@ whole proposed collection library. The complete-entry heap-policy experiment is
 retained but not enabled: whole wall improved in four pairs while individual
 workflow tails still regressed. See table-representations.md for the full-cost
 split, paired maxima, same-policy controls and unmodified resource limits.
+
+### Observation-scope cost acceptance
+
+The existing observation protocol now shares one standard dynamic parameter and
+reuses capture-only frames. Exact failure, precheck order, continuation and thread
+controls accompany the Lean representation/conditional primitive-cost laws.
+Two benchmark-target-cold complete-entry pairs improved 3.08 / 4.65 seconds;
+module splitting was withdrawn. Physical off-CPU workflow tails remain unresolved
+and are not closed by lower CPU, a favorable maximum or an added example. See
+[slot-observation.md](slot-observation.md). Feature completion and performance
+qualification remain separate; no check or resource limit is reduced.

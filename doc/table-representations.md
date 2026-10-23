@@ -781,3 +781,11 @@ reuses `indexPreparation_frame` to preserve all four exact endpoint pairs across
 protected edits. Faithful metadata/source snapshots and supported sequential
 writes are premises; arbitrary raw mutation, callback termination, physical GC
 and Scheme compiler correctness are outside this finite future-work unit.
+
+### Unified observation-scope cost
+
+The existing read-observation protocol now uses one standard dynamic scope, with
+capture-only frame reuse and an already-disabled direct path. The complete-entry
+paired receipt, rejected fixture split, exact counterexamples and remaining
+physical wait tails are in [slot-observation.md](slot-observation.md). This is a
+source-work/finite-observation refinement, not a stable all-tail latency claim.

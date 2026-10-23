@@ -28,8 +28,9 @@
       (def initial (##process-statistics))
       (defvalues (result metrics)
         (measure (lambda () (set! calls (+ calls 1)) calls) 3 #t
-          (lambda (before after)
+          (lambda (before after elapsed)
             (check-equal? calls 3)
+            (check (> elapsed 0.0) => #t)
             (check-equal? (f64vector-length before) 20)
             (check-equal? (f64vector-length after) 20)
             ;; Collected mode performs its explicit GC BEFORE the timed boundary.
@@ -42,7 +43,7 @@
       (def failure (list 'measurement-refused))
       (set! observed #f)
       (def caught (try
-        (measure (lambda () (raise failure)) 1 #f (lambda (_before _after) (set! observed #t)))
+        (measure (lambda () (raise failure)) 1 #f (lambda (_before _after _elapsed) (set! observed #t)))
         #f (catch (cause) cause)))
       (check (eq? caught failure) => #t)
       (check observed => #f))

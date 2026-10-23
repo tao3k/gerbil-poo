@@ -359,8 +359,8 @@
 
 ;; Gambit history fields: cumulative collections/allocation, then the last GC's
 ;; wall time, heap size and live bytes. Interval fields are GC wall/minor/major
-;; faults. Slot 9 is statistics-structure overhead, never a live-heap estimate.
-(def (measurement-history before after)
+;; faults, followed by the independent monotonic duration. Slot 9 is statistics-structure overhead, never a live-heap estimate.
+(def (measurement-history before after elapsed)
   ;; Keep cumulative history separate from this observation's interval deltas.
   (def (prefix stats)
     (vector (f64vector-ref stats 6) (f64vector-ref stats 7)
@@ -368,7 +368,7 @@
   (vector (prefix before) (prefix after)
     (- (f64vector-ref after 5) (f64vector-ref before 5))
     (- (f64vector-ref after 10) (f64vector-ref before 10))
-    (- (f64vector-ref after 11) (f64vector-ref before 11))))
+    (- (f64vector-ref after 11) (f64vector-ref before 11)) elapsed))
 
 ;; Capture the same bounded observation protocol for a batch, forced collection,
 ;; or first post-GC call. The diagnostic charges preparation instead of hiding it.
@@ -377,7 +377,7 @@
   (def (capture thunk count)
     (def history #f)
     (defvalues (ok metrics) (measure thunk count #f
-      (lambda (before after) (set! history (measurement-history before after)))))
+      (lambda (before after elapsed) (set! history (measurement-history before after elapsed)))))
     (unless ok (error "collection measured oracle"))
     (vector metrics history))
   (def preparation (and (eq? regime 'post-gc)
@@ -409,11 +409,12 @@
   (unless (and (exact-integer? n) (<= 2 n 1024) (exact-integer? repetitions) (<= 1 repetitions 100)
                (exact-integer? pairs) (<= 4 pairs 12) (even? pairs))
     (error "invalid bounded collection study"))
+  (displayln "COLLECTION-CLOCKS wall=system-realtime history-last=runtime-monotonic")
   (displayln "COLLECTION-RUNTIME gerbil=" (gerbil-version-string) " gambit=" (system-version-string))
   (let (startup (##process-statistics))
     (displayln "COLLECTION-STARTUP cpu=" (+ (f64vector-ref startup 0) (f64vector-ref startup 1))
       " wall=" (f64vector-ref startup 2) " gc-cpu=" (+ (f64vector-ref startup 3) (f64vector-ref startup 4))
-      " gc-wall=" (f64vector-ref startup 5) " history=" (measurement-history startup startup)))
+      " gc-wall=" (f64vector-ref startup 5) " history=" (measurement-history startup startup 0.0)))
   (order-shape-work n #f)
   (order-shape-work n #t)
   (displayln "COLLECTION-BACKEND-COLUMNS #(carrier-ap carrier-unap key-ap key-unap value-ap value-unap read write fold)")
@@ -433,7 +434,7 @@
             ((memq scenario +order-phases+)
              (cut order-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
-          (lambda (before after) (set! setup-history (measurement-history before after)))))
+          (lambda (before after elapsed) (set! setup-history (measurement-history before after elapsed)))))
       (def baseline (vector-ref actions 0))
       (def candidate (vector-ref actions 1))
       (displayln "COLLECTION-SETUP " (vector scenario regime control? round setup-metrics setup-history))
@@ -443,7 +444,7 @@
       (let ((history #f))
         (defvalues (_ metrics) (measure (lambda ()
           (for* ((_ (in-range 2)) (side order)) ((if (eq? side 'baseline) baseline candidate)))
-          #t) 1 #f (lambda (before after) (set! history (measurement-history before after)))))
+          #t) 1 #f (lambda (before after elapsed) (set! history (measurement-history before after elapsed)))))
         (displayln "COLLECTION-PREFIX " (vector scenario regime control? round metrics history)))
       ;; Report after both sides, so serialization cannot perturb the second
       ;; sample's natural GC history. The whole entry still charges every write;
@@ -520,7 +521,7 @@
 (def (main (width "64") (count "3") (rounds "6"))
   (def history #f)
   (defvalues (ok metrics) (measure (cut run-collection-study width count rounds) 1 #f
-    (lambda (before after) (set! history (measurement-history before after)))))
+    (lambda (before after elapsed) (set! history (measurement-history before after elapsed)))))
   (unless ok (error "collection entry oracle"))
   (displayln "COLLECTION-ENTRY " (vector metrics history))
   (displayln "COLLECTION-PAIRED-OK"))
