@@ -1459,3 +1459,9 @@ observation. Observed conversion retains live getter refusal and dependency
 provenance. The same acceptance suite adds preparation/observation/equality
 slices and post-GC workflow/retry controls; these do not replace full publication
 or make field-access counts a timing proof.
+
+Complete-entry accounting now retains fixed-prefix and whole-loaded-entry costs.
+Prepared receiver scopes reuse the existing complete-scope fast path, preserving
+all revision checks. A paired-list revision candidate was withdrawn after adverse
+whole-workflow measurements; retry tails and full-entry variability remain bounded
+evidence limits, not closed performance guarantees. See table-representations.md.

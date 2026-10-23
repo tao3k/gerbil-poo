@@ -49,7 +49,7 @@
       ;; no private guard helper or constructor is exported for this control.
       (try
         (for (bad (list (cdr versions) (append versions '(0))
-                       (cons 'malformed (cdr versions))))
+                       (cons 'malformed (cdr versions)) #f (cons 7 'malformed)))
           (slot-set! state 'versions bad)
           (check-exception (.call folding .get state) (message? "stale table fold state")))
         (finally (slot-set! state 'versions versions)))

@@ -178,6 +178,32 @@
         (check-exception (.call fresh .ref base -1) (message? "stale table wrapper")))
       (let-values (((rebound _carrier3 _keys3) (box-table source)))
         (check-equal? (.call rebound .ref base -1) 10)))
+    (test-case "paired revision checks retain every origin and prepared receiver scope"
+      ;; Each iteration owns its Types; no shared library Type is mutated.
+      (for (index (in-range 6))
+        (def source (.cc (RationalDict (.cc Integer)) Key: (.cc Integer)))
+        (defvalues (table carrier keys) (box-table source))
+        (def base (.call table .acons -1 10 (.@ table .empty)))
+        (def empty (.call table .diff base base))
+        (def origin (list-ref (list source (.@ source Key) (.@ source Value)
+          carrier keys (.@ carrier Codomain)) index))
+        (.set! origin revision-marker index)
+        (check-exception (.call table .ref base -1) (message? "stale table wrapper"))
+        (check-exception (.call table .apply-delta base empty)
+          (message? "stale or incompatible table delta")))
+      (let-values (((table _carrier _keys) (box-table (RationalDict Integer))))
+        (let ((base (.call table .acons -1 10 (.@ table .empty)))
+              (revision (object-revision table)))
+          ;; The reused scope still protects the derived receiver through FUN and
+          ;; traversal callbacks. Refusal cannot alter its revision or snapshot.
+          (check-exception (.call table .bind/wrap base
+            (lambda (_) (.set! table revision-marker 'bind)))
+            (message? "object mutation during computation"))
+          (check-exception (.call table .foldl
+            (lambda (_k _v _acc) (.set! table revision-marker 'fold)) #f base)
+            (message? "object mutation during computation"))
+          (check-equal? (object-revision table) revision)
+          (check-equal? (.call table .ref base -1) 10))))
     (test-case "observed contexts retain live getter refusal and stale read provenance"
       (def source (RationalDict Integer))
       (defvalues (table _carrier _keys) (box-table source))

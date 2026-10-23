@@ -426,10 +426,11 @@
       (def versions (map object-revision sources))
       (def wrap (.@ representation .ap)) (def unwrap (.@ representation .unap))
       (def result #f)
+      (def protected sources)
       ;; Hold captured sources and the public derived receiver through callbacks.
       ;; Supported source revisions refuse; no old protocol is silently refreshed.
       (def (guard action)
-        (with-table-sources (if result (cons result sources) sources)
+        (with-table-sources protected
           (lambda ()
             (unless (equal? versions (map object-revision sources))
               (error "stale table wrapper"))
@@ -513,6 +514,8 @@
             .remove: (lambda (input k)
               (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k))))))
             .foldl: (fold (.@ source .foldl)) .foldr: (fold (.@ source .foldr))))
+        ;; Publish the complete receiver scope once after private construction.
+        (set! protected (cons result sources))
         result))))
 
 ;; Lift explicit typed Key/Value Wrappers to collection and delta Wrappers.

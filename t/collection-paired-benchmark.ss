@@ -378,7 +378,7 @@
 ;; candidate control distinguishes its own noise from the slower reference's noise.
 ;; No natural-regime GC is forced.
 ;; Full observations go to stdout, never a versioned data file or archive.
-(def (main (width "64") (count "3") (rounds "6"))
+(def (run-collection-study width count rounds)
   (def n (string->number width)) (def repetitions (string->number count))
   (def pairs (string->number rounds))
   (unless (and (exact-integer? n) (<= 2 n 1024) (exact-integer? repetitions) (<= 1 repetitions 100)
@@ -413,7 +413,13 @@
       (def candidate (vector-ref actions 1))
       (displayln "COLLECTION-SETUP " (vector scenario regime control? round setup-metrics setup-history))
       (def order (if (even? round) '(baseline candidate) '(candidate baseline)))
-      (for* ((_ (in-range 2)) (side order)) ((if (eq? side 'baseline) baseline candidate)))
+      ;; Fixed-prefix execution is part of entry cost, not unexplained overhead.
+      ;; Preserve both calls and order while measuring through the shared helper.
+      (let ((history #f))
+        (defvalues (_ metrics) (measure (lambda ()
+          (for* ((_ (in-range 2)) (side order)) ((if (eq? side 'baseline) baseline candidate)))
+          #t) 1 #f (lambda (before after) (set! history (measurement-history before after)))))
+        (displayln "COLLECTION-PREFIX " (vector scenario regime control? round metrics history)))
       (def results [])
       (for (side order)
         (def action (cond ((eq? control? 'candidate) candidate) ((or control? (eq? side 'baseline)) baseline) (else candidate)))
@@ -460,4 +466,14 @@
         " non-gc-cpu-us=" (median (derived-deltas (lambda (m _) (- (vector-ref m 0) (vector-ref m 2)))))
         " wall-minus-cpu-us=" (median (derived-deltas (lambda (m _) (- (vector-ref m 1) (vector-ref m 0)))))
         " gc-wall-us=" (median (derived-deltas (lambda (_ h) (vector-ref h 2)))))))
+  #t)
+
+;; Charge the entire loaded entry, including diagnostics, setup, prefixes, GC,
+;; formatting and output. Startup remains separately reported by the runtime.
+(def (main (width "64") (count "3") (rounds "6"))
+  (def history #f)
+  (defvalues (ok metrics) (measure (cut run-collection-study width count rounds) 1 #f
+    (lambda (before after) (set! history (measurement-history before after)))))
+  (unless ok (error "collection entry oracle"))
+  (displayln "COLLECTION-ENTRY " (vector metrics history))
   (displayln "COLLECTION-PAIRED-OK"))
