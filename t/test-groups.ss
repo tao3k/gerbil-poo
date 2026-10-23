@@ -1,7 +1,20 @@
 ;;; One inventory for independent Scheme tests and the Actions matrix.
-(export test-groups test-files test-batch checked-groups)
+(export test-groups test-files test-batch checked-groups compiled-library-module?)
 (import :gerbil/runtime/gambit
         (only-in :std/list/list append-map delete-duplicates/hash))
+
+;; Admit only the numbered runtime bundle for this exact library root. The
+;; standard loader chooses its current object; interpreted source and modules
+;; from another package path cannot satisfy compiled-library acceptance.
+(def (compiled-library-module? file loaded root)
+  (and (string? loaded)
+       (equal? (path-strip-extension (path-expand loaded))
+         (path-expand (string-append "lib/clan/poo/" file) root))
+       (let (extension (path-extension loaded))
+         (and (string-prefix? ".o" extension) (> (string-length extension) 2)
+              (let (version (substring extension 2 (string-length extension)))
+                (and (andmap char-numeric? (string->list version))
+                     (let (number (string->number version)) (and (exact-integer? number) (> number 0)))))))))
 
 ;; Keep existing modules classified by responsibility. New modules are still
 ;; tested in an additional group until their author assigns a functional group.

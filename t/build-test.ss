@@ -1,13 +1,33 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
-(import (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
-  (only-in "test-groups.ss" test-files test-batch checked-groups)
+(import (only-in :gerbil/runtime/loader load-module)
+  (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
+  (only-in "test-groups.ss" test-files test-batch checked-groups compiled-library-module?)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key test-inventory-key)
   (only-in "build-spec.ss" build-request consumer-request library-modules))
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
+    (test-case "runtime reuse requires the exact compiled library object"
+      (def root "/tmp/poo-compiled-admission/")
+      (check (compiled-library-module? "object" "/tmp/poo-compiled-admission/lib/clan/poo/object.o1" root) => #t)
+      (check (compiled-library-module? "types/relation" "/tmp/poo-compiled-admission/lib/clan/poo/types/relation.o12" root) => #t)
+      (for-each (lambda (loaded)
+        (check (compiled-library-module? "object" loaded root) => #f))
+        '(builtin #f "/tmp/other/lib/clan/poo/object.o1"
+          "/tmp/poo-compiled-admission/lib/clan/poo/object.scm"
+          "/tmp/poo-compiled-admission/lib/clan/poo/object.o"
+          "/tmp/poo-compiled-admission/lib/clan/poo/object.o0"
+          "/tmp/poo-compiled-admission/lib/clan/poo/object.o1x"
+          "/tmp/poo-compiled-admission/lib/clan/poo/other.o1"))
+      ;; A real Linux acceptance run must reuse the initialized library bundle;
+      ;; Darwin's executable intentionally registers that same module as builtin.
+      (cond-expand
+        (darwin (void))
+        (else
+         (check (compiled-library-module? "types/relation"
+                  (load-module "clan/poo/types/relation") (gerbil-path)) => #t))))
     (test-case "runner retains the complete standard expander dependency and harness identity"
       (def runner (import-module (path-expand "lib/clan/poo/t/test-runner.ssi" (gerbil-path)) #f #f))
       (def imports (module-context-import runner))

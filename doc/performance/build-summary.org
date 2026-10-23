@@ -295,3 +295,39 @@ are not a Linux first-construction control, and this local route comparison does
 not include Actions cache transfer. Linux miss/hit runs are qualified separately
 on the same source head, with cache lookup/restore included in their entry window.
 Cold compilation and tail-latency improvements are not inferred from a cache hit.
+
+* Cold executable construction and compiled module reuse
+The Linux release's separate executable compiler submits one task which walks
+all static object jobs serially. Its =GERBIL_BUILD_CORES= setting parallelizes
+ordinary module compilation, but cannot subdivide that task. Run 39900967167,
+attempt 1, exposed 93 object invocations: the interval from the first object
+command to final GCC linkage was 109.94 seconds. Gambit link/C preparation took
+another 11.50 seconds. The consumer construction took 130.35 seconds and the
+complete admitted entry 174.17 seconds. These are command timestamp intervals,
+not CPU profiles. The executable cache hit does not resolve this cold cost.
+
+Linux now builds a small standard =defbuild-script= executable and initializes
+the same complete runtime-root inventory with Gerbil's =load-module=. The loader
+reuses the library producer's numbered compiled bundles and owns dependency
+initialization, single evaluation, and failed-load propagation. No project object
+scheduler, compiler patch, additional environment switch, or object prewarming
+is introduced. Darwin retains static roots because its earlier cold bundle
+loading controls failed the unchanged whole-suite deadline.
+
+Both paths embed and check the same source inventory before invoking the
+unchanged released test harness. Linux additionally requires each loaded root
+at its exact managed library path and a numbered object extension: interpreted
+source, a different package path, a different module, and invalid bundle names
+refuse. Regression controls exercise these refusals and check an actual loaded
+library module on Linux. Existing compiler/source/group/revision admission,
+all test cases, all collection study phases, heap limits and deadlines remain.
+The reported initialization progress corresponds to actual loader calls.
+
+Cold qualification must show misses for library, test-group and executable
+caches, not merely delete the final executable while retaining static objects.
+Measure the complete admitted consumer entry, including runtime library loading
+in both the test and benchmark processes. Also report the whole workflow's
+critical-path wall time so ordinary library compilation and disjoint test
+compilation are not silently moved outside the claim. A changed artifact graph
+is not itself evidence of end-to-end speedup; cold CI acceptance supplies that
+separate measurement. Historical timings above retain their original boundaries.
