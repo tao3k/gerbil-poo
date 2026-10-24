@@ -112,12 +112,14 @@
 ;; from the source fold. Key XOR and Tuple/Pair conversion are explicit inverses.
 ;; Callers edit through the source table's optional lenses, discover a delta, then
 ;; reuse fold-ledger-action with transport; .unap recovers the paired source state.
-(def (make-capacity-ledger rows)
+;; Descriptor refinements reuse this same construction chain and child Types;
+;; source and target final-root admission remains part of each fold publication.
+(def (make-capacity-ledger rows source: (source-refine identity) target: (target-refine identity))
   (def callback (Fun Integer <- Integer))
   (def payload (Tuple callback UInt))
   (def cooked (Pair UInt callback))
-  (def source-type (.cc (RationalDict payload) Key: UInt))
-  (def target-type (SimpleTrie UInt cooked))
+  (def source-type (source-refine (.cc (RationalDict payload) Key: UInt)))
+  (def target-type (target-refine (SimpleTrie UInt cooked)))
   (def keys (.cc Wrapper. Domain: UInt Codomain: UInt
     .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
   (def values (.cc Wrapper. Domain: payload Codomain: cooked

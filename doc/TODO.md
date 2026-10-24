@@ -1677,3 +1677,26 @@ Local full acceptance passed all 137 modules / 1,365 cases in the standard
 single-process program with unchanged 1 GiB / 300 s limits. All six cursor cases
 and the companion 346 Lean check invocations passed. These receipts qualify the
 semantic unit and its finite demand counts, not an end-to-end speedup.
+
+
+### Complete aggregate-state publication admission
+
+Closed both reproducible whole-root omissions: compatible unrefined deltas no
+longer bypass a source fold's final refinement, and warm fold isomorphism replay
+no longer bypasses the target's independent complete constraint. The existing
+recognizer runs before source contributions or target pair publication. Ordered
+batches retain private intermediate roots; refusal preserves the accepted pair,
+suppresses IO and supports fresh-request retry and inverse recovery.
+
+The complete capacity-ledger chain accepts descriptor refinements through standard
+Gerbil keyword arguments, retaining checked Function identity, existing FUN/IO
+and child isomorphisms. New regressions and companion `TableFold` laws cover the
+whole protocol, not just another container example. The cost model now charges
+both complete admissions instead of conflating aggregate reuse with zero scans.
+See [table-fold.md](table-fold.md) for proof premises and callback-effect limits.
+
+Local full acceptance passed all 138 modules / 1,370 cases in the standard
+single-process program with the unchanged 1 GiB / 300 s limits. The five new fold
+cases, all 44 existing collection-validation cases and 346 companion Lean check
+invocations passed. Complete admission work is charged; these are semantic and
+finite source-work receipts, not an end-to-end latency improvement claim.

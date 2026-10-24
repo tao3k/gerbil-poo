@@ -288,17 +288,20 @@
             table: (make-hash-table-eq) from-end?: #t))
           (guard dependencies (lambda ()
             (require-state state)
-            (def next (.call descriptor .apply-delta (table-fold-state-table state) delta))
-            (def value (foldl (lambda (change acc)
-              (def k (table-change-key change))
-              (def before (table-change-before change))
-              (def after (table-change-after change))
-              (def removed (if (some? before)
-                (checked (sub acc (checked (project k (some-value before))))) acc))
-              (if (some? after)
-                (checked (add removed (checked (project k (some-value after))))) removed))
-              (table-fold-state-value state) (table-delta-changes delta)))
-            (make-table-fold-state owner dependencies (map object-revision dependencies) next value))))
+            ;; Compatible deltas may come from a less constrained descriptor.
+            ;; Admit the complete final root before any aggregate projection.
+            (let (next (require-table descriptor
+                        (.call descriptor .apply-delta (table-fold-state-table state) delta)))
+              (def value (foldl (lambda (change acc)
+                (def k (table-change-key change))
+                (def before (table-change-before change))
+                (def after (table-change-after change))
+                (def removed (if (some? before)
+                  (checked (sub acc (checked (project k (some-value before))))) acc))
+                (if (some? after)
+                  (checked (add removed (checked (project k (some-value after))))) removed))
+                (table-fold-state-value state) (table-delta-changes delta)))
+              (make-table-fold-state owner dependencies (map object-revision dependencies) next value)))))
         ;; Trusted conversion has already constructed the admitted carrier; retain
         ;; its source lineage while reusing an admitted aggregate without refolding.
         (def (adopt table value origins)
@@ -723,7 +726,10 @@
           (def live-owners (foldl (lambda (k registry)
             (if (.call target .key? (car staged) k) registry (.call owners .remove registry k)))
             (seen) (cdr staged)))
-          (def result (adopt-target (car staged) (table-fold-state-value next-source) (origins next-source)))
+          ;; Sparse replay preserves bindings, not arbitrary target refinements.
+          ;; Recognition retains checked leaves; only full success replaces paired.
+          (def result (adopt-target (require-table target (car staged))
+            (table-fold-state-value next-source) (origins next-source)))
           (set! paired (make-table-fold-pair next-source result live-owners))
           result)))
       (.cc Wrapper. Domain: folding Codomain: target-fold

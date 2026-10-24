@@ -989,3 +989,12 @@ recovery, at most one emitted edit, callback failure and explicit isomorphism
 commutation. This is a finite semantic/work bound. Source admission, lookup,
 metadata preparation, callback/type recognition and actual backend costs remain;
 no unconditional O(1), allocation, GC or wall-time improvement is claimed.
+
+### Complete fold publication boundary
+
+Source and warm-target fold updates now recognize their complete final root;
+compatible child Types or paired bindings alone do not establish root refinements.
+Aggregate reuse still avoids target reinitialization/reprojection, but complete
+recognition may scan both snapshots. `reuseFoldWork` explicitly charges supplied
+source and target admission visits. See [table-fold.md](table-fold.md) for atomic
+batch semantics, retained-pair failure/retry, service composition and proof scope.
