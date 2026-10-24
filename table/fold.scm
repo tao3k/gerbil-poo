@@ -1,5 +1,12 @@
 ;;; Owner-bound incremental folds and final-state representation transfer.
 
+;; One fold kernel serves whole-table and per-group preparation. The enclosing
+;; protocol owns complete admission/metadata; checked recognizes contributions and
+;; intermediate aggregates without wrapping them a second time.
+(def (fold-table descriptor zero add project checked table)
+  (.call descriptor .foldl
+    (lambda (key row acc) (checked (add acc (checked (project key row))))) zero table))
+
 ;; Owned aggregate states retain admitted snapshots and all revision dependencies.
 ;; Only the creating Wrapper can inspect/update them; no constructor is exported.
 (defstruct table-fold-state (owner sources versions table value) final: #t)
@@ -45,8 +52,7 @@
         (def (initialize table)
           (guard sources (lambda ()
             (require-table descriptor table)
-            (def value (.call descriptor .foldl
-              (lambda (k v acc) (checked (add acc (checked (project k v))))) zero table))
+            (def value (fold-table descriptor zero add project checked table))
             (make-table-fold-state owner sources versions table value))))
         ;; Read either part under the same freshness/owner checks as installation.
         (def (observe state access)
@@ -219,3 +225,103 @@
       (.cc Wrapper. Domain: folding Codomain: target-fold
         .ap: convert .unap: recover .apply-delta: update))))
 
+
+;; A grouped summary retains one indexed source, one public target and every
+;; historical delta origin. Only the creating protocol can use this snapshot.
+(defstruct %table-group-fold (owner indexed target sources versions) final: #t)
+
+;; Maintain a typed aggregate per nonempty group through existing grouped indexes
+;; and the common fold kernel. Recompute complete affected buckets, not untouched
+;; groups; no retraction law or automatic dependency discovery is assumed.
+(def (table-group-fold source target aggregate classify project (origins []))
+  (using ((classify :~ procedure?) (project :~ procedure?) (origins :~ list?))
+    (with-table-sources (append (list source target aggregate) origins) (lambda ()
+      (unless (eq? (.@ target Value) aggregate) (error "incompatible grouped aggregate type"))
+      (def primary (table-key-table source (.@ source Value)))
+      (def groups (table-key-table target primary))
+      (def touched (table-key-table target Unit))
+      (def indexed-type (table-indexes primary
+        (list (.o name: 'aggregate table: groups unique?: #f project: classify))))
+      (def sources (delete-duplicates/hash
+        (append (table-sources source) (table-sources target) (table-sources touched)
+          (list aggregate indexed-type) (.@ indexed-type .sources) origins)
+        table: (make-hash-table-eq) from-end?: #t))
+      (with-table-sources sources (lambda ()
+        (def versions (map object-revision sources))
+        (def owner (list source target aggregate classify project))
+        (def add (.@ aggregate .add))
+        ;; Recognize aggregate leaves without normalizing admitted Functions.
+        (def (checked value)
+          (unless (element? aggregate value) (raise-type-error aggregate value 'table-group-fold)) value)
+        (def zero (checked (.@ aggregate .zero)))
+        ;; The original protocol metadata and all inherited origins stay protected
+        ;; across classification, aggregation, final admission and delivery.
+        (def (guard dependencies action)
+          (with-table-sources dependencies (lambda ()
+            (unless (equal? versions (map object-revision sources)) (error "stale table group fold"))
+            (action))))
+        ;; Refuse foreign or stale successors before reading either private cache.
+        (def (observe state action)
+          (unless (and (%table-group-fold? state) (eq? owner (%table-group-fold-owner state)))
+            (error "incompatible table group fold"))
+          (guard (%table-group-fold-sources state) (lambda ()
+            (unless (equal? (%table-group-fold-versions state)
+              (map object-revision (%table-group-fold-sources state))) (error "stale table group fold state"))
+            (action))))
+        ;; Share the ordinary fold algorithm; only structural buckets face this
+        ;; fold, while the full source refinement belongs to the complete primary.
+        (def (summarize bucket) (fold-table primary zero add project checked bucket))
+        ;; One complete target constructor permits jointly valid group summaries
+        ;; without requiring an empty seed or each singleton to satisfy refinements.
+        (def (initialize input)
+          (guard sources (lambda ()
+            (require-table source input)
+            (def indexed (.call indexed-type .wrap input))
+            (def entries (.call indexed-type .index-fold indexed 'aggregate
+              (lambda (key bucket entries) (cons (cons key (summarize bucket)) entries)) []))
+            (def output (require-table target (.call target .<-list (reverse entries))))
+            (make-%table-group-fold owner indexed output sources versions))))
+        ;; Install and admit the complete source first; then coalesce original and
+        ;; final group keys, refold each affected surviving bucket once and deliver
+        ;; one exact target delta. No target snapshot diff is rediscovered.
+        (def (update state delta (receive (lambda (next _delta) next)))
+          (using (receive :~ procedure?)
+            (unless (table-delta? delta) (error "table delta required"))
+            (observe state (lambda ()
+              (def dependencies (delete-duplicates/hash
+                (append (%table-group-fold-sources state) (table-delta-sources delta))
+                table: (make-hash-table-eq) from-end?: #t))
+              (guard dependencies (lambda ()
+                (def before (.call indexed-type .unwrap (%table-group-fold-indexed state)))
+                (def indexed (.call indexed-type .apply-delta (%table-group-fold-indexed state) delta
+                  (cut require-table source <>)))
+                (def after (.call indexed-type .unwrap indexed))
+                (def seen (.@ touched .empty))
+                (def keys (with-list-builder (emit)
+                  (for-each (lambda (change)
+                    (def key (table-change-key change))
+                    (for-each (lambda (root)
+                      (def row (.call primary .ref/opt root key))
+                      (when (some? row)
+                        (let (bucket (classify key (some-value row)))
+                          (unless (element? (.@ target Key) bucket)
+                            (raise-type-error (.@ target Key) bucket 'table-group-fold))
+                          (unless (.call touched .key? seen bucket)
+                            (set! seen (.call touched .acons bucket (void) seen)) (emit bucket)))))
+                      (list before after))) (table-delta-changes delta))))
+                (def edits (with-list-builder (emit)
+                  (for-each (lambda (key)
+                    (def old (map/option identity (.call target .ref/opt (%table-group-fold-target state) key)))
+                    (def bucket (.call indexed-type .index-ref/opt indexed 'aggregate key))
+                    (def next (map/option summarize bucket))
+                    (unless (table-option=? old next) (emit (make-table-change key old next)))) keys)))
+                (def delivered (make-table-delta (.@ target Key) aggregate
+                  dependencies (map object-revision dependencies) edits))
+                (def output (require-table target (.call target .apply-delta (%table-group-fold-target state) delivered)))
+                (receive (make-%table-group-fold owner indexed output dependencies
+                  (map object-revision dependencies)) delivered)))))))
+        (using (add :~ procedure?)
+          (.cc Wrapper. Domain: source Value: target .sources: sources .ap: initialize
+            .unap: (lambda (state) (observe state (lambda () (.call indexed-type .unwrap (%table-group-fold-indexed state)))))
+            .get: (lambda (state) (observe state (lambda () (%table-group-fold-target state))))
+            .apply-delta: update))))))))

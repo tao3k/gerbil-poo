@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
-        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
+        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -524,3 +524,12 @@
   (set-image services permissions (lambda (service) (.call catalog .ref assignments service))
     (append (list catalog (.@ catalog Key) (.@ catalog Value))
       (if (.has? catalog .sources) (.@ catalog .sources) [])) multiple?: #t))
+
+
+;; Summarize service capacities by the declared team, retaining original callback
+;; leaves in the source. The shared projection publisher handles exact target
+;; deltas, five ownership styles, conflict retry and Reader/FUN/IO consumption.
+(def (make-team-capacity-fold source target)
+  (table-group-fold source target Integer
+    (lambda (_key row) (vector-ref row 0))
+    (lambda (_key row) (vector-ref row 1))))

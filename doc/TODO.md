@@ -1836,3 +1836,18 @@ idempotence, empty output, selective/delta repair and inverse recovery. See
 set-algebra.md for full admission costs, stable finite projection premises and
 research boundaries. This implements explicit finite relations, not automatic
 symmetry discovery or arbitrary mutable dependency tracking.
+
+
+### Selective grouped aggregation and summary publication
+
+Closed the per-group summary protocol missing between global `table-fold` and
+correlated indexes. `table-group-fold` shares the existing fold kernel and grouped
+index engine; only affected final buckets are refolded, while exact target deltas
+reuse the existing five-style Reader/FUN/IO publisher. Zero-valued live groups,
+last-owner removal, group migration, original/final admission, inherited origins,
+immutable refusal/retry, inverse observations and wrapped service callbacks have
+integrated controls. Ordered aggregation does not require `.sub` or an inferred
+commutative law. The finite Lean group/frame/delta/inverse laws and full cost
+boundary are in collections.md. Refolding a large affected bucket remains charged;
+automatic algebra/query discovery and destructive storage remain research
+boundaries, not implementation defects declared closed by this unit.

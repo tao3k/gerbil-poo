@@ -998,3 +998,74 @@ Aggregate reuse still avoids target reinitialization/reprojection, but complete
 recognition may scan both snapshots. `reuseFoldWork` explicitly charges supplied
 source and target admission visits. See [table-fold.md](table-fold.md) for atomic
 batch semantics, retained-pair failure/retry, service composition and proof scope.
+
+
+## Selective grouped aggregation and direct summary delivery
+
+`(table-group-fold Source Target Aggregate classify project [origins])` returns
+one Wrapper-shaped protocol: `.ap` prepares an admitted source, `.unap` observes
+that source, `.get` observes the summary table, and `.apply-delta` prepares a
+successor. Target.Value must be the exact Aggregate descriptor. Aggregate supplies
+`.zero`, `.add` and recognition; `.sub` is not required. The ordinary table fold
+and grouped fold share the same evaluation kernel, not parallel implementations.
+As with ordinary folds, `.add` must be pure and must not mutate the shared `.zero`
+seed or prior aggregates; persistent rows/leaves must not be changed behind the
+revision protocol. Recognition alone cannot establish these behavioral laws.
+
+Each source row belongs to the explicit, stable `classify(key,row)` group. Existing
+`table-indexes` owns grouped membership/retraction and structural bucket carriers;
+whole-source business refinements apply only to the complete primary, not each
+bucket. A nonempty group is folded in its declared backend traversal order through
+`project(key,row)` and `.add`. A live group whose sum is zero remains present;
+removing its last member removes the target key. No inverse, commutativity or
+retraction law is inferred for arbitrary aggregation. Stable logical key equality
+and repeatable bucket traversal are backend premises.
+
+Warm updates check all ordered source conflicts and complete primary admission
+before classification or contribution evaluation. Original/final group keys of
+edited owners are coalesced by the target backend. Each affected surviving bucket
+is refolded once; unaffected summaries are reused. The protocol prepares one
+ordinary target delta with exact old values, admits the complete target, and then
+calls optional `receive(next, target-delta)` (default: successor only). Gerbil
+`values` retains both results. No target `.diff` or full target enumeration is
+needed on this path. Target equality uses existing table Option/data equality;
+already admitted Function leaves are not normalized again.
+
+The existing `publish-projected-ledger-action` handles this delivery without a new
+publication wrapper: complete target constraints and existing pure/mutable/linear/
+posh/classy installation precede Reader/FUN/IO consumption. Preparation/refinement/
+arithmetic/old-value failure exposes no successor; retry uses the unchanged
+predecessor and a fresh public owner when necessary. Explicit source inverses
+restore source/group observations; target inverses restore summaries independently.
+Postcommit IO effects are not rolled back. Empty and transient source batches
+retain all delta origins, so even a no-edit successor refuses after invalidation.
+Metadata writes retain the existing cross-thread serialization discipline.
+
+`make-team-capacity-fold` in `examples/service-collection.ss` groups typed service
+rows by team, preserving their admitted callbacks in the primary. Regressions cover
+RationalDict/Trie backends, zero-valued live groups, last-owner deletion, 32 mixed
+revisions against an independent list oracle, untouched-group callback refusal,
+final-source/target refusal, original exception identity and corrected retry,
+transient edits, inherited origin invalidation, five-style stale-target retry and
+inverse recovery. An ordered list-concatenation aggregate has no `.sub` and verifies
+that group refolding does not assume a commutative or retractable algebra.
+
+Cold work includes complete source/index/target recognition, grouping, one fold per
+nonempty bucket, and one bulk target construction. Warm work includes source delta
+installation, existing index maintenance, complete recognition, group-key discovery,
+**all rows of affected buckets**, changed-target installation and separate public
+style installation. Repeated source edits may repeat pure classification. A hot
+single large group may require a whole-source fold; this is selective group reuse,
+not per-edit constant-time aggregation. The regressions count contribution calls,
+not machine speedups or GC bounds.
+
+The finite Lean `TableFold` laws establish presence by live ownership, empty-group
+removal, grouped-index repair, old/final group framing, selective summary repair,
+complete direct target deltas and explicit source inverse recovery. The summary
+function is generic over complete bucket observations; ordered finite sums are a
+concrete instance in top-level `Examples/ServiceCollection.lean`. Existing admission
+and publication laws cover refusal/consumer ordering. Finite inventories, stable
+pure classification/contribution functions, faithful recognizers and persistent
+backend laws are premises. This advances the proposed collection library's future
+work; automatic dependency/algebra discovery, destructive rollback, compiler/GC
+correctness and general whole-library completion are not claimed.
