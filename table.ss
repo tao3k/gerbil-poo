@@ -19,6 +19,7 @@
   (only-in :std/list/list delete-duplicates/hash append-map find)
   (only-in :std/list/alist acons)
   (only-in :std/func compose)
+  (only-in :std/number/misc uint?)
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method @@method)
   (only-in ./io marshal)
@@ -617,7 +618,7 @@
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)
 ;; vs for-each* / foldl* / afoldr (iterating with two separate arguments for k v)
-;; (3) implement additional APIs like drop, convert, etc.; checked decons and map/2 are below.
+;; (3) explicit conversion is provided by Wrappers/styles; take/drop reuse selection below.
 ;; We could also reorder the arguments between object vs typeclass styles,
 ;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
@@ -659,6 +660,9 @@
   ;; Explicit heterogeneous entry maps stage once and never overwrite collisions.
   .map/into: (lambda (target transform input) (map-table-into @ target transform input #f))
   .filter-map/into: (lambda (target transform input) (map-table-into @ target transform input #t))
+  ;; Finite prefixes use the existing checked selection algorithm and backend order.
+  .take: (lambda (count input) (select-table-prefix @ count input #t))
+  .drop: (lambda (count input) (select-table-prefix @ count input #f))
   ;; Partition prepares and recognizes both branches before exposing either root.
   .partition: (lambda (predicate input)
     (def branches (select-table @ predicate input #t))

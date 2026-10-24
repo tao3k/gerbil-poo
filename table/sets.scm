@@ -165,6 +165,9 @@
   .any: (lambda (f t) (.call Table .any (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
   ;; Checked selection protects custom set refinements as well as backing Types.
   .filter: (lambda (f t) (select-set @ f t #f)) ;; : @ <- (Bool <- Elt) @
+  ;; The shared set boundary delegates prefix algorithms to the backing table.
+  .take: (lambda (count input) (build-set @ (list input) '.take count input))
+  .drop: (lambda (count input) (build-set @ (list input) '.drop count input))
   ;; Both branches satisfy the same set descriptor before either escapes.
   .partition: (lambda (f t) (select-set @ f t #t)) ;; : @ @ <- (Bool <- Elt) @
   .count: (.@ Table .count) ;; : Nat <- @

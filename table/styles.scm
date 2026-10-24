@@ -89,6 +89,12 @@
 ;; Filtering keeps the receiver's style and original predicate arity.
 (defmethod (@@method filter %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .filter predicate self)))
+;; Prefix methods reuse the source algorithm and the existing one-owner commit.
+(defmethod (@@method take %table-object)
+  (lambda (self count) (.call (%table-object-protocol self) .take count self)))
+;; Dropping follows the same backend order as take, without repeated extraction.
+(defmethod (@@method drop %table-object)
+  (lambda (self count) (.call (%table-object-protocol self) .drop count self)))
 ;; Partition returns two same-style results after one ownership installation.
 (defmethod (@@method partition %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .partition predicate self)))
@@ -393,6 +399,9 @@
         (guard (lambda () (.call source .delta/opt key transform (read input)))))
       .lens: (cut focus <> #f) .lens/opt: (cut focus <> #t)
       .filter: (cut select '.filter <> <>)
+      ;; Complete source selection precedes the existing single-generation commit.
+      .take: (lambda (count input) (step input (cut .call (or set source) .take count <>)))
+      .drop: (lambda (count input) (step input (cut .call (or set source) .drop count <>)))
       .split: split
       .decons/opt: (cut decons <> #f) .decons: (cut decons <> #t)
       .partition: (cut select '.partition <> <>)

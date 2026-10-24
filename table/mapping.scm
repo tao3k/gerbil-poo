@@ -61,6 +61,18 @@
             (list (make-table-change (car row) (some (cdr row)) #f)))))) input))
     (values observed result))))
 
+;; A bounded prefix is a selection in the backend's declared visitation order.
+;; Standard uint? rejects inexact/negative counts before traversal. Reuse .filter
+;; so specialized subtree sharing, final-only admission and indexes stay centralized;
+;; never extract repeatedly or admit intermediate remainders. Oversize counts clamp.
+(def (select-table-prefix descriptor count input prefix?)
+  (using (count :~ uint?)
+    (def remaining count)
+    (.call descriptor .filter (lambda (_key _value)
+      (def inside? (> remaining 0))
+      (when inside? (set! remaining (1- remaining)))
+      (eq? inside? prefix?)) input)))
+
 ;; Reserve a target logical key using its declared backend equality. Every old
 ;; affected owner is removed before warm reservations, permitting final-state swaps.
 (def (claim-table-entry owners seen row key)

@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-projection table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -584,3 +584,11 @@
       (def owner (.call protocol .ap base))
       (defvalues (found rest) (.call protocol .decons/opt owner))
       (list found (.call protocol .unap rest))))))
+
+;; Drain a completed service prefix through the existing linear style and Reader/IO
+;; observation. The persistent input survives refusal; consume runs after admission.
+(def (drop-ledger-action table count consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map consume (lambda (base)
+      (def protocol (.@ (table-styles table) Linear))
+      (.call protocol .unap (.call protocol .drop count (.call protocol .ap base)))))))

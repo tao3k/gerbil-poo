@@ -1246,6 +1246,12 @@ are checked before installation and during deferred pulls. See
 [set-algebra.md](set-algebra.md) for aliasing, failure/retry, examples and SetStyle
 proofs. This does not introduce a static ownership checker or destructive backend.
 
+**Finite traversal prefixes** now provide table/set `take` and `drop` in all five
+styles, reusing one checked filter algorithm and the existing ownership installer.
+Exact nonnegative counts, clamping, complete-result refinements, inverse recovery,
+Function identity and stale/reentrant refusal are covered; full traversal and
+recognition costs remain explicit. See [table-split.md](table-split.md).
+
 **Checked selection and atomic partition** now close the dangling set
 `.filter`/`.partition` declarations through `methods.table`, all five table/set
 styles and Gerbil receivers. Complete branch admission precedes one ownership
