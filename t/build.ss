@@ -74,7 +74,9 @@
 ;; At most two channel workers compile the complete, disjoint local batches.
 ;; Fresh processes release expansion contexts; all failures are retained.
 (def (build-test-groups project timeout runtime cores)
-  (def batches 4)
+  ;; Bound retained macro-expansion contexts under the unchanged 1 GiB VM cap.
+  ;; This changes compilation groups only; the full test program stays one VM.
+  (def batches 8)
   (test-batch 0 batches)
   (def count (min 2 cores batches))
   (def jobs (make-channel))

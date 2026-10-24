@@ -69,7 +69,7 @@
 
 ;; Disjoint local compiler batches share the exact CI inventory. The explicit
 ;; count permits matched memory/worker studies without silently dropping roots.
-(def (test-batch index (count 4))
+(def (test-batch index (count 8))
   (unless (and (exact-integer? count) (> count 0)
                (exact-integer? index) (<= 0 index) (< index count))
     (error "test batch requires a positive count and an index in [0,count)" index count))

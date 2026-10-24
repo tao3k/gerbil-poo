@@ -1725,3 +1725,11 @@ program (55.05 s execution), with unchanged 1 GiB / 300 s limits. Eight added
 regressions cover the complete derived-target protocol and failure order. The
 companion full Lean gate passed all 346 check invocations. These are semantic
 acceptance and bounded source-work receipts, not a measured speedup claim.
+
+After integrating the concurrent issued-read changes, a full dependency rebuild
+exceeded the unchanged 1 GiB compiler heap in one four-way compilation partition.
+The failed run is not an acceptance receipt. The existing compiler partitioner now
+uses eight disjoint groups, retaining two compilation workers, standard make/core
+budgets, all modules and the single-process runtime suite. Inventory regressions
+check exact coverage for both four and eight groups and reject invalid indices.
+No heap/deadline increase or new scheduling/environment mechanism is introduced.

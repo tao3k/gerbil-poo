@@ -65,13 +65,13 @@
                 (set! checked (+ checked 1)))))))
       (check (> checked 0) => #t))
     (test-case "local compiler batches cover the unchanged CI inventory exactly once"
-      (for (count '(1 2 4))
+      (for (count '(1 2 4 8))
         (def batches (for/collect (index (in-range count)) (test-batch index count)))
         (def files (append-map values batches))
         (check-equal? (list-sort string<? files) (test-files))
         (check-equal? (length files) (length (delete-duplicates/hash files))))
       (for-each (lambda (index) (check-exception (test-batch index) true))
-        '(-1 4 0.5 #f "0"))
+        '(-1 8 0.5 #f "0"))
       (for-each (lambda (count) (check-exception (test-batch 0 count) true))
         '(0 -1 0.5 #f "4" 10000)))
     (test-case "standard build options and explicit output flow through inventory selection"
@@ -97,7 +97,7 @@
       (check-equal? (take (caar (consumer-request '("benchmark" "factory-paired-benchmark"))) 2)
         '(exe: "factory-paired-benchmark"))
       (check-exception (consumer-request '("benchmark" "../outside")) true)
-      (check-exception (build-request '("batch" "4")) true)
+      (check-exception (build-request '("batch" "8")) true)
       (check-exception (build-request '("tests" "missing" "/tmp/poo-test-output")) true))
     (test-case "every test belongs to exactly one compilation group"
       (def files (append-map (lambda (group) (test-files (car group))) (checked-groups)))
