@@ -55,6 +55,19 @@
     (check-equal? (object-read-issued? genuine) #t)
     (check-equal? (object-read-issued? forged) #f)
     (check-equal? (object-read-current? forged) #f)
+    ;; Inspection and authentication share one private captured payload. Its
+    ;; published copies must neither mutate authority nor authorize a raw copy.
+    (defvalues (presented original signed snapshot shape) (object-read-issuance genuine))
+    (check-equal? (eq? presented original) #t)
+    (check-equal? (eq? signed genuine) #t)
+    (vector-set! snapshot 4 'edited-copy)
+    (when (pair? (vector-ref snapshot 5))
+      (set-car! (vector-ref snapshot 5) forged))
+    (when (pair? shape) (set-car! shape 'edited-key))
+    (check-equal? (object-read-issued? genuine) #t)
+    (check-equal? (object-read-issued? forged) #f)
+    (defvalues (_presented _original _signed fresh _shape) (object-read-issuance genuine))
+    (check-equal? (vector-ref fresh 4) 5432)
     (refuses "unissued slot dependency"
       (cut replay-slot-reads! (list forged) (lambda (_r _k) (error "must not observe"))))
     (replay-slot-reads! roots (lambda (_r _k) (void)))
