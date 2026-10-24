@@ -289,8 +289,18 @@ Backing construction/algebra laws, faithful recognition, finite traversal and
 stable declared callback dependencies remain premises. Arbitrary callback
 termination, hidden effects, compiler/runtime correctness and latency are not proved.
 
-The construction call sites pass a backing method and its ordinary arguments to
-`build-set`; standard `apply` resolves/calls that method inside the protected
-scope. Empty, singleton and iterator construction share `.<-list`. A regression
-checks that an effectful method getter cannot escape dependency protection when
-the call is flattened. This changes the expression layer, not the admission laws.
+The point methods are declared together as ordinary backend delegates. Their
+Function signatures derive one shared boundary using `Wrapper.map`: exact arity,
+original-root admission, recognition-only element checks, lazy method lookup,
+then complete-result admission. `using` checks the resolved procedure; TypeError
+and opaque backend exceptions retain their existing meaning. All three methods
+reuse this boundary rather than hand-writing construction wrappers. Singleton
+still uses the complete list constructor, since empty/intermediate roots may be
+forbidden. Saved methods read the current element contract inside the guard; that contract
+is itself included in the protected metadata scope.
+Function keys are recognized without replacing their wrapper identity.
+
+Lean `admitSetMethod` models this sequencing and proves exact delegation under
+identity argument recognition, first root/argument refusal, and valid publication.
+The host macro implementation and runtime metadata enforcement remain covered by
+regressions, rather than claimed as Lean-verified implementation code.

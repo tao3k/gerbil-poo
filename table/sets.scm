@@ -8,8 +8,14 @@
   (with-table-sources (append (list descriptor)
     (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
     (unless (eq? (.@ table Value) Unit) (error "set algebra requires Unit values"))
-    (for-each (cut require-set descriptor <>) inputs)
-    (action))))
+    ;; Resolve refinements under the original guard before extending its scope.
+    (def elt (.@ descriptor Elt))
+    ;; The ordinary Key alias needs no second scope; overridden contracts do.
+    (def (admit)
+      (for-each (cut require-set descriptor <>) inputs)
+      (action))
+    (if (eq? elt (.@ table Key)) (admit)
+      (with-table-sources (list elt) admit)))))
 
 ;; A set refinement cannot weaken the backing carrier/child admission. Recognition
 ;; retains admitted Function keys and does not reconstruct or normalize them.
@@ -27,6 +33,33 @@
 (def (build-set descriptor inputs method . args)
   (with-set-inputs descriptor inputs (lambda ()
     (require-set descriptor (apply (.ref (.@ descriptor Table) method) args)))))
+
+;; Derive the closed point-method family from Function signatures once. Wrapper
+;; owns argument/result recognition; no validator cooks an admitted Function key.
+;; Method lookup stays inside the call scope, after original-root admission.
+(def (set-methods descriptor methods signatures)
+  (with-set-inputs descriptor [] (lambda ()
+    (object<-alist
+      (map (lambda (name)
+        (def signature (.ref signatures name))
+        (def inputs (.@ signature inputs))
+        (def boundary (.cc Wrapper.
+          .unap: (lambda (args)
+            (unless (signature-shape? signature args) (raise-type-error signature args))
+            (for-each (lambda (type value)
+              (when (eq? type descriptor) (require-set descriptor value))) inputs args)
+            (for-each (lambda (type value)
+              (unless (eq? type descriptor) (require-table (.@ descriptor Elt) value))) inputs args)
+            args)
+          .ap: (cut require-set descriptor <>)))
+        (cons name (lambda args
+          (with-set-inputs descriptor [] (lambda ()
+            (.call boundary .map
+              (lambda (checked)
+                (def method (.ref methods name))
+                (using (method :~ procedure?) (apply method checked)))
+              args))))))
+        (.all-slots signatures))))))
 
 ;; Reuse the backend's complete merge algorithm and branch order. Its persistent
 ;; output is private until complete; a failure never returns a partially built set.
@@ -94,9 +127,17 @@
   .empty: (.<-list []) ;; : @
   .empty?: (.@ Table .empty?) ;; : Bool <- @
   .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
-  .cons: (lambda (elt root) (build-set @ [root] '.acons elt (void) root)) ;; : @ <- Elt @
-  .singleton: (lambda (elt) (.<-list [elt])) ;; : @ <- Elt
-  .remove: (lambda (root elt) (build-set @ [root] '.remove root elt)) ;; : @ <- @ Elt
+  ;; One derived boundary admits the family; the backend delegates stay simple.
+  methods: (set-methods @
+    (.o .cons: (cut .call Table .acons <> (void) <>)
+        .singleton: (lambda (elt) (.call Table .<-list [(cons elt (void))]))
+        (.remove (.@ Table .remove)))
+    (.o (.cons (.cc Function. inputs: [Elt @] outputs: [@]))
+        (.singleton (.cc Function. inputs: [Elt] outputs: [@]))
+        (.remove (.cc Function. inputs: [@ Elt] outputs: [@]))))
+  .cons: (.@ methods .cons) ;; : @ <- Elt @
+  .singleton: (.@ methods .singleton) ;; : @ <- Elt
+  .remove: (.@ methods .remove) ;; : @ <- @ Elt
   .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)

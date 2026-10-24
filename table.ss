@@ -22,9 +22,10 @@
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method @@method)
   (only-in ./io marshal)
-  (only-in ./mop define-type Type. Any validate element? raise-type-error TypeError? lens-of-get-set)
+  (only-in ./mop define-type Type. Function. Any validate element? raise-type-error TypeError? lens-of-get-set)
   (only-in ./fun Wrapper. Wrap.)
-  (only-in ./object .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
+  (only-in ./function-signature signature-shape?)
+  (only-in ./object .o object<-alist .all-slots .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair Unit))
 
 (defstruct %mapped-iterator (source transform guard) final: #t)
