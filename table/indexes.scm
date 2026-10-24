@@ -146,6 +146,13 @@
   (def (edit state key transform)
     (observe state (lambda (_)
       (update state (.call source .delta/opt key transform (%indexed-table-primary state))))))
+  ;; Capture this immutable primary once and delegate its standard cursor.
+  ;; The old snapshot remains readable after another owner publishes; origin
+  ;; invalidation refuses before each source pull, including repeated EOF.
+  (def (cursor state)
+    (observe state (lambda (_)
+      (iterator-map identity (.call source .iter<- (%indexed-table-primary state))
+        (lambda (action) (observe state (lambda (_) (action))))))))
   ;; Existing Wrap supplies IO and FUN operations. Guard complete callbacks and
   ;; rebuild only for an explicit representation-wide .map/wrap transformation.
   (def wrapper (.cc Wrapper. .ap: initialize .unap: (lambda (state)
@@ -163,6 +170,7 @@
       .remove: (lambda (state key) (edit state key (lambda (_) #f)))
       .foldl: (lambda (f seed state) (observe state (lambda (_) (.call source .foldl f seed (%indexed-table-primary state)))))
       .foldr: (lambda (f seed state) (observe state (lambda (_) (.call source .foldr f seed (%indexed-table-primary state)))))
+      .iter<-: cursor
       .apply-delta: update
       .index-ref/opt: (lambda (state name key) (observe state (lambda (_)
         (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))

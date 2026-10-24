@@ -556,6 +556,14 @@
                   (decode input)))
                 (def left (encode yes #t)) (def right (encode no #t))
                 (values left right))))
+            ;; Transfer the standard source iterator; translate only pulled rows.
+            ;; Guard before every pull, including repeated EOF, without holding
+            ;; metadata protection across suspension in the caller.
+            .iter<-: (lambda (input) (guard (lambda ()
+              (iterator-map (lambda (entry)
+                (let* ((k (translate forward #t (car entry)))
+                       (v (translate forward #f (cdr entry)))) (cons k v)))
+                (.call source .iter<- (decode input)) guard))))
             .merge: binding-merge
             .map/2: (cut binding-map #f <> <>)
             .filter-map/2: (cut binding-map #t <> <>)

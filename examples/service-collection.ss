@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -410,3 +410,16 @@
       (def left (.call protocol .ap (car request)))
       (def right (.call protocol .ap (cdr request)))
       (.call protocol .unap (.call protocol .merge choose left right))))))
+
+
+;; Read one snapshot-bound binding through the declared Gerbil Iterator, then
+;; inspect its checked payload before the Reader/FUN map permits IO. Empty input
+;; is #f; a present result is (some (key . result)), even when result is false.
+;; Failure consumes no table owner; callers retry with a fresh cursor/request.
+(def (observe-ledger-first descriptor inspect consume)
+  (using ((inspect :~ procedure?) (consume :~ procedure?))
+    (.call Observation. .map consume (lambda (state)
+      (using ((cursor (.call descriptor .iter<- state) :- Iterator))
+        (def entry (cursor.next!))
+        (and (not (eq? entry #!eof))
+          (some (cons (car entry) (inspect (car entry) (cdr entry))))))))))

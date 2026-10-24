@@ -795,3 +795,11 @@ capture-only frame reuse and an already-disabled direct path. The complete-entry
 paired receipt, rejected fixture split, exact counterexamples and remaining
 physical wait tails are in [slot-observation.md](slot-observation.md). This is a
 source-work/finite-observation refinement, not a stable all-tail latency claim.
+
+### Derived Iterator capability transfer
+
+Ordered, indexed and representation-derived `.iter<-` now preserve the standard
+source Iterator instead of implicitly rebuilding iteration through fold/list.
+Key/value conversion happens on demand with complete pre-pull metadata checks,
+including EOF. See [table-cursors.md](table-cursors.md) for failure advancement,
+restart, snapshots, Function identity and the bounded formal cost model.

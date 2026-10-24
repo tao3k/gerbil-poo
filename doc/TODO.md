@@ -1654,3 +1654,26 @@ Local full acceptance of complete cache admission passed all 136 modules / 1,359
 cases in the standard single-process program, retaining the 1 GiB / 300 s bounds.
 All 22 index cases and 346 companion Lean check invocations passed. These receipts
 do not establish a matched end-to-end performance improvement.
+
+
+### Composed collection cursor protocol
+
+Closed the derived `.iter<-` omission across ordered views, correlated indexes
+and explicit representation Wrappers. Each reuses Gerbil Iterator and existing
+positioning/checked conversion; representation conversion is demand-driven.
+Metadata invalidation refuses before every pull, including repeated EOF, while
+owner publication preserves issued snapshots. Conversion failure retains its
+cause and consumes the already pulled row; fresh-request retry restarts the
+original immutable snapshot rather than assuming cursor rollback.
+
+The complete cohort flow combines atomic indexed publication, all five styles,
+checked Function identity, FUN/IO consumer suppression and inverse restoration.
+Six regression cases and the companion finite pull/translation laws are detailed
+in [table-cursors.md](table-cursors.md). Ordered fallback sorting, complete cache
+admission and backend/GC cost laws retain their explicit scope; they are not
+silently removed or reported as whole-library completion.
+
+Local full acceptance passed all 137 modules / 1,365 cases in the standard
+single-process program with unchanged 1 GiB / 300 s limits. All six cursor cases
+and the companion 346 Lean check invocations passed. These receipts qualify the
+semantic unit and its finite demand counts, not an end-to-end speedup.

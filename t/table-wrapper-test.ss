@@ -13,11 +13,14 @@
 
 ;; Derive only the table protocol; raw target recognition does not pretend to
 ;; establish child membership or any inverse law automatically.
-(def (box-table source (ap make-boxed-table) (unap boxed-table-raw))
+(def (box-table source (ap make-boxed-table) (unap boxed-table-raw)
+                key: (key-wrapper #f) value: (value-wrapper #f))
   (def target (.cc Type. Key: (.@ source Key) Value: (.@ source Value) .element?: boxed-table?))
   (def carrier (.cc Wrapper. Domain: source Codomain: target .ap: ap .unap: unap))
-  (def keys (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key) .ap: - .unap: -))
-  (def payloads (.cc Wrapper. Domain: (.@ source Value) Codomain: (.@ source Value) .ap: identity .unap: identity))
+  (def keys (or key-wrapper
+    (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key) .ap: - .unap: -)))
+  (def payloads (or value-wrapper
+    (.cc Wrapper. Domain: (.@ source Value) Codomain: (.@ source Value) .ap: identity .unap: identity)))
   (values (table-wrapper source carrier keys payloads) carrier keys))
 
 ;; Distinguish expected metadata refusal from unrelated backend errors.
