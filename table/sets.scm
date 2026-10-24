@@ -208,3 +208,101 @@
   ;; Boolean membership focus uses the existing value-before-state Lens law.
   ;; Type refusal and backend failure retain the original persistent source.
   .lens: (lambda (e) (set-membership-lens @ e)))
+
+
+;; A private immutable image retains the grouped owners and every delta origin.
+(defstruct %set-image (owner indexed target sources versions) final: #t)
+
+;; Many-to-one Set image. Stable, pure projection respects declared key equality;
+;; explicit origins invalidate both reads and updates. Grouped indexes own all
+;; deduplication/retraction. Only complete source/target roots face refinements;
+;; private owner buckets use structural key spaces, never business refinements.
+(def (set-image source target transform (origins []))
+  (using ((transform :~ procedure?) (origins :~ list?))
+    (with-set-inputs source [] (lambda ()
+      (with-set-inputs target [] (lambda ()
+        (def primary (table-key-table (.@ source Table) Unit))
+        (def groups (table-key-table (.@ target Table) primary))
+        (def touched (table-key-table (.@ target Table) Unit))
+        (def indexes (table-indexes primary
+          (list (.o name: 'image table: groups unique?: #f
+            project: (lambda (key _row) (transform key))))))
+        (def sources (delete-duplicates/hash
+          (append (list source target indexes) origins (.@ indexes .sources)
+            (if (.has? source .sources) (.@ source .sources) [])
+            (if (.has? target .sources) (.@ target .sources) [])
+            (table-sources (.@ source Table)) (table-sources (.@ target Table))
+            (table-sources touched) (list (.@ source Elt) (.@ target Elt)))
+          table: (make-hash-table-eq) from-end?: #t))
+        (def versions (map object-revision sources))
+        (def owner (list source target transform))
+        ;; Keep all inherited metadata live throughout callbacks and delivery.
+        (def (guard dependencies action)
+          (with-table-sources dependencies (lambda ()
+            (unless (equal? versions (map object-revision sources)) (error "stale set image"))
+            (action))))
+        ;; Reject foreign snapshots and changed historical delta origins first.
+        (def (observe state action)
+          (unless (and (%set-image? state) (eq? owner (%set-image-owner state)))
+            (error "incompatible set image"))
+          (guard (%set-image-sources state) (lambda ()
+            (unless (equal? (%set-image-versions state)
+                           (map object-revision (%set-image-sources state)))
+              (error "stale set image state"))
+            (action))))
+        ;; Construct the complete image once from the existing grouped index.
+        (def (initialize input)
+          (guard sources (lambda ()
+            (require-set source input)
+            (def indexed (.call indexes .wrap input))
+            (def keys (.call indexes .index-fold indexed 'image
+              (lambda (key _bucket keys) (cons key keys)) []))
+            (def output (.call target .<-list (reverse keys)))
+            (require-set target output)
+            (make-%set-image owner indexed output sources versions))))
+        ;; Admit all source expectations before projecting. Touched target keys
+        ;; are coalesced by backend equality; bucket nonemptiness decides one
+        ;; ordinary target edit. No target snapshot diff or full scan is needed.
+        ;; The optional continuation receives the exact installed target delta.
+        (def (update state delta (receive (lambda (next _delta) next)))
+          (using (receive :~ procedure?)
+            (unless (table-delta? delta) (error "table delta required"))
+            (observe state (lambda ()
+              (def dependencies (delete-duplicates/hash
+                (append (%set-image-sources state) (table-delta-sources delta))
+                table: (make-hash-table-eq) from-end?: #t))
+              (guard dependencies (lambda ()
+                (def before (.call indexes .unwrap (%set-image-indexed state)))
+                (def indexed (.call indexes .apply-delta (%set-image-indexed state) delta
+                  (cut require-set source <>)))
+                (def after (.call indexes .unwrap indexed))
+                (def seen (.@ touched .empty))
+                (def keys (with-list-builder (emit)
+                  (for-each (lambda (change)
+                    (def key (table-change-key change))
+                    ;; A deleted/inserted owner has the same stable image key.
+                    (when (or (.call primary .key? before key) (.call primary .key? after key))
+                      (let (output (transform key))
+                        (unless (element? (.@ target Elt) output)
+                          (raise-type-error (.@ target Elt) output 'set-image))
+                        (unless (.call touched .key? seen output)
+                          (set! seen (.call touched .acons output (void) seen))
+                          (emit output))))) (table-delta-changes delta))))
+                (def edits (with-list-builder (emit)
+                  (for-each (lambda (key)
+                    (def old (.call (.@ target Table) .ref/opt (%set-image-target state) key))
+                    (def present? (some? (.call indexes .index-ref/opt indexed 'image key)))
+                    (unless (eq? (some? old) present?)
+                      (emit (make-table-change key old (and present? (some (void))))))) keys)))
+                (def output-delta (make-table-delta (.@ (.@ target Table) Key) Unit
+                  dependencies (map object-revision dependencies) edits))
+                (def output (.call (.@ target Table) .apply-delta (%set-image-target state) output-delta))
+                (require-set target output)
+                (def next (make-%set-image owner indexed output dependencies (map object-revision dependencies)))
+                (receive next output-delta)))))))
+        (.cc Wrapper. Domain: source Value: target .sources: sources
+          .ap: initialize
+          .unap: (lambda (state) (observe state
+            (lambda () (.call indexes .unwrap (%set-image-indexed state)))))
+          .get: (lambda (state) (observe state (lambda () (%set-image-target state))))
+          .apply-delta: update)))))))

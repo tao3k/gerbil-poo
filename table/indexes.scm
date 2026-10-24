@@ -121,7 +121,8 @@
           (.@ (%table-index-table recipe) .empty) primary))) (if result (cons result sources) sources)))))
   ;; All primary expectations are checked before index projection. Warm updates
   ;; visit only edit keys: retract all old bindings, then insert final bindings.
-  (def (update state delta)
+  (def (update state delta (admit identity))
+    (unless (procedure? admit) (error "index admission procedure required"))
     (unless (table-delta? delta) (error "table delta required"))
     (observe state (lambda (_)
       (def origins (delete-duplicates/hash (append (%indexed-table-sources state) (table-delta-sources delta))
@@ -132,6 +133,9 @@
         ;; The source delta primitive admits shape, not custom root refinements.
         ;; Recognize its complete final primary before preparing any index cache.
         (require-table source after)
+        ;; An enclosing collection can require its complete final refinement here,
+        ;; before projection, without applying the same primary delta twice.
+        (admit after)
         (def keys (map table-change-key (table-delta-changes delta)))
         (def indexes (for/collect ((recipe recipes) (entry (%indexed-table-indexes state)))
           (def stripped (foldl (lambda (key cache)
@@ -184,6 +188,15 @@
         (def type (.@ (%table-index-table recipe) Key))
         (unless (element? type key) (raise-type-error type key 'table-indexes))
         (.call (%table-index-table recipe) .ref/opt (cdr (assq name (%indexed-table-indexes state))) key))))
+      ;; Observe one complete named index through its declared fold, retaining
+      ;; guards and bucket identity without exposing a mutable cache handle.
+      .index-fold: (lambda (state name f seed)
+        (using (f :~ procedure?)
+          (observe state (lambda (_)
+            (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))
+            (unless recipe (error "unknown table index" name))
+            (.call (%table-index-table recipe) .foldl f seed
+              (cdr (assq name (%indexed-table-indexes state))))))))
       ;; Ordered backends own comparator and bound semantics; never infer order
       ;; from projection values or expose the private cache root to callers.
       .index-range: (lambda (state name lower upper (lower-inclusive? #t) (upper-inclusive? #t))

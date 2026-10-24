@@ -1794,3 +1794,17 @@ identity/no-diff regressions, indexed Function-bearing service swaps, Lean deliv
 style/conflict/inverse/frame laws and costs. Complete validation and a separate
 public backend installation remain charged. No automatic inverse projection,
 global publication credential or rollback of postcommit IO is claimed.
+
+
+### Set many-to-one image and incremental deduplication
+
+Closed this finite protocol unit using existing grouped table indexes, structural
+key spaces and direct target-delta delivery. Shared owner deletion retains the
+image until the last owner disappears; all five style presentations reuse the
+existing conflict/install discipline. Explicit inverse deltas restore source or
+target snapshots, without inferring an inverse projection. Complete Set
+refinements, Function identity, declared/inherited metadata invalidation and
+precommit failure/retry are retained. See set-algebra.md for API, charged work,
+stability/equality premises, regional grant examples and companion Lean laws.
+No arbitrary dependency discovery, destructive rollback, inferred inverse or
+whole-library completion is claimed.

@@ -304,3 +304,49 @@ Lean `admitSetMethod` models this sequencing and proves exact delegation under
 identity argument recognition, first root/argument refusal, and valid publication.
 The host macro implementation and runtime metadata enforcement remain covered by
 regressions, rather than claimed as Lean-verified implementation code.
+
+
+## Many-to-one image and incremental deduplication
+
+`(set-image Source Target project [origins])` returns the existing Wrapper-shaped
+protocol: `.ap` prepares a source snapshot, `.unap` reads it, `.get` observes its
+image and `.apply-delta` prepares a successor. Its optional `receive` continuation
+gets `(next target-delta)`; use Gerbil `values` for both, or reuse the existing
+projection style/Reader/FUN/IO publication action.
+
+The stable, pure, key-local projection must respect the two declared backend key
+equalities. Every source element contributes exactly one target element. Grouped
+`table-indexes` buckets track owners: removing one owner retains membership,
+removing the last owner emits one removal. Logical target equality coalesces
+multiple owners; this intentionally differs from unique-key table projection.
+Private structural key spaces retain backend equality without requiring each
+owner bucket to satisfy a whole-source refinement. Full source and target Set
+refinements still run before publication; they never require admissible prefixes.
+
+Cold construction folds the grouped index once into a complete image. Warm updates
+reuse those indexes, visit edited owners and their image keys, and deliver the
+exact ordinary target delta, without target `.diff` or scanning unchanged image
+members. The index installer admits the complete primary through its optional
+`admit` continuation before projecting, avoiding a duplicate primary installation.
+The projector currently runs once per present old/new owner in index maintenance
+and once per touched live owner occurrence to select target keys. Repeated edits
+therefore retain ordered source expectations and can repeat pure projections;
+this is not an O(1) backend/validation claim. Full recognition, backend work and
+separate public style installation remain charged.
+
+Failures retain immutable predecessors and suppress precommit consumers. Inherited
+delta origins invalidate even no-edit successors. Metadata mutation requires the
+same serialization discipline as existing table protocols. Functions already
+admitted as elements retain their wrapped identity. External callback effects and
+postcommit IO are not rolled back. Inverting the explicit source or target delta
+restores the corresponding snapshot; no inverse of a many-to-one function is
+inferred. `publish-access-image-action` combines grants/revocations, shared regional
+owners and all existing style installers. Regression controls include 24 revisions,
+Trie/RationalDict backends, stale public conflicts, retry and Function identity.
+
+The companion `SetAlgebra` laws reuse grouped-index repair, prove existential image
+membership, surviving-owner retention, last-owner removal and explicit inverse
+recovery. Existing publication laws cover all three ownership styles; posh/classy
+inherit pure/mutable behavior. These are laws under persistent backend, finite
+inventory, stable projection and faithful admission premises, not a proof of the
+Gerbil compiler, GC, arbitrary projector termination or machine execution.
