@@ -288,3 +288,9 @@ repaired publication, rejected membership insertion and cold pair construction.
 Backing construction/algebra laws, faithful recognition, finite traversal and
 stable declared callback dependencies remain premises. Arbitrary callback
 termination, hidden effects, compiler/runtime correctness and latency are not proved.
+
+The construction call sites pass a backing method and its ordinary arguments to
+`build-set`; standard `apply` resolves/calls that method inside the protected
+scope. Empty, singleton and iterator construction share `.<-list`. A regression
+checks that an effectful method getter cannot escape dependency protection when
+the call is flattened. This changes the expression layer, not the admission laws.

@@ -21,17 +21,17 @@
 (def (with-set-tables descriptor left right action)
   (with-set-inputs descriptor (list left right) action))
 
-;; One complete constructor/installer precedes final set admission. Private work
-;; can fail without publishing a root; external callback effects are not undone.
-(def (build-set descriptor inputs construct)
+;; Resolve and call one backing method inside the shared admission scope. Standard
+;; apply carries its arguments; callers need no extra construction thunk. Backend
+;; failures retain their cause and external callback effects are not undone.
+(def (build-set descriptor inputs method . args)
   (with-set-inputs descriptor inputs (lambda ()
-    (require-set descriptor (construct)))))
+    (require-set descriptor (apply (.ref (.@ descriptor Table) method) args)))))
 
 ;; Reuse the backend's complete merge algorithm and branch order. Its persistent
 ;; output is private until complete; a failure never returns a partially built set.
 (def (merge-set-tables descriptor choose left right)
-  (build-set descriptor (list left right)
-    (lambda () (.call (.@ descriptor Table) .merge (lambda (_ a b) (choose a b)) left right))))
+  (build-set descriptor (list left right) '.merge (lambda (_ a b) (choose a b)) left right))
 
 ;; Subset uses the backend's short-circuit traversal and membership primitive.
 ;; It constructs no merged set and does not compare or rewrap stored elements.
@@ -88,15 +88,15 @@
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
   ;; Normalize through the backing protocol once, then admit the set refinement.
-  .validate: (lambda (root) (build-set @ [] (lambda () (validate Table root)))) ;; : @ <- Any
+  .validate: (cut build-set @ [] '.validate <>) ;; : @ <- Any
   .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
   ;; Empty is a partial constructor when the declared set excludes that root.
-  .empty: (build-set @ [] (lambda () (.@ Table .empty))) ;; : @
+  .empty: (.<-list []) ;; : @
   .empty?: (.@ Table .empty?) ;; : Bool <- @
   .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
-  .cons: (lambda (elt root) (build-set @ (list root) (lambda () (.call Table .acons elt (void) root)))) ;; : @ <- Elt @
-  .singleton: (lambda (elt) (build-set @ [] (lambda () (.call Table .<-list (list (cons elt (void))))))) ;; : @ <- Elt
-  .remove: (lambda (root elt) (build-set @ (list root) (lambda () (.call Table .remove root elt)))) ;; : @ <- @ Elt
+  .cons: (lambda (elt root) (build-set @ [root] '.acons elt (void) root)) ;; : @ <- Elt @
+  .singleton: (lambda (elt) (.<-list [elt])) ;; : @ <- Elt
+  .remove: (lambda (root elt) (build-set @ [root] '.remove root elt)) ;; : @ <- @ Elt
   .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
@@ -112,7 +112,7 @@
   ;; A complete family may be valid while every singleton is forbidden. Reuse the
   ;; table's bulk constructor once, without exposing intermediate roots.
   .<-list: (lambda (l) (using (l :~ list?)
-    (build-set @ [] (lambda () (.call Table .<-list (map (lambda (elt) (cons elt (void))) l)))))) ;; : @ <- (List Elt)
+    (build-set @ [] '.<-list (map (lambda (elt) (cons elt (void))) l)))) ;; : @ <- (List Elt)
   .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(map (.@ Elt sexp<-) (.list<- x))))) ;; : Sexp <- @
   .min-elt: (lambda (t) (car (.call Table .min-binding t))) ;; : Elt <- @
   .min-elt/opt: (lambda (t) (map/option car (.call Table .min-binding/opt t))) ;; : (Option Elt) <- @
@@ -134,10 +134,9 @@
   ;; Materialize the finite input once and construct the final root once. The
   ;; existing snapshot scan is explicit; no streaming/constant-space law is claimed.
   .<-iter: (case-lambda
-    ((s) (.<-list (for/collect (elt s) elt)))
-    ((s t) (build-set @ (list t) (lambda ()
-      (.call Table .<-list (append (.call Table .list<- t)
-        (for/collect (elt s) (cons elt (void))))))))) ;; : @ <- (Iterator Elt) ?@
+    ((s) (with-set-inputs @ [] (lambda () (.<-list (for/collect (elt s) elt)))))
+    ((s t) (with-set-inputs @ [t] (lambda ()
+      (.<-list (append (.list<- t) (for/collect (elt s) elt))))))) ;; : @ <- (Iterator Elt) ?@
   .List: (List Elt)
   .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @
   .<-json: (compose .<-list (.@ .List .<-json)) ;; : @ <- Json

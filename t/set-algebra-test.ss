@@ -246,4 +246,10 @@
       (set! mutate? #f) (set! fail? #t)
       (check (eq? (try (.call descriptor .<-list '(3 4)) #f (catch (cause) cause)) failure) => #t)
       (set! fail? #f)
-      (check-equal? (.call descriptor .list<- (.call descriptor .union base base)) '(1 2)))))
+      (check-equal? (.call descriptor .list<- (.call descriptor .union base base)) '(1 2))
+      ;; Method lookup itself stays inside admission; flattening the call must
+      ;; not move this effectful getter outside the protected dependency scope.
+      (def inserting (.o (:: @ raw) (.acons (begin (.set! dependency epoch 2) (.@ raw .acons)))))
+      (def guarded (.cc Set<-Table. Table: inserting .sources: (list dependency)))
+      (check-exception (.call guarded .cons 3 base) (message? "object mutation during computation"))
+      (check-equal? (.@ dependency epoch) 0))))
