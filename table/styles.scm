@@ -25,6 +25,12 @@
 ;; Split returns two owners and a non-owning Option value (Bool for sets).
 (defmethod (@@method split %table-object)
   (lambda (self key) (.call (%table-object-protocol self) .split key self)))
+;; Return the selected binding/element only after the original owner's commit.
+(defmethod (@@method decons/opt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .decons/opt self)))
+;; Required extraction shares the same single-generation boundary and empty refusal.
+(defmethod (@@method decons %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .decons self)))
 ;; A whole batch stages before the shared ownership commit.
 (defmethod (@@method apply-batch %table-object)
   (lambda (self batch) (.call (%table-object-protocol self) .apply-batch self batch)))
@@ -312,6 +318,16 @@
         (set! middle found)
         (list left right))))
       (values (car roots) middle (cadr roots)))
+    ;; Keep the non-owning observation private until step has prepared the successor
+    ;; capability and committed once. Reentrant winners cannot leak a losing choice.
+    (def (decons input required?)
+      (def observed #f)
+      (def next (step input (lambda (before)
+        (defvalues (found rest)
+          ((.ref (or set source) (if required? '.decons '.decons/opt)) before))
+        (set! observed found)
+        rest)))
+      (values observed next))
     ;; Capture the left generation before observing the right snapshot. Aliases
     ;; use that exact left snapshot; distinct right owners are observed, not spent.
     (def (merge-with input right combine)
@@ -378,6 +394,7 @@
       .lens: (cut focus <> #f) .lens/opt: (cut focus <> #t)
       .filter: (cut select '.filter <> <>)
       .split: split
+      .decons/opt: (cut decons <> #f) .decons: (cut decons <> #t)
       .partition: (cut select '.partition <> <>)
       ;; Deferred observations retain source guards through every pull and EOF.
       .iter<-: (lambda (input) (observe input '.iter<- [] #t))

@@ -76,3 +76,51 @@ snapshot. `Examples/CollectionStyles.lean` checks opaque callback payloads, stor
 false, a transported order and refusal/retry. These finite semantic laws do not
 verify Gerbil compilation, locks, arbitrary callback termination, physical memory
 ownership or GC behavior.
+
+## Checked single-entry decomposition
+
+The concrete `decons` item previously named only in `table.ss` is now implemented
+through `methods.table`, `Set<-Table.`, all five styles and Gerbil receiver methods.
+This advances the collection proposal's future work.
+
+* `.decons/opt input` returns two values: `Option (Key . Value)` and the complete
+  remainder; Set returns `Option Elt` and its remainder. Stored false is present.
+* `.decons input` returns a required binding (or Set element) and remainder.
+  Empty input raises the existing `option-ref` "no value" error before installation.
+* Choice follows the declared backend `.choose/opt`; no numeric minimum, sort or
+  comparison policy is invented. Faithful choice/traversal is a backend premise.
+  The copied Option/pair shells retain admitted child and Function identities.
+* Source admission precedes choice. A present choice becomes one ordinary removal
+  delta with its exact expected old value. A missing/changed chosen binding raises
+  the existing `table-conflict`. Complete remainder recognition and correlated
+  index installation precede either returned value. Empty optional extraction
+  returns the original admitted root and makes no backend write.
+
+Styles reuse their existing single-root `step`, including snapshot capture,
+receiver preparation and one generation comparison/installation. Pure/Posh keep
+the predecessor, Mutable/Classy update their existing identity, Linear retires it
+and returns a fresh owner. Successful optional-empty extraction follows the same
+one-step policy, while required-empty failure leaves every owner usable. A
+reentrant winner cannot be overwritten or expose a losing extracted observation.
+Set refinements are admitted through the common Set boundary rather than wrapping
+each low-level insertion/deletion again. Declared origin changes reject retained
+factories before choosing. External callback effects and postcommit IO are not
+rolled back; this is not a physical destructive pop or static linearity proof.
+
+`decons-ledger-action` composes a local Linear owner with the existing Reader/FUN
+observation and IO boundary. The service fixture retains one checked Function,
+updates unique correlated indexes, and restores the source with the existing
+inverse delta. Regressions cover both required/optional variants, all five styles,
+empty/false, whole-root refusal/retry, inconsistent choices, reentrant publication,
+metadata invalidation and caller-owned choice shells. The finite Lean laws in
+`TableSelection.lean` prove traversal reconstruction, cardinality, absence,
+selected-key removal/frame/inverse, admission ordering and stale-generation refusal.
+Payload equality is not required for traversal preservation; guarded deltas use
+their existing equality premise. Persistent carriers, immutable leaves and faithful
+backend operations remain explicit premises.
+
+Cost is backend choice plus one guarded deletion and complete admission/index
+preparation. No `.diff`, full snapshot sort or new ownership engine is introduced.
+This does not imply constant/logarithmic total cost for arbitrary backends or
+whole-root refinements. Other `drop` APIs and automatic algorithm discovery are
+separate items, not silently claimed complete.

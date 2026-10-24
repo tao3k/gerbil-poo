@@ -42,6 +42,25 @@
   (require-table-option binding
     (map/option (lambda (row) (if (pair? row) (cons (car row) (cdr row)) row)) response)))
 
+;; Capture one admitted choice and remove its exact old binding through the
+;; ordinary optimistic installer. The observation remains private until complete
+;; remainder admission; required empty extraction uses the existing Option error.
+;; Backend choice/order and persistent-update fidelity remain declared premises.
+(def (decons-table descriptor input required?)
+  (def sources (table-sources descriptor))
+  (with-table-sources sources (lambda ()
+    (require-table descriptor input)
+    (def found (require-table-entry (Pair (.@ descriptor Key) (.@ descriptor Value))
+      (.call descriptor .choose/opt input)))
+    (def observed (if required? (option-ref found) found))
+    (def result (if (some? found)
+      (let (row (some-value found))
+        (require-table descriptor (.call descriptor .apply-delta input
+          (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources
+            (map object-revision sources)
+            (list (make-table-change (car row) (some (cdr row)) #f)))))) input))
+    (values observed result))))
+
 ;; Reserve a target logical key using its declared backend equality. Every old
 ;; affected owner is removed before warm reservations, permitting final-state swaps.
 (def (claim-table-entry owners seen row key)

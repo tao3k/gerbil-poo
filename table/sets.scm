@@ -127,6 +127,15 @@
       (require-set descriptor right)
       (values left (some? found) right))))
 
+;; Project the shared table extraction's observation to an element while keeping
+;; source/remainder set refinements in one protected boundary. Unit stays private.
+(def (decons-set descriptor input required?)
+  (with-set-inputs descriptor (list input) (lambda ()
+    (def table (.@ descriptor Table))
+    (defvalues (found rest) ((.ref table (if required? '.decons '.decons/opt)) input))
+    (require-set descriptor rest)
+    (values (if required? (car found) (map/option car found)) rest))))
+
 (define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
@@ -171,6 +180,9 @@
   .max-elt/opt: (lambda (t) (map/option car (.call Table .max-binding/opt t))) ;; : (Option Elt) <- @
   .choose: .min-elt ;; : Elt <- @
   .choose-opt: .min-elt/opt ;; : (Option Elt) <- @
+  ;; Element-level extraction shares table choice, conflicts and complete admission.
+  .decons/opt: (lambda (input) (decons-set @ input #f))
+  .decons: (lambda (input) (decons-set @ input #t))
   ;; Both set roots pass complete admission before the presence observation escapes.
   .split: (lambda (elt t) (split-set @ elt t)) ;; : @ Bool @ <- Elt @
   .find-first/opt: (lambda (f t) (map/option car (.call Table .find-first/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @

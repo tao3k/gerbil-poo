@@ -1893,3 +1893,17 @@ metadata invalidation and FUN/IO have integrated regressions and finite Lean law
 See table-mapping.md for the API, purity/equality/persistence premises and output,
 registry, preparation and full recognition costs. Automatic expansion discovery
 remains a research boundary; this does not declare the collection proposal complete.
+
+### Checked single-entry decomposition
+
+Closed the concrete `decons` interface item previously listed in `table.ss`:
+required/optional Table and Set extraction now shares ordinary old-value guarded
+removal, whole-remainder admission, correlated indexes and the existing five-style
+single-generation installer. Backend choice order is retained, false is present,
+empty required extraction refuses before commit, optional empty extraction follows
+the ordinary one-step ownership policy. Reentrant losers expose no selected value;
+metadata invalidation, Function identity, failure/retry, inverse recovery and
+Reader/FUN/IO have integrated controls and finite Lean laws. See table-split.md
+for APIs, equality/persistence premises and choice/preparation/admission costs.
+This closes explicit extraction, not arbitrary destructive storage or algorithm
+and comparison discovery.

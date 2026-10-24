@@ -617,7 +617,7 @@
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)
 ;; vs for-each* / foldl* / afoldr (iterating with two separate arguments for k v)
-;; (3) implement additional APIs like drop, decons, convert, etc.; checked map/2 is implemented below.
+;; (3) implement additional APIs like drop, convert, etc.; checked decons and map/2 are below.
 ;; We could also reorder the arguments between object vs typeclass styles,
 ;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
@@ -741,6 +741,11 @@
 
   ;; : (Pair Key Value) <- @
   .choose: .min-binding
+
+  ;; Extract the backend's chosen binding and an admitted persistent remainder.
+  ;; Optional extraction returns Option Pair; required extraction refuses empty.
+  .decons/opt: (lambda (input) (decons-table @ input #f))
+  .decons: (lambda (input) (decons-table @ input #t))
 
   ;; Linear scan for the first matching entry
   ;; BEWARE: this assumes for-each is in increasing key order.
