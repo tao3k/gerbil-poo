@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -365,3 +365,14 @@
       (def owner (.call protocol .ap base))
       (def next (.call protocol .filter-map/2 transform owner))
       (.call protocol .unap next)))))
+
+;; Decompose an admitted ledger under explicit order using one linear transition.
+;; Reader/FUN invokes IO only after both successor roots and the pivot observation
+;; are ready. The caller retains its persistent base for explicit failure retry.
+(def (split-ledger-action table pivot consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map (lambda (results) (apply consume results)) (lambda (base)
+      (def protocol (.@ (table-styles table) Linear))
+      (def owner (.call protocol .ap base))
+      (defvalues (left found right) (.call protocol .split pivot owner))
+      (list (.call protocol .unap left) found (.call protocol .unap right))))))

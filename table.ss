@@ -757,6 +757,9 @@
     (def branches (select-table @ predicate input #t))
     (values (car branches) (cdr branches)))
 
+  ;; Explicit order is required; both persistent sides are admitted before return.
+  .split: (lambda (key input) (split-table @ key input))
+
   ;; : (Fun Bool <- @)
   .empty?: (lambda (t) (eqv? t .empty))
 

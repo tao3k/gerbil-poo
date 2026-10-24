@@ -1269,6 +1269,15 @@ late refusal/retry, reentrant winners and FUN/IO have integrated controls and
 finite Lean laws. See [table-mapping.md](table-mapping.md) for callback order,
 root refinements, ownership, declared backend premises and charged costs.
 
+**Ordered decomposition** now closes the existing table/set `.split` protocol:
+explicit comparers, typed pivot Option/presence, original-snapshot side preparation,
+correlated indexes and five ownership styles share the existing checked mapping
+and multi-result installer. The erroneous Trie pivot/prefix recursion is removed.
+Function preservation, late refusal/retry, reentrant winners and Reader/FUN/IO have
+integrated regressions and finite Lean laws; see [table-split.md](table-split.md).
+The fallback charges two traversals and full admission; no logarithmic split,
+physical ownership or automatic comparator discovery is claimed.
+
 Ordered multi-round revision batches are now a complete additional unit:
 `.compose-deltas` retains all intermediate expectations and origin dependencies,
 including empty origins, repeated keys and deletion/reinsertion. Ordinary

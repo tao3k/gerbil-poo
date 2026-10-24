@@ -139,3 +139,27 @@
       (foldr (lambda (entry acc) (f (car entry) (cdr entry) acc)) seed
         (if seek? (.call source .list<- state) (bindings state))))))))
   result)
+
+;; Decompose under an explicit lawful order, retaining admitted leaves and indexes.
+;; Reuse checked optional mapping on the original root for each side, never an
+;; intermediate remainder that might violate a custom refinement. This reference
+;; path costs two traversals plus full admission; it claims no logarithmic split.
+(def (split-table descriptor pivot input)
+  (unless (.has? descriptor Comparer) (error "unordered table split"))
+  (def comparer (.@ descriptor Comparer))
+  (unless (eq? (.@ descriptor Key) (.@ comparer Key)) (error "incompatible table order key"))
+  (with-table-sources (append (table-sources descriptor) (list comparer) (.@ comparer .sources))
+    (lambda ()
+      (require-table descriptor input)
+      (require-table-key descriptor pivot)
+      (def middle (require-table-option descriptor
+        (map/option identity (.call descriptor .ref/opt input pivot))))
+      ;; Classify with the declared comparer, not the host order of encoded keys.
+      (def (side keep?)
+        (.call descriptor .filter-map/2 (lambda (key value)
+          (and (keep? (.call comparer .compare key pivot)) (some value))) input))
+      (def left (side negative?))
+      (def right (side positive?))
+      (require-table descriptor left)
+      (require-table descriptor right)
+      (values left middle right))))

@@ -53,6 +53,19 @@
       (for-each (cut require-table descriptor <>) roots)
       (apply values roots)))))
 
+;; Set decomposition protects custom refinements and metadata on both results;
+;; only the optional pivot payload is projected to presence, retaining Unit semantics.
+(def (split-set descriptor pivot input)
+  (def table (.@ descriptor Table))
+  (with-table-sources (append (list descriptor)
+    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
+    (with-set-tables table input input (lambda ()
+      (require-table descriptor input)
+      (defvalues (left found right) (.call table .split pivot input))
+      (require-table descriptor left)
+      (require-table descriptor right)
+      (values left (some? found) right))))))
+
 (define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
@@ -84,7 +97,8 @@
   .max-elt/opt: (lambda (t) (map/option car (.call Table .max-binding/opt t))) ;; : (Option Elt) <- @
   .choose: .min-elt ;; : Elt <- @
   .choose-opt: .min-elt/opt ;; : (Option Elt) <- @
-  .split: (lambda (elt t) (defvalues (a v b) (.call Table .split elt t)) (values a (some? v) b)) ;; : @ Bool @ <- Elt @
+  ;; Both set roots pass complete admission before the presence observation escapes.
+  .split: (lambda (elt t) (split-set @ elt t)) ;; : @ Bool @ <- Elt @
   .find-first/opt: (lambda (f t) (map/option car (.call Table .find-first/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
   .find-first: (lambda (f t) (option-ref (.find-first/opt f t))) ;; : Elt <- (Bool <- Elt) @
   .find-last/opt: (lambda (f t) (map/option car (.call Table .find-last/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @

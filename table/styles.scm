@@ -22,6 +22,9 @@
 ;; Delegate ordered changes to the existing atomic table installer.
 (defmethod (@@method apply-delta %table-object)
   (lambda (self delta) (.call (%table-object-protocol self) .apply-delta self delta)))
+;; Split returns two owners and a non-owning Option value (Bool for sets).
+(defmethod (@@method split %table-object)
+  (lambda (self key) (.call (%table-object-protocol self) .split key self)))
 ;; A whole batch stages before the shared ownership commit.
 (defmethod (@@method apply-batch %table-object)
   (lambda (self batch) (.call (%table-object-protocol self) .apply-batch self batch)))
@@ -274,6 +277,15 @@
           (apply values (stage input (lambda (before)
             (defvalues (yes no) (.call descriptor .partition predicate before))
             (list yes no)))))))
+    ;; Retain the pivot observation privately while the common stage prepares both
+    ;; successor capabilities. A refused right side never consumes the predecessor.
+    (def (split key input)
+      (def middle #f)
+      (def roots (stage input (lambda (before)
+        (defvalues (left found right) (.call (or set source) .split key before))
+        (set! middle found)
+        (list left right))))
+      (values (car roots) middle (cadr roots)))
     ;; Observe a compatible right state before beginning the left update callback.
     ;; Captured immutable roots remain stable; only the left capability commits.
     (def (combine method left right)
@@ -321,6 +333,7 @@
         (guard (lambda () (.call source .delta/opt key transform (read input)))))
       .lens: (cut focus <> #f) .lens/opt: (cut focus <> #t)
       .filter: (cut select '.filter <> <>)
+      .split: split
       .partition: (cut select '.partition <> <>)
       ;; Deferred observations retain source guards through every pull and EOF.
       .iter<-: (lambda (input) (observe input '.iter<- [] #t))

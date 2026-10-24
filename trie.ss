@@ -608,36 +608,8 @@
            (def (f child) (.make-skip height bits-height bits child))
            (values (f y) (f n)))))))
 
-  ;; The (.split k t) operation returns a triple (l data r), where
-  ;; l is the map with all the bindings of t whose key is strictly less than k;
-  ;; r is the map with all the bindings of t whose key is strictly greater than k;
-  ;; data is #f if t contains no binding for k,
-  ;; or (some v) if t binds v to k
-  ;; : @ (Option Value) @ <- Key @
-  .split:
-  (lambda (k t)
-    (let/cc return
-      (when (< k 0) (return (values .empty #f t)))
-      (def h (.trie-height t))
-      (unless (and h (>= h (integer-length k))) (return (values t #f .empty)))
-      (let srec ((k 0) (t t))
-        (match (.unwrap t)
-          ((Empty) (values .empty #f .empty))
-          ((Leaf v) (values .empty (some v) .empty))
-          ((Branch height left right)
-           (if (bit-set? (1- height) k)
-             (let-values (((l x r) (srec (.right-key height k) right)))
-               (values (.make-branch height left l)
-                       x
-                       (.make-skip height 0 1 r)))
-             (let-values (((_ x r) (srec k left)))
-               (values (.make-skip height 0 0 left)
-                       x
-                       (.make-branch height r right)))))
-          ((Skip height bits-height bits child)
-           (let-values (((l x r) (srec (.skip-key height bits-height bits k) child)))
-             (def (f child) (.make-skip height bits-height bits child))
-             (values (f l) x (f r))))))))
+  ;; Ordered split is inherited from methods.table. Its checked traversal keeps
+  ;; the pivot distinct from the Trie traversal prefix and admits both outputs.
 
   .Zipper: {(:: @Z [])
     A: @
