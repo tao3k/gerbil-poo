@@ -82,3 +82,42 @@
         (def found (.call descriptor .ref/opt right key))
         (and found (.call (.@ descriptor Value) .=? value (some-value found)))) left)
       (.call descriptor .every (lambda (key _) (.call descriptor .key? left key)) right)))))
+
+;; Select from one admitted snapshot. Shared validation surrounds declared
+;; structural capabilities; generic tables stage only removals, then reuse their
+;; final-state delta installer. No empty seed or partial indexed root is required.
+(def (select-table descriptor predicate input split?)
+  (using (predicate :~ procedure?)
+    (def sources (table-sources descriptor))
+    (with-table-sources sources (lambda ()
+      (require-table descriptor input)
+      ;; Every backend observes the same strict Bool boundary and exact failure.
+      (def (classify key value)
+        (def selected? (predicate key value))
+        (using (selected? :~ boolean?) selected?))
+      ;; Each side starts at the original root; unchanged selections retain it.
+      ;; All decisions precede installation, and no predicate is replayed.
+      (def (generic)
+        (def removals (.call descriptor .foldl (lambda (key value sides)
+          (def selected? (classify key value))
+          (if selected?
+            (if split? (cons (car sides)
+              (cons (make-table-change key (some value) #f) (cdr sides))) sides)
+            (cons (cons (make-table-change key (some value) #f) (car sides)) (cdr sides)))) (cons [] []) input))
+        ;; Capture ordered deletions using the existing optimistic delta format.
+        (def (install changes)
+          (if (null? changes) input
+            (.call descriptor .apply-delta input
+              (make-table-delta (.@ descriptor Key) (.@ descriptor Value)
+                sources (map object-revision sources) (reverse changes)))))
+        (def yes (install (car removals)))
+        (cons yes (and split? (install (cdr removals)))))
+      (def roots (cond
+        ((and split? (.has? descriptor .partition/key))
+          (let-values (((yes no) (.call descriptor .partition/key classify input))) (cons yes no)))
+        ((and (not split?) (.has? descriptor .filter/key))
+          (cons (.call descriptor .filter/key classify input) #f))
+        (else (generic))))
+      (require-table descriptor (car roots))
+      (when split? (require-table descriptor (cdr roots)))
+      roots))))

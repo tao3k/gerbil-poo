@@ -543,6 +543,19 @@
                   (translate backward #f v) (decode input)) #t))))
             .remove: (lambda (input k)
               (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k)) #t))))
+            ;; Transfer selection as one source operation, preserving final-state
+            ;; index installation and source sharing through explicit encodings.
+            .filter/key: (lambda (predicate input)
+              (guard (lambda () (encode (.call source .filter
+                (lambda (k v) (predicate (translate forward #t k) (translate forward #f v)))
+                (decode input)) #t))))
+            .partition/key: (lambda (predicate input)
+              (guard (lambda ()
+                (defvalues (yes no) (.call source .partition
+                  (lambda (k v) (predicate (translate forward #t k) (translate forward #f v)))
+                  (decode input)))
+                (def left (encode yes #t)) (def right (encode no #t))
+                (values left right))))
             .merge: binding-merge
             .map/2: (cut binding-map #f <> <>)
             .filter-map/2: (cut binding-map #t <> <>)
@@ -712,23 +725,6 @@
 ;; predicate runs once per visited binding, in fold order, and must return Bool.
 ;; Both branches remain private until complete recognition succeeds; Function
 ;; keys/values retain identity. Callback effects themselves cannot be rolled back.
-(def (select-table descriptor predicate input split?)
-  (using (predicate :~ procedure?)
-    (with-table-sources (table-sources descriptor) (lambda ()
-      (require-table descriptor input)
-      (def branches (.call descriptor .foldl (lambda (key value branches)
-        (def selected? (predicate key value))
-        (using (selected? :~ boolean?)
-          (if selected?
-            (cons (.call descriptor .acons key value (car branches)) (cdr branches))
-            (if split?
-              (cons (car branches) (.call descriptor .acons key value (cdr branches)))
-              branches))))
-        (cons (.@ descriptor .empty) (.@ descriptor .empty)) input))
-      (require-table descriptor (car branches))
-      (when split? (require-table descriptor (cdr branches)))
-      branches))))
-
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)

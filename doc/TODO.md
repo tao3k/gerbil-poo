@@ -1608,3 +1608,27 @@ module splitting was withdrawn. Physical off-CPU workflow tails remain unresolve
 and are not closed by lower CPU, a favorable maximum or an added example. See
 [slot-observation.md](slot-observation.md). Feature completion and performance
 qualification remain separate; no check or resource limit is reduced.
+
+
+### Shared checked selection closure
+
+Closed a backend protocol omission: Trie's public filter/partition previously
+bypassed strict Bool and complete-root admission. Both operations now inherit the
+shared checked boundary while declared structural capabilities retain subtree
+sharing. The generic path stages only removals and reuses final-state delta
+installation, rather than rebuilding from an empty seed. Explicit Wrappers
+transfer the whole source selection; correlated indexes, partial refinements,
+five ownership styles and FUN/IO refusal/restaging use the same protocol.
+
+The finite Lean laws cover admission/error order, late-refusal owner retention,
+opaque-leaf deletion observations, edit counts and representation transfer.
+Complex service examples and complete regression controls are documented in
+[table-selection.md](table-selection.md). This closes this concrete collection
+unit; inferred symmetry, arbitrary backend costs and unrestricted callback
+termination remain research boundaries rather than missing checked behavior.
+
+
+Local full acceptance of this unit passed all 136 modules / 1,354 cases in the
+standard single-process test program with the unchanged 1 GiB / 300 s bounds.
+All 12 selection cases and the companion 346 Lean check invocations passed.
+These are semantic/check receipts, not a matched wall-time speedup claim.

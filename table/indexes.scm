@@ -124,6 +124,9 @@
       (guard origins (lambda ()
         (def before (%indexed-table-primary state))
         (def after (.call source .apply-delta before delta))
+        ;; The source delta primitive admits shape, not custom root refinements.
+        ;; Recognize its complete final primary before preparing any index cache.
+        (require-table source after)
         (def keys (map table-change-key (table-delta-changes delta)))
         (def indexes (map (lambda (recipe entry)
           (def stripped (foldl (lambda (key cache)

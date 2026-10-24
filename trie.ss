@@ -506,8 +506,9 @@
         ((Skip height bits-height bits child)
          (rec (.skip-key height bits-height bits k) child a)))))
 
-  ;; : @ <- (Fun Bool <- Key Value) @
-  .filter:
+  ;; Structural capability: public selection owns admission and Bool checks.
+  ;; Retain unchanged subtrees instead of rebuilding the selected bindings.
+  .filter/key:
   (lambda (pred t)
     (first-value
      (let r ((k 0) (t t))
@@ -592,8 +593,8 @@
                     ([[k . trie] . rightward] (divide k default [] rightward trie)))))))
       (divide 0 #f [] [] trie)))
 
-  ;; : @ @ <- (Fun Bool <- Key Value) @
-  .partition:
+  ;; Structural paired capability; the shared boundary validates both roots.
+  .partition/key:
   (lambda (p t)
     (let prec ((k 0) (t t))
       (match (.unwrap t)
