@@ -890,13 +890,14 @@
   ;; Left-biased join retains false payloads because presence is an Option shell.
   .join: (lambda (a b) (.merge (lambda (_ left right) (or left right)) a b))
 
-  ;; Nonempty batches start at their first admitted root, never an invented empty
+  ;; Retain foldl's existing later-source priority. Nonempty batches start at
+  ;; their first admitted root, never an invented empty
   ;; seed that could violate a custom refinement. Empty batches admit .empty.
   .join/list: (lambda (roots)
     (using (roots :~ list?)
       (with-table-sources (table-sources @) (lambda ()
         (for-each (cut require-table @ <>) roots)
-        (if (null? roots) (require-table @ .empty) (foldl (lambda (root accumulated) (.join accumulated root)) (car roots) (cdr roots)))))))
+        (if (null? roots) (require-table @ .empty) (foldl .join (car roots) (cdr roots)))))))
 
   ;; Equality observes admitted roots instead of constructing a throwaway merged
   ;; empty root, which may be forbidden by the table's own refinement.

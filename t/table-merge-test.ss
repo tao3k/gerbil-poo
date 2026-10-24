@@ -41,7 +41,7 @@
         (def malformed (.call table .acons 2 "invalid child" (.@ table .empty)))
         (check-exception (.call table .merge (lambda args (set! calls (+ calls 1)) #f) root malformed) TypeError?)
         (check-equal? calls 0)))
-    (test-case "union join and batches preserve presence and first-source priority"
+    (test-case "union join and batches preserve presence and existing batch precedence"
       (for (table (list (RationalDict Bool) (SimpleTrie UInt Bool)))
         (def left (.call table .<-list '((1 . #f) (2 . #t))))
         (def right (.call table .<-list '((1 . #t) (3 . #f)))) (def overlap [])
@@ -51,7 +51,7 @@
         (check-equal? (.call table .list<- merged) '((2 . #t) (3 . #f)))
         (check-equal? (.call table .list<- (.call table .join left right)) '((1 . #f) (2 . #t) (3 . #f)))
         (check-equal? (.call table .list<- (.call table .join/list (list left right right)))
-          '((1 . #f) (2 . #t) (3 . #f)))
+          '((1 . #t) (2 . #t) (3 . #f)))
         (check (.call table .empty? (.call table .join/list [])) => #t)))
     (test-case "five styles commit only the left and support ordinary receiver calls"
       (for (name '(Pure Mutable Linear Posh Classy))
@@ -74,7 +74,7 @@
           (.call protocol .join united right)))
         (def final (if (memq name '(Posh Classy)) (@@method joined.join/list (list joined right right))
           (.call protocol .join/list joined (list joined right right))))
-        (check-equal? (.call protocol .list<- final) '((1 . 10) (2 . 24) (3 . 6)))
+        (check-equal? (.call protocol .list<- final) '((1 . 10) (2 . 2) (3 . 3)))
         (check (eq? right-root (.call protocol .unap right)) => #t)))
     (test-case "indexed swaps are installed once through ordinary and boxed carriers"
       (def source (RationalDict Integer))

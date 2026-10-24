@@ -1273,7 +1273,7 @@ root refinements, ownership, declared backend premises and charged costs.
 `.join/list` through typed Option decisions, both original snapshots and five
 styles. Existing Trie paired traversal is retained; the generic path installs one
 final-state delta, including indexed swaps through representation Wrappers.
-Batch joins now preserve first-source priority without a fabricated empty seed;
+Batch joins retain their existing later-source priority without a fabricated empty seed;
 generic equality observes roots instead of constructing a forbidden empty merge.
 Alias shells, Function identity, metadata/owner refusal, reentrant winners,
 constraint failure/retry and FUN/IO have integrated controls and Lean laws.
