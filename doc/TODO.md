@@ -1632,3 +1632,25 @@ Local full acceptance of this unit passed all 136 modules / 1,354 cases in the
 standard single-process test program with the unchanged 1 GiB / 300 s bounds.
 All 12 selection cases and the companion 346 Lean check invocations passed.
 These are semantic/check receipts, not a matched wall-time speedup claim.
+
+
+### Complete declared cache admission
+
+Closed a cold/warm publication omission in `table-indexes`: prepared caches were
+never recognized through their declared complete table Types. The shared entry
+boundary now checks carrier, owners, custom root constraints and grouped source
+buckets before later recipes and before family publication. Gerbil `for/collect`,
+the existing installer, five ownership styles, Wrappers and FUN/IO retain failure
+order, old-owner retry, inverse restoration and admitted Function identities.
+
+The companion heterogeneous-cache Lean laws and cohort examples cover complete
+admission and atomic refusal. Sparse changed-key projection work remains separate
+from full source/cache recognition cost. See [table-indexes.md](table-indexes.md).
+This is a concrete finite protocol closure, not completion of automatic symmetry
+discovery, arbitrary backend cost qualification or the whole collection proposal.
+
+
+Local full acceptance of complete cache admission passed all 136 modules / 1,359
+cases in the standard single-process program, retaining the 1 GiB / 300 s bounds.
+All 22 index cases and 346 companion Lean check invocations passed. These receipts
+do not establish a matched end-to-end performance improvement.

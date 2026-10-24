@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -212,6 +212,20 @@
   (def team (.cc Type. name: 'team table: (SimpleTrie UInt source)
     project: (lambda (_ row) (vector-ref row 2)) unique?: #f))
   (values (table-indexes source (list badge endpoint team)) source (list badge endpoint team)))
+
+;; Route checked services in complete cohorts. The primary and every grouped
+;; bucket use the SAME source Type, so final team membership must have even size.
+;; Ordinary cache admission enforces that law; no separate approval engine is used.
+(def (make-cohort-services)
+  (def raw (RationalDict (Tuple UInt UInt (Fun Integer <- Integer))))
+  (def source (.cc raw .element?: (lambda (root)
+    (and (element? raw root) (even? (.call raw .count root))))))
+  (def badge (.cc Type. name: 'badge table: (RationalDict (.@ source Key)) unique?: #t
+    project: (lambda (_ row) (vector-ref row 0))))
+  (def team (.cc Type. name: 'team table: (SimpleTrie UInt source) unique?: #f
+    project: (lambda (_ row) (vector-ref row 1))))
+  (def declarations (list badge team))
+  (values (table-indexes source declarations) source declarations))
 
 ;; Each checked service owns several aliases and belongs to several teams.
 ;; Empty/duplicate memberships, ordered ranges and linear publication all use

@@ -102,6 +102,11 @@
   (def (retract recipe cache key row)
     (foldl (lambda (projected cache) (retract-key recipe cache key row projected))
       cache (project recipe key row)))
+  ;; Recognize the complete declared cache without normalizing its keys or
+  ;; values. Grouped Value=source also checks each final bucket's root refinement.
+  ;; Keep this boundary after one recipe finishes and before the next is prepared.
+  (def (checked-entry recipe cache)
+    (cons (%table-index-name recipe) (require-table (%table-index-table recipe) cache)))
   ;; Allocate only after every declared cache has completed; failed callbacks
   ;; expose neither an updated primary nor a partially prepared index list.
   (def (snapshot primary indexes origins)
@@ -110,10 +115,10 @@
   (def (initialize primary)
     (guard sources (lambda ()
       (require-table source primary)
-      (snapshot primary (map (lambda (recipe)
-        (cons (%table-index-name recipe) (.call source .foldl
+      (snapshot primary (for/collect ((recipe recipes))
+        (checked-entry recipe (.call source .foldl
           (lambda (key row cache) (insert recipe cache key row))
-          (.@ (%table-index-table recipe) .empty) primary))) recipes) (if result (cons result sources) sources)))))
+          (.@ (%table-index-table recipe) .empty) primary))) (if result (cons result sources) sources)))))
   ;; All primary expectations are checked before index projection. Warm updates
   ;; visit only edit keys: retract all old bindings, then insert final bindings.
   (def (update state delta)
@@ -128,14 +133,13 @@
         ;; Recognize its complete final primary before preparing any index cache.
         (require-table source after)
         (def keys (map table-change-key (table-delta-changes delta)))
-        (def indexes (map (lambda (recipe entry)
+        (def indexes (for/collect ((recipe recipes) (entry (%indexed-table-indexes state)))
           (def stripped (foldl (lambda (key cache)
             (def old (.call source .ref/opt before key))
             (if (some? old) (retract recipe cache key (some-value old)) cache)) (cdr entry) keys))
-          (cons (car entry) (foldl (lambda (key cache)
+          (checked-entry recipe (foldl (lambda (key cache)
             (def new (.call source .ref/opt after key))
-            (if (some? new) (insert recipe cache key (some-value new)) cache)) stripped keys)))
-          recipes (%indexed-table-indexes state)))
+            (if (some? new) (insert recipe cache key (some-value new)) cache)) stripped keys))))
         (snapshot after indexes origins))))))
   ;; Capture one optional point edit without a trial carrier/full difference scan.
   ;; The original installer still owns primary conflicts and atomic index updates.
