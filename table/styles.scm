@@ -121,9 +121,20 @@
 ;; Set insertion uses the same staged update and ownership commit as table writes.
 (defmethod (@@method cons %table-object)
   (lambda (self element) (.call (%table-object-protocol self) .cons element self)))
-;; Binary set operations update the left receiver and only observe the right.
+;; Tables pass an overlap resolver; sets retain their two-operand union protocol.
 (defmethod (@@method union %table-object)
-  (lambda (self other) (.call (%table-object-protocol self) .union self other)))
+  (case-lambda
+    ((self other) (.call (%table-object-protocol self) .union self other))
+    ((self choose other) (.call (%table-object-protocol self) .union choose self other))))
+;; Binary merging stages a complete same-style result, consuming only the left.
+(defmethod (@@method merge %table-object)
+  (lambda (self choose other) (.call (%table-object-protocol self) .merge choose self other)))
+;; Left-biased joins use the same typed merge without inventing callback values.
+(defmethod (@@method join %table-object)
+  (lambda (self other) (.call (%table-object-protocol self) .join self other)))
+;; Batch joining snapshots all right inputs before entering the persistent fold.
+(defmethod (@@method join/list %table-object)
+  (lambda (self others) (.call (%table-object-protocol self) .join/list self others)))
 ;; Intersection retains admitted elements without another normalization boundary.
 (defmethod (@@method inter %table-object)
   (lambda (self other) (.call (%table-object-protocol self) .inter self other)))
@@ -291,6 +302,18 @@
         (set! middle found)
         (list left right))))
       (values (car roots) middle (cadr roots)))
+    ;; Capture the left generation before observing the right snapshot. Aliases
+    ;; use that exact left snapshot; distinct right owners are observed, not spent.
+    (def (merge-with input right combine)
+      (step input (lambda (before)
+        (combine before (if (eq? input right) before (read right))))))
+    ;; Stage all right snapshots before any batch installation. The persistent
+    ;; source owns intermediate root admission; only the left owner commits once.
+    (def (join-many input others)
+      (using (others :~ list?)
+        (step input (lambda (before)
+          (.call source .join/list (cons before (map (lambda (other)
+            (if (eq? input other) before (read other))) others)))))))
     ;; Observe a compatible right state before beginning the left update callback.
     ;; Captured immutable roots remain stable; only the left capability commits.
     (def (combine method left right)
@@ -328,6 +351,10 @@
       ;; Binding callbacks remain distinct from FUN's whole-root .map operation.
       .map/2: (lambda (transform input) (step input (cut .call source .map/2 transform <>)))
       .filter-map/2: (lambda (transform input) (step input (cut .call source .filter-map/2 transform <>)))
+      .merge: (lambda (choose input right) (merge-with input right (cut .call source .merge choose <> <>)))
+      .union: (lambda (choose input right) (merge-with input right (cut .call source .union choose <> <>)))
+      .join: (lambda (input right) (merge-with input right (.@ source .join)))
+      .join/list: join-many
       .ref/opt: (lambda (input key) (guard (lambda ()
         (require-table-key source key) (.call source .ref/opt (read input) key))))
       .update/opt: update-opt

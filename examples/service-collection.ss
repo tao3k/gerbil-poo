@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -376,3 +376,14 @@
       (def owner (.call protocol .ap base))
       (defvalues (left found right) (.call protocol .split pivot owner))
       (list (.call protocol .unap left) found (.call protocol .unap right))))))
+
+;; Reader/FUN combines two admitted ledgers before IO through one linear update.
+;; The right owner is observed, never consumed. Failure exposes no staged root;
+;; callers retain both persistent snapshots for an explicit fresh retry.
+(def (merge-ledger-action table choose consume)
+  (using ((choose :~ procedure?) (consume :~ procedure?))
+    (.call Observation. .map consume (lambda (request)
+      (def protocol (.@ (table-styles table) Linear))
+      (def left (.call protocol .ap (car request)))
+      (def right (.call protocol .ap (cdr request)))
+      (.call protocol .unap (.call protocol .merge choose left right))))))

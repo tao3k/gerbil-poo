@@ -483,6 +483,12 @@
             (method
               (lambda (k v acc) (f (translate forward #t k) (translate forward #f v) acc))
               seed (decode input))))))
+      ;; Snapshot Option shells before typed translation; Function payloads retain
+      ;; identity. Both unary and binary binding callbacks use this one boundary.
+      (def (binding-result optional? response)
+        (map/option (cut translate backward #f <>)
+          (require-table-option result
+            (if optional? (map/option identity response) (some response)))))
       ;; Conjugate binding callbacks, not point writes: the source bulk operation
       ;; owns final-state index preparation. Caller-visible keys/values retain
       ;; their declared representation; failed translation exposes no target root.
@@ -492,10 +498,19 @@
             (def before (decode input))
             (def after (.call source .filter-map/2 (lambda (k v)
               (def response (transform (translate forward #t k) (translate forward #f v)))
-              (def next (require-table-option result
-                (if optional? (map/option identity response) (some response))))
-              (map/option (cut translate backward #f <>) next)) before))
+              (binding-result optional? response)) before))
             (if (eq? before after) input (encode after #t))))))
+      ;; Conjugate both snapshots into the source merge, preserving its complete
+      ;; final-state index installation rather than replaying target point writes.
+      (def (binding-merge choose left right)
+        (using (choose :~ procedure?)
+          (guard (lambda ()
+            (def before (decode left))
+            (def after (.call source .merge (lambda (k a b)
+              (binding-result #t (choose (translate forward #t k)
+                (map/option (cut translate forward #f <>) a)
+                (map/option (cut translate forward #f <>) b)))) before (decode right)))
+            (if (eq? before after) left (encode after #t))))))
       ;; Transfer only an explicit backend seek/order capability. The transported
       ;; comparer is shared by identity; callers must not guess numeric target order.
       (def ordering (if (.has? source Comparer .seek<-)
@@ -528,6 +543,7 @@
                   (translate backward #f v) (decode input)) #t))))
             .remove: (lambda (input k)
               (guard (lambda () (encode (.call source .remove (decode input) (translate backward #t k)) #t))))
+            .merge: binding-merge
             .map/2: (cut binding-map #f <> <>)
             .filter-map/2: (cut binding-map #t <> <>)
             .foldl: (fold (.@ source .foldl)) .foldr: (fold (.@ source .foldr))))
@@ -781,16 +797,9 @@
   ;; : @ <- Key Value
   .singleton: (lambda (k v) (.acons k v .empty))
 
-  ;; Merging the hard way, by iterating on one table to add its entries,
-  ;; then on the other table to add its one-sided entries.
-  ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @
-  .merge:
-  (lambda (f ta tb)
-    (.foldl (lambda (k vb m)
-              (if (.key? ta k) m (.acons/opt k (f k #f (some vb)) m)))
-            (.foldl (lambda (k va m) (.acons/opt k (f k (some va) (.ref/opt tb k)) m))
-                    .empty ta)
-            tb))
+  ;; Merge visits the union domain and validates private callback results before
+  ;; one final-state installation; Trie retains its declared paired traversal.
+  .merge: (lambda (choose left right) (merge-table-bindings @ choose left right))
 
   ;; Ordered callbacks let persistent backends skip shared subtrees while keeping
   ;; .diff admission, metadata protection and private delta construction centralized.
@@ -874,22 +883,24 @@
   ;; : @ <- (Fun (Option Value) <- Key Value Value) @ @
   .union:
   (lambda (f a b)
-    (def (g i a b)
-      (if a (if b (f i (some-value a) (some-value b)) a) b))
-    (.merge g a b))
+    (using (f :~ procedure?)
+      (.merge (lambda (key left right)
+        (if (and left right) (f key (some-value left) (some-value right)) (or left right))) a b)))
 
-  ;; : @ <- @ @
-  .join: (lambda (a b) (.merge (lambda (_ a b) (or a b)) a b))
+  ;; Left-biased join retains false payloads because presence is an Option shell.
+  .join: (lambda (a b) (.merge (lambda (_ left right) (or left right)) a b))
 
-  ;; : @ <- (List @)
-  .join/list: (lambda (l) (foldl .join .empty l))
+  ;; Nonempty batches start at their first admitted root, never an invented empty
+  ;; seed that could violate a custom refinement. Empty batches admit .empty.
+  .join/list: (lambda (roots)
+    (using (roots :~ list?)
+      (with-table-sources (table-sources @) (lambda ()
+        (for-each (cut require-table @ <>) roots)
+        (if (null? roots) (require-table @ .empty) (foldl (lambda (root accumulated) (.join accumulated root)) (car roots) (cdr roots)))))))
 
-  ;; : Bool <- @ @
-  .=?: (lambda (a b) (let/cc return
-                  (.merge (lambda (_ a b)
-                            (unless (and a b (.call Value .=? (some-value a) (some-value b)))
-                              (return #f)) #f)
-                          a b) #t))
+  ;; Equality observes admitted roots instead of constructing a throwaway merged
+  ;; empty root, which may be forbidden by the table's own refinement.
+  .=?: (lambda (a b) (equal-table-bindings? @ a b))
 
   ;; Split a table in two smaller trees, if possible, a somewhat balanced way, if possible.
   ;; Return two values, the first being true if the table was not empty, and the second being true

@@ -1269,6 +1269,16 @@ late refusal/retry, reentrant winners and FUN/IO have integrated controls and
 finite Lean laws. See [table-mapping.md](table-mapping.md) for callback order,
 root refinements, ownership, declared backend premises and charged costs.
 
+**Checked binary combination** now closes `.merge`, `.union`, `.join` and
+`.join/list` through typed Option decisions, both original snapshots and five
+styles. Existing Trie paired traversal is retained; the generic path installs one
+final-state delta, including indexed swaps through representation Wrappers.
+Batch joins now preserve first-source priority without a fabricated empty seed;
+generic equality observes roots instead of constructing a forbidden empty merge.
+Alias shells, Function identity, metadata/owner refusal, reentrant winners,
+constraint failure/retry and FUN/IO have integrated controls and Lean laws.
+See [table-merge.md](table-merge.md) for effect order, partial refinements and costs.
+
 **Ordered decomposition** now closes the existing table/set `.split` protocol:
 explicit comparers, typed pivot Option/presence, original-snapshot side preparation,
 correlated indexes and five ownership styles share the existing checked mapping

@@ -836,8 +836,9 @@
         (_ (invalid '.recurse/trie-pair: k a b recurse: recurse empty: empty leaf: leaf branch: branch skip: skip onlya: onlya onlyb: onlyb)))))
 
 
-  ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @ ?Key
-  .merge:
+  ;; Declared paired traversal is reused beneath methods.table's checked merge.
+  ;; The optional prefix belongs only to this structural backend capability.
+  .merge/key/opt:
   (lambda (f a b (k 0))
     (.recurse/trie-pair
      k a b
