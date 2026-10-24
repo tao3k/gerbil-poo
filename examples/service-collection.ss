@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
-        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
+        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-projection table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -564,3 +564,12 @@
     (lambda (service-key service-row worker-key worker-row)
       (and (vector-ref worker-row 1)
         (some (cons (cons service-key worker-key) (vector-ref service-row 1)))))))
+
+;; Expand one service's declared route keys while retaining its checked callback.
+;; Shared projection ownership rejects duplicate keys, prepares final-state swaps,
+;; and lets publish-projected-ledger-action deliver the exact delta in any style.
+(def (make-service-routes services routes)
+  (table-projection services routes
+    (lambda (_key row)
+      (map (lambda (route) (cons route (vector-ref row 1))) (vector-ref row 0)))
+    multiple?: #t))

@@ -170,12 +170,14 @@
 ;; Incremental optional entry projection: .ap scans once, .unap observes the source,
 ;; .get observes the target, and .apply-delta returns a new state atomically. Stable
 ;; pure callbacks and persistent carriers are premises; explicit origins invalidate
-;; all states when projection metadata changes. No inverse projection is inferred.
-(def (table-projection source target transform (origins []))
-  (using ((transform :~ procedure?) (origins :~ list?))
+;; all states when projection metadata changes. multiple?: #t accepts a finite
+;; proper list of entries per row; duplicate logical output keys always refuse,
+;; even within one row. No inverse projection is inferred.
+(def (table-projection source target transform (origins []) multiple?: (multiple? #f))
+  (using ((transform :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
     (with-table-sources (append (list source target) origins) (lambda ()
       (def binding (Pair (.@ target Key) (.@ target Value)))
-      (def ledger (table-key-table source binding))
+      (def ledger (table-key-table source (List binding)))
       (def owners (table-key-table target (.@ source Key)))
       (def touched (table-key-table source Unit))
       (def sources (delete-duplicates/hash
@@ -204,6 +206,18 @@
         (def (observe state access)
           (check state)
           (guard (table-projection-state-sources state) (lambda () (check state) (access state))))
+        ;; Share one finite entry protocol between optional and multivalued modes.
+        ;; Copy ALL caller-owned list/pair shells before any child recognizer runs;
+        ;; recognition retains admitted Function leaves instead of normalizing again.
+        (def (entries key value)
+          (def response (transform key value))
+          (if multiple?
+            (using (response :~ list?)
+              (def rows (map (lambda (row) (if (pair? row) (cons (car row) (cdr row)) row)) response))
+              (for-each (lambda (row) (require-table-option binding (some row))) rows)
+              rows)
+            (let (next (require-table-entry binding response))
+              (if (some? next) (list (some-value next)) []))))
         ;; Cold preparation visits the original source once. Only the complete row
         ;; list reaches target construction; no refined empty/prefix is required.
         (def (initialize input)
@@ -212,12 +226,11 @@
             (def cache (.@ ledger .empty)) (def seen (.@ owners .empty))
             (def rows (with-list-builder (emit)
               (.call source .for-each (lambda (key value)
-                (def next (require-table-entry binding (transform key value)))
-                (when (some? next)
-                  (let (row (some-value next))
-                    (set! seen (claim-table-entry owners seen row key))
-                    (set! cache (.call ledger .acons key row cache))
-                    (emit row)))) input)))
+                (def next (entries key value))
+                (for-each (lambda (row)
+                  (set! seen (claim-table-entry owners seen row key))
+                  (emit row)) next)
+                (unless (null? next) (set! cache (.call ledger .acons key next cache)))) input)))
             (def result (require-table target (.call target .<-list rows)))
             (make-table-projection-state owner sources versions input result cache seen))))
         ;; Admit ALL source conflicts and the complete source before projection.
@@ -252,20 +265,21 @@
                 (for-each (lambda (key)
                   (def old (.call ledger .ref/opt cache key))
                   (when (some? old)
-                    (let (row (some-value old))
+                    (begin
                       (set! cache (.call ledger .remove cache key))
-                      (set! seen (.call owners .remove seen (car row)))
-                      (emit (make-table-change (car row) (some (cdr row)) #f))))) keys)))
+                      (for-each (lambda (row)
+                        (set! seen (.call owners .remove seen (car row)))
+                        (emit (make-table-change (car row) (some (cdr row)) #f)))
+                        (some-value old))))) keys)))
               (def additions (with-list-builder (emit)
                 (for-each (lambda (key)
                   (def final (.call source .ref/opt next-source key))
                   (when (some? final)
-                    (let (next (require-table-entry binding (transform key (some-value final))))
-                      (when (some? next)
-                        (let (row (some-value next))
-                          (set! seen (claim-table-entry owners seen row key))
-                          (set! cache (.call ledger .acons key row cache))
-                          (emit (make-table-change (car row) #f (some (cdr row))))))))) keys)))
+                    (let (next (entries key (some-value final)))
+                      (for-each (lambda (row)
+                        (set! seen (claim-table-entry owners seen row key))
+                        (emit (make-table-change (car row) #f (some (cdr row))))) next)
+                      (unless (null? next) (set! cache (.call ledger .acons key next cache)))))) keys)))
               (def output-delta (make-table-delta (.@ target Key) (.@ target Value) dependencies
                 (map object-revision dependencies) (append removals additions)))
               (def result (require-table target

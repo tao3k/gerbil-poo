@@ -453,3 +453,55 @@ Executable consumers pass the same option explicitly because dependency gsc
 options are not inherited by their static-object preparation. The standard
 consumer still owns object preparation; the complete linked test program checks
 this path separately from the shared-library regression run.
+
+## Finite multivalued projection
+
+`(table-projection Source Target expand origins multiple?: #t)` generalizes the
+existing optional entry protocol to a **finite proper list** of target entries
+per source row. `expand key value` returns `((target-key . target-value) ...)`;
+an empty list contributes no bindings. The default optional mode is unchanged.
+This supplies one-to-many configuration/rule expansion without a fabricated
+second join input. It advances the collection proposal's future work.
+
+The shared projection implementation retains one finite list per contributing
+source owner. Both modes use the same owner registry, metadata guards, target
+constructor, delta installer and publication continuation. There is no second
+validator or style wrapper. Standard `using`, `list?`, `map`, `for-each` and the
+existing list builder supply finite admission and traversal. All caller-owned
+list/pair shells are copied before child recognition; admitted Function leaves
+are retained exactly, rather than normalized or wrapped again.
+
+Every duplicate logical target key refuses with `table-index-conflict`, including
+two outputs of the SAME source row and equal-valued duplicates. Backend equality
+remains authoritative. This is distinct from Set image's deliberate deduplication.
+Warm updates admit every ordered source expectation and the complete final source
+before calling expansion. They coalesce source keys, retract ALL affected old
+outputs, then expand only final present source rows once. This admits final-state
+key swaps, skips deleted rows and leaves unrelated owners' output lists intact.
+Only the complete target must satisfy its business refinement and indexes.
+
+`.apply-delta state delta values` delivers the exact target delta with the new
+state; `publish-projected-ledger-action` already publishes it through Pure,
+Mutable, Linear, Posh and Classy without a target `.diff`. Input conflicts, malformed
+lists/entries, callback exceptions, duplicate claims and final target refusal
+expose no successor and suppress precommit consumers. Immutable predecessors can
+be retried. Inverting the source delta recomputes the original expansion; inverting
+the delivered target delta restores the published target. Projection itself need
+not be invertible. Postcommit IO and callback effects are not rolled back.
+
+`make-service-routes` expands each service's explicit route list with one shared
+checked Function. Regressions cover all five publication styles, old/new key swaps,
+empty/removed owners, coalesced multi-round edits, exact delivery/undo, late refusal,
+unchanged predecessor retry, stored false, malformed lists, shell mutation and
+metadata invalidation. `TableProjection.lean` reuses the existing selective cache
+and reservation kernels to prove packet preservation, full-refresh correspondence,
+untouched-owner framing, collision freedom and inverse recovery. Finite inventories,
+faithful backend equality, stable pure callbacks, immutable leaves and lawful
+persistent installers remain premises. No host compiler or GC proof is asserted.
+
+Cost: one expansion call per final present touched owner, plus traversing/copying
+its output list; releasing old outputs, key-registry operations, target writes,
+metadata preparation and complete source/target recognition remain charged. An
+owner can emit arbitrarily many finite entries, so output work is NOT bounded by
+source count alone. Cold preparation visits the entire source and every emitted
+entry. The protocol does not discover expansion rules or a query optimizer.

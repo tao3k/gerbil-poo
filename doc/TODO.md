@@ -1880,3 +1880,16 @@ publication have regressions and finite Lean laws. See table-mapping.md for the
 API, faithful group/pair equality and purity premises, finite bounds and complete
 preparation/validation costs. Automatic query optimization is a research boundary,
 not an omitted implementation of this explicit finite protocol.
+
+### Finite multivalued entry projection
+
+Closed the explicit one-to-many projection unit: `table-projection` accepts
+`multiple?: #t`, sharing its existing source/cache/owner, collision, exact delta
+and five-style publication boundaries. Finite entry lists retain checked Function
+leaves and reject every duplicate logical output key, including within one owner.
+Warm changes coalesce source edits, release all affected old outputs and expand
+only final present rows; empty lists, key swaps, inverse recovery, refusal/retry,
+metadata invalidation and FUN/IO have integrated regressions and finite Lean laws.
+See table-mapping.md for the API, purity/equality/persistence premises and output,
+registry, preparation and full recognition costs. Automatic expansion discovery
+remains a research boundary; this does not declare the collection proposal complete.
