@@ -359,13 +359,17 @@
       ;; before it is invoked, so replacing birth with a true-returning closure
       ;; does not turn another arbitrary callback into a trusted checker.
       (def birth
-        (case-lambda
+        ;; RTD-checked records are truthy. False is the private copy request;
+        ;; the public inspector still obtains ONLY the registered procedure.
+        ;; A fixed lane captures this payload once, rather than retaining two
+        ;; payload closures and a rest-argument case-lambda dispatcher per read.
+        (lambda (candidate)
           ;; Copy primitive metadata; do not dispatch a mutable class constructor.
-          (() (values read
+          (if (not candidate)
+              (values read
                 (vector self key revision instance value
                   (map values parent-copy) checker)
-                (and key-copy (map values key-copy))))
-          ((candidate)
+                (and key-copy (map values key-copy)))
           (and (eq? candidate read)
                (eq? (slot-read-receiver read) self)
                (eq? (slot-read-key read) key)
@@ -390,7 +394,7 @@
       (def presented (read-runtime.slot-ref read 'birth))
       (def original (hash-get issued read))
       (if original
-        (let-values (((signed snapshot shape) (original)))
+        (let-values (((signed snapshot shape) (original #f)))
           (values presented original signed snapshot shape))
         (values presented #f #f #f #f)))
     (values issue issued? inspect)))
