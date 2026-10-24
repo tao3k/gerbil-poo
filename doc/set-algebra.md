@@ -350,3 +350,51 @@ recovery. Existing publication laws cover all three ownership styles; posh/class
 inherit pure/mutable behavior. These are laws under persistent backend, finite
 inventory, stable projection and faithful admission premises, not a proof of the
 Gerbil compiler, GC, arbitrary projector termination or machine execution.
+
+
+## Two-input incremental Set algebra
+
+`(set-combination Left Right Target operation)` maintains `union`, `inter`, `diff`
+or `symdiff` from two independently revised source snapshots. Snapshot operations
+already existed; this closes their maintained two-input result/delivery protocol.
+All backing tables must use the identical Key descriptor and coherent logical
+key equality. Backends may differ. `Pair`/`Wrapper` carries `(cons left-root
+right-root)` through `.ap`/`.unap`; only the Pair shell is copied, preserving
+persistent roots and admitted Function identities. `.get` observes the result.
+
+`.apply-deltas state left-delta right-delta [receive]` guards all origins, checks
+both delta descriptors, installs left then right privately, and admits both whole
+source Sets before preparing the result. Shared typed key-space registries
+coalesce edit keys in left-then-right first-touch order. Only these keys are read
+in the final sources; unchanged result membership emits no target edit. The same
+Option/Unit selector drives existing snapshot algebra and this maintained view.
+Backend Option shells are copied before subsequent reads can reuse them.
+
+One ordinary target delta is installed and the complete target Set admitted before
+`receive next target-delta`. `values` delivers both; the default returns `next`.
+Result preparation uses neither target `.diff`/`.merge` nor full source
+re-enumeration, and never fabricates a refined empty seed. Complete source/target
+recognition may still scan snapshots; registry traversal retains its backend costs. Metadata checks, source installations,
+complete recognizers and separate public style installation remain charged;
+changed-key membership work is not an elapsed-time or GC bound.
+
+`publish-set-combination-action` composes the same shared Reader/FUN/IO publication
+boundary used by table projections and Set images. Grant/revocation changes can
+compensate jointly before final target recognition. Source conflict, source/target
+refusal or public-owner conflict returns no successor; immutable predecessors and
+failed public owners remain available for explicit corrected retry. External
+callback effects and postcommit consumer exceptions retain existing semantics.
+Both empty delta origins and Set-specific refinement origins remain live. Metadata
+writes retain the existing serialized discipline across operations.
+
+Explicit source inverse deltas restore both source observations and their binary
+result; the inverse delivered target delta restores target membership independently.
+All five target styles retain their existing ownership discipline. Regression
+controls compare four operations over 32 revisions against independent list
+oracles, including cross-backend edits, ownership migration, no-op coalescing,
+refined joint compensation, two-sided failure, Function identity and style retry.
+The companion `SetAlgebra` proofs establish frame, selective/full equivalence,
+coalescing, complete target-delta installation, inverse recovery and preparation
+refusal; publication reuses existing style laws. This remains a finite explicit
+construction advancing the collection proposal's future work, under persistence,
+faithful recognition and coherent key-equality premises.

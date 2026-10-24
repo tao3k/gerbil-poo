@@ -1808,3 +1808,16 @@ precommit failure/retry are retained. See set-algebra.md for API, charged work,
 stability/equality premises, regional grant examples and companion Lean laws.
 No arbitrary dependency discovery, destructive rollback, inferred inverse or
 whole-library completion is claimed.
+
+
+### Two-input incremental Set algebra
+
+Closed the maintained binary-result protocol missing from the existing snapshot
+Set algebra: union/intersection/difference/symmetric difference now consume two
+ordered source deltas, coalesce edited keys by the declared backend equality,
+install one exact target delta and publish through existing styles and FUN/IO.
+Whole source/target refinements, joint compensation, inverse observations,
+Function identities, origin invalidation and conflict/refusal retry are retained.
+See set-algebra.md for complete API, independent four-operation revision oracles,
+grant/revocation publication and companion finite Lean laws. Existing automatic
+symmetry discovery and destructive-storage research boundaries are unchanged.
