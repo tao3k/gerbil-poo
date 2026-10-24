@@ -159,7 +159,7 @@
       ;; Option boxes are callback-owned; copy their shells, retaining exact leaves.
       ;; Mutating an argument/result box cannot rewrite a captured expectation.
       (def response (transform (map/option identity old)))
-      (require-table-option descriptor response)
+      (require-table-option (.@ descriptor Value) response)
       (def after (map/option identity response))
       (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
         (if (table-option=? old after) [] (list (make-table-change key old after))))))))
@@ -417,7 +417,7 @@
       ;; identity. Both unary and binary binding callbacks use this one boundary.
       (def (binding-result optional? response)
         (map/option (cut translate backward #f <>)
-          (require-table-option result
+          (require-table-option (.@ result Value)
             (if optional? (map/option identity response) (some response)))))
       ;; Conjugate binding callbacks, not point writes: the source bulk operation
       ;; owns final-state index preparation. Caller-visible keys/values retain
@@ -656,6 +656,9 @@
   .map/2: (lambda (transform input) (map-table-bindings @ transform input #f))
   ;; Optional results can remove bindings, but cannot introduce or relabel keys.
   .filter-map/2: (lambda (transform input) (map-table-bindings @ transform input #t))
+  ;; Explicit heterogeneous entry maps stage once and never overwrite collisions.
+  .map/into: (lambda (target transform input) (map-table-into @ target transform input #f))
+  .filter-map/into: (lambda (target transform input) (map-table-into @ target transform input #t))
   ;; Partition prepares and recognizes both branches before exposing either root.
   .partition: (lambda (predicate input)
     (def branches (select-table @ predicate input #t))

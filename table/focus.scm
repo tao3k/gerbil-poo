@@ -8,12 +8,12 @@
 
 ;; Recognize admitted optional values without normalizing Function leaves again.
 ;; False is absence; (some #f) remains a stored false. Other shells are refused.
-(def (require-table-option descriptor response)
+(def (require-table-option type response)
   (match response
     (#f response)
     ((some value)
-      (unless (element? (.@ descriptor Value) value)
-        (raise-type-error (.@ descriptor Value) value 'table-focus))
+      (unless (element? type value)
+        (raise-type-error type value 'table))
       response)
     (else (error "table update must return Option" response))))
 
@@ -34,7 +34,7 @@
     (lambda (input) (guard (lambda () (read input))))
     (lambda (value input)
       (guard (lambda ()
-        (def response (require-table-option descriptor (if optional? value (some value))))
+        (def response (require-table-option (.@ descriptor Value) (if optional? value (some value))))
         (update input (lambda (_) response))))))
     ;; Lens.modify must capture ownership BEFORE the user modifier. A generic
     ;; get/transform/set sequence would otherwise overwrite a reentrant winner.
@@ -43,7 +43,7 @@
         (guard (lambda ()
           (update input (lambda (old)
             (def response (transform (if optional? old (option-ref old))))
-            (require-table-option descriptor (if optional? response (some response)))))))))))
+            (require-table-option (.@ descriptor Value) (if optional? response (some response)))))))))))
 
 ;; A retained raw-root focus remembers its complete origin revisions. Both
 ;; accessors protect those origins, including declared dependencies and child Types.

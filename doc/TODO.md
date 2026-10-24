@@ -1747,3 +1747,21 @@ publication reuse the existing ownership and FUN/IO chain. See set-algebra.md fo
 partial lens laws, first-failure order, scan/constructor costs and proof premises.
 Arbitrary refinement closure, destructive storage and automatic law discovery
 remain research boundaries, not defects claimed closed by these examples.
+
+### Explicit heterogeneous collection projection
+
+Closed the previously separate key/type-changing finite mapping unit through
+`methods.table` and the existing five-style observation protocol. Required and
+optional entries share one Type/Option admission boundary, callback shell capture,
+target-equality owner registry, first-collision refusal and one complete target
+constructor. Represented/refined targets and final correlated indexes retain their
+existing laws, instead of being reconstructed as unchecked point operations.
+
+The service workflow combines different source/target child Types, checked
+Functions, independent source/target ownership, shared indexes, Reader/FUN/IO,
+refusal/retry and ordinary target inverse deltas. Universal finite laws in the
+existing `TableMapping.lean` cover uniqueness, order/payload correspondence,
+output size and failure/publication. See table-mapping.md for capability admission,
+logical equality, costs and proof premises. Automatic projection inverses,
+collision-policy inference, destructive storage and whole-library completion are
+not claimed by this explicit constructor.

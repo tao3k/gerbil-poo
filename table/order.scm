@@ -169,7 +169,7 @@
     (lambda ()
       (require-table descriptor input)
       (require-table-key descriptor pivot)
-      (def middle (require-table-option descriptor
+      (def middle (require-table-option (.@ descriptor Value)
         (map/option identity (.call descriptor .ref/opt input pivot))))
       ;; Classify with the declared comparer, not the host order of encoded keys.
       (def (side keep?)

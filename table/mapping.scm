@@ -13,7 +13,7 @@
       ;; A later callback may reuse/mutate that shell without rewriting prior rows.
       (def (project key value)
         (def response (transform key value))
-        (def next (require-table-option descriptor
+        (def next (require-table-option (.@ descriptor Value)
           (if optional? (map/option identity response) (some response))))
         (unless (table-option=? (some value) next) (set! changed? #t))
         next)
@@ -36,6 +36,37 @@
       ;; have built temporary nodes. Complete custom recognition still runs.
       (require-table descriptor (if changed? result input))))))
 
+;; Explicit entry projection can change both child Types without claiming an
+;; inverse. One shared boundary admits input, Option/Pair responses and the final
+;; target. The target's key registry, not host equal?, decides collisions.
+(def (map-table-into source target transform input optional?)
+  (using (transform :~ procedure?)
+    (with-table-sources (list source target) (lambda ()
+      (with-table-sources (append (table-sources source) (table-sources target)) (lambda ()
+        (require-table source input)
+        (def owners (table-key-table target (.@ source Key)))
+        (with-table-sources (table-sources owners) (lambda ()
+          (def seen (.@ owners .empty))
+          (def binding (Pair (.@ target Key) (.@ target Value)))
+          (def rows (with-list-builder (emit)
+            (.call source .for-each (lambda (key value)
+              (def response (transform key value))
+              ;; Copy callback-owned shells BEFORE child recognition. A child
+              ;; predicate may mutate the original response, never this decision.
+              (def next (require-table-option binding
+                (map/option (lambda (row) (if (pair? row) (cons (car row) (cdr row)) row))
+                  (if optional? response (some response)))))
+              (when (some? next)
+                (let* ((output (some-value next))
+                       (previous (.call owners .ref/opt seen (car output))))
+                (when (some? previous)
+                  (raise (make-table-index-conflict 'primary (car output) (some-value previous) key)))
+                (set! seen (.call owners .acons (car output) key seen))
+                (emit output)))) input)))
+          ;; Construct only the complete target. Empty and partial target roots
+          ;; need not satisfy a business refinement or final unique index family.
+          (require-table target (.call target .<-list rows))))))))))
+
 ;; Merge both original snapshots, never newly staged bindings. Callback options
 ;; are fresh shells; neither mutating an input Option nor reusing an output shell
 ;; may rewrite another decision or an optimistic old-value expectation.
@@ -49,9 +80,9 @@
       ;; The specialized traversal's visitation order remains its own contract.
       (def (project key a b)
         (require-table-key descriptor key)
-        (require-table-option descriptor a)
-        (require-table-option descriptor b)
-        (require-table-option descriptor
+        (require-table-option (.@ descriptor Value) a)
+        (require-table-option (.@ descriptor Value) b)
+        (require-table-option (.@ descriptor Value)
           (map/option identity (choose key (map/option identity a) (map/option identity b)))))
       (def result (if (.has? descriptor .merge/key/opt)
         (.call descriptor .merge/key/opt project left right)

@@ -74,6 +74,12 @@
 ;; Optional bulk mapping can remove keys; one shared owner installation commits it.
 (defmethod (@@method filter-map/2 %table-object)
   (lambda (self transform) (.call (%table-object-protocol self) .filter-map/2 transform self)))
+;; Heterogeneous projection observes this receiver and returns a raw target root.
+(defmethod (@@method map/into %table-object)
+  (lambda (self target transform) (.call (%table-object-protocol self) .map/into target transform self)))
+;; Optional projection shares that nonconsuming source observation protocol.
+(defmethod (@@method filter-map/into %table-object)
+  (lambda (self target transform) (.call (%table-object-protocol self) .filter-map/into target transform self)))
 ;; Filtering keeps the receiver's style and original predicate arity.
 (defmethod (@@method filter %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .filter predicate self)))
@@ -231,6 +237,10 @@
         (unless (.slot? descriptor method) (error "unsupported table observation" method))
         (def result (apply (.ref descriptor method) snapshot args))
         (if deferred? (iterator-map identity result guard) result))))
+    ;; Cross-type output cannot replace a source owner. Capture one source root,
+    ;; delegate under its guard and let the caller choose a target presentation.
+    (def (map-into method target transform input)
+      (guard (lambda () ((.ref source method) target transform (read input)))))
     ;; Fold signatures place the snapshot last, as required by methods.table.
     (def (fold input method f seed (descriptor source))
       (using (f :~ procedure?)
@@ -351,6 +361,8 @@
       ;; Binding callbacks remain distinct from FUN's whole-root .map operation.
       .map/2: (lambda (transform input) (step input (cut .call source .map/2 transform <>)))
       .filter-map/2: (lambda (transform input) (step input (cut .call source .filter-map/2 transform <>)))
+      .map/into: (cut map-into '.map/into <> <> <>)
+      .filter-map/into: (cut map-into '.filter-map/into <> <> <>)
       .merge: (lambda (choose input right) (merge-with input right (cut .call source .merge choose <> <>)))
       .union: (lambda (choose input right) (merge-with input right (cut .call source .union choose <> <>)))
       .join: (lambda (input right) (merge-with input right (.@ source .join)))
