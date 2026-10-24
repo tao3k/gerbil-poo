@@ -341,6 +341,13 @@
       (if (null? saved) (null? current)
         (and (pair? current) (eq? (car current) (car saved))
              (same-list? (cdr current) (cdr saved)))))
+    ;; The private snapshot stores identities densely, including repeated
+    ;; occurrences. Public dependency spines and delivery stay unchanged.
+    (def (same-dependencies? current saved)
+      (let loop ((current current) (index 0))
+        (if (= index (##vector-length saved)) (null? current)
+          (and (pair? current) (eq? (car current) (##vector-ref saved index))
+               (loop (cdr current) (1+ index))))))
     (def (issue self key value dependencies)
       (def preparation (and (object-%reads self)
                            (hash-get (object-%reads self) '(preparation))))
@@ -351,7 +358,7 @@
       (def revision (object-revision self))
       (def instance (object-%instance self))
       (def key-copy (and (pair? key) (map values key)))
-      (def parent-copy (map values parents))
+      (def parent-copy (if (null? parents) '#() (list->vector parents)))
       (def checker object-read-current?)
       (def read (make-slot-read self key revision instance value parents checker))
       ;; Captured payload is not a public struct whose fields can be rewritten
@@ -368,7 +375,7 @@
           (if (not candidate)
               (values read
                 (vector self key revision instance value
-                  (map values parent-copy) checker)
+                  (vector->list parent-copy) checker)
                 (and key-copy (map values key-copy)))
           (and (eq? candidate read)
                (eq? (slot-read-receiver read) self)
@@ -378,7 +385,7 @@
                (eq? (slot-read-instance read) instance)
                (eq? (slot-read-value read) value)
                (eq? (read-runtime.slot-ref read 'current?) checker)
-               (same-list? (slot-read-dependencies read) parent-copy)))))
+               (same-dependencies? (slot-read-dependencies read) parent-copy)))))
       (read-runtime.slot-set! read 'birth birth)
       (hash-put! issued read birth)
       read)

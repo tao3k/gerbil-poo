@@ -54,6 +54,14 @@
     (def forged (copy-read genuine))
     (check-equal? (object-read-issued? genuine) #t)
     (check-equal? (object-read-issued? forged) #f)
+    ;; The public dependency list must not alias the issuer's private snapshot.
+    (def dependencies (slot-read-dependencies genuine))
+    (when (pair? dependencies)
+      (let (first (car dependencies))
+        (set-car! dependencies forged)
+        (check-equal? (object-read-issued? genuine) #f)
+        (set-car! dependencies first)
+        (check-equal? (object-read-issued? genuine) #t)))
     (check-equal? (object-read-current? forged) #f)
     ;; Inspection and authentication share one private captured payload. Its
     ;; published copies must neither mutate authority nor authorize a raw copy.
@@ -68,6 +76,19 @@
     (check-equal? (object-read-issued? forged) #f)
     (defvalues (_presented _original _signed fresh _shape) (object-read-issuance genuine))
     (check-equal? (vector-ref fresh 4) 5432)
+    (.def Composite port:
+      (begin (%deliver-slot-read genuine #t) (%deliver-slot-read genuine #t) 5432))
+    (def composite
+      (selected (filter (lambda (read) (eq? (slot-read-receiver read) Composite))
+                  (recorded (cut .get Composite port))) 'port))
+    (def repeated (slot-read-dependencies composite))
+    (check-equal? (length (filter (cut eq? genuine <>) repeated)) 2)
+    (runtime.slot-set! composite 'dependencies (reverse repeated))
+    (check-equal? (object-read-issued? composite) #f)
+    (runtime.slot-set! composite 'dependencies (cdr repeated))
+    (check-equal? (object-read-issued? composite) #f)
+    (runtime.slot-set! composite 'dependencies repeated)
+    (check-equal? (object-read-issued? composite) #t)
     (refuses "unissued slot dependency"
       (cut replay-slot-reads! (list forged) (lambda (_r _k) (error "must not observe"))))
     (replay-slot-reads! roots (lambda (_r _k) (void)))
