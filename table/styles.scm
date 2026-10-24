@@ -147,9 +147,14 @@
 ;; outside the lock, then compare the captured head before one whole installation.
 ;; Pure backend callbacks and immutable leaves are explicit ownership premises.
 (def (derive-table-styles source (set #f))
-  (def sources (append
+  ;; Ordering is an explicit origin even when the raw backend has not repeated
+  ;; Comparer in .sources. Deduplicate the union once, not on each observation.
+  (def sources (delete-duplicates/hash (append
     (if set (cons set (if (.has? set .sources) (.@ set .sources) [])) [])
-    (table-sources source)))
+    (table-sources source)
+    (if (.has? source Comparer)
+      (cons (.@ source Comparer) (.@ (.@ source Comparer) .sources)) []))
+    table: (make-hash-table-eq) from-end?: #t))
   (def versions (map object-revision sources))
   (def owner (list source))
   ;; Retain every backend/converter origin across admission and user callbacks.

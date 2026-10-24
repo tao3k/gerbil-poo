@@ -32,6 +32,11 @@ recognition before either escapes. No intermediate remainder must satisfy a
 custom refinement, but each final root must satisfy it; some refinements therefore
 legitimately reject a split.
 
+Style factories retain declared Comparer identity and dependencies even on raw
+backends that omit them from `.sources`. Their union is deduplicated once at
+factory construction; retained owners reject revisions, and fresh factories can
+explicitly retry against the current declarations.
+
 `table-styles` / `set-styles` lift the operation through their existing multi-result
 stage. Pure/Posh retain the predecessor. Mutable/Classy retain its identity as the
 left result and allocate a distinct right owner. Linear retires the predecessor
