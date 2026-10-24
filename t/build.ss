@@ -1,8 +1,8 @@
 ;;; Resource boundaries around the standard defbuild-script entry.
 (import :std/misc/process :std/io/tempfile :std/iter :std/sync/channel
         :std/sync/threads :std/os/signal :std/os/signal-handler :std/os/error
-        "test-groups.ss")
-(export main)
+        "test-groups.ss" (only-in "build-spec.ss" clean-request))
+(export main run-build-stage)
 
 ;; Preserve ordinary make freshness hints without a second cache protocol.
 (def (copy-input source target)
@@ -56,19 +56,33 @@
   (when build-stopping? (error "build admission stopped after cleanup failure"))
   (def started (real-time))
   (displayln "BUILD-STAGE-START command=" args " cores=" cores) (force-output)
-  (def command (append [timeout "--signal=TERM" "--kill-after=3s" "300s" "env"
-    (string-append "GERBIL_BUILD_CORES=" (number->string cores))
-    (path-expand "~~bin/gxi") runtime "build.ss"] args))
-  (run-process command directory: root stdout-redirection: #f
-    coprocess: (lambda (process)
-      (def pid (process-pid process))
-      (with-lock build-process-lock (lambda () (set! build-processes (cons pid build-processes))))
-      (close-output-port process)
-      (try (process-status process)
-        (finally
-          (stop-build-group pid)
-          (with-lock build-process-lock
-            (lambda () (set! build-processes (filter (lambda (active) (not (= active pid))) build-processes))))))))
+  ;; Both compilation and recovery use the same bounded process-group ownership.
+  ;; Standard clean runs only after the failed compiler group has been reaped.
+  (def (invoke request)
+    (def command (append [timeout "--signal=TERM" "--kill-after=3s" "300s" "env"
+      (string-append "GERBIL_BUILD_CORES=" (number->string cores))
+      (path-expand "~~bin/gxi") runtime "build.ss"] request))
+    (run-process command directory: root stdout-redirection: #f
+      coprocess: (lambda (process)
+        (def pid (process-pid process))
+        (with-lock build-process-lock (lambda () (set! build-processes (cons pid build-processes))))
+        (close-output-port process)
+        (try (process-status process)
+          (finally
+            (stop-build-group pid)
+            (with-lock build-process-lock
+              (lambda () (set! build-processes
+                (filter (lambda (active) (not (= active pid))) build-processes)))))))))
+  (try (invoke args)
+    (catch (cause)
+      (with-catch (lambda (cleanup-cause)
+        (set! build-stopping? #t)
+        (error "build failed and standard clean failed" cause cleanup-cause))
+        (lambda ()
+          (def cleanup (clean-request args))
+          (displayln "BUILD-STAGE-CLEAN command=" cleanup) (force-output)
+          (invoke cleanup)))
+      (raise cause)))
   (displayln "BUILD-STAGE-END command=" args " wall=" (- (real-time) started))
   (force-output))
 ;; At most two channel workers compile the complete, disjoint local batches.
@@ -78,7 +92,7 @@
   ;; This changes compilation groups only; the full test program stays one VM.
   (def batches 8)
   (test-batch 0 batches)
-  (def count (min 2 cores batches))
+  (def count (min 2 (max 1 cores) batches))
   (def jobs (make-channel))
   (def failures [])
   (def lock (make-mutex 'build-failures))
@@ -99,7 +113,8 @@
 (def (main timeout runtime . request)
   (def root (path-expand "" (current-directory)))
   (def cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
-  (unless (and (exact-integer? cores) (> cores 0)) (error "invalid standard worker budget" cores))
+  ;; Standard zero disables parallel compilation; it still executes one worker.
+  (unless (and (exact-integer? cores) (>= cores 0)) (error "invalid standard worker budget" cores))
   (add-signal-handler! SIGTERM (lambda () (cancel-build 143)))
   (add-signal-handler! SIGINT (lambda () (cancel-build 130)))
   (try

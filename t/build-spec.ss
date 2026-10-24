@@ -1,11 +1,11 @@
 ;;; Shared build inventories and explicit project target selection.
-(export build-request consumer-request build-consumer library-modules)
+(export build-request consumer-request build-consumer library-modules clean-request)
 
 (import
   (only-in :std/make include-gambit-sharp pkg-config-libs)
   (only-in :std/build-script defbuild-script)
   (only-in :std/source this-source-file)
-  (only-in :std/list/list delete-duplicates/hash)
+  (only-in :std/list/list delete-duplicates/hash take)
   (only-in "test-groups.ss" test-files test-batch))
 
 ;; Gambit's supported large-procedure limit applies to shared AND executable
@@ -213,6 +213,7 @@
     "t/binding-benchmark"
     "t/build-artifacts"
     "t/build-spec"
+    "t/build"
     "t/test-groups"
     "t/test-matrix"
     "t/test-runner"))
@@ -283,6 +284,13 @@
              "-ld-options" ,(pkg-config-libs "openssl"))))
        #f options])
     (else (error "consumer target required" args))))
+
+;; Retain the selected standard target/output while replacing all compiler options
+;; with clean. Reuse request parsing so debug/release flags never survive recovery.
+(def (clean-request args)
+  (def request (if (and (pair? args) (member (car args) '("benchmark" "test-program")))
+    (consumer-request args) (build-request args)))
+  (append (take args (- (length args) (length (caddr request)))) '("clean")))
 
 ;; defbuild-script owns freshness, dependencies, options and compiler scheduling.
 ;; This is the package's existing module prefix, with its standard t/ source root.

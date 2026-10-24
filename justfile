@@ -84,21 +84,11 @@ clean:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} clean
 
-# Single standard targets need no batching driver VM. Full builds and test
-# groups retain the driver, SSI input view and all original stage deadlines.
+# One existing resource boundary owns every target, including failure recovery.
+# std/make still owns frontend/backend parallelism, dependencies and cache reuse.
 build *selection:
-    #!/usr/bin/env bash
-    set -euo pipefail
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    set -- {{ selection }}
-    case "${1-}" in
-      ""|tests)
-        exec {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" "$@" ;;
-      *)
-        echo "BUILD-STAGE-START command=$* cores=$GERBIL_BUILD_CORES"
-        {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} build.ss "$@"
-        echo "BUILD-STAGE-END command=$*" ;;
-    esac
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" {{ selection }}
 
 # Compile disjoint test roots into a separate artifact, retaining the shared imports.
 build-group group:

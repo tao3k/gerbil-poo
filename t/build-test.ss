@@ -1,11 +1,13 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
 (import (only-in :gerbil/runtime/loader load-module)
-  (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
+  (only-in :std/misc/process run-process process-error?) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
+  (only-in :std/error Error-irritants)
+  (only-in "build.ss" run-build-stage)
   (only-in "test-groups.ss" test-files test-batch checked-groups compiled-library-module?)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key test-inventory-key)
-  (only-in "build-spec.ss" build-request consumer-request library-modules))
+  (only-in "build-spec.ss" build-request consumer-request library-modules clean-request))
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
@@ -113,6 +115,66 @@
       (check-exception (consumer-request '("benchmark" "../outside")) true)
       (check-exception (build-request '("batch" "8")) true)
       (check-exception (build-request '("tests" "missing" "/tmp/poo-test-output")) true))
+    (test-case "a timed-out producer is cleaned before a standard build retry"
+      (call-with-temporary-directory "poo-build-recovery-" (lambda (root)
+        (def lib (path-expand "lib/" root))
+        (def metadata (path-expand "build-recovery/unit.ssi" lib))
+        (def static (path-expand "static/build-recovery__unit.scm" lib))
+        (def marker (path-expand "interrupt" root))
+        (def ready (path-expand "produced" root))
+        (def wrapper (path-expand "timeout" root))
+        ;; Let the standard runner expose this runtime's exit-status representation.
+        (def timeout-status (run-process ["sh" "-c" "exit 124"]
+          check-status: #f coprocess: process-status))
+        (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"] coprocess: read-all-as-lines)))
+        ;; Fixture code uses the ordinary build macro; only its interrupted branch
+        ;; creates early outputs, exactly the metadata-before-backend failure shape.
+        (def (write-forms name forms)
+          (call-with-output-file (path-expand name root) (lambda (port)
+            (for-each (lambda (form) (write form port) (newline port)) forms))))
+        (write-forms "gerbil.pkg" '((package: build-recovery)))
+        (write-forms "unit.ss" '((export value) (def value 42)))
+        (write-forms "interrupt" '(#t))
+        (write-forms "build.ss"
+          `((import :std/build-script)
+            (def (build . args)
+              (defbuild-script ["unit"] libdir: ,lib) (apply main args))
+            (def (main . args)
+              (if (or (equal? args '("clean")) (not (file-exists? ,marker)))
+                (apply build args)
+                (begin
+                  (for-each (lambda (file)
+                    (create-directory* (path-directory file))
+                    (call-with-output-file file (lambda (port) (display "partial" port))))
+                    (list ,metadata ,static))
+                  (call-with-output-file ,ready (lambda (port) (write #t port)))
+                  (displayln "PARTIAL-BUILD-READY") (force-output)
+                  (thread-sleep! 30))))))
+        ;; Shorten only the fixture timeout executable; the production boundary
+        ;; still sends its unchanged 300s argument. No test sleeps for five minutes.
+        (call-with-output-file wrapper (lambda (port)
+          (display "#!/bin/sh\nshift 3\nexec " port) (write timeout port)
+          (display " --signal=TERM --kill-after=3s 5s \"$@\"\n" port)))
+        (run-process ["chmod" "755" wrapper])
+        (check-exception (run-build-stage root wrapper "-:max-heap=1G,debug=q" 1 [])
+          (lambda (cause) (and (process-error? cause) (= (cadr (Error-irritants cause)) timeout-status))))
+        (check (file-exists? ready) => #t)
+        (check (file-exists? metadata) => #f)
+        (check (file-exists? static) => #f)
+        (delete-file marker)
+        (run-build-stage root timeout "-:max-heap=1G,debug=q" 0 [])
+        (check (file-exists? metadata) => #t)
+        (check (file-exists? static) => #t))))
+    (test-case "failure recovery retains the standard target and strips compiler flags"
+      (for-each (lambda (request expected) (check-equal? (clean-request request) expected))
+        '(() ("compile" "--debug") ("library" "compile" "--release")
+          ("qualification") ("tests" "collections" "/tmp/recovery-output" "compile" "--debug")
+          ("batch" "2") ("test-program" "compile" "--debug")
+          ("benchmark" "collection-paired-benchmark" "compile" "--release"))
+        '(("clean") ("clean") ("library" "clean") ("qualification" "clean")
+          ("tests" "collections" "/tmp/recovery-output" "clean")
+          ("batch" "2" "clean") ("test-program" "clean")
+          ("benchmark" "collection-paired-benchmark" "clean"))))
     (test-case "every test belongs to exactly one compilation group"
       (def files (append-map (lambda (group) (test-files (car group))) (checked-groups)))
       (check-equal? (length files) (length (delete-duplicates/hash files)))

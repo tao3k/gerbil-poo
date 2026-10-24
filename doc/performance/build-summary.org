@@ -367,3 +367,62 @@ repeated compile left in this observation, work returns to the concrete collecti
 TODO instead of expanding the build machinery. A new cold CI run must retain all
 producer/group/consumer cache misses and report the whole workflow separately
 from the admitted consumer entry.
+
+* Bounded failure recovery and current macOS cold controls
+The standard make implementation admits a gxc target from its SSI and static
+Scheme outputs. These precede completion of its deferred backend object. A killed
+backend can therefore leave metadata which makes the next make appear current
+although its runtime object is old. A zero exit from that metadata-only warm
+control is not runtime acceptance.
+
+All =just build= targets now use the existing bounded stage boundary. After a
+failed compiler process group is reaped, that boundary invokes the selected
+standard =clean= request, retaining its target/output and discarding compiler
+options, then rethrows the original failure. There is no new scheduler, worker
+budget, environment variable, artifact journal or hand-written file invalidation.
+=defbuild-script= and =std/make= continue to own cleanup, dependencies and reuse.
+A failed cleanup stops later compiler admission and retains both causes. A kill
+of the supervisor itself is outside this recovery guarantee; use =gerbil clean=
+before rebuilding after such an interruption.
+
+The regression fixture writes both early metadata outputs, is genuinely killed
+by a short fixture timeout, checks standard cleanup removed both, and then builds
+the same module successfully with the standard macro. Production compilation
+still receives 300 seconds / 1 GiB, and the complete build retains 1200 seconds.
+The eight compiler batches, two local batch workers and single-process semantic
+suite are unchanged. All normal make progress is inherited live.
+
+Current controls use the same installed release and standard 12-worker budget.
+Both initial runs first used standard clean and observed zero of 92 library SSI
+outputs. Generated runtime objects were rebuilt, but standard clean retains old
+numbered dynamic bundles. These rows are metadata/static-output clean controls,
+not empty-prefix or cold operating-system page-cache claims. Compiler
+optimization flags are unchanged.
+
+| Complete library entry | Wall seconds | User seconds | System seconds |
+|------------------------+--------------+--------------+----------------|
+| Standard clean, verbose timing diagnostic | 56.18 | 167.31 | 35.43 |
+| Standard clean, default progress | 61.72 | 166.27 | 36.04 |
+| Immediate standard warm build | 9.74 | 8.73 | 0.89 |
+
+The default warm run emitted no compile jobs. In the diagnostic cold run, table
+frontend compilation started at 17.03 seconds, its backend job at 21.35 seconds,
+and the library stage completed at 53.79 seconds. Aggregate CPU exceeding wall
+confirms actual overlap; it does not prove continuous occupancy of every worker.
+
+A separate same-C control measured 61.75 seconds wall / 26.90 user seconds;
+GCC's standard phase-report repeat measured 24.14 / 23.73. The generated table
+contains 16248 labels and already exceeds the existing single-host threshold.
+An experimental standard optimized-module threshold measured 37.96 / 25.33 with
+higher peak RSS. This does not establish a stable benefit, so it was not adopted.
+The GCC report attributes 88 percent of its reported phase time to optimization
+and generation, including 70 percent in function expansion (an inclusive group).
+These phase groups must not be added as independent costs.
+
+The earlier 302.68-second cold refusal remains a failed observation. Its final
+outstanding backend and un-timestamped progress do not establish missing
+parallelism, a GC cause, or 300 seconds of table CPU. The current successful cold
+controls are not a causal speedup ratio against that older run. They establish
+completion within the unchanged bounds, while the independently reproduced
+partial-output bug has an explicit recovery regression. Full raw compiler logs,
+objects and timing data remain outside Git.

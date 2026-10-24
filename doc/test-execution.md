@@ -71,3 +71,20 @@ receipts. The compiled run neither skips the dense closure nor lowers its size.
 The Class regression also passes through the original source-file runner when
 executed standalone. This identifies a bounded full-harness loading failure;
 it is not a general claim about all Class callbacks or GC implementations.
+
+## Failed compiler recovery
+
+Every `just build` target uses the existing bounded process-group boundary.
+A failed stage is reaped before standard cleanup of its selected target/output;
+its original failure is rethrown. This prevents early `.ssi`/static outputs from
+turning a killed backend into a false incremental hit. Compiler flags are removed
+from the cleanup request. A recovery failure stops subsequent admission and
+retains both causes. Standard make still owns the dependency graph, worker pool
+and successful cache reuse. The production stage remains 300 seconds / 1 GiB,
+and the complete build remains 1200 seconds.
+
+The build regression performs an actual short timeout in a temporary fixture,
+verifies both partial outputs disappeared, then compiles the same module through
+`defbuild-script`. No production deadline is shortened for that control. See
+[the build study](performance/build-summary.org) for cold/warm measurements and
+supervisor-interruption boundaries.
