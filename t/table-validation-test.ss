@@ -14,6 +14,8 @@
 ;; using Gerbil's association operations, not a new collection implementation.
 (def (alist-table key value)
   (.cc methods.table Key: key Value: value .empty: []
+    ;; The association backend's equality is independent of its row payload.
+    .key-table: (lambda (payload) (alist-table key payload))
     .validate-shape: (lambda (source)
       (unless (alist? source) (raise-type-error 'alist-table source)) source)
     .ref: (lambda (source key (missing (lambda () (error "missing key"))))
@@ -773,7 +775,7 @@
       (def source-base (.cc (RationalDict payload) Key: UInt))
       (def target-base (SimpleTrie UInt cooked))
       (def blocked? #f)
-      (def projects 0) (def conversions 0) (def source-admissions 0) (def target-admissions 0)
+      (def projects 0) (def conversions 0) (def source-admissions 0) (def target-admissions 0) (def shapes 0)
       ;; Retain complete recognition, while refusing accidental aggregate refolds.
       (def source (.cc source-base .element?: (lambda (root)
         (set! source-admissions (+ source-admissions 1)) (element? source-base root))
@@ -785,7 +787,7 @@
         .foldl: (lambda (f seed table)
           (when blocked? (error "target snapshot scan")) (.call target-base .foldl f seed table))
         .validate-shape: (lambda (table)
-          (when blocked? (error "target shape rescan")) (.call target-base .validate-shape table))))
+          (set! shapes (+ shapes 1)) (.call target-base .validate-shape table))))
       (def keys (.cc Wrapper. Domain: UInt Codomain: UInt
         .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
       (def values (.cc Wrapper. Domain: payload Codomain: cooked
@@ -816,9 +818,10 @@
       (def rebound (.call bridge .ap equivalent))
       (check (eq? (.call derived .unap rebound) (.call derived .unap first)) => #t)
       (check-equal? projects 0) (check-equal? conversions 0)
-      (set! source-admissions 0) (set! target-admissions 0)
+      (set! source-admissions 0) (set! target-admissions 0) (set! shapes 0)
       (def changed (.call bridge .apply-delta state delta))
       (check (> source-admissions 0) => #t) (check (> target-admissions 0) => #t)
+      (check (> shapes 0) => #t)
       (check-equal? (.call derived .get changed) 2125)
       (check-equal? projects 4)
       ;; Two present replacements each run the same forward roundtrip twice.

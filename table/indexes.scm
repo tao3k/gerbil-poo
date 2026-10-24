@@ -160,6 +160,12 @@
   (set! result
     (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: wrapper .wrap?: %indexed-table?))
       Key: (.@ source Key) Value: (.@ source Value) .sources: sources
+      ;; Private key-space registries retain the source's equality, not indexes
+      ;; whose projection and cache Types belong to this family's original rows.
+      .key-table: (lambda (value) (guard sources (lambda () (table-key-table source value))))
+      ;; One complete primary construction precedes one complete cache family.
+      .<-list: (lambda (bindings) (guard sources
+        (lambda () (initialize (.call source .<-list bindings)))))
       .empty: (initialize (.@ source .empty))
       ;; Private snapshot identity is not a test for logical collection emptiness.
       .empty?: (lambda (state) (observe state (lambda (_) (.call source .empty? (%indexed-table-primary state)))))

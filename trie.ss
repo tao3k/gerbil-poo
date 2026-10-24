@@ -50,6 +50,9 @@
        .wrap ;; : (Wrap t) <- t
        .unwrap) ;; : t <- (Wrap t)
 
+  ;; Node payloads are parametric; the same key path/equality backs private registries.
+  .key-table: (cut table-key-space @ <>)
+
   Wrapper: Identity ;; : Functor
 
   ;; The type of values stored in a Trie.

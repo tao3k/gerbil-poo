@@ -16,9 +16,11 @@
   (only-in ./object .@)
   (only-in ./brace @method)
   (only-in ./mop define-type Any raise-type-error)
-  (only-in ./table Set<-Table. methods.table))
+  (only-in ./table Set<-Table. methods.table table-key-space))
 
 (define-type (RationalDict. @ [methods.table] Value)
+   ;; This backend's tree operations are payload-parametric and retain key equality.
+   .key-table: (cut table-key-space @ <>)
    Key: Rational
    Value: Any
    ;; Carrier admission is separate from recursive normalization and recognition.

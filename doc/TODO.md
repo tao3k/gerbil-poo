@@ -1700,3 +1700,28 @@ single-process program with the unchanged 1 GiB / 300 s limits. The five new fol
 cases, all 44 existing collection-validation cases and 346 companion Lean check
 invocations passed. Complete admission work is charged; these are semantic and
 finite source-work receipts, not an end-to-end latency improvement claim.
+
+
+### Atomic fold transfer through closed derived targets
+
+Closed a complete construction/installation omission: fold transport now honors
+target bulk construction and submits one ordered target delta. Order views retain
+that atomic installer rather than rebuilding it as point writes. Indexed and
+represented targets provide a typed `.key-table` capability for private owner/edit
+registries, preserving backend equality without interpreting owner IDs as service
+rows or copying their business indexes.
+
+The existing indexed service factory, presentation function and FUN/IO compose
+cold family admission, dual identifier swaps, shared-team migration, retained
+Function identities, genuine conflict refusal, retry and inverse recovery.
+Repeated edits, stored false, collisions, stale/empty-origin requests and invalid
+capability metadata retain explicit negative controls. Fold code lives in the
+existing table module's `table/fold.scm` include. Companion overlay/transport/index
+proofs and charged preparation boundaries are in [table-fold.md](table-fold.md).
+Automatic equality/capability discovery remains a separate research boundary.
+
+Full local acceptance passed 138 modules / 1,378 cases in the standard single-process
+program (55.05 s execution), with unchanged 1 GiB / 300 s limits. Eight added
+regressions cover the complete derived-target protocol and failure order. The
+companion full Lean gate passed all 346 check invocations. These are semantic
+acceptance and bounded source-work receipts, not a measured speedup claim.

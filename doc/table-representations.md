@@ -803,3 +803,12 @@ source Iterator instead of implicitly rebuilding iteration through fold/list.
 Key/value conversion happens on demand with complete pre-pull metadata checks,
 including EOF. See [table-cursors.md](table-cursors.md) for failure advancement,
 restart, snapshots, Function identity and the bounded formal cost model.
+
+### Closed target construction and atomic transfer
+
+A `.key-table` capability preserves the backend's key equality for private owner
+and edit registries, independently of business-row representation and indexes.
+Closed index/order/representation constructors retain that capability as well as
+complete construction and atomic delta installation. Fold bridges now compose
+these whole operations; they do not expand a valid index swap into point writes.
+See [table-fold.md](table-fold.md) for the contract, failure order and finite laws.

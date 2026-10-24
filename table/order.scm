@@ -60,11 +60,13 @@
   (def admit-source (table-shape-checker source))
   (def versions (map object-revision sources)) (def result #f)
   ;; Complete queries/folds hold metadata guards, including the public receiver.
-  (def (observe state action)
+  (def (protect action)
     (with-table-sources (if result (cons result sources) sources) (lambda ()
       (unless (equal? versions (map object-revision sources)) (error "stale table order"))
-      (admit-source state)
       (action))))
+  ;; Existing observations still admit their root within the common protected scope.
+  (def (observe state action)
+    (protect (lambda () (admit-source state) (action))))
   ;; A typed point update preserves shape only when the backend declares that law.
   ;; Run the operation before recording its result: raised callbacks retain no root.
   ;; Unknown roots still pass full admission, including after a failed update.
@@ -124,6 +126,10 @@
         (if (eq? entry #!eof) #f (some entry))))))
   (set! result (.cc methods.table Key: (.@ source Key) Value: (.@ source Value)
     .empty: (.@ source .empty) .sources: sources Comparer: comparer
+    ;; Ordering changes traversal, not lookup equality. Reuse the source key space
+    ;; and constructor while protecting comparator/declaration callbacks throughout.
+    .key-table: (lambda (value) (protect (lambda () (table-key-table source value))))
+    .<-list: (lambda (bindings) (protect (lambda () (.call source .<-list bindings))))
     ;; Rebind derived methods to this descriptor, not a cached source receiver.
     ;; Point operations keep the original backend and the same metadata discipline.
     .validate-shape: (lambda (state) (observe state (lambda () state)))
@@ -132,6 +138,14 @@
       (observe state (lambda () (.call source .ref state key missing))))
     .acons: (lambda (key row state) (update state key (lambda () (.call source .acons key row state))))
     .remove: (lambda (state key) (update state key (lambda () (.call source .remove state key))))
+    ;; Keep the source's atomic installer across an order view: rebuilding a
+    ;; delta with point writes could reject transient unique-index conflicts.
+    .apply-delta: (lambda (state delta)
+      (unless (table-delta? delta) (error "table delta required"))
+      (with-table-sources (table-delta-sources delta) (lambda () (protect (lambda ()
+        (require-table-delta result delta)
+        (admit-source state)
+        (admit-source (.call source .apply-delta state delta)))))))
     ;; Unbounded iteration is the same positioned cursor without a lower bound;
     ;; retain declared seek and every-pull guards instead of materializing a fold.
     .iter<-: (lambda (state) (position state #f #t))

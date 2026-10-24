@@ -3,7 +3,7 @@
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
         with-set-tables iterator-map table-element? validate-table table-for-each-change table-styles set-styles table-indexes
         table-comparer table-comparer-wrapper table-order
-        table-index-conflict? table-index-conflict-name table-index-conflict-key
+        table-key-space table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
         table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-wrapper
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
@@ -226,101 +226,7 @@
             ((some value) (.call descriptor .acons key value staged))))
         source (table-delta-changes delta)))))
 
-;; Owned aggregate states retain admitted snapshots and all revision dependencies.
-;; Only the creating Wrapper can inspect/update them; no constructor is exported.
-(defstruct table-fold-state (owner sources versions table value) final: #t)
-
-;; Lift a retractable fold through existing Wrapper and numeric/algebra methods.
-;; Aggregate supplies .zero/.add/.sub and recognition; project maps admitted k/v
-;; to admitted contributions. Pure stable operations and the optional-write fold
-;; law are caller premises, not inferred from these method names or membership.
-(def (table-fold descriptor aggregate project)
-  (defvalues (folding _adopt _read) (make-table-fold descriptor aggregate project []))
-  folding)
-
-;; Keep aggregate adoption and the checked state reader private to fold derivation.
-;; Extra dependencies bind a derived contribution to its explicit inverse maps.
-(def (make-table-fold descriptor aggregate project extra-sources)
-  (using (project :~ procedure?)
-    (def sources (delete-duplicates/hash
-      (append (table-sources descriptor) (list aggregate) extra-sources)
-      table: (make-hash-table-eq) from-end?: #t))
-    (with-table-sources sources
-      (lambda ()
-        (def versions (map object-revision sources))
-        (def owner (list descriptor aggregate project))
-        (def add (.@ aggregate .add))
-        (def sub (.@ aggregate .sub))
-        ;; Recognition preserves admitted aggregate leaves instead of rewrapping.
-        (def (checked value)
-          (unless (element? aggregate value) (raise-type-error aggregate value 'table-fold)) value)
-        (def zero (checked (.@ aggregate .zero)))
-        ;; Guard all captured metadata over callbacks and private construction.
-        (def (guard dependencies action)
-          (with-table-sources dependencies (lambda ()
-            (unless (equal? versions (map object-revision sources)) (error "stale table fold"))
-            (action))))
-        ;; A foreign or stale state never supplies an aggregate or source snapshot.
-        (def (require-state state)
-          (unless (and (table-fold-state? state) (eq? owner (table-fold-state-owner state)))
-            (error "incompatible table fold state"))
-          (unless (equal? (table-fold-state-versions state)
-                          (map object-revision (table-fold-state-sources state)))
-            (error "stale table fold state")))
-        ;; Fresh initialization scans the admitted table once, without normalization.
-        (def (initialize table)
-          (guard sources (lambda ()
-            (require-table descriptor table)
-            (def value (.call descriptor .foldl
-              (lambda (k v acc) (checked (add acc (checked (project k v))))) zero table))
-            (make-table-fold-state owner sources versions table value))))
-        ;; Read either part under the same freshness/owner checks as installation.
-        (def (observe state access)
-          (unless (table-fold-state? state) (error "incompatible table fold state"))
-          (guard (table-fold-state-sources state) (lambda () (require-state state) (access state))))
-        ;; Complete old-value and origin checks before any contribution callback.
-        ;; A later projection/arithmetic failure exposes neither staged result.
-        (def (update state delta)
-          (unless (and (table-fold-state? state) (table-delta? delta))
-            (error "table fold state and delta required"))
-          (def dependencies (delete-duplicates/hash
-            (append sources (table-fold-state-sources state) (table-delta-sources delta))
-            table: (make-hash-table-eq) from-end?: #t))
-          (guard dependencies (lambda ()
-            (require-state state)
-            ;; Compatible deltas may come from a less constrained descriptor.
-            ;; Admit the complete final root before any aggregate projection.
-            (let (next (require-table descriptor
-                        (.call descriptor .apply-delta (table-fold-state-table state) delta)))
-              (def value (foldl (lambda (change acc)
-                (def k (table-change-key change))
-                (def before (table-change-before change))
-                (def after (table-change-after change))
-                (def removed (if (some? before)
-                  (checked (sub acc (checked (project k (some-value before))))) acc))
-                (if (some? after)
-                  (checked (add removed (checked (project k (some-value after))))) removed))
-                (table-fold-state-value state) (table-delta-changes delta)))
-              (make-table-fold-state owner dependencies (map object-revision dependencies) next value)))))
-        ;; Trusted conversion has already constructed the admitted carrier; retain
-        ;; its source lineage while reusing an admitted aggregate without refolding.
-        (def (adopt table value origins)
-          (def dependencies (delete-duplicates/hash (append sources origins)
-            table: (make-hash-table-eq) from-end?: #t))
-          (guard dependencies (lambda ()
-            (make-table-fold-state owner dependencies (map object-revision dependencies)
-              table (checked value)))))
-        ;; The checked reader never escapes through the public fold Wrapper.
-        (def (read-state state) (observe state identity))
-        (using ((add :~ procedure?) (sub :~ procedure?))
-          (def folding (.cc Wrapper. Domain: descriptor Value: aggregate .ap: initialize
-            .unap: (cut observe <> table-fold-state-table)
-            .get: (cut observe <> table-fold-state-value) .apply-delta: update
-            .isomorphism: (lambda (target key value)
-              (guard sources (lambda ()
-                (make-table-fold-isomorphism folding descriptor aggregate project
-                  adopt read-state update target key value))))))
-          (values folding adopt read-state))))))
+(include "table/fold.scm")
 
 ;; A failed finite law/collision check reports its kind and offending value.
 ;; No partially converted carrier or change sequence is included in this payload.
@@ -352,13 +258,30 @@
     (raise (make-table-isomorphism-failure 'right-inverse output)))
   output)
 
+;; Explicitly declared payload-parametric backends share this structural key-space
+;; constructor. Business-root refinements do not apply to owner/edit records.
+(def (table-key-space backend value)
+  (def registry (.cc backend Value: value
+    .element?: (lambda (root) (table-element? registry root))))
+  registry)
+
+;; The capability preserves backend key equality while changing only registry
+;; payloads. Never infer constructor polymorphism for an arbitrary table family.
+(def (table-key-table descriptor value)
+  (def build (.@ descriptor .key-table))
+  (unless build (error "unsupported table key registry"))
+  (using (build :~ procedure?)
+    (def registry (build value))
+    (unless (and (eq? (.@ registry Key) (.@ descriptor Key)) (eq? (.@ registry Value) value))
+      (error "incompatible table key registry")) registry))
+
 ;; Each attempt owns one typed persistent key registry using the TARGET backend.
 ;; It detects the backend's own collisions, including keys deleted in one snapshot
 ;; and inserted in the next. Repeated occurrences of the same source key are legal.
 (def (table-translators direction (initial #f))
   (def source (table-translation-source direction))
   (def target (table-translation-target direction))
-  (def owners (.cc target Value: (table-child-type direction table-translation-source-key table-translation-source Key)))
+  (def owners (table-key-table target (table-child-type direction table-translation-source-key table-translation-source Key)))
   (def seen (if (some? initial) (some-value initial) (.@ owners .empty)))
   ;; Register before testing the inverse, so a lossy key map reports collision.
   (def (key input)
@@ -374,12 +297,15 @@
   (def (table input)
     (require-table source input)
     (require-table target
-      (.call source .foldl
-        (lambda (k v result)
-          (.call target .acons (key k)
-            (translate-table-value (table-child-type direction table-translation-source-value table-translation-source Value) (table-child-type direction table-translation-target-value table-translation-target Value)
-              (table-translation-value direction) (table-translation-unvalue direction) v) result))
-        (.@ target .empty) input)))
+      (.call target .<-list
+        (with-list-builder (emit)
+          (.call source .for-each (lambda (k v)
+            (let* ((mapped-key (key k))
+                   (mapped-value (translate-table-value
+                     (table-child-type direction table-translation-source-value table-translation-source Value)
+                     (table-child-type direction table-translation-target-value table-translation-target Value)
+                     (table-translation-value direction) (table-translation-unvalue direction) v)))
+              (emit (cons mapped-key mapped-value)))) input)))))
   (values key table owners (lambda () seen)))
 
 ;; Discover child/origin sources under parent/converter protection, then admit
@@ -514,6 +440,43 @@
                 (map/option (cut translate forward #f <>) a)
                 (map/option (cut translate forward #f <>) b)))) before (decode right)))
             (if (eq? before after) left (encode after #t))))))
+      ;; Retain public-key old-value checks and per-entry conversion order while
+      ;; delegating one whole source installation. The typed overlay stores both
+      ;; views, so expected source values are read/reused, never re-converted.
+      (def (install input delta)
+        (unless (table-delta? delta) (error "table delta required"))
+        (with-table-sources (append protected (table-delta-sources delta)) (lambda ()
+          ;; Preserve delta refusal before view freshness/shape diagnostics.
+          (require-table-delta result delta)
+          (guard (lambda ()
+          (def before (decode input))
+          (def change-type (.cc Type. .element?: table-change?))
+          (def overlay (table-key-table result (Pair change-type change-type)))
+          (def pending (.@ overlay .empty))
+          (def changes (with-list-builder (emit)
+            (for-each (lambda (change)
+              (def k (table-change-key change))
+              (def mapped-key (translate backward #t k))
+              (def prior (.call overlay .ref/opt pending k))
+              (def source-before (if (some? prior)
+                (table-change-after (cdr (some-value prior))) (.call source .ref/opt before mapped-key)))
+              (def target-before (if (some? prior)
+                (table-change-after (car (some-value prior)))
+                (map/option (cut translate forward #f <>) source-before)))
+              (unless (table-option=? (table-change-before change) target-before)
+                (raise (make-table-conflict k)))
+              (let (mapped (make-table-change mapped-key source-before
+                    (map/option (cut translate backward #f <>) (table-change-after change))))
+                (set! pending (.call overlay .acons k (cons change mapped) pending))
+                (emit mapped))) (table-delta-changes delta))))
+          (def dependencies (delete-duplicates/hash (append protected (table-delta-sources delta))
+            table: (make-hash-table-eq) from-end?: #t))
+          (def after (try (.call source .apply-delta before
+            (make-table-delta (.@ source Key) (.@ source Value) dependencies
+              (map object-revision dependencies) changes))
+            (catch (table-conflict? cause)
+              (raise (make-table-conflict (translate forward #t (table-conflict-key cause)))))))
+          (encode after #t))))))
       ;; Transfer only an explicit backend seek/order capability. The transported
       ;; comparer is shared by identity; callers must not guess numeric target order.
       (def ordering (if (.has? source Comparer .seek<-)
@@ -530,10 +493,27 @@
           (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: checked .wrap?: (lambda (input) (element? target input))) ordering)
             Key: (.@ target Key) Value: (.@ target Value)
             .sources: sources
+            ;; Preserve key equivalence through the existing key Wrapper, using an
+            ;; identity carrier and payload map rather than the original row layout.
+            .key-table: (lambda (value) (guard (lambda ()
+              (def backend (table-key-table source value))
+              (def view (.cc Type. Key: (.@ target Key) Value: value
+                .element?: (lambda (root) (try (.call backend .validate-shape root) #t
+                  (catch (TypeError? _) #f)))))
+              (table-wrapper backend
+                (.cc Wrapper. Domain: backend Codomain: view .ap: identity .unap: identity)
+                key (.cc Wrapper. Domain: value Codomain: value .ap: identity .unap: identity)))))
+            ;; Build through the source's complete constructor, not repeated
+            ;; checked point updates that could reject valid intermediate roots.
+            .<-list: (lambda (bindings) (guard (lambda ()
+              (encode (.call source .<-list (map (lambda (entry)
+                (let* ((k (translate backward #t (car entry)))
+                       (v (translate backward #f (cdr entry)))) (cons k v))) bindings))))))
             ;; Delegate FUN operations while protecting the complete user callback.
             .bind/wrap: (lambda (input f) (guard (lambda () (.call checked .bind input f))))
             .map/wrap: (lambda (f input) (guard (lambda () (.call checked .map f input))))
             .validate-shape: (lambda (input) (guard (lambda () (decode input) input)))
+            .apply-delta: install
             .empty: (guard (lambda () (encode (.@ source .empty))))
             .empty?: (lambda (input) (guard (lambda () (.call source .empty? (decode input)))))
             .ref: (lambda (input k (missing (lambda () (error "missing key"))))
@@ -628,113 +608,6 @@
         .ap: (cut convert forward <>) .unap: (cut convert backward <>)
         Delta: (.cc Wrapper. .ap: (cut changes forward <>) .unap: (cut changes backward <>))))))
 
-;; One private pairing per transport, including only the currently live key owners.
-;; Replacing the pairing never retains a chain of prior snapshots or global memo.
-(defstruct table-fold-pair (source target owners) final: #t)
-
-;; Derive the target contribution by pullback, then reuse the source aggregate.
-;; The paired-state invariant is target = map(source), with equal fold values.
-;; Cold/foreign-state recovery may scan; hits and warm edits do not enumerate.
-(def (make-table-fold-isomorphism folding source aggregate project
-       adopt-source read-source update-source target key value)
-  (call-with-table-translations source target key value (list folding aggregate)
-    (lambda (base-sources forward backward)
-      (def ku (table-translation-unkey forward))
-      (def va (table-translation-value forward)) (def vu (table-translation-unvalue forward))
-      (defvalues (target-fold adopt-target read-target)
-        (make-table-fold target aggregate (lambda (k v) (project (ku k) (vu v))) base-sources))
-      (def sources (cons target-fold base-sources))
-      (instantiate-object! target-fold)
-      (def versions (map object-revision sources))
-      (def paired #f)
-      ;; Hold common metadata and the particular input's origins for the entire use.
-      ;; A stale old cache cannot poison a different, independently fresh input.
-      (def (guard origins action)
-        (with-table-sources (append sources origins) (lambda ()
-          (unless (equal? versions (map object-revision sources))
-            (error "stale table fold isomorphism"))
-          (action))))
-      ;; Unforgeable fold ownership is checked by the creating protocol's reader.
-      (def (origins state)
-        (unless (table-fold-state? state) (error "table fold state required"))
-        (table-fold-state-sources state))
-      ;; Prepare a pairing privately: commit it only after the complete caller succeeds.
-      (def (prepare state)
-        (def original (read-source state))
-        (if (and paired (eq? state (table-fold-pair-source paired)))
-          (begin (read-target (table-fold-pair-target paired)) paired)
-          (if (and paired (eq? (table-fold-state-table original)
-                               (table-fold-state-table (table-fold-pair-source paired))))
-            ;; Fresh independent admission of the SAME immutable source root can
-            ;; rebind the representation, even if old origin stamps expired. Never
-            ;; copy the old aggregate or accept an expired input state to do this.
-            (make-table-fold-pair original
-              (adopt-target (table-fold-state-table (table-fold-pair-target paired))
-                (table-fold-state-value original) (origins original))
-              (table-fold-pair-owners paired))
-            (let ()
-              (defvalues (_ convert _owners seen) (table-translators forward))
-              (def converted (convert (table-fold-state-table original)))
-              (def result (adopt-target converted (table-fold-state-value original) (origins original)))
-              (make-table-fold-pair original result (seen))))))
-      ;; Identical source-state hits reuse target identity, without reinitializing it.
-      (def (convert state)
-        (guard (origins state) (lambda ()
-          (def next (prepare state))
-          (set! paired next)
-          (table-fold-pair-target next))))
-      ;; A paired inverse recovers the exact original source state. A valid target
-      ;; updated outside this transport uses checked full conversion, but never refolds.
-      (def (recover state)
-        (guard (origins state) (lambda ()
-          (def original (read-target state))
-          (if (and paired (eq? state (table-fold-pair-target paired)))
-            (begin (read-source (table-fold-pair-source paired)) (table-fold-pair-source paired))
-            (let ()
-              (defvalues (_key convert _backward-owners _backward-seen) (table-translators backward))
-              (def converted (convert (table-fold-state-table original)))
-              (def result (adopt-source converted (table-fold-state-value original) (origins original)))
-              ;; A cold inverse reconstructs only key ownership after conversion.
-              ;; It retains incoming lineage rather than laundering stale provenance.
-              (defvalues (translate _table _owners seen) (table-translators forward))
-              (.call source .for-each (lambda (k _v) (translate k)) converted)
-              (set! paired (make-table-fold-pair result original (seen)))
-              result)))))
-      ;; Source installation checks every conflict before conversion or publication.
-      ;; Warm translation uses the cached bijection and touches only changed bindings.
-      ;; Failed callbacks discard local registry/writes, preserving the prior pairing.
-      (def (update state delta)
-        (unless (table-delta? delta) (error "table delta required"))
-        (guard (append (origins state) (table-delta-sources delta)) (lambda ()
-          (read-source state)
-          (def next-source (update-source state delta))
-          (def previous (prepare state))
-          (def current (read-target (table-fold-pair-target previous)))
-          (defvalues (translate _table owners seen)
-            (table-translators forward (some (table-fold-pair-owners previous))))
-          ;; Removed owners stay visible until all new keys pass union-domain checks.
-          (def staged (foldl (lambda (change acc)
-            (def k (translate (table-change-key change)))
-            (match (table-change-after change)
-              (#f (cons (.call target .remove (car acc) k) (cons k (cdr acc))))
-              ((some v)
-                (def converted (translate-table-value (table-child-type forward table-translation-source-value table-translation-source Value)
-                  (table-child-type forward table-translation-target-value table-translation-target Value) va vu v))
-                (cons (.call target .acons k converted (car acc)) (cdr acc)))))
-            (cons (table-fold-state-table current) []) (table-delta-changes delta)))
-          ;; A key deleted then reinserted in this batch is still a live owner.
-          (def live-owners (foldl (lambda (k registry)
-            (if (.call target .key? (car staged) k) registry (.call owners .remove registry k)))
-            (seen) (cdr staged)))
-          ;; Sparse replay preserves bindings, not arbitrary target refinements.
-          ;; Recognition retains checked leaves; only full success replaces paired.
-          (def result (adopt-target (require-table target (car staged))
-            (table-fold-state-value next-source) (origins next-source)))
-          (set! paired (make-table-fold-pair next-source result live-owners))
-          result)))
-      (.cc Wrapper. Domain: folding Codomain: target-fold
-        .ap: convert .unap: recover .apply-delta: update))))
-
 ;; Select admitted bindings with the backend fold and insertion protocol. The
 ;; predicate runs once per visited binding, in fold order, and must return Bool.
 ;; Both branches remain private until complete recognition succeeds; Function
@@ -761,6 +634,10 @@
 
   ;; Derived protocols publish their complete explicit origins to deltas and folds.
   .sources: []
+
+  ;; This is an explicit backend capability. Closed families delegate it;
+  ;; unknown/custom backends must declare its equality and payload laws.
+  .key-table: #f
 
   ;; Recognition never normalizes children. This keeps nested List/Schema shape
   ;; checks and postconditions from constructing or discarding Function wrappers.

@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -425,3 +425,21 @@
         (def entry (cursor.next!))
         (and (not (eq? entry #!eof))
           (some (cons (car entry) (inspect (car entry) (cdr entry))))))))))
+
+
+;; Reuse the declared two-identifier/shared-team service family as a counted ledger.
+;; A presentation function may compose existing order and representation views;
+;; fold transfer still uses their complete constructor and atomic delta installer.
+;; Admission happens once before the opaque state is handed to FUN/IO actions.
+(def (make-service-ledger rows (present identity))
+  (using (present :~ procedure?)
+    (defvalues (indexed-type source-type recipes) (make-indexed-services))
+    (def target-type (present indexed-type))
+    (def source-fold (table-fold source-type Integer (lambda (_key _row) 1)))
+    (def keys (.cc Wrapper. Domain: (.@ source-type Key) Codomain: (.@ target-type Key)
+      .ap: identity .unap: identity))
+    (def payloads (.cc Wrapper. Domain: (.@ source-type Value) Codomain: (.@ target-type Value)
+      .ap: identity .unap: identity))
+    (.o source: source-type target: target-type indexed: indexed-type declarations: recipes folding: source-fold
+      transport: (.call source-fold .isomorphism target-type keys payloads)
+      state: (.call source-fold .ap (validate source-type (.call source-type .<-list rows))))))
