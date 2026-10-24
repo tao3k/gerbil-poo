@@ -57,7 +57,8 @@ module through the standard Scheme harness, with its own failure status and
 with two independent module processes per group. `t/test-groups.ss` checks the
 inventory and includes new, unclassified tests in an additional group.
 
-One build job publishes this run's shared library. Twenty compilation jobs
+One build job explicitly compiles the complete qualification inventory and publishes
+this run's shared library. Twenty compilation jobs
 verify that artifact and compile disjoint test roots. Independent semantic jobs
 and the complete single-process job then run concurrently against admitted
 artifacts. Exact shared/test caches skip compilation only; checks always run. See [CI checks](doc/ci-checks.md).
