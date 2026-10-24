@@ -140,7 +140,7 @@
       (for (name '(Pure Mutable Linear Posh Classy))
         (def protocol (.ref (table-styles target) name))
         (def calls 0)
-        (def action (service.publish-lookup-join-action join (.call left .diff l l) (.call right .diff r swapped)
+        (def action (service.publish-join-action join (.call left .diff l l) (.call right .diff r swapped)
           protocol (lambda (_) (set! calls (+ calls 1)))))
         (def stale (.call protocol .ap (.call target .<-list (list (cons 100 g) (cons 200 g)))))
         (check-exception (action (object<-alist (list (cons 'state state) (cons 'target stale)))) table-conflict?)

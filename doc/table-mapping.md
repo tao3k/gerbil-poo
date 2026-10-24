@@ -337,7 +337,7 @@ projection. Inherited origins from both sources remain live even with zero edits
 
 The exact ordinary output delta is the existing projection's removal/addition
 trace, not a claim of a minimal edit list. It reaches the existing five-style
-Reader/FUN/IO publication boundary through `publish-lookup-join-action`. Source
+Reader/FUN/IO publication boundary through `publish-join-action`. Source
 heads/indexes/projection caches stay private until preparation and public target
 installation succeed. A late target conflict, refinement refusal, output collision
 or callback exception exposes no successor; corrected retry uses the predecessor.
@@ -372,3 +372,84 @@ projection-cache refresh, ordered paired admission and joint source inverse
 recovery. Logical keys denote backend equality classes and source frame/affected
 inventory laws are premises. Top-level `Examples/ServiceCollection.lean` gives
 shared false policies, selective updates, deletion/insertion and inverse controls.
+
+## Finite many-to-many grouped expansion
+
+This explicit library unit advances the collection-library future work.
+
+`(table-group-join Left Right Target Groups Pairs classify-left classify-right project [origins])`
+uses the existing two-source `.ap` / `.unap` / `.get` / `.apply-deltas` protocol.
+`Groups` declares logical group-key equality through its `.key-table` capability.
+`Pairs.Key` must declare `(Pair Left.Key Right.Key)` with the exact component Types;
+its backend must implement faithful componentwise pair equality. Its original
+Value is unused: the existing key-space derivation supplies typed joined rows.
+No hash encoding, equality coercion, query inference or untyped fallback is added.
+
+Each classifier returns one group key. Every finite matching left/right row pair
+has identity `(left-key . right-key)`, independently of equal payloads or groups.
+`project(left-key,left-row,right-key,right-row)` returns `#f` or
+`some(target-key . target-value)`. Thus a group with m left and n right rows can
+produce m*n independently owned outputs. Distinct pairs targeting the same logical
+key are refused by the existing projection claim protocol, including equal-valued
+outputs. Dropping a pair does not accidentally retract another pair's output.
+
+Cold preparation admits both complete source roots before either classification,
+constructs two ordinary grouped indexes, then projects the finite matched pairs.
+Warm preparation installs each ordered source delta exactly once and admits both
+complete roots before index classifiers run. It enumerates old and final matching
+buckets for edited endpoints on both sides, coalesces pair identities using the
+explicit pair backend, and refreshes only final present pairs. Deletions require no
+projection callback. Both old and new buckets are necessary for simultaneous
+migration, insertion and removal. Untouched groups retain their cached projection.
+A repeated/no-op edit can conservatively refresh surviving pairs; minimal-delta
+or zero-classification claims are not made.
+
+The existing projection performs all reservations, final target admission and
+exact delta delivery. `publish-join-action` is the common Reader/FUN/IO publisher
+for grouped and lookup joins; it installs the delivered delta directly into any
+of the five existing styles. No target `.diff`, extra Function wrapper or second
+collision engine is involved. Source conflicts, whole-root refusal, output
+collisions and callback exceptions expose no successor and leave the immutable
+predecessor available for corrected retry. A public target conflict suppresses
+consumption and permits retry with a fresh owner. Callback effects and postcommit
+IO are not rolled back. Metadata origins, including zero-edit origins, remain
+live; incompatible states and stale observations are rejected.
+
+`make-service-placement-join` demonstrates shared service/worker groups,
+heterogeneous UInt/Symbol keys, enabled-worker filtering, retained checked
+Functions and common five-style publication. Regressions include a 36-revision
+independent Cartesian-list oracle, bidirectional migration, source deletions,
+selective callback counts, cold/warm collisions, complete-source admission order,
+original exception identity, failed-publication retry, source/target inverse
+recovery, metadata invalidation and unchanged callback identity.
+
+The finite Lean `groupJoinView`/`groupJoinAffected` laws prove missing-endpoint
+behavior, live-pair inventory coverage, the unchanged-pair frame, selective-cache
+agreement with full recomputation, source inverse recovery and a finite inventory
+bound. They reuse the existing projection collision, preparation and style
+publication laws. Premises include stable pure classifiers/projections, faithful
+backend group/pair equality, complete old/final bucket inventories and persistent
+atomic installers. They do not verify Gerbil code generation, runtime GC, callback
+purity or a particular backend's equality implementation.
+
+Costs include both index constructions, finite matched-pair materialization,
+metadata preparation and complete recognizers. Warm work includes source/index
+installation, old/final bucket enumeration, pair-key deduplication, final pair
+lookups, affected projection/target preparation and public style installation.
+Large matching groups necessarily expand quadratically; old/final overlap still
+has enumeration and deduplication cost. Validation may scan complete snapshots.
+The projection-call bound is not a wall-clock, allocation or GC bound. Arbitrary
+multi-stage query optimization and automatic inverse discovery remain research
+boundaries; this explicit finite equijoin is an implemented collection protocol.
+
+The standard shared-library and executable consumer builds declare Gambit's
+supported `___SINGLE_HOST_LIMIT`: generated C procedures above 10,000 labels use Gambit's
+multiple-host representation. This avoids one oversized GCC optimization graph;
+`std/make` still owns dependency scheduling and object caching. Stage deadlines,
+heap limits and the complete tests remain unchanged. This build choice is not
+a proof or a claim of faster collection calls; host/compiler behavior remains
+outside the finite Lean laws.
+Executable consumers pass the same option explicitly because dependency gsc
+options are not inherited by their static-object preparation. The standard
+consumer still owns object preparation; the complete linked test program checks
+this path separately from the shared-library regression run.

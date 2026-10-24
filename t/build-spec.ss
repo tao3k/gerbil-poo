@@ -7,8 +7,12 @@
   (only-in :std/source this-source-file)
   (only-in "test-groups.ss" test-files test-batch))
 
-;; Keep the package build graph explicit. V19 std/make owns dependency
-;; scheduling and backend compilation; this file only declares package inputs.
+;; Gambit's supported large-procedure limit applies to shared AND executable
+;; compilation: consumers do not inherit a dependency's gsc options. Keep one
+;; setting while std/make owns all dependency, cache and scheduling decisions.
+(def +gerbil-poo-cc-options+ "-D___SINGLE_HOST_LIMIT=10000")
+
+;; Declare the existing platform-specific linkage for dynamic math symbols.
 (def +gerbil-poo-fq-spec+
   (cond-expand
    (darwin
@@ -108,7 +112,12 @@
     "proto"
     "rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.
-    (gxc: "table" (extra-inputs: ("table/fold.scm" "table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm")))
+    ;; Gambit's built-in host limit splits large generated C procedures instead
+    ;; of making GCC optimize the entire collection module as one label graph.
+    ;; Standard compiler inputs, object caching and all stage limits remain owned
+    ;; by std/make; this is a code-generation choice, not a larger resource budget.
+    (gxc: "table" (extra-inputs: ("table/fold.scm" "table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"))
+      "-cc-options" ,+gerbil-poo-cc-options+)
     (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
     "type"
     "generation-graph"
@@ -239,7 +248,8 @@
 (def (consumer-request args)
   (match args
     (["test-program" . options]
-      [`((exe: "test-program" "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
+      [`((exe: "test-program" "-cc-options" ,+gerbil-poo-cc-options+
+          "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
     (["benchmark" target . options]
       (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
                 "closure-phases" "dispatch-benchmark" "metadata-benchmark"
@@ -251,7 +261,8 @@
       ;; every shared C object. Other standalone studies retain their exe targets.
       [(if (equal? target "collection-paired-benchmark")
          '("collection-paired-benchmark")
-         `((exe: ,target "-ld-options" ,(pkg-config-libs "openssl"))))
+         `((exe: ,target "-cc-options" ,+gerbil-poo-cc-options+
+             "-ld-options" ,(pkg-config-libs "openssl"))))
        #f options])
     (else (error "consumer target required" args))))
 

@@ -1864,5 +1864,19 @@ and target admission, callback/refinement/collision refusal, immutable retry,
 inherited origins and inverse recovery have integrated controls and finite Lean
 laws. See table-mapping.md for API, ordering, group/preparation/recognition costs and
 precise proof premises. Automatic query discovery remains a research boundary;
-finite many-to-many expansion is a separate implementation unit. This explicit
+finite many-to-many expansion is covered by the following explicit unit. This
 lookup does not claim whole-library completion.
+
+
+### Finite many-to-many grouped expansion
+
+Closed the explicit finite equijoin unit with two existing grouped indexes and
+Pair-key identities feeding the shared projection/collision/delivery protocol.
+Old/final buckets on both sides cover incremental insertion, deletion and shared
+dependency migration; pair-key coalescing preserves untouched projections. Cold
+and warm collisions, source admission order, original callback failure, immutable
+retry, metadata invalidation, source/target inverse recovery and five-style FUN/IO
+publication have regressions and finite Lean laws. See table-mapping.md for the
+API, faithful group/pair equality and purity premises, finite bounds and complete
+preparation/validation costs. Automatic query optimization is a research boundary,
+not an omitted implementation of this explicit finite protocol.

@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export make-service-routing-join publish-lookup-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
-        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
+        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -547,8 +547,20 @@
 
 ;; Publish a joint source revision through the same Reader/FUN/IO transaction as
 ;; unary projections and binary Set views. No new target installer is introduced.
-(def (publish-lookup-join-action join delta-left delta-right protocol consume)
+(def (publish-join-action join delta-left delta-right protocol consume)
   (publish-collection-action
     (lambda (request receive)
       (.call join .apply-deltas (.@ request state) delta-left delta-right receive))
     protocol consume))
+
+
+;; Expand each service onto enabled workers in its explicitly shared group. Pair
+;; identities keep placements distinct; admitted callbacks pass through unchanged.
+;; The common join publisher handles exact deltas and all five ownership styles.
+(def (make-service-placement-join services workers placements groups pairs)
+  (table-group-join services workers placements groups pairs
+    (lambda (_key row) (vector-ref row 0))
+    (lambda (_key row) (vector-ref row 0))
+    (lambda (service-key service-row worker-key worker-row)
+      (and (vector-ref worker-row 1)
+        (some (cons (cons service-key worker-key) (vector-ref service-row 1)))))))
