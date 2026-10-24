@@ -43,7 +43,15 @@ companion; it does not change ordinary prototype recursion.
 
 ### Scheme CI
 
-`just build` compiles the declared `build.ss` modules. `just test-file` runs one
+`just build` and native package installation compile the reusable library roots
+selected by the existing `library-modules` inventory. `gxi build.ss qualification`
+retains the complete previous build inventory, including examples and test/benchmark
+support. The bounded full-test driver selects `qualification` before its test groups;
+linked test and benchmark compilation also prepares those prerequisites. Individual
+`tests`/`batch` requests retain their shared test support. Target options and extra
+inputs are preserved; `:std/build-script` still owns incremental compilation and
+scheduling. This separation changes package ownership, not resource limits or the
+complete qualification coverage. `just test-file` runs one
 module through the standard Scheme harness, with its own failure status and
 90-second limit. Seventeen functional groups run as independent GitHub jobs,
 with two independent module processes per group. `t/test-groups.ss` checks the

@@ -5,6 +5,7 @@
   (only-in :std/make include-gambit-sharp pkg-config-libs)
   (only-in :std/build-script defbuild-script)
   (only-in :std/source this-source-file)
+  (only-in :std/list/list delete-duplicates/hash)
   (only-in "test-groups.ss" test-files test-batch))
 
 ;; Gambit's supported large-procedure limit applies to shared AND executable
@@ -228,18 +229,35 @@
         ([gxc: file . _] file)
         (else (error "unsupported library root" spec)))) +gerbil-poo-build-spec+)))
 
+;; Reuse the existing runtime-root classification. Package installation owns
+;; the reusable library; explicit qualification retains every former target.
+(def (library-build-spec)
+  (def roots (library-modules))
+  (filter (lambda (spec)
+            (member (match spec
+                      ((? string?) spec)
+                      ([gxc: file . _] file)) roots))
+          +gerbil-poo-build-spec+))
+(def (test-support-spec)
+  (filter (lambda (spec)
+            (and (string? spec) (string-prefix? "t/" spec)))
+          +gerbil-poo-build-spec+))
+(def (test-build-spec files)
+  (delete-duplicates/hash (append (test-support-spec) (map path-strip-extension files))))
+
 ;; Keep selection explicit. Standard compile/clean/spec/meta arguments pass
 ;; unchanged to defbuild-script; only project inventories are selected here.
 (def (build-request args)
   (match args
-    (["library" . options] [+gerbil-poo-build-spec+ #f options])
+    (["library" . options] [(library-build-spec) #f options])
+    (["qualification" . options] [+gerbil-poo-build-spec+ #f options])
     (["tests" group output . options]
-      [(map path-strip-extension (test-files group)) output options])
+      [(test-build-spec (test-files group)) output options])
     (["batch" index . options]
-      [(map path-strip-extension (test-batch (string->number index))) #f options])
+      [(test-build-spec (test-batch (string->number index))) #f options])
     ;; gerbil build/clean select the package graph. The complete checked test
     ;; inventory remains explicit in tests/batch and the bounded full-test driver.
-    (else [+gerbil-poo-build-spec+ #f args])))
+    (else [(library-build-spec) #f args])))
 
 
 ;; The linked test program and studies consume the same checked package interfaces.
