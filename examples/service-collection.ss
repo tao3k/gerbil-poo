@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-service-routing-join publish-lookup-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
-        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
+        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -533,3 +533,22 @@
   (table-group-fold source target Integer
     (lambda (_key row) (vector-ref row 0))
     (lambda (_key row) (vector-ref row 1))))
+
+
+;; Route each service through its explicitly keyed shared policy. Missing policy
+;; rows suppress routes; present policies preserve the admitted service callback.
+;; Output keys come from policies, so existing projection claims reject collisions
+;; and admit complete key swaps before the existing style publication boundary.
+(def (make-service-routing-join services policies routes)
+  (table-lookup-join services policies routes
+    (lambda (_key row) (vector-ref row 0))
+    (lambda (_key row policy)
+      (and (some? policy) (some (cons (some-value policy) (vector-ref row 1)))))))
+
+;; Publish a joint source revision through the same Reader/FUN/IO transaction as
+;; unary projections and binary Set views. No new target installer is introduced.
+(def (publish-lookup-join-action join delta-left delta-right protocol consume)
+  (publish-collection-action
+    (lambda (request receive)
+      (.call join .apply-deltas (.@ request state) delta-left delta-right receive))
+    protocol consume))

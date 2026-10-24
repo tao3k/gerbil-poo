@@ -5,7 +5,7 @@
         table-comparer table-comparer-wrapper table-order
         table-key-space table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
-        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-group-fold table-projection set-image set-combination table-wrapper
+        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-group-fold table-projection table-lookup-join set-image set-combination table-wrapper
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 
@@ -26,7 +26,7 @@
   (only-in ./fun Wrapper. Wrap.)
   (only-in ./function-signature signature-shape?)
   (only-in ./object .o object<-alist .all-slots .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
-  (only-in ./type List Pair Unit))
+  (only-in ./type List Pair Sum Unit))
 
 (defstruct %mapped-iterator (source transform guard) final: #t)
 ;; Pull through the standard Iterator exactly once; preserve EOF without mapping it.

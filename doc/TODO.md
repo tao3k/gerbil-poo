@@ -1851,3 +1851,18 @@ commutative law. The finite Lean group/frame/delta/inverse laws and full cost
 boundary are in collections.md. Refolding a large affected bucket remains charged;
 automatic algebra/query discovery and destructive storage remain research
 boundaries, not implementation defects declared closed by this unit.
+
+
+### Two-source indexed lookup join
+
+Closed the foreign-key lookup maintenance unit absent from single-source
+projection and same-key `.join`: typed left/right heads, shared dependency buckets,
+old/final reference invalidation and coalesced enriched-row edits now feed the
+existing projection/collision and five-style Reader/FUN/IO publication protocol.
+Missing versus stored false, different source key Types, key swaps, complete source
+and target admission, callback/refinement/collision refusal, immutable retry,
+inherited origins and inverse recovery have integrated controls and finite Lean
+laws. See table-mapping.md for API, ordering, group/preparation/recognition costs and
+precise proof premises. Automatic query discovery remains a research boundary;
+finite many-to-many expansion is a separate implementation unit. This explicit
+lookup does not claim whole-library completion.

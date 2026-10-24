@@ -297,3 +297,78 @@ and PUBLIC style installation remain distinct admitted operations. Replaying the
 delivered delta into a style may perform another backend/index preparation and
 complete validation. Those costs, registry preparation, comparisons, allocation
 and GC stay charged; removing `.diff` is not an end-to-end speedup claim.
+
+
+## Two-source indexed lookup join
+
+`(table-lookup-join Left Right Target classify project [origins])` returns the
+existing Wrapper-shaped view: `.ap` accepts `(cons left-root right-root)`, `.unap`
+returns a fresh Pair shell containing the two admitted heads, `.get` reads the
+prepared target, and `.apply-deltas state left-delta right-delta [receive]` prepares
+a successor. The default returns the successor; `values` receives both successor
+and exact target delta. Left and right key Types may differ. `classify(key,row)`
+must produce an admitted Right.Key, respecting the declared backend equalities.
+
+This is an explicit many-to-one foreign-key lookup, not the existing same-key
+left-biased `.join`. `project(left-key,left-row,right-option)` returns the existing
+optional target entry. Missing right rows can suppress output (inner lookup), or
+produce an explicit fallback (left lookup). A stored false is `(some #f)`, never
+absence. A private typed Pair/Sum row reuses existing child recognition to preserve
+this distinction without an Any fallback or a new public Option representation.
+Already admitted Function leaves retain identity; no wire codec is inferred.
+
+Existing `table-indexes` maintains the left-to-right dependency buckets. Existing
+`table-projection` owns output claims, collision refusal, final-state key swaps,
+complete target admission and ordered target delta delivery. There is no second
+collision engine, target installer or dynamically shared right-hand context.
+Cold construction captures the caller's Pair shell, admits both complete roots,
+builds the dependency index and materializes the typed enriched source once.
+
+Warm preparation installs/admit-checks the left source, then the right source,
+before classification or projection. The existing index admission continuation
+stages the right head before index maintenance, so each source delta installs once.
+A source conflict/refinement refusal suppresses these later callbacks. The left-key
+registry coalesces left edits and the old/final left buckets referencing edited
+right keys. Each final present affected row is enriched/projected once; deleted
+left rows have no output callback. Untouched dependency buckets are not enumerated.
+No-op and transient edit histories remain ordered source checks; they may cause
+conservative re-enrichment of dependents, but no transient right payload reaches
+projection. Inherited origins from both sources remain live even with zero edits.
+
+The exact ordinary output delta is the existing projection's removal/addition
+trace, not a claim of a minimal edit list. It reaches the existing five-style
+Reader/FUN/IO publication boundary through `publish-lookup-join-action`. Source
+heads/indexes/projection caches stay private until preparation and public target
+installation succeed. A late target conflict, refinement refusal, output collision
+or callback exception exposes no successor; corrected retry uses the predecessor.
+Explicit source inverses restore both joined observations; target inverses restore
+the public target independently. This does not atomically consume two separately
+owned public source objects or roll back external callback/postcommit IO effects.
+
+`make-service-routing-join` in `examples/service-collection.ss` joins Function-bearing
+services to shared routing policies. Tests cover selective shared-policy changes,
+missing versus stored false, 24 mixed revisions against a full lookup oracle,
+different left/right key Types, source admission order, Pair alias shells,
+collision refusal and key swaps, whole-target refusal and callback exception retry,
+metadata/foreign-state rejection, inherited origins, five styles and inverse
+recovery while preserving exact callback identities.
+
+Costs include cold source/index/enriched/target preparation and all complete
+recognizers. Warm work includes both source installations, index maintenance,
+changed-right dependency-bucket enumeration, the coalesced enriched edits,
+projection claims and separate public target installation. Large shared buckets
+can demand many left rows, repeated right edits can repeat bucket enumeration,
+and origin/recognition/backend/GC costs are not constant-time claims. Classification,
+projection, backend observations and stored leaves must obey the existing stable,
+pure, persistent discipline; metadata mutation retains existing serialization rules.
+This advances the collection proposal's future work. Automatic query/foreign-key
+and inverse discovery remain research boundaries. Finite many-to-many expansion
+and destructive backend integration are separate implementation units;
+compiler/runtime correctness is outside this model.
+
+Companion finite `TableProjection` laws prove left-key preservation, precise right
+presence, affected-row framing, selective enriched repair, reuse of complete
+projection-cache refresh, ordered paired admission and joint source inverse
+recovery. Logical keys denote backend equality classes and source frame/affected
+inventory laws are premises. Top-level `Examples/ServiceCollection.lean` gives
+shared false policies, selective updates, deletion/insertion and inverse controls.

@@ -276,3 +276,117 @@
         (.cc Wrapper. Domain: source Value: target .sources: sources
           .ap: initialize .unap: (cut observe <> table-projection-state-source)
           .get: (cut observe <> table-projection-state-target) .apply-delta: update)))))))
+
+;; A lookup join keeps independent immutable source heads and the existing
+;; projection state. No mutable ambient right-hand context is shared by branches.
+(defstruct %table-lookup-join (owner indexed right projection sources versions) final: #t)
+
+;; Maintain an explicit many-to-one foreign-key lookup. Existing grouped indexes
+;; find right-side dependents; a typed Sum distinguishes absence from stored false.
+;; Existing table-projection owns output claims, key swaps, final admission and
+;; exact delta delivery. classify/project are stable pure callbacks with origins.
+(def (table-lookup-join left right target classify project (origins []))
+  (using ((classify :~ procedure?) (project :~ procedure?) (origins :~ list?))
+    (with-table-sources (append (list left right target) origins) (lambda ()
+      (def primary (table-key-table left (.@ left Value)))
+      (def groups (table-key-table right primary))
+      (def indexed-type (table-indexes primary
+        (list (.o name: 'lookup table: groups unique?: #f project: classify))))
+      (def presence (Sum present: (.@ right Value) missing: Unit))
+      (def row-type (Pair (.@ left Value) presence))
+      (def joined (table-key-table left row-type))
+      (def touched (table-key-table left Unit))
+      (def dependencies (delete-duplicates/hash
+        (append (table-sources left) (table-sources right) (table-sources target)
+          (table-sources joined) (table-sources touched) (.@ indexed-type .sources)
+          (list indexed-type presence row-type) origins)
+        table: (make-hash-table-eq) from-end?: #t))
+      ;; Convert only the private presence tag to a fresh public Option shell.
+      ;; Child Functions remain the already admitted leaves in both directions.
+      (def projection (table-projection joined target
+        (lambda (key row)
+          (def found (cdr row))
+          (project key (car row) (and (eq? (.@ found tag) 'present) (some (.@ found value))))) dependencies))
+      (def sources (cons projection dependencies))
+      (with-table-sources sources (lambda ()
+        (def versions (map object-revision sources))
+        (def owner (list left right target classify project))
+        ;; Protect the complete preparation/delivery scope and captured metadata.
+        (def (guard live action)
+          (with-table-sources live (lambda ()
+            (unless (equal? versions (map object-revision sources)) (error "stale table lookup join"))
+            (action))))
+        ;; Historical source origins are retained even by zero-edit successors.
+        (def (observe state action)
+          (unless (and (%table-lookup-join? state) (eq? owner (%table-lookup-join-owner state)))
+            (error "incompatible table lookup join"))
+          (guard (%table-lookup-join-sources state) (lambda ()
+            (unless (equal? (%table-lookup-join-versions state)
+              (map object-revision (%table-lookup-join-sources state))) (error "stale table lookup join state"))
+            (action))))
+        ;; Read the declared foreign key without coercing it or cooking payloads.
+        (def (enrich key row context)
+          (def foreign (classify key row))
+          (require-table-key right foreign)
+          (def found (.call right .ref/opt context foreign))
+          (cons row (if (some? found) (.call presence make 'present (some-value found))
+                      (.call presence make 'missing (void)))))
+        ;; Capture the caller's Pair before recognizers can mutate its shell.
+        ;; Both complete sources precede any indexing or user projection callback.
+        (def (initialize input)
+          (using (input :~ pair?)
+            (def l (car input)) (def r (cdr input))
+            (guard sources (lambda ()
+              (require-table left l) (require-table right r)
+              (def indexed (.call indexed-type .wrap l))
+              (def rows (.call primary .foldl
+                (lambda (key row rows) (cons (cons key (enrich key row r)) rows)) [] l))
+              (def state (.call projection .ap (.call joined .<-list (reverse rows))))
+              (make-%table-lookup-join owner indexed r state sources versions)))))
+        ;; The index admission continuation stages the right source after complete
+        ;; left admission but before any classification. Each source delta installs
+        ;; once. All caches remain private if either source or projection refuses.
+        (def (update state delta-left delta-right (receive (lambda (next _delta) next)))
+          (using (receive :~ procedure?)
+            (unless (and (table-delta? delta-left) (table-delta? delta-right)) (error "table deltas required"))
+            (observe state (lambda ()
+              (def live (delete-duplicates/hash
+                (append (%table-lookup-join-sources state) (table-delta-sources delta-left)
+                  (table-delta-sources delta-right)) table: (make-hash-table-eq) from-end?: #t))
+              (guard live (lambda ()
+                (def next-right #f)
+                (def indexed (.call indexed-type .apply-delta (%table-lookup-join-indexed state) delta-left
+                  (lambda (next-left)
+                    (require-table left next-left)
+                    (set! next-right (require-table right
+                      (.call right .apply-delta (%table-lookup-join-right state) delta-right))))))
+                (def next-left (.call indexed-type .unwrap indexed))
+                (def seen (.@ touched .empty))
+                ;; One backend-owned key registry coalesces left edits and both
+                ;; old/final dependency buckets, including deletion and migration.
+                (def keys (with-list-builder (emit)
+                  ;; This callback is local to one immutable revision attempt.
+                  (def (visit key)
+                    (unless (.call touched .key? seen key)
+                      (set! seen (.call touched .acons key (void) seen)) (emit key)))
+                  (for-each (lambda (change) (visit (table-change-key change))) (table-delta-changes delta-left))
+                  (for-each (lambda (change)
+                    (for-each (lambda (snapshot)
+                      (def bucket (.call indexed-type .index-ref/opt snapshot 'lookup (table-change-key change)))
+                      (when (some? bucket) (.call primary .for-each (lambda (key _row) (visit key)) (some-value bucket))))
+                      (list (%table-lookup-join-indexed state) indexed))) (table-delta-changes delta-right))))
+                (def before (.call projection .unap (%table-lookup-join-projection state)))
+                (def edits (map (lambda (key)
+                  (def old (map/option identity (.call joined .ref/opt before key)))
+                  (def row (.call primary .ref/opt next-left key))
+                  (make-table-change key old (map/option (lambda (row) (enrich key row next-right)) row))) keys))
+                (def delta (make-table-delta (.@ joined Key) row-type live (map object-revision live) edits))
+                (.call projection .apply-delta (%table-lookup-join-projection state) delta
+                  (lambda (next output)
+                    (receive (make-%table-lookup-join owner indexed next-right next live
+                      (map object-revision live)) output)))))))))
+        (.cc Wrapper. Domain: (Pair left right) Value: target .sources: sources .ap: initialize
+          .unap: (lambda (state) (observe state (lambda ()
+            (cons (.call indexed-type .unwrap (%table-lookup-join-indexed state)) (%table-lookup-join-right state)))))
+          .get: (lambda (state) (observe state (lambda () (.call projection .get (%table-lookup-join-projection state)))))
+          .apply-deltas: update)))))))
