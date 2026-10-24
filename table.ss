@@ -5,7 +5,7 @@
         table-comparer table-comparer-wrapper table-order
         table-key-space table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
-        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-wrapper
+        table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-projection table-wrapper
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 

@@ -1765,3 +1765,17 @@ output size and failure/publication. See table-mapping.md for capability admissi
 logical equality, costs and proof premises. Automatic projection inverses,
 collision-policy inference, destructive storage and whole-library completion are
 not claimed by this explicit constructor.
+
+### Incremental heterogeneous collection projection
+
+Closed the finite warm-maintenance unit over explicit stable key-local projection:
+source deltas retain full ordered conflict checks, first-touch coalescing demands
+only final present rows, and private typed source/output plus target/owner registries
+permit key swaps while rejecting untouched-owner and new-owner collisions. One
+ordinary final-state target delta retains index/refinement admission and Function
+identities. Immutable successor publication keeps failure/retry and inherited origin
+invalidations aligned with FUN/IO and target styles. See table-mapping.md for
+32-round full-oracle regressions, complex service migration and Lean cache/frame,
+uniqueness, publication and callback-work laws. Full recognizer/backend costs remain
+charged; automatic dependency/inverse discovery and destructive storage remain
+research boundaries rather than claims closed by this unit.

@@ -142,3 +142,84 @@ callbacks and performs m target-registry lookups and insertions. It allocates a
 finite row list and constructs the target once. Source/result recognition, child
 checks, registry preparation, target/index construction, comparisons, converters,
 allocation and GC are additional charged costs; no O(edits) or speedup is claimed.
+
+## Incremental heterogeneous projection
+
+`(table-projection source target project [origins])` derives an existing `Wrapper`
+inside `clan/poo/table`. The callback returns `#f` or `(some (cons key value))`,
+using exactly the checked entry boundary above. `.ap` prepares an immutable owned
+state from a source root; `.unap` reads its source; `.get` reads its target;
+`.apply-delta state delta` returns a new state. The predecessor remains reusable.
+The factory requires both source and target typed `.key-table` capabilities before
+any projection, even for empty inputs. Private source-key/output and target-key/owner
+registries use their respective backend equalities. No global cache is introduced.
+
+Cold preparation visits each original row once, saves admitted projected rows,
+checks target-key uniqueness, and invokes one complete target constructor. Warm
+preparation follows this order:
+
+1. Check protocol/state ownership and every metadata stamp, including delta origins.
+2. Apply the complete ordered source delta and recognize its final source root.
+   Any intermediate expectation conflict or final source refusal precedes callbacks.
+3. Deduplicate touched source keys by SOURCE equality, in first-touch order. Repeated
+   writes in a composed batch demand only the final present value. Deleted keys
+   invoke no callback. Untouched rows, including Function leaves, are not projected.
+4. Retract all affected old target owners and ledger rows privately, before any
+   new reservation. Thus two owners can swap output keys in one revision. An
+   untouched owner's key still blocks an insertion; equal payloads do not waive it.
+5. Project final present rows once, snapshot Option/Pair shells before recognition,
+   reserve target keys using TARGET equality, and collect ordinary target edits.
+6. Install one target delta (all retractions, then additions). Existing correlated
+   index installation handles final unique swaps and grouped indexes. Recognize
+   the complete target before returning the source/target/ledger/owners successor.
+
+The first callback or collision failure retains its original cause/owner diagnostic
+and suppresses later callbacks and target installation. A target index/refinement
+failure exposes no successor. The original state remains available for a corrected
+request; no snapshot cache is mutated. Empty deltas retain origins, so stale lineage
+cannot be laundered by a no-op. Independent predecessor branches remain valid:
+this persistent protocol does not invent a global publication generation or CAS.
+Caller-selected target styles own later publication, as in ordinary `map/into`.
+
+Stable key-local pure projection, immutable admitted leaves, source-key equivalence
+invariance and persistent backend laws are explicit premises. Reading undeclared
+mutable state is not safely incremental: declare its descriptor in `origins`, revise
+it, and create a fresh protocol/state. Metadata edits during callbacks are blocked
+by the existing guards. External effects/leaf mutations are not rolled back; the
+same inter-thread descriptor serialization premise as the existing style API applies.
+No automatic dependency discovery, inverse projection, callback equivalence test,
+Function equality or destructive ownership inference is asserted.
+
+`revise-projected-ledger-action` composes preparation with the existing Reader/FUN
+observation and IO consumption. The service example migrates source Tuple rows to
+different target keys and Tuple fields, swaps primary keys and unique badges and
+endpoints, moves shared-team memberships, preserves untouched checked Functions,
+rejects genuine primary/index conflicts, retries, and restores via source inverse
+deltas plus target Linear style publication. Ordinary target styles remain distinct
+from the immutable projection state. Thirty-two-round RationalDict/Trie controls
+compare every incremental result with an independent full `filter-map/into` oracle;
+composed repeated-key batches check one callback per final touched key.
+
+### Laws and costs
+
+`TableProjection.lean` proves selective-cache frame and full-recomputation
+correspondence at every source key, reusing `applyChanges_frame` for inventory
+coverage. `reserveProjection_unique` reuses the existing ordered entry collision
+laws to exclude both new/new and new/untouched duplicates. Its retained-key list is
+a logical view of the cached registry, not a new runtime full scan. Successful
+source/callback/target admission, refusal-before-publication and immutable retry
+laws model the same pipeline. Logical keys abstract each backend's equality classes;
+faithful registries, traversals, constructors, recognizers and delta installation
+remain explicit implementation premises. These are not compiler/runtime proofs.
+
+For n source rows cold initialization demands n callbacks. Let d be the number of
+ordered source edits, u their distinct source keys, r the number with cached old
+outputs and a the number of retained new outputs. Warm preparation deduplicates d
+edits, processes u source keys, demands at most u callbacks (zero for deleted keys),
+and submits r+a target edits in ONE delta. It does not rerun target `.<-list` or
+scan untouched rows for projection/difference discovery. It may still inspect them
+through complete source/target recognition, backend index preparation or backend
+operations. Registry preparation/lookups, source installation, full recognition,
+comparisons, index work, allocations and GC remain charged. Touched keys whose net
+source value cancels may be recomputed once; arbitrary Function equality is not
+used to try to remove that work. No O(d) end-to-end or wall-time speedup is claimed.
