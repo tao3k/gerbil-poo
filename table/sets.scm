@@ -3,18 +3,35 @@
 ;; Admit both operands before any merge callback or identity shortcut. Recognition
 ;; does not normalize Function keys again. Metadata protection covers backend work
 ;; and all observed Key/Value origins; callback exceptions retain their cause.
-(def (with-set-tables table left right action)
-  (with-table-sources (table-sources table) (lambda ()
+(def (with-set-inputs descriptor inputs action)
+  (def table (.@ descriptor Table))
+  (with-table-sources (append (list descriptor)
+    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
     (unless (eq? (.@ table Value) Unit) (error "set algebra requires Unit values"))
-    (require-table table left)
-    (require-table table right)
+    (for-each (cut require-set descriptor <>) inputs)
     (action))))
+
+;; A set refinement cannot weaken the backing carrier/child admission. Recognition
+;; retains admitted Function keys and does not reconstruct or normalize them.
+(def (require-set descriptor root)
+  (require-table (.@ descriptor Table) root)
+  (require-table descriptor root))
+
+;; Both operands, including identical/empty roots, precede relation/merge work.
+(def (with-set-tables descriptor left right action)
+  (with-set-inputs descriptor (list left right) action))
+
+;; One complete constructor/installer precedes final set admission. Private work
+;; can fail without publishing a root; external callback effects are not undone.
+(def (build-set descriptor inputs construct)
+  (with-set-inputs descriptor inputs (lambda ()
+    (require-set descriptor (construct)))))
 
 ;; Reuse the backend's complete merge algorithm and branch order. Its persistent
 ;; output is private until complete; a failure never returns a partially built set.
-(def (merge-set-tables table choose left right)
-  (with-set-tables table left right
-    (lambda () (.call table .merge (lambda (_ a b) (choose a b)) left right))))
+(def (merge-set-tables descriptor choose left right)
+  (build-set descriptor (list left right)
+    (lambda () (.call (.@ descriptor Table) .merge (lambda (_ a b) (choose a b)) left right))))
 
 ;; Subset uses the backend's short-circuit traversal and membership primitive.
 ;; It constructs no merged set and does not compare or rewrap stored elements.
@@ -23,18 +40,25 @@
 
 ;; Reuse the project Lens constructor and source admission with one typed key.
 ;; Recognition preserves an already wrapped Function element; it never cooks it.
-(def (set-membership-lens table key)
+(def (set-membership-lens descriptor key)
+  (def table (.@ descriptor Table))
+  (def sources (append (list descriptor)
+    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)))
+  (def versions (map object-revision sources))
   ;; Both accessors guard the same table origins and refuse invalid element keys.
   (def (observe source action)
-    (with-set-tables table source source (lambda ()
+    (with-table-sources sources (lambda ()
+      (unless (equal? versions (map object-revision sources)) (error "stale set focus"))
+      (with-set-inputs descriptor (list source) (lambda ()
       (unless (element? (.@ table Key) key) (raise-type-error (.@ table Key) key))
-      (action))))
+      (action))))))
   (lens-of-get-set
     (lambda (source) (observe source (lambda () (.call table .key? source key))))
     (lambda (present? source)
       (using (present? :~ boolean?)
         (observe source (lambda ()
-          (if present? (.call table .acons key (void) source) (.call table .remove source key))))))))
+          (require-set descriptor
+            (if present? (.call table .acons key (void) source) (.call table .remove source key)))))))))
 
 ;; Preserve set-specific recognition and declared origins on direct selection,
 ;; including empty inputs. Table methods own traversal; this only changes arity
@@ -42,41 +66,37 @@
 (def (select-set descriptor predicate input split?)
   (using (predicate :~ procedure?)
     (def table (.@ descriptor Table))
-    (with-table-sources (append (list descriptor)
-      (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
-      (unless (eq? (.@ table Value) Unit) (error "set algebra requires Unit values"))
-      (require-table descriptor input)
+    (with-set-inputs descriptor (list input) (lambda ()
       (def classify (lambda (element _) (predicate element)))
       (def roots (if split?
         (let-values (((yes no) (.call table .partition classify input))) (list yes no))
         (list (.call table .filter classify input))))
-      (for-each (cut require-table descriptor <>) roots)
+      (for-each (cut require-set descriptor <>) roots)
       (apply values roots)))))
 
 ;; Set decomposition protects custom refinements and metadata on both results;
 ;; only the optional pivot payload is projected to presence, retaining Unit semantics.
 (def (split-set descriptor pivot input)
   (def table (.@ descriptor Table))
-  (with-table-sources (append (list descriptor)
-    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
-    (with-set-tables table input input (lambda ()
-      (require-table descriptor input)
+  (with-set-inputs descriptor (list input) (lambda ()
       (defvalues (left found right) (.call table .split pivot input))
-      (require-table descriptor left)
-      (require-table descriptor right)
-      (values left (some? found) right))))))
+      (require-set descriptor left)
+      (require-set descriptor right)
+      (values left (some? found) right))))
 
 (define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
-  .validate: (.@ Table .validate) ;; : @ <- Any
+  ;; Normalize through the backing protocol once, then admit the set refinement.
+  .validate: (lambda (root) (build-set @ [] (lambda () (validate Table root)))) ;; : @ <- Any
   .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
-  .empty: (.@ Table .empty)  ;; : @
+  ;; Empty is a partial constructor when the declared set excludes that root.
+  .empty: (build-set @ [] (lambda () (.@ Table .empty))) ;; : @
   .empty?: (.@ Table .empty?) ;; : Bool <- @
   .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
-  .cons: (cut .call Table .acons <> (void) <>) ;; : @ <- Elt @
-  .singleton: (lambda (elt) (.call Table .singleton elt (void))) ;; : @ <- Elt
-  .remove: (.@ Table .remove) ;; : @ <- @ Elt
+  .cons: (lambda (elt root) (build-set @ (list root) (lambda () (.call Table .acons elt (void) root)))) ;; : @ <- Elt @
+  .singleton: (lambda (elt) (build-set @ [] (lambda () (.call Table .<-list (list (cons elt (void))))))) ;; : @ <- Elt
+  .remove: (lambda (root elt) (build-set @ (list root) (lambda () (.call Table .remove root elt)))) ;; : @ <- @ Elt
   .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
@@ -89,7 +109,10 @@
   .partition: (lambda (f t) (select-set @ f t #t)) ;; : @ @ <- (Bool <- Elt) @
   .count: (.@ Table .count) ;; : Nat <- @
   .list<-: (lambda (t) (map car (.call Table .list<- t))) ;; : (List Elt) <- @
-  .<-list: (lambda (l) (foldl .cons .empty l)) ;; : @ <- (List Elt)
+  ;; A complete family may be valid while every singleton is forbidden. Reuse the
+  ;; table's bulk constructor once, without exposing intermediate roots.
+  .<-list: (lambda (l) (using (l :~ list?)
+    (build-set @ [] (lambda () (.call Table .<-list (map (lambda (elt) (cons elt (void))) l)))))) ;; : @ <- (List Elt)
   .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(map (.@ Elt sexp<-) (.list<- x))))) ;; : Sexp <- @
   .min-elt: (lambda (t) (car (.call Table .min-binding t))) ;; : Elt <- @
   .min-elt/opt: (lambda (t) (map/option car (.call Table .min-binding/opt t))) ;; : (Option Elt) <- @
@@ -108,7 +131,13 @@
                             (if (not from)
                               (.call Table .iter<- t)
                               (.call Table .iter<- t from))))
-  .<-iter: (lambda (s (t .empty)) (for/fold (t t) (elt s) (.cons elt t))) ;; : @ <- (Iterator Elt) ?@
+  ;; Materialize the finite input once and construct the final root once. The
+  ;; existing snapshot scan is explicit; no streaming/constant-space law is claimed.
+  .<-iter: (case-lambda
+    ((s) (.<-list (for/collect (elt s) elt)))
+    ((s t) (build-set @ (list t) (lambda ()
+      (.call Table .<-list (append (.call Table .list<- t)
+        (for/collect (elt s) (cons elt (void))))))))) ;; : @ <- (Iterator Elt) ?@
   .List: (List Elt)
   .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @
   .<-json: (compose .<-list (.@ .List .<-json)) ;; : @ <- Json
@@ -118,24 +147,24 @@
   .unmarshal: (compose .<-list (.@ .List .unmarshal))
   ;; TODO: for union, inter, diff, compare, equal, subset,
   ;; optimize for full subtables, by caching count in wrapper?
-  .union: (lambda (a b) (merge-set-tables Table (lambda (a b) (or a b)) a b)) ;; : @ <- @ @
-  .inter: (lambda (a b) (merge-set-tables Table (lambda (a b) (and a b)) a b)) ;; : @ <- @ @
-  .diff: (lambda (a b) (merge-set-tables Table (lambda (a b) (and (not b) a)) a b)) ;; : @ <- @ @
+  .union: (lambda (a b) (merge-set-tables @ (lambda (a b) (or a b)) a b)) ;; : @ <- @ @
+  .inter: (lambda (a b) (merge-set-tables @ (lambda (a b) (and a b)) a b)) ;; : @ <- @ @
+  .diff: (lambda (a b) (merge-set-tables @ (lambda (a b) (and (not b) a)) a b)) ;; : @ <- @ @
   ;; A lexicographic comparison requires the backend's explicit key-order capability.
-  .compare: (lambda (a b) (with-set-tables Table a b (lambda ()
+  .compare: (lambda (a b) (with-set-tables @ a b (lambda ()
     (unless (.has? Table .compare) (error "unsupported set comparison"))
     (.call Table .compare (lambda (_1 _2) 0) a b)))) ;; : : Integer <- @ @
   ;; Symmetric difference preserves the original surviving admitted key objects.
-  .symdiff: (lambda (a b) (merge-set-tables Table
+  .symdiff: (lambda (a b) (merge-set-tables @
     (lambda (a b) (if a (and (not b) a) b)) a b))
   ;; All relations admit both inputs, including the empty and identical cases.
-  .subset?: (lambda (a b) (with-set-tables Table a b
+  .subset?: (lambda (a b) (with-set-tables @ a b
     (lambda () (subset-set-tables? Table a b))))
-  .disjoint?: (lambda (a b) (with-set-tables Table a b
+  .disjoint?: (lambda (a b) (with-set-tables @ a b
     (lambda () (.call Table .every (lambda (key _) (not (.call Table .key? b key))) a))))
   ;; Membership equality does not require a backend-specific comparator/equality.
-  .=?: (lambda (a b) (with-set-tables Table a b
+  .=?: (lambda (a b) (with-set-tables @ a b
     (lambda () (and (subset-set-tables? Table a b) (subset-set-tables? Table b a))))) ;; : Bool <- @ @
   ;; Boolean membership focus uses the existing value-before-state Lens law.
   ;; Type refusal and backend failure retain the original persistent source.
-  .lens: (lambda (e) (set-membership-lens Table e)))
+  .lens: (lambda (e) (set-membership-lens @ e)))

@@ -944,7 +944,7 @@
   .subset?: ;; is a a subset of b
   (lambda (a b)
     ;; Keep the existing shared-subtree shortcut inside complete set admission.
-    (with-set-tables Table a b (lambda ()
+    (with-set-tables @ a b (lambda ()
     (let/cc return
       (when (eq? a b) (return #t))
       (.call Table .recurse/trie-pair

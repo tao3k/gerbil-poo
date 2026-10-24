@@ -1733,3 +1733,17 @@ uses eight disjoint groups, retaining two compilation workers, standard make/cor
 budgets, all modules and the single-process runtime suite. Inventory regressions
 check exact coverage for both four and eight groups and reject invalid indices.
 No heap/deadline increase or new scheduling/environment mechanism is introduced.
+
+### Complete set descriptor construction and publication
+
+Closed the Set-versus-Table admission omission as one protocol unit: normalization,
+empty/singleton/list/iterator construction, all algebra results and relation inputs,
+selection/decomposition and membership focuses now retain the Set refinement as
+well as backing laws. Bulk construction delegates once to the existing complete
+Table constructor; a seedless iterator does not fabricate an invalid empty seed.
+Trie subtree shortcuts retain input admission. Focus revisions include Set and
+explicit dependencies. Five-style refusal/retry and Function-principal approval
+publication reuse the existing ownership and FUN/IO chain. See set-algebra.md for
+partial lens laws, first-failure order, scan/constructor costs and proof premises.
+Arbitrary refinement closure, destructive storage and automatic law discovery
+remain research boundaries, not defects claimed closed by these examples.
