@@ -223,3 +223,77 @@ operations. Registry preparation/lookups, source installation, full recognition,
 comparisons, index work, allocations and GC remain charged. Touched keys whose net
 source value cancels may be recomputed once; arbitrary Function equality is not
 used to try to remove that work. No O(d) end-to-end or wall-time speedup is claimed.
+
+## Delivering target deltas and publishing styles
+
+`(.call projection .apply-delta state source-delta [receive])` now hands the exact
+already-installed target delta to an optional standard continuation, AFTER complete
+private source/cache/target admission. The continuation receives `(next output-delta)`;
+omitting it returns `next`. Passing Gerbil `values` obtains both results directly:
+
+```scheme
+(defvalues (next output-delta)
+  (.call projection .apply-delta before source-delta values))
+(def published (.call target-style .apply-delta owner output-delta))
+(def recovered (.call target-style .apply-delta published
+  (invert-table-delta output-delta)))
+```
+
+The receiver is checked with the existing `using` procedure contract before any
+projection work. A preparation refusal never calls it; a receiver exception retains
+its original cause. The receiver runs under all captured metadata guards, including
+inherited source-delta origins. The delta is the SAME opaque delta used for private
+target installation, with the same ordered retractions/additions, typed children,
+expectations and origins. Empty deltas retain origins. No new last-delta slot,
+state-history chain, snapshot scan, `.diff`, normalization or change format is used.
+
+The existing `publish-projected-ledger-action` example prepares a revision from a
+request with `state` and `target` fields. Its continuation eagerly calls the existing
+target style `.apply-delta`, then returns ordinary POO fields `state`, `target`,
+`delta`. Only after that does the existing Reader/FUN observation invoke IO, on the
+ACTUAL published root read from the target style. Tests construct request value
+fields through `object<-alist`; `.o state: before target: owner` also works when the
+lexical name differs from the field (a same-name lazy slot would self-reference).
+
+Pure/posh retain the predecessor, mutable/classy preserve owner identity, and linear
+retires the old owner only after success. Public target old-value conflicts, final
+root/index refusal or generation races suppress the returned publication and IO.
+The immutable projection predecessor remains available for a corrected request.
+Late IO errors follow the ordinary FUN/IO semantics: an already committed target
+and arbitrary external effects are not rolled back. A user-written receiver may
+also expose prepared data or perform effects; it is not a general transaction.
+
+Target installation intentionally retains the existing CHANGED-KEY rebase rule:
+unrelated public rows are preserved, while a mismatched old value or an occupied
+new key refuses. Thus the canonical `.get next` projection need not include every
+unrelated row in the public target owner. Consumers of the public target use the
+style's `.unap`; subsequent projection computation uses its own immutable cache.
+The inverse of the delivered target delta recovers the actual public predecessor,
+including its unrelated rows, when that restored root is admitted. This is explicit
+target-edit inversion, not an inferred inverse of an arbitrary projection. Replay
+of an empty delta may remain legal; it is not a one-shot publication credential.
+
+Regressions cover all five styles, refusal/retry, new-key presence conflicts,
+public-only whole-root refinement failure, unrelated-row rebasing/inverse recovery,
+opaque receiver exceptions, stale empty origins and reentrant generation winners.
+The indexed service workflow now publishes primary key, unique badge/endpoint and
+shared-team swaps with preserved Function leaves, then recovers from the delivered
+inverse. Target `.diff` is deliberately made unusable in the direct and service
+controls; the direct control also refuses difference traversal and checks identity
+of the exact installed/delivered delta. Existing single-process inventory and
+compiler/runtime limits are unchanged.
+
+`deliverProjection` / `publishProjectionDelivery` in `TableProjection.lean` prove
+exact handoff, preparation/receiver refusal, ordinary state-only correspondence,
+style-specific ownership, public changed-key conflicts, inverse/frame recovery and
+existing generation rejection. They reuse `styleStep`, `applyChanges`,
+`applyChanges_inverse`, `applyChanges_frame` and `installStyle_stale`. Opaque cache
+payloads require no equality; explicit old-value equality/faithful carrier and
+recognizer laws remain premises for target edit replay. Runtime concurrency, IO
+rollback, compiler/GC behavior and arbitrary Function equality are not inferred.
+
+Delivery adds no snapshot difference discovery, but private projection preparation
+and PUBLIC style installation remain distinct admitted operations. Replaying the
+delivered delta into a style may perform another backend/index preparation and
+complete validation. Those costs, registry preparation, comparisons, allocation
+and GC stay charged; removing `.diff` is not an end-to-end speedup claim.

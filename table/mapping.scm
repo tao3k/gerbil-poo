@@ -223,51 +223,56 @@
         ;; Admit ALL source conflicts and the complete source before projection.
         ;; Coalesce by source equality, preserving first-touch order; project only
         ;; final present values, once per touched key, never deleted/intermediate rows.
-        (def (update state delta)
-          (check state)
-          (unless (table-delta? delta) (error "table delta required"))
-          (def dependencies (delete-duplicates/hash
-            (append sources (table-projection-state-sources state) (table-delta-sources delta))
-            table: (make-hash-table-eq) from-end?: #t))
-          (guard dependencies (lambda ()
+        ;; The optional standard continuation receives the admitted successor and
+        ;; the EXACT delta just installed, with no diff scan or retained history.
+        ;; values delivers two results; the default keeps ordinary state-only use.
+        (def (update state delta (receive (lambda (next _delta) next)))
+          (using (receive :~ procedure?)
             (check state)
-            (def next-source (require-table source
-              (.call source .apply-delta (table-projection-state-source state) delta)))
-            (def seen-keys (.@ touched .empty))
-            (def keys (with-list-builder (emit)
-              (for-each (lambda (change)
-                (def key (table-change-key change))
-                (unless (.call touched .key? seen-keys key)
-                  (set! seen-keys (.call touched .acons key (void) seen-keys))
-                  (emit key))) (table-delta-changes delta))))
-            (def cache (table-projection-state-ledger state))
-            (def seen (table-projection-state-owners state))
-            ;; Retract every affected old owner before any new claim. Target edits
-            ;; are private ordinary deltas; indexes inspect only the final root.
-            (def removals (with-list-builder (emit)
-              (for-each (lambda (key)
-                (def old (.call ledger .ref/opt cache key))
-                (when (some? old)
-                  (let (row (some-value old))
-                    (set! cache (.call ledger .remove cache key))
-                    (set! seen (.call owners .remove seen (car row)))
-                    (emit (make-table-change (car row) (some (cdr row)) #f))))) keys)))
-            (def additions (with-list-builder (emit)
-              (for-each (lambda (key)
-                (def final (.call source .ref/opt next-source key))
-                (when (some? final)
-                  (let (next (require-table-entry binding (transform key (some-value final))))
-                    (when (some? next)
-                      (let (row (some-value next))
-                        (set! seen (claim-table-entry owners seen row key))
-                        (set! cache (.call ledger .acons key row cache))
-                        (emit (make-table-change (car row) #f (some (cdr row))))))))) keys)))
-            (def result (require-table target
-              (.call target .apply-delta (table-projection-state-target state)
-                (make-table-delta (.@ target Key) (.@ target Value) dependencies
-                  (map object-revision dependencies) (append removals additions)))))
-            (make-table-projection-state owner dependencies (map object-revision dependencies)
-              next-source result cache seen))))
+            (unless (table-delta? delta) (error "table delta required"))
+            (def dependencies (delete-duplicates/hash
+              (append sources (table-projection-state-sources state) (table-delta-sources delta))
+              table: (make-hash-table-eq) from-end?: #t))
+            (guard dependencies (lambda ()
+              (check state)
+              (def next-source (require-table source
+                (.call source .apply-delta (table-projection-state-source state) delta)))
+              (def seen-keys (.@ touched .empty))
+              (def keys (with-list-builder (emit)
+                (for-each (lambda (change)
+                  (def key (table-change-key change))
+                  (unless (.call touched .key? seen-keys key)
+                    (set! seen-keys (.call touched .acons key (void) seen-keys))
+                    (emit key))) (table-delta-changes delta))))
+              (def cache (table-projection-state-ledger state))
+              (def seen (table-projection-state-owners state))
+              ;; Retract every affected old owner before any new claim. Target edits
+              ;; are private ordinary deltas; indexes inspect only the final root.
+              (def removals (with-list-builder (emit)
+                (for-each (lambda (key)
+                  (def old (.call ledger .ref/opt cache key))
+                  (when (some? old)
+                    (let (row (some-value old))
+                      (set! cache (.call ledger .remove cache key))
+                      (set! seen (.call owners .remove seen (car row)))
+                      (emit (make-table-change (car row) (some (cdr row)) #f))))) keys)))
+              (def additions (with-list-builder (emit)
+                (for-each (lambda (key)
+                  (def final (.call source .ref/opt next-source key))
+                  (when (some? final)
+                    (let (next (require-table-entry binding (transform key (some-value final))))
+                      (when (some? next)
+                        (let (row (some-value next))
+                          (set! seen (claim-table-entry owners seen row key))
+                          (set! cache (.call ledger .acons key row cache))
+                          (emit (make-table-change (car row) #f (some (cdr row))))))))) keys)))
+              (def output-delta (make-table-delta (.@ target Key) (.@ target Value) dependencies
+                (map object-revision dependencies) (append removals additions)))
+              (def result (require-table target
+                (.call target .apply-delta (table-projection-state-target state) output-delta)))
+              (def next (make-table-projection-state owner dependencies (map object-revision dependencies)
+                next-source result cache seen))
+              (receive next output-delta)))))
         (.cc Wrapper. Domain: source Value: target .sources: sources
           .ap: initialize .unap: (cut observe <> table-projection-state-source)
           .get: (cut observe <> table-projection-state-target) .apply-delta: update)))))))

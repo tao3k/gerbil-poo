@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-wrapper table-styles set-styles table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -469,3 +469,19 @@
     (.call Observation. .map
       (lambda (state) (consume (.call projection .get state)) state)
       (cut .call projection .apply-delta <> delta))))
+
+
+;; Deliver the prepared target delta directly to the existing style installer.
+;; Request fields are state/target; successful output retains state/target/delta.
+;; Eager installation precedes the returned object and IO; precommit failure keeps
+;; the predecessor reusable. IO failure after a commit does not roll it back.
+(def (publish-projected-ledger-action projection delta protocol consume)
+  (using (consume :~ procedure?)
+    (.call Observation. .map
+      (lambda (publication)
+        (consume (.call protocol .unap (.@ publication target))) publication)
+      (lambda (request)
+        (.call projection .apply-delta (.@ request state) delta
+          (lambda (next output-delta)
+            (def published (.call protocol .apply-delta (.@ request target) output-delta))
+            (.o state: next target: published delta: output-delta)))))))

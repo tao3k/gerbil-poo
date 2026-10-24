@@ -1779,3 +1779,18 @@ invalidations aligned with FUN/IO and target styles. See table-mapping.md for
 uniqueness, publication and callback-work laws. Full recognizer/backend costs remain
 charged; automatic dependency/inverse discovery and destructive storage remain
 research boundaries rather than claims closed by this unit.
+
+### Direct projected target delta delivery and style publication
+
+Closed the finite delivery/publication unit without rediscovering target changes:
+`table-projection .apply-delta` optionally invokes a standard continuation with
+the admitted successor and its exact target delta; Gerbil `values` retains both.
+The existing target style installer handles old-value/new-key conflicts, final
+constraints, generation races and inverse edits. The Reader/FUN/IO service path
+returns the new state only after public installation; precommit failure retains
+the predecessor for corrected retry. All five styles, unrelated-row rebase and
+public-only refinement refusal have integrated controls. See table-mapping.md for
+identity/no-diff regressions, indexed Function-bearing service swaps, Lean delivery/
+style/conflict/inverse/frame laws and costs. Complete validation and a separate
+public backend installation remain charged. No automatic inverse projection,
+global publication credential or rollback of postcommit IO is claimed.
