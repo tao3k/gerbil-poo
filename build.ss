@@ -1,47 +1,29 @@
-#!/usr/bin/env gxi
-;;; -*- Gerbil -*-
-;;; Gerbil v0.19 package build for Gerbil POO.
+#!/usr/bin/env -S timeout --signal=TERM --kill-after=5s 180s gxi
+;;; Standard package build entry; inventories live with the build support.
+(import (only-in :std/build-script defbuild-script)
+        (only-in "t/build-spec.ss" build-request build-consumer consumer-request))
 
-(import
-  (only-in :std/build-script defbuild-script)
-  (only-in :std/make include-gambit-sharp))
+;; The standard macro owns option parsing, dependencies, incremental builds,
+;; cleanup and backend scheduling. Only inventory and output selection vary.
+(def (build-selected spec output options)
+  (defbuild-script spec libdir: output)
+  (apply main options))
 
-;; Keep the package build graph explicit. V19 std/make owns dependency
-;; scheduling and native compilation; this file only declares package inputs.
-(def +gerbil-poo-fq-spec+
-  (cond-expand
-   (darwin
-    ;; Gambit loads this AOT module as a Mach-O bundle. Math symbols such as
-    ;; pow are resolved from the host runtime when the bundle is loaded.
-    '(gxc: "fq" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
-   (else "fq")))
+;; Consumers own their complete test/example prerequisites. Metadata/spec/clean
+;; requests remain non-compiling; std/make still owns freshness and scheduling.
+(def (run-consumer args)
+  (def options (caddr (consumer-request args)))
+  (when (or (null? options) (equal? (car options) "compile"))
+    (apply build-selected (build-request (cons "qualification" options))))
+  (apply build-consumer args))
 
-(def +gerbil-poo-build-spec+
-  `("brace"
-    "support/base"
-    "support/debug"
-    "support/io"
-    "support/json"
-    "support/list"
-    "support/option"
-    "support/rationaldict"
-    "support/repr"
-    "support/syntax"
-    "support/testing"
-    "cli"
-    "debug"
-    ,+gerbil-poo-fq-spec+
-    "fun"
-    (gxc: "io" ,@(include-gambit-sharp))
-    "mop"
-    "number"
-    "object"
-    "polynomial"
-    "proto"
-    "rationaldict"
-    "table"
-    "trie"
-    "type"
-    "t/table-testing"))
-
-(defbuild-script +gerbil-poo-build-spec+)
+;; Explicit arguments select shared modules, test groups or benchmark programs;
+;; ordinary compile/clean/spec/meta options pass through to defbuild-script.
+(def (main . args)
+  (match args
+    ;; Standard Gambit timing reports make work/GC separately from whole-process timing.
+    (["library" . _] (time (apply build-selected (build-request args))))
+    (["qualification" . _] (time (apply build-selected (build-request args))))
+    (["benchmark" . _] (time (run-consumer args)))
+    (["test-program" . _] (time (run-consumer args)))
+    (else (apply build-selected (build-request args)))))

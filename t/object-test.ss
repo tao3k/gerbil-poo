@@ -6,6 +6,8 @@
 (import
   :std/format :std/test
   ../support/base ../support/debug ../support/testing
+  (rename-in (only-in ../object with-prefixed-slots def-prefixed-slots)
+    (with-prefixed-slots renamed-fields) (def-prefixed-slots renamed-snapshots))
   ../object ../brace)
 
 (def object-test
@@ -186,6 +188,55 @@
       (def o {a: 1 b: 2 c: 3})
       (def-slots (a b c) o)
       (check-equal? [a b c] [1 2 3]))
+    (test-case "prefixed lexical groups retain laziness repeated names and complete results"
+      (def calls 0)
+      (def receiver (.o a: #f run: (lambda (value tag: tag) (values value tag))))
+      ;; Every use selects its receiver afresh; unused aliases and empty groups do not.
+      (def (source) (set! calls (+ calls 1)) receiver)
+      (check-equal? (with-prefixed-slots (p-) (error "unused receiver") 'empty) 'empty)
+      (with-prefixed-slots (p- a run a) (source)
+        (check-equal? calls 0)
+        (check-equal? p-a #f)
+        (check-equal? (call/values (lambda () (p-run #f tag: 'current)) list) '(#f current))
+        (check-equal? p-a #f))
+      (check-equal? calls 3))
+    (test-case "prefixed binding machinery keeps its core lexical bindings"
+      (let ((let-syntax 'caller) (identifier-rules 'caller) (def 'caller))
+        (check-equal? (with-prefixed-slots (p- a) (.o a: 11) p-a) 11))
+      (with-prefixed-slots (p- a) (.o a: 12)
+        (check-equal? (let ((p-a 99)) p-a) 99)
+        (check-equal? p-a 12))
+      (check-equal? (renamed-fields p- (p- a) (.o a: 13) p-a) 13)
+      (let ()
+        (renamed-snapshots p- (p- a) (.o a: 14))
+        (check-equal? p-a 14)))
+    (test-case "nested prefixed scopes retain outer closures and lexical shadowing"
+      (def outer (.o rate: 10))
+      (def inner (.o rate: 7))
+      (with-prefixed-slots (owner- rate) outer
+        (def read-outer (lambda () owner-rate))
+        (with-prefixed-slots (owner- rate) inner
+          (check-equal? (list owner-rate (read-outer)) '(7 10))
+          (.setslot! outer rate ($constant-slot-spec 20))
+          (check-equal? (list owner-rate (read-outer)) '(7 20)))))
+    (test-case "prefixed definitions snapshot fields in order and preserve failure identity"
+      (def events [])
+      (def cause (list 'refused))
+      ;; Slot computations record reads; failed suffixes must not run later fields.
+      (def receiver (.o a: (begin (set! events (cons 'a events)) #f)
+        b: (begin (set! events (cons 'b events)) (raise cause))
+        c: (begin (set! events (cons 'c events)) 'unreachable)))
+      (check-exception (let () (def-prefixed-slots (saved- a b c) receiver) saved-c)
+        (lambda (actual) (eq? actual cause)))
+      (check-equal? (reverse events) '(a b))
+      (.setslot! receiver b ($constant-slot-spec 2))
+      (let ()
+        (def-prefixed-slots (saved- a b) receiver)
+        (.setslot! receiver a ($constant-slot-spec 9))
+        (check-equal? (list saved-a saved-b) '(#f 2))
+        (with-prefixed-slots (live- a b) receiver
+          (check-equal? (list live-a live-b) '(9 2))))
+      (def-prefixed-slots (unused-) (error "empty definitions must not read")))
     (test-case "testing def-prefixed-slots"
       (def o {a: 1 b: 2 c: 3})
       (def-prefixed-slots (o- a b c) o)

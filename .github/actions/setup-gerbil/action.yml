@@ -1,0 +1,38 @@
+name: Released Gerbil
+description: Download and verify the compiled Linux release; no compiler build.
+outputs:
+  compiler-key:
+    description: C compiler, linker, architecture, libc and OpenSSL build inputs
+    value: ${{ steps.compiler.outputs.identity }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v4
+      id: release
+      with:
+        path: ${{ runner.temp }}/gerbil-release.tar.gz
+        key: gerbil-linux-x86_64-143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee
+    - name: Download the compiled compiler
+      if: steps.release.outputs.cache-hit != 'true'
+      shell: bash
+      run: >-
+        curl --fail --location --retry 3
+        --output "${{ runner.temp }}/gerbil-release.tar.gz"
+        https://github.com/tao3k/gerbil-bazel/releases/download/gerbil-v0.19-1cfb032c7a1612637da6205f5f8a15683eba3ba0-linux-x86_64-portable-full-single-host-unlimited-multiple-vms-patch9599b09b82f8/gerbil-v0.19-1cfb032c7a1612637da6205f5f8a15683eba3ba0-linux-x86_64-portable-full-single-host-unlimited-multiple-vms-patch9599b09b82f8.tar.gz
+    - name: Verify and activate the released compiler
+      shell: bash
+      run: |
+        echo "143c691fee5af4f9f631fd339f69a66f562e42e0bfc1d4ee2cda5fa8d35c35ee  ${{ runner.temp }}/gerbil-release.tar.gz" | sha256sum --check
+        mkdir -p "${{ runner.temp }}/gerbil"
+        tar -xzf "${{ runner.temp }}/gerbil-release.tar.gz" --strip-components=1 -C "${{ runner.temp }}/gerbil"
+        source "${{ runner.temp }}/gerbil/activate"
+        echo "$GERBIL_PREFIX/bin" >> "$GITHUB_PATH"
+        printf '%s\n' "GERBIL_HOME=$GERBIL_HOME" "GAMBOPT=$GAMBOPT" >> "$GITHUB_ENV"
+        gxi --version
+    - name: Identify the released compiler's host build dependencies
+      id: compiler
+      shell: bash
+      run: |
+        set -euo pipefail
+        identity="$( { cc --version; ld --version; uname -m; getconf GNU_LIBC_VERSION; pkg-config --modversion openssl; pkg-config --cflags --libs openssl; } | sha256sum | cut -d ' ' -f 1)"
+        echo "identity=$identity" >> "$GITHUB_OUTPUT"

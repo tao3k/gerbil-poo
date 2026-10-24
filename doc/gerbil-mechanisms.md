@@ -1,0 +1,997 @@
+# Gerbil mechanisms and POO protocols
+
+## Scope and source basis
+
+This audit follows the installed Gerbil 0.19 runtime used for the checks
+(`1cfb032`, downstream patch `618d76f9eb72`). It inventories imports and
+functional definitions in the 91 root/support Scheme modules (including `build.ss`) at the audit
+baseline, then inspects the mechanism boundaries listed below. It is not a
+line-by-line proof of all modules or an audit of every Gerbil library. Source
+paths below are relative to the Gerbil source tree, not checkout dependencies.
+The independent contract module has been removed; the inventory remains 91.
+The small refusal-policy function lives in the existing `support/base.ss`.
+
+The Racket document's section 5 derives classes as type descriptors; appendix B
+separates lens, object-setter/cooking and method-wrapper. It calls the full
+unified protocol future work. This contract interoperability work advances that
+future work; it does not turn those sketches into a proved host implementation.
+
+## Reuse ledger
+
+| Mechanism | Gerbil facility / inspected source | POO decision |
+| --- | --- | --- |
+| Predicate contracts | `gerbil/core/contract.ss`: `using`, `list-of?`, `one-of`, `in-range-inclusive?` | Replaced repeated checks in Function admission, diagnostics, refinement, metadata evidence binding, finite type admission and generator configuration. The existing support module preserves the published refusal policy. |
+| Classes and interfaces | Core class-aware `using`, generated accessors; `std/interface.ss`, `std/instance.ss` | Use generated host structures for private state, and direct class-aware `using` in `examples/contract-interop.ss`. Dynamic prototype rows, descriptor validation and checked Function results remain POO operations. A host class assertion cannot recursively wrap an object graph. |
+| Inheritance | `gerbil/runtime/c3.ss`: `c4-linearize` | Already reused by `object.ss`; there is no additional C4 implementation in this Scheme layer. POO still supplies lazy prototype computation, mutation guards and metadata. |
+| Method dispatch | Core `defmethod` / class method machinery | Use it for host classes. `multimethod.ss` retains typed tuple dispatch, persistent revisions, negative applicability guards and selectable combinations; these are not replaced by a single host method lookup. |
+| Composition | `std/func.ss`: `compose`, `rcompose`; `std/list/list.ss`: `map-in-order`, folds | Already used in IO, generalized prototypes and metadata. Existing FUN/Observation bind composes normalization before observation; replacing it with plain composition would discard its environment and sequencing protocol. |
+| Named field replacement | Runtime `list->hash-table-eq`, `hash-get`/`hash-key?`; standard `map-in-order` | Object and Record inference share one finite shape/presence/read relation instead of separate field walks. No Class/Slot/ObjectContract validator is replaced: defaults, hooks, normalization and mutation policy stay in their existing protocols. Missing optional target fields need closed-source evidence. |
+| Finite type graph closure | `std/struct/dag.ss` arrow/target callbacks; `std/hash/misc.ss` `hash-ensure-ref`; runtime `hash-update!` | Shared one private cycle-tolerant traversal between forward construction and reverse closure. Completed-only standard memoization replaces both manual sentinel caches; standard updates collect shared predecessors. `walk-dag` itself rejects the cycles required by rest languages. Certificate checking and quota refusal remain POO-specific. |
+| Persistent collections | `std/struct/rbtree.ss`, `std/iter.ss` | Already used in `prototype-map.ss` and `support/rationaldict.ss`; persistent ordered mapping and iteration reuse those implementations. `support/list.ss` traverses arbitrary pair trees, not only proper lists. |
+| Tables and weak ownership | Runtime hash tables, weak keys/values | Already used by graph identity tables, `object-state.ss` and `slot-layout.ss`. POO retains source stamps, dependent invalidation and shape eligibility, rather than implementing another hash table. |
+| Options / absence | Generated `some` struct in `support/option.ss` | Retain the small value protocol: `some #f` differs from absence. A default `#f` hash lookup or Boolean optional contract cannot replace it without changing callers. |
+| Promise and cache | Core promise support; `std/cache.ss` allocation pools, reset/size/flush registry | Use host storage and promises where applicable. Recursive request memo owns a program identity and budget; validation caches own active-cycle state, source revisions and checked wrappers. Allocation pools do not provide these semantic invalidation laws. No second general allocation-pool implementation is introduced. |
+| Concurrency and cleanup | Runtime `with-lock` / mutexes, `dynamic-wind`; `std/sync` facilities | Already used in component publication and scoped recursive coordination. Retain POO approval epochs, incarnation fences and stale-install refusal under those primitives. Generic thread helpers do not define the publication transaction. |
+| Syntax and reflection | Core syntax-case, defstruct, class metadata and generated methods | Reuse host binding/expansion. `.o`, `.cc`, `.parameters`, declarations and dynamic slot reflection expose the prototype protocol; host struct metadata does not replace receiver-dependent computed slots. No new contract syntax layer is added. |
+| JSON and IO | `std/encoding/json.ss`; `support/json.ss`, `io.ss` | Already delegates parsing/printing; thin wrappers select representation and compose descriptor conversion. No parser rewrite or claim of JSON parser verification. |
+| Testing and generation | `std/test.ss`, host SRFI-27 random sources | Already used for assertions, isolated seeded randomness and the single-process harness. Descriptor-specific finite generation, strict shrinking and stale replay retain POO policy. Not a replacement test framework or a second PRNG. |
+| Build and resources | `std/build-script`, `std/make`; bounded test runner | Existing dependency scheduler, generated test inventory, heap and wall-clock limits are retained. The new suite is one additional atomic contracts test and also runs in the complete single-process check. |
+
+## Standard contracts and POO refusal policy
+
+Gerbil core `using` / ContractRules and `std/error` `check-argument` remain the
+contract mechanisms. There is no POO contract namespace, facade or alternate
+contract syntax. `support/base.ss` contains `require-value` only for existing POO
+boundaries whose refusal policies differ from the standard error family.
+
+The predicate is evaluated exactly once, outside the local failure handler.
+`using` owns the truthiness guard; its body only returns the original value.
+Only that local guard's `ContractViolation` is translated by the supplied refusal
+callback. Predicate, normalizer, Function body and consumer exceptions propagate
+unchanged, including their own `ContractViolation` objects. Standard
+`check-argument` is not shadowed or redefined. New host-specific code uses the
+standard contracts directly.
+
+POO `TypeError`, controlled `TypeRefusal`, legacy messages and irritants remain
+boundary policy. This is why public POO parameters do not simply change their
+failure type to Gerbil `ContractViolation`. New host-specific code can use
+`using` directly, as the typed observation sink does.
+
+Core range rules require fixnums. They are used only for small capped ranges
+(depth, node count and work budgets); every previously admitted exact integer
+in those intervals is a fixnum. Arbitrary `Integer`/`UInt` domains and shrink
+measures keep their unbounded integer checks. Predicates preserve Scheme
+truthiness rather than requiring a Boolean; declarative metadata deliberately
+keeps its separate Boolean-only decision policy.
+
+## Ordered integration
+
+`examples/contract-interop.ss` composes the existing inferred recursive service
+row, nested Function wrappers and whole-object `refine` with a Gerbil typed
+consumer. The publication entry point creates evidence from the **current
+checked subject**, then uses the existing exact `bind-evidence` publisher.
+A previous checked object or context cannot approve a newly normalized subject.
+Observation side effects are not rolled back by a later evidence refusal.
+
+Two internal bindings now use explicit `let` to enforce phase order: callee
+recognition precedes signature metadata forcing; structural object refusal
+precedes child normalization. Regressions observe zero metadata/child callbacks
+on those rejected paths, not merely the final exception type.
+
+The regression suite also checks truthy results, one predicate invocation,
+exception identity, old error messages, large invalid budgets, recursive method
+argument refusal, multiple return values and no CaseFunction fallback after a
+body error. Full tests continue to cover cyclic graphs, rows, inheritance,
+containers, shared revisions, refinements and evidence independently.
+
+## Lean boundary
+
+The existing `Functional.Validation` namespace proves delegated/direct guard equivalence for
+all supplied predicate outcomes and ordered finite batches. Workflow laws prove
+refusal before normalization, delivery of checked values, and preservation of
+predicate and normalization errors. Consumer errors follow the same whole
+workflow equivalence. `Examples/ContractChecks.lean` supplies checked method,
+state/multiple-result and host-error controls.
+
+The premise is the observed core guard behavior and supplied callback semantics.
+These are not compiler, runtime, arbitrary callback termination, continuation
+or concurrency proofs. Scheme tests exercise the real macro and effects.
+A later optimization must separately measure successful calls and refusal paths;
+this refactor makes no speedup claim.
+
+## Class/interface, container and cache audit
+
+The follow-up source inspection covers `std/instance.ss`, `std/interface.ss`,
+`std/iter/{api,interface,iterators}.ss`, `std/vector/vector.ss`,
+`std/list/list-builder.ss`, `std/hash/misc.ss`, runtime HashTable and
+`std/cache.ss`, against POO class validation, table iteration, shape layouts and
+construction/recursive/feedback caches.
+
+Confirmed repetitions removed:
+
+- `construction-cache.ss` now uses standard `hash-ref/default` for all three
+  source/lookup fallbacks instead of a key-exists probe followed by another
+  lookup. The standard HashTable interface owns the lookup. Stored `#f` is a
+  hit; only missing keys invoke the fallback. Unknown-source callbacks, original
+  exceptions, same-owner retention and source-bound selective rebuild remain.
+- `slot-layout.ss` uses `hash-ensure-ref` for canonical shapes. Shape creation
+  and insertion use the standard missing-key operation; the table retains its
+  weak values. Class-aware `using` handles generated accessors and field writes
+  for the access-site record. Owner/revision/layout/index guards and per-receiver
+  cells remain POO policy. Index zero and cell value false remain valid.
+- List/Tuple shape diagnostics use `with-list-builder`, avoiding a temporary
+  list of child lists and a final flattening pass. Proper finite diagnostic
+  lists are the callback premise. Ordered traversal uses `for` and
+  `vector-for-each/index`; values, paths and issue multiplicity are unchanged.
+- `validate-class` and `validate-container` use explicit binding after the shape
+  gate so no child normalizer can run before structural refusal.
+
+Retained after source comparison:
+
+- Gerbil's iterator API in this runtime has no exported mapping combinator.
+  `table.ss` already implements its small mapper with the standard `Iterator`
+  interface. Keep it rather than inventing an `in-map` import or adding eager
+  collection/coroutine state. `examples/service-collection.ss` reuses it and
+  registers a generated host class with standard `std.instance` / `Iterable`.
+  Each pull uses the existing checked FUN action; no second iterator engine.
+- `vector-map/index` explicitly leaves callback order unspecified and currently
+  maps from right to left. It cannot replace ordered validators. The regression
+  observes callback order as well as final container contents.
+- `rationaldict` already delegates persistent storage and folds to standard
+  RBTree; its option, lower-bound iteration and supplied value equality are POO
+  table semantics. Replacing it with mutable HashTable or structural tree equality
+  would change persistence or comparator behavior.
+- `std/cache` supplies `CacheOps` size/flush and object allocation pools. Neither
+  operation certifies source stamps, guarded recursion, SCC reuse or approvals.
+  Construction/feedback/recursive caches keep these policies over standard
+  tables. Published immutable state is not repurposed as a mutable pool object.
+
+The integrated collection example observes inherited Record methods through a
+standard Iterable, then observes new raw rows from a selectively revised source
+cache. Failed new admission leaves the old snapshot usable. It does not cache
+normalized approvals or roll back prior consumer effects. Regressions also check
+lazy iterator construction, exact error identity, shape guards and stored absence.
+
+Lean `Functional.CacheLookup` adds laws in the existing `ConstructionCache`
+namespace: lazy present/missing selection, stored absence, ensure-hit retention,
+failed-build retention, frame preservation and no reconstruction after insertion.
+`Validation.gatherIssues_eq_flatMap` proves ordered issue collection equivalence.
+The small law modules avoid loading the full generalized MOP merely to check
+lookup laws. `Examples/ServiceCollection.lean` composes these laws with existing
+ordered validation. Host hash equality, standard interface dispatch/iteration,
+weak-reference reachability and callback behavior remain premises, not kernel
+proofs of Gerbil or GC. Resource guards and complete checks remain unchanged.
+
+## Inheritance, dispatch, syntax and reflection audit
+
+This follow-up inspects runtime `c3.ss` (`c4-linearize`, `c4-linearize*`,
+`c4-compute-class-slots`), expander `stx.ss` (`identifier-list?`), core
+`mop.ss` / `contract.ss`, and standard list deduplication against `object.ss`,
+`reflection.ss`, `.defgeneric`, method combination and sparse multi-dispatch.
+
+Confirmed repetitions removed:
+
+- `compute-precedence-list!` calls core `c4-linearize*` directly. The previous
+  core `c4-linearize` compatibility wrapper only reversed the singleton head and
+  wrapped the parents in one list. Those exact arguments now go to the primary
+  API. The POO active-path guard, checked inherited hooks, diagnostic naming and
+  revision invalidation remain unchanged. Tests compare both actual core APIs
+  and the public POO result on a shared diamond.
+- `merge-super-slots` uses ordered standard `append` and
+  `delete-duplicates/hash`, with the same symbolic-identity table and explicit
+  `from-end?: #t`. Ancestor-first inventory order and most-specific method order
+  remain distinct. Same-printed uninterned symbols retain distinct identities.
+  A regression rejected this release's `append-map` for this path because its
+  actual order differs; the original order expectation is retained.
+- `reflect-slots` uses standard first-key deduplication instead of a handwritten
+  seen/filter loop. It still resolves the most-specific declaration **before**
+  visibility filtering, so a private child cannot reveal a public ancestor.
+  Hidden metadata getter order is retained by the existing outer fold. Instance
+  values remain unforced during reflection; metadata revision uses the current
+  descriptors and invalidates registered receivers normally.
+- Lexical slot binding deduplication uses the same standard deduplicator with
+  `bound-identifier=?` and an explicit constant hash. A printed-datum hash would
+  be invalid for binding identity. This preserves first representatives and the
+  original quadratic worst case; no compile-time speedup is asserted. A real
+  macro control distinguishes same-spelled identifiers from different scopes.
+- Object `bind:` admission delegates to core `identifier-list?`. The reserved
+  option-prefix grammar, source errors and local-slot binding rules remain POO
+  syntax. Dotted/nonidentifier lists refuse during actual expansion.
+- Contribution/forwarding/Simula constructors, simple-policy Boolean checks and
+  guarded multi-dispatch reuse the existing support refusal policy over core
+  `using`. The actual predicate or method body is outside local translation;
+  legacy errors, original exceptions and strict Boolean decisions are retained.
+
+Retained after comparison:
+
+- Core class methods do not supply this library's runtime prototype tuples,
+  persistent generic revisions, qualifier policies, current-call guards,
+  negative watches, receiver-dependent computed slots or nested cache transport.
+  Sparse multi-dispatch and the POO `.defgeneric` operation remain. No class
+  method cache is treated as a current negative-assumption certificate.
+- Standard host class slots are fixed metadata; `c4-compute-class-slots` also
+  inserts a class field and has its own layout order. It cannot replace the POO
+  symbolic inventory or public/private declaration catalogs.
+- Core lambda expansion owns legal host arguments and default evaluation.
+  `support/syntax.ss` retains the small forwarder for the currently supported
+  ordinary required/optional/keyword/rest grammar. No public standard routine
+  with that exact forwarding/failure policy was identified; private compiler
+  signature helpers are not imported as a substitute. Arbitrary annotated host
+  signatures and universal macro-expander equivalence are not claimed.
+- Method qualifier grouping and `next` chains retain their existing fold and
+  callback order. A generic filter/map rewrite would need a separate effect-order
+  argument; no body/default/guard is speculatively evaluated for reflection.
+
+`examples/declared-methods.ss` extends its existing shared inheritance family
+with a private label override and an optional/keyword/rest summary method. The
+existing FUN Reader returns both charge and summary from fresh receiver data;
+method effects stay ordered and current context is not cached. Nine additional
+cases in `t/library-reuse-test.ss` cover core C4 equivalence, symbolic and lexical
+identity, hidden override revision, actual syntax rejection, legacy constructor
+refusals, per-call guards/negative assumptions and the integrated multi-value
+observation. No new Scheme module or namespace is introduced.
+
+Lean adds five stable-selection/inventory laws in existing
+`Functional.Parameters`, and three public-selection laws in existing
+`Prototype.DescriptorReflection` (`Object/DeclarationOrder.lean`). Examples stay
+in root `Examples/Parameters.lean` and its existing namespace. The standard
+hash comparator and C4/expander behavior are host premises checked by Scheme
+controls; these laws prove the finite semantic policy, not Gerbil compilation,
+GC, arbitrary effects or concurrency. Existing method-combination and hook laws
+remain the corresponding continuation/order proofs. Resource limits and the
+complete local/CI check sets remain mandatory.
+
+Cancellation verification also covers a blocked progress pipe: after stopping
+owned child groups, the atom supervisor exits with status 143 without joining
+executor threads that can no longer drain output. A subprocess regression fails
+on the previous implementation with a bounded timeout and passes after the fix.
+Existing queued-launch cancellation, process-group and complete-check tests remain;
+heap, time, heartbeat and concurrency budgets are not widened.
+
+### Whole-protocol selection through core `ormap`
+
+The active Gerbil runtime's public `ormap` (`gerbil/runtime/util.ss`) returns
+the exact first non-false callback result, visiting the input from left to right
+and stopping immediately on success or exception. `object-protocol` now uses it
+directly instead of duplicating that traversal. The input remains the existing
+checked C3 precedence list; no linearization, dependency edge, invalidation rule
+or hook dispatcher is replaced.
+
+Selection chooses **one complete protocol object**. An empty protocol on the
+first branch shadows a later branch's hooks; missing hooks use the existing
+engine continuation. Removing that branch's protocol permits the current suffix
+to supply one. Parent reordering and protocol replacement go through existing
+checked mutation operations and invalidate the join. The inherited-services
+example adds `protocol-action`, composing that mutation and public observations
+through the existing FUN Reader operation.
+
+Regression controls exercise actual callback order and suffix non-evaluation,
+exception identity, whole-object shadowing, removal/reordering, shared-join
+invalidation, private-field non-demand and sealed-source refusal. Lean's
+`Functional/ProtocolSelection.lean` uses `List.findSome?` in the existing
+`Functional.InheritedMOP` namespace: first selection, absent-source delegation,
+all-absent characterization and selected-prefix stability are proved. These
+are pure lookup laws; runtime effects, host pointer identity, C3 correctness and
+GC are not inferred from them. The generalized MOP remains an extension of the
+article's stated future work.
+
+The deeper dispatch/syntax/reflection pass retains the following POO policies:
+
+* `.defgeneric` resolves a missing-slot fallback only for the original receiver
+  and slot. Core lambda owns optional/keyword/default admission; the small
+  forwarding helper passes the resulting bindings without rerunning defaults.
+  Compiler-private signature utilities are not a public replacement.
+* Effective-method caches retain source identity and current applicability
+  guards. An ordinary host method cache does not supply negative-assumption
+  revalidation, qualifier interpretation or nested cache transport.
+* Reflection selects current first metadata before visibility checks, and its
+  complete catalog traversal preserves descriptor errors and getter order.
+  An early-exit lookup would silently skip these observations.
+
+No additional namespace, contract DSL, host dispatcher or performance claim is
+introduced. This audit closes the confirmed traversal duplication; it does not
+mark unrelated TODO items complete.
+
+### Standard association protocols and keyword application rows
+
+This pass replaces complete structural operations through public Gerbil modules:
+
+* `std/list/plist`: `plist?` checks the alternating generic-option structure and
+  `alist->plist` serializes keyword bindings for Function wrappers and generic
+  forwarding. No local map/flatten serializer remains.
+* `std/list/alist`: `plist->alist` parses generic option pairs. The existing
+  `.defgeneric` transformer interprets only POO names, duplicate/alias policy and
+  lexical bindings; core lambda still owns signature validity and defaults.
+* `aremq` replaces the method-declaration accumulator's keyed removal; `arem`
+  replaces keyed removal in the private dispatch-shape cache. Both accumulators
+  start empty and maintain distinct keys. First removal equals remove-all only
+  under that invariant: a duplicate-key negative control is deliberately retained.
+  Source order, exact payloads, shape-key copies, MRU identity and capacity remain
+  in the existing POO protocol. No ordinary host method lookup substitutes for
+  typed dispatch, current guards, negative assumptions or qualifiers.
+
+The forwarding audit also found a real escaped-keyword defect. Core lambda
+correctly admitted keyword-valued positional/rest data, but the old generic
+forwarder assembled a new call without protecting those values. The target could
+interpret a payload keyword again. The forwarder now keeps only bound identifiers,
+uses standard alist serialization for keyword bindings, and emits the core
+`#!rest` boundary before every positional value. This includes the receiver
+forwarded by `from: type`. Default expressions are neither copied nor reevaluated.
+Keyword-bearing `combination:` callbacks receive a canonical Gerbil application
+row (keywords, `#!rest`, positions), which they forward with `apply`; they must
+not mistake the encoded row for an untagged list of positional values. Generics
+without keyword formals retain their original argument row.
+
+`checked-summary-action` extends the existing declaration/diamond example:
+a Function wrapper, type-provided generic, simple method combination and FUN
+observation carry an escaped keyword and explicit false through both forwarding
+boundaries. Actual macro tests cover malformed/duplicate options, both default
+alias orders, optional defaults, keyword-valued fixed/rest positions and dangling
+keyword data. Dispatch tests repeatedly promote and evict shapes while checking
+old owners, MRU identity, the capacity bound and the independent reference call.
+Existing reflection controls check private overrides, declaration revisions and
+method catalogs through these standard association operations.
+
+Lean's existing `Functional.FunctionSignature` namespace adds five pure laws for
+encoding equivalence, source-order concatenation, token cardinality, exact
+alternating-list round trips and dangling-key refusal. `AssociationBindings.lean`
+uses the existing `Functional.Parameters` namespace to prove removal equivalence
+under unique keys and preservation of uniqueness/capacity by promotion/eviction.
+These are list and call-model laws, not proofs of the host expander or runtime.
+The generalized declaration/MOP integration continues the article's future work.
+
+Core `keyword-dispatch` is deliberately not used as the descriptor decoder: the
+inspected implementation mutates the positional argument spine and stores keys
+in an unordered symbolic table. Descriptor checking preserves supplied-key
+validation order and replay input ownership; broad error catching would also risk
+translating user errors. Core dispatch remains authoritative when invoking the
+actual target. Host class reflection still cannot replace dynamic computed Slot
+metadata, visibility-before-read policy or source-dependent invalidation.
+No independent namespace, parser framework, cache library or speedup claim is
+introduced, and no unrelated TODO is marked complete.
+
+### Shared slot expansion delegates the complete binding mechanism
+
+The shared slot compiler previously constructed its own receiver syntax parameter,
+returned a custom identifier/application transformer for every field, and walked
+the body with `stx-substitute` to replace the receiver placeholder. This entire
+path now uses public `std/stxparam` `defsyntax-parameter*` / `syntax-parameterize`
+and core `identifier-rules`. The two `%make-object-slot-*` factories and their
+phase exports have been removed; there is no replacement POO macro-object class,
+expander factory, receiver-parameter implementation or syntax-tree walk.
+
+Core expansion now owns receiver binding, missing-scope errors, hygienic field
+identifiers and application expansion. A small template supplies POO's `.ref`
+lookup and a read-only assignment rule. The existing compiler still chooses the
+fields, captures lexical shorthand before field bindings, and builds the same
+constant/self/inherited SlotSpecs. Final-self lookup, next-method thunks, revision
+invalidation and `.putslot!` remain POO semantics; bare field assignment is not
+a mutation API. The ordinary per-method `syntax-parameterize` boundary supplies
+the current receiver. No user namespace or alternate binding protocol is added.
+
+The existing declared-methods example now builds nested service accounts with
+local `rate` shadowing, retained outer readers and an inherited C3 method family.
+FUN actions preserve all three results while before/primary/after/around callbacks
+retain their order and private metadata stays inaccessible. Regression controls
+keep old nested readers alive across clones/source revisions, revise the inner
+receiver independently, reject unbound scopes and assignments during real macro
+expansion, and exercise a user field named `receiver` against accidental capture.
+The existing lexical-identity, nested-object, generic forwarding and reflection
+suites remain part of the complete check.
+
+`Functional/SlotScope.lean` uses the existing `Functional.Parameters` namespace
+to model the same receiver-indexed lookup. Six pure laws establish read/call
+equivalence, separate inner/outer scopes, closure ownership, lookup congruence
+and explicit revision inputs. They do not prove Gerbil hygiene, mutable storage,
+callback effects or the compiler; actual expansion and runtime controls cover
+those host observations separately. The generalized MOP/declaration integration
+continues the article's future work.
+
+The preceding complete-method-combination and reflection audit retained the
+POO mechanisms for the following semantic reasons. Core class `defmethod` exposes `@next-method`, but its runtime
+`call-next-method` starts from a host class type and searches `class-of` precedence;
+it cannot consume the current POO fragment sequence or persistent generic revision.
+There is no corresponding standard qualifier/forwarding/inner/Simula interpreter
+for these dynamic prototype fragments. `std/func` composition feeds preceding return values into the next
+function; it does not provide original-row `next` thunks that may be skipped or
+repeated, nor before/after and forwarded-payload policy. Core class slot metadata
+also describes fixed host storage, not receiver-dependent computed Slot metadata
+with current visibility, checked reads and dependency invalidation. Substituting
+those host mechanisms wholesale would change the declared POO protocol.
+That pass replaced the confirmed complete binding mechanism and retained
+these distinct semantics. The continuation-lifting study below evaluates
+standard composition without substituting host callback-result semantics. No speedup or unrelated TODO completion is
+claimed.
+
+### Complete continuation preparation and live reflection audit
+
+The complete prepared method-chain audit evaluated lifting each method stage to
+a unary **continuation endomorphism**, then assembling the entire program with
+public `std/func compose1`. Direct callback-result composition has the mismatch
+described above; composition of continuation builders preserves original-row
+next thunks. The candidate covers standard/simple around wrappers, primary,
+inner, forwarding and compiled/explicit-view Simula. Gerbil already owns the
+production list traversal through standard folds; POO supplies qualifier order,
+optional payload validation, next control and callback admission.
+
+The algebraic candidate is correct, but it is **not adopted in production**.
+It adds temporary builder lists and composition closures during preparation.
+In the final 192-child paired study, eight-layer inner construction plus call
+regressed by 2.383 us under natural GC (0.590 us excluding reported GC); eight-body
+explicit-view Simula regressed by 5.209 us (1.627 us excluding GC). Collected
+controls also regressed by 2.700/5.825 us; hot calls showed no stable gain against A/A variation.
+These are local, fixed-size observations, not universal cost bounds. The evaluated
+production substitution was withdrawn. `just benchmark-combination` retains the
+same candidate privately in the benchmark and compares it with the actual public
+prepared APIs, rather than introducing another runtime strategy or namespace.
+
+The existing strict paired infrastructure supplies fixed warmup, fresh processes,
+natural/collected GC, ABBA order, exact A/A controls, source identity and
+GC-qualified signed allocation admission. Construction-plus-call and retained
+hot calls are separate. Raw output stays ignored. Throughput batches with GC do
+not supply admitted allocation savings. Reproduce results locally rather than
+reusing measurements whose recorded source identity no longer matches.
+
+Metadata capture order is observable: compiled Simula captures suffix getters
+right-to-left, then prefix getters left-to-right. Invocation runs general-first
+prefixes and specific-first suffixes. The independent prepared transport retains
+its own historical capture order. New regression controls distinguish getters
+from bodies, reject capture failure at the original point and preserve
+repeated/skipped next and exception identity.
+
+Dynamic prototype reflection cannot be replaced by host class reflection:
+`class-of` and fixed class storage do not represent receiver-dependent Slot
+metadata, computed values or registered descriptor-source invalidation. The
+existing reflection API already delegates catalog deduplication to standard
+hash/list mechanisms and metadata/value admission to Slot. Its complete public
+catalog evaluation must remain before a read; stopping at the first matching
+name would skip other observable metadata effects. This audit retains that
+protocol rather than implementing another one.
+
+`examples/inherited-services.ss` composes one retained Simula program with the
+existing FUN Observation action across a shared-source diamond and independent
+service families. Every callback uses current `read-slot`, not cached admission.
+Tests edit shared defaults, visibility and Type; refusal prevents settlement,
+and restoring metadata permits retry with the same code. Private bodies remain
+unforced. Earlier emitted callback effects are not rolled back.
+
+`Object/MethodCompilation.lean` adds fold, grouping, next, forwarding, ordered-side
+and complete Simula equivalence laws in the existing MethodCombination namespace.
+The top-level MethodCompilation example shows repeated/skipped next and current
+callback refusal through retained code. These are pure algebraic laws over supplied
+callbacks/monads; existing SlotReflection laws specify current admission separately.
+They do not prove host mutation, macro/compiler correctness, GC costs or capability
+security. Generalized MOP integration continues the article's future work. The
+open TODO type/library/interpreter projects remain open.
+
+### Brace frontend: one resolved macro binding through current reflection
+
+The complete frontend path is now reader braces → core alias `@method` → the
+existing `.o` match macro → core expression/match selection → `.o/ctx` slot
+lowering or the existing object projection pattern. `brace.ss` uses core
+`defalias`; its duplicate expression AND match transformers are removed. This
+is binding reuse, not another wrapper, pattern compiler or receiver parameter.
+The explicit `@@method` escape retains the original Gerbil host-method binding.
+Inspected host owners are `core/sugar.ss` (`defalias`), `expander/top.ss`
+(`core-expand-define-alias%`) and `core/match.ss` (`defsyntax-for-match`).
+
+`examples/declared-methods.ss` `inspected-action` composes brace construction,
+nested brace matching, captured outer/local receivers, inherited standard method
+combination and current public reflection in one FUN observation. It reads the
+current method declaration before invocation; hiding the declaration refuses
+without method effects, and restoring visibility permits retry with the SAME
+action and a new Reader context. It never retains successful approval or values.
+This declaration/MOP integration advances the article's stated future work;
+the article does not prescribe Gerbil reader braces or this alias API.
+
+Regression controls inspect actual free-identifier binding identity, renamed
+imports, lexical shorthand, nested matching, missing/non-object cases, read-only
+field expansion and explicit host dispatch. A separate control demonstrates
+why public reflection must finish its existing complete right-fold catalog:
+an unrelated suffix's failing metadata getter prevents a front slot read, with
+the original exception and no getter/value effects from the earlier entry.
+Restoring the metadata source allows the same receiver to be retried.
+
+`Object/CatalogReflection.lean` adds six laws in the existing DescriptorReflection
+namespace: ordered all-visible inspection, suffix failure, refusal before read,
+exact selected entry/error propagation, absence refusal and whole-call congruence.
+The top-level `Examples/CatalogReflection.lean` combines current catalog checks
+with the existing prepared continuation program. Effective most-specific entries,
+callback behavior and source stability are premises. These are not host hygiene,
+compiler, mutable-source atomicity or security proofs. No speedup is claimed.
+
+### Complete ordered declaration traversal through Gerbil and FUN
+
+`declaration-action` delegates its entire expansion driver to public
+`std/list/list` `map-in-order` and `foldr`. The former hand-built one nested Reader
+bind/map continuation tree per form. Preparation now captures one checked action
+per form; invocation uses the standard ordered traversal, then the same right-fold
+`append` to collect the complete entries. FUN `.map` connects these stages and
+`.bind` selects the one finalizer. The FUN Observation methods retain their
+standard Reader meaning. No callback or approval runs during preparation.
+
+The complete call path is static/spliced `declaration-forms` → captured actions →
+ordered expansion with immediate proper-list admission → delayed right-fold
+collection → current-context finalization → inherited method-fragment merge →
+object construction → current public reflection → `.defgeneric` combination.
+Expander revision rejection, active expander/context write guards and failure
+cleanup remain at the original public boundary. Source edits require fresh
+preparation. Earlier external callback effects are retained on later refusal.
+
+Three ownership/order details are part of this replacement. Capture individual
+forms so caller list-spine edits cannot remove prepared forms. Admit every result
+before selecting the next callback. Delay copying until all callbacks finish so
+a later callback's edit to an earlier returned chunk remains observable, as in the
+old Reader recursion. The trailing empty accumulator in `foldr append []` also
+keeps the final output spine independent of the last source chunk. Immediate
+flat mapping or `apply append` without that empty tail would change these details.
+Regressions observe callback order, exact exception identity, empty finalization,
+whole-batch retry and aliasing, rather than checking successful values alone.
+
+The declared-methods `batch-expander` / `batch-action` example emits a tenant slot,
+a private token and three method qualifiers through static and spliced forms.
+One current approval gates finalization; FUN binds its whole result to a derived
+family above the existing shared C3 diamond. Reflection precedes combined dispatch.
+Refused approval executes no method, fresh context retries change surcharge/data,
+and stale expander sources refuse before expansion effects. This is an extension
+of the article's future generalized-prototype/MOP construction.
+
+Lean's existing `Functional.DeclarativeMetadata` namespace adds `collectForms`:
+standard `List.mapM` followed by flattening. Six laws establish same-context
+monadic sequencing, empty input, equality to `expandForms`, refusal, concatenated
+batches and finalizer equivalence. The sequencing law is generic over lawful
+monads; exception-over-state examples retain prefix effects on failure. Declared
+method examples connect whole-batch approval to the existing qualifier interpreter.
+Immutable finite lists and supplied callback semantics are proof premises; mutable
+Scheme spine/capture behavior, host expansion and registered invalidation have
+separate runtime controls. No speedup or unrelated TODO completion is claimed.
+
+### Complete prefixed lexical and snapshot binding lowering
+
+Prefixed aliases are existing Gerbil convenience syntax, not an additional
+construct attributed to the article's Racket implementation.
+
+`with-prefixed-slots` and `def-prefixed-slots` no longer recursively invoke their
+own macros once per field. After the existing optional-context normalization,
+the complete lexical group lowers with the standard right fold to core
+`let-syntax` / `identifier-rules`; the complete snapshot group uses core syntax
+mapping and one template-generated `begin` of definitions. The lexical path no
+longer routes through the package's `let-id-rule` helper. Ordinary hygienic
+expansion retains the core bindings; the explicit syntax context continues to
+control generated field identifiers. No new binding namespace or expander is
+introduced.
+
+Nested scopes are intentional: duplicate aliases still select the inner binding,
+and retained outer closures keep their original receiver. A lexical alias is a
+current read, including when applied to keyword/rest or multiple-result methods;
+a snapshot definition reads once, in order. The receiver expression is not
+implicitly memoized. Empty groups perform no read, and a failed snapshot leaves
+earlier read effects intact without selecting the suffix. Macro-time alias
+construction does not approve visibility or freeze a method family.
+
+The existing declared-methods `prefixed-action` composes current approval through
+FUN with a retained initial-rate snapshot, live account aliases, current public
+method reflection and inherited C3 before/primary/after/around dispatch. Refused
+approval or hidden metadata has no method effects; edits and restoration permit
+retry through the same action, with the old snapshot and new live rate. Tests
+also cover empty groups, repeated aliases, lexical shadowing, nested closures,
+receiver evaluation counts, failure identity, core-binding shadowing and actual
+expansion acceptance/refusal. This remains sequential registered-source behavior,
+not a capability or concurrent snapshot protocol.
+
+`Functional.Parameters.withSlotBindings` in the existing `SlotScope.lean` models
+the standard fold over already resolved alias/key pairs. Six laws prove empty and
+cons equations, equivalence to recursive nesting, composition, duplicate shadowing
+and unused-field behavior. Four additional snapshot laws establish sequential
+binding, recursive equivalence and exact refusal. Top-level Parameters examples distinguish delayed
+revision-indexed reads from a retained snapshot. Host hygiene, mutable caches,
+physical definition installation on failure and callback/continuation behavior remain
+runtime obligations; the laws do not verify the Gerbil expander. This advances
+the article's generalized prototype/MOP future work. No speedup or unrelated TODO
+completion is claimed.
+
+A further reduction-loop replacement with standard `foldl` was not adopted:
+Gerbil captures a list cell's tail before invoking its fold callback, whereas the
+existing prepared simple-item reducer reads that tail after the method/step.
+Callbacks can mutate the caller-owned method-list spine. Short-circuiting alone
+does not establish equivalence for that protocol, so its existing loop remains.
+
+### Complete generic formal projection through core signature and keyword mechanisms
+
+`support/syntax.call<-formals` no longer implements `parse-formal` and a recursive
+optional/keyword/rest grammar. Core `syntax-split-splice` separates the rest tail;
+public `signature-arguments-out` projects the identifiers owned by the enclosing
+core definition. Core `keyword-dispatch` partitions that syntax metadata at macro
+expansion time. Only a fresh mapped list spine is passed to its destructive
+argument traversal. No user argument list or formal syntax spine is rewritten.
+
+The ordered source keys are kept separately and restored through core table
+lookup, rather than hash enumeration. The standard alist encoder emits the same
+keyword prefix, followed by the existing `#!rest` shield and leading receiver,
+resolved positional values and rest data. No runtime parser, signature cache,
+second default evaluation or predicate wrapper is introduced by this helper.
+`from:type`, `from:instance`, missing-slot defaults and `combination:` retain their
+existing selection boundaries. A cardinality guard rejects incomplete core
+projections instead of silently emitting a shortened call. In particular the
+previously unsupported formal `#!key` collector still refuses; public-call escapes
+remain supported. Actual grammar/duplicate binding admission belongs to core.
+
+This also makes core predicate-contract binders usable by the generic frontend.
+Their checks and dependent defaults are entirely those of Gerbil's `def` contract
+mechanism; they do not replace POO's recursive Function normalization. The declared
+methods `checked-summarize` / `typed-summary-action` example composes current public
+reflection, core-checked typed/default/keyword/rest forwarding, a simple collection
+combination, FUN bind and standard qualified C3 charging. Refusal stops the suffix;
+metadata refusal wins before the explicit workflow calls the checked generic.
+Hiding/restoring metadata and changing context data exercises current retry.
+
+Three regression cases cover this complete workflow, body exception identity,
+default staging/counts, optional false refusal, keyword-valued data, from:instance
+fallback and from:type combination. Actual expansion controls distinguish valid
+contract/default forms from dropped metadata, duplicate labels/binders and the
+unsupported collector. Interleaved keyword/untyped positional formals remain
+admitted by ordinary core lambda. No contract/default expression runs during
+projection.
+
+Expansion probes use an isolated standard `let` definition body: core contract
+definitions emit declaration macros that are illegal in expression context.
+Positive controls retain actual legal expansion alongside the negative controls.
+
+Eight laws in the existing Lean FunctionSignature namespace establish ordered
+lookup restoration (including present false), exact absence, original binding
+reconstruction and resolved receiver/positional/rest forwarding, lengths and
+wrapper composition. Top-level DeclaredMethods examples connect the resulting
+frame to the existing combined method interpreter, including metadata/type
+refusal priority and retry. Already resolved bindings, supplied admission and
+stable metadata are premises; these laws do not verify Gerbil formal parsing,
+macro hygiene, predicate correctness, fixnum ranges or mutable dispatch. The
+nonnegative numeric fixture is not a model of every host value. This advances
+the article's type/metadata/MOP future work, not a new Racket formal syntax.
+
+The runtime Function decoder is retained: directly substituting keyword-dispatch
+there would rewrite its argument spine and lose source keyword order through table
+enumeration, affecting recursive validators. Its use here is safe precisely because
+it is confined to private syntax metadata and source order is explicitly restored.
+
+### Complete prototype-list reduction through standard reduce-right
+
+`proto.compose-proto*` delegates the entire long suffix composition to public
+`std/list/list.reduce-right`, which uses its last element directly on nonempty
+lists. The zero/one/two-layer paths retain their original identities and capture
+timing. A longer chain captures its first layer at construction and retains the
+suffix spine; each application reduces the current suffix before any prototype
+body executes. Eagerly reducing at construction would lose later suffix edits.
+No extra identity composition, cached approval or second prototype engine is added.
+
+The reference equations and the standard source both select the complete proper
+suffix before body invocation. A callback editing a later source cell therefore
+changes the next application, not the current selected callbacks. The recipe spine
+must remain stable during selection; concurrent mutation during that selection is
+outside this protocol. All layers see
+the same final self; inherited values flow from the last layer to the first.
+Body exceptions retain identity and prevent the remaining outer bodies. The
+standard list contract also refuses an improper/cyclic revised suffix before body
+effects. Legacy error classes on malformed suffixes were not a typed-list law;
+they now follow that standard contract. Unrestricted `instantiate-proto` and its
+fixed-point termination are unchanged and not certified by finite reduction.
+
+`summary-prototypes` and `prototype-summary-action` in the existing declared-methods
+example build four ordinary Reader extensions over the existing typed summary/C3
+workflow: current approval, reflected rate offset, successful-result observation
+and reflected tag publication. False tags remain data. Hiding policy metadata
+refuses, restoring/changing it permits retry using fresh context, and failure of
+post-result metadata preserves prior method effects while preventing observation.
+Three regression cases cover this full path, zero/singleton/two-layer capture,
+lengths zero through eight, exact self, a historical independent reference,
+callback-driven suffix edits, cyclic suffix refusal and exception identity.
+
+Ten laws in the existing Lean `Prototype` namespace connect the finite optional
+right fold to `composeAll`, including singleton retention, cons, concatenation,
+same-self application and captured-head/current-suffix composition. Top-level
+DeclaredMethods examples assemble the same Reader layers over the earlier exact
+forwarded frame and method trace, with current-data retry and boundary refusals.
+Finite immutable list views, supplied metadata/admission and callback semantics
+are premises. Host pointer mutation/capture timing, core contracts and the standard
+reducer are exercised by Scheme controls, not proved by those list laws. The
+Except-based examples do not assert rollback or retain an error-state trace.
+This continues the article's generalized MOP future work without closing its
+unrelated TODO projects. No end-to-end performance claim is made.
+
+### Combined generic calls lower directly through core row construction
+
+The next whole bridge was `mop.combine-method`: every combined generic selected
+its combiner and raw inherited fragments, allocated a variadic relay, applied it
+to the core-projected bindings, then relayed that captured row to the combiner.
+`.defgeneric` now uses the same `call<-formals` projection with standard `list` /
+`apply` to construct the complete row and directly invoke the selected combiner.
+The temporary runtime bridge is removed; no new dispatcher, namespace or grammar
+is introduced. Core lambda still owns contracts/defaults. Noncombined property
+and method paths retain their existing lowering.
+
+Evaluation remains combiner expression, fragment lookup, procedure admission,
+row construction, combiner invocation. An invalid combiner must still demand the
+fragment slot first; lookup/selection exceptions preserve identity. The canonical
+keyword/`#!rest` boundary, receiver exactly once, optional defaults, explicit
+false, zero arguments and multiple results remain observable obligations.
+Current public metadata is read afresh; no combiner or successful admission is
+cached. The recipe does not substitute host class reflection or next-method rules.
+
+`configured-summary-action` reuses the existing Reader/reflection/C3 workflow with
+a current declared `.summary-combination`. Regression tests hide/restore that
+metadata, revise its callable value, refuse a nonprocedure, and retry against
+fresh receiver data. Separate controls expose selector/lookup/procedure ordering,
+complete escaped rows and multiple values, including exact thrown lookup objects.
+
+Eight laws in the existing Lean `Functional.FunctionSignature` namespace prove
+monadic relay elimination, boundary refusals and success. `CombinationWork` is an
+explicit source-operation model: supplied row cells stay equal, while one relay
+closure and call disappear at arbitrary nonnegative prices. Host optimization,
+actual allocation bytes, CPU and GC behavior are not conclusions of those laws.
+The top-level declared-method examples check the exact combined frame and trace.
+The original article's lines 2063–2089 motivate the separate mixing function;
+this generic/MOP integration continues its future work, not whole-TODO closure.
+
+The existing `benchmark-combination` study now includes `generic-allocation`,
+`generic-hot`, `generic-workflow`, `generic-construction`,
+`generic-factory-allocation` and `generic-construction-allocation`: the historical and production lowerings
+share one binary, matched formals, callbacks and semantic oracles. The single-call
+sample admits signed bytes only without GC; hot calls and full Reader/reflection/
+C3 calls remain separate. All controls are constructed/warmed before selection,
+with fresh children, natural/collected regimes, ABBA and exact A/A controls.
+Raw data remains ignored and source-bound. Results, including regressions, are
+reported separately; a source-operation saving alone is not a speedup claim.
+
+The shared higher-order boundary is the core `summary-observation` defrule,
+which binds owner/units once and retains the statically known contracted call. Passing
+the generic itself through an indirect optional/keyword/rest call failed the
+payload/default regression and was rejected; defaults are not emulated by POO.
+The original typed action and the configured action share this Reader pipeline.
+Benchmark executables now use the release's `std/make` dependency/worker pool
+via the `combination` build scope. The preceding serial compiler attempt hit its
+90-second fence and is retained as a failure; that deadline was not increased.
+
+The complete shared child-measurement entry lives in the existing
+`closure-measure` module; all six benchmark consumers import it directly instead
+of importing the metadata publication workloads just for measurement. Counters,
+GC admission, warmup order and oracles are unchanged. Final source/AOT freshness
+is checked after executable construction, since that compiler route regenerates
+Scheme intermediates without refreshing their separately loaded module objects.
+The indirect-optional-call regression, executable build timeouts and initial
+asymmetric-constructor study are retained locally.
+
+## Fixed generic prefixes and replay ownership
+
+Combined `.defgeneric` now emits core `cons` for its statically resolved prefix,
+then uses standard `append` with an empty final argument to copy the rest spine.
+Core formal projection still supplies keyword source order, defaults, contracts,
+the receiver and `#!rest` placement. Selection, raw lookup and procedure admission
+still happen before constructing the row. No combiner or metadata is cached.
+
+`replayed-summary-action` composes the existing FUN Reader bind/map, current
+reflection, configurable combination and shared-C3 charge. Two replay entries may
+alias one caller list: mutating a callback's tail cannot corrupt either entry or
+a later retry. Hidden metadata refuses before charging; retry reads fresh context.
+This continues generalized MOP future work. Lean's matching pure laws establish
+row values, composition and arbitrary-monad substitution. Mutable identity,
+procedure contracts and actual latency are separate Scheme checks.
+
+The paired benchmark compares the immediately preceding `apply list` lowering,
+not the older variadic relay. It separately measures pure transport, hot generics,
+retained complete actions and construction plus invocation. Fixed conditioning
+runs both controls 128 times before the shared prefix, without forcing GC in
+natural mode. This measures history sensitivity, not equal heap contents.
+Exact A/A duplicates, both GC regimes and signed GC/residual CPU deltas remain.
+Every 24 completed children produces real progress outside the measured interval.
+The `combination` build scope includes the standard library graph before linking,
+so changed imported cases cannot silently survive behind an old `.ssi` file.
+
+Local validation also exposed historical numbered Gambit objects shadowing newer
+`.o1` output (for example, an old `.o42` hid the new example export). Conflicting
+generated objects were moved to a local temporary directory before retrying.
+A further negative control rejected forwarding a complete dynamic keyword row
+into a contracted optional generic. The replay example therefore supplies resolved
+required/optional/label fields with a statically known callee and keyword; Gerbil
+still performs the actual type checks and call lowering. No POO signature parser
+or replacement default evaluator is introduced. Both failed runs remain failures.
+
+The executable workload counts were calibrated before the first admitted paired
+run: complete workflow scopes use 1,024 invocations (previously 256), while hot
+calls and isolated transport use 131,072. A 128-round all-control conditioning
+prefix keeps the full expanded study within its unchanged 300-second fence.
+This is a fixed workload-history control, not an adaptive warmup or best-of run.
+The replay example has four resolved fields and one structured message argument;
+it does not advertise arbitrary dynamic splicing through core contract wrappers.
+
+The final study adds a separate 16,384-operation factory-only CPU scope while
+retaining all one-operation allocation controls. Its complete-workflow reference
+uses the immediately preceding lowering for both summary and charge. The existing
+`summary-observation` macro accepts an explicit statically known charging generic;
+its ordinary form still selects `charge`. Both benchmark factories therefore use
+one FUN chain, matching factory boundaries and core call conventions throughout.
+The earlier 672-child study is retained separately; its workflow control changed
+only summary transport and is not substituted for this stronger full-chain control.
+
+Repeated local executable timeouts were traced to four empty static-object lock
+files left by the interrupted build, not evidence that all repeated work was CPU
+compilation. The release compiler waits for an existing lock without recording a
+PID. Process inspection and `lsof` confirmed no holder; only those four locks and
+possibly partial objects were moved to a temporary directory and regenerated.
+The unrelated older lock was left alone. No deadline was widened, no compiler
+source was modified, and failed or interrupted runs were not admitted as passes.
+
+## Standard Reader completion and result frames
+
+`summary-observation` now fuses its environment-independent nested Reader into
+standard `Observation.` map. The current owner is reflected before summary and
+charge; core optional/keyword/predicate contracts and the complete generic row
+are unchanged. An ordinary single-value context preserves standard `compose`'s
+projection of additional results, rather than imposing a new arity check. This is a use of the standard FUN instance, not an optimizer for an
+arbitrary replacement of its `.bind` or `.map` methods.
+
+`reviewed-summary-action` composes a post-success review, with explicit packaging
+of the two result values before standard `compose` consumes its one intermediate
+value. A review can invoke the same captured action at a different context; outer
+receiver/result data remain local. Hidden metadata refuses before methods/review,
+restored metadata permits retry, and a failing review retains preceding external
+method effects. No rollback or result/approval cache is introduced.
+
+The Lean companion proves environment-independent Reader equality for arbitrary
+monadic effects, source refusal/current-value behavior, and a complete-budget
+threshold with separate setup, dynamic map construction, completion and GC terms.
+A bounded nested forecast checks both full qualifier traces. Scheme controls own
+actual multiple-value arity, callback identity and mutation semantics. The article
+supplies same-self modular composition; this Reader/reflection integration remains
+generalized-prototype future work rather than a claim of complete source coverage.
+
+The generic workflow benchmark compares the previous nested Reader with the fused
+Reader using the **same current generic calls and contracts**. Transport/hot scopes
+separately keep the previous apply/list row control. Account construction and
+first field reads have an identical-action scope; action construction, retained
+workflow and factory-plus-invocation remain separate, with natural/collected GC,
+fixed prefixes, conditioned history and duplicate A/A pairs. Independent phase
+medians are not an exact additive attribution of one workflow invocation.
+
+Executable link discovery in the just recipes is deferred until the actual link
+command. A global just backtick was found to execute even for an unrelated script
+recipe; the shell assignment now queries pkg-config only at linking and fails
+before starting gxc when metadata is unavailable. Explicit empty/nonempty link
+options remain valid. `build.ss` continues to use standard `pkg-config-libs`.
+
+### Revision-checked contribution admission
+
+The next complete-chain reuse delegates evidence lifetime to Gerbil's standard
+weak-key hash table and freshness to the existing object revision protocol. The
+ordinary `contribution` builder is shared by public qualifier helpers and by the
+higher-order shared-C3 service example. It registers only the default constructor,
+default Contribution Type and finite qualifier symbols. Values in the table contain
+only a revision and symbol; they never retain the weak key or callback.
+
+The standard/simple interpreters reuse this admission only while both receiver
+and Type revisions match. An object/prototype edit invalidates the receiver;
+a Type edit forces the ordinary current predicate, including its effects. Returning
+field values to their old values does not reset revisions. Unregistered descriptors
+use the same current validation protocol. No effective method, method result,
+reflection approval, source list, grouping or callback is cached. A before method
+may still replace a primary body before primary grouping during the same call.
+Unsupported direct mutation bypassing object invalidation is outside this discipline.
+
+The current workflow study supersedes the previous Reader comparison: **both sides
+now use the same current FUN Observation and generic lowering**, while only the
+contribution builder differs. Historical apply/list and compose1 controls remain
+separate scopes. Construction, eight-descriptor admission, realized family
+construction and complete fresh-family invocation have their own scopes, including
+evidence setup. Natural/collected regimes, four ABBA rounds and two duplicate A/A
+pairs retain adverse results. A/A variability is reported, never subtracted away.
+Independent phase medians cannot identify one invocation's exact additive split.
+
+The Lean stamp makes the constructor's shared Type revision explicit; the runtime
+weak-table payload stores only the receiver revision and qualifier symbol.
+Lean's revision/admission laws require explicit constructor soundness and revision
+stability, and its amortization law requires supplied cost/GC inputs. They prove
+neither hash-table implementation nor unconditional elapsed-time improvement.
+The integrated declaration/reflection/FUN workflow advances the article's MOP
+future work; this optimization does not mark open TODO features complete.
+
+
+### Function schema projection
+
+The complete admission → specialization → candidate identity → replacement →
+descriptor chain shares one Function metadata projection. Gerbil runtime `agetq`
+provides presence-preserving literal defaults; std/list `map-in-order` and
+`alist->plist` retain source binding order during substitution. The existing
+Function descriptor supplies the schema and runtime contracts. The finite raw
+option admission parser remains POO policy: duplicate/unknown bindings, malformed
+payloads and quota exhaustion must refuse before descriptor or builder execution.
+No separate wrapper/namespace or compatibility dispatch is introduced.
+
+
+### Sentinel Type inference
+
+Gerbil core contract's `maybe` rule is a false-or-predicate admission rule; it
+does not recursively normalize Function payloads. The existing OrFalse Type and
+shared optional-validation protocol supply that POO behavior. Finite inference
+now compiles directly to those descriptors and reuses the existing call-coverage,
+parameter and declaration drivers. `using` admits the example's observer callback
+with Gerbil's procedure contract. No parser, runtime wrapper, effect abstraction
+or namespace is duplicated. Record Class data and Object method catalogs retain
+their existing distinction; ordinary Function data is not a typed method group.
+
+
+### Scalar protocol and service publication
+
+The finite scalar table reuses Gerbil `agetq`, `boolean?`, `exact-integer?`,
+`keyword?`, `string?` and `symbol?`; the POO-specific UInt bound stays explicit.
+String/Symbol descriptors and conversion stay in type.ss. The finite checker
+does not execute arbitrary descriptor recognizers or infer that a conversion
+method is a subtype proof. Gerbil's contract/using expansion admits observer
+procedures, and one existing FUN/checked-action/evidence publication chain now
+serves both numeric and text policies. Runtime callbacks and wrappers are reused
+as a whole; there is no new contract namespace or compatibility dispatch.
+
+
+### IntegerRange and source-ordered literal options
+
+Gerbil std/list `plist->alist`, runtime `agetq` and std/list `alist->plist` now
+serve both Function and IntegerRange metadata. Typed duplicate/kind refusal stays
+in one finite admission layer; no second host keyword binder is implemented.
+The project number.ss IntegerRange descriptor already handles exact arbitrary-
+precision integers and unbounded endpoints, unlike core contract's fixnum range
+predicate, so compilation uses that descriptor directly. Existing rich method
+fragments and the catalog FUN/refine/evidence action complete publication; no
+new dispatcher, namespace or compatibility chain is introduced.
+
+Range-to-Enum inclusion reuses type.ss first-index-hash<-vector, the exact
+index constructor used by Enum's .value-indices@ and .element? protocol. It uses
+Gerbil runtime/hash.ss make-hash-table (equal? default) and hash-ensure-ref,
+preserving first positions. The existing type-work quota is charged before the
+index is prepared, and only exact integers probe it. This cannot mutate or
+normalize the caller's Enum descriptor. The flat inclusion entry point supplies all container, Function,
+inference, specialization and declaration consumers. FUN/refine/bind-evidence and
+the existing service builder are unchanged; no alternate dispatcher or namespace
+is introduced. The runtime still constructs the original Enum/Exactly/IntegerRange
+Types, including their wrapper and failure protocols.
+
+Joint range/Enum-to-Union coverage uses std/list/list.ss append-map (ordered
+callback traversal and concatenation) and the runtime foldl, following the same
+composition protocol as validate-bindings and existing variant diagnostics.
+Interval projection is private analysis data; Type Union and variant-validation.ss
+still own branch selection, committed validation and error propagation. The
+complete literal inclusion entry feeds containers, Function variance, inference,
+parameter binding and original method declarations; no second normalizer,
+dispatcher, parser or namespace is added. The rich service's existing factory and
+FUN/refine/bind-evidence action consume the new bound directly.
+
+Public finite-source admission reuses keyword-stable-type?: keyword/escape tokens
+remain in the existing raw-origin transport judgment. Shared flat coverage does
+not widen that wire-sensitive public replacement boundary.
+
+Unbounded range-to-Union coverage extends the same ordered projection and residual
+fold, rather than introducing another range implementation. Gerbil's standard
+`append-map` and runtime `foldl` retain descriptor traversal order; the existing
+numeric bounds use false endpoints for infinity. Arithmetic only touches finite
+exact integers, so no machine-sized sentinel or enumerated tail is introduced.
+`select-union`/`validate-union` and the shared declaration/FUN publication chain
+remain authoritative. The numeric projection has no custom recognizer effects;
+all branch admission and residual visits retain the shared work quota.
+
+Integer/UInt-to-Union admission now reuses `numeric-bounds` directly, including
+its already existing all-integer and unsigned views. The standard ordered
+append-map/foldl projection/subtraction chain, shape selection and validation
+are shared rather than copied. Atomic public descriptors stay intact through
+the original specialization/declaration/FUN/refine/evidence workflow. Enum
+keyword/escape origins retain their dedicated transport judgment, and no custom
+recognizer is invoked by coverage. The same bounded work quota covers the full
+request and still refuses incomplete or ambiguous construction.
+
+Bool uses the intrinsic boolean? registry entry and the complete private
+`(Enum #f #t)` view to reuse Exactly/Enum membership and the existing ordered
+Union protocol. No new recognizer registry or wrapper adapter is introduced.
+The shared `infer-signature-calls` factory removes duplicated numeric/text call
+inference and typed-fragment wiring; Boolean services use it too. Host callback
+checks use grouped Gerbil `using` contracts, whose core expansion nests the
+existing contracts. Policies still feed the shared FUN/IO refinement/evidence
+publication action. False values are preserved through validation and approval;
+unsupported trees and quota exhaustion retain their existing refusals.
+
+[Scalar coverage](scalar-coverage.md) reuses the existing ordered flat matcher,
+shared refinement action and keyword encoder for String/Symbol/Keyword publication.

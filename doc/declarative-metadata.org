@@ -1,0 +1,145 @@
+#+TITLE: DeclarativeMetadata and ServiceMetadata
+
+* Scope
+
+This advances the generalized-prototype future work about method, type and
+logical metadata. It implements runtime checks; dependent proof receipts and
+arbitrary callback effects remain outside Scheme's guarantees. There is no Lean
+checkout dependency. Names refer to LeanPoo.Functional.DeclarativeMetadata and
+LeanPoo.Functional.ServiceMetadata.
+
+* One native expression protocol
+
+The public model follows ~fun.ss~ and ~io.ss~: ~define-type~, prototype methods,
+~.defgeneric~, and derived method mixins. Private records carry failures only.
+
+- ~Declaration.~ exposes ~name~ and ~.compile~. ~install~ passes compiled edits
+  directly to DispatchExtension; no second method-registration engine exists.
+- ~Formula.~ exposes ~.holds~ and inherits ~.check~ from
+  ~methods.check<-holds~. ~both~, ~either~, ~implies~, and ~deny~ compose decisions
+  at construction. Calls retain short circuiting and Boolean atom checks.
+- ~Predicate.~ inherits ~Type.~. Both refinements and ~typed~ descriptors use
+  existing ~element?~ and ~validate~. There is no separate type interpreter.
+- ~Contract.~ exposes ~.wrap~ and inherits ~.invoke~ from
+  ~methods.invoke<-wrap~. A wrapper turns an existing call into another call;
+  wrappers can nest. Additional source context is forwarded unchanged, while
+  input and relational checks see only the argument row.
+
+#+begin_src scheme
+(def checked (metadata.wrap (service.reservation 10) execute))
+(checked '(2)) ; two values: the checked business result and exact successor state
+#+end_src
+
+Construction of a contract and binding a source are separate costs. CyclicPublication
+binds wrappers once while preparing the candidate. Warm calls reuse the wrapper;
+cache-only successors share it. A revision reruns the retained contract builder
+against the newly cooked view, preventing old capacity captures from leaking.
+
+* Failure and state
+
+Input refusal precedes execution. Raised source errors preserve their cause;
+returned business errors remain values. Output refusal precedes logic refusal.
+A refused output/rule returns no tentative cache successor. ~metadata.publish~
+returns the identical old state on refusal; family publication retains the exact
+old version when construction, metadata preparation, or admission refuses.
+
+Callbacks, type descriptors, formula objects and published views must remain
+stable and pure. POO metadata is open and extensible, not tamper-proof evidence.
+External mutation and arbitrary effects cannot be undone by retaining a value.
+
+* Service composition
+
+~examples/service-metadata.ss~ reuses CyclicAccess's ten Boolean equations and
+cooked view. It declares heterogeneous quote/reserve/cancel signatures, compiles
+existing dispatch edits, attaches a positive-units/output refinement and the
+permission/conservation rule, and probes the completed family before publication.
+A changed capacity/price/invoice rebuilds both implementations and contracts.
+Consent errors remain business results. Invalid capacity, excess quote price or
+revoked access refuses the whole candidate.
+
+This example adapts ServiceMetadata's service concepts to the existing finite
+Scheme graph. It does not implement Lean's fifteen-node selective builder or
+claim complete equivalence of those graph representations. Negative watches
+continue to be provided by DispatchExtension and its existing diamond example.
+
+* Evidence
+
+~t/declarative-metadata-test.ss~ exercises native inheritance, Type interoperability,
+wrapper composition, formula decisions, edit identity and failure priority.
+~t/service-metadata-test.ss~ exercises independent cache warming, freshly bound
+cooked contracts, business errors and atomic refusals.
+
+~just benchmark-metadata~ compiles a native Scheme executable, runs with the
+existing 20-second/1-GiB measurement bound, and validates the complete declared matrix (currently 160 observations).
+Raw/bound/invoke use identical result allocation. Preparation includes graph,
+cooking, declaration installation, wrapper binding and admission. No end-to-end
+speedup is inferred from the microbenchmark. GC-crossing or negative allocation
+deltas are unavailable; their signed diagnostic is retained. Source and binary
+identities are checked before/after measurement; historical studies remain pinned
+to their original sources.
+
+* Composed GenericFamily and StagedPublication models
+
+~generic-family.ss~ implements the native ~GenericFamily.Model.~ protocol:
+~keys~, ~seed~, ~methods~, ~watches~ and derived ~.build~. The default method batch
+is empty. ~metadata.family~ rebinds that batch from declarations while preserving
+inherited keys, seed, watches and custom methods. Build validates an empty seed
+cache, applies the complete edit batch, then checks negative assumptions. Repeated
+keys retain the first installation, matching Lean's ~Partial.build~. Failure
+payloads identify the service key and registration/negative phase.
+
+~staged-publication.ss~ implements ~StagedPublication.Model.~ with ~cook~,
+~generics~, ~contracts~, ~admit~ and derived ~.prepare / .publish~. These bind the
+existing finite cyclic lifecycle; they do not introduce another closure solver,
+dispatch index, certificate or cache representation. The correspondence is to the
+finite positive specialization of Lean's model, not its selective graph builder.
+
+The composition is:
+
+#+begin_src scheme
+(def generics
+  (metadata.family
+    (.cc family.Model. keys: '(quote reserve cancel) seed: seed watches: watches)
+    declarations))
+(def model
+  (.cc staged.Model. generics: generics cook: cook contracts: contracts admit: admit))
+(staged.prepare model equations policy)
+#+end_src
+
+Native staged models retain their bound admission procedure. Every invocation
+checks the exact tentative cache successor before returning it, including a cache
+hit. Admission must return a Boolean. ~publication.probe~ validates the actual
+service/contract but returns only the result and discards the tentative successor;
+admission uses it to avoid recursive re-admission. Negative certificates transfer
+through cache-only changes under the existing immutable/pure premises.
+
+The lower-level cyclic API permits an explicit optional readmission callback;
+without one it retains its documented construction-only admission semantics.
+Native staged models always supply one. A caller cannot claim cache-sensitive
+approval for the lower-level construction-only form.
+
+~examples/service-bundle.ss~ composes the actual C4 diamond, Financial/Card
+contributions, a current-argument Invoice/Bank guard, shape/call absence watches,
+reservation refinements, relational conservation, quote/cancel coherence and a
+joint cache budget. A first quote may pass while a successful reservation is
+refused because the two caches exceed the budget. Revision rebuilds all three
+signatures and their captured metadata from the new cooked view. A forbidden
+extension removed within the same declaration batch passes completed-candidate
+checking; an installed forbidden method refuses the whole release.
+
+The native matrix now has twenty phases and 160 observations. Added protected
+phases cover full preparation, cold/warm joint invocation, low/high guarded cache
+hits, negative refusal, cancelled extension, metadata refusal and post-call joint
+refusal. Preparation and re-admission costs are included. The original 88-row
+~metadata-benchmarks.scm~ remains in the historical archive; the local study is saved under the ignored
+~.build/metadata/~ directory. Neither study establishes end-to-end acceleration.
+
+* Selective component specialization
+
+The staged Model now exposes ~.construct / .refresh~ hooks. Defaults preserve
+Boolean cyclic closure; ~methods.construction<-cache~ supplies generalized DAG
+materialization through the same family/contract/admission boundary. See
+[[file:construction-cache.org][selective construction]] for exact source identity and genuinely skipped builders.
+The current native matrix has 29 phases / 232 observations; raw results are
+ignored build output. Earlier counts and scope descriptions refer to historical
+additions preserved in the archive.
