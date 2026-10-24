@@ -1821,3 +1821,18 @@ Function identities, origin invalidation and conflict/refusal retry are retained
 See set-algebra.md for complete API, independent four-operation revision oracles,
 grant/revocation publication and companion finite Lean laws. Existing automatic
 symmetry discovery and destructive-storage research boundaries are unchanged.
+
+
+### Finite multivalued Set image
+
+Closed the finite relation unit absent from the single-output image: explicit
+`multiple?: #t` reuses `table-indexes` multikey grouping rather than introducing a
+parallel deduplication engine. Empty and duplicate memberships, shared-owner
+retraction, exact target deltas, Function identity, metadata refusal and immutable
+failure/retry share one protocol. Typed service-catalog migration uses the existing
+five-style Reader/FUN/IO publisher; no target snapshot `.diff` is rediscovered.
+Companion finite Lean laws cover relation membership, singleton alignment,
+idempotence, empty output, selective/delta repair and inverse recovery. See
+set-algebra.md for full admission costs, stable finite projection premises and
+research boundaries. This implements explicit finite relations, not automatic
+symmetry discovery or arbitrary mutable dependency tracking.

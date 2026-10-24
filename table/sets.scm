@@ -226,16 +226,28 @@
 ;; explicit origins invalidate both reads and updates. Grouped indexes own all
 ;; deduplication/retraction. Only complete source/target roots face refinements;
 ;; private owner buckets use structural key spaces, never business refinements.
-(def (set-image source target transform (origins []))
-  (using ((transform :~ procedure?) (origins :~ list?))
+;; Explicit multiple? accepts a finite list, including empty/duplicate outputs;
+;; a list-valued single key remains unambiguous in the default cardinality.
+(def (set-image source target transform (origins []) multiple?: (multiple? #f))
+  (using ((transform :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
     (with-set-inputs source [] (lambda ()
       (with-set-inputs target [] (lambda ()
         (def primary (table-key-table (.@ source Table) Unit))
         (def groups (table-key-table (.@ target Table) primary))
         (def touched (table-key-table (.@ target Table) Unit))
+        ;; Share cardinality and recognition between cold index preparation and
+        ;; warm touched-key discovery. Admit leaves without cooking Functions.
+        (def (image-keys key)
+          (def output (transform key))
+          (def keys (if multiple? output (list output)))
+          (using (keys :~ list?)
+            (for-each (lambda (key)
+              (unless (element? (.@ target Elt) key)
+                (raise-type-error (.@ target Elt) key 'set-image))) keys)
+            keys))
         (def indexes (table-indexes primary
-          (list (.o name: 'image table: groups unique?: #f
-            project: (lambda (key _row) (transform key))))))
+          (list (.o name: 'image table: groups unique?: #f multiple?: #t
+            project: (lambda (key _row) (image-keys key))))))
         (def sources (delete-duplicates/hash
           (append (list source target indexes) origins (.@ indexes .sources)
             (if (.has? source .sources) (.@ source .sources) [])
@@ -289,14 +301,13 @@
                 (def keys (with-list-builder (emit)
                   (for-each (lambda (change)
                     (def key (table-change-key change))
-                    ;; A deleted/inserted owner has the same stable image key.
+                    ;; Deleted/inserted owners retain the same stable finite
+                    ;; image. The backend registry coalesces shared/duplicate keys.
                     (when (or (.call primary .key? before key) (.call primary .key? after key))
-                      (let (output (transform key))
-                        (unless (element? (.@ target Elt) output)
-                          (raise-type-error (.@ target Elt) output 'set-image))
+                      (for-each (lambda (output)
                         (unless (.call touched .key? seen output)
                           (set! seen (.call touched .acons output (void) seen))
-                          (emit output))))) (table-delta-changes delta))))
+                          (emit output))) (image-keys key)))) (table-delta-changes delta))))
                 (def edits (with-list-builder (emit)
                   (for-each (lambda (key)
                     (def old (.call (.@ target Table) .ref/opt (%set-image-target state) key))

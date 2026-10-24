@@ -308,14 +308,18 @@ regressions, rather than claimed as Lean-verified implementation code.
 
 ## Many-to-one image and incremental deduplication
 
-`(set-image Source Target project [origins])` returns the existing Wrapper-shaped
+`(set-image Source Target project [origins] multiple?: #f)` returns the existing Wrapper-shaped
 protocol: `.ap` prepares a source snapshot, `.unap` reads it, `.get` observes its
 image and `.apply-delta` prepares a successor. Its optional `receive` continuation
 gets `(next target-delta)`; use Gerbil `values` for both, or reuse the existing
 projection style/Reader/FUN/IO publication action.
 
 The stable, pure, key-local projection must respect the two declared backend key
-equalities. Every source element contributes exactly one target element. Grouped
+equalities. The default contributes one target element per source element.
+Explicit `multiple?: #t` accepts a proper finite list of target elements; empty
+lists contribute nothing and duplicate memberships are idempotent. A list-valued
+single key remains one key in the default mode. No sentinel or `Any` fallback is
+introduced. Grouped
 `table-indexes` buckets track owners: removing one owner retains membership,
 removing the last owner emits one removal. Logical target equality coalesces
 multiple owners; this intentionally differs from unique-key table projection.
@@ -398,3 +402,41 @@ coalescing, complete target-delta installation, inverse recovery and preparation
 refusal; publication reuses existing style laws. This remains a finite explicit
 construction advancing the collection proposal's future work, under persistence,
 faithful recognition and coherent key-equality premises.
+
+
+### Finite multivalued image
+
+The same image protocol now maintains the union of finite per-owner permissions,
+using `table-indexes`' existing `multiple?` declaration. Cold and warm projection
+share one cardinality/recognition function; leaves are recognized without
+normalizing admitted Functions. Each touched owner's entire output list must be
+admitted before its memberships can be installed. Complete source expectations
+still precede projection; complete target refinement precedes delivery.
+
+For `project(1) = [10,20,20]`, `project(2) = [20,30]`,
+`project(3) = [30,40]` and `project(4) = []`, migrating services `{1,2}` to
+`{3,4}` delivers exactly three edits: remove 10/20, add 40. Permission 30 survives
+its owner migration without a target write. Removing only service 1 retains the
+second owner's permission 20. Removing the last owner removes that permission;
+inverse source deltas restore the grouped relation, and inverse target deltas
+restore target membership without reconstructing an inverse relation.
+
+`make-service-permission-image` in `examples/service-collection.ss` captures a
+persistent typed service catalog. Missing service assignments refuse; catalog
+and declared metadata changes invalidate old images. The existing
+`publish-access-image-action` publishes its exact delta through all five styles
+and Reader/FUN/IO. Regression controls include stale public expectations with
+consumer suppression, corrected retry, target inverse recovery, 24 selective
+revision rounds against a flattened list oracle, empty/duplicate grants,
+Function identity, malformed output refusal and inherited no-edit origins.
+
+Work is proportional to the memberships projected for edited owner occurrences,
+plus existing source/index/target recognition and backend costs. Repeated edit
+occurrences may repeat pure projection; this is not a cached catalog evaluator or
+a constant-time validation claim. Lists and projectors must terminate; arbitrary
+relation discovery, mutable catalog tracking, automatic inverses and destructive
+rollback remain research boundaries. A catalog revision requires constructing a
+new image rather than reusing an invalidated state. The finite Lean laws reuse
+`indexKeysView`/`reviseIndexKeys` for existential relation membership, singleton
+alignment, duplicate/empty output semantics, frame repair, checked delta repair
+and inverse recovery. Existing occupancy and publication laws apply unchanged.
