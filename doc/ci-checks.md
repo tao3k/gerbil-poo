@@ -149,7 +149,7 @@ Source tests use the released harness after shared compilation, without a
 fabricated source symlink tree or changes to `GERBIL_LOADPATH`.
 
 `just build` keeps the existing complete local inventory: shared compilation,
-then four disjoint test batches through at most two fresh interpreters. The
+then eight disjoint test batches through at most two fresh interpreters. The
 small `t/build.ss` boundary maintains the 1 GiB heap, 300-second stage deadline,
 1200-second whole deadline, owned process-group cleanup and actual make progress.
 The temporary SSI-first view retains source mtimes and releases expansion state;
