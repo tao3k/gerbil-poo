@@ -2166,3 +2166,19 @@ registration and exact collision causes to explicit logical-bijection injectivit
 The implementation reuses the existing translator and standard backend empty / point-insertion /
 membership protocol. Registry construction/probing and complete admission retain
 their costs; inferred quotients and arbitrary converters remain research boundaries.
+
+### Owned change capture across provider and callback reuse
+
+Closed mutable Option-shell aliasing in snapshot/point delta capture. `.diff`
+captures both event shells before any child recognizer and admits each event;
+point requests own old lookup values before callbacks and replacements before
+recognition. Seeded import, merge argument and Set-image retained-result boundaries
+follow the same existing Option capture discipline. Private composition, inverse,
+transport and installation need no additional wrapping. Reusable provider controls
+cover stored false, Function identity, late refusal, retry, unique-index swaps,
+aggregate/representation workflows and all five publication styles. The new
+functional Lean module proves owned-history, ordered capture, replay/inverse and
+recognition-interference laws without enlarging the existing revision module.
+Stable admitted leaves and synchronized emission remain explicit premises;
+arbitrary deep copies and runtime heap verification are not claimed. See
+[table-batches.md](table-batches.md) for scope, costs and design reflection.

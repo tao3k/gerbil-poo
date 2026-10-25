@@ -157,7 +157,14 @@
       (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
         (with-list-builder (emit)
           (.call descriptor .for-each-change
-            (lambda (key old next) (emit (make-table-change key old next))) before after))))))
+            (lambda (key old next)
+              ;; Own BOTH producer shells before child recognition or another emit.
+              (def prior (map/option identity old))
+              (def following (map/option identity next))
+              (require-table-key descriptor key)
+              (require-table-option (.@ descriptor Value) prior)
+              (require-table-option (.@ descriptor Value) following)
+              (emit (make-table-change key prior following))) before after))))))
 
 ;; Capture a single optional update without constructing a trial table or scanning
 ;; for differences. Admission is non-normalizing; callback/typed refusal produces
@@ -169,12 +176,11 @@
     (with-table-sources sources (lambda ()
       (require-table descriptor before)
       (require-table-key descriptor key)
-      (def old (.call descriptor .ref/opt before key))
+      (def old (map/option identity (.call descriptor .ref/opt before key)))
       ;; Option boxes are callback-owned; copy their shells, retaining exact leaves.
       ;; Mutating an argument/result box cannot rewrite a captured expectation.
-      (def response (transform (map/option identity old)))
-      (require-table-option (.@ descriptor Value) response)
-      (def after (map/option identity response))
+      (def after (map/option identity (transform (map/option identity old))))
+      (require-table-option (.@ descriptor Value) after)
       (make-table-delta (.@ descriptor Key) (.@ descriptor Value) sources (map object-revision sources)
         (if (table-option=? old after) [] (list (make-table-change key old after))))))))
 

@@ -356,7 +356,7 @@
                           (emit output))) (image-keys key)))) (table-delta-changes delta))))
                 (def edits (with-list-builder (emit)
                   (for-each (lambda (key)
-                    (def old (.call (.@ target Table) .ref/opt (%set-image-target state) key))
+                    (def old (map/option identity (.call (.@ target Table) .ref/opt (%set-image-target state) key)))
                     (def present? (some? (.call indexes .index-ref/opt indexed 'image key)))
                     (unless (eq? (some? old) present?)
                       (emit (make-table-change key old (and present? (some (void))))))) keys)))

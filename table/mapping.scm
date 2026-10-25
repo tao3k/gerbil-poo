@@ -38,7 +38,7 @@
           (let* ((before (car seeds))
                  (changes (with-list-builder (emit)
                    (.call registry .for-each (lambda (key value)
-                     (def old (.call descriptor .ref/opt before key))
+                     (def old (map/option identity (.call descriptor .ref/opt before key)))
                      (def next (some value))
                      (unless (table-option=? old next)
                        (emit (make-table-change key old next)))) updates))))
@@ -241,11 +241,13 @@
       ;; Backend callbacks must describe actual admitted keys and optional values.
       ;; The specialized traversal's visitation order remains its own contract.
       (def (project key a b)
+        ;; Snapshot both backend shells before any recognizer can reuse them.
+        (def l (map/option identity a)) (def r (map/option identity b))
         (require-table-key descriptor key)
-        (require-table-option (.@ descriptor Value) a)
-        (require-table-option (.@ descriptor Value) b)
+        (require-table-option (.@ descriptor Value) l)
+        (require-table-option (.@ descriptor Value) r)
         (require-table-option (.@ descriptor Value)
-          (map/option identity (choose key (map/option identity a) (map/option identity b)))))
+          (map/option identity (choose key l r))))
       (def result (if (.has? descriptor .merge/key/opt)
         (.call descriptor .merge/key/opt project left right)
         (let (changes (with-list-builder (emit)

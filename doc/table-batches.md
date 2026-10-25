@@ -135,3 +135,48 @@ Design reflection: replace incremental business-root construction and Set seed
 rescanning with one declared key registry and the existing final installer. Use
 standard Iterable/FUN/IO and the shared ownership step; do not duplicate caching,
 index algorithms or public validation wrappers, and introduce no namespace.
+
+## Owned change capture from borrowed Option providers
+
+A provider may reuse an Option shell after a synchronous lookup/emission has been
+consumed. `.diff` now snapshots both old/new shells before key or value recognition,
+then checks the key and both Option payloads before retaining a private change.
+Malformed tails return the original refusal rather than a partially built delta.
+A present false remains distinct from absence. Producer exceptions still escape;
+external provider or recognizer effects are not rolled back.
+
+Point capture snapshots its lookup result before invoking the transform and its
+response before invoking child recognition. Reading another key inside a transform,
+or mutating the returned provider shell during recognition, therefore cannot
+rewrite the old expectation or replacement. The callback argument is a separate
+shell. Function handles and other admitted leaves keep their identity; mutable
+leaves/keys must remain stable. This is shell ownership, not recursive cloning or
+an atomic snapshot of unsynchronized concurrent provider writes.
+
+The same borrowed-result audit covers seeded Iterable old values, binary merge
+arguments before recognizers and retained Set-image target deltas. Each producer
+captures at its first borrowing boundary with the existing `map/option identity`.
+Internal change construction, composition, inverse and transport continue to reuse
+the already private payloads; no global memo, constructor-wide copying hook or
+public method wrapper layer is added.
+
+`table-capture-test.ss` combines reusable lookup/event shells, stored false,
+recognizer interference, malformed late events, retry, indexed Boolean swaps,
+Tuple/Pair Function rows, aggregate updates, seeded imports, Set-image inversion
+and five-style FUN/IO publication. It reuses the existing service workflows and
+standard backends. The `collection-deltas` test group keeps capture/batch/transport
+compiler responsibilities bounded; no check, heap limit or deadline is removed.
+
+`TableCapture.lean` models typed borrowed cells and emission-time snapshots in the
+existing ordered dictionary namespace. Laws preserve key order, event count,
+composition, exact observed leaves, replay and inverse after shell writes, and
+pre-recognition values with exact admission refusal. Recognizer heap effects are
+retained separately from the returned event. Physical heap primitives, deep leaf
+stability and provider synchronization remain premises; this is not a runtime
+memory proof. Copies and key/value predicate costs remain charged per event, and
+complete source admission still has its original costs. No latency claim follows.
+
+Design reflection: ownership is established once where a provider/callback hands
+over a borrowed shell. Copying at every internal change constructor would add
+redundant allocations and still be too late for callbacks that reuse a lookup.
+The existing Option function and private change records provide the needed layer.

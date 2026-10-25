@@ -217,7 +217,7 @@
       (for-each (lambda (name)
         (def files (test-files name))
         (check (and (pair? files) (<= (length files) 8)) => #t))
-        '("collections" "collection-order" "collection-updates" "collection-styles" "backends")))
+        '("collections" "collection-order" "collection-updates" "collection-deltas" "collection-styles" "backends")))
     (test-case "matching bytes permit reuse while all changed identity axes refuse"
       (def record '(test-group "objects" "compiler-and-library" "tests" "original-producer"))
       (check (artifact-key-valid? record "objects" "compiler-and-library" "tests") => #t)
