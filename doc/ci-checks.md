@@ -51,7 +51,14 @@ warm CI receipts, rather than a subset build's duration alone, qualify any speed
 ## Commands and limits
 
 `just build` still builds the entire original inventory. CI uses
-`just build library`, then `just build-group GROUP` with an explicit output directory. Standard Gerbil load paths supply shared imports.
+`just build qualification`, then `just build-group GROUP` with an explicit output
+directory. Qualification includes every example, test helper and benchmark support
+root. Group specifications contain exactly their checked test roots, retaining
+declared included-case inputs. Standard Gerbil interfaces and load paths reuse the
+qualified support outputs; those modules must not be declared for compilation into
+each group's separate output again. Regressions check this ownership for every
+group and keep all support roots in qualification. A cold group build and the
+complete single-process suite run under the original heap and deadline limits.
 `test-files` rejects unknown groups and validates complete, duplicate-free source
 coverage before the ephemeral Actions matrix is emitted. No matrix JSON is
 source-controlled.

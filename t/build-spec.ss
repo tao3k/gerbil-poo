@@ -5,7 +5,7 @@
   (only-in :std/make include-gambit-sharp pkg-config-libs)
   (only-in :std/build-script defbuild-script)
   (only-in :std/source this-source-file)
-  (only-in :std/list/list delete-duplicates/hash take)
+  (only-in :std/list/list take)
   (only-in "test-groups.ss" test-files test-batch))
 
 ;; Gambit's supported large-procedure limit applies to shared AND executable
@@ -239,18 +239,16 @@
                       ((? string?) spec)
                       ([gxc: file . _] file)) roots))
           +gerbil-poo-build-spec+))
-(def (test-support-spec)
-  (filter (lambda (spec)
-            (and (string? spec) (string-prefix? "t/" spec)))
-          +gerbil-poo-build-spec+))
 ;; Standard make must see included test cases just like the library's table includes.
-;; Keep one module/inventory entry; extra-inputs owns freshness after case edits.
+;; Qualification already compiles every support module. The SSI-first test view
+;; and standard loader reuse those outputs; declaring them again here recompiles
+;; the entire benchmark graph into every group's distinct output directory.
+;; Keep only this group's checked roots; extra-inputs owns included-case freshness.
 (def (test-build-spec files)
-  (delete-duplicates/hash (append (test-support-spec)
-    (map (lambda (file)
+  (map (lambda (file)
       (def root (path-strip-extension file))
       (if (equal? root "t/table-mapping-test")
-        `(gxc: ,root (extra-inputs: ("t/table-mapping/composition.scm"))) root)) files))))
+        `(gxc: ,root (extra-inputs: ("t/table-mapping/composition.scm"))) root)) files))
 
 ;; Keep selection explicit. Standard compile/clean/spec/meta arguments pass
 ;; unchanged to defbuild-script; only project inventories are selected here.

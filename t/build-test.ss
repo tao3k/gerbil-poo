@@ -106,7 +106,15 @@
       (for (item library)
         (check (and (member item complete) #t) => #t))
       (check-equal? (length tests) (length (delete-duplicates/hash tests)))
-      (check (and (member "t/test-runner" tests) #t) => #t)
+      ;; Shared support retains complete qualification, without a second compile
+      ;; into every isolated group. The ordinary loader still resolves its SSI.
+      (for (support '("t/test-runner" "t/table-testing" "t/factory-benchmark"))
+        (check (and (member support complete) #t) => #t)
+        (check (and (member support tests) #t) => #f)
+        (check (and (member support batch) #t) => #f))
+      (for (group (checked-groups))
+        (def selected (map name (car (build-request ["tests" (car group) "/tmp/poo-test-output"]))))
+        (check-equal? selected (map path-strip-extension (test-files (car group)))))
       (check (and (member "object" (library-modules)) #t) => #t)
       (check (andmap (lambda (file) (not (or (string-prefix? "examples/" file)
         (string-prefix? "t/" file)))) (library-modules)) => #t)
