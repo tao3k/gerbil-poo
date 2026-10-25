@@ -554,16 +554,18 @@
     protocol consume))
 
 
-;; Expand each service onto enabled workers in its explicitly shared group. Pair
+;; Expand each service onto enabled workers in its explicitly shared groups. Pair
 ;; identities keep placements distinct; admitted callbacks pass through unchanged.
-;; The common join publisher handles exact deltas and all five ownership styles.
-(def (make-service-placement-join services workers placements groups pairs)
+;; Explicit multiple? allows cohort lists; sharing two cohorts places a service
+;; once. The common publisher handles exact deltas and all five ownership styles.
+(def (make-service-placement-join services workers placements groups pairs multiple?: (multiple? #f))
   (table-group-join services workers placements groups pairs
     (lambda (_key row) (vector-ref row 0))
     (lambda (_key row) (vector-ref row 0))
     (lambda (service-key service-row worker-key worker-row)
       (and (vector-ref worker-row 1)
-        (some (cons (cons service-key worker-key) (vector-ref service-row 1)))))))
+        (some (cons (cons service-key worker-key) (vector-ref service-row 1)))))
+    multiple?: multiple?))
 
 ;; Expand one service's declared route keys while retaining its checked callback.
 ;; Shared projection ownership rejects duplicate keys, prepares final-state swaps,

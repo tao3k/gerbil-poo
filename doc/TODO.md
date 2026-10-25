@@ -1928,6 +1928,20 @@ laws. See collections.md for stable callback/key and persistent backend premises
 classifier spine ownership costs and complete affected-bucket refolding. Automatic
 aggregate/dependency discovery remains a research boundary, not this finite unit.
 
+### Finite multivalued grouped joins
+
+Closed the explicit association gap between multikey indexes and grouped joins:
+`table-group-join multiple?: #t` matches pairs sharing any cohort, coalesces common
+witnesses before projection and retains a match despite later nonmatching groups.
+Existing indexes, pair registries, exact projection deltas and style/FUN/IO
+publication remain the implementation. Mixed two-source revisions, Cartesian
+oracles, checked Functions, inverse recovery, malformed membership, collision
+refusal/retry, origins and single list-valued keys have regressions and finite
+Lean laws. See table-mapping.md for complete affected-pair coverage, pure stable
+classification/equality/persistence premises and dense/multiple-bucket costs.
+Automatic relation discovery remains a research boundary; the general proposal
+is not marked complete by this finite composition unit.
+
 ### Checked single-entry decomposition
 
 Closed the concrete `decons` interface item previously listed in `table.ss`:

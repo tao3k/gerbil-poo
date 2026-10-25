@@ -509,9 +509,10 @@
 ;; groups supplies group-key equality; pairs supplies pair-key equality through
 ;; its declared Pair Key and .key-table capability. Pure classification and faithful
 ;; component equality are premises. Existing projection owns all output collisions.
-(def (table-group-join left right target groups pairs classify-left classify-right project (origins []))
+(def (table-group-join left right target groups pairs classify-left classify-right project (origins [])
+                      multiple?: (multiple? #f))
   (using ((classify-left :~ procedure?) (classify-right :~ procedure?)
-          (project :~ procedure?) (origins :~ list?))
+          (project :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
     (with-table-sources (append (list left right target groups pairs) origins) (lambda ()
       (def pair-key (.@ pairs Key))
       (unless (and (.has? pair-key left) (.has? pair-key right)
@@ -519,10 +520,14 @@
         (error "join requires declared component Pair keys"))
       (def ltype (table-key-table left (.@ left Value)))
       (def rtype (table-key-table right (.@ right Value)))
+      ;; Explicit multiplicity follows indexes and projections; ordinary list-valued
+      ;; group keys still denote one group. Both indexes share membership admission.
+      (def cl (if multiple? classify-left (lambda (key row) (list (classify-left key row)))))
+      (def cr (if multiple? classify-right (lambda (key row) (list (classify-right key row)))))
       (def li (table-indexes ltype (list (.o name: 'group unique?: #f
-        table: (table-key-table groups ltype) project: classify-left))))
+        table: (table-key-table groups ltype) multiple?: #t project: cl))))
       (def ri (table-indexes rtype (list (.o name: 'group unique?: #f
-        table: (table-key-table groups rtype) project: classify-right))))
+        table: (table-key-table groups rtype) multiple?: #t project: cr))))
       (def row-type (Pair (.@ left Value) (.@ right Value)))
       (def joined (table-key-table pairs row-type))
       (def touched (table-key-table pairs Unit))
@@ -551,10 +556,10 @@
             (action))))
         ;; Enumerate one row's matching bucket, retaining admitted Function leaves.
         (def (matches index snapshot classify key row visit)
-          (def group (classify key row))
-          (require-table-key groups group)
-          (def bucket (.call index .index-ref/opt snapshot 'group group))
-          (when (some? bucket) (visit (some-value bucket))))
+          (for-each (lambda (group)
+            (def bucket (.call index .index-ref/opt snapshot 'group group))
+            (when (some? bucket) (visit (some-value bucket))))
+            (require-table-index-keys (.@ groups Key) (classify key row) 'table-group-join)))
         ;; Admit both complete roots before constructing either grouped index.
         (def (initialize input)
           (using (input :~ pair?)
@@ -562,10 +567,16 @@
             (guard sources (lambda ()
               (require-table left l) (require-table right r)
               (def il (.call li .wrap l)) (def ir (.call ri .wrap r))
+              (def seen (and multiple? (.@ touched .empty)))
               (def rows (with-list-builder (emit)
                 (.call ltype .for-each (lambda (lk lv)
-                  (matches ri ir classify-left lk lv (lambda (bucket)
-                    (.call rtype .for-each (lambda (rk rv) (emit (cons (cons lk rk) (cons lv rv)))) bucket)))) l)))
+                  (matches ri ir cl lk lv (lambda (bucket)
+                    (.call rtype .for-each (lambda (rk rv)
+                      (def key (cons lk rk))
+                      ;; Multiple common groups still own just one joined row.
+                      (unless (and multiple? (.call touched .key? seen key))
+                        (when multiple? (set! seen (.call touched .acons key (void) seen)))
+                        (emit (cons key (cons lv rv))))) bucket)))) l)))
               (def projected (.call projection .ap (.call joined .<-list rows)))
               (make-%table-group-join owner il ir projected sources versions)))))
         ;; Stage both source installers once, before either index classifier.
@@ -598,13 +609,13 @@
                       (def lk (table-change-key change))
                       (def lv (.call ltype .ref/opt (.call li .unwrap sl) lk))
                       (when (some? lv)
-                        (matches ri sr classify-left lk (some-value lv) (lambda (bucket)
+                        (matches ri sr cl lk (some-value lv) (lambda (bucket)
                           (.call rtype .for-each (lambda (rk _rv) (visit lk rk)) bucket))))) (table-delta-changes dl))
                     (for-each (lambda (change)
                       (def rk (table-change-key change))
                       (def rv (.call rtype .ref/opt (.call ri .unwrap sr) rk))
                       (when (some? rv)
-                        (matches li sl classify-right rk (some-value rv) (lambda (bucket)
+                        (matches li sl cr rk (some-value rv) (lambda (bucket)
                           (.call ltype .for-each (lambda (lk _lv) (visit lk rk)) bucket))))) (table-delta-changes dr)))
                     (list (cons old-l old-r) (cons il ir)))))
                 (def before (.call projection .unap (%table-group-join-projection state)))
@@ -612,9 +623,11 @@
                   (def lv (.call ltype .ref/opt l (car key)))
                   (def final #f)
                   (when (some? lv)
-                    (matches ri ir classify-left (car key) (some-value lv) (lambda (bucket)
-                      (set! final (map/option (lambda (rv) (cons (some-value lv) rv))
-                        (.call rtype .ref/opt bucket (cdr key)))))))
+                    (matches ri ir cl (car key) (some-value lv) (lambda (bucket)
+                      ;; Absence from a later group cannot erase an earlier match.
+                      (unless (some? final)
+                        (set! final (map/option (lambda (rv) (cons (some-value lv) rv))
+                          (.call rtype .ref/opt bucket (cdr key))))))))
                   (make-table-change key (map/option identity (.call joined .ref/opt before key)) final)) keys))
                 (def delta (make-table-delta pair-key row-type live (map object-revision live) edits))
                 (.call projection .apply-delta (%table-group-join-projection state) delta

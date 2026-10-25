@@ -92,10 +92,12 @@
       (for (file (test-files "objects"))
         (check (and (member (path-strip-extension file) tests) #t) => #t))
       (def batch (car (build-request '("batch" "2"))))
-      (for (file (test-batch 2))
-        (check (and (member (path-strip-extension file) batch) #t) => #t))
-      (def complete (car (build-request '("qualification" "spec"))))
+      ;; Standard gxc specifications retain extra inputs; compare module roots
+      ;; independently of which numbered batch receives that declaration.
       (def (name item) (if (string? item) item (cadr item)))
+      (for (file (test-batch 2))
+        (check (and (member (path-strip-extension file) (map name batch)) #t) => #t))
+      (def complete (car (build-request '("qualification" "spec"))))
       (check-equal? (map name library) (library-modules))
       (for (item complete)
         (check (and (or (member item library)
