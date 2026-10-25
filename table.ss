@@ -6,6 +6,7 @@
         table-key-space table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
         table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-group-fold table-projection table-group-join table-lookup-join set-image set-combination table-wrapper
+        table-projection-compose
         table-isomorphism-failure? table-isomorphism-failure-kind table-isomorphism-failure-value
         table-conflict? table-conflict-key)
 

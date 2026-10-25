@@ -1212,6 +1212,17 @@ hold values of slots modified by side-effects.
 
 ## Generic Data Structure Library
 
+**Incremental unary-view composition** now closes the missing chain between
+existing projection and grouped-aggregate caches. `table-projection-compose`
+requires an identical declared middle descriptor and delivers its exact delta,
+without snapshot `.diff` or repeated wrapping. Both immutable successors remain
+private until the whole chain accepts; stale/foreign caches, no-op origin
+invalidation, downstream collision/refusal, batch coalescing, inverse recovery,
+explicit retry and five-style Reader/FUN/IO publication have integrated controls.
+See [table-mapping.md](table-mapping.md) for admission costs and the conditional
+Lean connection/invariant laws. Binary revision synchronization, arbitrary view
+discovery and destructive/effect rollback are outside this explicit unary unit.
+
 On top of Gerbil-POO, build an
 [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
 

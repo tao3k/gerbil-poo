@@ -322,6 +322,63 @@
           .ap: initialize .unap: (cut observe <> table-projection-state-source)
           .get: (cut observe <> table-projection-state-target) .apply-delta: update)))))))
 
+;; One private pair owns both immutable view caches, never a predecessor chain.
+(defstruct %table-projection-chain (owner upstream downstream) final: #t)
+
+;; Compose unary table views by delivering the upstream's exact output delta to
+;; the downstream. Descriptor identity at the middle is intentional: representation
+;; changes require an explicit view. Existing views own admission, origins, logical
+;; equality and collision refusal; this layer neither diffs nor wraps their leaves.
+(def (table-projection-compose upstream downstream)
+  (with-table-sources (list upstream downstream) (lambda ()
+    (def source (.@ upstream Domain))
+    (def middle (.@ upstream Value))
+    (def target (.@ downstream Value))
+    (unless (eq? middle (.@ downstream Domain)) (error "incompatible projection composition"))
+    (def sources (delete-duplicates/hash
+      (append (list upstream downstream) (table-sources source) (table-sources middle)
+        (table-sources target) (.@ upstream .sources) (.@ downstream .sources))
+      table: (make-hash-table-eq) from-end?: #t))
+    (with-table-sources sources (lambda ()
+      (def versions (map object-revision sources))
+      (def owner (list upstream downstream))
+      ;; Hold both declarations across callbacks; a change requires fresh caches.
+      (def (guard action)
+        (with-table-sources sources (lambda ()
+          (unless (equal? versions (map object-revision sources))
+            (error "stale projection composition"))
+          (action))))
+      ;; Both subordinate observations must succeed before exposing either endpoint.
+      ;; Their existing guards also admit inherited delta origins, including no-ops.
+      (def (observe state receive)
+        (guard (lambda ()
+          (unless (and (%table-projection-chain? state)
+                       (eq? owner (%table-projection-chain-owner state)))
+            (error "incompatible projection composition state"))
+          (receive (.call upstream .unap (%table-projection-chain-upstream state))
+                   (.call downstream .get (%table-projection-chain-downstream state))))))
+      ;; Initialize each cache once; the middle root is already fully admitted.
+      (def (initialize input)
+        (guard (lambda ()
+          (def first (.call upstream .ap input))
+          (def second (.call downstream .ap (.call upstream .get first)))
+          (make-%table-projection-chain owner first second))))
+      ;; Immutable successors remain private until BOTH installs succeed. Failure
+      ;; preserves the caller's old state; effects inside callbacks are not undone.
+      (def (update state delta (receive (lambda (next _delta) next)))
+        (using (receive :~ procedure?)
+          (observe state (lambda (_source _target)
+            (.call upstream .apply-delta (%table-projection-chain-upstream state) delta
+              (lambda (first middle-delta)
+                (.call downstream .apply-delta (%table-projection-chain-downstream state) middle-delta
+                  (lambda (second output-delta)
+                    (receive (make-%table-projection-chain owner first second) output-delta)))))))))
+      (.cc Wrapper. Domain: source Value: target .sources: sources
+        .ap: initialize
+        .unap: (lambda (state) (observe state (lambda (input _output) input)))
+        .get: (lambda (state) (observe state (lambda (_input output) output)))
+        .apply-delta: update))))))
+
 ;; A lookup join keeps independent immutable source heads and the existing
 ;; projection state. No mutable ambient right-hand context is shared by branches.
 (defstruct %table-lookup-join (owner indexed right projection sources versions) final: #t)

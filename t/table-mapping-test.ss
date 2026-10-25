@@ -12,6 +12,7 @@
 ;; Compare both backends with an independent original-row oracle and all styles.
 (def table-mapping-test
   (test-suite "checked bulk binding maps"
+    (include "table-mapping/composition.scm")
     (test-case "finite projection expands empty and shared Function rows through every publication style"
       (def callback (Fun Integer <- Integer))
       (def f (validate callback (lambda (n) (+ n 1))))

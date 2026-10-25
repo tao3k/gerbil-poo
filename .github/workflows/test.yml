@@ -32,7 +32,7 @@ jobs:
       - name: Validate every test module and emit its functional group
         id: groups
         env:
-          TEST_SOURCE_KEY: ${{ hashFiles('t/*-test.ss') }}
+          TEST_SOURCE_KEY: ${{ hashFiles('t/*-test.ss', 't/**/*.scm') }}
         run: |
           matrix="$(gxi t/test-matrix.ss)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"

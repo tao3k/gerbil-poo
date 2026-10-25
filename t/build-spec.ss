@@ -243,8 +243,14 @@
   (filter (lambda (spec)
             (and (string? spec) (string-prefix? "t/" spec)))
           +gerbil-poo-build-spec+))
+;; Standard make must see included test cases just like the library's table includes.
+;; Keep one module/inventory entry; extra-inputs owns freshness after case edits.
 (def (test-build-spec files)
-  (delete-duplicates/hash (append (test-support-spec) (map path-strip-extension files))))
+  (delete-duplicates/hash (append (test-support-spec)
+    (map (lambda (file)
+      (def root (path-strip-extension file))
+      (if (equal? root "t/table-mapping-test")
+        `(gxc: ,root (extra-inputs: ("t/table-mapping/composition.scm"))) root)) files))))
 
 ;; Keep selection explicit. Standard compile/clean/spec/meta arguments pass
 ;; unchanged to defbuild-script; only project inventories are selected here.

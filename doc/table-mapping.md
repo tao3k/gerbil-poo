@@ -1,5 +1,45 @@
 # Checked bulk binding maps
 
+## Composed incremental views
+
+`(table-projection-compose upstream downstream)` closes the unary view chain.
+The upstream `Value` must be the identical descriptor as downstream `Domain`;
+representation conversion needs an explicit view. Both endpoints must be tables.
+Existing `table-projection`, `table-group-fold` and recursively composed views
+share `.ap`, `.unap`, `.get`, `.sources` and continuation-bearing `.apply-delta`.
+Binary joins retain their separate two-input revision protocol.
+
+Cold construction initializes each cache once. Warm revision delivers the exact
+upstream output delta directly to the downstream cache, including zero-edit deltas
+with origins. It never calls middle/target `.diff`, reconstructs a middle cache,
+or normalizes Function leaves. Each stage still pays its original whole-root
+recognition, registry, affected-bucket and backend installation costs. Sparse
+callback counts do not establish a sublinear complete operation or a wall-time win.
+
+Both declarations and their complete declared sources stay protected across the
+chain. Foreign caches and descriptor mismatch refuse; source conflicts, stale
+origins, projection/collision/refinement failures preserve their original causes.
+Neither successor cache nor the final receive continuation is exposed unless
+both stages accept. The old immutable state remains available for explicit retry.
+Callback effects are not rolled back. Final public style installation is a distinct
+existing commit boundary; refusal there returns no composed successor to the caller.
+
+The returned exact final delta supports all five existing publication styles and
+ordinary inverse target installation. Source inverses can drive the same chain to
+recover observations under stable pure projections; no inverse projection is
+invented. `make-service-route-summary` combines multivalued service expansion and
+selective per-cohort aggregation; it uses the existing Reader/FUN/IO publisher.
+
+Regression tests cover nested chains, coalesced revisions, inherited no-op origins,
+Function identity and call guards, descriptor invalidation, conflicts, collision,
+retry, inverse recovery and all five styles. `TableProjection.lean` models the
+shared delta-delivery kernel, proves both-success witnesses, connected middle
+observations under faithful per-view laws, invariant preservation, refusal before
+publication and the sum of the existing callback bounds. Gerbil metadata guards,
+callbacks, persistence and backend equality remain explicit implementation premises;
+these laws do not prove the compiler or GC. This advances the collection proposal's
+future work, not completion of the general collection library.
+
 This closes a concrete collection TODO: `.map/2` was listed but absent from
 `methods.table`, while Trie exposed only its carrier-specific traversal. The new
 standard include `table/mapping.scm` stays inside `clan/poo/table`. This advances

@@ -11,6 +11,10 @@
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
+    (test-case "collection case includes participate in standard make freshness"
+      (def spec (car (build-request '("tests" "collections" "/tmp/poo-test-output"))))
+      (check (and (member '(gxc: "t/table-mapping-test"
+        (extra-inputs: ("t/table-mapping/composition.scm"))) spec) #t) => #t))
     (test-case "runtime reuse requires the exact compiled library object"
       (def root "/tmp/poo-compiled-admission/")
       (check (compiled-library-module? "object" "/tmp/poo-compiled-admission/lib/clan/poo/object.o1" root) => #t)

@@ -1,7 +1,7 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-service-route-summary drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
-        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-projection table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
+        (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-projection table-projection-compose table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
@@ -573,6 +573,15 @@
     (lambda (_key row)
       (map (lambda (route) (cons route (vector-ref row 1))) (vector-ref row 0)))
     multiple?: #t))
+
+;; Expand service routes once, then maintain per-cohort callback capacity totals.
+;; Exact middle deltas drive grouped invalidation; the existing publisher commits
+;; only the final summary, so downstream refusal leaves both old caches reusable.
+(def (make-service-route-summary services routes summary)
+  (table-projection-compose (make-service-routes services routes)
+    (table-group-fold routes summary Integer
+      (lambda (route _callback) (quotient route 10))
+      (lambda (_route callback) (callback 0)))))
 
 ;; Extract one service under a linear owner; Reader/FUN exposes the optional
 ;; binding and raw remainder to IO only after complete admission and one commit.
