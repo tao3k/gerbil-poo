@@ -13,6 +13,9 @@
 ;; Observe through the originating protocol, including metadata and ownership checks.
 (defmethod (@@method snapshot %table-object)
   (lambda (self) (.call (%table-object-protocol self) .unap self)))
+;; Stream updates reuse the receiver's captured-generation installer exactly once.
+(defmethod (@@method <-iter %table-object)
+  (lambda (self sequence) (.call (%table-object-protocol self) .<-iter sequence self)))
 ;; Predicate receivers retain the originating protocol and observe one snapshot.
 (defmethod (@@method find-first/opt %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .find-first/opt predicate self)))
@@ -437,6 +440,11 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      ;; Fresh imports reuse normal owner creation; seeded imports use the same
+      ;; optimistic step as all other updates, including reentrant-winner refusal.
+      .<-iter: (case-lambda
+        ((sequence) (guard (lambda () (create (.call (or set source) .<-iter sequence)))))
+        ((sequence input) (step input (cut .call (or set source) .<-iter sequence <>))))
       ;; Binding callbacks remain distinct from FUN's whole-root .map operation.
       .map/2: (lambda (transform input) (step input (cut .call source .map/2 transform <>)))
       .filter-map/2: (lambda (transform input) (step input (cut .call source .filter-map/2 transform <>)))

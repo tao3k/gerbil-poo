@@ -810,7 +810,9 @@
   .divide/list: (cut divide-table @ <>)
 
   ;; : @ <- (Iterator (Pair Key Value)) ?@
-  .<-iter: (lambda (s (t .empty)) (for/fold (t t) (kv s) (.acons (car kv) (cdr kv) t)))
+  .<-iter: (case-lambda
+    ((sequence) (table-from-iter @ sequence []))
+    ((sequence seed) (table-from-iter @ sequence (list seed))))
 
   ;; : (Iterator (Pair Key Value)) <- @
   .iter<-: (lambda (x) (iter (.list<- x)))

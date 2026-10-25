@@ -1240,6 +1240,16 @@ See [table-selection.md](table-selection.md) for declared order, full admission
 costs and backend premises; automatic predicate/algorithm discovery remains a
 research boundary.
 
+**Finite Iterable import** now closes seedless/seeded `.<-iter` across Table,
+Set, all five styles and receivers. An explicit backend key registry captures every
+admitted row, coalesces last writes and feeds one bulk constructor or final-state
+delta installer, including unique-index swaps without seed listing or `.diff`.
+Malformed/late failures, shared Pair shells, Function retention, reentrant winners,
+complete refinements, inverse recovery and fresh-stream retry have regressions and
+Lean finite stream/delta/admission/ownership laws. See [table-batches.md](table-batches.md)
+for capability, finite-input and consumed-progress boundaries; arbitrary streams
+and automatic equality/algorithm discovery are not claimed complete.
+
 On top of Gerbil-POO, build an
 [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
 

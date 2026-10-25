@@ -153,6 +153,13 @@
     (for-each (cut require-set descriptor <>) roots)
     roots)))
 
+;; Retain Set admission around the backing import without listing its seed.
+;; The standard iterator mapper supplies Unit entries lazily inside that scope.
+(def (set-from-iter descriptor sequence seeds)
+  (with-set-inputs descriptor seeds (lambda ()
+    (require-set descriptor (apply (.@ (.@ descriptor Table) .<-iter)
+      (iterator-map (lambda (elt) (cons elt (void))) sequence) seeds)))))
+
 (define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
@@ -217,12 +224,11 @@
                             (if (not from)
                               (.call Table .iter<- t)
                               (.call Table .iter<- t from))))
-  ;; Materialize the finite input once and construct the final root once. The
-  ;; existing snapshot scan is explicit; no streaming/constant-space law is claimed.
+  ;; The backing stream importer owns coalescing and one final installation.
+  ;; Mapping elements to Unit entries does not scan/reconstruct the seed snapshot.
   .<-iter: (case-lambda
-    ((s) (with-set-inputs @ [] (lambda () (.<-list (for/collect (elt s) elt)))))
-    ((s t) (with-set-inputs @ [t] (lambda ()
-      (.<-list (append (.list<- t) (for/collect (elt s) elt))))))) ;; : @ <- (Iterator Elt) ?@
+    ((s) (set-from-iter @ s []))
+    ((s t) (set-from-iter @ s (list t)))) ;; : @ <- (Iterator Elt) ?@
   .List: (List Elt)
   .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @
   .<-json: (compose .<-list (.@ .List .<-json)) ;; : @ <- Json

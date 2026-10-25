@@ -81,3 +81,57 @@ single-process harness, with normal exit 0 and the unchanged 1 GiB / 300 s bound
 An earlier complete run caught the nested-grouping ordering defect; the corrected
 standard `map` / `append` implementation passed the full rerun. Both runs remain
 local diagnostics, rather than compressed or versioned benchmark artifacts.
+
+## Finite Iterable import
+
+`(.call table .<-iter input)` constructs a complete root from a finite Gerbil
+Iterable; `(.call table .<-iter input seed)` imports into an admitted seed.
+Both forms use the existing explicit `.key-table` capability. Unsupported or
+incompatible key registries refuse instead of guessing equality or constructor
+polymorphism. Keys and values must already be admitted; raw normalization remains
+separate. Every yielded Pair shell is captured before child recognition, including
+entries later overwritten. Invalid rows therefore cannot be hidden by duplicates.
+Repeated logical keys retain the **last** yielded value. This does not change the
+backend's independent `.<-list` duplicate convention.
+
+One private backend-owned registry coalesces entries using the declared key
+semantics. Seedless import delegates unique final bindings to the existing bulk
+constructor, without fabricating a business-valid empty seed. Seeded import reads
+old values only for the distinct touched keys and builds one ordinary delta;
+`.apply-delta` stages correlated indexes and admits the complete final root. Unique
+value swaps can succeed even if point-by-point intermediate roots would fail.
+No seed `.list<-`, snapshot `.diff`, repeated owner installation or new index engine
+is used. Full source/result recognition may still traverse the seed and is charged.
+
+Set import maps elements to Unit entries through the existing iterator mapper,
+retains complete Set refinements and delegates to the same table kernel. All five
+styles expose seedless construction and seeded import; receiver `owner.<-iter`
+uses the same captured-generation step. Mutable/Classy retain identity; Linear
+consumes only on successful publication. Empty/no-op seeded imports are normal
+successful steps, not hidden read operations. A reentrant successful publication
+wins and the losing attempt exposes no successor.
+
+Seed admission precedes every input pull. Descriptor/registry origins stay
+protected across iteration, including EOF. Iterator, child, backend and final
+refinement failures expose no partial business root and preserve the original
+owner. Original unexpected exceptions retain their cause. Iterator progress and
+external callback effects are **not rolled back**; retry requires a fresh stream
+(or another iteration of a repeatable input). Infinite input termination is not
+claimed. `import-ledger-action` stages a linear service import through Reader/FUN
+before IO; failure suppresses the consumer and admitted Functions keep identity.
+
+The finite Lean `TableBatch` model proves ordered last-write semantics, untouched
+keys, one-delta reconstruction and inverse recovery through the existing installer,
+per-entry refusal and cardinality, admission precedence and style failure retention.
+Each event stands for host pull/capture/child admission; actual Iterator scheduling,
+EOF and persistence laws remain premises. Registry writes cost one per yielded row;
+seeded old-value reads and delta entries are bounded by distinct touched keys.
+Registry construction/validation, complete admission, backend/index preparation,
+allocation and GC remain costs. No constant-space, logarithmic total-time, physical
+ownership or compiler/GC proof is asserted. This advances the proposed collection
+library's finite future-work protocol.
+
+Design reflection: replace incremental business-root construction and Set seed
+rescanning with one declared key registry and the existing final installer. Use
+standard Iterable/FUN/IO and the shared ownership step; do not duplicate caching,
+index algorithms or public validation wrappers, and introduce no namespace.

@@ -596,20 +596,24 @@
         ;; In particular, the Trie's identity/subtree shortcuts cannot bless it.
         (check-exception (.call descriptor .subset? invalid invalid) TypeError?)
         (check-equal? (.call descriptor .list<- a) '(1 2))))
-    (test-case "list and iterator construction use one whole backing constructor"
+    (test-case "bulk construction and seeded iterator import share final-state admission"
       (def raw (RationalDict Unit))
       (def even (.cc raw .element?: (lambda (root)
         (and (element? raw root) (even? (.call raw .count root))))))
       (defvalues (boxed _carrier _keys) (box-table even))
-      (def builds 0)
+      (def builds 0) (def installs 0)
       (def table (.cc boxed .<-list: (lambda (rows)
-        (set! builds (+ builds 1)) (.call boxed .<-list rows))))
+        (set! builds (+ builds 1)) (.call boxed .<-list rows))
+        .apply-delta: (lambda (root delta)
+          (set! installs (+ installs 1)) (.call boxed .apply-delta root delta))))
       (def descriptor (service.make-cohort-access table))
       (def before (.call descriptor .<-list '(-1 -2)))
       (check-equal? builds 1)
       (check-exception (.call descriptor .<-list '(-1)) TypeError?)
       (def after (.call descriptor .<-iter (in-list '(-3 -4 -4)) before))
-      (check-equal? builds 3)
+      ;; The failed standalone constructor is still counted, but seeded import
+      ;; must install exactly once without rebuilding the old business snapshot.
+      (check-equal? builds 2) (check-equal? installs 1)
       (check-equal? (.call descriptor .list<- after) '(-1 -2 -3 -4))
       (check-exception (.call descriptor .singleton -5) TypeError?)
       (check-exception (.call descriptor .cons -3 before) TypeError?)

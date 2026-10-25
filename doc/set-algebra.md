@@ -257,13 +257,15 @@ this boundary. A broad Set predicate cannot weaken backing admission. Existing
 backend failures and recognizer exceptions retain their original causes. Raw
 backend escape hatches are not made safe by this presentation.
 
-List, singleton and iterator construction reuse the Table's complete `.<-list`
-constructor. They do not replay checked point insertions through inadmissible
-intermediate roots. Explicit-seed iterator construction materializes the finite
-new elements and the existing bindings, then constructs once. Seedless construction
-does not demand an admitted empty seed. `.empty` is itself partial when the Set
-excludes emptiness. No streaming-space or sublinear constructor cost is claimed;
-backend construction, full recognition and iterator effects are charged separately.
+List and singleton construction reuse the Table's complete `.<-list` constructor.
+Finite iterator import now uses its explicit key-space registry and shared
+`.<-iter` protocol: seedless import constructs once; seeded import installs one
+coalesced delta without listing/reconstructing the seed. Final Set recognition
+remains required. No admitted empty seed or valid intermediate business root is
+fabricated. `.empty` is itself partial when the Set excludes emptiness. Full
+recognition, registry/backend work and iterator effects remain charged; consumed
+input progress is not rolled back. See [table-batches.md](table-batches.md) for
+finite-input, ownership and fresh-stream retry laws.
 
 Membership focuses capture Set/Table/dependency revisions and reject old focuses
 after supported metadata changes. Get/put and put/get laws apply to admitted roots

@@ -1,5 +1,38 @@
 ;;; Checked key-preserving maps reuse persistent folds and declared Trie traversal.
 
+;; Consume a finite standard Iterable once into its declared backend key space.
+;; Each yielded Pair shell is captured before child recognition; admitted Function
+;; leaves are never cooked again. Repeated keys keep the last yielded value.
+;; A seed is admitted before any pull, but no intermediate business root escapes.
+(def (table-from-iter descriptor sequence seeds)
+  (def sources (table-sources descriptor))
+  (with-table-sources sources (lambda ()
+    (for-each (cut require-table descriptor <>) seeds)
+    (def registry (table-key-table descriptor (.@ descriptor Value)))
+    (def binding (Pair (.@ descriptor Key) (.@ descriptor Value)))
+    (with-table-sources (table-sources registry) (lambda ()
+      (def updates (for/fold (root (.@ registry .empty)) (entry sequence)
+        (let (row (some-value (require-table-entry binding (some entry))))
+          (.call registry .acons (car row) (cdr row) root))))
+      (require-table registry updates)
+      (require-table descriptor
+        (if (null? seeds)
+          ;; Bulk construction sees unique final bindings, independent of the
+          ;; constructor's own list-duplicate precedence or empty-seed refinement.
+          (.call descriptor .<-list (.call registry .list<- updates))
+          (let* ((before (car seeds))
+                 (changes (with-list-builder (emit)
+                   (.call registry .for-each (lambda (key value)
+                     (def old (.call descriptor .ref/opt before key))
+                     (def next (some value))
+                     (unless (table-option=? old next)
+                       (emit (make-table-change key old next)))) updates))))
+            ;; One ordinary final-state installer handles correlated indexes,
+            ;; whole-root refusal and original old-value conflict semantics.
+            (.call descriptor .apply-delta before
+              (make-table-delta (.@ descriptor Key) (.@ descriptor Value)
+                sources (map object-revision sources) changes))))))))))
+
 ;; One raw traversal kernel serves recognition and admitted predicate queries.
 ;; let/cc stops the backend at the first decision without materializing a list.
 ;; Recognition calls this directly to avoid recursive public-query admission.
