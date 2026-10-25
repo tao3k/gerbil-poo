@@ -243,7 +243,7 @@
   .diff: (lambda (a b) (merge-set-tables @ (set-operation 'diff) a b)) ;; : @ <- @ @
   ;; A lexicographic comparison requires the backend's explicit key-order capability.
   .compare: (lambda (a b) (with-set-tables @ a b (lambda ()
-    (unless (.has? Table .compare) (error "unsupported set comparison"))
+    (unless (.has? Table Comparer .compare) (error "unsupported set comparison"))
     (.call Table .compare (lambda (_1 _2) 0) a b)))) ;; : : Integer <- @ @
   ;; Symmetric difference preserves the original surviving admitted key objects.
   .symdiff: (lambda (a b) (merge-set-tables @ (set-operation 'symdiff) a b))

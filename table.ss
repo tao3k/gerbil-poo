@@ -801,6 +801,9 @@
   ;; empty root, which may be forbidden by the table's own refinement.
   .=?: (lambda (a b) (equal-table-bindings? @ a b))
 
+  ;; Explicit order and value comparison supply nonconstructive map comparison.
+  .compare: (lambda (compare left right) (compare-table-bindings @ compare left right))
+
   ;; Complete optional nonempty parts share one checked division boundary.
   ;; : (OrFalse @) (OrFalse @) <- @
   .divide: (lambda (input) (table-division-values (divide-table @ input)))

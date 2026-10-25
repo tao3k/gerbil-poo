@@ -443,3 +443,69 @@ and guards. Full family admission, metadata checks, positioning, fallback sortin
 and selected-bucket traversal remain charged. Laziness avoids unrequested pulls;
 it does not imply zero preparation cost or a wall-clock speedup. Automatic index
 selection and backend/order discovery remain collection-library research work.
+
+## Ordered whole-collection comparison
+
+`(.call table .compare compare-values left right)` now shares one checked protocol
+between the declared Trie structural capability and generic ordered Iterators.
+An explicit `Comparer` is required; unordered tables still refuse instead of
+acquiring a guessed host order. `table-order` and lawful key-Wrappers supply that
+capability. Index families may be explicitly ordered in the same way. Both complete
+roots are admitted before callbacks or empty/identical shortcuts.
+
+The retained Trie convention is **union-key order with absence before presence**:
+visit the union domain in the declared key order; at the first key present on only
+one side, that side compares greater. At a common key call `compare-values` on its
+two payloads and retain its first nonzero result. Equal common payloads continue;
+two exhausted sources compare zero. This is not numerical entry-list sorting:
+`{1: x}` compares greater than `{2: y}` in ascending key order because it is present
+at the first union key. Reversing declared key order changes this decision.
+
+The value callback must be a procedure returning an exact Integer. Its magnitude
+is preserved; it may deliberately equate distinct payloads, including different
+checked Function handles. Zero iff `equal?` is a **key comparer** law, not a
+restriction imposed on value comparison. Unexpected callback/backend exceptions
+retain their causes; non-Integer value results use the standard Gerbil contract
+refusal. Key equality/order coherence, totality and transitivity/purity of supplied
+orders remain declared laws, not properties inferred from arbitrary callbacks.
+
+The generic path uses standard Iterator pulls and no merge result or snapshot
+sort of its own. It captures each yielded Pair shell before another pull/callback,
+uses explicit left-before-right evaluation, and stops without prefetch after the
+first decision. The existing order view may still sort/materialize a backend that
+lacks matching positioning. The Trie's original paired traversal remains under
+`.compare/key`; it must satisfy the same declared order and presence laws. Derived
+order/representation views inherit the generic protocol rather than borrowing
+that raw structural capability without a law.
+
+Set `.compare` uses the backing order with constant-zero Unit comparison. All five
+Table/Set styles and Gerbil receivers expose nonconsuming comparison: Tables take
+an explicit value comparator; Sets take the other owner. Each root is captured
+once, sequentially, before user comparison. Reentrant publications remain visible
+on owners while the comparison retains its two immutable observed snapshots. This
+is not a joint atomic read across independently changing services. Consumed or
+foreign owners and stale declared policies refuse through existing guards. Callback
+effects are not rolled back; a fresh policy/factory can explicitly retry.
+
+`compare-ledger-action` composes indexed service snapshots and explicit capacity
+comparison through Reader/FUN/IO. Comparison failure suppresses the consumer;
+Function leaves keep their exact admitted identity. Regressions include all 27×27
+finite three-key Bool/presence pairs on structural and cursor paths, reverse and
+transported order, full refinements, cursor demand/EOF, shared Pair shells, exact
+large Integer results, every presentation/receiver and reentrant/revision retry.
+
+The finite Lean `TableOrder` model proves reflexivity and reversal under explicit
+callback laws, first-presence/value decisions, failure identity, representation
+transport, complete admission precedence and a shorter-input bound on paired
+steps. The existing `TableObservation` laws supply delegated, stale and consumed
+owner behavior. Sorted faithful persistent enumeration and backend structural
+comparison laws are premises. Admission, comparer validation, positioning/sorting,
+conversion, allocation and GC remain charged; no logarithmic/constant total cost,
+physical ownership, arbitrary callback termination or compiler/runtime proof is
+claimed. This is a finite extension of the proposed collection library's future work.
+
+Design reflection: one comparison boundary reuses the existing Trie algorithm,
+order/comparer factories, Iterator interface and style snapshot reads. No merged
+empty carrier, alternate tree/search engine, new namespace or Function-wrapper
+layer is introduced. The existing presence convention is made explicit rather
+than silently replaced by a different definition of lexicographic ordering.

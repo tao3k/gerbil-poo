@@ -803,9 +803,10 @@
      onlya: (lambda (k a) (.map/key/opt (lambda (k v) (f k (some v) #f)) a k))
      onlyb: (lambda (k b) (.map/key/opt (lambda (k v) (f k #f (some v))) b k))))
 
-  ;; Compare two trees lexicographically. TODO: should we always be using the Value's .comparer function?
+  ;; Structural union-key comparison; the shared public boundary admits both
+  ;; roots, protects order metadata and checks the explicit value comparator.
   ;; : Integer <- (Integer <- a b) @[a/Value] @[b/Value]
-  .compare:
+  .compare/key:
   (lambda (cmp a b)
     (let/cc return
       (.recurse/trie-pair

@@ -1250,6 +1250,17 @@ Lean finite stream/delta/admission/ownership laws. See [table-batches.md](table-
 for capability, finite-input and consumed-progress boundaries; arbitrary streams
 and automatic equality/algorithm discovery are not claimed complete.
 
+**Ordered whole-collection comparison** now closes the explicit-order protocol
+across Trie paired traversal, generic order/representation views, Set, all five
+styles and receivers. Existing union-key absence-before-presence semantics and
+explicit Integer value comparison share complete root admission and origin guards,
+without constructing a merged carrier. Finite exhaustive oracles, shared producer
+shells, short-circuit demand, nonempty refinements, Function identity and
+Reader/FUN/IO/revision retry have regressions and Lean comparison/transport/failure/
+work-bound laws. See [table-order.md](table-order.md) for caller ordering/backend
+premises and charged costs. Unordered data, automatic comparator discovery and
+joint atomic reads are not silently claimed supported.
+
 On top of Gerbil-POO, build an
 [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
 

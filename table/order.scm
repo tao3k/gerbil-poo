@@ -42,6 +42,51 @@
     (lambda (left right) (.call comparer .compare (decode left) (decode right)))
     (append (list comparer key domain) (.@ comparer .sources))))
 
+ ;; Compare admitted cursor rows without constructing a merge result. Pair shells
+;; are copied before any other pull/callback; value leaves keep their identity.
+(def (compare-table-cursors descriptor comparer compare left right)
+  (def binding (Pair (.@ descriptor Key) (.@ descriptor Value)))
+  ;; Standard Iterator owns EOF and producer effects, including original failures.
+  (def (pull cursor)
+    (using (cursor :- Iterator)
+      (let (row (cursor.next!))
+        (if (eq? row #!eof) row (some-value (require-table-entry binding (some row)))))))
+  (let* ((a (.call descriptor .iter<- left)) (b (.call descriptor .iter<- right))
+         (x (pull a)) (y (pull b)))
+    (let loop ((x x) (y y))
+      (cond
+        ((eq? x #!eof) (if (eq? y #!eof) 0 -1))
+        ((eq? y #!eof) 1)
+        (else
+          (let (key-sign (.call comparer .compare (car x) (car y)))
+            (cond
+              ((negative? key-sign) 1)
+              ((positive? key-sign) -1)
+              (else (let (sign (compare (cdr x) (cdr y)))
+                (if (zero? sign)
+                  (let* ((x (pull a)) (y (pull b))) (loop x y)) sign))))))))))
+
+;; Union-key order places absence before presence. Both complete roots precede
+;; shortcuts; only explicitly ordered descriptors may compare. Structural backend
+;; capabilities retain their algorithm under the same declared ordering law.
+(def (compare-table-bindings descriptor compare left right)
+  (with-table-sources (table-sources descriptor) (lambda ()
+    (require-table descriptor left)
+    (require-table descriptor right)
+    (using (compare :~ procedure?)
+      (unless (.has? descriptor Comparer) (error "unsupported table comparison"))
+      (let (comparer (.@ descriptor Comparer))
+        (unless (eq? (.@ comparer Key) (.@ descriptor Key)) (error "incompatible comparer domain"))
+        (unless (table-comparer-current? comparer) (error "stale table comparer"))
+        (with-table-sources (cons comparer (.@ comparer .sources)) (lambda ()
+          ;; Unlike key equality, value comparison may equate distinct payloads.
+          ;; Its exact Integer result and original callback exceptions are retained.
+          (def (checked a b)
+            (let (sign (compare a b)) (using (sign :~ exact-integer?) sign)))
+          (if (.has? descriptor .compare/key)
+            (.call descriptor .compare/key checked left right)
+            (compare-table-cursors descriptor comparer checked left right)))))))))
+
 ;; Reuse the original persistent carrier, point operations and positioned traversal.
 ;; Gerbil list-sort supplies only the fallback; no balancing algorithm is copied.
 ;; Inclusive/exclusive bounds use Option, so false remains a possible key.

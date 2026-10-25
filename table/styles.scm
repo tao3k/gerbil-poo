@@ -13,6 +13,11 @@
 ;; Observe through the originating protocol, including metadata and ownership checks.
 (defmethod (@@method snapshot %table-object)
   (lambda (self) (.call (%table-object-protocol self) .unap self)))
+;; Table receivers accept a value comparator; Set receivers compare membership.
+(defmethod (@@method compare %table-object)
+  (case-lambda
+    ((self other) (.call (%table-object-protocol self) .compare self other))
+    ((self compare other) (.call (%table-object-protocol self) .compare compare self other))))
 ;; Stream updates reuse the receiver's captured-generation installer exactly once.
 (defmethod (@@method <-iter %table-object)
   (lambda (self sequence) (.call (%table-object-protocol self) .<-iter sequence self)))
@@ -306,6 +311,12 @@
     ;; admission/origin guard as folds; Set callbacks keep their element arity.
     (def (query input method predicate)
       (guard (lambda () ((.ref (or set source) method) predicate (read input)))))
+    ;; Capture two roots before user comparison. Reentrant publication remains
+    ;; visible on owners without changing either immutable observed snapshot.
+    (def (compare-roots left right compare)
+      (guard (lambda ()
+        (let* ((a (read left)) (b (read right)))
+          (if set (.call set .compare a b) (.call source .compare compare a b))))))
     ;; Commit an already prepared result once. This shared boundary never calls
     ;; user code while holding the lock and never exposes a losing successor.
     (def (publish state expected first result)
@@ -440,6 +451,8 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      .compare: (if set (lambda (left right) (compare-roots left right #f))
+        (lambda (compare left right) (compare-roots left right compare)))
       ;; Fresh imports reuse normal owner creation; seeded imports use the same
       ;; optimistic step as all other updates, including reentrant-winner refusal.
       .<-iter: (case-lambda
