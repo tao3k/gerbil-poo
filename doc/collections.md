@@ -1269,3 +1269,37 @@ complete membership and cold cache initialization remain explicit costs.
 Local complete acceptance: 142 modules / 1,598 cases passed in one process,
 including existing collision/backend-order controls, under the unchanged 1 GiB heap
 and 300-second runtime limit. The complete Lean gate passed all 20 phases.
+
+### Backend-equivalent cache work
+
+Incremental index maintenance uses the source's declared `.key-table` to schedule
+one rebuild per logical primary key. Multivalued memberships use an analogous
+Unit-valued registry over the declared index backend. Projection, indexes, grouped
+folds and grouped joins share this boundary rather than guessing structural key
+equality. First physical representatives and encounter order are retained. All
+memberships are recognized before coalescing, including repeated aliases.
+
+Every sequential old-value expectation is still checked by `.apply-delta` before
+any index projection. Composed and cancelling requests retain their original
+changes and inverse history. A refused intermediate expectation publishes nothing;
+a distinct primary owner claiming an occupied unique key still conflicts. Only
+the cache worklist is coalesced. Opaque Function leaves remain the admitted objects.
+
+The declared key-table capability must preserve backend key equivalence. Callbacks
+must respect that equivalence: lookup, membership classification and projection
+must agree on logical aliases. This does not discover a canonical representation
+or make arbitrary representation-sensitive callbacks congruent. Source, registry
+and declaration revisions remain dependencies; stale metadata refuses reuse.
+
+`t/table-index-equivalence-test.ss` combines RationalDict exact/inexact aliases,
+ordered unique/grouped indexes, chained migrations, inverse recovery, all five
+ownership styles and Function-valued grouped aggregates. The finite companion
+`distinctKeyWork` model proves logical coverage, unique scheduling, first-key
+retention, a work-count bound and grouped observation equivalence. Sequential
+installer failure is preserved. Registry construction, lookups, full recognition,
+allocation and GC remain charged; these laws do not establish a latency bound.
+
+Design reflection: one private helper replaces the projection's local key loop
+and the membership boundary's structural hash deduplication. Registries are
+prepared once per family and carry their own metadata dependencies. No new public
+collection namespace, per-method wrapper stack or delta-squashing protocol is added.

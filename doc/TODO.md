@@ -2136,3 +2136,18 @@ representations, fractional/bignum bounds, source admission, stale/EOF refusal,
 Function identity, shared indexes, inverse recovery and retry have regressions and
 finite equivalence/window/cost laws. See table-order.md; this adds no balancing
 algorithm and does not claim logarithmic positioning or a wall-clock speedup.
+
+### Backend-equivalent incremental index work
+
+Closed the mismatch between structural membership deduplication and declared
+backend key equality. Existing Unit-valued `.key-table` registries now own stable
+work scheduling and multivalued membership coalescing for indexes, projections,
+group folds and group joins. The original ordered edit list still checks every
+intermediate expectation before any index callback; inverse recovery retains it.
+Numeric alias migrations, genuine unique-owner conflicts, stale intermediate
+requests, failure retry, Function identity and five-style publication have controls
+in table-index-equivalence-test.ss. Finite Lean laws state coverage, unique logical
+work, first-representative retention, scheduling bounds, observation equivalence
+and unchanged sequential refusal. Lawful declared backend equality and congruent
+pure classifiers are explicit premises, not automatically inferred laws. This
+closes an equality mismatch, not the general collection research proposal.

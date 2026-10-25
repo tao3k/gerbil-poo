@@ -3,20 +3,30 @@
 ;; The first duplicate retains the declaration and both competing primary owners.
 (defstruct table-index-conflict (name key existing incoming) final: #t)
 ;; Prepared immutable recipes retain the declared backend and pure projection.
-(defstruct %table-index (name table project unique?) final: #t)
+(defstruct %table-index (name table keys project unique?) final: #t)
 ;; One private snapshot carries the primary root, every index and all live origins.
 (defstruct %indexed-table (owner primary indexes sources versions) final: #t)
 
-;; Own the finite classifier spine before child recognition can alter its caller's
-;; buffer. Index installation and grouped aggregation share membership admission
-;; and stable deduplication; admitted keys are never normalized again.
-(def (require-table-index-keys type keys (where 'table-indexes))
+;; Retain the first representative of each backend key class. The prepared Unit
+;; registry reuses declared key equality; it never changes the edit sequence.
+(def (table-distinct-keys registry keys)
+  (if (or (null? keys) (null? (cdr keys))) keys
+    (let (seen (.@ registry .empty))
+      (with-list-builder (emit)
+        (for-each (lambda (key)
+          (unless (.call registry .key? seen key)
+            (set! seen (.call registry .acons key (void) seen))
+            (emit key))) keys)))))
+
+;; Snapshot and recognize every membership before coalescing backend-equivalent
+;; keys. Recognition retains Function leaves and original failure order.
+(def (require-table-index-keys registry keys (where 'table-indexes))
   (using (keys :~ list?)
     (def captured (map identity keys))
+    (def type (.@ registry Key))
     (for-each (lambda (key)
       (unless (element? type key) (raise-type-error type key where))) captured)
-    (if (and (pair? captured) (pair? (cdr captured)))
-      (delete-duplicates/hash captured from-end?: #t) captured)))
+    (table-distinct-keys registry captured)))
 
 ;; Derive a complete table with atomic correlated indexes. A unique index stores
 ;; primary keys; a grouped index stores persistent source-table buckets. No hash
@@ -48,11 +58,19 @@
         (error "incompatible table index value type" name))
       ;; Prepare one finite-key projection for both declaration cardinalities.
       ;; A list-valued single key stays one key unless multiple? is explicit.
-      (make-%table-index name table
+      ;; Singleton membership never needs a registry lookup or allocation.
+      (make-%table-index name table (if multiple? (table-key-table table Unit) table)
         (if multiple? project (lambda (key row) (list (project key row)))) unique?))) declarations tables))
   (def names (map %table-index-name recipes))
   (unless (= (length names) (length (delete-duplicates/hash names table: (make-hash-table-eq))))
     (error "duplicate table index name"))
+  ;; Prepare equality registries once; protect their inherited metadata alongside
+  ;; the declared family. An empty family requires no unused registry capability.
+  (def touched (and (pair? recipes) (table-key-table source Unit)))
+  (set! sources (delete-duplicates/hash
+    (append sources (append-map table-sources
+      (append (if touched (list touched) []) (map %table-index-keys recipes))))
+    table: (make-hash-table-eq) from-end?: #t))
   (def versions (map object-revision sources))
   (def owner (list source declarations)) (def result #f)
   ;; Capture metadata over the complete operation. Descriptor mutations must be
@@ -87,10 +105,10 @@
       (iterator-map identity (apply (.ref table method) root args)
         (lambda (action) (observe state (lambda (_) (action))))))))
   ;; Validate the complete finite key list before any cache update. Standard
-  ;; stable deduplication preserves first-conflict order and callback identities.
+  ;; backend coalescing preserves first-conflict order and callback identities.
   ;; Empty lists mean no membership; list-valued keys remain unambiguous.
   (def (project recipe key row)
-    (require-table-index-keys (.@ (%table-index-table recipe) Key)
+    (require-table-index-keys (%table-index-keys recipe)
       ((%table-index-project recipe) key row)))
   ;; Insert one membership using the existing unique-owner or grouped backend.
   ;; A grouped bucket shares the exact admitted row, including its Functions.
@@ -156,7 +174,9 @@
         ;; An enclosing collection can require its complete final refinement here,
         ;; before projection, without applying the same primary delta twice.
         (admit after)
-        (def keys (map table-change-key (table-delta-changes delta)))
+        ;; Full sequential expectations above precede deduplicated rebuild work.
+        (def keys (if touched
+          (table-distinct-keys touched (map table-change-key (table-delta-changes delta))) []))
         (def indexes (for/collect ((recipe recipes) (entry (%indexed-table-indexes state)))
           (def stripped (foldl (lambda (key cache)
             (def old (.call source .ref/opt before key))

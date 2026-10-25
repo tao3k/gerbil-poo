@@ -411,13 +411,8 @@
               (check state)
               (def next-source (require-table source
                 (.call source .apply-delta (table-projection-state-source state) delta)))
-              (def seen-keys (.@ touched .empty))
-              (def keys (with-list-builder (emit)
-                (for-each (lambda (change)
-                  (def key (table-change-key change))
-                  (unless (.call touched .key? seen-keys key)
-                    (set! seen-keys (.call touched .acons key (void) seen-keys))
-                    (emit key))) (table-delta-changes delta))))
+              (def keys (table-distinct-keys touched
+                (map table-change-key (table-delta-changes delta))))
               (def cache (table-projection-state-ledger state))
               (def seen (table-projection-state-owners state))
               ;; Retract every affected old owner before any new claim. Target edits
@@ -661,8 +656,9 @@
       (def row-type (Pair (.@ left Value) (.@ right Value)))
       (def joined (table-key-table pairs row-type))
       (def touched (table-key-table pairs Unit))
+      (def memberships (table-key-table groups Unit))
       (def dependencies (delete-duplicates/hash
-        (append (append-map table-sources (list left right target groups pairs joined touched))
+        (append (append-map table-sources (list left right target groups pairs joined touched memberships))
           (.@ li .sources) (.@ ri .sources) (list li ri pair-key row-type) origins)
         table: (make-hash-table-eq) from-end?: #t))
       (def projection (table-projection joined target
@@ -689,7 +685,7 @@
           (for-each (lambda (group)
             (def bucket (.call index .index-ref/opt snapshot 'group group))
             (when (some? bucket) (visit (some-value bucket))))
-            (require-table-index-keys (.@ groups Key) (classify key row) 'table-group-join)))
+            (require-table-index-keys memberships (classify key row) 'table-group-join)))
         ;; Admit both complete roots before constructing either grouped index.
         (def (initialize input)
           (using (input :~ pair?)

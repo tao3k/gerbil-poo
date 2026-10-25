@@ -309,7 +309,7 @@
                         (for-each (lambda (bucket)
                           (unless (.call touched .key? seen bucket)
                             (set! seen (.call touched .acons bucket (void) seen)) (emit bucket)))
-                          (require-table-index-keys (.@ target Key)
+                          (require-table-index-keys touched
                             (group-keys key (some-value row)) 'table-group-fold))))
                       (list before after))) (table-delta-changes delta))))
                 (def edits (with-list-builder (emit)
