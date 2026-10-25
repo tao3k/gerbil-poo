@@ -56,6 +56,19 @@
     (check-equal? (object-read-issued? forged) #f)
     ;; The public dependency list must not alias the issuer's private snapshot.
     (def dependencies (slot-read-dependencies genuine))
+    ;; The ordinary constant slot has one preparation parent. The issuer may
+    ;; retain that identity directly, but inspection must still return a fresh
+    ;; list and every public mutation must be authenticated anew.
+    (check-equal? (length dependencies) 1)
+    (defvalues (_p0 _o0 _r0 single-copy _s0) (object-read-issuance genuine))
+    (check-equal? (eq? (vector-ref single-copy 5) dependencies) #f)
+    (check-equal? (eq? (car (vector-ref single-copy 5)) (car dependencies)) #t)
+    (runtime.slot-set! genuine 'dependencies (append dependencies dependencies))
+    (check-equal? (object-read-issued? genuine) #f)
+    (runtime.slot-set! genuine 'dependencies '())
+    (check-equal? (object-read-issued? genuine) #f)
+    (runtime.slot-set! genuine 'dependencies dependencies)
+    (check-equal? (object-read-issued? genuine) #t)
     (when (pair? dependencies)
       (let (first (car dependencies))
         (set-car! dependencies forged)

@@ -341,13 +341,17 @@
       (if (null? saved) (null? current)
         (and (pair? current) (eq? (car current) (car saved))
              (same-list? (cdr current) (cdr saved)))))
-    ;; The private snapshot stores identities densely, including repeated
-    ;; occurrences. Public dependency spines and delivery stay unchanged.
+    ;; A single non-vector identity needs no separate private vector. The
+    ;; dense fallback also handles unusual vector-valued parents without an
+    ;; ambiguous tag. Public spines, repeated occurrences and delivery stay
+    ;; unchanged; neither representation caches an authentication result.
     (def (same-dependencies? current saved)
-      (let loop ((current current) (index 0))
-        (if (= index (##vector-length saved)) (null? current)
-          (and (pair? current) (eq? (car current) (##vector-ref saved index))
-               (loop (cdr current) (1+ index))))))
+      (if (vector? saved)
+        (let loop ((current current) (index 0))
+          (if (= index (##vector-length saved)) (null? current)
+            (and (pair? current) (eq? (car current) (##vector-ref saved index))
+                 (loop (cdr current) (1+ index)))))
+        (and (pair? current) (eq? (car current) saved) (null? (cdr current)))))
     (def (issue self key value dependencies)
       (def preparation (and (object-%reads self)
                            (hash-get (object-%reads self) '(preparation))))
@@ -358,7 +362,10 @@
       (def revision (object-revision self))
       (def instance (object-%instance self))
       (def key-copy (and (pair? key) (map values key)))
-      (def parent-copy (if (null? parents) '#() (list->vector parents)))
+      (def parent-copy
+        (cond ((null? parents) '#())
+              ((and (null? (cdr parents)) (not (vector? (car parents)))) (car parents))
+              (else (list->vector parents))))
       (def checker object-read-current?)
       (def read (make-slot-read self key revision instance value parents checker))
       ;; Captured payload is not a public struct whose fields can be rewritten
@@ -375,7 +382,7 @@
           (if (not candidate)
               (values read
                 (vector self key revision instance value
-                  (vector->list parent-copy) checker)
+                  (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
                 (and key-copy (map values key-copy)))
           (and (eq? candidate read)
                (eq? (slot-read-receiver read) self)
