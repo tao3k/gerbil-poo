@@ -441,3 +441,16 @@ environment variable is introduced. The temporary build-script fixture uses an
 ordinary quoted build-spec list so compiled datum writing preserves its syntax.
 Consumer construction tests inspect the actual bounded target invocations,
 retaining the original one-consumer and complete-harness assertions.
+
+A second entirely empty standard GERBIL_PATH completed in 51.22 seconds wall,
+162.10 user and 34.44 system seconds (library stage 48.97). Its preflight also
+observed zero files. Both empty-prefix runs retained the 300-second compiler
+bound, natural GC, original optimization flags and automatic 12-worker budget.
+A standard consumer-clean follow-up removed all 92 library interfaces as well as
+its consumer outputs, verifying cleanup reaches owned prerequisites.
+
+The benchmark compiler wrapper shares this recovery boundary while forwarding
+its original 90-second bound, or its existing explicit 300-second override.
+The ordinary compiler stage remains 300 seconds. The supervisor's existing
+1200-second ceiling never extends a compiler stage. No failed compilation is
+retried automatically or reported successful after cleanup.

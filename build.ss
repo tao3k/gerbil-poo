@@ -13,7 +13,9 @@
 ;; requests remain non-compiling; std/make still owns freshness and scheduling.
 (def (run-consumer args)
   (def options (caddr (consumer-request args)))
-  (when (or (null? options) (equal? (car options) "compile"))
+  ;; Failed prerequisite compilation can leave early outputs too. Standard clean
+  ;; must reach that same owned graph before cleaning the consumer itself.
+  (when (or (null? options) (member (car options) '("compile" "clean")))
     (apply build-selected (build-request (cons "qualification" options))))
   (apply build-consumer args))
 

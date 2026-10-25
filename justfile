@@ -60,7 +60,7 @@ benchmark-object-scale: (build "library")
 # Retain each recipe's compiler deadline and the shared 1 GiB expansion bound.
 _build-benchmark target max-seconds='90':
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s {{ max-seconds }}s gxi {{ test-runtime-options }} build.ss benchmark "{{ target }}"
+    {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" "{{ max-seconds }}" benchmark "{{ target }}"
 
 # Reuse the standard shared executable; compile/load only the collection study.
 # Standard recipe dependencies share entry preparation without nested just startups.
@@ -88,7 +88,7 @@ clean:
 # std/make still owns frontend/backend parallelism, dependencies and cache reuse.
 build *selection:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" {{ selection }}
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" 300 {{ selection }}
 
 # Compile disjoint test roots into a separate artifact, retaining the shared imports.
 build-group group:

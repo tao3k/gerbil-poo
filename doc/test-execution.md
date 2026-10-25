@@ -94,3 +94,11 @@ linked executable's `~~bin` alias, which can retain the SDK producer's path.
 Release relocation and runtime activation stay with the SDK. The compiled
 recovery fixture verifies a produced-output marker and the standard runner's
 representation of exit 124 before testing cleanup and serial-mode rebuild.
+
+The benchmark wrapper now uses the same boundary with its existing 90-second
+argument (300 for its existing explicit override). Ordinary compiler stages still
+receive 300. These bounds are passed explicitly and validated at the boundary;
+the 1200-second supervisor does not lend additional time to a compiler stage.
+Recovery uses the same stage bound and always retains the original failed result.
+Consumer cleanup also cleans its owned `qualification` prerequisites: their
+metadata may have been produced before consumer construction was reached.

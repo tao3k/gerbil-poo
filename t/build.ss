@@ -50,9 +50,9 @@
 (def (cancel-build status)
   (with-lock build-process-lock
     (lambda () (for-each stop-build-group build-processes))) (exit status))
-;; GNU timeout retains the existing 300-second stage bound and three-second cleanup.
+;; GNU timeout retains each caller's existing 90/300-second bound and three-second cleanup.
 ;; Normal stdout is inherited, so every standard make progress line remains visible.
-(def (run-build-stage root timeout runtime cores args)
+(def (run-build-stage root timeout runtime cores args (seconds 300))
   (when build-stopping? (error "build admission stopped after cleanup failure"))
   (def started (real-time))
   (displayln "BUILD-STAGE-START command=" args " cores=" cores) (force-output)
@@ -61,7 +61,7 @@
   ;; Both compilation and recovery use the same bounded process-group ownership.
   ;; Standard clean runs only after the failed compiler group has been reaped.
   (def (invoke request)
-    (def command (append [timeout "--signal=TERM" "--kill-after=3s" "300s" "env"
+    (def command (append [timeout "--signal=TERM" "--kill-after=3s" (string-append (number->string seconds) "s") "env"
       (string-append "GERBIL_BUILD_CORES=" (number->string cores))
       "gxi" runtime "build.ss"] request))
     (run-process command directory: root stdout-redirection: #f
@@ -89,7 +89,7 @@
   (force-output))
 ;; At most two channel workers compile the complete, disjoint local batches.
 ;; Fresh processes release expansion contexts; all failures are retained.
-(def (build-test-groups project timeout runtime cores)
+(def (build-test-groups project timeout runtime cores (seconds 300))
   ;; Bound retained macro-expansion contexts under the unchanged 1 GiB VM cap.
   ;; This changes compilation groups only; the full test program stays one VM.
   (def batches 8)
@@ -105,14 +105,17 @@
     (def budget (+ (quotient cores count) (if (< worker (modulo cores count)) 1 0)))
     (spawn (lambda () (for (batch jobs)
       (with-catch (lambda (cause) (with-lock lock (lambda () (set! failures (cons (cons batch cause) failures)))))
-        (lambda () (run-build-stage project timeout runtime budget ["batch" (number->string batch)]))))))))
+        (lambda () (run-build-stage project timeout runtime budget ["batch" (number->string batch)] seconds))))))))
   (for (batch (in-range batches)) (channel-put jobs batch))
   (channel-close jobs)
   (for-each thread-join!/error workers)
   (unless (null? failures) (error "test compilation failures retained" failures)))
 ;; std/make owns dependencies, incremental compilation and backend workers.
 ;; The outer boundary releases expansion heaps between complete test batches.
-(def (main timeout runtime . request)
+(def (main timeout runtime limit . request)
+  (def seconds (string->number limit))
+  (unless (and (exact-integer? seconds) (> seconds 0) (<= seconds 300))
+    (error "invalid compiler stage deadline" limit))
   (def root (path-expand "" (current-directory)))
   (def cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
   ;; Standard zero disables parallel compilation; it still executes one worker.
@@ -122,12 +125,12 @@
   (try
     (match request
       ([]
-        (run-build-stage root timeout runtime cores '("qualification"))
-        (with-test-project root (lambda (project) (build-test-groups project timeout runtime cores)))
-        (run-build-stage root timeout runtime cores '("test-program")))
+        (run-build-stage root timeout runtime cores '("qualification") seconds)
+        (with-test-project root (lambda (project) (build-test-groups project timeout runtime cores seconds)))
+        (run-build-stage root timeout runtime cores '("test-program") seconds))
       (["tests" group output]
         (test-files group)
         (with-test-project root (lambda (project)
-          (run-build-stage project timeout runtime cores ["tests" group output]))))
-      (else (run-build-stage root timeout runtime cores request)))
+          (run-build-stage project timeout runtime cores ["tests" group output] seconds))))
+      (else (run-build-stage root timeout runtime cores request seconds)))
     (finally (remove-signal-handler! SIGTERM) (remove-signal-handler! SIGINT))))

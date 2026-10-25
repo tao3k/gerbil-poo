@@ -241,14 +241,15 @@
         (map (lambda (line)
           (cond ((string-suffix? " test-program" line) 'test-program)
                 ((string-suffix? " library" line) 'library)
+                ((string-suffix? " benchmark \"collection-paired-benchmark\"" line) 'study)
                 (else 'unexpected)))
           (filter (cut string-contains <> " t/build.ss ") lines)))
-      (check-equal? (targets admitted) '(test-program))
-      (check-equal? (targets standalone) '(library test-program))
-      (check-equal? (targets linked) [])
+      (check-equal? (targets admitted) '(test-program study))
+      (check-equal? (targets standalone) '(library test-program study))
+      (check-equal? (targets linked) '(study))
       (for (lines (list admitted standalone linked))
         (check-equal? (length (filter
-          (cut string-suffix? "build.ss benchmark \"collection-paired-benchmark\"" <>) lines)) 1)
+          (cut string-suffix? "\"90\" benchmark \"collection-paired-benchmark\"" <>) lines)) 1)
         (check-equal? (length (filter
           (cut string-suffix? "benchmark collection-paired-benchmark \"2\" \"1\" \"4\"" <>) lines)) 1))
       ;; Cache hits retain exactly the same bounded complete harness as misses.
