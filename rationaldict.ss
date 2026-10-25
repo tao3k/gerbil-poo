@@ -28,7 +28,8 @@
      source)
    ;; TODO: also use rationaldict-min-key, rationaldict-max-key, rationaldict-update ?
    .empty: empty-rationaldict
-   .empty?: rationaldict-empty?
+   ;; Standard RBTree predicate remains the structural backend capability.
+   .empty/key?: rationaldict-empty?
    .ref: rationaldict-ref
    .key?: rationaldict-has-key?
    .acons: (lambda (k v d) (rationaldict-put d k v))

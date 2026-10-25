@@ -179,3 +179,49 @@ charged; no constant-time or runtime/compiler correctness claim follows. This is
 finite collection future work. Design reflection: derive endpoints from the
 query/observer chain and remove the bypass; add no cache, traversal engine or
 namespace and do not manufacture a valid empty business root.
+
+
+## Logical emptiness and structural emptiness
+
+Public Table `.empty?` now observes an admitted root's contents rather than comparing
+its identity with `.empty`. It never constructs a separate empty value. Existing
+RBTree and Trie predicates remain private `.empty/key?` capabilities; derived
+representation/order/index views retain structural delegation, and the generic
+fallback uses the existing early-exit traversal. Each capability result must be
+Boolean; unexpected backend failures preserve their original cause. Complete
+source membership and metadata protection precede all shortcuts.
+
+Set `.empty?` retains both backing admission and the Set's own refinement. A
+forbidden empty business root is an admission failure, not a successful empty
+observation. All five Table/Set styles and standard Gerbil receivers delegate to
+the existing nonconsuming snapshot observer. A live empty collection is distinct
+from a consumed linear reference, which still refuses before observation. Stored
+false values and checked Functions remain ordinary nonempty bindings; no leaf is
+normalized or rewrapped.
+
+Structural emptiness is also required for temporary Trie nodes and for removing
+a grouped index bucket after its last owner is retracted. Those internal callers
+retain their existing shape/origin responsibilities and use the structural helper,
+not recursive public business admission. Partial bucket refinements are checked
+on the complete final cache. The index factory's `.empty` is now an ordinary MOP
+computed slot, evaluated only when explicitly requested; preparing a nonempty
+family does not manufacture an invalid empty primary. Primitive count remains
+available for defining refinements and is not recursively wrapped in admission.
+
+`empty-ledger-action` composes nonconsuming Reader/FUN observation with IO. Controls
+cover distinct empty carriers, a computed empty constructor that must not run,
+invalid later children, strict Boolean/unchanged-cause backend results, all styles
+and receivers, metadata refusal, temporary partial Trie roots, grouped bucket
+migration/undo, and represented indexed Function ledgers with late refusal/retry.
+No second counter, cache, storage engine or public namespace is introduced.
+
+`TableSelection.lean` reuses endpoint queries and `observeQuery`. It proves logical
+emptiness equivalent to zero finite cardinality, explicit source refusal/ready
+results, agreement with a lawful primitive, structural emptiness despite forbidden
+business emptiness, owner preservation and consumed-owner refusal. Backend shape/
+cardinality laws, finite traversal, stable leaves and terminating refinements remain
+premises. Full source recognition, metadata preparation, backend paths/lookup and
+allocation/GC remain charged; no constant-time, physical ownership or host runtime/
+compiler claim follows. This is finite collection future work. Design reflection:
+keep the existing structural predicate and query/observer chain, separate internal
+construction from public admission, and delay rather than duplicate empty creation.

@@ -168,7 +168,9 @@
   .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
   ;; Empty is a partial constructor when the declared set excludes that root.
   .empty: (.<-list []) ;; : @
-  .empty?: (.@ Table .empty?) ;; : Bool <- @
+  ;; Set refinement precedes the backing predicate, even for an empty carrier.
+  .empty?: (lambda (root) (with-set-inputs @ (list root)
+    (lambda () (table-empty-key? Table root)))) ;; : Bool <- @
   .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
   ;; One derived boundary admits the family; the backend delegates stay simple.
   methods: (set-methods @

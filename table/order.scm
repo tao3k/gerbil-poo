@@ -189,7 +189,7 @@
     ;; Rebind derived methods to this descriptor, not a cached source receiver.
     ;; Point operations keep the original backend and the same metadata discipline.
     .validate-shape: (lambda (state) (observe state (lambda () state)))
-    .empty?: (lambda (state) (observe state (lambda () (.call source .empty? state))))
+    .empty/key?: (lambda (state) (observe state (lambda () (table-empty-key? source state))))
     .ref: (lambda (state key (missing (lambda () (error "missing key"))))
       (observe state (lambda () (.call source .ref state key missing))))
     .acons: (lambda (key row state) (update state key (lambda () (.call source .acons key row state))))

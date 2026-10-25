@@ -61,6 +61,22 @@
           (when (eq? decision wanted) (return (some (cons key value))))) input)
       #f)))
 
+;; Structural emptiness is also used while constructing temporary Trie nodes or
+;; retracting the last grouped bucket. Callers own shape/metadata protection; no
+;; business-root admission or empty construction occurs at this private boundary.
+(def (table-empty-key? descriptor input)
+  (def result (if (.has? descriptor .empty/key?)
+    (.call descriptor .empty/key? input)
+    (not (table-entry-match descriptor true input #f #t))))
+  (using (result :~ boolean?) result))
+
+;; Published emptiness observes a complete admitted source, not the identity of
+;; a separately constructed empty root. Preserve backend errors and Boolean results.
+(def (empty-table? descriptor input)
+  (with-table-sources (table-sources descriptor) (lambda ()
+    (require-table descriptor input)
+    (table-empty-key? descriptor input))))
+
 ;; Admit the complete root before any user predicate, even when a prefix decides.
 ;; The existing origin scope stays active across the short-circuit return.
 ;; Predicate/backend failures retain their cause; no root or owner is changed.

@@ -266,7 +266,7 @@
 
   ;; Is this trie empty, i.e. having no mapping from key to value?
   ;; : Bool <- @
-  .empty?: (lambda (x) (equal? (.unwrap x) (Empty)))
+  .empty/key?: (lambda (x) (equal? (.unwrap x) (Empty)))
 
   ;; : (Or Height '#f '-1) <- T
   .trie-height:
@@ -374,8 +374,8 @@
   ;; : (Fun @ <- @ @ Height)
   .make-branch: (lambda (height left right)
                   (cond
-                   ((.empty? right) (.make-skip height 0 0 left))
-                   ((.empty? left) (.make-skip height 0 1 right))
+                   ((.empty/key? right) (.make-skip height 0 0 left))
+                   ((.empty/key? left) (.make-skip height 0 1 right))
                    (else (.branch height left right))))
 
   ;; : (Fun @ <- Height Height Key @) ;; height of the tree -1, height of the bits skipped - 1.
@@ -612,7 +612,7 @@
 
   .make-branch-step:
   (lambda (branch steps)
-    (if (.empty? branch) (.make-skip-step 0 steps) [(BranchStep branch) . steps]))
+    (if (.empty/key? branch) (.make-skip-step 0 steps) [(BranchStep branch) . steps]))
 
   .make-skip-step:
   (lambda (bits-height steps)
@@ -650,7 +650,7 @@
      ;; here, common >= h >= h2 and we must descend toward the sought focus from a higher prefix node
      (nest
       (def (descend t h s))
-      (if (.empty? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
+      (if (.empty/key? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
       (let d ((t t) (h h) (s s)))
       (if (= h h2) (cons t ($Path costep s))) ;; reached the goal with a non-empty sub-trie!
       (match (.unwrap t) ;; cannot be Leaf, or else we would have had (= h h2), nor Empty, handled above

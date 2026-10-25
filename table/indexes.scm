@@ -112,7 +112,7 @@
       (if (%table-index-unique? recipe) (.call table .remove cache projected)
         (let (bucket (if (.call source .key? (some-value existing) key)
                       (.call source .remove (some-value existing) key) (some-value existing)))
-          (if (.call source .empty? bucket) (.call table .remove cache projected)
+          (if (table-empty-key? source bucket) (.call table .remove cache projected)
             (.call table .acons projected bucket cache))))))
   ;; Fold all memberships through the same persistent insertion protocol.
   (def (insert recipe cache key row)
@@ -182,7 +182,7 @@
   (def wrapper (.cc Wrapper. .ap: initialize .unap: (lambda (state)
     (observe state %indexed-table-primary))))
   (set! result
-    (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: wrapper .wrap?: %indexed-table?))
+    (.o (:: @ (.mix methods.table (.cc Wrap. T: source Wrapper: wrapper .wrap?: %indexed-table?)))
       Key: (.@ source Key) Value: (.@ source Value) .sources: sources
       ;; Private key-space registries retain the source's equality, not indexes
       ;; whose projection and cache Types belong to this family's original rows.
@@ -190,9 +190,10 @@
       ;; One complete primary construction precedes one complete cache family.
       .<-list/key: (lambda (bindings) (guard sources
         (lambda () (initialize (.call source .<-list bindings)))))
-      .empty: (initialize (.@ source .empty))
+      ;; Empty is a partial constructor, evaluated only when explicitly requested.
+      (.empty (initialize (.@ source .empty)))
       ;; Private snapshot identity is not a test for logical collection emptiness.
-      .empty?: (lambda (state) (observe state (lambda (_) (.call source .empty? (%indexed-table-primary state)))))
+      .empty/key?: (lambda (state) (observe state (lambda (_) (table-empty-key? source (%indexed-table-primary state)))))
       .validate-shape: (lambda (state) (observe state (lambda (_) state)))
       .ref: (lambda (state key (missing (lambda () (error "missing key"))))
         (observe state (lambda (_) (.call source .ref (%indexed-table-primary state) key missing))))

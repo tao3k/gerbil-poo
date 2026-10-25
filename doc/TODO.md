@@ -1261,6 +1261,16 @@ work-bound laws. See [table-order.md](table-order.md) for caller ordering/backen
 premises and charged costs. Unordered data, automatic comparator discovery and
 joint atomic reads are not silently claimed supported.
 
+**Logical emptiness observations** now close public Table/Set `.empty?`, all five
+styles and receivers without comparing an empty constructor's identity. Complete
+admission and strict Boolean decisions surround existing structural predicates;
+Trie/internal bucket construction retains its private nonrecursive path. Indexed
+empty construction is deferred with an existing computed slot. Partial refinements,
+group migration/undo, Function identity and FUN/IO retry have integrated controls
+and finite Lean zero-cardinality/refusal/ownership laws. See
+[table-selection.md](table-selection.md). Primitive counts, backend shape laws and
+arbitrary refinement termination remain explicit boundaries.
+
 **Checked endpoint observations** now close required/optional Table min/max/choice
 and Set element min/max/choice through the existing query kernel and all five
 styles/receivers. Complete admission, false-versus-absence, empty refusal,

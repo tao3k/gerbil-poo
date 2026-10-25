@@ -71,6 +71,10 @@
 (defmethod (@@method max-elt %table-object)
   (lambda (self) (.call (%table-object-protocol self) .max-elt self)))
 
+;; Logical emptiness is a nonconsuming observation of the originating protocol.
+(defmethod (@@method empty? %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .empty? self)))
+
 ;; Predicate receivers retain the originating protocol and observe one snapshot.
 (defmethod (@@method find-first/opt %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .find-first/opt predicate self)))
@@ -594,6 +598,8 @@
       ;; Read through FUN binding so backend callbacks retain the source guard.
       .ref: (lambda (input key . default)
         (guard (lambda () (apply (.@ source .ref) (read input) key default))))
+      ;; Reuse the existing snapshot reader, including Set constraints and ownership.
+      .empty?: (lambda (input) (observe input '.empty? [] #f (or set source)))
       .count: (lambda (input) (guard (lambda () (.call source .count (read input)))))
       .list<-: (lambda (input) (guard (lambda () (.call source .list<- (read input)))))
       ;; Point operations reuse the exact staged transformation engine.

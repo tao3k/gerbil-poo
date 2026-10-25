@@ -519,7 +519,7 @@
             .validate-shape: (lambda (input) (guard (lambda () (decode input) input)))
             .apply-delta: install
             .empty: (guard (lambda () (encode (.@ source .empty))))
-            .empty?: (lambda (input) (guard (lambda () (.call source .empty? (decode input)))))
+            .empty/key?: (lambda (input) (guard (lambda () (table-empty-key? source (decode input)))))
             .ref: (lambda (input k (missing (lambda () (error "missing key"))))
               (guard (lambda ()
                 (def found (.call source .ref/opt (decode input) (translate backward #t k)))
@@ -674,7 +674,8 @@
   .split: (lambda (key input) (split-table @ key input))
 
   ;; : (Fun Bool <- @)
-  .empty?: (lambda (t) (eqv? t .empty))
+  ;; Logical observation never evaluates an unrelated empty constructor.
+  .empty?: (cut empty-table? @ <>)
 
   ;; : (Fun Bool <- @ Key)
   .key?: (lambda (t key) (let/cc ret (.ref t key (lambda _ (ret #f))) #t))
