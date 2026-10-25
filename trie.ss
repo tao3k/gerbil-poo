@@ -701,11 +701,9 @@
   .leaf<-opt: (match <> ((some v) (.leaf v)) (_ .empty))
   .opt<-leaf: (lambda (t) (match (.unwrap t) ((Leaf v) (some v)) (_ #f)))
 
-  ;; : @ <- Key (Fun (Option Value) <- (Option Value)) @
-  .update/opt:
-  (lambda (key f trie)
-    (match (.refocus ($Costep -1 key) (.zipper<- trie))
-      ((cons t path) (.<-zipper (cons (.leaf<-opt (f (.opt<-leaf t))) path)))))
+  ;; Public optional updates inherit methods.table's complete checked delta path.
+  ;; Raw zipper reconstruction must not bypass key/value/root admission or turn
+  ;; an unchanged request into a fresh root. Persistent writes retain .acons/.remove.
 
   ;; Given (the data of) a skip node, and a height at which to cut it (at least 0,
   ;; and no more than the skip node's bits-height), return the two notionally

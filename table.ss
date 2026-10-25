@@ -689,7 +689,8 @@
   .for-each/reverse: (lambda (f t) (.foldr (lambda (k v a) (void (f k v))) (void) t))
 
   ;; : @ <- Key (Option Value) @
-  .acons/opt: (lambda (k ov t) (match ov (#f t) ((some v) (.acons k v t))))
+  ;; Absence keeps the old binding but still checks the key, root and origins.
+  .acons/opt: (lambda (k ov t) (.update/opt k (table-association-update @ ov) t))
 
   ;; : @ <- Key Value
   .singleton: (lambda (k v) (construct-table @ (list (cons k v)) #t))

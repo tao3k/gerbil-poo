@@ -27,7 +27,7 @@ Delta Option shells are copied by the existing protocol. Mutable leaf stability,
 valid persistent backend laws and terminating callbacks remain caller premises.
 
 All five style protocols expose `.ref/opt`, `.update/opt`, `.update`, `.delta/opt`,
-`.lens` and `.lens/opt`. Receivers expose the corresponding Gerbil methods. The
+`.acons/opt`, `.lens` and `.lens/opt`. Receivers expose the corresponding Gerbil methods. The
 captured FUN protocol authenticates owners; foreign, consumed and stale metadata
 refuse. Discovery captures a delta without consuming its owner. Installation uses
 one existing `step`: pure/posh keep the predecessor, mutable/classy retain identity,
@@ -77,3 +77,51 @@ for full recognition at discovery and postcondition, one old-value lookup and at
 most one persistent write (no write for a no-op delta). A focus is prepared once
 and may be reused. No constant-time admission, destructive storage or host GC
 latency claim follows from these laws.
+
+## Optional association through the same update boundary
+
+`.<-list` and `.singleton` are constructors, while `.acons/opt key request root`
+is a checked update to an existing admitted root. Its two request meanings are
+intentionally distinct from `.update/opt` and the optional lens setter:
+
+| Request | `.acons/opt` | Optional replacement |
+| --- | --- | --- |
+| `#f` | retain the original binding, including absence | remove the binding |
+| `(some value)` | insert or replace with exactly `value` | insert or replace |
+| `(some #f)` | store false, if Value admits false | store false |
+
+The old direct match skipped source/key admission on `#f` and bypassed the shared
+delta/final-root boundary for a present request. Now a single optional-association
+modifier copies the caller's Option shell before any metadata/root/child callbacks,
+recognizes that captured request after source and key admission, and selects it or
+the old binding. Both branches run the ordinary `.update/opt` protocol. The redundant Trie public
+zipper-update override has been removed: it shadowed that protocol, skipped typed
+admission and rebuilt even unchanged roots. Trie now inherits the common delta
+path and retains its original persistent `.acons`/`.remove` algorithms. Invalid
+input, stale ownership and complete-root/index constraints cannot be bypassed by
+an absent request. Admitted Function leaves retain identity; this does not infer
+closure serialization or normalize new raw input. Caller mutation of shared leaves
+and raw backend writes remain outside the stable-input contract.
+
+All five Table styles and standard Gerbil receivers delegate the same modifier to
+their existing generation-capturing installer. Refusal leaves the owner available
+for retry; a successful linear no-op still consumes its predecessor. No-op requests
+retain the existing empty-delta semantics: they are not assertions against a later
+base's old value. Existing stale changed-key checks and inverse recovery apply to
+nonempty requests unchanged. Raw Table calls use current metadata on each call;
+retained style factories continue rejecting changed origin revisions.
+
+`associate-ledger-action` composes Reader/FUN map with one optional write and IO.
+Integrated controls cover failed Function requests, absent rollout, checked callback
+replacement, inverse recovery, unique-index collision, final-size refusal, retry,
+mutable Option shells, stale factories and a reentrant winner. `TableFocus.lean`
+reuses `pointChanges` and `focusModify` to prove exact optional observations,
+refusal, inverse/stale-key behavior, the one-edit bound and linear retirement.
+Source/key/final-root admission and supported metadata writes remain Scheme
+protocol premises; pure finite proofs do not verify callback termination, runtime
+memory ownership or physical locks. This advances the collection future work.
+
+Design reflection: the fix removes the special-case path rather than introducing
+an Option validator, ownership engine or namespace. One small captured modifier is
+shared by raw and style updates; existing recognition, differences and installation
+remain authoritative. Full admission and backend costs still apply even on no-ops.

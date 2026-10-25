@@ -1261,6 +1261,17 @@ work-bound laws. See [table-order.md](table-order.md) for caller ordering/backen
 premises and charged costs. Unordered data, automatic comparator discovery and
 joint atomic reads are not silently claimed supported.
 
+**Checked optional association** now closes the existing `.acons/opt` protocol
+through the shared captured modifier, exact point delta and all five Table styles
+and Gerbil receivers. The redundant unchecked Trie `.update/opt` zipper override
+is removed in favor of the same common update protocol and existing backend writes.
+Absent requests retain the binding but cannot skip key/root/
+metadata admission; present false values remain distinct. Function identity,
+mutable Option capture, indexed/refinement refusal, reentrant winners and FUN/IO
+retry/inverse have integrated regressions and finite Lean laws. See
+[table-focus.md](table-focus.md). Empty requests retain ordinary no-op delta
+semantics; no destructive ownership or callback-termination guarantee is inferred.
+
 **Checked list/singleton construction** now closes direct Table construction and
 fresh five-style factories through one boundary: proper-list/Pair capture before
 child recognition, every occurrence checked before a backend call, and complete

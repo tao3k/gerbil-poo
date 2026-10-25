@@ -74,6 +74,9 @@
 ;; Optional modification stages exactly one callback before the ownership commit.
 (defmethod (@@method update/opt %table-object)
   (lambda (self key transform) (.call (%table-object-protocol self) .update/opt key transform self)))
+;; Optional association retains the same captured-generation update as modifiers.
+(defmethod (@@method acons/opt %table-object)
+  (lambda (self key response) (.call (%table-object-protocol self) .acons/opt key response self)))
 ;; Required modification retains the existing missing/default thunk convention.
 (defmethod (@@method update %table-object)
   (lambda (self key transform . default)
@@ -476,6 +479,9 @@
       .ref/opt: (lambda (input key) (guard (lambda ()
         (require-table-key source key) (.call source .ref/opt (read input) key))))
       .update/opt: update-opt
+      ;; Share captured Option admission; a successful linear no-op still retires.
+      .acons/opt: (lambda (key response input)
+        (update-opt key (table-association-update source response) input))
       .update: (lambda (key transform input (default false))
         (using (transform :~ procedure?)
           (update-opt key (lambda (old) (some (transform (option-get/default old default)))) input)))

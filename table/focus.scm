@@ -17,6 +17,15 @@
       response)
     (else (error "table update must return Option" response))))
 
+;; Capture the caller-owned Option shell before metadata or root recognition.
+;; Optional association preserves the old binding on absence; it never deletes.
+;; Reuse update admission for both branches, including an absent request.
+(def (table-association-update descriptor response)
+  (def captured (map/option identity response))
+  (lambda (old)
+    (require-table-option (.@ descriptor Value) captured)
+    (or captured old)))
+
 ;; Capture once, install privately, then recognize the complete successor. This
 ;; reuses delta shell copies, unchanged-value identity and exact failure causes.
 ;; A custom whole-table refinement may refuse even a well-typed child replacement.
