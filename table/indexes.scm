@@ -71,6 +71,21 @@
   (def (observe state action)
     (check state)
     (guard (%indexed-table-sources state) (lambda () (check state) (action state))))
+  ;; Resolve a declared name once under the same private-state admission as every
+  ;; indexed observation. Keep backend roots private and share the lookup boundary.
+  (def (with-index state name receive)
+    (observe state (lambda (_)
+      (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))
+      (unless recipe (error "unknown table index" name))
+      (receive (%table-index-table recipe) (cdr (assq name (%indexed-table-indexes state)))))))
+  ;; Backend Iterator owns traversal and bounds. The family guard is still needed
+  ;; on each deferred pull: primary, sibling declaration and origin changes can
+  ;; invalidate an otherwise unchanged selected backend, even after its EOF.
+  (def (index-cursor state name method args)
+    (with-index state name (lambda (table root)
+      (unless (.slot? table method) (error "unsupported table index cursor" name method))
+      (iterator-map identity (apply (.ref table method) root args)
+        (lambda (action) (observe state (lambda (_) (action))))))))
   ;; Validate the complete finite key list before any cache update. Standard
   ;; stable deduplication preserves first-conflict order and callback identities.
   ;; Empty lists mean no membership; list-valued keys remain unambiguous.
@@ -187,31 +202,27 @@
       .foldr: (lambda (f seed state) (observe state (lambda (_) (.call source .foldr f seed (%indexed-table-primary state)))))
       .iter<-: cursor
       .apply-delta: update
-      .index-ref/opt: (lambda (state name key) (observe state (lambda (_)
-        (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))
-        (unless recipe (error "unknown table index" name))
-        (def type (.@ (%table-index-table recipe) Key))
-        (unless (element? type key) (raise-type-error type key 'table-indexes))
-        (.call (%table-index-table recipe) .ref/opt (cdr (assq name (%indexed-table-indexes state))) key))))
+      .index-ref/opt: (lambda (state name key)
+        (with-index state name (lambda (table root)
+          (unless (element? (.@ table Key) key) (raise-type-error (.@ table Key) key 'table-indexes))
+          (.call table .ref/opt root key))))
       ;; Observe one complete named index through its declared fold, retaining
       ;; guards and bucket identity without exposing a mutable cache handle.
       .index-fold: (lambda (state name f seed)
         (using (f :~ procedure?)
-          (observe state (lambda (_)
-            (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))
-            (unless recipe (error "unknown table index" name))
-            (.call (%table-index-table recipe) .foldl f seed
-              (cdr (assq name (%indexed-table-indexes state))))))))
+          (with-index state name (lambda (table root) (.call table .foldl f seed root)))))
+      ;; Standard observation aliases add no cache, sorting or element wrapping.
+      .index-iter<-: (lambda (state name) (index-cursor state name '.iter<- []))
+      .index-seek<-: (lambda (state name lower (inclusive? #t))
+        (index-cursor state name '.seek<- (list lower inclusive?)))
+      .index-range<-: (lambda (state name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+        (index-cursor state name '.range<- (list lower upper lower-inclusive? upper-inclusive?)))
       ;; Ordered backends own comparator and bound semantics; never infer order
       ;; from projection values or expose the private cache root to callers.
       .index-range: (lambda (state name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
-        (observe state (lambda (_)
-          (def recipe (find (lambda (recipe) (eq? name (%table-index-name recipe))) recipes))
-          (unless recipe (error "unknown table index" name))
-          (def table (%table-index-table recipe))
+        (with-index state name (lambda (table root)
           (unless (.has? table .range) (error "unordered table index" name))
-          (.call table .range (cdr (assq name (%indexed-table-indexes state)))
-            lower upper lower-inclusive? upper-inclusive?))))
+          (.call table .range root lower upper lower-inclusive? upper-inclusive?))))
       .bind/wrap: (lambda (state f) (observe state (lambda (_) (.call wrapper .bind state f))))
       .map/wrap: (lambda (f state) (observe state (lambda (_) (.call wrapper .map f state))))))
   result)

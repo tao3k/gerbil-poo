@@ -133,6 +133,20 @@
 (defmethod (@@method index-ref/opt %table-object)
   (lambda (self name key) (.call (%table-object-protocol self) .index-ref/opt self name key)))
 ;; Index comparators and failure classifications remain owned by the backend.
+(defmethod (@@method index-fold %table-object)
+  (lambda (self name f seed) (.call (%table-object-protocol self) .index-fold self name f seed)))
+;; Ordinary named index traversal returns its backend's admitted bindings.
+(defmethod (@@method index-iter<- %table-object)
+  (lambda (self name) (.call (%table-object-protocol self) .index-iter<- self name)))
+;; Named positioning retains the selected index's declared comparator.
+(defmethod (@@method index-seek<- %table-object)
+  (lambda (self name lower (inclusive? #t))
+    (.call (%table-object-protocol self) .index-seek<- self name lower inclusive?)))
+;; Named bounded streaming shares ordinary deferred style observation.
+(defmethod (@@method index-range<- %table-object)
+  (lambda (self name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+    (.call (%table-object-protocol self) .index-range<- self name lower upper lower-inclusive? upper-inclusive?)))
+;; Eager named ranges keep the existing complete result convention.
 (defmethod (@@method index-range %table-object)
   (lambda (self name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
     (.call (%table-object-protocol self) .index-range self name lower upper lower-inclusive? upper-inclusive?)))
@@ -421,6 +435,12 @@
       .range<-: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
         (observe input '.range<- (list lower upper lower-inclusive? upper-inclusive?) #t))
       .index-ref/opt: (lambda (input name key) (observe input '.index-ref/opt (list name key)))
+      .index-fold: (lambda (input name f seed) (observe input '.index-fold (list name f seed)))
+      .index-iter<-: (lambda (input name) (observe input '.index-iter<- (list name) #t))
+      .index-seek<-: (lambda (input name lower (inclusive? #t))
+        (observe input '.index-seek<- (list name lower inclusive?) #t))
+      .index-range<-: (lambda (input name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+        (observe input '.index-range<- (list name lower upper lower-inclusive? upper-inclusive?) #t))
       .index-range: (lambda (input name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
         (observe input '.index-range (list name lower upper lower-inclusive? upper-inclusive?)))
       ;; Read through FUN binding so backend callbacks retain the source guard.

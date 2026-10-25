@@ -1969,6 +1969,19 @@ See table-order.md for persistent-root/order/admission premises, initial fallbac
 sorting and guard/positioning costs. Automatic backend/order discovery and host
 coroutine/compiler verification remain research boundaries.
 
+### Deferred named-index observations
+
+Closed the named traversal gap for associated indexes: ordinary, positioned and
+bounded index cursors delegate the selected backend and retain complete family
+guards on every pull, including EOF. Name resolution for point/fold/range queries
+now shares one private continuation. Existing index-fold and the new iterators
+flow through all styles/receivers and bounded Reader/FUN/IO inspection. Unique and
+shared buckets, atomic swaps/migration, inverse recovery, Function identity, old
+snapshots, sibling invalidation, unknown names, unsupported capabilities and
+foreign state refusal have regressions and finite Lean admission/nested-guard laws.
+See table-order.md for stamps/persistence/order premises and full admission,
+positioning/fallback costs. Automatic index selection remains research work.
+
 ### Checked single-entry decomposition
 
 Closed the concrete `decons` interface item previously listed in `table.ss`:
