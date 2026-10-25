@@ -204,12 +204,14 @@
   .<-list: (lambda (l) (using (l :~ list?)
     (build-set @ [] '.<-list (map (lambda (elt) (cons elt (void))) l)))) ;; : @ <- (List Elt)
   .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(map (.@ Elt sexp<-) (.list<- x))))) ;; : Sexp <- @
-  .min-elt: (lambda (t) (car (.call Table .min-binding t))) ;; : Elt <- @
-  .min-elt/opt: (lambda (t) (map/option car (.call Table .min-binding/opt t))) ;; : (Option Elt) <- @
-  .max-elt: (lambda (t) (car (.call Table .max-binding t))) ;; : Elt <- @
-  .max-elt/opt: (lambda (t) (map/option car (.call Table .max-binding/opt t))) ;; : (Option Elt) <- @
+  ;; Endpoint observations retain Set refinement and the backing traversal order.
+  ;; Option shells distinguish an empty set from a selected false element.
+  .min-elt: (lambda (t) (option-ref (.min-elt/opt t))) ;; : Elt <- @
+  .min-elt/opt: (cut query-set @ '.find-first/opt true <> #t) ;; : (Option Elt) <- @
+  .max-elt: (lambda (t) (option-ref (.max-elt/opt t))) ;; : Elt <- @
+  .max-elt/opt: (cut query-set @ '.find-last/opt true <> #t) ;; : (Option Elt) <- @
   .choose: .min-elt ;; : Elt <- @
-  .choose-opt: .min-elt/opt ;; : (Option Elt) <- @
+  .choose/opt: .min-elt/opt ;; : (Option Elt) <- @
   ;; Element-level extraction shares table choice, conflicts and complete admission.
   .decons/opt: (lambda (input) (decons-set @ input #f))
   .decons: (lambda (input) (decons-set @ input #t))

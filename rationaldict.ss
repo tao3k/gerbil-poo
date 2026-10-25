@@ -3,11 +3,9 @@
 (export #t)
 
 (import
-  (only-in :std/values first-value)
-  (only-in :std/func compose)
   (only-in ./support/base λ)
   (only-in ./support/rationaldict
-           rationaldict-keys rationaldict-min-key rationaldict-max-key
+           rationaldict-keys
            rationaldict-empty? empty-rationaldict
            rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
            list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr
@@ -52,6 +50,5 @@
 (define-type (RationalSet @ [Set<-Table.])
   Elt: Rational
   Table: {(:: @T RationalDict.) Key: Elt Value: Unit}
-  .list<-: rationaldict-keys
-  .min-elt: (compose first-value rationaldict-min-key)
-  .max-elt: (compose first-value rationaldict-max-key))
+  ;; Public endpoint queries inherit the complete Set observation boundary.
+  .list<-: rationaldict-keys)

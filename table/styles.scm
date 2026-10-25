@@ -31,6 +31,46 @@
 ;; Stream updates reuse the receiver's captured-generation installer exactly once.
 (defmethod (@@method <-iter %table-object)
   (lambda (self sequence) (.call (%table-object-protocol self) .<-iter sequence self)))
+;; Return the first admitted binding as an Option, without consuming the owner.
+(defmethod (@@method min-binding/opt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .min-binding/opt self)))
+
+;; Require the first admitted binding through the same nonconsuming protocol.
+(defmethod (@@method min-binding %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .min-binding self)))
+
+;; Return the last binding in the declared traversal, retaining an Option shell.
+(defmethod (@@method max-binding/opt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .max-binding/opt self)))
+
+;; Require the last admitted binding; absence keeps the ordinary failure.
+(defmethod (@@method max-binding %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .max-binding self)))
+
+;; Choose through the originating Table or Set protocol without installing state.
+(defmethod (@@method choose/opt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .choose/opt self)))
+
+;; Required choice preserves the backend observation and its absence failure.
+(defmethod (@@method choose %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .choose self)))
+
+;; Project the first Set element while preserving a selected false value.
+(defmethod (@@method min-elt/opt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .min-elt/opt self)))
+
+;; Require the first Set element with the existing Set refinement.
+(defmethod (@@method min-elt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .min-elt self)))
+
+;; Project the last Set element through the same snapshot read.
+(defmethod (@@method max-elt/opt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .max-elt/opt self)))
+
+;; Require the last Set element without retiring the receiver.
+(defmethod (@@method max-elt %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .max-elt self)))
+
 ;; Predicate receivers retain the originating protocol and observe one snapshot.
 (defmethod (@@method find-first/opt %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .find-first/opt predicate self)))
@@ -528,6 +568,13 @@
       .find-last: (lambda (p input) (query input '.find-last p))
       .every: (lambda (p input) (query input '.every p))
       .any: (lambda (p input) (query input '.any p))
+      ;; Endpoints share the existing guarded snapshot observer, never step/install.
+      .min-binding/opt: (lambda (input) (observe input '.min-binding/opt []))
+      .min-binding: (lambda (input) (observe input '.min-binding []))
+      .max-binding/opt: (lambda (input) (observe input '.max-binding/opt []))
+      .max-binding: (lambda (input) (observe input '.max-binding []))
+      .choose/opt: (lambda (input) (observe input '.choose/opt [] #f (or set source)))
+      .choose: (lambda (input) (observe input '.choose [] #f (or set source)))
       ;; Capability lifting forwards the backend's own order, bounds and errors.
       .seek<-: (lambda (input lower (inclusive? #t)) (observe input '.seek<- (list lower inclusive?) #t))
       .seek: (lambda (input lower (inclusive? #t)) (observe input '.seek (list lower inclusive?)))
@@ -572,6 +619,11 @@
             (map car (observe input '.range (list lower upper lower-inclusive? upper-inclusive?))))
           .range<-: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
             (iterator-map car (observe input '.range<- (list lower upper lower-inclusive? upper-inclusive?) #t)))
+          ;; Set presentation reuses the same observer with element-level results.
+          .min-elt/opt: (lambda (input) (observe input '.min-elt/opt [] #f set))
+          .min-elt: (lambda (input) (observe input '.min-elt [] #f set))
+          .max-elt/opt: (lambda (input) (observe input '.max-elt/opt [] #f set))
+          .max-elt: (lambda (input) (observe input '.max-elt [] #f set))
           .elt?: (lambda (input element) (guard (lambda () (.call set .elt? (read input) element))))
           .cons: (lambda (element input) (step input (cut .call set .cons element <>)))
           .remove: (lambda (input element) (step input (cut .call set .remove <> element)))

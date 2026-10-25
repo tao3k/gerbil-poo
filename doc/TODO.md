@@ -1261,6 +1261,14 @@ work-bound laws. See [table-order.md](table-order.md) for caller ordering/backen
 premises and charged costs. Unordered data, automatic comparator discovery and
 joint atomic reads are not silently claimed supported.
 
+**Checked endpoint observations** now close required/optional Table min/max/choice
+and Set element min/max/choice through the existing query kernel and all five
+styles/receivers. Complete admission, false-versus-absence, empty refusal,
+nonconsuming ownership, Function identity, represented/indexed partial refinements
+and FUN/IO retry have integrated controls and finite Lean laws. Set optional choice
+uses `.choose/opt` with no legacy alias; see [table-selection.md](table-selection.md).
+Traversal/order laws remain explicit; unordered backends do not infer numeric extrema.
+
 **Complete collection IO** now closes Table/Set JSON, bytes and port operations
 under one metadata/admission boundary, retaining List/Pair wire formats and
 complete constructors. Five styles share nonconsuming encoders and fresh decoders;

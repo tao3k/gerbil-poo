@@ -736,11 +736,13 @@
   .<-list/key: (lambda (rows) (foldr (lambda (row root)
     (.acons (car row) (cdr row) root)) .empty rows))
 
+  ;; Complete admission precedes the first forward/reverse binding observation.
+  ;; The existing short-circuit query preserves leaves and declared backend order.
   ;; : (Option (Pair Key Value)) <- @
-  .min-binding/opt: (lambda (t) (let/cc return (.for-each (lambda (k v) (return (some (cons k v)))) t) #f))
+  .min-binding/opt: (cut find-table-entry @ true <> #f #t)
 
   ;; : (Option (Pair Key Value)) <- @
-  .max-binding/opt: (lambda (t) (let/cc return (.for-each/reverse (lambda (k v) (return (some (cons k v)))) t) #f))
+  .max-binding/opt: (cut find-table-entry @ true <> #t #t)
 
   ;; : (Pair Key Value) <- @
   .min-binding: (lambda (t) (option-ref (.min-binding/opt t)))

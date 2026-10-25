@@ -134,3 +134,48 @@ Set/style boundaries; the unsound specialization is removed rather than surround
 with more wrappers. Recognition and public admission remain deliberately separate
 to prevent verification recursion. No module namespace or parallel search engine
 is introduced.
+
+
+## Endpoint observations through the same query kernel
+
+Table `.min-binding[/opt]`, `.max-binding[/opt]` and `.choose[/opt]` now reuse the
+complete first-match observation boundary with a constant-true decision. Set
+`.min-elt[/opt]`, `.max-elt[/opt]` and `.choose[/opt]` project elements through the
+existing Set query boundary. The separate RationalSet public min/max overrides
+are removed: their direct backend call skipped refinements and could return false
+for a required empty query. Existing RBTree/Trie folds remain the algorithms.
+
+Both directions admit the complete source before returning an endpoint, so an
+invalid later child cannot be hidden by the first binding. Required empty queries
+raise the existing `option-ref` absence error; optional ones return `#f`. A selected
+false element is `(some #f)` and a required selected false is a valid value. Selected
+Pair/Option shells are fresh, and admitted Function leaves retain their identity.
+Set optional choice uses the existing naming convention `.choose/opt`; the old
+inconsistent `.choose-opt` field is removed without a compatibility alias.
+
+The names retain their original declared traversal semantics: min/choose observes
+the forward endpoint, max observes the reverse endpoint. A lawful ordered backend
+therefore provides extrema in that order; an unordered backend provides traversal
+endpoints. No numeric order, sorting policy or arbitrary comparer is inferred.
+All five Table/Set styles and standard Gerbil receivers delegate to their current
+snapshot observer. Reads authenticate owned/receiver provenance, reject consumed
+or stale handles and never install/retire an owner. Sequential persistent snapshot
+observation is not a joint atomic read of several mutable owners.
+
+`choose-ledger-action` composes Reader/FUN with nonconsuming optional choice before
+IO. The integrated represented/indexed service retains a whole-root constraint,
+checked Functions, refusal/retry and the original linear owner. Regressions also
+cover complete tail admission, one query visit after admission, empty required
+queries, false elements, all five styles/receivers, protected metadata, original
+backend causes and mutable returned shells that cannot rewrite the source.
+
+`TableSelection.lean` specializes the existing query reference, extends original
+source admission with a reverse traversal parameter, and proves first/reverse
+payloads, membership, exact empty absence, pointwise representation translation,
+post-admission visit bound and ownership preservation. Stable leaves, backend
+traversal laws and supported metadata edits are premises. Complete recognition,
+backend traversal paths, lookup, metadata preparation, allocation and GC remain
+charged; no constant-time or runtime/compiler correctness claim follows. This is
+finite collection future work. Design reflection: derive endpoints from the
+query/observer chain and remove the bypass; add no cache, traversal engine or
+namespace and do not manufacture a valid empty business root.
