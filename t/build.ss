@@ -56,12 +56,14 @@
   (when build-stopping? (error "build admission stopped after cleanup failure"))
   (def started (real-time))
   (displayln "BUILD-STAGE-START command=" args " cores=" cores) (force-output)
+  ;; Use the public SDK launcher, as just does: a linked binary's ~~bin can
+  ;; retain the release producer's path and bypass relocation/runtime activation.
   ;; Both compilation and recovery use the same bounded process-group ownership.
   ;; Standard clean runs only after the failed compiler group has been reaped.
   (def (invoke request)
     (def command (append [timeout "--signal=TERM" "--kill-after=3s" "300s" "env"
       (string-append "GERBIL_BUILD_CORES=" (number->string cores))
-      (path-expand "~~bin/gxi") runtime "build.ss"] request))
+      "gxi" runtime "build.ss"] request))
     (run-process command directory: root stdout-redirection: #f
       coprocess: (lambda (process)
         (def pid (process-pid process))

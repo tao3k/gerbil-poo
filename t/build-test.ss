@@ -138,7 +138,7 @@
         (write-forms "build.ss"
           `((import :std/build-script)
             (def (build . args)
-              (defbuild-script ["unit"] libdir: ,lib) (apply main args))
+              (defbuild-script '("unit") libdir: ,lib) (apply main args))
             (def (main . args)
               (if (or (equal? args '("clean")) (not (file-exists? ,marker)))
                 (apply build args)
@@ -235,11 +235,17 @@
       (def admitted (commands "_check-collections"))
       (def standalone (commands "benchmark-collections"))
       (def linked (commands "_check-linked-collections"))
-      ;; The producer owns library freshness; the admitted entry owns one consumer.
-      (check-equal? (filter (cut string-prefix? "set -- " <>) admitted) '("set -- test-program"))
-      (check-equal? (filter (cut string-prefix? "set -- " <>) standalone)
-        '("set -- library" "set -- test-program"))
-      (check-equal? (filter (cut string-prefix? "set -- " <>) linked) [])
+      ;; Observe actual bounded build invocations, rather than the old shell's
+      ;; incidental set-- syntax. Construction count/target admission is unchanged.
+      (def (targets lines)
+        (map (lambda (line)
+          (cond ((string-suffix? " test-program" line) 'test-program)
+                ((string-suffix? " library" line) 'library)
+                (else 'unexpected)))
+          (filter (cut string-contains <> " t/build.ss ") lines)))
+      (check-equal? (targets admitted) '(test-program))
+      (check-equal? (targets standalone) '(library test-program))
+      (check-equal? (targets linked) [])
       (for (lines (list admitted standalone linked))
         (check-equal? (length (filter
           (cut string-suffix? "build.ss benchmark \"collection-paired-benchmark\"" <>) lines)) 1)

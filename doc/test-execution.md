@@ -88,3 +88,9 @@ verifies both partial outputs disappeared, then compiles the same module through
 `defbuild-script`. No production deadline is shortened for that control. See
 [the build study](performance/build-summary.org) for cold/warm measurements and
 supervisor-interruption boundaries.
+
+The boundary invokes the public `gxi` launcher used by `just`, rather than the
+linked executable's `~~bin` alias, which can retain the SDK producer's path.
+Release relocation and runtime activation stay with the SDK. The compiled
+recovery fixture verifies a produced-output marker and the standard runner's
+representation of exit 124 before testing cleanup and serial-mode rebuild.

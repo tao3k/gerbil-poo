@@ -404,6 +404,12 @@ optimization flags are unchanged.
 | Standard clean, verbose timing diagnostic | 56.18 | 167.31 | 35.43 |
 | Standard clean, default progress | 61.72 | 166.27 | 36.04 |
 | Immediate standard warm build | 9.74 | 8.73 | 0.89 |
+| Entirely empty standard GERBIL_PATH | 60.42 | 163.06 | 34.68 |
+
+The empty-prefix follow-up first observed zero files under a fresh standard
+GERBIL_PATH, including zero numbered objects, static code and interfaces. Its
+table runtime was produced as table~0.o1. It retained the same compiler flags,
+standard worker budget and deadline, so its success cannot be an old-object hit.
 
 The default warm run emitted no compile jobs. In the diagnostic cold run, table
 frontend compilation started at 17.03 seconds, its backend job at 21.35 seconds,
@@ -426,3 +432,12 @@ controls are not a causal speedup ratio against that older run. They establish
 completion within the unchanged bounds, while the independently reproduced
 partial-output bug has an explicit recovery regression. Full raw compiler logs,
 objects and timing data remain outside Git.
+
+The linked executable control also exposed why ~~bin/gxi is unsuitable as a tool
+locator: it resolved to the SDK producer's directory, not this installation.
+The boundary now invokes the same public gxi launcher as just. The SDK launcher
+owns relocation and runtime activation; no SDK absolute path or extra project
+environment variable is introduced. The temporary build-script fixture uses an
+ordinary quoted build-spec list so compiled datum writing preserves its syntax.
+Consumer construction tests inspect the actual bounded target invocations,
+retaining the original one-consumer and complete-harness assertions.
