@@ -233,15 +233,18 @@
 ;; Maintain a typed aggregate per nonempty group through existing grouped indexes
 ;; and the common fold kernel. Recompute complete affected buckets, not untouched
 ;; groups; no retraction law or automatic dependency discovery is assumed.
-(def (table-group-fold source target aggregate classify project (origins []))
-  (using ((classify :~ procedure?) (project :~ procedure?) (origins :~ list?))
+(def (table-group-fold source target aggregate classify project (origins []) multiple?: (multiple? #f))
+  (using ((classify :~ procedure?) (project :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
     (with-table-sources (append (list source target aggregate) origins) (lambda ()
       (unless (eq? (.@ target Value) aggregate) (error "incompatible grouped aggregate type"))
       (def primary (table-key-table source (.@ source Value)))
       (def groups (table-key-table target primary))
       (def touched (table-key-table target Unit))
+      ;; A single list-valued key remains one key. Only explicit multiple? opens
+      ;; finite membership; the existing index owns deduplication and buckets.
+      (def group-keys (if multiple? classify (lambda (key row) (list (classify key row)))))
       (def indexed-type (table-indexes primary
-        (list (.o name: 'aggregate table: groups unique?: #f project: classify))))
+        (list (.o name: 'aggregate table: groups unique?: #f multiple?: #t project: group-keys))))
       (def sources (delete-duplicates/hash
         (append (table-sources source) (table-sources target) (table-sources touched)
           (list aggregate indexed-type) (.@ indexed-type .sources) origins)
@@ -303,11 +306,11 @@
                     (for-each (lambda (root)
                       (def row (.call primary .ref/opt root key))
                       (when (some? row)
-                        (let (bucket (classify key (some-value row)))
-                          (unless (element? (.@ target Key) bucket)
-                            (raise-type-error (.@ target Key) bucket 'table-group-fold))
+                        (for-each (lambda (bucket)
                           (unless (.call touched .key? seen bucket)
-                            (set! seen (.call touched .acons bucket (void) seen)) (emit bucket)))))
+                            (set! seen (.call touched .acons bucket (void) seen)) (emit bucket)))
+                          (require-table-index-keys (.@ target Key)
+                            (group-keys key (some-value row)) 'table-group-fold))))
                       (list before after))) (table-delta-changes delta))))
                 (def edits (with-list-builder (emit)
                   (for-each (lambda (key)

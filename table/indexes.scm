@@ -7,6 +7,17 @@
 ;; One private snapshot carries the primary root, every index and all live origins.
 (defstruct %indexed-table (owner primary indexes sources versions) final: #t)
 
+;; Own the finite classifier spine before child recognition can alter its caller's
+;; buffer. Index installation and grouped aggregation share membership admission
+;; and stable deduplication; admitted keys are never normalized again.
+(def (require-table-index-keys type keys (where 'table-indexes))
+  (using (keys :~ list?)
+    (def captured (map identity keys))
+    (for-each (lambda (key)
+      (unless (element? type key) (raise-type-error type key where))) captured)
+    (if (and (pair? captured) (pair? (cdr captured)))
+      (delete-duplicates/hash captured from-end?: #t) captured)))
+
 ;; Derive a complete table with atomic correlated indexes. A unique index stores
 ;; primary keys; a grouped index stores persistent source-table buckets. No hash
 ;; engine, balancing algorithm, Function normalization or ownership API is copied.
@@ -64,14 +75,8 @@
   ;; stable deduplication preserves first-conflict order and callback identities.
   ;; Empty lists mean no membership; list-valued keys remain unambiguous.
   (def (project recipe key row)
-    (def keys ((%table-index-project recipe) key row))
-    (def type (.@ (%table-index-table recipe) Key))
-    (using (keys :~ list?)
-      (for-each (lambda (value)
-        (unless (element? type value) (raise-type-error type value 'table-indexes))) keys)
-      ;; Empty/single-key lists are already unique; keep their path hash-free.
-      (if (and (pair? keys) (pair? (cdr keys)))
-        (delete-duplicates/hash keys from-end?: #t) keys)))
+    (require-table-index-keys (.@ (%table-index-table recipe) Key)
+      ((%table-index-project recipe) key row)))
   ;; Insert one membership using the existing unique-owner or grouped backend.
   ;; A grouped bucket shares the exact admitted row, including its Functions.
   (def (insert-key recipe cache key row projected)

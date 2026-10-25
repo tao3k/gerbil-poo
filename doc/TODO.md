@@ -1916,6 +1916,18 @@ See table-mapping.md for the API, purity/equality/persistence premises and outpu
 registry, preparation and full recognition costs. Automatic expansion discovery
 remains a research boundary; this does not declare the collection proposal complete.
 
+### Finite multivalued grouped aggregation
+
+Closed the concrete composition gap between multikey indexes and grouped fold:
+`table-group-fold multiple?: #t` reuses finite membership admission, existing
+grouped indexes, aggregate kernel, owned state and exact five-style publication.
+Duplicate/empty memberships, zero-valued live groups, old/final selective repair,
+Function identity, inverse recovery, malformed membership, origin invalidation
+and final-refinement refusal/retry have integrated regressions and finite Lean
+laws. See collections.md for stable callback/key and persistent backend premises,
+classifier spine ownership costs and complete affected-bucket refolding. Automatic
+aggregate/dependency discovery remains a research boundary, not this finite unit.
+
 ### Checked single-entry decomposition
 
 Closed the concrete `decons` interface item previously listed in `table.ss`:
