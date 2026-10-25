@@ -1228,6 +1228,18 @@ Lean connection/invariant laws and semantic reassociation. Arbitrary view discov
 distributed source synchronization and destructive/effect rollback remain outside
 this explicit persistent revision protocol.
 
+**Checked predicate observation** now closes the query family across Table, Set,
+five styles and Gerbil receivers: first/last optional or required search and
+any/every share strict Boolean short-circuit traversal, complete input admission
+and nonconsuming snapshot observation. The Trie key-only monotone override is
+removed from the general two-argument protocol. Recognition uses the raw internal
+traversal to avoid recursive query admission. Nonmonotone finite masks, invalid
+tails, false elements, Function identities, failure/retry and Reader/FUN/IO have
+regressions and Lean source/short-circuit/admission/ownership/work-bound laws.
+See [table-selection.md](table-selection.md) for declared order, full admission
+costs and backend premises; automatic predicate/algorithm discovery remains a
+research boundary.
+
 On top of Gerbil-POO, build an
 [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
 

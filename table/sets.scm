@@ -27,6 +27,15 @@
 (def (with-set-tables descriptor left right action)
   (with-set-inputs descriptor (list left right) action))
 
+;; Predicate observations retain the Set refinement and reuse Table traversal.
+;; Only search observations project Unit-valued bindings to optional elements;
+;; false elements remain present shells and Function keys retain their identity.
+(def (query-set descriptor method predicate input entry?)
+  (using (predicate :~ procedure?)
+    (with-set-inputs descriptor (list input) (lambda ()
+      (def result ((.ref (.@ descriptor Table) method) (lambda (elt _) (predicate elt)) input))
+      (if entry? (map/option car result) result)))))
+
 ;; Resolve and call one backing method inside the shared admission scope. Standard
 ;; apply carries its arguments; callers need no extra construction thunk. Backend
 ;; failures retain their cause and external callback effects are not undone.
@@ -172,8 +181,8 @@
   .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
   .foldr: (lambda (f a t) (.call Table .foldr (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
-  .every: (lambda (f t) (.call Table .every (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
-  .any: (lambda (f t) (.call Table .any (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
+  .every: (lambda (f t) (query-set @ '.every f t #f)) ;; : Bool <- (Bool <- Elt) @
+  .any: (lambda (f t) (query-set @ '.any f t #f)) ;; : Bool <- (Bool <- Elt) @
   ;; Checked selection protects custom set refinements as well as backing Types.
   .filter: (lambda (f t) (select-set @ f t #f)) ;; : @ <- (Bool <- Elt) @
   ;; The shared set boundary delegates prefix algorithms to the backing table.
@@ -199,9 +208,9 @@
   .decons: (lambda (input) (decons-set @ input #t))
   ;; Both set roots pass complete admission before the presence observation escapes.
   .split: (lambda (elt t) (split-set @ elt t)) ;; : @ Bool @ <- Elt @
-  .find-first/opt: (lambda (f t) (map/option car (.call Table .find-first/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
+  .find-first/opt: (lambda (f t) (query-set @ '.find-first/opt f t #t)) ;; : (Option Elt) <- (Bool <- Elt) @
   .find-first: (lambda (f t) (option-ref (.find-first/opt f t))) ;; : Elt <- (Bool <- Elt) @
-  .find-last/opt: (lambda (f t) (map/option car (.call Table .find-last/opt (lambda (e _) (f e)) t))) ;; : (Option Elt) <- (Bool <- Elt) @
+  .find-last/opt: (lambda (f t) (query-set @ '.find-last/opt f t #t)) ;; : (Option Elt) <- (Bool <- Elt) @
   .find-last: (lambda (f t) (option-ref (.find-last/opt f t))) ;; : Elt <- (Bool <- Elt) @
   .iter<-: (lambda (t from: (from #f)) ;; : (Iterator Elt) <- @ ?Elt
               (iterator-map car

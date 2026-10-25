@@ -77,3 +77,60 @@ both partition branches; it is not an allocation or wall-time bound. Admission,
 backend lookup/write, index projection, conversion and GC costs remain explicit.
 Arbitrary callback termination, destructive backends, automatic symmetry discovery
 and compiler/runtime verification remain outside this finite unit.
+
+## Checked predicate observations
+
+The existing `.find-first/opt`, `.find-last/opt`, `.find-first`, `.find-last`,
+`.any` and `.every` now share one short-circuit observation protocol. Table
+predicates receive `(key, value)`; Set predicates receive the element. Every
+visited decision must be a Boolean. Invalid predicate procedures use Gerbil's
+standard contract refusal; non-Boolean decisions use the existing POO TypeError.
+Original callback/backend exceptions propagate unchanged. Required searches use
+the existing Option absence error. `(some #f)` is a present false Set element.
+
+Complete carrier/child/refinement admission precedes every user predicate, even
+if the first entry would decide the result. Recognition calls the internal raw
+traversal kernel, **not** the public admitted query; otherwise admission would
+recursively invoke itself. The same kernel supplies forward/reverse first match,
+existential success and universal counterexample. No snapshot list, new cache,
+normalization or Function wrapper is constructed. Scoped metadata protection
+covers recognition, predicate callbacks and short-circuit escape.
+
+Traversal follows the backend's declared forward/reverse order. An unordered
+carrier does not acquire a numerical sort order. The former Trie overrides
+silently called predicates with only the key and assumed monotonicity while
+advertising the general two-argument interface. They are removed: arbitrary
+predicates use the shared traversal, and ordered positioning retains its explicit
+`.seek` capability. No implicit binary-search promise or compatibility alias is
+added.
+
+All five Table/Set styles and the standard Gerbil receivers expose the same
+queries without consuming ownership or allocating successor owners. A query
+captures one immutable snapshot; reentrant successful publication remains visible
+on the owner but does not change the observed source. Consumed/foreign owners and
+stale declared policies refuse through the existing guard. External callback
+side effects and successful reentrant publications are not rolled back.
+
+`find-ledger-action` composes optional service lookup with Reader/FUN/IO. A failed
+admission or predicate suppresses the consumer; a completed observation retains
+exact admitted Function identities. Regression coverage includes all finite masks
+of a four-entry nonmonotone predicate, forward/reverse callback prefixes, Trie,
+RationalDict, explicit boxed carriers, all styles/receivers, invalid tails, false
+Set elements, original exceptions, policy-write refusal and corrected retry.
+
+Lean's existing `TableSelection` proves matching-source identity, satisfaction,
+absence/all-false and universal/all-true interpretation, decided-prefix shielding,
+reverse membership, original refusal, full-admission precedence and unchanged or
+consumed ownership. `queryVisits` bounds predicate invocations by source length.
+Full carrier/refinement admission, backend traversal/positioning, guards,
+conversions, allocation and GC remain separate costs. Short-circuit predicates do
+not imply a sublinear total operation. Backend persistence/traversal fidelity and
+stable admitted leaves are premises; arbitrary callback termination, physical
+ownership and compiler/GC correctness are not established. This finite protocol
+advances the proposed collection library's future work.
+
+Design reflection: six public observations reuse one traversal and the existing
+Set/style boundaries; the unsound specialization is removed rather than surrounded
+with more wrappers. Recognition and public admission remain deliberately separate
+to prevent verification recursion. No module namespace or parallel search engine
+is introduced.

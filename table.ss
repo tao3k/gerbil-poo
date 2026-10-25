@@ -28,7 +28,7 @@
   (only-in ./fun Wrapper. Wrap.)
   (only-in ./function-signature signature-shape?)
   (only-in ./object .o object<-alist .all-slots .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
-  (only-in ./type List Pair Sum Unit))
+  (only-in ./type List Pair Sum Unit Bool))
 
 (defstruct %mapped-iterator (source transform guard) final: #t)
 ;; Pull through the standard Iterator exactly once; preserve EOF without mapping it.
@@ -67,9 +67,10 @@
 (def (table-element? descriptor source)
   (try
     (.call descriptor .validate-shape source)
-    (.call descriptor .every
+    ;; Recognition must not reenter the public query's complete-root admission.
+    (not (table-entry-match descriptor
       (lambda (key value)
-        (and (element? (.@ descriptor Key) key) (element? (.@ descriptor Value) value))) source)
+        (and (element? (.@ descriptor Key) key) (element? (.@ descriptor Value) value))) source #f #f))
     (catch (TypeError? _) #f)))
 
 ;; Validate a persistent table through its current public representation protocol.
@@ -718,10 +719,10 @@
   .count: (lambda (t) (.foldl (lambda (_1 _2 a) (1+ a)) 0 t))
 
   ;; : Bool <- (Fun Bool <- Key Value) @
-  .every: (lambda (pred t) (let/cc return (.for-each (lambda (k v) (unless (pred k v) (return #f))) t) #t))
+  .every: (lambda (pred t) (not (find-table-entry @ pred t #f #f)))
 
   ;; : Bool <- (Fun Bool <- Key Value) @
-  .any: (lambda (pred t) (let/cc return (.for-each (lambda (k v) (when (pred k v) (return #t))) t) #f))
+  .any: (lambda (pred t) (and (find-table-entry @ pred t #f #t) #t))
 
   ;; : (List (Pair Key Value)) <- @
   .list<-: (lambda (t) (.foldr acons [] t))
@@ -752,19 +753,15 @@
   .decons/opt: (lambda (input) (decons-table @ input #f))
   .decons: (lambda (input) (decons-table @ input #t))
 
-  ;; Linear scan for the first matching entry
-  ;; BEWARE: this assumes for-each is in increasing key order.
+  ;; First match in declared forward traversal; no monotonicity is inferred.
   ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
   .find-first/opt:
-  (lambda (p t) (let/cc return
-             (.for-each (lambda (k v) (when (p k v) (return (some (cons k v))))) t) #f))
+  (lambda (p t) (find-table-entry @ p t #f #t))
 
-  ;; Linear scan for the last matching entry
-  ;; BEWARE: this assumes for-each/reverse is in decreasing key order.
+  ;; First match in declared reverse traversal, including nonmonotone predicates.
   ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
   .find-last/opt:
-  (lambda (p t) (let/cc return
-             (.for-each/reverse (lambda (k v) (when (p k v) (return (some (cons k v))))) t) #f))
+  (lambda (p t) (find-table-entry @ p t #t #t))
 
   ;; : (Pair Key Value) <- (Fun Bool <- Key Value) @
   .find-first: (lambda (p t) (option-ref (.find-first/opt p t)))

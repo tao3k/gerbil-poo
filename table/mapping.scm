@@ -1,5 +1,26 @@
 ;;; Checked key-preserving maps reuse persistent folds and declared Trie traversal.
 
+;; One raw traversal kernel serves recognition and admitted predicate queries.
+;; let/cc stops the backend at the first decision without materializing a list.
+;; Recognition calls this directly to avoid recursive public-query admission.
+(def (table-entry-match descriptor predicate input reverse? wanted)
+  (using (predicate :~ procedure?)
+    (let/cc return
+      ((.ref descriptor (if reverse? '.for-each/reverse '.for-each))
+        (lambda (key value)
+          (def decision (predicate key value))
+          (unless (boolean? decision) (raise-type-error Bool decision))
+          (when (eq? decision wanted) (return (some (cons key value))))) input)
+      #f)))
+
+;; Admit the complete root before any user predicate, even when a prefix decides.
+;; The existing origin scope stays active across the short-circuit return.
+;; Predicate/backend failures retain their cause; no root or owner is changed.
+(def (find-table-entry descriptor predicate input reverse? wanted)
+  (with-table-sources (table-sources descriptor) (lambda ()
+    (require-table descriptor input)
+    (table-entry-match descriptor predicate input reverse? wanted))))
+
 ;; Visit the original snapshot once in backend order. Optional callbacks return
 ;; #f or (some value); required callbacks return Value, including stored false.
 ;; Only admitted leaves are accepted, never normalized or silently coerced.

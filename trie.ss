@@ -538,63 +538,9 @@
                 ((Branch _ left right) (+ (count left) (count right)))
                 ((Skip _1 _2 _3 child) (count child)))))
 
-  ;; Binary search given a monotonic predicate f that is #f then #t.
-  ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,
-  ;; so we could balance the search.
-  ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-  .find-first/opt:
-  (lambda (pred trie)
-    (letrec ((divide ;; (Option (Cons Key Value)) <- Key (Option (Cons Key Value)) (List (Cons Key @)) (List (Cons Key @)) @
-              (lambda (k default leftward rightward t)
-                (match (.unwrap t)
-                  ((Empty) default)
-                  ((Leaf value) (conquer k value default leftward rightward))
-                  ((Branch height left right)
-                   (match leftward
-                     ([] (divide (.right-key height k) default
-                                 [[k . left]] rightward right))
-                     (_ (divide k default
-                                leftward [[(.right-key height k) . right] . rightward] left))))
-                  ((Skip height bits-height bits child)
-                   (divide (.skip-key height bits-height bits k) default leftward rightward child)))))
-             (conquer
-              (lambda (k value default leftward rightward)
-                (let-values (((new-default tries)
-                              (if (pred k)
-                                (values (some [k . value]) leftward)
-                                (values default (reverse rightward)))))
-                  (match tries
-                    ([] new-default)
-                    ([[k . trie] . leftward] (divide k default leftward [] trie)))))))
-      (divide 0 #f [] [] trie)))
-
-  ;; Binary search given a monotonic predicate f that is #t then #f.
-  ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,
-  ;; so we could balance the search.
-  ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-  .find-last/opt:
-  (lambda (pred trie)
-    (letrec ((divide ;; (Option (Cons Key Value)) <- Key (Option (Cons Key Value)) (List (Cons Key @)) (List (Cons Key @)) @
-              (lambda (k default leftward rightward t)
-                (match (.unwrap t)
-                  ((Empty) default)
-                  ((Leaf value) (conquer k value default leftward rightward))
-                  ((Branch height left right)
-                   (match rightward
-                     ([] (divide k default leftward [[(.right-key height k) . right]] left))
-                     (_ (divide k default [[k . left] . leftward] rightward right))))
-                  ((Skip height bits-height bits child)
-                   (divide (.skip-key height bits-height bits k) default leftward rightward child)))))
-             (conquer
-              (lambda (k value default leftward rightward)
-                (let-values (((new-default tries)
-                              (if (pred k)
-                                (values (some [k . value]) rightward)
-                                (values default (reverse leftward)))))
-                  (match tries
-                    ([] new-default)
-                    ([[k . trie] . rightward] (divide k default [] rightward trie)))))))
-      (divide 0 #f [] [] trie)))
+  ;; General predicate observations inherit the checked two-argument traversal
+  ;; protocol. Ordered positioning remains the explicit seek capability; an
+  ;; arbitrary predicate does not justify binary-search pruning.
 
   ;; Structural paired capability; the shared boundary validates both roots.
   .partition/key:

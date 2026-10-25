@@ -13,6 +13,24 @@
 ;; Observe through the originating protocol, including metadata and ownership checks.
 (defmethod (@@method snapshot %table-object)
   (lambda (self) (.call (%table-object-protocol self) .unap self)))
+;; Predicate receivers retain the originating protocol and observe one snapshot.
+(defmethod (@@method find-first/opt %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .find-first/opt predicate self)))
+;; Required forward search keeps the existing Option absence failure.
+(defmethod (@@method find-first %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .find-first predicate self)))
+;; Reverse search follows the backend's declared reverse visitation.
+(defmethod (@@method find-last/opt %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .find-last/opt predicate self)))
+;; Required reverse search does not consume the receiver's ownership.
+(defmethod (@@method find-last %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .find-last predicate self)))
+;; Universal queries stop at the first false decision on the retained snapshot.
+(defmethod (@@method every %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .every predicate self)))
+;; Existential queries stop at the first true decision, without publishing a root.
+(defmethod (@@method any %table-object)
+  (lambda (self predicate) (.call (%table-object-protocol self) .any predicate self)))
 ;; Retain FUN observation without making the private update capability public.
 (defmethod (@@method bind %table-object)
   (lambda (self consumer) (.call (%table-object-protocol self) .bind self consumer)))
@@ -281,6 +299,10 @@
     (def (fold input method f seed (descriptor source))
       (using (f :~ procedure?)
         (guard (lambda () ((.ref descriptor method) f seed (read input))))))
+    ;; Predicate-first signatures observe a single captured root through the same
+    ;; admission/origin guard as folds; Set callbacks keep their element arity.
+    (def (query input method predicate)
+      (guard (lambda () ((.ref (or set source) method) predicate (read input)))))
     ;; Commit an already prepared result once. This shared boundary never calls
     ;; user code while holding the lock and never exposes a losing successor.
     (def (publish state expected first result)
@@ -445,6 +467,12 @@
       .iter<-: (lambda (input) (observe input '.iter<- [] #t))
       .foldl: (lambda (f seed input) (fold input '.foldl f seed))
       .foldr: (lambda (f seed input) (fold input '.foldr f seed))
+      .find-first/opt: (lambda (p input) (query input '.find-first/opt p))
+      .find-first: (lambda (p input) (query input '.find-first p))
+      .find-last/opt: (lambda (p input) (query input '.find-last/opt p))
+      .find-last: (lambda (p input) (query input '.find-last p))
+      .every: (lambda (p input) (query input '.every p))
+      .any: (lambda (p input) (query input '.any p))
       ;; Capability lifting forwards the backend's own order, bounds and errors.
       .seek<-: (lambda (input lower (inclusive? #t)) (observe input '.seek<- (list lower inclusive?) #t))
       .seek: (lambda (input lower (inclusive? #t)) (observe input '.seek (list lower inclusive?)))
