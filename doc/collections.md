@@ -1173,3 +1173,62 @@ Design reflection: preserve mature constructors and the singleton fast path behi
 one public boundary, reuse standard list/contracts and existing owner creation,
 and keep normalization explicit. No new namespace, storage algorithm, cache or
 parallel validation/ownership engine is introduced.
+
+
+## Complete collection IO
+
+Table and Set JSON, bytes and port codecs now share one guarded dispatch in the
+existing table module (`table/io.scm`). It retains the existing List/Pair codecs
+and wire formats. Trie now gives the collection protocol precedence over its raw
+node Wrapper, matching the existing representation-derived table ordering. Table
+payloads are bindings; Set payloads are elements. Encoding
+recognizes the complete root before projecting rows or invoking child codecs.
+Decoding uses the original decoder and complete persistent constructor, then
+recognizes the resulting business root. Backend duplicate precedence, unique
+indexes and partial whole-root refinements are retained, not replaced by a new
+serialization or storage engine. Normalization and wire conversion remain separate.
+
+The dynamic scope covers schema/method resolution, child calls and construction,
+including descriptor origins, Key/Value and custom Set constraints. Supported
+metadata edits refuse; original child/parser/backend errors are preserved. Pure
+JSON/bytes operations expose no partial successful root or byte vector. Port IO is
+not transactional: invalid source roots are refused before a prefix is written,
+but later codec refusal retains bytes already emitted or consumed. Byte-vector
+decoding retains the standard rejection of trailing bytes; port unmarshalling
+retains the original sequential stream convention.
+
+All five Table/Set styles encode through the existing nonconsuming snapshot reader.
+JSON/bytes/unmarshal factory operations use the ordinary fresh creator only after
+complete decoding. They neither replace nor retire a prior owner. Gerbil receivers
+expose encoding/marshal observations through that same protocol; decoding belongs
+to the factory. Metadata and owner guards retain their original failure semantics.
+No custom environment, binary format, build graph or owner representation is added.
+
+The service example combines represented indexed tables, a unique rank index,
+linear style and Reader/FUN/IO. An explicitly declared finite JSON handle registry
+restores the exact known checked Function objects; this does not serialize closure
+code or infer a binary codec. Failed index construction suppresses consumption,
+leaves the original owner live and allows a fresh retry. Built-in Function values
+remain unsupported on formats without a declared codec. Custom codecs must obey
+their stated laws; membership alone does not imply a lawful codec.
+
+`TableRepresentation.lean` models pre-encoder admission, private decode/build/final
+admission, exact refusal precedence and conditional roundtrip from existing child
+codec and carrier inverse laws. Its port model retains state beside failure and
+proves both untouched ports on invalid roots and prior prefixes on late refusal.
+Finite input, lawful codecs/persistent constructors, stable leaves and supported
+metadata writes are premises. Actual parser correctness, callback termination,
+physical ownership, allocation, GC and runtime/compiler correctness are not proved.
+Preparation, full recognition, row traversal, child encoding and construction all
+remain charged; no unconditional complexity or latency claim follows.
+
+Design reflection: one boundary coordinates the existing codec and constructor
+protocols; thin public entries select a format. Styles reuse observation and fresh
+creation rather than adding another IO wrapper/owner engine. The implementation
+is kept in a functional include, with no new public namespace or compatibility path.
+
+The functional IO include is registered in the existing `std/make` `extra-inputs`
+for both library and complete qualification targets. A build-inventory regression
+prevents edits to that include from reusing an older table module. Acceptance uses
+the standard clean/build path after correcting this missing dependency; no extra
+cache credential, environment variable or scheduler is introduced.

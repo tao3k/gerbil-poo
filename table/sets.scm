@@ -230,12 +230,13 @@
     ((s) (set-from-iter @ s []))
     ((s t) (set-from-iter @ s (list t)))) ;; : @ <- (Iterator Elt) ?@
   .List: (List Elt)
-  .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @
-  .<-json: (compose .<-list (.@ .List .<-json)) ;; : @ <- Json
-  .bytes<-: (compose (.@ .List .bytes<-) .list<-) ;; : Bytes <- @
-  .<-bytes: (compose .<-list (.@ .List .<-bytes)) ;; : @ <- Bytes
-  .marshal: (lambda (x port) (marshal .List (.list<- x) port))
-  .unmarshal: (compose .<-list (.@ .List .unmarshal))
+  ;; Element codecs share the same guarded IO boundary as Table binding codecs.
+  .json<-: (cut collection-codec @ #t '.json<- <>) ;; : Json <- @
+  .<-json: (cut collection-codec @ #t '.<-json <>) ;; : @ <- Json
+  .bytes<-: (cut collection-codec @ #t '.bytes<- <>) ;; : Bytes <- @
+  .<-bytes: (cut collection-codec @ #t '.<-bytes <>) ;; : @ <- Bytes
+  .marshal: (cut collection-codec @ #t '.marshal <> <>)
+  .unmarshal: (cut collection-codec @ #t '.unmarshal <>)
   ;; TODO: for union, inter, diff, compare, equal, subset,
   ;; optimize for full subtables, by caching count in wrapper?
   .union: (lambda (a b) (merge-set-tables @ (set-operation 'union) a b)) ;; : @ <- @ @

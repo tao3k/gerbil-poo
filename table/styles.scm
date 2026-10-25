@@ -10,6 +10,16 @@
 ;; state. Neither the constructor nor the state accessors leave this module.
 (defstruct %table-object (protocol state) final: #t)
 
+;; Codec receivers are ordinary nonconsuming reads through their FUN protocol.
+(defmethod (@@method json<- %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .json<- self)))
+;; Byte encoding retains the standard complete-consumption wire format.
+(defmethod (@@method bytes<- %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .bytes<- self)))
+;; Port writes retain their original effects if a child codec later refuses.
+(defmethod (@@method marshal %table-object)
+  (lambda (self port) (.call (%table-object-protocol self) .marshal self port)))
+
 ;; Observe through the originating protocol, including metadata and ownership checks.
 (defmethod (@@method snapshot %table-object)
   (lambda (self) (.call (%table-object-protocol self) .unap self)))
@@ -426,6 +436,10 @@
       (guard (lambda ()
         (def other (read right))
         (step left (lambda (before) ((.ref set method) before other))))))
+    ;; Decoders create a fresh presentation only after complete codec admission.
+    ;; No existing owner is replaced or retired by a factory constructor.
+    (def (decode method input)
+      (guard (lambda () (create ((.ref (or set source) method) input)))))
     ;; Relations share complete guards and never install or retire either owner.
     (def (relate method left right)
       (guard (lambda () ((.ref (or set source) method) (read left) (read right)))))
@@ -464,6 +478,12 @@
         (lambda (compare left right) (compare-roots left right compare)))
       ;; Equal observations authenticate both owners and never install a successor.
       .=?: (cut relate '.=? <> <>)
+      ;; Encoding is a snapshot read; decoding reuses the ordinary fresh creator.
+      .json<-: (lambda (input) (observe input '.json<- [] #f (or set source)))
+      .bytes<-: (lambda (input) (observe input '.bytes<- [] #f (or set source)))
+      .marshal: (lambda (input port) (observe input '.marshal (list port) #f (or set source)))
+      .<-json: (cut decode '.<-json <>) .<-bytes: (cut decode '.<-bytes <>)
+      .unmarshal: (cut decode '.unmarshal <>)
       ;; Fresh imports reuse normal owner creation; seeded imports use the same
       ;; optimistic step as all other updates, including reentrant-winner refusal.
       .<-iter: (case-lambda

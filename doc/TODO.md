@@ -1261,6 +1261,15 @@ work-bound laws. See [table-order.md](table-order.md) for caller ordering/backen
 premises and charged costs. Unordered data, automatic comparator discovery and
 joint atomic reads are not silently claimed supported.
 
+**Complete collection IO** now closes Table/Set JSON, bytes and port operations
+under one metadata/admission boundary, retaining List/Pair wire formats and
+complete constructors. Five styles share nonconsuming encoders and fresh decoders;
+Gerbil receiver observations, represented/indexed refinements, explicit finite
+Function handle codecs and FUN/IO failure retry have integrated controls. Lean
+proves refusal order, conditional roundtrip and retained port effects. See
+[collections.md](collections.md). Parser correctness, automatic closure encoding
+and port rollback are explicit boundaries, not inferred guarantees.
+
 **Checked whole-collection equality** now places RationalDict/Trie structural
 algorithms behind the existing common root/metadata boundary, with strict Boolean
 leaf/result decisions. Five Table styles and Gerbil receivers share nonconsuming

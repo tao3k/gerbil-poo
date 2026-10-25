@@ -1,7 +1,7 @@
 ;;; Cache admission and complete, disjoint compilation ownership.
 (export build-test)
 (import (only-in :gerbil/runtime/loader load-module)
-  (only-in :std/misc/process run-process process-error?) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take)
+  (only-in :std/misc/process run-process process-error?) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take find)
   (only-in :std/error Error-irritants)
   (only-in "build.ss" run-build-stage)
   (only-in "test-groups.ss" test-files test-batch checked-groups compiled-library-module?)
@@ -15,6 +15,14 @@
       (def spec (car (build-request '("tests" "collections" "/tmp/poo-test-output"))))
       (check (and (member '(gxc: "t/table-mapping-test"
         (extra-inputs: ("t/table-mapping/composition.scm"))) spec) #t) => #t))
+    (test-case "collection IO includes participate in standard library freshness"
+      (for (mode '("library" "qualification"))
+        (def spec (car (build-request (list mode))))
+        (def table (find (lambda (entry)
+          (and (pair? entry) (eq? (car entry) 'gxc:) (equal? (cadr entry) "table"))) spec))
+        (match table
+          ([gxc: "table" [extra-inputs: inputs] . _]
+            (check (and (member "table/io.scm" inputs) #t) => #t)))))
     (test-case "runtime reuse requires the exact compiled library object"
       (def root "/tmp/poo-compiled-admission/")
       (check (compiled-library-module? "object" "/tmp/poo-compiled-admission/lib/clan/poo/object.o1" root) => #t)

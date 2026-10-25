@@ -45,7 +45,8 @@
 
 (include "trie/changes.scm")
 
-(define-type (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
+;; Collection IO has precedence over the raw-node Wrapper codec, as in table-wrapper.
+(define-type (Trie. @ [methods.table Wrap.] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
        .unwrap) ;; : t <- (Wrap t)

@@ -831,15 +831,17 @@
 
   .Binding: (Pair Key Value)
   .Bindings: (List .Binding)
-  .json<-: (compose (.@ .Bindings .json<-) .list<-) ;; : Json <- @
-  .<-json: (compose .<-list (.@ .Bindings .<-json)) ;; : @ <- Json
-  .bytes<-: (compose (.@ .Bindings .bytes<-) .list<-) ;; : Bytes <- @
-  .<-bytes: (compose .<-list (.@ .Bindings .<-bytes)) ;; : @ <- Bytes
-  .marshal: (lambda (x port) (marshal .Bindings (.list<- x) port))
-  .unmarshal: (compose .<-list (.@ .Bindings .unmarshal)))
+  ;; All formats share complete admission; the List/Pair codecs remain authoritative.
+  .json<-: (cut collection-codec @ #f '.json<- <>) ;; : Json <- @
+  .<-json: (cut collection-codec @ #f '.<-json <>) ;; : @ <- Json
+  .bytes<-: (cut collection-codec @ #f '.bytes<- <>) ;; : Bytes <- @
+  .<-bytes: (cut collection-codec @ #f '.<-bytes <>) ;; : @ <- Bytes
+  .marshal: (cut collection-codec @ #f '.marshal <> <>)
+  .unmarshal: (cut collection-codec @ #f '.unmarshal <>))
 
 ;; Set presentation and algebra remain in the existing table module.
 (include "table/sets.scm")
+(include "table/io.scm")
 
 (define-type (PreZipping. @ [Type.]
   ;; StepF :: Type <- Type
