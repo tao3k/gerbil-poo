@@ -185,6 +185,9 @@
     ;; the complete source under the same revision and mutation guards.
     (.empty (protect (lambda () (require-table source (.@ source .empty)))))
     .sources: sources Comparer: comparer
+    ;; Order changes traversal only: normalize through the identical source
+    ;; Key/Value Types, without constructing or admitting intermediate roots.
+    (.validate (table-view-validator @ source (cut validate source <>)))
     ;; Ordering changes traversal, not lookup equality. Reuse the source key space
     ;; and constructor while protecting comparator/declaration callbacks throughout.
     .key-table: (lambda (value) (protect (lambda () (table-key-table source value))))

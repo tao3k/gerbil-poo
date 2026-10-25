@@ -75,14 +75,25 @@
 
 ;; Validate a persistent table through its current public representation protocol.
 ;; Admit the carrier, normalize children, then privately rebuild and recognize the result.
-(def (validate-table descriptor source)
-  (.call descriptor .validate-shape source)
-  ;; Post-recognition checks the normalized result without wrapping children again.
-  (def checked (validate-bindings descriptor (.@ descriptor Key) (.@ descriptor Value) source
-    (.call descriptor .list<- source) (lambda () (.@ descriptor .empty))
-    (.@ descriptor .key?) (.@ descriptor .acons)))
-  (unless (element? descriptor checked) (raise-type-error descriptor checked))
-  checked)
+(def (validate-table descriptor source (normalize #f))
+  (with-table-sources (table-sources descriptor) (lambda ()
+    (.call descriptor .validate-shape source)
+    ;; Same-child-Type views may supply a complete source normalization. The
+    ;; shared boundary still owns receiver refinements and metadata protection.
+    ;; Ordinary backends retain their original child and collision/error order.
+    (require-table descriptor
+      (if normalize (normalize source)
+        (validate-bindings descriptor (.@ descriptor Key) (.@ descriptor Value) source
+          (.call descriptor .list<- source) (lambda () (.@ descriptor .empty))
+          (.@ descriptor .key?) (.@ descriptor .acons)))))))
+
+;; Share whole-source normalization only when both child Type identities match.
+;; An inherited view with overridden Types retains the ordinary validator instead
+;; of assuming that two unrelated normalization functions commute.
+(def (table-view-validator descriptor source normalize)
+  (cut validate-table descriptor <>
+    (and (eq? (.@ descriptor Key) (.@ source Key))
+         (eq? (.@ descriptor Value) (.@ source Value)) normalize)))
 
 ;; Changes retain admitted values, including Function wrappers. Missing is #f;
 ;; a stored false is (some #f). Neither constructors nor mutable edit lists escape.

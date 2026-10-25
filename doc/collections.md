@@ -1232,3 +1232,40 @@ for both library and complete qualification targets. A build-inventory regressio
 prevents edits to that include from reusing an older table module. Acceptance uses
 the standard clean/build path after correcting this missing dependency; no extra
 cache credential, environment variable or scheduler is introduced.
+
+## Complete normalization through same-Type views
+
+An ordered or indexed descriptor preserves the source's Key and Value Types.
+Its recursive validator now reuses the original source validator rather than
+starting with a business `.empty` and applying checked point edits. An indexed
+view initializes caches from the entire cooked primary only after source validation
+succeeds. A simultaneous unique-key swap therefore need not pass through an invalid
+intermediate indexed root. An unchanged primary retains its original snapshot and
+cache roots; current metadata and complete receiver membership are still checked.
+
+The existing `make-ordered-services` and Reader/FUN `admit-ledger-action` example
+combine an exact-two-service refinement, unique priority swaps, nested Function
+wrapping and all five ownership presentations. Late child failure suppresses IO;
+unique-index conflicts retain the old primary/caches for fresh retry. Source handles
+remain untouched and fresh admitted owners receive the checked callbacks. Validation
+normalizes but does not execute those callbacks.
+
+`table-view-validator` selects whole-source delegation only when both child Type
+identities match. An inherited view with overridden Types follows ordinary validation;
+normalization equivalence is not inferred from membership or an arbitrary carrier/key
+isomorphism. The original source collision and backend-error order remains unchanged.
+`validate-table` shares metadata protection, shape and final receiver admission for
+both paths. This reuses source validators and existing index construction, rather
+than wrapping every point operation or introducing another cache implementation.
+
+Lean's `VariantValidation.tableView` models guarded read, complete source cooking,
+identity reuse, one full rebuild and final receiver admission. Its theorems retain
+exact read/child/index failures and the normalized primary, conditional on sound
+identity and a faithful builder. Existing `table_positions` supplies finite wrapper
+fidelity. Callback effects are not rolled back, and these laws do not certify the
+Gerbil evaluator, GC or arbitrary user normalization termination. Child work,
+complete membership and cold cache initialization remain explicit costs.
+
+Local complete acceptance: 142 modules / 1,598 cases passed in one process,
+including existing collision/backend-order controls, under the unchanged 1 GiB heap
+and 300-second runtime limit. The complete Lean gate passed all 20 phases.

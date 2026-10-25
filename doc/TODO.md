@@ -2110,3 +2110,16 @@ successful field. See table-representations.md for successful computed-field cac
 semantics, nested indexed Function workflows, all five styles, inverse recovery
 and retry. The finite Lean constructor laws are conditional on checks/converters;
 they do not certify the object evaluator or discover business refinements.
+
+### Whole-primary validation through ordered and indexed views
+
+Closed the complete-normalization gap for views that retain the source Key/Value
+Type identities. Ordered views delegate source validation; indexed views normalize
+the primary and initialize complete caches once, without demanding a business empty
+or valid indexed prefixes. Unchanged primaries retain their original snapshot and
+caches. One existing table-validation boundary owns metadata and final receiver
+membership, including inherited refinements. Child-Type overrides keep ordinary
+validation; no isomorphism/normalizer commutation is inferred. Paired unique swaps,
+Function wrappers, all five styles, Set elements, exact child/index failures,
+metadata refusal and retry have integrated controls and finite Lean primary-fidelity
+laws. See collections.md for source-validator/index-builder laws and complete costs.

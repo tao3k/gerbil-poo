@@ -190,6 +190,13 @@
       ;; One complete primary construction precedes one complete cache family.
       .<-list/key: (lambda (bindings) (guard sources
         (lambda () (initialize (.call source .<-list bindings)))))
+      ;; Normalize the complete primary before preparing any replacement cache.
+      ;; Unchanged validated leaves retain the original snapshot and index roots.
+      (.validate (table-view-validator @ source (lambda (state)
+        (observe state (lambda (_)
+          (def primary (%indexed-table-primary state))
+          (def normalized (validate source primary))
+          (if (eq? primary normalized) state (initialize normalized)))))))
       ;; Empty is a partial constructor, evaluated only when explicitly requested.
       (.empty (initialize (.@ source .empty)))
       ;; Private snapshot identity is not a test for logical collection emptiness.
