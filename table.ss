@@ -301,13 +301,27 @@
   (def target (table-translation-target direction))
   (def owners (table-key-table target (table-child-type direction table-translation-source-key table-translation-source Key)))
   (def seen (if (some? initial) (some-value initial) (.@ owners .empty)))
+  ;; Owner identity follows SOURCE lookup equality, independently of the target's
+  ;; collision domain. Reuse its declared Unit key space, never payload equality.
+  (def keys (table-key-table source Unit))
+  (def key-sources (table-sources keys))
+  (def key-versions (map object-revision key-sources))
+  ;; Both stored keys are admitted already. The existing empty/point protocol
+  ;; builds a private probe without public constructor admission or source scans.
+  ;; Protect the actual membership read and reject changed registry metadata.
+  (def (same-owner? previous incoming)
+    (with-table-sources key-sources (lambda ()
+      (unless (equal? key-versions (map object-revision key-sources))
+        (error "stale table key registry"))
+      (or (eq? previous incoming)
+        (.call keys .key? (.call keys .acons previous (void) (.@ keys .empty)) incoming)))))
   ;; Register before testing the inverse, so a lossy key map reports collision.
   (def (key input)
     (translate-table-value (table-child-type direction table-translation-source-key table-translation-source Key) (table-child-type direction table-translation-target-key table-translation-target Key)
       (table-translation-key direction) (table-translation-unkey direction) input
       (lambda (output)
         (def previous (.call owners .ref/opt seen output))
-        (when (and (some? previous) (not (equal? input (some-value previous))))
+        (when (and (some? previous) (not (same-owner? (some-value previous) input)))
           (raise (make-table-isomorphism-failure 'collision output)))
         (set! seen (.call owners .acons output input seen)))))
   ;; Rebuild privately with existing folds/insertion; retained Function leaves

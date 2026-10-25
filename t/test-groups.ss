@@ -25,7 +25,7 @@
     ;; Shared fixtures belong to table-testing, already in the common artifact.
     (collections table-validation table-construction table-io table-focus table-selection table-wrapper table-normalization)
     (collection-order rationaldict-order table-order table-cursor table-split)
-    (collection-updates table-fold table-merge table-mapping table-index table-index-equivalence table-group-join table-batch)
+    (collection-updates table-fold table-merge table-mapping table-index table-index-equivalence table-transport table-group-join table-batch)
     (collection-styles set-algebra set-style table-style table-receiver)
     (backends library-reuse number polynomial rationaldict trie fq)
     ;; Bound compiler retention by responsibility, rather than increasing its

@@ -2151,3 +2151,18 @@ work, first-representative retention, scheduling bounds, observation equivalence
 and unchanged sequential refusal. Lawful declared backend equality and congruent
 pure classifiers are explicit premises, not automatically inferred laws. This
 closes an equality mismatch, not the general collection research proposal.
+
+### Logical source ownership in isomorphism histories
+
+Closed the source/target equality mismatch in shared snapshot, delta and fold
+transport. Existing target registries own collision classes; a prepared source
+key registry recognizes repeated logical owners across physical aliases. Strict
+physical inverse checks and ordered intermediate expectations remain unchanged.
+The rational capacity example combines nested Function handles, Tuple/Pair rows,
+negated keys, aggregate reuse, inverse restoration and five-style FUN publication.
+Regression controls distinguish genuine collapse, source conflicts and invalid
+physical inverses from safe alias revisions. Finite Lean laws connect alias
+registration and exact collision causes to explicit logical-bijection injectivity.
+The implementation reuses the existing translator and standard backend empty / point-insertion /
+membership protocol. Registry construction/probing and complete admission retain
+their costs; inferred quotients and arbitrary converters remain research boundaries.

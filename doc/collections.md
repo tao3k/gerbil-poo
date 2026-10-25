@@ -1303,3 +1303,46 @@ Design reflection: one private helper replaces the projection's local key loop
 and the membership boundary's structural hash deduplication. Registries are
 prepared once per family and carry their own metadata dependencies. No new public
 collection namespace, per-method wrapper stack or delta-squashing protocol is added.
+
+### Logical ownership through isomorphism histories
+
+The target registry still decides whether two translated keys collide. When a
+translated class already has an owner, the source's declared Unit-valued key
+registry decides whether that owner and the incoming source key are the same
+logical key. Structural `equal?` is not a source-key equivalence oracle. One
+attempt prepares that source registry once; an occupied-target probe uses the
+existing private empty/point-insertion and membership protocol under metadata
+protection. Admitted keys and Unit values do not need public constructor
+recognition again. Identity-equal owners need no backend probe.
+
+This closes cross-snapshot alias revisions, including exact/inexact RationalDict
+keys, ordered composed edits, deletion/reinsertion, inverse deltas and paired
+aggregate transfer. The owner registry continues to span the whole encountered
+history; distinct logical source owners cannot steal an occupied target class.
+No edit or intermediate old-value expectation is discarded. Source conflicts
+precede conversion, and failures suppress the existing FUN/IO consumer. Retry
+starts from an explicitly retained source snapshot or aggregate state.
+
+Physical key/value roundtrips remain checked with the existing strict inverse
+boundary. Accepting backend-equivalent owners does not authorize a converter to
+change admitted representation tags or Function leaves during recovery. A lawful
+map respects both declared backend equivalences; source-key registry capability,
+persistent backends, pure stable conversion and the existing inverse laws remain
+premises. Arbitrary quotient discovery or lossy conversions are not inferred.
+
+`make-rational-capacity-ledger` combines negated RationalDict keys, Tuple/Pair
+Function-valued rows, retractable capacity aggregates and existing transport/FUN
+actions. `table-transport-test.ss` exercises forward/backward deltas, both numeric
+alias orders, aggregate adoption, deletion/reinsertion, inverse recovery, all five
+presentations, true collisions, source conflicts, strict inverse refusal and retry.
+Lean's `claimTransportOwner` laws state fresh admission, alias admission, exact
+collision payloads, logical-bijection safety and unchanged logical observations.
+They complement existing sequential transport and aggregate laws; primitive
+registry correctness, converter termination, allocation and GC are not proved.
+
+Design reflection: one source-owner decision is corrected inside the existing
+translator, so snapshot, delta and fold transport share the fix. Existing target
+collision tracking and physical inverse checks stay in place. There is no new
+namespace, public method wrapper, global memo or parallel transport implementation.
+Registry preparation and occupied-target point/probe costs remain charged;
+this unit makes no latency or asymptotic improvement claim.

@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export apply-indexed-revision admit-ledger-action empty-ledger-action choose-ledger-action decode-ledger-action equal-ledger-action associate-ledger-action construct-ledger-action compare-ledger-action import-ledger-action find-ledger-action divide-ledger-action observe-indexed-range observe-ledger-range make-service-override-view make-service-membership-fold make-service-policy-summary make-service-route-summary drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
+(export make-rational-capacity-ledger apply-indexed-revision admit-ledger-action empty-ledger-action choose-ledger-action decode-ledger-action equal-ledger-action associate-ledger-action construct-ledger-action compare-ledger-action import-ledger-action find-ledger-action divide-ledger-action observe-indexed-range observe-ledger-range make-service-override-view make-service-membership-fold make-service-policy-summary make-service-route-summary drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-combination table-projection table-projection-compose table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
@@ -128,6 +128,23 @@
   (def source-fold (table-fold source-type Integer (lambda (_ v) (vector-ref v 1))))
   (.o source: source-type target: target-type folding: source-fold
     transport: (.call source-fold .isomorphism target-type keys values)
+    state: (.call source-fold .ap (validate source-type (.call source-type .<-list rows)))))
+
+
+;; Rational aliases share logical service ownership while negated keys and Pair
+;; rows expose a different representation. Reuse the existing fold transport and
+;; FUN actions; capacity ignores physical key spelling and retains checked calls.
+(def (make-rational-capacity-ledger rows)
+  (def callback (Fun Integer <- Integer))
+  (def payload (Tuple UInt callback)) (def cooked (Pair UInt callback))
+  (def source-type (RationalDict payload)) (def target-type (RationalDict cooked))
+  (def key-map (.cc Wrapper. Domain: (.@ source-type Key) Codomain: (.@ target-type Key) .ap: - .unap: -))
+  (def value-map (.cc Wrapper. Domain: payload Codomain: cooked
+    .ap: (lambda (row) (cons (vector-ref row 0) (vector-ref row 1)))
+    .unap: (lambda (row) (vector (car row) (cdr row)))))
+  (def source-fold (table-fold source-type Integer (lambda (_ row) (vector-ref row 0))))
+  (.o source: source-type target: target-type keys: key-map values: value-map folding: source-fold
+    transport: (.call source-fold .isomorphism target-type key-map value-map)
     state: (.call source-fold .ap (validate source-type (.call source-type .<-list rows)))))
 
 ;; Stage an ordered revision batch once, then reuse the existing checked fold/FUN
