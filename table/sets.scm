@@ -136,6 +136,14 @@
     (require-set descriptor rest)
     (values (if required? (car found) (map/option car found)) rest))))
 
+;; Keep Set-specific input/result refinements while the backing table supplies
+;; the complete division algorithm, including zero/singleton representation.
+(def (divide-set descriptor input)
+  (with-set-inputs descriptor (list input) (lambda ()
+    (def roots (.call (.@ descriptor Table) .divide/list input))
+    (for-each (cut require-set descriptor <>) roots)
+    roots)))
+
 (define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
@@ -157,6 +165,9 @@
   .cons: (.@ methods .cons) ;; : @ <- Elt @
   .singleton: (.@ methods .singleton) ;; : @ <- Elt
   .remove: (.@ methods .remove) ;; : @ <- @ Elt
+  ;; Nonempty parts retain the Set refinement without mapping their Unit leaves.
+  .divide: (lambda (input) (table-division-values (divide-set @ input)))
+  .divide/list: (cut divide-set @ <>)
   .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)

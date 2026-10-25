@@ -95,7 +95,13 @@
 ;; Dropping follows the same backend order as take, without repeated extraction.
 (defmethod (@@method drop %table-object)
   (lambda (self count) (.call (%table-object-protocol self) .drop count self)))
-;; Partition returns two same-style results after one ownership installation.
+;; Division exposes only complete optional parts after one ownership installation.
+(defmethod (@@method divide %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .divide self)))
+;; List division can expose zero, one or two fully prepared receiver capabilities.
+(defmethod (@@method divide/list %table-object)
+  (lambda (self) (.call (%table-object-protocol self) .divide/list self)))
+;; Predicate partition remains a fixed two-result specialization.
 (defmethod (@@method partition %table-object)
   (lambda (self predicate) (.call (%table-object-protocol self) .partition predicate self)))
 
@@ -281,7 +287,7 @@
       (unless (eq? style 'pure)
         (install state expected (and (eq? style 'mutable) (make-%table-head first))))
       result)
-    ;; Stage a nonempty private list of roots. All roots, capabilities and receiver
+    ;; Stage a private list of roots. All roots, capabilities and receiver
     ;; presentations are ready before the single head comparison/installation.
     ;; Mutable style retains input as the first result; extra owners are fresh.
     ;; Linear style retires input once and returns only fresh live successors.
@@ -291,14 +297,16 @@
         (def expected (and (not (eq? style 'pure)) (capture style state)))
         (def before (if expected (%table-head-value expected) (admitted state)))
         (def roots (map admitted (transform before)))
-        (def first (car roots))
-        (def results (cons
+        ;; Empty division publishes the original empty root for mutable owners;
+        ;; linear owners retire once even though no successor capability exists.
+        (def first (if (pair? roots) (car roots) before))
+        (def results (if (null? roots) [] (cons
           (case style
             ((pure) (present first))
             ((mutable) input)
             ((linear) (present (reference style first))))
           (map (lambda (root)
-            (present (if (eq? style 'pure) root (reference style root)))) (cdr roots))))
+            (present (if (eq? style 'pure) root (reference style root)))) (cdr roots)))))
         (publish state expected first results))))
     ;; Single-result writes retain their direct path: partition's root/result lists
     ;; are not allocated for ordinary point updates, deltas or FUN mapping.
@@ -342,6 +350,15 @@
         (set! middle found)
         (list left right))))
       (values (car roots) middle (cadr roots)))
+    ;; Preserve the selected public result protocol before staging capabilities.
+    ;; Wrong backend value arity must refuse before the ownership commit.
+    (def (divide input list?)
+      (def descriptor (or set source))
+      (def roots (stage input (lambda (before)
+        (if list? (.call descriptor .divide/list before)
+          (let-values (((left right) (.call descriptor .divide before)))
+            (filter identity (list left right)))))))
+      (if list? roots (table-division-values roots)))
     ;; Keep the non-owning observation private until step has prepared the successor
     ;; capability and committed once. Reentrant winners cannot leak a losing choice.
     (def (decons input required?)
@@ -422,6 +439,7 @@
       .drop: (lambda (count input) (step input (cut .call (or set source) .drop count <>)))
       .split: split
       .decons/opt: (cut decons <> #f) .decons: (cut decons <> #t)
+      .divide/list: (cut divide <> #t) .divide: (cut divide <> #f)
       .partition: (cut select '.partition <> <>)
       ;; Deferred observations retain source guards through every pull and EOF.
       .iter<-: (lambda (input) (observe input '.iter<- [] #t))

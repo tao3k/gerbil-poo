@@ -73,6 +73,43 @@
       (when inside? (set! remaining (1- remaining)))
       (eq? inside? prefix?)) input)))
 
+;; Convert the complete finite division result to the original two-value API.
+;; False denotes a missing nonempty part, never an assumed empty carrier.
+(def (table-division-values roots)
+  (match roots
+    ([] (values #f #f))
+    ([left] (values left #f))
+    ([left right] (values left right))))
+
+;; Admit one original root and every complete nonempty result before exposing
+;; either. Generic division reuses partition in visitation order; a declared
+;; structural capability retains its backend algorithm. Count fidelity and
+;; disjoint/reconstructing partition laws remain explicit backend premises.
+(def (divide-table descriptor input)
+  (with-table-sources (table-sources descriptor) (lambda ()
+    (require-table descriptor input)
+    (def count (.call descriptor .count input))
+    (using (count :~ uint?)
+      (cond
+        ((zero? count) [])
+        ((= count 1) (list input))
+        (else
+          (def roots
+            (if (.has? descriptor .divide/key)
+              (let-values (((left right) (.call descriptor .divide/key input))) (list left right))
+              (let (remaining (quotient (+ count 1) 2))
+                (let-values (((left right) (.call descriptor .partition
+                  (lambda (_key _row)
+                    (def keep? (> remaining 0))
+                    (set! remaining (1- remaining)) keep?) input))) (list left right)))))
+          ;; Complete recognition precedes the progress check and any result.
+          (for-each (cut require-table descriptor <>) roots)
+          (def sizes (map (cut .call descriptor .count <>) roots))
+          (unless (and (andmap (lambda (size) (and (uint? size) (< 0 size count))) sizes)
+                       (= (apply + sizes) count))
+            (error "invalid table division progress"))
+          roots))))))
+
 ;; Reserve a target logical key using its declared backend equality. Every old
 ;; affected owner is removed before warm reservations, permitting final-state swaps.
 (def (claim-table-entry owners seen row key)

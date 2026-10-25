@@ -1982,6 +1982,19 @@ foreign state refusal have regressions and finite Lean admission/nested-guard la
 See table-order.md for stamps/persistence/order premises and full admission,
 positioning/fallback costs. Automatic index selection remains research work.
 
+### Checked finite collection division
+
+Closed the existing divide/divide-list admission/representation gap: public Table
+division uses shared complete admission, existing partition or Trie structural
+capability, nonempty strict progress and exact count checks. Empty/singleton input
+needs no invented empty result. Set refinements and all styles/receivers share
+the existing multi-result installer, including zero-result linear consumption.
+Cross-representation reconstruction, indexed shared buckets, Function identity,
+late branch refusal/retry, invalid progress, original failures and Reader/FUN/IO
+have regressions and finite Lean reconstruction/progress/admission/ownership laws.
+See table-split.md for count/partition/persistence premises and complete costs.
+Arbitrary callback termination or automatic parallelism remains research work.
+
 ### Checked single-entry decomposition
 
 Closed the concrete `decons` interface item previously listed in `table.ss`:

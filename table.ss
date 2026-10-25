@@ -804,28 +804,13 @@
   ;; empty root, which may be forbidden by the table's own refinement.
   .=?: (lambda (a b) (equal-table-bindings? @ a b))
 
-  ;; Split a table in two smaller trees, if possible, a somewhat balanced way, if possible.
-  ;; Return two values, the first being true if the table was not empty, and the second being true
-  ;; if the table had at least two elements.
-  ;; ASSUMES that #f, if a valid table, is the empty table.
-  ;; This default method does the stupid thing of taking the first element off.
+  ;; Complete optional nonempty parts share one checked division boundary.
   ;; : (OrFalse @) (OrFalse @) <- @
-  .divide:
-  (lambda (t)
-    (match (.min-binding/opt t)
-      ((some (cons k v)) (values (.singleton k v) (let (r (.remove t k)) (and (not (.empty? r)) r))))
-      (#f (values #f #f))))
+  .divide: (lambda (input) (table-division-values (divide-table @ input)))
 
-  ;; Split a table in two or more strictly smaller trees, if possible, a somewhat balanced way, if possible.
-  ;; Fallback to an empty list if the table was empty, or a singleton list of itself if a singleton table.
-  ;; This default method assumes that we have good way to divide table in two.
+  ;; Empty and singleton roots require no invented empty result or point writes.
   ;; : (List @) <- @
-  .divide/list:
-  (lambda (t)
-    (match (.divide t)
-      ((values #f #f) [])
-      ((values x #f) [x])
-      ((values x y) [x y])))
+  .divide/list: (cut divide-table @ <>)
 
   ;; : @ <- (Iterator (Pair Key Value)) ?@
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (kv s) (.acons (car kv) (cdr kv) t)))

@@ -889,10 +889,9 @@
        onlya: (lambda (_1 _2) (return #f))
        onlyb: (lambda (_1 _2) (return #f)))))
 
-  ;; Split a tree in two strictly smaller trees, if possible, in a somewhat balanced way, if possible.
-  ;; NB: We assume that #f, if a valid wrapped trie, is the empty trie.
-  ;; : (OrFalse @) (OrFalse @) <- @
-  .divide:
+  ;; Structural partition capability; methods.table owns whole-root admission,
+  ;; nonempty/progress checks and the public two-value/list result protocols.
+  .divide/key:
   (lambda (t)
     (match (.unwrap t)
       ((Empty) (values #f #f))
