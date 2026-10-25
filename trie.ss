@@ -818,17 +818,17 @@
        onlyb: (lambda (_1 _2) (return -1)))
       0))
 
-  ;; Are two trees equal?
-  ;; : Bool <- @ @
-  .=?:
-  (lambda (a b)
+  ;; Shared-subtree equality is a structural capability. The public table
+  ;; boundary admits both complete roots and supplies checked value decisions.
+  .=?/key:
+  (lambda (same? a b)
     (let/cc return
       (when (eq? a b) (return #t))
       (.recurse/trie-pair
        0 a b
        recurse: (lambda (r k a b) (or (eq? a b) (r k a b)))
        empty: true
-       leaf: (lambda (_ va vb) (or (.call Value .=? va vb) (return #f)))
+       leaf: (lambda (_ va vb) (or (same? va vb) (return #f)))
        branch: true
        skip: true
        onlya: (lambda (_1 _2) (return #f))

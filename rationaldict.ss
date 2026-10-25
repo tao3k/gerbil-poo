@@ -42,7 +42,8 @@
    .<-list/key: list->rationaldict
    .list<-: rationaldict->list
    .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))
-   .=?: (lambda (d1 d2) (rationaldict=? d1 d2 (.@ Value .=?))))
+   ;; Reuse standard RBTree equality beneath the common admission/Bool boundary.
+   .=?/key: (lambda (same? d1 d2) (rationaldict=? d1 d2 same?)))
 ;; Construct the ordinary value-specialized descriptor; no value validation runs here.
 (def (RationalDict (Value Any))
   (if (eq? Value Any) RationalDict.

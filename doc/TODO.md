@@ -1261,6 +1261,15 @@ work-bound laws. See [table-order.md](table-order.md) for caller ordering/backen
 premises and charged costs. Unordered data, automatic comparator discovery and
 joint atomic reads are not silently claimed supported.
 
+**Checked whole-collection equality** now places RationalDict/Trie structural
+algorithms behind the existing common root/metadata boundary, with strict Boolean
+leaf/result decisions. Five Table styles and Gerbil receivers share nonconsuming
+relation reads; Set equality retains its existing semantics. Refusal/retry, invalid
+identity shortcuts, represented/indexed refinements, Function identity and FUN/IO
+have integrated controls and finite Lean soundness/completeness/work laws. See
+[table-merge.md](table-merge.md). Backend/equality laws and stable leaves remain
+premises; joint atomic reads and inferred Function equality are not claimed.
+
 **Checked optional association** now closes the existing `.acons/opt` protocol
 through the shared captured modifier, exact point delta and all five Table styles
 and Gerbil receivers. The redundant unchecked Trie `.update/opt` zipper override

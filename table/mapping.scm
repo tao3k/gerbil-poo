@@ -249,16 +249,24 @@
       (require-table descriptor result)))))
 
 ;; A read relation must not require an unrelated empty output to be admitted.
-;; Two-sided domain inclusion plus matching left values establish equality under
-;; the persistent backend's distinct-key law; callbacks remain guarded.
+;; Both roots precede shared-identity shortcuts. Reuse declared RBTree/Trie
+;; algorithms with one strict value decision; generic domains use existing folds.
 (def (equal-table-bindings? descriptor left right)
   (with-table-sources (table-sources descriptor) (lambda ()
     (require-table descriptor left)
     (require-table descriptor right)
-    (and (.call descriptor .every (lambda (key value)
-        (def found (.call descriptor .ref/opt right key))
-        (and found (.call (.@ descriptor Value) .=? value (some-value found)))) left)
-      (.call descriptor .every (lambda (key _) (.call descriptor .key? left key)) right)))))
+    ;; Each leaf decision is checked, even if a later comparison would be false.
+    (def (same? a b)
+      (def result (.call (.@ descriptor Value) .=? a b))
+      (using (result :~ boolean?) result))
+    (def result
+      (if (.has? descriptor .=?/key)
+        (.call descriptor .=?/key same? left right)
+        (and (.call descriptor .every (lambda (key value)
+            (def found (.call descriptor .ref/opt right key))
+            (and found (same? value (some-value found)))) left)
+          (.call descriptor .every (lambda (key _) (.call descriptor .key? left key)) right))))
+    (using (result :~ boolean?) result))))
 
 ;; Select from one admitted snapshot. Shared validation surrounds declared
 ;; structural capabilities; generic tables stage only removals, then reuse their

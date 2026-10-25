@@ -221,7 +221,7 @@
 ;; Disjointness preserves the original backend's short-circuit behavior.
 (defmethod (@@method disjoint? %table-object)
   (lambda (self other) (.call (%table-object-protocol self) .disjoint? self other)))
-;; Equality is membership equality, with no new comparison of Function elements.
+;; Equality delegates the originating Table/Set protocol without consuming owners.
 (defmethod (@@method =? %table-object)
   (lambda (self other) (.call (%table-object-protocol self) .=? self other)))
 
@@ -428,7 +428,7 @@
         (step left (lambda (before) ((.ref set method) before other))))))
     ;; Relations share complete guards and never install or retire either owner.
     (def (relate method left right)
-      (guard (lambda () ((.ref set method) (read left) (read right)))))
+      (guard (lambda () ((.ref (or set source) method) (read left) (read right)))))
     ;; Conversion transfers owned references, including same-style conversion.
     ;; Use .unap for a nonconsuming snapshot; pure sources need no retirement.
     (def (convert input target)
@@ -462,6 +462,8 @@
         (lambda (key value) (guard (lambda () (create (.call source .singleton key value))))))
       .compare: (if set (lambda (left right) (compare-roots left right #f))
         (lambda (compare left right) (compare-roots left right compare)))
+      ;; Equal observations authenticate both owners and never install a successor.
+      .=?: (cut relate '.=? <> <>)
       ;; Fresh imports reuse normal owner creation; seeded imports use the same
       ;; optimistic step as all other updates, including reentrant-winner refusal.
       .<-iter: (case-lambda
@@ -555,8 +557,7 @@
           .remove: (lambda (input element) (step input (cut .call set .remove <> element)))
           .union: (cut combine '.union <> <>) .inter: (cut combine '.inter <> <>)
           .diff: (cut combine '.diff <> <>) .symdiff: (cut combine '.symdiff <> <>)
-          .subset?: (cut relate '.subset? <> <>) .disjoint?: (cut relate '.disjoint? <> <>)
-          .=?: (cut relate '.=? <> <>)))))
+          .subset?: (cut relate '.subset? <> <>) .disjoint?: (cut relate '.disjoint? <> <>)))))
     protocol)
   ;; Posh/classy attach the existing pure/mutable FUN protocols to host receivers.
   (def family (.cc Type. Pure: (derive 'pure) Mutable: (derive 'mutable)

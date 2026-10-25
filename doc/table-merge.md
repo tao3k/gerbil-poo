@@ -45,11 +45,11 @@ mathematical left-biased optional view does not waive a custom root refinement
 that rejects an intermediate result. Successful batches retain this declared source
 priority; failed batches expose no new owned state.
 
-Generic `.=?` now observes both domains and matching child values directly. It
-must not build a throwaway empty merge result, because that root may violate a
-nonempty refinement. Both inputs are admitted; child equality and backend lookup
-laws remain premises. Backend-specific equality implementations keep their own
-contracts.
+Public `.=?` observes both admitted domains and matching child values without
+building a throwaway empty merge result, which may violate a nonempty refinement.
+The common boundary now also covers the RationalDict and Trie implementations;
+backend and payload-equality laws remain explicit premises. See the complete
+nonconsuming equality protocol below.
 
 ## Ownership and FUN/IO
 
@@ -92,3 +92,56 @@ shared-budget refusal/retry, final unique swaps/collisions and stored false.
 Finite complete distinct-key union enumeration, persistent lookup/installation,
 representation laws and pure successful observations are backend premises. These
 are semantic proofs, not verification of Gerbil compilation, locks or GC.
+
+## Complete equality observations
+
+The previous RationalDict and Trie public overrides bypassed the common root
+admission; Trie could return true for the identical reference before observing any
+invalid child or refinement. Their existing algorithms now live behind the explicit
+`.=?/key` structural capability. RationalDict reuses its standard Iterator traversal
+over the RBTree; Trie retains its same-root/shared-subtree shortcut. Public `.=?`
+admits both complete roots before resolving/calling that capability. Without it,
+the existing two-sided domain/lookup algorithm remains the fallback. There is no
+new equality engine, normalization, namespace, empty constructor or trial write.
+
+One supplied value-decision function checks every encountered result with Gerbil
+`using` and `boolean?`; the complete backend result is also checked. A truthy
+non-Boolean at an earlier leaf cannot be hidden by a later false decision.
+Unexpected backend/value failures retain their original cause, not a false answer.
+Metadata writes to protected origins refuse during admission and comparisons.
+Mutable hidden leaves, arbitrary callback effects and termination remain caller
+obligations. A lawful backend may skip equal shared structure: payload equality
+must therefore be reflexive and agree with the declared observation relation.
+Runtime membership does not supply a missing value `.=?` method, establish its
+laws or infer extensional equality of
+Function closures. Explicit Function identity equality compares admitted handles,
+never invokes the stored functions and never creates replacement wrappers.
+
+All five Table styles now expose `.=?` through the existing Set/Table relation
+reader and standard Gerbil receiver method. Both reads are nonconsuming, including
+linear references. Owned/receiver provenance, consumed handles and stale factories
+refuse normally. Pure raw snapshots remain duplicable and are accepted by compatible
+pure factories; they do not acquire a fabricated owner identity. Reads capture
+sequential persistent observations, not a joint atomic read of two mutable owners.
+Set styles retain membership equality through the same relation delegation.
+
+`equal-ledger-action` composes Reader/FUN map with equality before IO. Regressions
+cover invalid identical roots, a right-side refusal before backend work, whole-root
+refinements, all backend Boolean decisions, stored false versus absence, 108 finite
+snapshot pairs, all five styles and receivers, represented/indexed roots, protected
+metadata, failure retry and Function identity after inverse recovery. No index or
+business snapshot is rebuilt just to compare it.
+
+`TableOrder.lean` reuses the existing left/right admission combinator, generalized
+to the comparison result type so equality needs no duplicate preparation function.
+The finite reference proves optional-presence soundness, first false/error behavior,
+lookup soundness, completeness under reflexive value equality, full observation
+equality under a finite domain cover, and a visited-key bound. Backend correspondence,
+stable payload observations, persistent carrier laws and supported metadata writes
+are premises. Recognition, backend traversal/lookup, callback, preparation, allocation
+and GC costs remain charged; this does not prove runtime/compiler correctness or
+an unconditional complexity/latency improvement. This is collection future work.
+
+Design reflection: retain mature structural algorithms, move their public contract
+to one shared boundary and lift an existing relation reader. The new mechanism
+names the private backend capability instead of adding a public compatibility path.
