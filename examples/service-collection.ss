@@ -400,11 +400,13 @@
 ;; delegates the entire user callback to one captured generation; Reader/FUN map
 ;; exposes only a completely admitted snapshot to IO. Refusal leaves base intact
 ;; so the caller can explicitly retry; consumer effects are never replayed here.
-(def (revise-focused-ledger table base key transform consume)
-  (using ((transform :~ procedure?) (consume :~ procedure?))
+(def (revise-focused-ledger table base key transform consume optional?: (optional? #f))
+  (using ((transform :~ procedure?) (consume :~ procedure?) (optional? :~ boolean?))
     (def protocol (.@ (table-styles table) Linear))
     (def state (.o ledger: (.call protocol .ap base) sibling: 'retained))
-    (def focus (.call Lens .compose (.lens ledger) (.call protocol .lens key)))
+    ;; Select the existing required/optional capability; both share one commit.
+    (def key-focus ((.ref protocol (if optional? '.lens/opt '.lens)) key))
+    (def focus (.call Lens .compose (.lens ledger) key-focus))
     ((.call Observation. .map consume (lambda (service)
       (.call protocol .unap (.@ service ledger))))
       (.call Lens .modify focus transform state))))

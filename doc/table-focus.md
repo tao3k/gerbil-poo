@@ -125,3 +125,53 @@ Design reflection: the fix removes the special-case path rather than introducing
 an Option validator, ownership engine or namespace. One small captured modifier is
 shared by raw and style updates; existing recognition, differences and installation
 remain authoritative. Full admission and backend costs still apply even on no-ops.
+
+## Owned optional observations and one captured admission
+
+Optional `.get` returns a fresh Option shell over the admitted leaf, so a later
+backend query or caller shell mutation cannot rewrite a retained observation.
+Required getters retain their exact leaf. This is not recursive copying; keys,
+Function handles and other admitted leaves keep the existing stability premise.
+
+Setters capture optional requests before guards/root admission can run recognizers.
+Both setter and modifier then use the existing point update's payload admission,
+after the owner generation and source have been captured. The focus no longer
+runs a second standalone value recognizer before or inside that update. Complete
+root admission and final successor recognition remain required; those costs have
+not been removed. Absent requests delete, and `(some #f)` stores false as before.
+
+This also closes setter reentrancy during value recognition. A recognizer can
+publish a competing winner; the outer point update must then fail its existing
+generation check, preserving the winner. A retired or foreign owner refuses before
+payload recognizers/modifiers. For a live owner, callback/value refusal preserves
+the original owner and cause for explicit retry. External callback effects remain
+outside rollback, and immutable service-slot composition still does not make two
+separate owners jointly atomic. Stale descriptor/key guards retain precedence.
+
+The existing `revise-focused-ledger` example now accepts explicit `optional?: #t`,
+selecting the existing optional focus in the same composed Lens/FUN/IO chain.
+Function-valued Tuple rows, recognizer interference, failed publication/retry,
+unchanged sibling fields and inverse delta recovery use that chain. Raw roots,
+all five presentations and receiver-created focuses share the same factory.
+
+`table-focus-test.ss` additionally checks borrowed observations, root/value shell
+interference, one standalone payload admission (separate from full root checks),
+reentrant setter winners, retained owners and consumed-owner precedence. The
+borrowed provider fixture is shared with delta tests through `table-testing`, not
+imported from another test-suite root.
+
+`TableFocus.lean` reuses `TableCapture` for immutable responses observed at callback
+return and before recognition. Its laws connect successful capture to the existing
+focus write/lens observations, preserve exact failure and live-owner retry, skip
+admission for consumed owners and reuse the generation installer to refuse stale
+publication even after successful recognition. Heap effects are abstracted separately
+from owner publication, not claimed rolled back. Stable leaves, synchronized
+emission and the existing carrier/generation laws remain premises; physical heap
+and concurrency primitives are not verified by these observation laws.
+
+Design reflection: optional observation/request ownership lives at the focus API
+boundary; result admission lives in the point installer already used by all styles.
+There is no new namespace, public adapter, per-style wrapper or trusted bypass.
+One getter/request shell copy is charged when needed; modifiers reuse point capture
+without an extra focus-level copy. No wall-clock improvement is inferred from the
+payload-recognizer count alone.

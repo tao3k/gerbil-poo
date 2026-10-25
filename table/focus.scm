@@ -40,11 +40,15 @@
 (def (make-table-key-focus descriptor key optional? read update guard)
   (guard (lambda () (require-table-key descriptor key)))
   (.cc (lens-of-get-set
-    (lambda (input) (guard (lambda () (read input))))
+    (lambda (input) (guard (lambda ()
+      (def observed (read input))
+      (if optional? (map/option identity observed) observed))))
     (lambda (value input)
-      (guard (lambda ()
-        (def response (require-table-option (.@ descriptor Value) (if optional? value (some value))))
-        (update input (lambda (_) response))))))
+      ;; Own the request before root admission can run user recognizers.
+      (def response (if optional? (map/option identity value) (some value)))
+      ;; The shared point update captures the generation BEFORE payload admission.
+      ;; It already owns Option recognition and complete successor validation.
+      (guard (lambda () (update input (lambda (_) response))))))
     ;; Lens.modify must capture ownership BEFORE the user modifier. A generic
     ;; get/transform/set sequence would otherwise overwrite a reentrant winner.
     .modify: (lambda (transform input)
@@ -52,7 +56,8 @@
         (guard (lambda ()
           (update input (lambda (old)
             (def response (transform (if optional? old (option-ref old))))
-            (require-table-option (.@ descriptor Value) (if optional? response (some response)))))))))))
+            ;; Point capture owns the result before its single payload admission.
+            (if optional? response (some response))))))))))
 
 ;; A retained raw-root focus remembers its complete origin revisions. Both
 ;; accessors protect those origins, including declared dependencies and child Types.

@@ -1,17 +1,8 @@
 ;;; Delta capture owns borrowed Option shells, while retaining admitted leaves.
 (export table-capture-test)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../table
-        ../rationaldict ../support/option (only-in ./table-testing alist-table)
+        ../rationaldict ../support/option (only-in ./table-testing alist-table borrowing-table)
         (prefix-in ../examples/service-collection service.))
-
-;; One provider cache may serve multiple typed instances. Each lookup is correct
-;; when returned; consumers must capture it before another query reuses the shell.
-(def (borrowing-table base (shell (some #f)))
-  (.cc base .ref/opt: (lambda (root key)
-    (def found (.call base .ref/opt root key))
-    (if (some? found)
-      (begin (some-value-set! shell (some-value found)) shell) #f))
-    .key-table: (lambda (value) (borrowing-table (.call base .key-table value) shell))))
 
 ;; Match protocol errors without accepting an unrelated callback exception.
 (def (message? text)

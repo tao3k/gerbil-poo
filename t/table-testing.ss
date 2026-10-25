@@ -14,6 +14,15 @@
   ../object ../mop)
 
 
+;; One provider cache may serve multiple typed instances. Each lookup is correct
+;; when returned; consumers must capture it before another query reuses the shell.
+(def (borrowing-table base (shell (some #f)))
+  (.cc base .ref/opt: (lambda (root key)
+    (def found (.call base .ref/opt root key))
+    (if (some? found)
+      (begin (some-value-set! shell (some-value found)) shell) #f))
+    .key-table: (lambda (value) (borrowing-table (.call base .key-table value) shell))))
+
 ;; Compile shared fixtures once with the existing support module, not as imports
 ;; of complete test-suite roots in each isolated compiler group.
 ;; A public persistent alist backend exercises arbitrary keys through methods.table,

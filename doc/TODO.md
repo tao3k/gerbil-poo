@@ -2182,3 +2182,18 @@ recognition-interference laws without enlarging the existing revision module.
 Stable admitted leaves and synchronized emission remain explicit premises;
 arbitrary deep copies and runtime heap verification are not claimed. See
 [table-batches.md](table-batches.md) for scope, costs and design reflection.
+
+### Owned focus observations and captured payload admission
+
+Closed the optional focus getter/setter/modifier chain across raw roots, five
+styles and receiver methods. Getters own returned Option shells; setters own
+requests before source admission; both writes delegate one payload admission to
+the existing point installer. Removing the pre-owner setter recognizer also closes
+reentrant winner overwrite, without a second ownership engine. Regression controls
+cover borrowed reads, recognizer interference, admission counts, late refusal and
+retry, consumed owners, Function-valued service composition and inverse recovery.
+The existing service example selects required/optional focuses explicitly and keeps
+one Lens/FUN/IO publication. Focus proofs reuse owned-capture, lens-write and stale-
+generation laws in the existing namespace. Complete root checks and resource limits
+remain intact. See [table-focus.md](table-focus.md) for failure order, laws, costs
+and design reflection; these are not joint multi-owner transactions or heap proofs.
