@@ -1261,6 +1261,16 @@ work-bound laws. See [table-order.md](table-order.md) for caller ordering/backen
 premises and charged costs. Unordered data, automatic comparator discovery and
 joint atomic reads are not silently claimed supported.
 
+**Checked list/singleton construction** now closes direct Table construction and
+fresh five-style factories through one boundary: proper-list/Pair capture before
+child recognition, every occurrence checked before a backend call, and complete
+root admission after the existing bulk or Trie singleton strategy. Order,
+representation, indexes and Set retain their own constraints and Function leaves.
+Backend duplicate precedence remains unchanged; raw normalization is separate.
+Modular constructor regressions, Reader/FUN/IO retry and Lean admission/observation/
+row-work laws are documented in [collections.md](collections.md). Backend/persistent
+laws and physical capture remain explicit premises, not automatic discovery claims.
+
 On top of Gerbil-POO, build an
 [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
 

@@ -1108,3 +1108,68 @@ Design review: no second grouping algorithm, cache representation, installer or
 namespace was added. The explicit multiplicity flag follows the existing index
 and projection interface. The necessary list ownership copy is visible in the cost
 boundary; further automatic dependency/algebra discovery remains research work.
+
+## Checked list and singleton construction
+
+Public Table `.<-list` and `.singleton` now share complete construction admission.
+The boundary first requires a finite proper list using Gerbil's standard contract,
+then captures its spine and Pair shells **before any child predicate**. Every key
+and value is recognized in input order, including duplicate entries that a backend
+will later supersede. Recognition retains admitted leaves; it does not cook or
+wrap Functions again. Raw normalization is still the separate `.validate` / style
+`.admit` operation.
+
+Only admitted captured rows reach the existing raw backend strategies. `.<-list/key`
+is the bulk-construction capability; `.singleton/key` retains the Trie's direct
+leaf path. RationalDict keeps Gerbil RBTree's list builder. Order, representation
+and indexed families retain their complete delegation/initialization paths behind
+the same boundary. The complete business root is recognized before return. This
+permits a final two-row refinement even when empty/singleton business roots are
+forbidden; no public point insertion or invented valid empty seed is required.
+A backend needing a specialized whole-root builder must declare that capability.
+The generic persistent foldr remains the fallback, under its ordinary backend laws.
+
+Backend duplicate conventions are **not unified**. The generic foldr keeps the
+first occurrence; Gerbil's RBTree list builder keeps the last. Admitted captured
+order/multiplicity is passed unchanged, so source/derived behavior remains governed
+by the declared constructor. Finite Iterator import deliberately has its separate
+last-yielded policy, already implemented by its key registry.
+
+Malformed lists use the standard contract refusal; invalid Pair/child/final-root
+membership uses the existing POO TypeError boundary. Constructor and unexpected
+recognizer exceptions retain their original cause. No successful root/owner is
+returned on refusal. Input/callback effects are not undone. Backend primitives are
+implementation capabilities, not safe public import APIs: controlled tests of raw
+carrier normalization may explicitly construct external/raw fixtures, then call
+`.validate`. Arbitrary overrides of public methods remain the implementer's law
+obligation; there is no global interposition or compatibility wrapper.
+
+All five Table/Set style factories expose `.<-list` and `.singleton` via ordinary
+fresh-owner creation. They do not retire an existing owner. Receiver updates keep
+their existing step/import APIs; no ambiguous constructor-that-mutates-an-owner is
+added. `construct-ledger-action` composes complete construction through Reader/FUN
+before IO, suppressing the consumer on failure and retaining Function identities.
+
+Regressions cover direct/generic/ordered/represented/indexed builders, malformed
+and superseded rows, alias mutation during child recognition, duplicate precedence,
+partial refinements, the Trie singleton capability, all fresh presentations,
+original exceptions and Reader/FUN/IO retry. Constructor-specific tests live in
+`t/table-construction-test.ss`; the existing validation module stays below 1,000
+lines and is not expanded with an unrelated monolithic case inventory.
+
+Lean's finite `TableBatch` constructor model proves unchanged admitted row order,
+multiplicity and leaf identity, child/backend/final refusal precedence, exact
+backend observation preservation and a source-length bound on row checks. The
+backend observation law supplies its actual duplicate policy; it is not guessed.
+The default first-write foldr and existing last-write stream model have separate
+examples. Physical capture/alias behavior is a Scheme regression; immutable model
+rows, stable admitted leaves and lawful persistent builders are premises.
+Capture, recursive child recognition, backend construction, index preparation,
+whole-result recognition, owner allocation and GC remain charged. No universal
+termination, physical ownership, backend complexity or compiler/runtime proof is
+claimed. This advances the proposed collection library's finite future work.
+
+Design reflection: preserve mature constructors and the singleton fast path behind
+one public boundary, reuse standard list/contracts and existing owner creation,
+and keep normalization explicit. No new namespace, storage algorithm, cache or
+parallel validation/ownership engine is introduced.

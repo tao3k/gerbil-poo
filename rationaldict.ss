@@ -38,7 +38,8 @@
    .foldl: rationaldict-fold
    .foldr: rationaldict-foldr
    .iter<-: rationaldict-iter
-   .<-list: list->rationaldict
+   ;; Standard RBTree bulk construction remains behind the checked public boundary.
+   .<-list/key: list->rationaldict
    .list<-: rationaldict->list
    .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))
    .=?: (lambda (d1 d2) (rationaldict=? d1 d2 (.@ Value .=?))))

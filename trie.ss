@@ -405,7 +405,7 @@
       (_ trie)))
 
   ;; : (Fun @ <- Key Value)
-  .singleton: (lambda (key value) (.make-leaf (1- (integer-length key)) key value))
+  .singleton/key: (lambda (key value) (.make-leaf (1- (integer-length key)) key value))
 
   ;; (Zipper Trunk Branch) = (Pair Trunk Branch)
   ;; : (Zipper @) <- Key Value (Zipper @)

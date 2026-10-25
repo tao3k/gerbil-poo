@@ -509,7 +509,7 @@
                 key (.cc Wrapper. Domain: value Codomain: value .ap: identity .unap: identity)))))
             ;; Build through the source's complete constructor, not repeated
             ;; checked point updates that could reject valid intermediate roots.
-            .<-list: (lambda (bindings) (guard (lambda ()
+            .<-list/key: (lambda (bindings) (guard (lambda ()
               (encode (.call source .<-list (map (lambda (entry)
                 (let* ((k (translate backward #t (car entry)))
                        (v (translate backward #f (cdr entry)))) (cons k v))) bindings))))))
@@ -692,7 +692,7 @@
   .acons/opt: (lambda (k ov t) (match ov (#f t) ((some v) (.acons k v t))))
 
   ;; : @ <- Key Value
-  .singleton: (lambda (k v) (.acons k v .empty))
+  .singleton: (lambda (k v) (construct-table @ (list (cons k v)) #t))
 
   ;; Merge visits the union domain and validates private callback results before
   ;; one final-state installation; Trie retains its declared paired traversal.
@@ -728,7 +728,12 @@
   .list<-: (lambda (t) (.foldr acons [] t))
 
   ;; : @ <- (List (Pair Key Value))
-  .<-list: (lambda (l) (foldr (lambda (kv t) (.acons (car kv) (cdr kv) t)) .empty l))
+  .<-list: (lambda (rows) (construct-table @ rows #f))
+
+  ;; Default persistent backend construction retains its original first-write
+  ;; precedence. Specialized bulk builders declare their own existing policy.
+  .<-list/key: (lambda (rows) (foldr (lambda (row root)
+    (.acons (car row) (cdr row) root)) .empty rows))
 
   ;; : (Option (Pair Key Value)) <- @
   .min-binding/opt: (lambda (t) (let/cc return (.for-each (lambda (k v) (return (some (cons k v)))) t) #f))

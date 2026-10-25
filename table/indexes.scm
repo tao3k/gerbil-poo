@@ -188,7 +188,7 @@
       ;; whose projection and cache Types belong to this family's original rows.
       .key-table: (lambda (value) (guard sources (lambda () (table-key-table source value))))
       ;; One complete primary construction precedes one complete cache family.
-      .<-list: (lambda (bindings) (guard sources
+      .<-list/key: (lambda (bindings) (guard sources
         (lambda () (initialize (.call source .<-list bindings)))))
       .empty: (initialize (.@ source .empty))
       ;; Private snapshot identity is not a test for logical collection emptiness.

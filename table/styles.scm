@@ -451,6 +451,12 @@
       .bind: (lambda (input f) (guard (lambda () (f (read input)))))
       .map: (lambda (f input) (step input f))
       .step: step .convert: convert
+      ;; Constructors allocate a fresh presentation through the ordinary creator;
+      ;; they neither consume an existing owner nor normalize admitted leaves.
+      .<-list: (lambda (rows) (guard (lambda () (create (.call (or set source) .<-list rows)))))
+      .singleton: (if set
+        (lambda (elt) (guard (lambda () (create (.call set .singleton elt)))))
+        (lambda (key value) (guard (lambda () (create (.call source .singleton key value))))))
       .compare: (if set (lambda (left right) (compare-roots left right #f))
         (lambda (compare left right) (compare-roots left right compare)))
       ;; Fresh imports reuse normal owner creation; seeded imports use the same
