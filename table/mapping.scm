@@ -325,7 +325,7 @@
 ;; One private pair owns both immutable view caches, never a predecessor chain.
 (defstruct %table-projection-chain (owner upstream downstream) final: #t)
 
-;; Compose unary table views by delivering the upstream's exact output delta to
+;; Compose table views by delivering the upstream's exact output delta to
 ;; the downstream. Descriptor identity at the middle is intentional: representation
 ;; changes require an explicit view. Existing views own admission, origins, logical
 ;; equality and collision refusal; this layer neither diffs nor wraps their leaves.
@@ -334,9 +334,12 @@
     (def source (.@ upstream Domain))
     (def middle (.@ upstream Value))
     (def target (.@ downstream Value))
+    (def binary? (.has? upstream .apply-deltas))
+    (when (eq? binary? (.has? upstream .apply-delta))
+      (error "one projection revision protocol required"))
     (unless (eq? middle (.@ downstream Domain)) (error "incompatible projection composition"))
     (def sources (delete-duplicates/hash
-      (append (list upstream downstream) (table-sources source) (table-sources middle)
+      (append (list upstream downstream source) (table-sources middle)
         (table-sources target) (.@ upstream .sources) (.@ downstream .sources))
       table: (make-hash-table-eq) from-end?: #t))
     (with-table-sources sources (lambda ()
@@ -365,19 +368,25 @@
           (make-%table-projection-chain owner first second))))
       ;; Immutable successors remain private until BOTH installs succeed. Failure
       ;; preserves the caller's old state; effects inside callbacks are not undone.
-      (def (update state delta (receive (lambda (next _delta) next)))
+      (def (update state receive revise)
         (using (receive :~ procedure?)
           (observe state (lambda (_source _target)
-            (.call upstream .apply-delta (%table-projection-chain-upstream state) delta
+            (revise (%table-projection-chain-upstream state)
               (lambda (first middle-delta)
                 (.call downstream .apply-delta (%table-projection-chain-downstream state) middle-delta
                   (lambda (second output-delta)
                     (receive (make-%table-projection-chain owner first second) output-delta)))))))))
-      (.cc Wrapper. Domain: source Value: target .sources: sources
+      (def composed (.cc Wrapper. Domain: source Value: target .sources: sources
         .ap: initialize
         .unap: (lambda (state) (observe state (lambda (input _output) input)))
-        .get: (lambda (state) (observe state (lambda (_input output) output)))
-        .apply-delta: update))))))
+        .get: (lambda (state) (observe state (lambda (_input output) output)))))
+      ;; Keep the upstream's declared arity through nested composition. Standard
+      ;; cut forwards both requests to ONE joint admission, never two unary steps.
+      (if binary?
+        (.cc composed .apply-deltas: (lambda (state left right (receive (lambda (next _delta) next)))
+          (update state receive (cut .call upstream .apply-deltas <> left right <>))))
+        (.cc composed .apply-delta: (lambda (state delta (receive (lambda (next _delta) next)))
+          (update state receive (cut .call upstream .apply-delta <> delta <>))))))))))
 
 ;; A lookup join keeps independent immutable source heads and the existing
 ;; projection state. No mutable ambient right-hand context is shared by branches.

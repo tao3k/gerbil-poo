@@ -2,12 +2,18 @@
 
 ## Composed incremental views
 
-`(table-projection-compose upstream downstream)` closes the unary view chain.
+`(table-projection-compose upstream downstream)` closes the explicit view chain.
 The upstream `Value` must be the identical descriptor as downstream `Domain`;
-representation conversion needs an explicit view. Both endpoints must be tables.
-Existing `table-projection`, `table-group-fold` and recursively composed views
-share `.ap`, `.unap`, `.get`, `.sources` and continuation-bearing `.apply-delta`.
-Binary joins retain their separate two-input revision protocol.
+representation conversion needs an explicit view. Middle/final values are tables;
+the source can also be a captured Pair of table heads owned by a binary join.
+Existing `table-projection`, `table-group-fold`, lookup/group joins and recursively composed views
+share `.ap`, `.unap`, `.get`, `.sources` and continuation-bearing revision delivery.
+The constructor requires exactly one upstream revision protocol. Unary chains
+retain `.apply-delta state delta receive`; lookup/group-join chains retain
+`.apply-deltas state left-delta right-delta receive`, including nested chains.
+`.ap` takes the same input as upstream: a table root or `(cons left-root right-root)`.
+Both source requests reach ONE existing joint admission before downstream work;
+the composition never replaces it with sequential single-source installations.
 
 Cold construction initializes each cache once. Warm revision delivers the exact
 upstream output delta directly to the downstream cache, including zero-edit deltas
@@ -29,13 +35,22 @@ ordinary inverse target installation. Source inverses can drive the same chain t
 recover observations under stable pure projections; no inverse projection is
 invented. `make-service-route-summary` combines multivalued service expansion and
 selective per-cohort aggregation; it uses the existing Reader/FUN/IO publisher.
+`make-service-policy-summary` joins shared Boolean policy rows with service
+callbacks before cohort aggregation. A valid left request and stale right request
+cannot demand downstream callbacks; downstream refusal returns no chain successor.
+Lookup and many-to-many group joins share this composition with no new index or
+installation engine. Existing affected-group cross-products/refolds remain charged.
 
 Regression tests cover nested chains, coalesced revisions, inherited no-op origins,
 Function identity and call guards, descriptor invalidation, conflicts, collision,
 retry, inverse recovery and all five styles. `TableProjection.lean` models the
 shared delta-delivery kernel, proves both-success witnesses, connected middle
 observations under faithful per-view laws, invariant preservation, refusal before
-publication and the sum of the existing callback bounds. Gerbil metadata guards,
+publication and the sum of the existing callback bounds. The same request type
+can be a pair of deltas; no duplicate proof kernel is added for binary views.
+Three-stage semantic reassociation preserves exact results and failure order;
+runtime states still belong to their creating chain and cannot be interchanged.
+Gerbil metadata guards,
 callbacks, persistence and backend equality remain explicit implementation premises;
 these laws do not prove the compiler or GC. This advances the collection proposal's
 future work, not completion of the general collection library.
