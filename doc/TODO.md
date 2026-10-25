@@ -1942,6 +1942,20 @@ classification/equality/persistence premises and dense/multiple-bucket costs.
 Automatic relation discovery remains a research boundary; the general proposal
 is not marked complete by this finite composition unit.
 
+### Incremental value-table combination
+
+Closed the value-carrying counterpart of snapshot `.merge` and incremental Set
+algebra: `table-combination` accepts heterogeneous payload Types under one declared
+key space and an explicit key-local optional resolver. Both source requests install
+before resolution; touched keys coalesce, unchanged outputs omit writes, and
+both-absent removes without invoking a resolver. The original Set combination
+engine is now shared rather than duplicated. Function identity, all five styles,
+Trie/RationalDict full-merge oracles, grouped-fold composition, source conflict,
+refinement/malformed response/exception refusal, origins and inverse/retry have
+regressions and finite Lean laws. See table-mapping.md for exact delta, admission,
+logical equality, callback/persistence and complete cost boundaries. Automatic
+resolver/dependency discovery remains research work, not an implemented claim.
+
 ### Checked single-entry decomposition
 
 Closed the concrete `decons` interface item previously listed in `table.ss`:

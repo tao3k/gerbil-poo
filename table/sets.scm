@@ -343,13 +343,8 @@
           .apply-delta: update)))))))
 
 
-;; One immutable binary view owns both admitted source roots and their result.
-(defstruct %set-combination (owner sources versions inputs target) final: #t)
-
-;; Incremental binary Set algebra across explicit compatible key spaces. Standard
-;; Pair/Wrapper carries the two snapshots; ordinary deltas and the target backend
-;; supply all conflict, persistence and installation behavior. Shared Key identity
-;; and coherent backend logical equality are premises, not inferred comparers.
+;; Incremental Set operations are Unit-valued instances of table combination.
+;; Keep Set/Elt refinements and their origin scopes, with no second cache engine.
 (def (set-combination left right target operation)
   (def choose (set-operation operation))
   (with-set-inputs left [] (lambda ()
@@ -358,91 +353,9 @@
         (def lt (.@ left Table)) (def rt (.@ right Table)) (def tt (.@ target Table))
         (unless (and (eq? (.@ lt Key) (.@ rt Key)) (eq? (.@ lt Key) (.@ tt Key)))
           (error "incompatible set combination keys"))
-        (def domain (Pair left right))
-        (def touched (table-key-table tt Unit))
-        (def sources (delete-duplicates/hash
-          (append (list domain) (table-sources touched)
-            (append-map (lambda (descriptor)
-              (append (list descriptor (.@ descriptor Elt))
-                (table-sources (.@ descriptor Table))
-                (if (.has? descriptor .sources) (.@ descriptor .sources) [])))
-              (list left right target))) table: (make-hash-table-eq) from-end?: #t))
-        (def versions (map object-revision sources))
-        (def owner (list left right target operation))
-        ;; All callbacks see protected live metadata, including inherited origins.
-        (def (guard dependencies action)
-          (with-table-sources dependencies (lambda ()
-            (unless (equal? versions (map object-revision sources))
-              (error "stale set combination"))
-            (action))))
-        ;; Private provenance and historical stamps are checked before any work.
-        (def (observe state action)
-          (unless (and (%set-combination? state) (eq? owner (%set-combination-owner state)))
-            (error "incompatible set combination state"))
-          (guard (%set-combination-sources state) (lambda ()
-            (unless (equal? (%set-combination-versions state)
-                           (map object-revision (%set-combination-sources state)))
-              (error "stale set combination state"))
-            (action))))
-        ;; Copy backend-owned Option shells before another lookup can reuse one.
-        ;; Unit and Function keys are admitted already, never normalized again.
-        (def (selected a b key)
-          (choose (map/option identity (.call lt .ref/opt a key))
-                  (map/option identity (.call rt .ref/opt b key))))
-        ;; The only ownership object is allocated after every complete root passes.
-        (def (snapshot inputs output dependencies)
-          (make-%set-combination owner dependencies (map object-revision dependencies) inputs output))
-        ;; Reuse the target key-space registry to deduplicate candidates by its
-        ;; declared equality. Only final selected elements enter a refined target.
-        (def (initialize input)
-          (using (input :~ pair?)
-            (def inputs (cons (car input) (cdr input)))
-            (guard sources (lambda ()
-              (require-set left (car inputs)) (require-set right (cdr inputs))
-              (def keys (.@ touched .empty))
-              ;; This backend fold inserts keys only; Unit leaves retain identity.
-              (def (collect key _row) (set! keys (.call touched .acons key (void) keys)))
-              (.call lt .for-each collect (car inputs))
-              (.call rt .for-each collect (cdr inputs))
-              (def rows (.call touched .foldr (lambda (key _row rows)
-                (if (selected (car inputs) (cdr inputs) key)
-                  (cons (cons key (void)) rows) rows)) [] keys))
-              (snapshot inputs (require-set target (.call tt .<-list rows)) sources)))))
-        ;; Both ordered source installations finish before result preparation.
-        ;; Coalescing the two edit streams bounds target membership work by their
-        ;; distinct keys; unchanged result memberships emit no target writes.
-        (def (update state delta-left delta-right (receive (lambda (next _delta) next)))
-          (using (receive :~ procedure?)
-            (unless (and (table-delta? delta-left) (table-delta? delta-right))
-              (error "two table deltas required"))
-            (observe state (lambda ()
-              (def dependencies (delete-duplicates/hash
-                (append (%set-combination-sources state) (table-delta-sources delta-left)
-                  (table-delta-sources delta-right)) table: (make-hash-table-eq) from-end?: #t))
-              (guard dependencies (lambda ()
-                (require-table-delta lt delta-left) (require-table-delta rt delta-right)
-                (def input (%set-combination-inputs state))
-                (def a (.call lt .apply-delta (car input) delta-left))
-                (def b (.call rt .apply-delta (cdr input) delta-right))
-                (require-set left a) (require-set right b)
-                (def keys (.@ touched .empty))
-                (def edits (with-list-builder (emit)
-                  (for-each (lambda (change)
-                    (def key (table-change-key change))
-                    (unless (.call touched .key? keys key)
-                      (set! keys (.call touched .acons key (void) keys))
-                      (let ((before (map/option identity (.call tt .ref/opt (%set-combination-target state) key)))
-                            (after (selected a b key)))
-                        (unless (table-option=? before after)
-                          (emit (make-table-change key before after))))))
-                    (append (table-delta-changes delta-left) (table-delta-changes delta-right)))))
-                (def delta (make-table-delta (.@ tt Key) Unit dependencies
-                  (map object-revision dependencies) edits))
-                (def output (require-set target (.call tt .apply-delta (%set-combination-target state) delta)))
-                (receive (snapshot (cons a b) output dependencies) delta)))))))
-        (.cc Wrapper. Domain: domain Value: target .sources: sources
-          .ap: initialize
-          .unap: (lambda (state) (observe state (lambda ()
-            (cons (car (%set-combination-inputs state)) (cdr (%set-combination-inputs state))))))
-          .get: (lambda (state) (observe state (lambda () (%set-combination-target state))))
-          .apply-deltas: update))))))))
+        (make-table-combination left right target lt rt tt (lambda (_key a b) (choose a b)) require-set
+          (append-map (lambda (descriptor)
+            (append (list descriptor (.@ descriptor Elt))
+              (table-sources (.@ descriptor Table))
+              (if (.has? descriptor .sources) (.@ descriptor .sources) [])))
+            (list left right target)) "set combination"))))))))
