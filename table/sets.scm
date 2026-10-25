@@ -276,7 +276,9 @@
 ;; a list-valued single key remains unambiguous in the default cardinality.
 (def (set-image source target transform (origins []) multiple?: (multiple? #f))
   (using ((transform :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
-    (with-set-inputs source [] (lambda ()
+    ;; Snapshot explicit origins before any descriptor getter is forced.
+    (set! origins (map identity origins))
+    (with-table-sources origins (lambda () (with-set-inputs source [] (lambda ()
       (with-set-inputs target [] (lambda ()
         (def primary (table-key-table (.@ source Table) Unit))
         (def groups (table-key-table (.@ target Table) primary))
@@ -371,7 +373,7 @@
           .unap: (lambda (state) (observe state
             (lambda () (.call indexes .unwrap (%set-image-indexed state)))))
           .get: (lambda (state) (observe state (lambda () (%set-image-target state))))
-          .apply-delta: update)))))))
+          .apply-delta: update)))))))))
 
 
 ;; Incremental Set operations are Unit-valued instances of table combination.

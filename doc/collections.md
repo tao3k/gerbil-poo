@@ -1346,3 +1346,28 @@ collision tracking and physical inverse checks stay in place. There is no new
 namespace, public method wrapper, global memo or parallel transport implementation.
 Registry preparation and occupied-target point/probe costs remain charged;
 this unit makes no latency or asymptotic improvement claim.
+
+### Capture declaration buffers at admission
+
+Origin arguments are finite lists of dependency identities. Factories copy their
+list spines before forcing further descriptor getters. `table-sources` captures
+`.sources` before `Key`/`Value` discovery and uses the existing source-protection
+scope; comparer dependencies use the same owned-spine discipline. Caller list
+reuse cannot detach old dependencies, even when a replacement object happens to
+have the same revision. A supported edit of the original object invalidates old
+focuses, deltas, cursors and derived states. Buffer reuse alone does not invalidate
+unchanged objects; a new construction captures the new declaration.
+
+`make-policy-capacity-fold` demonstrates revisioned team-capacity aggregation over
+rows containing checked Functions. `fold-ledger-action` suppresses IO on a stale
+policy, a fresh factory retries the same delta, and inverse installation restores
+capacity and the original callback handle. table-origins-test.ss covers this chain
+and all public explicit-origin factories without another publication abstraction.
+
+Capture allocates one list cell per declared origin, preserving order, duplicates
+and leaf identities. Normal root admission, preparation and revision checks still
+cost work. It neither copies mutable child objects nor discovers undeclared closure
+dependencies. Design reflection: own declarations once at their existing factory
+boundary and reuse stamp checks, rather than layer wrappers onto individual methods.
+Finite Lean laws cover membership, ordered capture, length and fresh/stale decisions;
+they do not prove Gambit heap, GC or arbitrary metadata reflection behavior.

@@ -2197,3 +2197,18 @@ one Lens/FUN/IO publication. Focus proofs reuse owned-capture, lens-write and st
 generation laws in the existing namespace. Complete root checks and resource limits
 remain intact. See [table-focus.md](table-focus.md) for failure order, laws, costs
 and design reflection; these are not joint multi-owner transactions or heap proofs.
+
+### Owned collection dependency declarations
+
+Closed caller-owned origin-spine aliasing across comparers, focus/delta source
+capture, projections, lookup/group joins, combinations, grouped folds and Set
+images. Constructors snapshot finite declarations before subsequent getters can
+reuse the buffer; existing source guards protect declared objects during discovery.
+No separate invalidation engine or per-operation wrapper was added. Regression
+controls cover same-revision replacement objects, delayed cursors, empty deltas,
+five ownership styles, malformed declarations and metadata writes during discovery.
+The policy capacity-fold example composes revisioned metadata, shared groups,
+Function leaves, FUN/IO refusal/retry and inverse restoration. Finite Lean laws
+prove identity retention, ordered composition and unchanged fresh/stale decisions.
+Stable leaves, explicit dependency declarations and supported metadata writes remain
+premises; arbitrary closure mutation and runtime heap proofs are research boundaries.

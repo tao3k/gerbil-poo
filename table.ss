@@ -131,8 +131,12 @@
 ;; Close an operation's metadata scope over explicitly derived table origins.
 ;; Raw target shape Types have no extra origins; ordinary tables inherit [].
 (def (table-sources descriptor)
-  (append (list descriptor (.@ descriptor Key) (.@ descriptor Value))
-    (if (.has? descriptor .sources) (.@ descriptor .sources) [])))
+  (def origins (if (.has? descriptor .sources) (.@ descriptor .sources) []))
+  (using (origins :~ list?)
+    ;; Own the declaration before later getters can reuse the caller's spine.
+    (def captured (map identity origins))
+    (with-table-sources (cons descriptor captured) (lambda ()
+      (append (list descriptor (.@ descriptor Key) (.@ descriptor Value)) captured)))))
 
 ;; The generic ordered change stream visits old updates/deletions first, then
 ;; new insertions. Payloads are admitted already and are never normalized here.

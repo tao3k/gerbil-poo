@@ -13,8 +13,9 @@
 ;; Totality, transitivity and purity are caller laws; encountered zero/equality
 ;; disagreement and non-sign results refuse rather than silently merging keys.
 (def (table-comparer key compare (dependencies []) equal?: (same? equal?))
-  (using ((compare :~ procedure?) (same? :~ procedure?))
-    (def sources (cons key dependencies))
+  (using ((compare :~ procedure?) (same? :~ procedure?) (dependencies :~ list?))
+    ;; Retain dependency identities, not the caller-owned declaration cells.
+    (def sources (cons key (map identity dependencies)))
     (def versions (map object-revision sources))
     (def result (.cc Type. Key: key .sources: sources .procedure: compare .equality: same?
       .compare: (lambda (left right)

@@ -338,6 +338,8 @@
 ;; even within one row. No inverse projection is inferred.
 (def (table-projection source target transform (origins []) multiple?: (multiple? #f))
   (using ((transform :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
+    ;; Snapshot explicit origins before any descriptor getter is forced.
+    (set! origins (map identity origins))
     (with-table-sources (append (list source target) origins) (lambda ()
       (def binding (Pair (.@ target Key) (.@ target Value)))
       (def ledger (table-key-table source (List binding)))
@@ -525,6 +527,8 @@
 ;; exact delta delivery. classify/project are stable pure callbacks with origins.
 (def (table-lookup-join left right target classify project (origins []))
   (using ((classify :~ procedure?) (project :~ procedure?) (origins :~ list?))
+    ;; Snapshot explicit origins before any descriptor getter is forced.
+    (set! origins (map identity origins))
     (with-table-sources (append (list left right target) origins) (lambda ()
       (def primary (table-key-table left (.@ left Value)))
       (def groups (table-key-table right primary))
@@ -640,6 +644,8 @@
                       multiple?: (multiple? #f))
   (using ((classify-left :~ procedure?) (classify-right :~ procedure?)
           (project :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
+    ;; Snapshot explicit origins before any descriptor getter is forced.
+    (set! origins (map identity origins))
     (with-table-sources (append (list left right target groups pairs) origins) (lambda ()
       (def pair-key (.@ pairs Key))
       (unless (and (.has? pair-key left) (.has? pair-key right)
@@ -775,6 +781,8 @@
 ;; install before any resolution; absent/absent never invents a union-domain key.
 (def (table-combination left right target choose (origins []))
   (using ((choose :~ procedure?) (origins :~ list?))
+    ;; Snapshot explicit origins before any descriptor getter is forced.
+    (set! origins (map identity origins))
     (with-table-sources (append (list left right target) origins) (lambda ()
       (unless (and (eq? (.@ left Key) (.@ right Key)) (eq? (.@ left Key) (.@ target Key)))
         (error "incompatible table combination keys"))

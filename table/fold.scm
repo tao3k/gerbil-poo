@@ -235,6 +235,8 @@
 ;; groups; no retraction law or automatic dependency discovery is assumed.
 (def (table-group-fold source target aggregate classify project (origins []) multiple?: (multiple? #f))
   (using ((classify :~ procedure?) (project :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
+    ;; Snapshot explicit origins before any descriptor getter is forced.
+    (set! origins (map identity origins))
     (with-table-sources (append (list source target aggregate) origins) (lambda ()
       (unless (eq? (.@ target Value) aggregate) (error "incompatible grouped aggregate type"))
       (def primary (table-key-table source (.@ source Value)))
