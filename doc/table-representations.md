@@ -100,6 +100,7 @@ JSON parser or arbitrary numeric normalization.
 | Incremental heterogeneous projection | Explicit key-local optional projection now retains source/output and target/owner registries, coalesces ordered source edits, releases affected owners before reservations, and installs one target delta with failure/retry; see [table-mapping.md](table-mapping.md). Full recognition and backend costs remain charged. |
 | Finite multivalued entry projection | Explicit finite output lists reuse the existing projection cache, owner registry and exact five-style publisher: within/across-owner collision refusal, selective final-source expansion, swaps, inverse recovery and retry; see [table-mapping.md](table-mapping.md). Emitted-output work and full recognition remain charged. |
 | Projected delta delivery and style publication | The exact prepared target delta is delivered through an optional standard continuation, then reused by all five existing styles for changed-key conflict checks, atomic publication and inverse recovery without `.diff`; see [table-mapping.md](table-mapping.md). Private/public preparation and full validation remain separately charged. |
+| Independently partial constructors | Ordered, represented and indexed descriptors derive without requesting an empty root; first materialization admits business refinements and protects metadata. Finite construction, five styles and inverse/retry are covered below. |
 | Logical emptiness observations | Complete Table/Set admission precedes structural predicates; five styles/receivers reuse nonconsuming reads. Internal Trie/bucket checks and lazy indexed empty construction preserve partial business refinements. See [table-selection.md](table-selection.md). |
 | Checked endpoint observations | Table binding and Set element min/max/choice share complete admission, short-circuit queries and nonconsuming five-style/receiver reads. See [table-selection.md](table-selection.md) for absence, declared ordering and cost boundaries. |
 | Complete collection IO | Table/Set JSON/bytes/port codecs retain existing formats under one complete metadata/admission boundary; five styles reuse snapshot reads and fresh creation. See [collections.md](collections.md) for codec laws, retry and irreversible port effects. |
@@ -832,3 +833,50 @@ Closed index/order/representation constructors retain that capability as well as
 complete construction and atomic delta installation. Fold bridges now compose
 these whole operations; they do not expand a valid index swap into point writes.
 See [table-fold.md](table-fold.md) for the contract, failure order and finite laws.
+
+
+## Partial construction through composed views
+
+An empty root is not necessarily a member of a business collection. Descriptor
+derivation must therefore not evaluate `.empty`. Both `table-order` and
+`table-wrapper` now use the existing computed-slot form, matching `table-indexes`.
+An explicit first materialization checks current source metadata and complete source
+membership. A forbidden empty value or callback failure remains a refusal, with
+its exact cause. Successful fields retain ordinary object caching; later collection
+operations still run their existing metadata and whole-root admission boundaries.
+No new cache, wrapper hierarchy or approval protocol is introduced.
+
+The existing `make-ordered-services` example accepts a supplied refined source. A
+nonempty service ledger can compose its unique priority index with an ordered
+view, explicit carrier/key Wrappers and a further ordered view. The existing
+`construct-ledger-action` stages finite rows through Reader/FUN before IO; a rejected
+empty input suppresses the consumer and the next request may retry with valid rows.
+The integrated regression publishes a priority swap through all five styles,
+rejects a wrong-old-value delta without consuming the owner, reverses the successful
+delta, and checks that the admitted Function handle remains identical. Separate
+controls retain the original empty-constructor cause, mutation guard and stale-check
+precedence. This closes derivation over partial constructors, not automatic discovery
+of a valid nonempty seed or removal of legitimate algorithmic empty construction.
+
+The companion `CollectionConstructors` laws in Lean's `TableRepresentation.lean`
+formalize constructor independence, source failure, revision refusal, nested
+conversion order and fresh retry. They model requested computations with explicit
+checks and converters, not Gerbil's computed-slot evaluator, cache implementation
+or arbitrary callback termination. Costs are deferred until requested, not erased.
+
+Design reflection: the fix changes the two factory boundaries, rather than wrapping
+each collection operation. Existing selection, indexes, deltas, styles and FUN/IO
+keep their algorithms and failure ownership. Source shape alone cannot justify an
+empty business value, so the constructor uses the existing `require-table` boundary.
+
+Private key-space registries also derive their empty root from the already declared
+raw finite constructor (`.<-list/key []`), rather than inheriting a partial business
+`.empty`. Their structural membership continues to replace business-root recognition,
+so owner/edit records do not acquire unrelated business refinements. This uses the
+existing explicit payload-parametric backend capability; it does not infer one for
+an arbitrary family. Checked business empty construction may invoke full admission;
+point read/write/remove operations retain their separate no-snapshot-scan controls.
+
+Local acceptance for this unit: all 141 modules / 1,592 cases passed in one
+process, with the existing 1 GiB heap and 300-second runtime limit. The complete
+Lean gate passed all 20 phases; this receipt does not claim whole-library closure.

@@ -180,8 +180,11 @@
         (using ((cursor (entries state lo inclusive?) :- Iterator))
           (def entry (cursor.next!))
           (if (eq? entry #!eof) #f (some entry)))))))
-  (set! result (.cc methods.table Key: (.@ source Key) Value: (.@ source Value)
-    .empty: (.@ source .empty) .sources: sources Comparer: comparer
+  (set! result (.o (:: @ methods.table) Key: (.@ source Key) Value: (.@ source Value)
+    ;; Declaration does not materialize a root; explicit construction still admits
+    ;; the complete source under the same revision and mutation guards.
+    (.empty (protect (lambda () (require-table source (.@ source .empty)))))
+    .sources: sources Comparer: comparer
     ;; Ordering changes traversal, not lookup equality. Reuse the source key space
     ;; and constructor while protecting comparator/declaration callbacks throughout.
     .key-table: (lambda (value) (protect (lambda () (table-key-table source value))))

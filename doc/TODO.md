@@ -2098,3 +2098,15 @@ Reader/FUN/IO have integrated controls and finite Lean laws. See table-split.md
 for APIs, equality/persistence premises and choice/preparation/admission costs.
 This closes explicit extraction, not arbitrary destructive storage or algorithm
 and comparison discovery.
+
+### Independently partial collection constructors
+
+Closed a factory-composition gap: deriving ordered or represented descriptors no
+longer eagerly requests the source `.empty`. These views use the existing computed
+slot mechanism, matching indexed descriptors. First materialization retains source
+business admission, metadata protection and original failures. Finite construction
+can succeed even when empty construction is forbidden; failure is not cached as a
+successful field. See table-representations.md for successful computed-field cache
+semantics, nested indexed Function workflows, all five styles, inverse recovery
+and retry. The finite Lean constructor laws are conditional on checks/converters;
+they do not certify the object evaluator or discover business refinements.

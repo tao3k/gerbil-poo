@@ -244,8 +244,9 @@
 ;; An explicit transported order indexes negative external service identifiers in
 ;; positive internal priority order. Existing table indexes own atomic publication;
 ;; existing styles own capability transfer. Function payloads are never rewrapped.
-(def (make-ordered-services)
-  (def source (RationalDict (Tuple Integer (Fun Integer <- Integer))))
+;; A caller may supply a refined source; deriving indexes/order does not demand
+;; its partial empty constructor. Finite construction remains the admission boundary.
+(def (make-ordered-services (source (RationalDict (Tuple Integer (Fun Integer <- Integer)))))
   (def backend (RationalDict (.@ source Key)))
   (def key (.cc Wrapper. Domain: (.@ backend Key) Codomain: (.@ backend Key) .ap: - .unap: -))
   (def comparer (table-comparer (.@ backend Key) number-comparer))

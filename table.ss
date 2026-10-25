@@ -265,7 +265,10 @@
 ;; Explicitly declared payload-parametric backends share this structural key-space
 ;; constructor. Business-root refinements do not apply to owner/edit records.
 (def (table-key-space backend value)
-  (def registry (.cc backend Value: value
+  (def registry (.o (:: @ backend) Value: value
+    ;; A private owner/edit registry is not a business-root constructor. Reuse
+    ;; the declared raw finite constructor; do not inherit a partial .empty.
+    (.empty (.call backend .<-list/key []))
     .element?: (lambda (root) (table-element? registry root))))
   registry)
 
@@ -494,7 +497,7 @@
                     (map/option (cut translate backward #t <>) lower) inclusive?) guard)))))) Type.))
       (using ((wrap :~ procedure?) (unwrap :~ procedure?))
         (set! result
-          (.cc (.mix methods.table (.cc Wrap. T: source Wrapper: checked .wrap?: (lambda (input) (element? target input))) ordering)
+          (.o (:: @ (.mix methods.table (.cc Wrap. T: source Wrapper: checked .wrap?: (lambda (input) (element? target input))) ordering))
             Key: (.@ target Key) Value: (.@ target Value)
             .sources: sources
             ;; Preserve key equivalence through the existing key Wrapper, using an
@@ -518,7 +521,9 @@
             .map/wrap: (lambda (f input) (guard (lambda () (.call checked .map f input))))
             .validate-shape: (lambda (input) (guard (lambda () (decode input) input)))
             .apply-delta: install
-            .empty: (guard (lambda () (encode (.@ source .empty))))
+            ;; Derive metadata without demanding a possibly forbidden empty root.
+            ;; An explicit request retains the same guarded constructor/admission.
+            (.empty (guard (lambda () (encode (require-table source (.@ source .empty))))))
             .empty/key?: (lambda (input) (guard (lambda () (table-empty-key? source (decode input)))))
             .ref: (lambda (input k (missing (lambda () (error "missing key"))))
               (guard (lambda ()
