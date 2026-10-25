@@ -21,7 +21,7 @@
 (def test-groups
   '((objects support object mop parameters inheritance-hooks slot-observation issued-read)
     (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
-    (collections table-normalization table-io table-construction table-fold table-cursor table-merge table-split table-mapping table-focus table-selection set-algebra set-style table-order table-index table-group-join table-style table-receiver table-validation table-batch table-wrapper library-reuse number polynomial rationaldict trie fq)
+    (collections rationaldict-order table-normalization table-io table-construction table-fold table-cursor table-merge table-split table-mapping table-focus table-selection set-algebra set-style table-order table-index table-group-join table-style table-receiver table-validation table-batch table-wrapper library-reuse number polynomial rationaldict trie fq)
     ;; Bound compiler retention by responsibility, rather than increasing its
     ;; heap: the old mixed methods group retained all inference/signature ASTs.
     ;; The checked inventory and final one-process suite remain complete.

@@ -2,7 +2,7 @@
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
         with-set-tables iterator-map table-element? validate-table table-for-each-change table-styles set-styles table-indexes
-        table-comparer table-comparer-wrapper table-order
+        table-comparer table-comparer-wrapper table-order table-ordered-cursor
         table-key-space table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
         table-delta? table-delta-count invert-table-delta table-isomorphism table-fold table-group-fold table-projection table-group-join table-lookup-join set-image set-combination table-combination table-wrapper

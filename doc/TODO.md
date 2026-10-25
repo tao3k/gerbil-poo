@@ -2123,3 +2123,16 @@ validation; no isomorphism/normalizer commutation is inferred. Paired unique swa
 Function wrappers, all five styles, Set elements, exact child/index failures,
 metadata refusal and retry have integrated controls and finite Lean primary-fidelity
 laws. See collections.md for source-validator/index-builder laws and complete costs.
+
+### Standard rational backend order and key equivalence
+
+Closed the missing rational backend order declaration: standard RBTree enumeration
+now supplies an explicitly numeric comparer and guarded linear positioning to the
+existing table-order, Wrapper, index and five-style protocols. Numeric key aliases
+retain backend equality; comparer transport and seek matching carry equality as
+well as order. Rational Table/Set comparison and split therefore reuse existing
+algorithms. Unordered negative controls remain explicit alist backends. Mixed
+representations, fractional/bignum bounds, source admission, stale/EOF refusal,
+Function identity, shared indexes, inverse recovery and retry have regressions and
+finite equivalence/window/cost laws. See table-order.md; this adds no balancing
+algorithm and does not claim logarithmic positioning or a wall-clock speedup.

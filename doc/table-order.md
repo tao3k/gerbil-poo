@@ -509,3 +509,53 @@ order/comparer factories, Iterator interface and style snapshot reads. No merged
 empty carrier, alternate tree/search engine, new namespace or Function-wrapper
 layer is introduced. The existing presence convention is made explicit rather
 than silently replaced by a different definition of lexicographic ordering.
+
+## Standard rational backend order
+
+`RationalDict` now advertises the order already supplied by Gerbil's
+`std/struct/rbtree` Iterator. Its comparer explicitly uses numeric `=` for key
+equivalence: `1` and `1.0` are distinct representations of one backend key.
+`table-comparer` accepts `equal?:` and records `.equality` beside `.procedure`.
+The equality result must be Boolean, zero must agree with it, and invalid signs
+refuse before invoking equality. Key Wrappers transport the same relation. Other
+comparers retain structural equality by default; membership alone cannot infer a
+backend's key equivalence. Seek delegation requires both captured procedures to
+match the source capability and both comparer seals to remain current.
+
+The matching rational path does not materialize/sort `.list<-`. It reuses the
+standard in-order Iterator, filters the lower prefix and lets the existing range
+consumer stop at the upper boundary. Creation admits the complete persistent
+snapshot once. Every emitted Pair is captured and typed, preserving Function
+leaves; every pull, including repeated EOF, checks declared metadata. There is no
+new tree traversal, cache or per-method wrapper family. Positioning remains linear,
+and one boundary row can be pulled/checked beyond the returned range. Preparation,
+row admission and metadata costs are not hidden inside a constant-time seek claim.
+
+The existing `make-ordered-service-indexes` example accepts the primary and index
+constructor. The same declarations now serve Trie or RationalDict owners/shared
+buckets. Tests combine rational index ranges, unique swaps, group migration,
+inverse recovery, and Wrapper/FUN/IO observations through all five styles; original
+Function handles survive. Separate controls deny snapshot listing on the matching
+path, retain sorting for mismatched equality, reject malformed roots/bounds and
+refuse partially consumed/exhausted cursors after revision. Raw Table/Set compare
+and split reuse the existing union-key/absence rules, including a present false.
+
+Lean's `TableComparerLaws` permits an explicit key relation, with equivalence
+premises kept separate. Projected/transported comparison laws preserve that relation;
+tagged numeric representations illustrate zero without structural equality.
+`tableLinearRange` agrees with the existing certified contiguous-window filter and
+visits each backend row at most once. Its cost law separately charges preparation,
+row visits, per-pull guards and per-row checks including a possible boundary row.
+The law assumes a faithful ordered enumeration, lawful comparison and persistent
+keys/rows. It does not verify the RBTree, floating-point primitives, compiler,
+allocation/GC prices or elapsed time. No logarithmic seek is inferred from the
+standard Iterator API, which exposes no lower-bound tree cursor.
+
+The rational cursor also binds its producer to the actual numeric comparison and
+equality procedures. Replacing the backend's advertised comparer without replacing
+its producer refuses before pulling rows; use a separate `table-order` view for
+an alternate order, which retains the legitimate reference sorting path.
+
+Local complete acceptance for this unit: all 143 modules / 1,607 cases passed in
+one process under the unchanged 1 GiB heap and 300-second runtime limits. All 20
+Lean gate phases passed. This is bounded acceptance, not whole-library closure.

@@ -1,7 +1,7 @@
 ;;; Explicit order integrates index publication, inversion and ownership transfer.
 (export table-order-test)
 (import (only-in ../support/base number-comparer) (only-in :std/list/list-builder with-list-builder) :std/test :std/error :std/iter ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../brace @@method) (only-in ./table-wrapper-test box-table) (only-in ../fun Wrapper. IdWrap) (only-in ../trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in ../examples/service-collection service.))
+        (only-in ../brace @@method) (only-in ./table-validation-test alist-table) (only-in ./table-wrapper-test box-table) (only-in ../fun Wrapper. IdWrap) (only-in ../trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in ../examples/service-collection service.))
 
 ;; Keep deliberate protocol refusal separate from arbitrary comparator failures.
 (def (message? text)
@@ -61,7 +61,7 @@
         (check-equal? (.call base .compare number-comparer root (.@ base .empty)) 1)
         (def cause (with-catch identity (lambda () (error "original comparison cause"))))
         (check (eq? (with-catch identity (lambda () (.call base .compare (lambda _ (raise cause)) root root))) cause) => #t))
-      (def plain (RationalDict Integer))
+      (def plain (alist-table UInt Integer))
       (check-exception (.call plain .compare number-comparer (.@ plain .empty) (.@ plain .empty))
         (message? "unsupported table comparison")))
     (test-case "partial refinements and absence decisions need no fabricated merged root"
@@ -654,7 +654,8 @@
       (check-exception (.call outer .seek base #f) Error?))
     (test-case "ordered fallback publishes one guarded cursor with typed bounds"
       (def source (RationalDict (.cc Integer)))
-      (def inner (table-order source (table-comparer (.@ source Key) number-comparer)))
+      (def inner (table-order source (table-comparer (.@ source Key)
+        (lambda (a b) (number-comparer a b)))))
       (def outer (table-order inner (.@ inner Comparer)))
       (def base (.call source .<-list '((1 . 10) (2 . 20) (3 . 30))))
       (check-equal? (.call outer .range base (some 1) (some 3) #f #f) '((2 . 20)))

@@ -278,10 +278,13 @@
 ;; Declare unique priority and shared-team caches on the persistent ordered backend.
 ;; Cold construction reuses shape-preserving updates; admitted service callbacks
 ;; remain shared through grouped buckets, atomic deltas and FUN style conversion.
-(def (make-ordered-service-indexes)
-  (def source (SimpleTrie UInt (Tuple UInt UInt (Fun Integer <- Integer))))
-  (def owners (SimpleTrie UInt UInt))
-  (def groups (SimpleTrie UInt source))
+;; Choose the primary and index backend explicitly; the same declarations and
+;; index initializer serve Trie and standard RBTree-backed rational key spaces.
+(def (make-ordered-service-indexes
+       (source (SimpleTrie UInt (Tuple UInt UInt (Fun Integer <- Integer))))
+       (index-table (cut SimpleTrie UInt <>)))
+  (def owners (index-table (.@ source Key)))
+  (def groups (index-table source))
   (def priority (.cc Type. name: 'priority unique?: #t
     table: (table-order owners (.@ owners Comparer))
     project: (lambda (_ row) (vector-ref row 0))))

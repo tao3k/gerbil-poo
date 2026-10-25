@@ -12,19 +12,23 @@
 ;; Bind a three-way comparer to its key Type and current source revisions.
 ;; Totality, transitivity and purity are caller laws; encountered zero/equality
 ;; disagreement and non-sign results refuse rather than silently merging keys.
-(def (table-comparer key compare (dependencies []))
-  (using (compare :~ procedure?)
+(def (table-comparer key compare (dependencies []) equal?: (same? equal?))
+  (using ((compare :~ procedure?) (same? :~ procedure?))
     (def sources (cons key dependencies))
     (def versions (map object-revision sources))
-    (def result (.cc Type. Key: key .sources: sources .procedure: compare
+    (def result (.cc Type. Key: key .sources: sources .procedure: compare .equality: same?
       .compare: (lambda (left right)
         (with-table-sources sources (lambda ()
           (unless (equal? versions (map object-revision sources)) (error "stale table comparer"))
           (unless (element? key left) (raise-type-error key left 'table-comparer))
           (unless (element? key right) (raise-type-error key right 'table-comparer))
           (def sign (compare left right))
-          (unless (and (memv sign '(-1 0 1)) (eq? (= sign 0) (equal? left right)))
-            (error "invalid table comparison" left right sign)) sign)))))
+          ;; An invalid sign refuses before a caller equality predicate runs.
+          (unless (memv sign '(-1 0 1)) (error "invalid table comparison" left right sign))
+          (let (same (same? left right))
+            (using (same :~ boolean?)
+              (unless (eq? (= sign 0) same)
+                (error "invalid table comparison" left right sign)) sign)))))))
     (table-set! %table-comparer-versions result (object-revision result))
     result))
 
@@ -40,7 +44,44 @@
     (translate-table-value codomain domain unap ap value))
   (table-comparer codomain
     (lambda (left right) (.call comparer .compare (decode left) (decode right)))
-    (append (list comparer key domain) (.@ comparer .sources))))
+    (append (list comparer key domain) (.@ comparer .sources))
+    equal?: (lambda (left right) ((.@ comparer .equality) (decode left) (decode right)))))
+
+;; Expose an explicitly ordered backend's existing Iterator without sorting or
+;; copying a tree. Positioning filters the prefix in linear time; no height-bound
+;; seek is inferred. Capture bounds and admit the complete persistent snapshot
+;; once; every pull, including EOF, checks origins and every emitted row is typed.
+(def (table-ordered-cursor descriptor input lower inclusive? producer compare same?)
+  (using ((inclusive? :~ boolean?) (producer :~ procedure?)
+          (compare :~ procedure?) (same? :~ procedure?))
+    (def bound (map/option identity lower))
+    (def comparer (.@ descriptor Comparer))
+    (def sources (append (table-sources descriptor) (list comparer) (.@ comparer .sources)))
+    (def versions (map object-revision sources))
+    ;; Use the same source scope at construction and across each deferred pull.
+    (def (guard action)
+      (with-table-sources sources (lambda ()
+        (unless (and (equal? versions (map object-revision sources))
+                     (table-comparer-current? comparer)
+                     (eq? (.@ comparer Key) (.@ descriptor Key)))
+          (error "stale ordered table cursor"))
+        ;; Replacing a backend's advertised comparer cannot change its producer.
+        ;; Check the actual producer's declared comparison/equality pair here.
+        (unless (and (eq? (.@ comparer .procedure) compare)
+                     (eq? (.@ comparer .equality) same?))
+          (error "incompatible ordered table cursor"))
+        (action))))
+    (guard (lambda ()
+      (require-table descriptor input)
+      (require-table-option (.@ descriptor Key) bound)
+      (def binding (Pair (.@ descriptor Key) (.@ descriptor Value)))
+      (iterator-map (lambda (entry)
+        (some-value (require-table-entry binding (some entry)))) (in-coroutine (lambda (yield)
+        (for (entry (producer input))
+          (when (or (not bound)
+            (let (sign (.call comparer .compare (car entry) (some-value bound)))
+              (if inclusive? (>= sign 0) (> sign 0))))
+            (yield entry))))) guard)))))
 
  ;; Compare admitted cursor rows without constructing a merge result. Pair shells
 ;; are copied before any other pull/callback; value leaves keep their identity.
@@ -97,7 +138,8 @@
   (def seek? (and (.has? source Comparer .seek<-)
     (table-comparer-current? (.@ source Comparer)) (table-comparer-current? comparer)
     (eq? (.@ (.@ source Comparer) Key) (.@ source Key))
-    (eq? (.@ (.@ source Comparer) .procedure) (.@ comparer .procedure))))
+    (eq? (.@ (.@ source Comparer) .procedure) (.@ comparer .procedure))
+    (eq? (.@ (.@ source Comparer) .equality) (.@ comparer .equality))))
   (when seek? (set! sources (append sources (list (.@ source Comparer))
     (.@ (.@ source Comparer) .sources))))
   ;; Shared Key/Value/comparer origins are prepared once, not revisited per alias.

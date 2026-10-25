@@ -488,7 +488,7 @@
           (check-exception (operation empty 'invalid) TypeError?)
           (check-exception (operation 'invalid empty) TypeError?)
           (check-exception (operation 'invalid 'invalid) TypeError?)))
-      (def plain (.cc Set<-Table. Table: (RationalDict Unit) sexp: 'unordered-set))
+      (def plain (.cc Set<-Table. Table: (alist-table UInt Unit) sexp: 'unordered-set))
       (check-exception (.call plain .compare (.@ plain .empty) (.@ plain .empty))
         (message? "unsupported set comparison"))
       (def wrong (.cc Set<-Table. Table: (RationalDict Integer) sexp: 'not-unit))

@@ -425,7 +425,8 @@
         (and (element? set input) (not (equal? (.call set .list<- input) '(-3)))))))
       (check-exception (.call refined .split -2 root) TypeError?)
       (check-equal? (.call set .list<- root) '(-1 -2 -3))
-      (check-exception (.call (RationalDict Integer) .split 2 (.@ (RationalDict Integer) .empty))
+      (def unordered (alist-table UInt Integer))
+      (check-exception (.call unordered .split 2 (.@ unordered .empty))
         (message? "unordered table split")))
     (test-case "Function leaves and correlated indexes survive FUN IO and inverse retry"
       (def function (Fun Integer <- Integer)) (def callback (validate function (lambda (n) (+ n 1))))

@@ -3,7 +3,7 @@
 (export #t)
 
 (import
-  (only-in ./support/base λ)
+  (only-in ./support/base λ number-comparer)
   (only-in ./support/rationaldict
            rationaldict-keys
            rationaldict-empty? empty-rationaldict
@@ -14,7 +14,7 @@
   (only-in ./object .@)
   (only-in ./brace @method)
   (only-in ./mop define-type Any raise-type-error)
-  (only-in ./table Set<-Table. methods.table table-key-space))
+  (only-in ./table Set<-Table. methods.table table-key-space table-comparer table-ordered-cursor))
 
 (define-type (RationalDict. @ [methods.table] Value)
    ;; This backend's tree operations are payload-parametric and retain key equality.
@@ -26,7 +26,12 @@
    .validate-shape: (lambda (source)
      (unless (rationaldict? source) (raise-type-error @ source 'expected-rationaldict))
      source)
-   ;; TODO: also use rationaldict-min-key, rationaldict-max-key, rationaldict-update ?
+   ;; The standard RBTree comparator identifies exact/inexact numeric aliases.
+   ;; Declare that same equivalence; structural equal? would reject lawful bounds.
+   Comparer: (table-comparer Key number-comparer equal?: =)
+   ;; Reuse the standard in-order Iterator; positioning is linear prefix filtering.
+   .seek<-: (lambda (root lower inclusive?)
+     (table-ordered-cursor @ root lower inclusive? rationaldict-iter number-comparer =))
    .empty: empty-rationaldict
    ;; Standard RBTree predicate remains the structural backend capability.
    .empty/key?: rationaldict-empty?
