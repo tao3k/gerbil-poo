@@ -3,7 +3,7 @@
 (import :std/test :std/error :std/iter :std/interface
         (only-in ../brace @@method) ../object ../mop ../type ../number ../table
         ../rationaldict ../support/option (only-in ../trie SimpleTrie)
-        (only-in ./table-validation-test alist-table)
+        (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Protocol refusals remain distinguishable from unrelated implementation errors.

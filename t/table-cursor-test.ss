@@ -4,7 +4,7 @@
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie)
         (only-in ../support/base number-comparer)
-        (only-in ./table-wrapper-test box-table)
+        (only-in ./table-testing box-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Match metadata refusal without accepting unrelated backend/type failures.

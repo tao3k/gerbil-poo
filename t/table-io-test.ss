@@ -3,7 +3,7 @@
 (import :std/test :std/error :std/iter :std/misc/ports
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
         (only-in ../trie SimpleTrie SimpleTrieSet) (only-in ../brace @@method)
-        (only-in ./table-wrapper-test box-table)
+        (only-in ./table-testing box-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Preserve exact codec causes instead of accepting unrelated failure families.

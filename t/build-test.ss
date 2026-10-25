@@ -12,7 +12,7 @@
 (def build-test
   (test-suite "compiled group source admission"
     (test-case "collection case includes participate in standard make freshness"
-      (def spec (car (build-request '("tests" "collections" "/tmp/poo-test-output"))))
+      (def spec (car (build-request '("tests" "collection-updates" "/tmp/poo-test-output"))))
       (check (and (member '(gxc: "t/table-mapping-test"
         (extra-inputs: ("t/table-mapping/composition.scm"))) spec) #t) => #t))
     (test-case "collection IO includes participate in standard library freshness"
@@ -211,6 +211,13 @@
         '("methods" "inference" "signatures" "scalars"))
       (check (and (member "t/container-inference-test.ss" (test-files "inference")) #t) => #t)
       (check (and (member "t/union-inference-test.ss" (test-files "scalars")) #t) => #t))
+    (test-case "collection compiler groups bound retained suites without losing inventory"
+      ;; The disjoint complete-inventory control above remains authoritative;
+      ;; these bounds prevent the known 27-root collection heap overflow shape.
+      (for-each (lambda (name)
+        (def files (test-files name))
+        (check (and (pair? files) (<= (length files) 8)) => #t))
+        '("collections" "collection-order" "collection-updates" "collection-styles" "backends")))
     (test-case "matching bytes permit reuse while all changed identity axes refuse"
       (def record '(test-group "objects" "compiler-and-library" "tests" "original-producer"))
       (check (artifact-key-valid? record "objects" "compiler-and-library" "tests") => #t)

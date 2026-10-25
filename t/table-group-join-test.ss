@@ -2,7 +2,7 @@
 (export table-group-join-test)
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie) (only-in ./table-validation-test alist-table)
+        (only-in ../trie SimpleTrie) (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Reuse the ordinary join with explicitly multivalued classification; target

@@ -2,7 +2,7 @@
 (export table-mapping-test)
 (import :std/test :std/error :std/iter (only-in ../brace @@method)
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie) (only-in ./table-wrapper-test box-table) (only-in ./table-validation-test alist-table)
+        (only-in ../trie SimpleTrie) (only-in ./table-testing box-table) (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Keep protocol refusals separate from arbitrary callback exceptions.

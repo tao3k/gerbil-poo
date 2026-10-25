@@ -3,8 +3,8 @@
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie)
-        (only-in ./table-wrapper-test box-table)
-        (only-in ./table-validation-test alist-table)
+        (only-in ./table-testing box-table)
+        (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Keep protocol refusal distinct from a different callback implementation error.

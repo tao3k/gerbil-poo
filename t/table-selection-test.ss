@@ -2,8 +2,8 @@
 (export table-selection-test)
 (import :std/test :std/error :std/iter (only-in ../brace @@method) (only-in ../fun Wrapper.)
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie SimpleTrieSet) (only-in ./table-validation-test alist-table)
-        (only-in ./table-wrapper-test box-table)
+        (only-in ../trie SimpleTrie SimpleTrieSet) (only-in ./table-testing alist-table)
+        (only-in ./table-testing box-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Match ownership refusals without swallowing callback/type errors.

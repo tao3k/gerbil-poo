@@ -556,6 +556,24 @@ equality procedures. Replacing the backend's advertised comparer without replaci
 its producer refuses before pulling rows; use a separate `table-order` view for
 an alternate order, which retains the legitimate reference sorting path.
 
-Local complete acceptance for this unit: all 143 modules / 1,607 cases passed in
+Local complete acceptance for this unit: all 143 modules / 1,608 cases passed in
 one process under the unchanged 1 GiB heap and 300-second runtime limits. All 20
 Lean gate phases passed. This is bounded acceptance, not whole-library closure.
+
+
+### Compiler resource acceptance
+
+The first CI attempt exceeded the unchanged 1 GiB heap while std/make compiled
+the old 27-root mixed collection group. Shared alist/boxed fixtures now live in
+the existing `t/table-testing` support module, compiled once in the common artifact;
+tests no longer import complete suite modules just to obtain a fixture. Collection
+construction/validation, order, updates, styles and backend tests have independent
+standard matrix groups with 7/4/6/4/6 roots. A regression caps these families while
+the existing complete/disjoint inventory and include-freshness controls remain.
+No scheduler, environment switch or expanded resource limit is added.
+
+All five groups passed the actual `just build-group` entry locally under the
+existing 1 GiB heap / 300-second stage limit. The final one-process suite also
+passed all 143 modules / 1,608 cases. Compiler grouping does not replace or split
+that runtime acceptance; Compile-group timing is not a wall-clock speedup
+claim across different machines or cache histories.

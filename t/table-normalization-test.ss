@@ -2,7 +2,7 @@
 (export table-normalization-test)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../table ../rationaldict
         ../support/option (only-in ../support/base number-comparer)
-        (only-in ./table-validation-test alist-table)
+        (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Match a precise protocol refusal without accepting unrelated callback errors.

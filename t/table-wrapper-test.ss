@@ -1,27 +1,13 @@
 ;;; Whole table algorithms are derived from explicit representation symmetries.
-(export table-wrapper-test box-table)
+(export table-wrapper-test)
 (import :std/test :std/iter :std/error
+        (only-in ./table-testing box-table make-boxed-table boxed-table-raw boxed-table?)
         (only-in ../slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer
                  slot-read-receiver slot-read-key)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper. IdWrap) (only-in ../support/base number-comparer)
         (only-in ../trie SimpleTrie Trie. Branch Leaf)
         (prefix-in ../examples/service-collection service.))
-
-;; Official host records supply a raw carrier with no table operations of its own.
-(defstruct boxed-table (raw) transparent: #t final: #t)
-
-;; Derive only the table protocol; raw target recognition does not pretend to
-;; establish child membership or any inverse law automatically.
-(def (box-table source (ap make-boxed-table) (unap boxed-table-raw)
-                key: (key-wrapper #f) value: (value-wrapper #f))
-  (def target (.cc Type. Key: (.@ source Key) Value: (.@ source Value) .element?: boxed-table?))
-  (def carrier (.cc Wrapper. Domain: source Codomain: target .ap: ap .unap: unap))
-  (def keys (or key-wrapper
-    (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key) .ap: - .unap: -)))
-  (def payloads (or value-wrapper
-    (.cc Wrapper. Domain: (.@ source Value) Codomain: (.@ source Value) .ap: identity .unap: identity)))
-  (values (table-wrapper source carrier keys payloads) carrier keys))
 
 ;; Distinguish expected metadata refusal from unrelated backend errors.
 (def (message? text)

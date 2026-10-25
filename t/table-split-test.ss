@@ -4,7 +4,7 @@
         (only-in ../support/base number-comparer) (only-in ../brace @@method)
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
         (only-in ../trie SimpleTrie) (only-in ../fun Wrapper.)
-        (only-in ./table-wrapper-test box-table) (only-in ./table-validation-test alist-table)
+        (only-in ./table-testing box-table) (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Compare an existing persistent backend under its own or an explicit numeric order.

@@ -1,7 +1,7 @@
 ;;; Explicit order integrates index publication, inversion and ownership transfer.
 (export table-order-test)
 (import (only-in ../support/base number-comparer) (only-in :std/list/list-builder with-list-builder) :std/test :std/error :std/iter ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../brace @@method) (only-in ./table-validation-test alist-table) (only-in ./table-wrapper-test box-table) (only-in ../fun Wrapper. IdWrap) (only-in ../trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in ../examples/service-collection service.))
+        (only-in ../brace @@method) (only-in ./table-testing alist-table) (only-in ./table-testing box-table) (only-in ../fun Wrapper. IdWrap) (only-in ../trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in ../examples/service-collection service.))
 
 ;; Keep deliberate protocol refusal separate from arbitrary comparator failures.
 (def (message? text)

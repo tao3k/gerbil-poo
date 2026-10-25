@@ -4,8 +4,8 @@
         (only-in ../brace @@method)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
         (only-in ../trie SimpleTrie SimpleTrieSet)
-        (only-in ./table-validation-test alist-table)
-        (only-in ./table-wrapper-test box-table)
+        (only-in ./table-testing alist-table)
+        (only-in ./table-testing box-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Compare public refusal causes without swallowing unrelated backend exceptions.

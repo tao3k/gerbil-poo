@@ -2,7 +2,7 @@
 (export table-construction-test)
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie) (only-in ./table-wrapper-test box-table)
+        (only-in ../trie SimpleTrie) (only-in ./table-testing box-table)
         (only-in ../support/base number-comparer)
         (prefix-in ../examples/service-collection service.))
 

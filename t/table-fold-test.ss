@@ -3,7 +3,7 @@
 (import :std/test :std/iter (only-in :std/error Error? Error-message)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper.) (only-in ../support/base number-comparer)
-        (only-in ./table-wrapper-test box-table) (prefix-in ../examples/service-collection service.))
+        (only-in ./table-testing box-table) (prefix-in ../examples/service-collection service.))
 
 ;; Refine a backend through its existing complete recognizer, never a new carrier.
 (def (even-table table)

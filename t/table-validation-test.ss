@@ -1,31 +1,14 @@
 ;;; Persistent collection admission shares recursive binding normalization.
-(export table-validation-test alist-table)
+(export table-validation-test)
 (import :std/test :std/iter
         (only-in :gerbil/runtime/mop slot-ref slot-set!) (only-in :std/error Error? Error-message ContractViolation?)
         (only-in :std/list/alist aset arem alist?)
-        (only-in :std/list/list foldr)
+        (only-in ./table-testing alist-table)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper.)
         (only-in ../trie SimpleTrie SimpleTrieSet Branch Leaf)
         (only-in ../object-contract-flow checked-action)
         (prefix-in ../examples/service-collection service.))
-
-;; A public persistent alist backend exercises arbitrary keys through methods.table,
-;; using Gerbil's association operations, not a new collection implementation.
-(def (alist-table key value)
-  (.cc methods.table Key: key Value: value .empty: []
-    ;; The association backend's equality is independent of its row payload.
-    .key-table: (lambda (payload) (alist-table key payload))
-    .validate-shape: (lambda (source)
-      (unless (alist? source) (raise-type-error 'alist-table source)) source)
-    .ref: (lambda (source key (missing (lambda () (error "missing key"))))
-            (cond ((assoc key source) => cdr) (else (missing))))
-    .acons: (lambda (key value source) (aset source key value))
-    .remove: (lambda (source key) (arem key source))
-    .foldl: (lambda (f seed source)
-              (foldl (lambda (entry acc) (f (car entry) (cdr entry) acc)) seed source))
-    .foldr: (lambda (f seed source)
-              (foldr (lambda (entry acc) (f (car entry) (cdr entry) acc)) seed source))))
 
 ;; Failure payload identity is observable even when a callback raises a non-error.
 (def (cause-of thunk) (try (thunk) #f (catch (cause) cause)))

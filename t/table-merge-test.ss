@@ -2,8 +2,8 @@
 (export table-merge-test)
 (import :std/test :std/error :std/iter (only-in ../brace @@method)
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie) (only-in ./table-validation-test alist-table)
-        (only-in ./table-wrapper-test box-table)
+        (only-in ../trie SimpleTrie) (only-in ./table-testing alist-table)
+        (only-in ./table-testing box-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Keep protocol failures distinct from arbitrary resolver exceptions.
