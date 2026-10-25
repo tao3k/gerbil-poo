@@ -1956,6 +1956,19 @@ regressions and finite Lean laws. See table-mapping.md for exact delta, admissio
 logical equality, callback/persistence and complete cost boundaries. Automatic
 resolver/dependency discovery remains research work, not an implemented claim.
 
+### Demand-driven bounded range cursors
+
+Closed the missing upper-bounded streaming observation in `table-order`:
+`.range<-` reuses positioned traversal, standard Gerbil coroutine Iterator and
+the existing per-demand guard; `.range` now collects the same cursor. Table/Set
+styles and Posh/Classy receivers share deferred observation without consuming
+ownership. Bound-shell capture, all flags, seek/fallback observations, no-prefetch,
+terminal pull counts, stale EOF, comparator refusal/retry, Function identity and
+Reader/FUN/IO inspection have regressions and finite Lean cursor/window laws.
+See table-order.md for persistent-root/order/admission premises, initial fallback
+sorting and guard/positioning costs. Automatic backend/order discovery and host
+coroutine/compiler verification remain research boundaries.
+
 ### Checked single-entry decomposition
 
 Closed the concrete `decons` interface item previously listed in `table.ss`:

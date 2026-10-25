@@ -122,6 +122,10 @@
   (lambda (self lower (inclusive? #t))
     (.call (%table-object-protocol self) .seek self lower inclusive?)))
 ;; Range observation forwards inclusive/exclusive bounds without another sort.
+(defmethod (@@method range<- %table-object)
+  (lambda (self lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+    (.call (%table-object-protocol self) .range<- self lower upper lower-inclusive? upper-inclusive?)))
+;; Materialized range observation retains the same bounds as deferred traversal.
 (defmethod (@@method range %table-object)
   (lambda (self lower upper (lower-inclusive? #t) (upper-inclusive? #t))
     (.call (%table-object-protocol self) .range self lower upper lower-inclusive? upper-inclusive?)))
@@ -414,6 +418,8 @@
       .seek: (lambda (input lower (inclusive? #t)) (observe input '.seek (list lower inclusive?)))
       .range: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
         (observe input '.range (list lower upper lower-inclusive? upper-inclusive?)))
+      .range<-: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+        (observe input '.range<- (list lower upper lower-inclusive? upper-inclusive?) #t))
       .index-ref/opt: (lambda (input name key) (observe input '.index-ref/opt (list name key)))
       .index-range: (lambda (input name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
         (observe input '.index-range (list name lower upper lower-inclusive? upper-inclusive?)))
@@ -443,6 +449,8 @@
             (map/option car (observe input '.seek (list lower inclusive?))))
           .range: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
             (map car (observe input '.range (list lower upper lower-inclusive? upper-inclusive?))))
+          .range<-: (lambda (input lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+            (iterator-map car (observe input '.range<- (list lower upper lower-inclusive? upper-inclusive?) #t)))
           .elt?: (lambda (input element) (guard (lambda () (.call set .elt? (read input) element))))
           .cons: (lambda (element input) (step input (cut .call set .cons element <>)))
           .remove: (lambda (input element) (step input (cut .call set .remove <> element)))

@@ -83,13 +83,17 @@
   (def (bounds lower upper lower-inclusive? upper-inclusive?)
     (using ((lower-inclusive? :~ boolean?) (upper-inclusive? :~ boolean?))
       (for-each (lambda (bound)
-        (unless (or (not bound) (some? bound)) (error "table range bound must be Option"))
+        (unless (or (not bound) (some? bound)) (error "table range bound must be Option"))) (list lower upper))
+      ;; Own both Option shells before predicates/comparisons can alter caller
+      ;; buffers. Logical key immutability remains the existing order premise.
+      (def lo (map/option identity lower)) (def hi (map/option identity upper))
+      (for-each (lambda (bound)
         (when (some? bound)
           (unless (element? (.@ source Key) (some-value bound))
-            (raise-type-error (.@ source Key) (some-value bound) 'table-order)))) (list lower upper))
-      (when (and (some? lower) (some? upper)
-        (> (.call comparer .compare (some-value lower) (some-value upper)) 0))
-        (error "reversed table range"))))
+            (raise-type-error (.@ source Key) (some-value bound) 'table-order)))) (list lo hi))
+      (when (and lo hi (> (.call comparer .compare (some-value lo) (some-value hi)) 0))
+        (error "reversed table range"))
+      (values lo hi)))
   ;; Position once in the declared backend; mismatched order retains the reference
   ;; sort/filter path. No backend cursor is trusted merely because it is present.
   (def (entries state lower inclusive?)
@@ -102,28 +106,35 @@
   ;; copying entries or keeping metadata protection across coroutine suspension.
   (def (position state lower inclusive?)
     (observe state (lambda ()
-      (bounds lower #f inclusive? #t)
-      (iterator-map identity (entries state lower inclusive?)
-        (lambda (action) (observe state action))))))
-  ;; A fresh positioned iterator stops on the first upper-bound failure. The
-  ;; enclosing guard covers positioning, every pull and bound comparison.
+      (let-values (((lo _hi) (bounds lower #f inclusive? #t)))
+        (iterator-map identity (entries state lo inclusive?)
+          (lambda (action) (observe state action)))))))
+  ;; Standard coroutine iteration supplies sticky EOF and demand-driven traversal.
+  ;; The outer Iterator guard covers every pull, including repeated EOF, without
+  ;; retaining metadata protection across a yield or copying admitted payloads.
+  (def (range-cursor state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+    (observe state (lambda ()
+      (let-values (((lo hi) (bounds lower upper lower-inclusive? upper-inclusive?)))
+        (def cursor (entries state lo lower-inclusive?))
+        (iterator-map identity (in-coroutine (lambda (yield)
+          (let/cc stop
+            (for (entry cursor)
+              (when hi
+                (let (sign (.call comparer .compare (car entry) (some-value hi)))
+                  (unless (if upper-inclusive? (<= sign 0) (< sign 0)) (stop (void)))))
+              (yield entry)))))
+          (lambda (action) (observe state action)))))))
+  ;; Materialization is now an ordinary consumer of the same bounded cursor.
   (def (range state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
     (observe state (lambda ()
-      (bounds lower upper lower-inclusive? upper-inclusive?)
-      (with-list-builder (emit)
-        (let/cc stop
-          (for (entry (entries state lower lower-inclusive?))
-            (when upper
-              (let (sign (.call comparer .compare (car entry) (some-value upper)))
-                (unless (if upper-inclusive? (<= sign 0) (< sign 0)) (stop (void)))))
-            (emit entry)))))))
+      (for/collect (entry (range-cursor state lower upper lower-inclusive? upper-inclusive?)) entry))))
   ;; Seek observes only the first admitted binding at/after the optional lower bound.
   (def (seek state lower (inclusive? #t))
     (observe state (lambda ()
-      (bounds lower #f inclusive? #t)
-      (using ((cursor (entries state lower inclusive?) :- Iterator))
-        (def entry (cursor.next!))
-        (if (eq? entry #!eof) #f (some entry))))))
+      (let-values (((lo _hi) (bounds lower #f inclusive? #t)))
+        (using ((cursor (entries state lo inclusive?) :- Iterator))
+          (def entry (cursor.next!))
+          (if (eq? entry #!eof) #f (some entry)))))))
   (set! result (.cc methods.table Key: (.@ source Key) Value: (.@ source Value)
     .empty: (.@ source .empty) .sources: sources Comparer: comparer
     ;; Ordering changes traversal, not lookup equality. Reuse the source key space
@@ -149,7 +160,7 @@
     ;; Unbounded iteration is the same positioned cursor without a lower bound;
     ;; retain declared seek and every-pull guards instead of materializing a fold.
     .iter<-: (lambda (state) (position state #f #t))
-    .range: range .seek: seek .seek<-: position
+    .range: range .range<-: range-cursor .seek: seek .seek<-: position
     .foldl: (lambda (f seed state) (observe state (lambda ()
       (for/fold (acc seed) (entry (entries state #f #t)) (f (car entry) (cdr entry) acc)))))
     .foldr: (lambda (f seed state) (observe state (lambda ()
