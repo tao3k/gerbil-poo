@@ -168,6 +168,11 @@
         (string-prefix? "t/" file)))) (library-modules)) => #t)
       (check-equal? (take (caar (consumer-request '("test-program" "spec"))) 2) '(exe: "test-program"))
       (check-equal? (caddr (consumer-request '("test-program" "compile" "--debug"))) '("compile" "--debug"))
+      (check-equal? (consumer-request '("linked-benchmark" "collection-paired-benchmark"))
+        (consumer-request '("benchmark" "collection-paired-benchmark")))
+      (check-equal? (clean-request '("linked-benchmark" "collection-paired-benchmark" "compile" "--debug"))
+        '("linked-benchmark" "collection-paired-benchmark" "clean"))
+      (check-exception (consumer-request '("linked-benchmark" "dispatch-benchmark")) true)
       (check-equal? (car (consumer-request '("benchmark" "collection-paired-benchmark")))
         '("collection-paired-benchmark"))
       (check-equal? (caddr (consumer-request '("benchmark" "collection-paired-benchmark" "compile" "--debug")))
@@ -227,6 +232,34 @@
         (run-build-stage root timeout "-:max-heap=1G,debug=q" 0 [])
         (check (file-exists? metadata) => #t)
         (check (file-exists? static) => #t))))
+    (test-case "linked consumers reuse admission while standalone consumers prepare their graph"
+      (call-with-temporary-directory "poo-consumer-dispatch-"
+        (lambda (root)
+          (def marker (path-expand "calls" root))
+          (create-directory* (path-expand "t" root))
+          (copy-file "build.ss" (path-expand "build.ss" root))
+          ;; Emit fixture modules with standard Scheme file primitives.
+          (def (save name forms)
+            (call-with-output-file (path-expand name root) (lambda (port)
+              (for-each (lambda (form) (write form port) (newline port)) forms))))
+          (save "gerbil.pkg" '((package: consumer-dispatch)))
+          (save "t/build-spec.ss"
+            `((export build-request consumer-request build-consumer)
+              ;; Record only ownership decisions; std/build-script still processes the empty graph.
+              (def (record name)
+                (call-with-output-file (list path: ,marker append: #t)
+                  (lambda (port) (write name port) (newline port))))
+              (def (consumer-request args) (list '() #f '()))
+              (def (build-request args) (record 'qualification) (list '() #f '()))
+              (def (build-consumer . args) (record 'consumer))))
+          (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"] coprocess: read-all-as-lines)))
+          (for (mode '("linked-benchmark" "benchmark"))
+            (when (file-exists? marker) (delete-file marker))
+            (run-process [timeout "--signal=TERM" "--kill-after=3s" "30s"
+              "gxi" "-:max-heap=1G,debug=q" "build.ss" mode "collection-paired-benchmark"]
+              directory: root stdout-redirection: #f coprocess: close-output-port)
+            (check-equal? (call-with-input-file marker read-all)
+              (if (equal? mode "linked-benchmark") '(consumer) '(qualification consumer)))))))
     (test-case "failure recovery retains the standard target and strips compiler flags"
       (for-each (lambda (request expected) (check-equal? (clean-request request) expected))
         '(() ("compile" "--debug") ("library" "compile" "--release")
@@ -310,7 +343,7 @@
         (map (lambda (line)
           (cond ((string-suffix? " test-program" line) 'test-program)
                 ((string-suffix? " library" line) 'library)
-                ((string-suffix? " benchmark \"collection-paired-benchmark\"" line) 'study)
+                ((string-suffix? " linked-benchmark \"collection-paired-benchmark\"" line) 'study)
                 (else 'unexpected)))
           (filter (cut string-contains <> " t/build.ss ") lines)))
       (check-equal? (targets admitted) '(test-program study))
@@ -318,7 +351,7 @@
       (check-equal? (targets linked) '(study))
       (for (lines (list admitted standalone linked))
         (check-equal? (length (filter
-          (cut string-suffix? "\"90\" benchmark \"collection-paired-benchmark\"" <>) lines)) 1)
+          (cut string-suffix? "\"90\" linked-benchmark \"collection-paired-benchmark\"" <>) lines)) 1)
         (check-equal? (length (filter
           (cut string-suffix? "benchmark collection-paired-benchmark \"2\" \"1\" \"4\"" <>) lines)) 1))
       ;; Cache hits retain exactly the same bounded complete harness as misses.

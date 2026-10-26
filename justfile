@@ -58,14 +58,14 @@ benchmark-object-scale: (build "library")
 
 # Use the same standard graph and default executable directory for every study.
 # Retain each recipe's compiler deadline and the shared 1 GiB expansion bound.
-_build-benchmark target max-seconds='90':
+_build-benchmark target max-seconds='90' mode='benchmark':
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" "{{ max-seconds }}" benchmark "{{ target }}"
+    {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 1200s gxi {{ test-runtime-options }} t/build.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" "{{ max-seconds }}" {{ mode }} "{{ target }}"
 
 # Reuse the standard shared executable; compile/load only the collection study.
 # Standard recipe dependencies share entry preparation without nested just startups.
 # Preparation keeps the ordinary compiler stage bounds; workload compile stays 90s.
-benchmark-collections width='64' samples='10' pairs='6': (build "library") (build "test-program") (_build-benchmark "collection-paired-benchmark") (_run-collections width samples pairs)
+benchmark-collections width='64' samples='10' pairs='6': (build "library") (build "test-program") (_build-benchmark "collection-paired-benchmark" "90" "linked-benchmark") (_run-collections width samples pairs)
 
 # CI has already admitted the exact shared library and every disjoint test group.
 # Construct the standard consumer once, run the complete suite, then compile and
@@ -74,7 +74,7 @@ _check-collections width='2' samples='1' pairs='4': (build "test-program") (_che
 
 # A cache hit has already admitted the compiler/library bytes and linked inventory.
 # Only construction is reused; the complete bounded suite and study run on every hit.
-_check-linked-collections width='2' samples='1' pairs='4': (_test "t" "300") (_build-benchmark "collection-paired-benchmark") (_run-collections width samples pairs)
+_check-linked-collections width='2' samples='1' pairs='4': (_test "t" "300") (_build-benchmark "collection-paired-benchmark" "90" "linked-benchmark") (_run-collections width samples pairs)
 
 # Both standalone and admitted workflows execute the identical bounded study.
 _run-collections width samples pairs:

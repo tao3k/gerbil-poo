@@ -161,3 +161,21 @@ standard-clean and retry control. A second bounded Darwin reproducer invoked the
 production Scheme cleanup on a retained zombie group, observed its terminal
 record, then reaped the child and confirmed ESRCH. These are local functional
 and lifecycle checks, not a cold-cache throughput or compiler-verification claim.
+
+## Linked collection workload preparation
+
+The already-linked collection check has admitted the exact shared compiler/library
+bytes, inventory and compiled test groups before running its complete consumer.
+Its subsequent workload build now uses `linked-benchmark` to call the existing
+`build-consumer` / `defbuild-script` directly. This selector accepts only the
+existing loadable collection workload. Standard standalone `benchmark` and
+`test-program` construction still prepare the complete qualification graph.
+
+The distinction is explicit input ownership, not a timestamp-based cache decision.
+Linked cleanup owns only that consumer and does not delete shared prerequisites it
+did not build. Both paths retain their current heap/deadline guards and execute
+the same full suite and collection study. The workload compile remains 90 seconds.
+A dispatch regression executes the production build entry with an observable
+fixture provider: standalone construction invokes qualification then the consumer;
+linked construction invokes the consumer only. Existing source/group admission
+and actual failed-build recovery controls remain mandatory.

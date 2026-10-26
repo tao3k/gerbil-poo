@@ -26,6 +26,9 @@
     ;; Standard Gambit timing reports make work/GC separately from whole-process timing.
     (["library" . _] (time (apply build-selected (build-request args))))
     (["qualification" . _] (time (apply build-selected (build-request args))))
+    ;; The linked collection workflow already owns complete producer admission.
+    ;; Compile only its workload; standard clean likewise owns only this consumer.
+    (["linked-benchmark" . _] (time (apply build-consumer args)))
     (["benchmark" . _] (time (run-consumer args)))
     (["test-program" . _] (time (run-consumer args)))
     (else (apply build-selected (build-request args)))))

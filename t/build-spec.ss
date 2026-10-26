@@ -273,7 +273,10 @@
     (["test-program" . options]
       [`((exe: "test-program" "-cc-options" ,+gerbil-poo-cc-options+
           "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
-    (["benchmark" target . options]
+    ([(or "benchmark" "linked-benchmark") target . options]
+      (when (and (equal? (car args) "linked-benchmark")
+                 (not (equal? target "collection-paired-benchmark")))
+        (error "linked benchmark requires the shared collection consumer" target))
       (unless (member target '("closure-scale-benchmark" "closure-paired-benchmark"
                 "closure-phases" "dispatch-benchmark" "metadata-benchmark"
                 "metadata-paired-benchmark" "combination-benchmark"
@@ -292,7 +295,7 @@
 ;; Retain the selected standard target/output while replacing all compiler options
 ;; with clean. Reuse request parsing so debug/release flags never survive recovery.
 (def (clean-request args)
-  (def request (if (and (pair? args) (member (car args) '("benchmark" "test-program")))
+  (def request (if (and (pair? args) (member (car args) '("benchmark" "linked-benchmark" "test-program")))
     (consumer-request args) (build-request args)))
   (append (take args (- (length args) (length (caddr request)))) '("clean")))
 
