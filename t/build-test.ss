@@ -13,6 +13,13 @@
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
+    (test-case "program graph retains every qualification root and one standard executable"
+      (def qualification (car (build-request '("qualification"))))
+      (def request (build-request '("test-program" "compile" "--debug")))
+      (check-equal? (take (car request) (length qualification)) qualification)
+      (check-equal? (length (car request)) (+ (length qualification) 1))
+      (check-equal? (take (list-ref (car request) (length qualification)) 2) '(exe: "t/test-program"))
+      (check-equal? (cdr request) '(#f ("compile" "--debug"))))
     (test-case "group snapshots distinguish zombies from live and unrelated members"
       (check-equal? (build-group-states 42 '(" 7 S" " 42 Z" " 42 Z")) '(Z Z))
       (check-equal? (build-group-states 42 '("42 Z" "42 R")) '(Z R))
@@ -186,6 +193,11 @@
     (test-case "a timed-out producer is cleaned before a standard build retry"
       (call-with-temporary-directory "poo-build-recovery-" (lambda (root)
         (def lib (path-expand "lib/" root))
+        (def bin (path-expand "bin/" root))
+        ;; Reuse the real consumer's compiler/runtime linkage, including pkg-config.
+        (def executable-options
+          (match (caar (consumer-request '("test-program")))
+            ([exe: _ . options] options)))
         (def metadata (path-expand "build-recovery/unit.ssi" lib))
         (def static (path-expand "static/build-recovery__unit.scm" lib))
         (def marker (path-expand "interrupt" root))
@@ -202,12 +214,18 @@
             (for-each (lambda (form) (write form port) (newline port)) forms))))
         (write-forms "gerbil.pkg" '((package: build-recovery)))
         (write-forms "unit.ss" '((export value) (def value 42)))
+        (write-forms "app.ss"
+          '((import "./unit") (export main) (def (main) (displayln value))))
         (write-forms "interrupt" '(#t))
         (write-forms "build.ss"
           `((import :std/build-script)
             (def (build . args)
-              (defbuild-script '("unit") libdir: ,lib) (apply main args))
+              (defbuild-script '("unit" (exe: "app" ,@executable-options)))
+              (apply main args))
             (def (main . args)
+              ;; Only this child selects the fixture's standard installation.
+              ;; Default lib/bin paths and static lookup then share one root.
+              (setenv "GERBIL_PATH" ,root)
               (if (or (equal? args '("clean")) (not (file-exists? ,marker)))
                 (apply build args)
                 (begin
@@ -232,7 +250,10 @@
         (delete-file marker)
         (run-build-stage root timeout "-:max-heap=1G,debug=q" 0 [])
         (check (file-exists? metadata) => #t)
-        (check (file-exists? static) => #t))))
+        (check (file-exists? static) => #t)
+        ;; Recovery uses a cold standard joint graph, with no prebuilt unit SSI.
+        ;; Execute its real linked program as well as checking metadata outputs.
+        (check-equal? (run-process [(path-expand "app" bin) "-:max-heap=1G,debug=q"]) "42\n"))))
     (test-case "linked consumers reuse admission while standalone consumers prepare their graph"
       (call-with-temporary-directory "poo-consumer-dispatch-"
         (lambda (root)
@@ -251,16 +272,22 @@
                 (call-with-output-file (list path: ,marker append: #t)
                   (lambda (port) (write name port) (newline port))))
               (def (consumer-request args) (list '() #f '()))
-              (def (build-request args) (record 'qualification) (list '() #f '()))
+              (def (build-request args) (record (string->symbol (car args)))
+                (list '() #f (cdr args)))
               (def (build-consumer . args) (record 'consumer))))
           (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"] coprocess: read-all-as-lines)))
-          (for (mode '("linked-benchmark" "benchmark"))
+          (for (request '(("linked-benchmark" "collection-paired-benchmark")
+                         ("benchmark" "collection-paired-benchmark")
+                         ("test-program") ("test-program" "clean")))
             (when (file-exists? marker) (delete-file marker))
-            (run-process [timeout "--signal=TERM" "--kill-after=3s" "30s"
-              "gxi" "-:max-heap=1G,debug=q" "build.ss" mode "collection-paired-benchmark"]
+            (run-process (append [timeout "--signal=TERM" "--kill-after=3s" "30s"
+              "gxi" "-:max-heap=1G,debug=q" "build.ss"] request)
               directory: root stdout-redirection: #f coprocess: close-output-port)
             (check-equal? (call-with-input-file marker read-all)
-              (if (equal? mode "linked-benchmark") '(consumer) '(qualification consumer)))))))
+              (cond ((equal? (car request) "linked-benchmark") '(consumer))
+                    ((equal? (car request) "test-program")
+                     (cond-expand (darwin '(test-program)) (else '(qualification consumer))))
+                    (else '(qualification consumer))))))))
     (test-case "failure recovery retains the standard target and strips compiler flags"
       (for-each (lambda (request expected) (check-equal? (clean-request request) expected))
         '(() ("compile" "--debug") ("library" "compile" "--release")
@@ -348,7 +375,7 @@
                 (else 'unexpected)))
           (filter (cut string-contains <> " t/build.ss ") lines)))
       (check-equal? (targets admitted) '(test-program study))
-      (check-equal? (targets standalone) '(library test-program study))
+      (check-equal? (targets standalone) '(test-program study))
       (check-equal? (targets linked) '(study))
       (for (lines (list admitted standalone linked))
         (check-equal? (length (filter

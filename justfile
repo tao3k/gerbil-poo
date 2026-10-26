@@ -65,7 +65,7 @@ _build-benchmark target max-seconds='90' mode='benchmark':
 # Reuse the standard shared executable; compile/load only the collection study.
 # Standard recipe dependencies share entry preparation without nested just startups.
 # Preparation keeps the ordinary compiler stage bounds; workload compile stays 90s.
-benchmark-collections width='64' samples='10' pairs='6': (build "library") (build "test-program") (_build-benchmark "collection-paired-benchmark" "90" "linked-benchmark") (_run-collections width samples pairs)
+benchmark-collections width='64' samples='10' pairs='6': (build "test-program") (_build-benchmark "collection-paired-benchmark" "90" "linked-benchmark") (_run-collections width samples pairs)
 
 # CI has already admitted the exact shared library and every disjoint test group.
 # Construct the standard consumer once, run the complete suite, then compile and

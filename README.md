@@ -43,22 +43,23 @@ companion; it does not change ordinary prototype recursion.
 
 ### Scheme CI
 
-`just build` and native package installation compile the reusable library roots
-selected by the existing `library-modules` inventory. `gxi build.ss qualification`
-retains the complete previous build inventory, including examples and test/benchmark
-support. The bounded full-test driver selects `qualification` before its test groups;
-linked test and benchmark compilation also prepares those prerequisites. Individual
-`tests`/`batch` requests retain their shared test support. Target options and extra
-inputs are preserved; `:std/build-script` still owns incremental compilation and
-scheduling. This separation changes package ownership, not resource limits or the
-complete qualification coverage. `just test-file` runs one
-module through the standard Scheme harness, with its own failure status and
-90-second limit. Seventeen functional groups run as independent GitHub jobs,
-with two independent module processes per group. `t/test-groups.ss` checks the
-inventory and includes new, unclassified tests in an additional group.
+`just build library` and package installation compile the reusable library roots.
+`gxi build.ss qualification` retains the complete library, example and benchmark
+support inventory. On macOS, `test-program` puts that inventory and the executable
+in one standard `defbuild-script` graph. This lets the released SDK reuse the same
+compiled objects for loadable modules and the linked program. The complete
+`just build` then compiles all eight disjoint test batches. Other platforms keep
+their qualified-library and dynamically loaded runtime path.
+
+`:std/build-script` owns dependency checks, caching and compiler scheduling.
+`GERBIL_BUILD_CORES` keeps its standard machine-derived budget. The 1 GiB heap,
+300-second compiler/runtime stages, complete inventory and process-group cleanup
+remain unchanged. `just test-file` selects the standard harness with its 90-second
+limit. Functional CI groups and the additional single-process job retain every
+classified test; `t/test-groups.ss` owns the checked inventory.
 
 One build job explicitly compiles the complete qualification inventory and publishes
-this run's shared library. Twenty compilation jobs
+this run's shared library. Independent compilation jobs
 verify that artifact and compile disjoint test roots. Independent semantic jobs
 and the complete single-process job then run concurrently against admitted
 artifacts. Exact shared/test caches skip compilation only; checks always run. See [CI checks](doc/ci-checks.md).

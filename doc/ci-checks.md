@@ -150,19 +150,21 @@ After library preparation, benchmark executables share
 `gxi build.ss benchmark TARGET` and the standard
 `pkg-config-libs` linker discovery. Result directories contain measurements only;
 there are no separate executable installations or custom linker environment switches.
-Each executable specification contains only its own root; it does not repeat
-the complete library/example inventory already handled by the prerequisite.
+Standalone study specifications contain their own roots. On Darwin, the test
+program instead shares one graph with its complete library/example prerequisites,
+so the SDK can emit shared/static objects in the same compilation.
 Source tests use the released harness after shared compilation, without a
 fabricated source symlink tree or changes to `GERBIL_LOADPATH`.
 
-`just build` keeps the existing complete local inventory: shared compilation,
-then eight disjoint test batches through at most two fresh interpreters. The
+`just build` keeps the complete local inventory. Darwin first constructs the
+shared library and test program together, then compiles all eight disjoint test
+batches through at most two fresh interpreters. Other platforms retain their
+qualified library, test batches and final program construction. The
 small `t/build.ss` boundary maintains the 1 GiB heap, 300-second stage deadline,
 1200-second whole deadline, owned process-group cleanup and actual make progress.
 The temporary SSI-first view retains source mtimes and releases expansion state;
-it does not implement caching or replace compiler functions. CI still runs the
-20 independent compile groups, 20 semantic groups and complete single-process
-suite. Actions source/revision admission remains independent of std/make.
+it does not implement caching or replace compiler functions. CI retains every independent compile/semantic group and the complete
+single-process suite. Actions source/revision admission remains independent of std/make.
 
 The default package output remains `.build/package`; `GERBIL_PATH` explicitly
 selects another installation. Just settings can tighten heap/runtime options
@@ -173,15 +175,16 @@ cold-build acceptance; they are not current Linux performance controls.
 
 ## Single-process test linkage
 
-The final local build stage and CI's complete-suite job select `test-program`
-through the existing `defbuild-script` entry. It selects shared runtime roots from the existing library specification,
-reads their compiled interfaces and uses Gerbil's ordinary executable linker.
+`test-program` uses the existing `defbuild-script` entry and Gerbil executable
+linker. On Darwin its single graph includes the complete qualification inventory
+and resolves normal source dependencies before interfaces exist. Other platforms
+consume qualified interfaces through the existing standalone consumer path.
 The original runner still loads and prepares every test module. Code freshness follows
 std/make dependencies and CI's existing source/revision admission. At startup it
 checks the complete test inventory against its captured filenames and requires
 each selected shared library to be a linked builtin in the standard runtime loader.
 
-`just _test t 300` uses the released `gerbil env` command to execute that program with the existing 1 GiB heap and
+`just _test t 300` executes the standard linked program directly with the 1 GiB heap and
 300-second deadline, including launcher and executable initialization. The timeout
 owns the process group so cancellation also reaches the test child. No toolchain
 paths or environment variables are synthesized. The original released
@@ -195,3 +198,68 @@ runner starts; complete startup comparisons therefore include external process
 wall time. Raw measurements remain outside Git. See
 [the loading study](performance/test-loading-summary.org) for the cold-path
 controls, first-link cost and the boundaries of the performance evidence.
+
+
+## Joint Darwin object construction
+
+The SDK's `std/make` enables shared/static runtime object production when its
+build graph contains an executable. Separate qualification and executable graphs
+miss that opportunity: the former compiles runtime module bodies, while the
+latter regenerates and compiles their static counterparts. Counting distinct job
+labels or output paths alone cannot detect this repeated source work.
+
+The Darwin `test-program` request now appends its standard executable to the
+complete qualification graph. Its metadata inspection uses ordinary source
+imports in that graph, allowing a clean build without pre-existing SSI files.
+The SDK owns dependency order, shared/static object emission and linking. The
+full driver constructs the program once before all eight test compilation
+batches; runtime execution still waits for every batch. The collection entry
+also drops its redundant standalone library preparation. Package-only builds
+and the dynamically loaded runtime path on other platforms retain their scope.
+
+Local artifact-cold controls used the same source, standard clean, 12-worker
+budget, 1 GiB compiler heap and 300-second stage limit, in joint/split/split/joint
+order. Only the existing build entry's graph selection changed:
+
+| Construction path | Stage wall seconds | User CPU seconds |
+| --- | --- | --- |
+| Separate qualification/consumer | 111.62, 108.28 | 359.08, 354.87 |
+| Joint graph | 74.50, 78.99 | 271.07, 275.07 |
+
+Compiler invocation traces confirm the mechanism: the separated path compiles
+`table`'s runtime body and later its static body; the joint path generates C and
+compiles one static object used for both outputs. Queued job names alone are not
+used as compiler invocation evidence. The complete artifact-cold `just build`
+then compiled all 148 test modules in eight batches in 270.91 seconds. Runtime
+execution was timed separately: all 1,734 cases passed, the harness took 135.70
+seconds, and the complete test-plus-paired-study entry took 157.70 seconds.
+The 300-second limits apply per stage; whole-entry wall time is recorded
+separately. These local observations do not establish a portable speedup ratio.
+Raw traces and program comparison artifacts remain outside Git.
+
+Regressions retain the complete qualification inventory exactly once, one
+executable, option forwarding, standalone ownership and clean ownership. The
+interrupted-producer fixture now retries a real library-plus-executable graph
+from absent interfaces and executes its linked program. Heap limits, runtime
+checks, timeout refusal and owned process-group recovery remain unchanged.
+
+
+Runtime price remains a separate acceptance dimension. Preserved split and joint
+programs ran the unchanged Scheme collection study at width 8, count 2,
+four balanced rounds, in BAAB then ABBA process order (four runs per program).
+All eight semantic oracles passed. Whole-process wall ranges were 6.72–7.94 s
+(split) and 6.75–8.21 s (joint); their means were 7.125 and 7.210 s. Loaded-entry
+CPU means were 6.8516 and 6.9138 s, with non-GC CPU means 4.7058 and 4.7596 s.
+Thus these controls retain a measured +1.2% whole-process wall and +0.9% loaded
+CPU difference for the test executable; they are not evidence of runtime cost
+equivalence. The construction change uses the SDK's shared object representation
+rather than separately compiled static objects. Runtime representation pricing
+remains distinct from the verified reduction in compiler work. Production POO
+algorithms and the Lean semantic model are unchanged. No timing threshold or
+failure check was loosened; raw histories and binaries remain outside Git.
+
+
+An unchanged-source repeat of the complete final build passed in 38.30 seconds.
+Verbose compiler tracing contained zero actual GSC/GCC invocations. This confirms
+standard artifact reuse for this source snapshot; dependency inspection, metadata
+loading and process startup still contribute to that whole-entry time.

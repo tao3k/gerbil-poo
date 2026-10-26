@@ -316,7 +316,7 @@ explicit backend/cost premises. This is a concrete missing protocol, not a
 request for automatic predicate or optimization discovery.
 
 
-Local build evidence is not closed for this unit: cold qualification and library
+The original local build evidence did not close this unit: cold qualification and library
 attempts reached the unchanged 300-second deadline, including a four-worker
 control. One hard termination also produced an EPERM cleanup refusal; the owned
 group was subsequently verified absent. Later deadline failures completed standard
@@ -324,7 +324,8 @@ cleanup normally. No failure was treated as successful qualification. A Gambit
 optimized-module-limit experiment was withdrawn after GCC reported expensive
 optimizations disabled at the actual -O1 level. The build options and CI/default
 worker selection remain unchanged. Existing complete CI is the next independent
-acceptance gate; local cold-build performance remains an explicit open result.
+acceptance gate; that original cold-build result remained open. The subsequent joint-graph
+acceptance below records the repair with the original limits.
 
 
 The first CI candidate exposed an overreach: eager receiver recognition on derived
@@ -363,7 +364,7 @@ roundtrip identity, preparation failure, stale refusal and exact current-action
 outcome. It does not prove arbitrary Scheme callback termination, dynamic-wind
 continuations, compiler correctness, GC behavior or wall-clock improvement.
 
-Local cold acceptance remains open. With identical standard optimized settings,
+At this implementation stage, local cold acceptance remained open. With identical standard optimized settings,
 the table translation unit decreased from 258,065 to 249,196 C lines (3.4%), with
 the largest host procedure decreasing from 13,963 to 13,101 lines. An earlier
 unoptimized diagnostic is excluded from this comparison. The unchanged 12-worker,
@@ -372,3 +373,14 @@ unoptimized diagnostic is excluded from this comparison. The unchanged 12-worker
 showed 9.63 CPU seconds over 82 wall seconds, while sampling showed GCC range
 analysis rather than GC or an import deadlock. These observations do not establish
 a controlled speedup. Generated files and diagnostic samples remain outside Git.
+
+
+The subsequent build-graph audit found repeated library machine-code compilation
+across qualification and executable construction. A single Darwin `std/make` graph
+now enables the released SDK's shared/static object reuse and removes the final
+redundant construction phase. All eight test batches and the complete harness
+remain. Final-source artifact-cold construction passed in 270.91 seconds with the
+original 300-second stages; 148 modules / 1,734 cases and the paired collection
+study passed. See [joint graph acceptance](ci-checks.md#joint-darwin-object-construction)
+for matched controls and scope. The earlier failed runs above remain negative
+history; smaller generated code alone was not the completed fix.

@@ -8,7 +8,10 @@
                     (only-in "test-groups.ss" test-files)
                     (only-in "build-spec.ss" library-modules)))
 
-;; Read the existing graph through compiled interfaces. Darwin retains static
+;; Read the existing graph through the standard source/import dependency graph
+;; on Darwin, so a clean make invocation can produce interfaces and objects
+;; before linking. Other platforms consume the already qualified interfaces.
+;; Darwin retains static
 ;; roots to avoid its measured bundle-loading wait. Other platforms reuse the
 ;; library's already compiled runtime objects through Gerbil's module loader.
 ;; Macro-only roots need no runtime initialization in either representation.
@@ -18,12 +21,14 @@
      (let ()
        ;; Metadata selects runtime dependencies without executing their validators.
        (def (interface file)
-         (path-expand (string-append "lib/clan/poo/" file ".ssi") (gerbil-path)))
+         (cond-expand
+           (darwin (path-expand (string-append "../" file ".ss") (this-source-directory)))
+           (else (path-expand (string-append "lib/clan/poo/" file ".ssi") (gerbil-path)))))
        (def files (filter (lambda (file)
          (ormap (lambda (export) (= (module-export-phi export) 0))
            (module-context-export (import-module (interface file) #f #f)))) (library-modules)))
-       ;; Inventory belongs to the project source, not make's consumer directory.
-       ;; Only this read uses the source root; compilation keeps its t/ scope.
+       ;; Inventory belongs to the project source, regardless of make's current directory.
+       ;; Module identifiers and the standard executable directory stay unchanged.
        (def test-inventory (parameterize ((current-directory (path-expand ".." (this-source-directory))))
          (test-files)))
        (with-syntax (((module ...) (map (lambda (file) (datum->syntax #'libraries (interface file))) files))

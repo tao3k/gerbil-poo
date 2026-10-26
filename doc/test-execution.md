@@ -7,6 +7,13 @@ no GC is inserted by the runner and no interpreter registry is modified.
 `just test-file t/class-validation-test.ss` selects the same compiled test module.
 Run `just build` first when invoking individual files after source changes.
 
+On macOS, the library and test executable belong to one standard make graph,
+which enables the SDK's shared/static object reuse. The full build still compiles
+every test batch before execution. Other platforms keep the qualified-interface
+and dynamically loaded library path. Compiler stages remain limited to 300 seconds,
+with 1 GiB heaps and the existing 1,200-second full-build supervisor. See
+[the graph and paired controls](ci-checks.md#joint-darwin-object-construction).
+
 ## Cause of the Class failure
 
 The former full-suite command passed every source pathname to `gxtest`.

@@ -256,6 +256,12 @@
   (match args
     (["library" . options] [(library-build-spec) #f options])
     (["qualification" . options] [+gerbil-poo-build-spec+ #f options])
+    ;; Darwin links these same library objects into the checked program. Keeping
+    ;; the executable in this graph enables std/make's shared/static object reuse.
+    (["test-program" . options]
+      [(append +gerbil-poo-build-spec+
+         `((exe: "t/test-program" "-cc-options" ,+gerbil-poo-cc-options+
+             "-ld-options" ,(pkg-config-libs "openssl")))) #f options])
     (["tests" group output . options]
       [(test-build-spec (test-files group)) output options])
     (["batch" index . options]

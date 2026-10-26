@@ -30,5 +30,8 @@
     ;; Compile only its workload; standard clean likewise owns only this consumer.
     (["linked-benchmark" . _] (time (apply build-consumer args)))
     (["benchmark" . _] (time (run-consumer args)))
-    (["test-program" . _] (time (run-consumer args)))
+    (["test-program" . _]
+      (cond-expand
+        (darwin (time (apply build-selected (build-request args))))
+        (else (time (run-consumer args)))))
     (else (apply build-selected (build-request args)))))

@@ -176,9 +176,14 @@
   (try
     (match request
       ([]
-        (run-build-stage root timeout runtime cores '("qualification") seconds)
+        ;; One Darwin make graph emits shared/static library objects and links
+        ;; the program. The complete test groups still compile before execution.
+        (run-build-stage root timeout runtime cores
+          (cond-expand (darwin '("test-program")) (else '("qualification"))) seconds)
         (with-test-project root (lambda (project) (build-test-groups project timeout runtime cores seconds)))
-        (run-build-stage root timeout runtime cores '("test-program") seconds))
+        (cond-expand
+          (darwin (void))
+          (else (run-build-stage root timeout runtime cores '("test-program") seconds))))
       (["tests" group output]
         (test-files group)
         (with-test-project root (lambda (project)
