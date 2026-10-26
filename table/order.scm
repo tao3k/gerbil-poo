@@ -142,14 +142,15 @@
     (using (compare :~ procedure?)
       (unless (.has? descriptor Comparer) (error "unsupported table comparison"))
       (let (comparer (.@ descriptor Comparer))
-        (unless (eq? (.@ comparer Key) (.@ descriptor Key)) (error "incompatible comparer domain"))
-        (unless (table-comparer-current? comparer) (error "stale table comparer"))
-        (with-table-sources (cons comparer (.@ comparer .sources)) (lambda ()
+        (with-table-comparer comparer [] (lambda ()
+          (unless (eq? (.@ comparer Key) (.@ descriptor Key)) (error "incompatible comparer domain"))
           ;; Unlike key equality, value comparison may equate distinct payloads.
           ;; Its exact Integer result and original callback exceptions are retained.
           (def (checked a b)
             (let (sign (compare a b)) (using (sign :~ exact-integer?) sign)))
-          (if (.has? descriptor .compare/key)
+          ;; Reference comparison needs a lawful declared order, not positioning
+          ;; evidence. Only a current constructor may select the backend shortcut.
+          (if (and (table-comparer-current? comparer) (.has? descriptor .compare/key))
             (.call descriptor .compare/key checked left right)
             (compare-table-cursors descriptor comparer checked left right)))))))))
 
@@ -292,11 +293,12 @@
 ;; intermediate remainder that might violate a custom refinement. This reference
 ;; path costs two traversals plus full admission; it claims no logarithmic split.
 (def (split-table descriptor pivot input)
-  (unless (.has? descriptor Comparer) (error "unordered table split"))
-  (def comparer (.@ descriptor Comparer))
-  (unless (eq? (.@ descriptor Key) (.@ comparer Key)) (error "incompatible table order key"))
-  (with-table-sources (append (table-sources descriptor) (list comparer) (.@ comparer .sources))
-    (lambda ()
+  (with-table-sources (list descriptor) (lambda ()
+    (unless (.has? descriptor Comparer) (error "unordered table split"))
+    (def comparer (.@ descriptor Comparer))
+    (with-table-comparer comparer [] (lambda ()
+      (with-table-sources (table-sources descriptor) (lambda ()
+      (unless (eq? (.@ descriptor Key) (.@ comparer Key)) (error "incompatible table order key"))
       (require-table descriptor input)
       (require-table-key descriptor pivot)
       (def middle (require-table-option (.@ descriptor Value)
@@ -309,4 +311,4 @@
       (def right (side positive?))
       (require-table descriptor left)
       (require-table descriptor right)
-      (values left middle right))))
+      (values left middle right))))))))

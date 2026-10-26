@@ -1474,3 +1474,28 @@ lookup, stable version snapshots, lawful comparers and backend enumeration remai
 premises. GC and unrestricted callback termination are not proved. Guard and source
 preparation costs remain charged. Design reflection: repair the capability evidence
 and reuse one admission/Iterator path rather than wrap each individual range result.
+
+### Reference-order admission across comparison and decomposition
+
+Whole comparison now separates lawful reference observation from structural-backend
+capability. Custom or label-edited comparers may use the existing checked Iterator
+comparison; only a complete current constructor seal selects `.compare/key`.
+Both complete roots and strict Integer callback results retain their original
+admission/failure order. No sorting or order discovery is inferred for a backend:
+the declared Iterator order must agree with the comparer.
+
+Ordered decomposition now shares comparer-origin admission before key metadata,
+pivot lookup and either successor construction, including empty roots. Table, Set
+and five ownership styles reuse that boundary. Current custom protocols retain
+their existing private comparison guard; edited labels do not acquire positioning
+evidence. Stale declared origins require explicit reconstruction. Both source
+snapshots, Function leaves and failed owners remain available for retry.
+
+The service example composes comparison and linear decomposition with Reader/FUN,
+then invokes one IO consumer after both sides accept. Indexed swaps, reverse custom
+order, original callback failures, inverse recovery and consumer suppression have
+regressions. Finite Lean laws prove callback selection, stale-origin suppression,
+exact delegation and empty/opaque-payload examples. Lawful ordering, faithful host
+revisions and persistent carriers remain premises; no runtime/GC theorem is claimed.
+Design reflection: share the established comparer boundary and observation kernels,
+keep backend evidence distinct, and add no per-method validation wrappers.
