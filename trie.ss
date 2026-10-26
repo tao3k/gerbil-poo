@@ -885,7 +885,10 @@
     (.iter<- t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
 
 (define-type (TrieSet. @ Set<-Table.)
-  Table: {(:: @ Trie.) Value: Unit}
+  ;; Match RationalSet's binding: one element descriptor owns the backing key
+  ;; contract. The UInt default breaks the inherited Elt/Table.Key alias cycle.
+  Elt: UInt
+  Table: {(:: @T Trie.) Key: Elt Value: Unit}
   .subset?: ;; is a a subset of b
   (lambda (a b)
     ;; Keep the existing shared-subtree shortcut inside complete set admission.
@@ -906,6 +909,8 @@
   {(:: @ [Trie. IdWrap]) (Key) (Value)
    sexp: `(SimpleTrie ,(.@ Key sexp) ,(.@ Value sexp))})
 
+;; Specialize the same UInt-compatible element/key contract throughout the Set
+;; family; the backing declaration and standard style factories retain identity.
 (def (SimpleTrieSet Elt)
   {(:: @ [TrieSet.]) (Elt)
    sexp: `(SimpleTrieSet ,(.@ Elt sexp))

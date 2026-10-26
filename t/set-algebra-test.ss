@@ -22,7 +22,7 @@
   (def source (SimpleTrieSet UInt)) (def buffer (list 7 8 8)) (def invalid? #f)
   (def element (.cc UInt .element?: (lambda (key)
     (when (eqv? key 7) (set-car! (cdr buffer) 9)) (element? UInt key))))
-  (def target (.cc Set<-Table. Table: (SimpleTrie element Unit)))
+  (def target (SimpleTrieSet element))
   (def image (set-image source target (lambda (_)
     (set-car! buffer 7) (set-car! (cdr buffer) (if invalid? 'invalid 8)) buffer) multiple?: #t))
   (values source target image buffer (lambda (value) (set! invalid? value))))
