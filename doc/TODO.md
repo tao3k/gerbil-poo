@@ -2253,3 +2253,24 @@ Finite Lean laws reuse stamp preparation/capture to prove transitive refusal,
 deduplication, identity retention, revision framing and exact fresh callback results.
 Stable explicit dependencies and faithful host revisions remain premises; hidden
 closure-state discovery and runtime cost/GC proofs remain research boundaries.
+
+### Complete comparer-origin attestation
+
+Closed the revision-only comparer seal gap. Constructor seals now include their
+captured key/origin version snapshot; unchanged comparer revision or copied callback
+fields cannot authorize a positioned backend after a dependency change. The existing private comparison guard remains; a shared
+declaration boundary covers ordering/wrapper construction and
+backend cursor construction. Existing per-pull checks include EOF. Seals retain
+only numbers in the weak-key registry, without extra descriptor references.
+
+Unsealed custom comparers retain reference sorting under their declared laws;
+edited comparer metadata revokes positioning evidence while preserving private
+comparison semantics; stale declared origins require a fresh declaration. The service index
+factory's order policy selects the original backend order or explicit reverse
+fallback, invalidates old five-style workflows, and supports fresh reconstruction,
+checked Function identity, sparse revision, inverse recovery and Reader/FUN/IO.
+Eight regressions cover zero-comparison paths, empty/singleton roots, EOF, callback
+and producer suppression, protected discovery, key revisions and custom fallback.
+Finite Lean laws prove full-seal admission, exact callback results and stale pull
+refusal without claiming runtime/GC correctness or automatic comparison-law discovery.
+Constructor-owned metadata remains read-only; supported edits use revisioned slots.

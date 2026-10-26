@@ -1437,3 +1437,40 @@ charged. Declaration capture copies one spine cell per origin. No automatic hidd
 closure dependency or universal runtime bound is claimed. Design reflection: expose
 an existing constructor capability and transmit its private scope, rather than
 build synthetic source descriptors or stack additional read wrappers.
+
+### Comparer seals and zero-comparison observations
+
+A constructed comparer seals both its own revision and the numeric revisions of
+its captured key/dependency list. The previous self-revision-only test could accept
+a stale comparer when a new view captured already-revised dependencies, especially
+on empty/singleton roots or unbounded backend cursors where no comparison ran.
+`with-table-comparer` now reuses the existing source scope to admit known seals
+before ordering, wrapper and cursor discovery. The comparison primitive retains its private source guard, independently of
+public-label revisions. Wrapper endpoint Types are protected before reading converter callbacks.
+
+Unsealed custom comparers still use declared reference sorting, including copied
+custom comparison functions; callback identity alone grants no positioned capability.
+Editing constructor metadata revokes positioning evidence. The original comparison
+closure remains usable under its captured source guard; fresh declaration is needed
+to obtain new backend-positioning evidence.
+Retained views/pulls still use their existing version guards, including after EOF.
+Constructor-owned `.sources` metadata is read-only: supported changes go through
+revisioned object slots. Raw in-place mutation of returned metadata lists and
+arbitrary concurrent writes remain outside this protocol.
+
+`make-ordered-service-indexes` accepts an optional `order-policy` with direction
+1 or -1. Positive order keeps the original procedure/equality pair; reverse order
+uses the existing sort fallback. Both indexes capture the policy. The worked flow
+covers five ownership styles, old-workflow rejection, fresh reconstruction over the
+same admitted source, checked callback identity, sparse updates, undo and FUN/IO.
+Eight controls in table-order-test.ss include empty/same-root comparison, no-callback
+cursor pulls, EOF, protected getters, key revision, redeclaration and custom fallback.
+
+The weak registry's values are only own revisions and numeric version lists; no
+descriptor or guard closure is added to its values. `TableObservation.lean` models
+this full seal and proves freshness/refusal, absent-seal fallback separation, exact
+observation delegation and zero backend pulls on stale snapshots. Faithful identity
+lookup, stable version snapshots, lawful comparers and backend enumeration remain
+premises. GC and unrestricted callback termination are not proved. Guard and source
+preparation costs remain charged. Design reflection: repair the capability evidence
+and reuse one admission/Iterator path rather than wrap each individual range result.

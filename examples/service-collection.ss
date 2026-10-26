@@ -304,14 +304,25 @@
 ;; index initializer serve Trie and standard RBTree-backed rational key spaces.
 (def (make-ordered-service-indexes
        (source (SimpleTrie UInt (Tuple UInt UInt (Fun Integer <- Integer))))
-       (index-table (cut SimpleTrie UInt <>)))
+       (index-table (cut SimpleTrie UInt <>)) order-policy: (policy #f))
+  ;; A policy selects one declared order at construction; its revision seals both
+  ;; indexes. Positive order keeps the backend's exact procedure/equality pair.
+  (def (ordered table)
+    (def base (.@ table Comparer))
+    (def comparer (if policy
+      (let ((direction (.@ policy direction)) (compare (.@ base .procedure)))
+        (unless (memv direction '(1 -1)) (error "service order direction must be 1 or -1"))
+        (table-comparer (.@ table Key)
+          (if (= direction 1) compare (lambda (a b) (- (compare a b))))
+          (append (list base policy) (.@ base .sources)) equal?: (.@ base .equality))) base))
+    (table-order table comparer))
   (def owners (index-table (.@ source Key)))
   (def groups (index-table source))
   (def priority (.cc Type. name: 'priority unique?: #t
-    table: (table-order owners (.@ owners Comparer))
+    table: (ordered owners)
     project: (lambda (_ row) (vector-ref row 0))))
   (def team (.cc Type. name: 'team unique?: #f
-    table: (table-order groups (.@ groups Comparer))
+    table: (ordered groups)
     project: (lambda (_ row) (vector-ref row 1))))
   (values (table-indexes source (list priority team)) source))
 
