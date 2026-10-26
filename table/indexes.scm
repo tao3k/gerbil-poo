@@ -231,7 +231,8 @@
       .remove: (lambda (state key) (edit state key (lambda (_) #f)))
       .foldl: (lambda (f seed state) (observe state (lambda (_) (.call source .foldl f seed (%indexed-table-primary state)))))
       .foldr: (lambda (f seed state) (observe state (lambda (_) (.call source .foldr f seed (%indexed-table-primary state)))))
-      .iter<-: cursor
+      ;; Keep the family cursor guard, admitting this public receiver first.
+      .iter<-: (lambda (state) (observe-table @ state (lambda () (cursor state))))
       .apply-delta: update
       .index-ref/opt: (lambda (state name key)
         (with-index state name (lambda (table root)

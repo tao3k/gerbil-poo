@@ -920,3 +920,55 @@ captured, but arbitrary mutable leaf internals are not cloned. Faithful host cal
 persistent roots, encountered Wrapper laws and producer order remain premises;
 external callback effects are not rolled back and host/compiler/GC correctness
 is not asserted.
+
+
+## Complete default Table observation
+
+A bounded pre-repair witness supplied a valid RationalDict or Trie root and a
+receiver whose whole-root predicate always refuses. Both public `.list<-` and
+`.iter<-` nevertheless exposed its bindings. A direct RationalDict cursor also
+continued pulling after an explicit source policy changed. The corresponding
+Set repair alone could not establish the Table protocol or view-receiver laws.
+
+The public default methods now share complete recognition before backend work.
+`.list/key` preserves backend-specific materialization (including standard RBTree
+list conversion); `.iter/key` preserves backend traversal (including Trie prefix
+pruning). These are implementation capabilities, not independent checked public
+observations. The generic fallback retains its existing fold/list traversal.
+`table/observation.scm` owns the complete boundary. Default cursors reuse the
+existing mapped Iterator, capturing source/Key/Value/explicit-origin revisions
+and checking them before each pull, including repeated EOF. Issuance admits the
+whole immutable snapshot once; delayed pulls do not rescan it.
+
+Represented, ordered and indexed public iterators admit their own complete
+receiver before creating their existing cursor. Their original guards and
+specific failure causes stay in place. No other iterator class, cache, sorting
+algorithm, ownership engine or environment variable is introduced. Arbitrary
+explicit public-method replacements remain the author's responsibility; the
+default protocol does not certify user overrides or hidden mutable leaf contents.
+
+`t/table-cursor-test.ss` covers whole-root refusal on RationalDict, Trie, order,
+representation and index carriers; counters prove that default materialization
+and iterator factories are not called after refusal. Pending/exhausted direct
+cursors reject policy changes before another backend pull; fresh issuance
+retries. Function-valued snapshots compose complete observation with all five
+ownership presentations. The `observe-ledger-action` example drains the standard
+Iterator through Reader/FUN before IO, requiring no inferred order capability.
+
+Lean `observeTable` reuses `observeStyle` for metadata/admission/backend errors;
+`issueTableCursor` reuses the existing cursor. Set issuance now specializes the
+same generic model. Laws cover complete refusal before backend evaluation,
+exact accepted results, backend failure and stale metadata. Existing cursor laws
+retain zero backend pulls after invalidation, even at EOF. The finite model
+assumes faithful host dispatch and persistent roots, not compiler/GC correctness.
+Complete recognition, child callbacks, materialization and positioning remain
+charged costs. This closes a correctness protocol, not constant-time admission
+or a general wall-clock improvement claim.
+
+
+Admission also rejects recursive observation of the same receiver/snapshot during
+its own recognizer, using a standard dynamically scoped parameter. Only admission
+is marked active: legitimate nested completed observations and explicit backing
+receiver queries remain allowed. Refusal unwinds the scope, so fresh attempts do
+not inherit a failed admission. This detects direct reentry; it does not prove
+termination of arbitrary callbacks or unbounded chains of fresh descriptors.

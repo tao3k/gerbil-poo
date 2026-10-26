@@ -5,7 +5,6 @@
 (import
   (only-in ./support/base λ number-comparer)
   (only-in ./support/rationaldict
-           rationaldict-keys
            rationaldict-empty? empty-rationaldict
            rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
            list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr
@@ -41,10 +40,11 @@
    .remove: rationaldict-remove
    .foldl: rationaldict-fold
    .foldr: rationaldict-foldr
-   .iter<-: rationaldict-iter
+   ;; Standard traversal remains beneath common whole-snapshot admission.
+   .iter/key: rationaldict-iter
    ;; Standard RBTree bulk construction remains behind the checked public boundary.
    .<-list/key: list->rationaldict
-   .list<-: rationaldict->list
+   .list/key: rationaldict->list
    .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))
    ;; Reuse standard RBTree equality beneath the common admission/Bool boundary.
    .=?/key: (lambda (same? d1 d2) (rationaldict=? d1 d2 same?)))

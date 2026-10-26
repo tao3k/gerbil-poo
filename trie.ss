@@ -860,7 +860,7 @@
   ;; Standard ordered iterator with prefix pruning. Only the lower-bound spine
   ;; is descended before the first hit; complete subtrees below it are skipped.
   ;; Reuse the original traversal, replacing the old split-and-rebuild preparation.
-  .iter<-:
+  .iter/key:
   (lambda (t (from 0))
     (in-coroutine
      (lambda (yield)
@@ -882,7 +882,7 @@
   ;; A table-order capability accepts Option bounds; UInt successors implement
   ;; exclusive bounds exactly without overflow or an unrelated comparison mode.
   .seek<-: (lambda (t lower inclusive?)
-    (.iter<- t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
+    (.call @ .iter<- t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
 
 (define-type (TrieSet. @ Set<-Table.)
   ;; Match RationalSet's binding: one element descriptor owns the backing key

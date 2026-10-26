@@ -18,8 +18,10 @@
   (test-suite "isomorphism-derived table algorithms"
     (test-case "represented iteration and seek capture values before key converters rewrite source shells"
       (def raw (RationalDict Integer)) (def row (cons 1 10))
-      (def source (.cc raw .iter<-: (lambda (_) (list row))
-        .seek<-: (lambda _ (list row))))
+      ;; Issuance may recognize the root first; initialize at producer return.
+      (def (producer _)
+        (set-car! row 1) (set-cdr! row 10) (list row))
+      (def source (.cc raw .iter<-: producer .seek<-: (lambda _ (producer #f))))
       (def keys (.cc Wrapper. Domain: Rational Codomain: Rational
         .ap: (lambda (key) (set-car! row 9) (set-cdr! row 20) (- key)) .unap: -))
       (defvalues (boxed _carrier _keys) (box-table source key: keys))

@@ -301,3 +301,27 @@ linked workload construction took 26.45 seconds and the existing paired-study
 phases completed. No checks or resource limits changed. These are full acceptance
 observations, not a controlled speedup claim. Lean's complete gate and all 17 CI
 checks passed at `e885b86`; remote Scheme CI is checked against the resulting head.
+
+
+## Complete default Table observation
+
+After fixing Set observation and callback capture, a separate witness showed
+RationalDict/Trie public list and iterator observations bypassing a refused
+whole-root receiver, and direct cursor pulls ignoring a revised policy. The
+repair separates existing backend traversal capabilities from the shared checked
+public observation boundary, retaining original guards on derived views. See
+[the complete observation scope](table-representations.md#complete-default-table-observation)
+for the implementation, complex workflow, regressions, finite Lean model and
+explicit backend/cost premises. This is a concrete missing protocol, not a
+request for automatic predicate or optimization discovery.
+
+
+Local build evidence is not closed for this unit: cold qualification and library
+attempts reached the unchanged 300-second deadline, including a four-worker
+control. One hard termination also produced an EPERM cleanup refusal; the owned
+group was subsequently verified absent. Later deadline failures completed standard
+cleanup normally. No failure was treated as successful qualification. A Gambit
+optimized-module-limit experiment was withdrawn after GCC reported expensive
+optimizations disabled at the actual -O1 level. The build options and CI/default
+worker selection remain unchanged. Existing complete CI is the next independent
+acceptance gate; local cold-build performance remains an explicit open result.

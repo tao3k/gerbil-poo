@@ -600,9 +600,10 @@
             ;; Guard before every pull, including repeated EOF, without holding
             ;; metadata protection across suspension in the caller.
             .iter<-: (lambda (input) (guard (lambda ()
-              (iterator-map (lambda (entry)
-                (translate-entry forward (car entry) (cdr entry)))
-                (.call source .iter<- (decode input)) guard))))
+              (observe-table @ input (lambda ()
+                (iterator-map (lambda (entry)
+                  (translate-entry forward (car entry) (cdr entry)))
+                  (.call source .iter<- (decode input)) guard))))))
             .merge: binding-merge
             .map/2: (cut binding-map #f <> <>)
             .filter-map/2: (cut binding-map #t <> <>)
@@ -779,7 +780,9 @@
   .any: (lambda (pred t) (and (find-table-entry @ pred t #f #t) #t))
 
   ;; : (List (Pair Key Value)) <- @
-  .list<-: (lambda (t) (.foldr acons [] t))
+  ;; The backend supplies materialization, never whole-root admission.
+  .list/key: (lambda (t) (.foldr acons [] t))
+  .list<-: (lambda (t) (observe-table @ t (lambda () (.list/key t))))
 
   ;; : @ <- (List (Pair Key Value))
   .<-list: (lambda (rows) (construct-table @ rows #f))
@@ -881,7 +884,9 @@
     ((sequence seed) (table-from-iter @ sequence (list seed))))
 
   ;; : (Iterator (Pair Key Value)) <- @
-  .iter<-: (lambda (x) (iter (.list<- x)))
+  ;; Backends may specialize traversal; the public entrypoint owns admission.
+  .iter/key: (lambda (x) (iter (.list/key x)))
+  .iter<-: (lambda (x (from #f)) (iterate-table @ x from))
 
   ;; : (Lens Value <- @) <- Key
   .lens: (lambda (key) (table-key-focus @ key #f))
@@ -916,6 +921,7 @@
   .refocus)) ;; Zipper <- FocusKey Zipper
 
 (include "table/focus.scm")
+(include "table/observation.scm")
 (include "table/mapping.scm")
 
 ;; Derive style ownership in the existing interface; .admit normalizes raw input,

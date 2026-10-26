@@ -117,7 +117,7 @@
     ;; of making GCC optimize the entire collection module as one label graph.
     ;; Standard compiler inputs, object caching and all stage limits remain owned
     ;; by std/make; this is a code-generation choice, not a larger resource budget.
-    (gxc: "table" (extra-inputs: ("table/io.scm" "table/fold.scm" "table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"))
+    (gxc: "table" (extra-inputs: ("table/observation.scm" "table/io.scm" "table/fold.scm" "table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"))
       "-cc-options" ,+gerbil-poo-cc-options+)
     (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
     "type"

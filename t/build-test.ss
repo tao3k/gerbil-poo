@@ -55,14 +55,15 @@
       (def spec (car (build-request '("tests" "collection-updates" "/tmp/poo-test-output"))))
       (check (and (member '(gxc: "t/table-mapping-test"
         (extra-inputs: ("t/table-mapping/composition.scm"))) spec) #t) => #t))
-    (test-case "collection IO includes participate in standard library freshness"
+    (test-case "collection observation and IO includes participate in standard library freshness"
       (for (mode '("library" "qualification"))
         (def spec (car (build-request (list mode))))
         (def table (find (lambda (entry)
           (and (pair? entry) (eq? (car entry) 'gxc:) (equal? (cadr entry) "table"))) spec))
         (match table
           ([gxc: "table" [extra-inputs: inputs] . _]
-            (check (and (member "table/io.scm" inputs) #t) => #t)))))
+            (check (and (member "table/io.scm" inputs) #t) => #t)
+            (check (and (member "table/observation.scm" inputs) #t) => #t)))))
     (test-case "runtime reuse requires the exact compiled library object"
       (def root "/tmp/poo-compiled-admission/")
       (check (compiled-library-module? "object" "/tmp/poo-compiled-admission/lib/clan/poo/object.o1" root) => #t)

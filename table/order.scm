@@ -294,7 +294,8 @@
           (admit-source (.call source .apply-delta state delta)))))))
       ;; Unbounded iteration is the same positioned cursor without a lower bound;
       ;; retain declared seek and every-pull guards instead of materializing a fold.
-      .iter<-: (lambda (state) (position state #f #t))
+      .iter<-: (lambda (state)
+        (observe-table @ state (lambda () (position state #f #t))))
       .range: range .range<-: range-cursor .seek: seek .seek<-: position
       .foldl: (lambda (f seed state) (observe state (lambda ()
         (for/fold (acc seed) (entry (entries state #f #t)) (f (car entry) (cdr entry) acc)))))
