@@ -3,7 +3,9 @@
 (import (only-in :gerbil/runtime/loader load-module)
   (only-in :std/misc/process run-process process-error?) (only-in :std/misc/ports read-all-as-lines) :gerbil/expander (only-in :gerbil/compiler/compile apply-generate-loader) :std/test :std/io/tempfile :std/iter (only-in :std/list/list append-map delete-duplicates/hash take find)
   (only-in :std/error Error-irritants)
-  (only-in "build.ss" run-build-stage)
+  (only-in "build.ss" run-build-stage reap-build-group build-group-states)
+  (only-in :std/os/error raise-os-error os-error? OSError-errno EPERM ESRCH EINVAL)
+  (only-in :std/os/signal SIGKILL)
   (only-in "test-groups.ss" test-files test-batch checked-groups compiled-library-module?)
   (only-in "build-artifacts.ss" artifact-key-valid? artifact-root group-root check-all
     group-source-key test-inventory-key)
@@ -11,6 +13,44 @@
 ;; Exercise source/group boundaries independently of the Actions cache backend.
 (def build-test
   (test-suite "compiled group source admission"
+    (test-case "group snapshots distinguish zombies from live and unrelated members"
+      (check-equal? (build-group-states 42 '(" 7 S" " 42 Z" " 42 Z")) '(Z Z))
+      (check-equal? (build-group-states 42 '("42 Z" "42 R")) '(Z R))
+      (check-equal? (build-group-states 42 '("7 Z")) [])
+      (for (bad '("42" "oops Z" "42 Z extra"))
+        (check-exception (build-group-states 42 (list bad)) true)))
+    (test-case "Darwin zombie-only EPERM is verified while live refusal stays an error"
+      ;; Exercise the exact signal/result sequence without signalling real PIDs.
+      (def signals [])
+      (def (denied pid signal)
+        (set! signals (cons (cons pid signal) signals))
+        (raise-os-error kill EPERM))
+      (reap-build-group 42 denied (lambda (_) '(Z Zs Z+)))
+      (check-equal? signals (list (cons -42 SIGKILL)))
+      (for (states '((S) (Z R) (T) (?)))
+        (check-exception (reap-build-group 42 denied (lambda (_) states))
+          (lambda (cause) (and (os-error? cause) (= (OSError-errno cause) EPERM)))))
+      (check-exception (reap-build-group 42 denied (lambda (_) (error "snapshot failed"))) true))
+    (test-case "invalid group owners refuse before any signal or snapshot"
+      (for (pid '(0 1 -42 invalid))
+        (def called? #f)
+        (check-exception (reap-build-group pid
+          (lambda _ (set! called? #t)) (lambda _ (set! called? #t))) true)
+        (check called? => #f)))
+    (test-case "absent group snapshots require kernel ESRCH and retain other signal failures"
+      (def signals [])
+      ;; An emptied ps snapshot alone never grants cleanup success.
+      (def (gone pid signal)
+        (set! signals (cons signal signals))
+        (let (code (if (= signal 0) ESRCH EPERM)) (raise-os-error kill code)))
+      (reap-build-group 42 gone (lambda (_) []))
+      (check-equal? (reverse signals) (list SIGKILL 0))
+      (check-exception (reap-build-group 42
+        (lambda (_ signal) (unless (= signal 0) (raise-os-error kill EPERM))) (lambda (_) []))
+        (lambda (cause) (and (os-error? cause) (= (OSError-errno cause) EPERM))))
+      (check-exception (reap-build-group 42 (lambda _ (raise-os-error kill EINVAL))
+        (lambda (_) (error "must not inspect non-EPERM")))
+        (lambda (cause) (and (os-error? cause) (= (OSError-errno cause) EINVAL)))))
     (test-case "collection case includes participate in standard make freshness"
       (def spec (car (build-request '("tests" "collection-updates" "/tmp/poo-test-output"))))
       (check (and (member '(gxc: "t/table-mapping-test"

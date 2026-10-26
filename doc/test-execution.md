@@ -102,3 +102,62 @@ the 1200-second supervisor does not lend additional time to a compiler stage.
 Recovery uses the same stage bound and always retains the original failed result.
 Consumer cleanup also cleans its owned `qualification` prerequisites: their
 metadata may have been produced before consumer construction was reached.
+
+## Process-group cleanup on macOS
+
+The stage now logs `BUILD-PROCESS-END` with its direct child's raw standard wait
+status before cleanup. A compiler error or timeout therefore remains distinguishable
+from a later cleanup refusal. Cleanup errors retain the request, PID, wait status
+and original cause; a refused group stops admission and prevents standard clean
+from racing a potentially executing compiler.
+
+Darwin's [`killpg1` implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_sig.c#L1612-L1621)
+excludes zombie members from its recipient iteration. An existing group containing
+only zombies can therefore return `EPERM`, although it has no executing members.
+A bounded local reproducer retained one exited child with `waitid(WNOWAIT)`:
+group SIGKILL returned EPERM, and reaping that child changed the group probe to
+ESRCH. This is an OS cleanup observation, not a claim about POO or its proof model.
+
+On EPERM, the supervisor reads the standard `ps` group/state snapshot. It retires
+only an explicitly nonempty all-zombie group, recording `BUILD-GROUP-TERMINAL`.
+An empty snapshot also requires the kernel's ESRCH response. Any active/unknown
+member, malformed or failed snapshot, or genuine permission refusal remains an
+error. Non-child zombie entries are reclaimed by their OS reaper; this check does
+not claim that the supervisor can wait for another parent's children. Ordinary
+success/ESRCH takes no snapshot. No extra callback contract or business namespace
+is introduced.
+
+Cancellation snapshots the existing registry under its mutex, visits every group
+without holding that mutex, records cleanup failures, and exits nonzero even if
+one cleanup refuses. Regression cases cover zombie flags, active/unrelated groups,
+invalid owner IDs, disappearing groups, refused probes and malformed snapshots;
+the existing actual interrupted-build/clean/retry test remains intact. The 1 GiB
+heap, 300-second stage/runtime deadlines, three-second timeout kill grace and
+1200-second complete build deadline are unchanged.
+
+### Distinguishing an abandoned SDK object lock
+
+The same investigation exposed a separate, real timeout: the executable object
+compiler waited on `lib/static/clan__poo__table.o.lock`. The SDK's `compile-obj`
+waits for an existing lock file; SIGKILL cannot run its Scheme unwind cleanup.
+Standard `make-clean` removes declared outputs, which do not include this lock.
+Re-running clean/build without investigating that file repeats the wait.
+
+For the observed local failure, process inspection and `lsof` confirmed no live
+owner; the one orphan was moved outside the checkout as diagnostic evidence.
+Do not delete locks based on age or suppress the stage timeout. Confirm that no
+producer is running and that the exact lock has no open owner before recovering
+it, then use the normal Gerbil clean/build entry. The project does not introduce
+a competing lock registry or change the released SDK's locking implementation.
+A file-existence lock still requires explicit orphan recovery after an external
+hard kill; this is a toolchain lifecycle limitation, not a collection algorithm
+or a paper/formal-model gap.
+
+Local acceptance after this recovery: the unchanged `just test` entry passed all
+148 modules / 1,715 cases in one process, with zero case/check errors and final
+`HARNESS-OK` / `OK`. All compiler stages and the runtime stayed within their
+existing bounds. The 21-case supervisor suite also passed its real timeout,
+standard-clean and retry control. A second bounded Darwin reproducer invoked the
+production Scheme cleanup on a retained zombie group, observed its terminal
+record, then reaped the child and confirmed ESRCH. These are local functional
+and lifecycle checks, not a cold-cache throughput or compiler-verification claim.
