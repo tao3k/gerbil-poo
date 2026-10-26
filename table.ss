@@ -216,6 +216,8 @@
 ;; Installation decides base compatibility atomically; no intermediate result escapes.
 (def (compose-table-deltas descriptor deltas)
   (using (deltas :~ list?)
+    ;; Metadata discovery must not replace already admitted batch requests.
+    (set! deltas (map identity deltas))
     (for-each (lambda (delta)
       (unless (table-delta? delta) (error "table delta required"))) deltas)
     (def sources (delete-duplicates/hash
@@ -842,6 +844,8 @@
   ;; seed that could violate a custom refinement. Empty batches admit .empty.
   .join/list: (lambda (roots)
     (using (roots :~ list?)
+      ;; Own the finite request spine before metadata and root recognizers run.
+      (set! roots (map identity roots))
       (with-table-sources (table-sources @) (lambda ()
         (for-each (cut require-table @ <>) roots)
         (if (null? roots) (require-table @ .empty) (foldl .join (car roots) (cdr roots)))))))

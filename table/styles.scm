@@ -477,6 +477,8 @@
     ;; source owns intermediate root admission; only the left owner commits once.
     (def (join-many input others)
       (using (others :~ list?)
+        ;; Capture owner identities before left admission can reuse caller cells.
+        (set! others (map identity others))
         (step input (lambda (before)
           (.call source .join/list (cons before (map (lambda (other)
             (if (eq? input other) before (read other))) others)))))))
