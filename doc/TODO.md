@@ -2212,3 +2212,23 @@ Function leaves, FUN/IO refusal/retry and inverse restoration. Finite Lean laws
 prove identity retention, ordered composition and unchanged fresh/stale decisions.
 Stable leaves, explicit dependency declarations and supported metadata writes remain
 premises; arbitrary closure mutation and runtime heap proofs are research boundaries.
+
+### Complete Set observation admission
+
+Closed the raw Set read-family gap: left/right folds, forward/reverse visits,
+count, list conversion and membership now retain complete backing/Set admission
+and the existing metadata scope. One fold adapter erases Unit values, retains
+opaque accumulators and discards visit results. Dedicated count/list/membership
+delegates are preserved rather than replaced by extra traversals. Five styles
+and receivers now expose both visit directions through the existing query path;
+custom Set delegates and predicate failure order remain intact.
+
+The access-fold example composes an admitted read with Reader/FUN/IO. Regression
+controls cover excluded/malformed roots, empty callback contracts, directional
+order, specialized delegates, checked Function identity, guarded metadata, original
+callback causes and prefixes, consumer suppression/retry and reentrant publication.
+Finite Lean laws prove admission/delegation, original refusal, ordered Unit erasure
+and first-callback/consumer refusal. Backend laws, stable admitted snapshots/leaves
+and supported metadata updates remain explicit premises. This does not infer
+callback termination or roll back effects; all public-boundary admission costs
+remain charged. See collections.md for scope and design reflection.

@@ -1371,3 +1371,35 @@ dependencies. Design reflection: own declarations once at their existing factory
 boundary and reuse stamp checks, rather than layer wrappers onto individual methods.
 Finite Lean laws cover membership, ordered capture, length and fresh/stale decisions;
 they do not prove Gambit heap, GC or arbitrary metadata reflection behavior.
+
+### Complete Set observation boundary
+
+`.foldl`, `.foldr`, `.for-each`, `.for-each/reverse`, `.count`, `.list<-` and
+`.elt?` admit the complete original Set before reading results or invoking user
+callbacks. Raw Table traversal remains a backend primitive used by recognition;
+putting the same Set check into that primitive would recurse during admission.
+The Set boundary reuses `with-set-inputs`. One fold adapter projects elements out
+of Unit-valued rows and delegates both directions without sorting/materialization.
+Visits discard all callback results; folds retain opaque seeds/results without an
+unrestricted fallback Type. Callback contracts also apply to empty traversals.
+Count/list/membership keep their original specialized backend algorithms and key
+equivalence; observed Function handles are never normalized again.
+
+All five styles expose both visit directions; Posh/Classy receivers reuse Gerbil
+class-method dispatch. The existing snapshot-bound query path retains custom Set
+methods. Reentrant publication may update an owner, but the current traversal
+continues on the captured persistent root. `fold-access-action` composes raw or
+style Set folds with Reader/FUN/IO. Root refusal suppresses callbacks and consumers;
+callback failure retains its exact cause and already executed prefix, without
+installing a new root. Retry is a separate invocation.
+
+`set-observation-test.ss` covers the complete family, malformed/excluded carriers,
+empty callbacks, both orders, specialized delegates, opaque Function accumulators,
+metadata protection, effect-prefix refusal/retry and five-style receiver publication.
+Finite Lean laws cover admission-before-read, exact delegation, original causes,
+ordered Unit erasure and first-callback refusal/consumer suppression. Faithful
+recognizers, backend enumeration, stable leaves and supported metadata edits are
+premises, not automatic certificates. Validation and every crossed public boundary
+retain their full costs; no constant-time, GC or arbitrary termination claim follows.
+Design reflection: keep the existing read/fold kernels and custom delegate semantics;
+do not bypass a public validation boundary for an unproved reuse optimization.

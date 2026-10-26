@@ -36,6 +36,16 @@
       (def result ((.ref (.@ descriptor Table) method) (lambda (elt _) (predicate elt)) input))
       (if entry? (map/option car result) result)))))
 
+;; One admitted traversal serves folds and visits in either backend direction.
+;; Check the caller callback even for empty roots; discard visit results exactly
+;; as for-each requires. No element is normalized or wrapped during observation.
+(def (fold-set descriptor method f seed input (visit? #f))
+  (using (f :~ procedure?)
+    (with-set-inputs descriptor (list input) (lambda ()
+      ((.ref (.@ descriptor Table) method)
+        (if visit? (lambda (elt _value _seed) (f elt) (void))
+          (lambda (elt _value acc) (f elt acc))) seed input)))))
+
 ;; Resolve and call one backing method inside the shared admission scope. Standard
 ;; apply carries its arguments; callers need no extra construction thunk. Backend
 ;; failures retain their cause and external callback effects are not undone.
@@ -171,7 +181,9 @@
   ;; Set refinement precedes the backing predicate, even for an empty carrier.
   .empty?: (lambda (root) (with-set-inputs @ (list root)
     (lambda () (table-empty-key? Table root)))) ;; : Bool <- @
-  .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
+  ;; Membership retains backend key equivalence, after complete Set admission.
+  .elt?: (lambda (root elt) (with-set-inputs @ (list root)
+    (lambda () (.call Table .key? root elt)))) ;; : Bool <- @ Elt
   ;; One derived boundary admits the family; the backend delegates stay simple.
   methods: (set-methods @
     (.o .cons: (cut .call Table .acons <> (void) <>)
@@ -186,10 +198,11 @@
   ;; Nonempty parts retain the Set refinement without mapping their Unit leaves.
   .divide: (lambda (input) (table-division-values (divide-set @ input)))
   .divide/list: (cut divide-set @ <>)
-  .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
-  .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
-  .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
-  .foldr: (lambda (f a t) (.call Table .foldr (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
+  ;; Traversal directions share one boundary and the backend's original fold.
+  .for-each: (lambda (f t) (fold-set @ '.foldl f (void) t #t))
+  .for-each/reverse: (lambda (f t) (fold-set @ '.foldr f (void) t #t))
+  .foldl: (lambda (f a t) (fold-set @ '.foldl f a t))
+  .foldr: (lambda (f a t) (fold-set @ '.foldr f a t))
   .every: (lambda (f t) (query-set @ '.every f t #f)) ;; : Bool <- (Bool <- Elt) @
   .any: (lambda (f t) (query-set @ '.any f t #f)) ;; : Bool <- (Bool <- Elt) @
   ;; Checked selection protects custom set refinements as well as backing Types.
@@ -199,8 +212,11 @@
   .drop: (lambda (count input) (build-set @ (list input) '.drop count input))
   ;; Both branches satisfy the same set descriptor before either escapes.
   .partition: (lambda (f t) (select-set @ f t #t)) ;; : @ @ <- (Bool <- Elt) @
-  .count: (.@ Table .count) ;; : Nat <- @
-  .list<-: (lambda (t) (map car (.call Table .list<- t))) ;; : (List Elt) <- @
+  ;; Preserve specialized backend observations instead of replacing them with scans.
+  .count: (lambda (root) (with-set-inputs @ (list root)
+    (lambda () (.call Table .count root)))) ;; : Nat <- @
+  .list<-: (lambda (root) (with-set-inputs @ (list root)
+    (lambda () (map car (.call Table .list<- root))))) ;; : (List Elt) <- @
   ;; A complete family may be valid while every singleton is forbidden. Reuse the
   ;; table's bulk constructor once, without exposing intermediate roots.
   .<-list: (lambda (l) (using (l :~ list?)

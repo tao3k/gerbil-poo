@@ -199,6 +199,12 @@
 ;; Left folds delegate backend traversal and keep its callback/result convention.
 (defmethod (@@method foldl %table-object)
   (lambda (self f seed) (.call (%table-object-protocol self) .foldl f seed self)))
+;; Visits use the same receiver provenance and snapshot boundary as folds.
+(defmethod (@@method for-each %table-object)
+  (lambda (self f) (.call (%table-object-protocol self) .for-each f self)))
+;; Reverse visits retain backend direction and the original callback failure.
+(defmethod (@@method for-each/reverse %table-object)
+  (lambda (self f) (.call (%table-object-protocol self) .for-each/reverse f self)))
 ;; Right folds retain backend order rather than reversing a materialized list.
 (defmethod (@@method foldr %table-object)
   (lambda (self f seed) (.call (%table-object-protocol self) .foldr f seed self)))
@@ -364,10 +370,10 @@
     (def (fold input method f seed (descriptor source))
       (using (f :~ procedure?)
         (guard (lambda () ((.ref descriptor method) f seed (read input))))))
-    ;; Predicate-first signatures observe a single captured root through the same
-    ;; admission/origin guard as folds; Set callbacks keep their element arity.
-    (def (query input method predicate)
-      (guard (lambda () ((.ref (or set source) method) predicate (read input)))))
+    ;; Callback-first observations retain custom delegates, element arity and
+    ;; the existing owner/delegate admission order for predicate queries.
+    (def (query input method callback)
+      (guard (lambda () ((.ref (or set source) method) callback (read input)))))
     ;; Capture two roots before user comparison. Reentrant publication remains
     ;; visible on owners without changing either immutable observed snapshot.
     (def (compare-roots left right compare)
@@ -566,6 +572,9 @@
       .iter<-: (lambda (input) (observe input '.iter<- [] #t))
       .foldl: (lambda (f seed input) (fold input '.foldl f seed))
       .foldr: (lambda (f seed input) (fold input '.foldr f seed))
+      ;; New visit entries check callbacks even for empty backing snapshots.
+      .for-each: (lambda (f input) (using (f :~ procedure?) (query input '.for-each f)))
+      .for-each/reverse: (lambda (f input) (using (f :~ procedure?) (query input '.for-each/reverse f)))
       .find-first/opt: (lambda (p input) (query input '.find-first/opt p))
       .find-first: (lambda (p input) (query input '.find-first p))
       .find-last/opt: (lambda (p input) (query input '.find-last/opt p))

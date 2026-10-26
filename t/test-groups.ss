@@ -27,7 +27,7 @@
     (collection-order rationaldict-order table-order table-cursor table-split)
     (collection-updates table-fold table-merge table-mapping table-index table-index-equivalence table-group-join)
     (collection-deltas table-batch table-capture table-transport table-origins)
-    (collection-styles set-algebra set-style table-style table-receiver)
+    (collection-styles set-algebra set-style set-observation table-style table-receiver)
     (backends library-reuse number polynomial rationaldict trie fq)
     ;; Bound compiler retention by responsibility, rather than increasing its
     ;; heap: the old mixed methods group retained all inference/signature ASTs.
