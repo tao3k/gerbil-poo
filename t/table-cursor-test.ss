@@ -16,9 +16,121 @@
   (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key)
     .ap: forward .unap: backward))
 
+;; Expose mutation during source admission or computed query discovery, never
+;; inside comparison. Fresh descriptors prevent memoized recognition hiding it.
+(def (bound-query-fixture mode (value Integer))
+  (def raw (RationalDict value)) (def lower (some 2)) (def upper (some 4))
+  ;; Alter only caller-owned Option shells; stored keys and Function leaves stay stable.
+  (def (rewrite!) (some-value-set! lower 4) (some-value-set! upper 5))
+  (def source (if (eq? mode 'shape)
+    (.cc raw .validate-shape: (lambda (root) (rewrite!) (.call raw .validate-shape root))) raw))
+  (def ordered (table-order source (.@ raw Comparer)))
+  (def view (if (eq? mode 'getter)
+    (.o (:: @ ordered)
+      (.range (begin (rewrite!) (.@ ordered .range)))
+      (.range<- (begin (rewrite!) (.@ ordered .range<-)))
+      (.seek (begin (rewrite!) (.@ ordered .seek)))
+      (.seek<- (begin (rewrite!) (.@ ordered .seek<-)))) ordered))
+  (def payload (cond ((eq? value Unit) (void)) ((element? value 10) 10)
+    (else (validate value (lambda (n) (+ n 1))))))
+  (def root (.call raw .<-list (map (lambda (key) (cons key payload)) '(1 2 3 4 5))))
+  (values raw view root lower upper rewrite!))
+
+;; Normalize eager/streaming observations to keys through their standard interfaces.
+(def (run-bound-query descriptor root method lower upper)
+  (def result (apply (.ref descriptor method) root
+    (if (memq method '(.seek .seek<-)) (list lower #t) (list lower upper))))
+  (case method
+    ((.seek) (if result (list (car (some-value result))) []))
+    ((.range) (map car result))
+    (else (for/collect (entry result) (car entry)))))
+
 ;; Observe demand, failures, EOF and snapshots through the actual Gerbil interface.
 (def table-cursor-test
   (test-suite "composed collection iterators"
+    (test-case "range and seek capture request cells before source shape recognition"
+      (for (method '(.range .range<- .seek .seek<-))
+        (defvalues (raw view root lower upper rewrite!) (bound-query-fixture 'shape))
+        (def result (run-bound-query view root method lower upper))
+        (check-equal? result (case method ((.seek) '(2)) ((.seek<-) '(2 3 4 5)) (else '(2 3 4))))
+        (check-equal? (list (some-value lower) (some-value upper)) '(4 5))))
+    (test-case "five styles capture before computed query discovery without consuming ownership"
+      (for* ((style '(Pure Mutable Linear Posh Classy)) (method '(.range .range<- .seek .seek<-)))
+        (defvalues (raw view root lower upper rewrite!) (bound-query-fixture 'getter))
+        (def protocol (.ref (table-styles view) style))
+        (def owner (.call protocol .ap root))
+        (check-equal? (run-bound-query protocol owner method lower upper)
+          (case method ((.seek) '(2)) ((.seek<-) '(2 3 4 5)) (else '(2 3 4))))
+        (check (eq? root (.call protocol .unap owner)) => #t)))
+    (test-case "Set style projections capture endpoints before backing method discovery"
+      (for* ((style '(Pure Mutable Linear Posh Classy)) (method '(.range .range<- .seek .seek<-)))
+        (defvalues (raw view root lower upper rewrite!) (bound-query-fixture 'getter Unit))
+        (def protocol (.ref (set-styles (.cc Set<-Table. Table: view)) style))
+        (def owner (.call protocol .ap root))
+        (def result (apply (.ref protocol method) owner
+          (if (memq method '(.seek .seek<-)) (list lower #t) (list lower upper))))
+        (def keys (case method ((.seek) (list (some-value result))) ((.range) result)
+          (else (for/collect (key result) key))))
+        (check-equal? keys (case method ((.seek) '(2)) ((.seek<-) '(2 3 4 5)) (else '(2 3 4))))
+        (check (eq? root (.call protocol .unap owner)) => #t)))
+    (test-case "named index queries own bounds before backend discovery across all styles"
+      (for* ((style '(Direct Pure Mutable Linear Posh Classy))
+             (method '(.index-range .index-range<- .index-seek<-)))
+        (def source (RationalDict Integer))
+        (defvalues (raw backend ignored lower upper rewrite!) (bound-query-fixture 'getter (.@ source Key)))
+        (def indexed (table-indexes source (list
+          (.cc Type. name: 'rank table: backend unique?: #t project: (lambda (key _) key)))))
+        (def root (.call indexed .wrap (.call source .<-list '((1 . 10) (2 . 20) (3 . 30) (4 . 40) (5 . 50)))))
+        (def protocol (if (eq? style 'Direct) indexed (.ref (table-styles indexed) style)))
+        (def owner (if (eq? style 'Direct) root (.call protocol .ap root)))
+        (def args (if (eq? method '.index-seek<-) (list 'rank lower) (list 'rank lower upper)))
+        (def result (apply (.ref protocol method) owner args))
+        (check-equal? (map car (if (eq? method '.index-range) result (for/collect (entry result) entry)))
+          (if (eq? method '.index-seek<-) '(2 3 4 5) '(2 3 4)))))
+    (test-case "captured invalid bounds cannot be repaired by admission and stale errors keep priority"
+      (defvalues (raw view root lower upper rewrite!) (bound-query-fixture 'shape))
+      (some-value-set! lower 'invalid)
+      (check-exception (.call view .range root lower upper) TypeError?)
+      (check-equal? (some-value lower) 4)
+      (check-equal? (map car (.call view .range root (some 2) (some 4))) '(2 3 4))
+      (check-exception (.call view .range root 'invalid #f) (message? "table range bound must be Option"))
+      (.set! (.@ view Comparer) sexp 'revised)
+      (check-exception (.call view .range root 'invalid #f) (message? "stale table order")))
+    (test-case "delayed bounds remain owned after return while EOF still checks origin changes"
+      (defvalues (raw view root lower upper rewrite!) (bound-query-fixture 'plain))
+      (def stream (.call view .range<- root lower upper))
+      (some-value-set! lower 99) (some-value-set! upper -99)
+      (using (stream :- Iterator)
+        (check-equal? (stream.next!) '(2 . 10))
+        (check-equal? (stream.next!) '(3 . 10))
+        (check-equal? (stream.next!) '(4 . 10))
+        (check (eq? (stream.next!) #!eof) => #t)
+        (.set! raw sexp 'revised)
+        (check-exception (stream.next!) (message? "stale table order"))))
+    (test-case "Reader range inspection retains Function identity through revision retry and inverse"
+      (def signature (Fun Integer <- Integer))
+      (defvalues (raw view root lower upper rewrite!) (bound-query-fixture 'getter signature))
+      (def callback (.call raw .ref root 2))
+      (def protocol (.@ (table-styles view) Classy))
+      (def owner (.call protocol .ap root))
+      (def effects 0)
+      (def action (service.observe-ledger-range protocol lower upper
+        (lambda (cursor) (for/collect (entry cursor) (cons (car entry) ((cdr entry) 7))))
+        (lambda (rows) (set! effects (+ effects 1)) rows)))
+      (check-equal? (action owner) '((2 . 8) (3 . 8) (4 . 8)))
+      (check-equal? effects 1)
+      (check (eq? callback (.call raw .ref (.call protocol .unap owner) 2)) => #t)
+      (def after (.call raw .remove root 3))
+      (def delta (.call raw .diff root after))
+      (def conflict (.call raw .diff (.call raw .remove root 2) after))
+      (check-exception (.call protocol .apply-delta owner conflict) table-conflict?)
+      (check (eq? root (.call protocol .unap owner)) => #t)
+      (def next (.call protocol .apply-delta owner delta))
+      (some-value-set! lower 2) (some-value-set! upper 4)
+      (check-equal? (action next) '((2 . 8) (4 . 8)))
+      (def restored (.call protocol .apply-delta next (invert-table-delta delta)))
+      (check-equal? (action restored) '((2 . 8) (3 . 8) (4 . 8)))
+      (check-equal? effects 3))
     (test-case "ordered indexed and represented views preserve the declared streaming backend"
       (def raw (SimpleTrie UInt Integer)) (def blocked? #f) (def starts 0) (def pulls 0)
       (def source (.cc raw

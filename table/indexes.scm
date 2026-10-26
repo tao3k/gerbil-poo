@@ -239,15 +239,19 @@
       .index-fold: (lambda (state name f seed)
         (using (f :~ procedure?)
           (with-index state name (lambda (table root) (.call table .foldl f seed root)))))
-      ;; Standard observation aliases add no cache, sorting or element wrapping.
+      ;; Capture bounds before index lookup; observations add no cache, sorting
+      ;; or element wrapping. Malformed Options keep their original failure order.
       .index-iter<-: (lambda (state name) (index-cursor state name '.iter<- []))
       .index-seek<-: (lambda (state name lower (inclusive? #t))
-        (index-cursor state name '.seek<- (list lower inclusive?)))
+        (index-cursor state name '.seek<- (list (map/option identity lower) inclusive?)))
       .index-range<-: (lambda (state name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
-        (index-cursor state name '.range<- (list lower upper lower-inclusive? upper-inclusive?)))
+        (index-cursor state name '.range<- (list (map/option identity lower) (map/option identity upper) lower-inclusive? upper-inclusive?)))
       ;; Ordered backends own comparator and bound semantics; never infer order
       ;; from projection values or expose the private cache root to callers.
       .index-range: (lambda (state name lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+        ;; Own bound cells before index discovery or snapshot admission callbacks.
+        (set! lower (map/option identity lower))
+        (set! upper (map/option identity upper))
         (with-index state name (lambda (table root)
           (unless (.has? table .range) (error "unordered table index" name))
           (.call table .range root lower upper lower-inclusive? upper-inclusive?))))

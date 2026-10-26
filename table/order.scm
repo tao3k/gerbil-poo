@@ -219,6 +219,8 @@
     ;; Existing Iterator mapping guards every deferred pull, including EOF, without
     ;; copying entries or keeping metadata protection across coroutine suspension.
     (def (position state lower inclusive?)
+      ;; Capture request cells before source admission can invoke caller code.
+      (set! lower (map/option identity lower))
       (observe state (lambda ()
         (let-values (((lo _hi) (bounds lower #f inclusive? #t)))
           (iterator-map identity (entries state lo inclusive?)
@@ -227,6 +229,9 @@
     ;; The outer Iterator guard covers every pull, including repeated EOF, without
     ;; retaining metadata protection across a yield or copying admitted payloads.
     (def (range-cursor state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+      ;; Capture request cells before source admission can invoke caller code.
+      (set! lower (map/option identity lower))
+      (set! upper (map/option identity upper))
       (observe state (lambda ()
         (let-values (((lo hi) (bounds lower upper lower-inclusive? upper-inclusive?)))
           (def cursor (entries state lo lower-inclusive?))
@@ -240,10 +245,15 @@
             (lambda (action) (observe state action)))))))
     ;; Materialization is now an ordinary consumer of the same bounded cursor.
     (def (range state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+      ;; Capture request cells before source admission can invoke caller code.
+      (set! lower (map/option identity lower))
+      (set! upper (map/option identity upper))
       (observe state (lambda ()
         (for/collect (entry (range-cursor state lower upper lower-inclusive? upper-inclusive?)) entry))))
     ;; Seek observes only the first admitted binding at/after the optional lower bound.
     (def (seek state lower (inclusive? #t))
+      ;; Capture request cells before source admission can invoke caller code.
+      (set! lower (map/option identity lower))
       (observe state (lambda ()
         (let-values (((lo _hi) (bounds lower #f inclusive? #t)))
           (using ((cursor (entries state lo inclusive?) :- Iterator))

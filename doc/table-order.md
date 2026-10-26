@@ -577,3 +577,20 @@ existing 1 GiB heap / 300-second stage limit. The final one-process suite also
 passed all 143 modules / 1,608 cases. Compiler grouping does not replace or split
 that runtime acceptance; Compile-group timing is not a wall-clock speedup
 claim across different machines or cache histories.
+
+### Request ownership before admission
+
+Ordered queries capture their caller's Option shells before source recognition.
+Table/Set style handoffs and named-index observations do the same before reading
+snapshots or discovering computed query methods. `map/option identity` preserves
+absent and malformed requests while copying only present outer cells; validation
+still occurs in its original guarded order. Inclusive flags and opaque key leaves
+are unchanged. A callback rewriting `[2,4]` into `[4,5]` cannot change the issued
+query, and repairing an invalid caller cell cannot authorize that original request.
+
+This costs at most two shallow cells per range handoff (one for seek), without a
+new row traversal, sort, Function wrapper or cache. Existing preparation, source
+admission and per-pull/EOF invalidation remain. Ordinary caller-side method lookup
+precedes invocation and is outside this ownership boundary. Finite Lean proofs
+cover endpoint capture and refusal ordering under stable key and faithful revision
+premises; they do not establish arbitrary callback, compiler or GC correctness.

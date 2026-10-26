@@ -2456,3 +2456,34 @@ no collection traversal or validation-wrapper layer: prior key recognition now u
 the correct predicate, and its actual cost remains charged. Design reflection:
 reuse the established Set/Table declaration pattern and preserve descriptor identity,
 rather than bypass style admission or widen a requested contract to UInt.
+
+### Ordered query request ownership across styles and indexes
+
+Closed a request-capture ordering gap in `.seek`, `.seek<-`, `.range` and
+`.range<-`: source recognition could rewrite caller-owned Option cells before
+bounds were copied. Named index queries and all five Table/Set styles now capture
+bound cells before snapshot admission or computed backend method discovery.
+Existing `map/option identity` performs the shallow capture; no new wrapper,
+namespace, validation policy or backend algorithm is introduced.
+
+Seven regressions exercise admission/getter effects, the complete eager/deferred
+Table/Set style matrix, named indexes, invalid original bounds, stale failure
+priority, delayed EOF admission, and Reader/FUN/IO inspection of checked Function
+rows through conflict/retry and inverse revision. Keys, Function payloads, index
+names and inclusive flags retain their existing meaning and identity. Capturing
+an invalid request does not repair it or suppress an earlier stale-source error.
+
+Finite Lean laws in `TableObservation.lean` prove original endpoint retention,
+preparation/query refusal, absent-bound semantics, identity handoffs and reuse of
+the existing range predicate. Examples distinguish `[2,4]` from a later `[4,5]`,
+refuse an originally invalid key despite repair, and retain a present false key.
+Stable opaque key leaves, persistent roots, lawful comparers and faithful host
+revision checks remain premises. Arbitrary callback mutation of key payloads,
+thread races, compiler and GC behavior are not proved by this finite future-work
+model. Capture starts at an owned query entry, not before arbitrary external
+method lookup performed by the caller.
+
+Design reflection: move the existing Option capture ahead of effectful admission
+rather than adding per-query contracts. Each crossed ownership boundary allocates
+at most one shallow cell per present endpoint. All existing validation and cursor
+guards remain charged; this correctness change claims no elapsed-time speedup.
