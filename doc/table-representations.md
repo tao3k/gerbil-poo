@@ -883,3 +883,40 @@ point read/write/remove operations retain their separate no-snapshot-scan contro
 Local acceptance for this unit: all 141 modules / 1,592 cases passed in one
 process, with the existing 1 GiB heap and 300-second runtime limit. The complete
 Lean gate passed all 20 phases; this receipt does not claim whole-library closure.
+
+
+## Capture across representation callbacks
+
+Wrapper conversion is a callback boundary as well as a type boundary. A bounded
+witness used a valid source root and a reused source Pair `(1 . 10)`. The key
+Wrapper negated its input but rewrote that Pair's payload to 20. Previously the
+represented iterator read the value only after key conversion and delivered
+`(-1 . 20)`. Another callback boundary existed in represented seek: carrier and
+inverse checks ran before the lower-bound Option shell was copied.
+
+The existing `table-wrapper` now uses one private `translate-entry` for ordinary
+iteration, positioned iteration and bulk construction. Both source child arguments
+are evaluated before entering either converter; key conversion still precedes
+value conversion, including original failures and encountered inverse checks.
+The output Pair contains the converted original children. Seek snapshots its
+Option bound before entering carrier/inverse callbacks, then translates that
+captured bound. No new cursor engine, production namespace, per-method contract
+layer or backend traversal is added. Full row traversal and converter/inverse costs
+remain explicit; this repair makes no general timing claim.
+
+`t/table-wrapper-test.ss` covers ordinary/positioned iteration over rewritten source
+shells, a carrier callback that rewrites the caller's seek bound, repeated source
+buffers with Function payloads, attempted payload repair, late failure suppressing
+IO and a fresh successful retry. The existing `observe-positioned-ledger-action`
+example supplies Reader/FUN/IO without another publication implementation. Existing
+bulk-constructor, Wrapper-law, metadata, style and inverse regressions stay intact.
+
+Lean `translateCapturedCursorEntry` in `Functional/TableObservation.lean` reuses
+`translateCursorEntry` while allowing key conversion to return a changed producer
+heap. Its laws preserve original value conversion, exact key/value failure and
+opaque leaf identity. Existing `observeCapturedBounds` handles carrier preparation
+rewriting a bound; service examples instantiate both. Pair/Option shells are
+captured, but arbitrary mutable leaf internals are not cloned. Faithful host calls,
+persistent roots, encountered Wrapper laws and producer order remain premises;
+external callback effects are not rolled back and host/compiler/GC correctness
+is not asserted.

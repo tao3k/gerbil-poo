@@ -1213,6 +1213,17 @@ hold values of slots modified by side-effects.
 
 ## Generic Data Structure Library
 
+**Representation request/result capture** now closes a separate Wrapper boundary:
+seek owns its Option bound before carrier/inverse callbacks, and one shared
+entry translator receives both original children before key conversion. Iteration,
+seek and bulk construction reuse that translator; key conversion cannot rewrite
+or repair an original payload through a reused producer Pair. Existing guards,
+encountered inverse checks, conversion order and Function identity remain intact.
+The positioned-ledger Reader/FUN/IO example exercises late refusal and fresh
+retry through a represented source. Finite Lean laws reuse cursor translation and
+bound capture, not a second engine; mutable leaf internals, host fidelity and
+effect rollback remain outside the claim. See [table-representations.md](table-representations.md).
+
 **Ordered producer row capture** closes validation-before-selection in the
 existing checked cursor. Each emitted Pair shell is captured and recursively
 recognized before lower-bound comparison, including rows that would be filtered

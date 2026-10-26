@@ -523,13 +523,21 @@
           (encode after #t))))))
       ;; Transfer only an explicit backend seek/order capability. The transported
       ;; comparer is shared by identity; callers must not guess numeric target order.
+      ;; Capture both child arguments before invoking either converter. The
+      ;; source may reuse a Pair shell and key conversion may rewrite that shell;
+      ;; value conversion must still receive its original opaque leaf.
+      (def (translate-entry direction key value)
+        (let* ((k (translate direction #t key)) (v (translate direction #f value)))
+          (cons k v)))
       (def ordering (if (.has? source Comparer .seek<-)
         (let (comparer (table-comparer-wrapper (.@ source Comparer) key))
           (.cc Type. Comparer: comparer
             .seek<-: (lambda (input lower inclusive?)
+              ;; Own the bound before carrier/inverse callbacks can rewrite it.
+              (set! lower (map/option identity lower))
               (guard (lambda ()
                 (iterator-map (lambda (entry)
-                  (cons (translate forward #t (car entry)) (translate forward #f (cdr entry))))
+                  (translate-entry forward (car entry) (cdr entry)))
                   (.call source .seek<- (decode input)
                     (map/option (cut translate backward #t <>) lower) inclusive?) guard)))))) Type.))
       (using ((wrap :~ procedure?) (unwrap :~ procedure?))
@@ -551,8 +559,7 @@
             ;; checked point updates that could reject valid intermediate roots.
             .<-list/key: (lambda (bindings) (guard (lambda ()
               (encode (.call source .<-list (map (lambda (entry)
-                (let* ((k (translate backward #t (car entry)))
-                       (v (translate backward #f (cdr entry)))) (cons k v))) bindings))))))
+                (translate-entry backward (car entry) (cdr entry))) bindings))))))
             ;; Translate one entry and retain the source's own singleton/refusal policy.
             .singleton/key: (lambda (key value) (guard (lambda ()
               (encode (.call source .singleton (translate backward #t key)
@@ -594,8 +601,7 @@
             ;; metadata protection across suspension in the caller.
             .iter<-: (lambda (input) (guard (lambda ()
               (iterator-map (lambda (entry)
-                (let* ((k (translate forward #t (car entry)))
-                       (v (translate forward #f (cdr entry)))) (cons k v)))
+                (translate-entry forward (car entry) (cdr entry)))
                 (.call source .iter<- (decode input)) guard))))
             .merge: binding-merge
             .map/2: (cut binding-map #f <> <>)

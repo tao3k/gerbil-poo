@@ -279,3 +279,25 @@ linked workload construction took 15.31 seconds and every original paired-study
 phase completed. No check or resource limit changed. These are acceptance
 measurements, not a paired wall-clock improvement claim. Lean's complete gate
 passed at `f9332dc`; remote CI is verified separately against the current heads.
+
+
+## Representation callback capture
+
+A separate post-repair witness found key translation rewriting a producer-owned
+Pair before value extraction: source `(1 . 10)` became represented `(-1 . 20)`.
+The ordered-source repair cannot protect a raw producer at the downstream Wrapper
+boundary. Represented seek also copied its bound after carrier/inverse callbacks.
+The repair shares one existing Wrapper entry translator across iteration, seek and
+bulk construction, receiving both children before converters, and captures seek's
+Option shell before carrier preparation. See
+[the representation acceptance scope](table-representations.md#capture-across-representation-callbacks)
+for examples, regressions, finite Lean correspondence and explicit premises.
+This is a concrete composition repair, not automatic law or symmetry inference.
+
+Local acceptance for representation callback capture: the complete standard build
+and `just _check-linked-collections 2 1 4` exited zero with 148 modules, 1,728
+passing cases and no error markers. The single-process harness took 113.06 seconds;
+linked workload construction took 26.45 seconds and the existing paired-study
+phases completed. No checks or resource limits changed. These are full acceptance
+observations, not a controlled speedup claim. Lean's complete gate and all 17 CI
+checks passed at `e885b86`; remote Scheme CI is checked against the resulting head.

@@ -16,6 +16,52 @@
 ;; Complete derived protocols share existing normalization, revisions, folds and FUN.
 (def table-wrapper-test
   (test-suite "isomorphism-derived table algorithms"
+    (test-case "represented iteration and seek capture values before key converters rewrite source shells"
+      (def raw (RationalDict Integer)) (def row (cons 1 10))
+      (def source (.cc raw .iter<-: (lambda (_) (list row))
+        .seek<-: (lambda _ (list row))))
+      (def keys (.cc Wrapper. Domain: Rational Codomain: Rational
+        .ap: (lambda (key) (set-car! row 9) (set-cdr! row 20) (- key)) .unap: -))
+      (defvalues (boxed _carrier _keys) (box-table source key: keys))
+      (def root (make-boxed-table (.call raw .singleton 1 10)))
+      (for (positioned? '(#f #t))
+        (set-car! row 1) (set-cdr! row 10)
+        (let (cursor (if positioned? (.call boxed .seek<- root #f #t) (.call boxed .iter<- root)))
+          (check-equal? (for/collect (entry cursor) entry) '((-1 . 10)))))
+      (check-equal? row '(9 . 20)))
+    (test-case "represented seek captures the Option bound before carrier and inverse callbacks"
+      (def raw (RationalDict Integer)) (def lower (some -2)) (def armed? #f)
+      (def seen 'unreached)
+      (def source (.cc raw .seek<-: (lambda (root bound inclusive?)
+        (set! seen (map/option identity bound)) (.call raw .seek<- root bound inclusive?))))
+      (defvalues (boxed _carrier _keys) (box-table source
+        (lambda (root) (when armed? (some-value-set! lower -9)) (make-boxed-table root))))
+      (def root (make-boxed-table (.call raw .<-list '((1 . 10) (2 . 20)))))
+      (set! armed? #t)
+      (let (cursor (.call boxed .seek<- root lower #t))
+        (check-equal? (for/collect (entry cursor) entry) '((-2 . 20))))
+      (check-equal? seen (some 2)) (check-equal? lower (some -9)))
+    (test-case "reused represented Function rows retain leaves and late refusal suppresses publication before retry"
+      (def signature (Fun Integer <- Integer))
+      (def callback (validate signature (lambda (n) (+ n 1))))
+      (def raw (RationalDict signature)) (def row (cons 1 callback))
+      (def invalid? #t) (def deliveries 0)
+      (def source (.cc raw .seek<-: (lambda _ (in-coroutine (lambda (yield)
+        (set-car! row 1) (set-cdr! row callback) (yield row)
+        (set-car! row 2) (set-cdr! row (if invalid? 'invalid callback)) (yield row))))))
+      (def keys (.cc Wrapper. Domain: Rational Codomain: Rational
+        .ap: (lambda (key) (set-cdr! row callback) (- key)) .unap: -))
+      (defvalues (boxed _carrier _keys) (box-table source key: keys))
+      (def root (make-boxed-table (.call raw .<-list (list (cons 1 callback) (cons 2 callback)))))
+      (def action (service.observe-positioned-ledger-action boxed #f (lambda (rows)
+        (set! deliveries (+ deliveries 1)) rows)))
+      (check-exception (action root) TypeError?) (check-equal? deliveries 0)
+      (set! invalid? #f)
+      (let (rows (action root))
+        (check-equal? (map car rows) '(-1 -2))
+        (for (entry rows) (check-eq? (cdr entry) callback))
+        (check-equal? ((cdar rows) 7) 8))
+      (check-equal? deliveries 1))
     (test-case "derived descriptor chains never request a partial empty constructor"
       (def raw (RationalDict Integer)) (def calls 0)
       (def cause (with-catch identity (lambda () (error "partial empty constructor"))))
