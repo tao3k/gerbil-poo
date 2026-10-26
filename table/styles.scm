@@ -301,10 +301,7 @@
   (def owner (list source))
   ;; Retain every backend/converter origin across admission and user callbacks.
   (def (guard action)
-    (with-table-sources sources (lambda ()
-      (unless (equal? versions (map object-revision sources))
-        (error "stale table styles"))
-      (action))))
+    (with-table-sources sources action sources versions "stale table styles"))
   ;; A customized set recognizer may refine its backing carrier. Keep both
   ;; obligations without normalizing keys or trusting a broader custom predicate.
   (def (admitted value)

@@ -28,10 +28,7 @@
   (def versions (map object-revision sources))
   ;; Source/Key/Value/origin changes refuse before the next backend pull.
   (def (guard action)
-    (with-table-sources sources (lambda ()
-      (unless (equal? versions (map object-revision sources))
-        (error "stale table iterator"))
-      (action))))
+    (with-table-sources sources action sources versions "stale table iterator"))
   (guard (lambda ()
     (admit-table-observation descriptor input)
     (when from (require-table-key descriptor from))

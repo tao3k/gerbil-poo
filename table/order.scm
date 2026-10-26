@@ -178,9 +178,7 @@
     (def versions (map object-revision sources)) (def result #f)
     ;; Complete queries/folds hold metadata guards, including the public receiver.
     (def (protect action)
-      (with-table-sources (if result (cons result sources) sources) (lambda ()
-        (unless (equal? versions (map object-revision sources)) (error "stale table order"))
-        (action))))
+      (with-table-sources (if result (cons result sources) sources) action sources versions "stale table order"))
     ;; Existing observations still admit their root within the common protected scope.
     (def (observe state action)
       (protect (lambda () (admit-source state) (action))))

@@ -34,10 +34,7 @@
     (def versions (map object-revision sources))
     ;; Reuse the standard mapped Iterator guard; stale refusal precedes next!.
     (def (guard action)
-      (with-table-sources sources (lambda ()
-        (unless (equal? versions (map object-revision sources))
-          (error "stale set iterator"))
-        (action))))
+      (with-table-sources sources action sources versions "stale set iterator"))
     (guard (lambda ()
       (iterator-map car (if (not from) (.call table .iter<- input)
         (.call table .iter<- input from)) guard))))))
@@ -344,9 +341,7 @@
         (def owner (list source target transform))
         ;; Keep all inherited metadata live throughout callbacks and delivery.
         (def (guard dependencies action)
-          (with-table-sources dependencies (lambda ()
-            (unless (equal? versions (map object-revision sources)) (error "stale set image"))
-            (action))))
+          (with-table-sources dependencies action sources versions "stale set image"))
         ;; Reject foreign snapshots and changed historical delta origins first.
         (def (observe state action)
           (unless (and (%set-image? state) (eq? owner (%set-image-owner state)))

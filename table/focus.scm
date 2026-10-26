@@ -66,9 +66,7 @@
   (def versions (map object-revision sources))
   ;; Supported metadata edits invalidate old focuses, including an empty read.
   (def (guard action)
-    (with-table-sources sources (lambda ()
-      (unless (equal? versions (map object-revision sources)) (error "stale table focus"))
-      (action))))
+    (with-table-sources sources action sources versions "stale table focus"))
   (make-table-key-focus descriptor key optional?
     (lambda (input)
       (require-table descriptor input)

@@ -112,15 +112,27 @@
 
 ;; Protect supported descriptor writes for the whole operation, including user
 ;; recognizers/backend callbacks. Mutable leaf data remains a caller premise.
-(def (with-table-sources sources action)
-  ;; Keep every instantiation check, including recursive-construction refusal.
-  ;; Reuse exact list identity or an empty outer scope; do not scan membership
-  ;; on hot calls. Partial overlaps retain the original complete protection.
-  (for-each instantiate-object! sources)
-  (def active (active-object-constructions))
-  (if (eq? sources active) (action)
-    (parameterize ((active-object-constructions (if (null? active) sources (append sources active))))
-      (action))))
+(def with-table-sources
+  (case-lambda
+    ;; Keep the ordinary protection path free of revision-check closures.
+    ((sources action)
+      (for-each instantiate-object! sources)
+      (def active (active-object-constructions))
+      (if (eq? sources active) (action)
+        (parameterize ((active-object-constructions (if (null? active) sources (append sources active))))
+          (action))))
+    ;; Captured revision families share one check under the exact same protected
+    ;; scope. Check only after instantiation; retain each caller's original cause.
+    ((sources action watched versions failure)
+      (for-each instantiate-object! sources)
+      (def active (active-object-constructions))
+      (if (eq? sources active)
+        (begin
+          (unless (equal? versions (map object-revision watched)) (error failure))
+          (action))
+        (parameterize ((active-object-constructions (if (null? active) sources (append sources active))))
+          (unless (equal? versions (map object-revision watched)) (error failure))
+          (action))))))
 
 ;; Recognition does not normalize again: callers admit snapshots through validate
 ;; or checked-action first, and deltas retain those exact normalized child values.
@@ -285,6 +297,19 @@
     (raise (make-table-isomorphism-failure 'right-inverse output)))
   output)
 
+;; Check one encountered carrier roundtrip with the original callback order.
+;; Admission may raise but cannot normalize or replace the observed output.
+;; Both inverse failures keep the exact phase/value; no cross-call memo is kept.
+(def (check-table-carrier input forward backward admit)
+  (def output (forward input))
+  (admit output)
+  (def recovered (backward output))
+  (unless (equal? recovered input)
+    (raise (make-table-isomorphism-failure 'left-inverse input)))
+  (unless (equal? (forward recovered) output)
+    (raise (make-table-isomorphism-failure 'right-inverse output)))
+  output)
+
 ;; Explicitly declared payload-parametric backends share this structural key-space
 ;; constructor. Business-root refinements do not apply to owner/edit records.
 (def (table-key-space backend value)
@@ -400,11 +425,7 @@
       ;; Hold captured sources and the public derived receiver through callbacks.
       ;; Supported source revisions refuse; no old protocol is silently refreshed.
       (def (guard action)
-        (with-table-sources protected
-          (lambda ()
-            (unless (equal? versions (map object-revision sources))
-              (error "stale table wrapper"))
-            (action))))
+        (with-table-sources protected action sources versions "stale table wrapper"))
       ;; Carrier admission checks shape only. Children are checked at the public
       ;; table boundary; point operations must not enumerate unrelated bindings.
       (def (shape input)
@@ -419,22 +440,12 @@
         ;; fresh roots; the law is not a replacement for read authority.
         (when (and updated? (not (%slot-read-active?))) (admit-source input #t))
         (admit-source input)
-        (let* ((output (shape (wrap input))) (recovered (unwrap output)))
-          (unless (equal? recovered input)
-            (raise (make-table-isomorphism-failure 'left-inverse input)))
-          (unless (equal? (wrap recovered) output)
-            (raise (make-table-isomorphism-failure 'right-inverse output))) output))
-      ;; Explicit lets retain refusal order: foreign shape precedes unwrap, source
-      ;; admission precedes wrap, and a failed left inverse suppresses the right.
+        (check-table-carrier input wrap unwrap shape))
+      ;; Foreign shape precedes unwrap; source admission precedes wrap. The shared
+      ;; roundtrip kernel retains left-before-right failure and callback demand.
       (def (decode input)
         (shape input)
-        (let (output (unwrap input))
-          (admit-source output)
-          (let (encoded (wrap output))
-            (unless (equal? encoded input)
-              (raise (make-table-isomorphism-failure 'left-inverse input)))
-            (unless (equal? (unwrap encoded) output)
-              (raise (make-table-isomorphism-failure 'right-inverse output))) output)))
+        (check-table-carrier input unwrap wrap admit-source))
       ;; Reuse typed inverse/law checks for both key and value directions.
       (def (translate direction key? input)
         (def domain (if key? (table-child-type direction table-translation-source-key table-translation-source Key) (table-child-type direction table-translation-source-value table-translation-source Value)))
@@ -619,11 +630,7 @@
       (def versions (map object-revision sources))
       ;; Own guards across the whole conversion, including delta origin metadata.
       (def (guard dependencies action)
-        (with-table-sources dependencies
-          (lambda ()
-            (unless (equal? versions (map object-revision sources))
-              (error "stale table isomorphism"))
-            (action))))
+        (with-table-sources dependencies action sources versions "stale table isomorphism"))
       ;; Collection-only conversion has no retained global memo or registry.
       (def (convert direction input)
         (guard sources

@@ -360,10 +360,7 @@
         ;; Check stamps before callbacks; hold every inherited delta origin during
         ;; preparation. Failed attempts cannot publish roots, caches or new stamps.
         (def (guard dependencies action)
-          (with-table-sources dependencies (lambda ()
-            (unless (equal? versions (map object-revision sources))
-              (error "stale table projection"))
-            (action))))
+          (with-table-sources dependencies action sources versions "stale table projection"))
         ;; State ownership is independent of backend carrier identity and lineage.
         (def (check state)
           (unless (and (table-projection-state? state)
@@ -481,10 +478,7 @@
       (def owner (list upstream downstream))
       ;; Hold both declarations across callbacks; a change requires fresh caches.
       (def (guard action)
-        (with-table-sources sources (lambda ()
-          (unless (equal? versions (map object-revision sources))
-            (error "stale projection composition"))
-          (action))))
+        (with-table-sources sources action sources versions "stale projection composition"))
       ;; Both subordinate observations must succeed before exposing either endpoint.
       ;; Their existing guards also admit inherited delta origins, including no-ops.
       (def (observe state receive)
@@ -560,9 +554,7 @@
         (def owner (list left right target classify project))
         ;; Protect the complete preparation/delivery scope and captured metadata.
         (def (guard live action)
-          (with-table-sources live (lambda ()
-            (unless (equal? versions (map object-revision sources)) (error "stale table lookup join"))
-            (action))))
+          (with-table-sources live action sources versions "stale table lookup join"))
         ;; Historical source origins are retained even by zero-edit successors.
         (def (observe state action)
           (unless (and (%table-lookup-join? state) (eq? owner (%table-lookup-join-owner state)))
@@ -682,9 +674,7 @@
         (def owner (list left right target groups pairs))
         ;; Hold descriptor and inherited origin stamps throughout one preparation.
         (def (guard live action)
-          (with-table-sources live (lambda ()
-            (unless (equal? versions (map object-revision sources)) (error "stale table group join"))
-            (action))))
+          (with-table-sources live action sources versions "stale table group join"))
         ;; Reject foreign or stale states before any classification or consumer.
         (def (observe state action)
           (unless (and (%table-group-join? state) (eq? owner (%table-group-join-owner state)))

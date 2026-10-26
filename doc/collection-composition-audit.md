@@ -338,3 +338,37 @@ iteration and eager materialization retain their new complete admission.
 A deliberately mutating child-recognizer diagnostic now inspects `.list/key`
 without replaying that recognizer, and additionally checks that public `.list<-`
 refuses it. This is a scope correction, not weaker validation or relaxed bounds.
+
+## Shared construction protection and carrier checks
+
+The author implementation's `$lens-gen` composes the getter, wrapper and setter
+rather than inventing another representation. The existing FUN `Wrapper.` remains
+the conversion authority here. Repeated captured-revision guards now use the
+existing `with-table-sources` boundary directly: instantiate every protected
+participant, enter the same dynamic protection scope, compare the same watched
+revision family, then call the operation. The change removes an extra guard thunk
+from each affected factory; it neither skips instantiation nor caches admission.
+Complex guards with additional comparer or origin checks retain their own logic.
+
+The two carrier directions share one inverse-check kernel. Forward conversion,
+output admission, backward conversion, left-inverse comparison and replay remain
+ordered. Admission does not substitute a normalized carrier. Both inverse failures
+retain their original phase and value; a failed callback retains its cause.
+The wrapper regression observes callback order, early refusal, exact cause and a
+fresh successful retry. Existing nested wrappers, indexes, styles, narrow seeks
+and mutation controls remain part of the complete suite.
+
+The finite Lean model proves admission failure, left-inverse refusal, stable
+roundtrip identity, preparation failure, stale refusal and exact current-action
+outcome. It does not prove arbitrary Scheme callback termination, dynamic-wind
+continuations, compiler correctness, GC behavior or wall-clock improvement.
+
+Local cold acceptance remains open. With identical standard optimized settings,
+the table translation unit decreased from 258,065 to 249,196 C lines (3.4%), with
+the largest host procedure decreasing from 13,963 to 13,101 lines. An earlier
+unoptimized diagnostic is excluded from this comparison. The unchanged 12-worker,
+1 GiB, 300-second library stage still timed out; complete entry wall time was
+323.56 seconds, followed by successful standard cleanup. A late compiler snapshot
+showed 9.63 CPU seconds over 82 wall seconds, while sampling showed GCC range
+analysis rather than GC or an import deadlock. These observations do not establish
+a controlled speedup. Generated files and diagnostic samples remain outside Git.

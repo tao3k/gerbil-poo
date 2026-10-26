@@ -42,9 +42,7 @@
           (def zero (checked (.@ aggregate .zero)))
           ;; Guard all captured metadata over callbacks and private construction.
           (def (guard dependencies action)
-            (with-table-sources dependencies (lambda ()
-              (unless (equal? versions (map object-revision sources)) (error "stale table fold"))
-              (action))))
+            (with-table-sources dependencies action sources versions "stale table fold"))
           ;; A foreign or stale state never supplies an aggregate or source snapshot.
           (def (require-state state)
             (unless (and (table-fold-state? state) (eq? owner (table-fold-state-owner state)))
@@ -130,10 +128,7 @@
       ;; Hold common metadata and the particular input's origins for the entire use.
       ;; A stale old cache cannot poison a different, independently fresh input.
       (def (guard origins action)
-        (with-table-sources (append sources origins) (lambda ()
-          (unless (equal? versions (map object-revision sources))
-            (error "stale table fold isomorphism"))
-          (action))))
+        (with-table-sources (append sources origins) action sources versions "stale table fold isomorphism"))
       ;; Unforgeable fold ownership is checked by the creating protocol's reader.
       (def (origins state)
         (unless (table-fold-state? state) (error "table fold state required"))
@@ -268,9 +263,7 @@
         ;; The original protocol metadata and all inherited origins stay protected
         ;; across classification, aggregation, final admission and delivery.
         (def (guard dependencies action)
-          (with-table-sources dependencies (lambda ()
-            (unless (equal? versions (map object-revision sources)) (error "stale table group fold"))
-            (action))))
+          (with-table-sources dependencies action sources versions "stale table group fold"))
         ;; Refuse foreign or stale successors before reading either private cache.
         (def (observe state action)
           (unless (and (%table-group-fold? state) (eq? owner (%table-group-fold-owner state)))

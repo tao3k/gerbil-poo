@@ -76,9 +76,7 @@
   ;; Capture metadata over the complete operation. Descriptor mutations must be
   ;; serialized with other threads, exactly as in the existing table style API.
   (def (guard dependencies action)
-    (with-table-sources (append (if result (list result) []) dependencies) (lambda ()
-      (unless (equal? versions (map object-revision sources)) (error "stale table indexes"))
-      (action))))
+    (with-table-sources (append (if result (list result) []) dependencies) action sources versions "stale table indexes"))
   ;; Private ownership prevents another recipe family from supplying unchecked caches.
   (def (check state)
     (unless (and (%indexed-table? state) (eq? (%indexed-table-owner state) owner))
