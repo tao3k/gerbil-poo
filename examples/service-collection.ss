@@ -114,7 +114,8 @@
 ;; reuse fold-ledger-action with transport; .unap recovers the paired source state.
 ;; Descriptor refinements reuse this same construction chain and child Types;
 ;; source and target final-root admission remains part of each fold publication.
-(def (make-capacity-ledger rows source: (source-refine identity) target: (target-refine identity))
+(def (make-capacity-ledger rows source: (source-refine identity) target: (target-refine identity)
+                           policy: (policy #f))
   (def callback (Fun Integer <- Integer))
   (def payload (Tuple callback UInt))
   (def cooked (Pair UInt callback))
@@ -125,7 +126,11 @@
   (def values (.cc Wrapper. Domain: payload Codomain: cooked
     .ap: (lambda (v) (cons (vector-ref v 1) (vector-ref v 0)))
     .unap: (lambda (v) (vector (cdr v) (car v)))))
-  (def source-fold (table-fold source-type Integer (lambda (_ v) (vector-ref v 1))))
+  ;; A supplied policy is an explicit fold origin, independent of representation.
+  (def source-fold (table-fold source-type Integer
+    (if policy (lambda (_ v) (* (.@ policy weight) (vector-ref v 1)))
+      (lambda (_ v) (vector-ref v 1)))
+    (if policy (list policy) [])))
   (.o source: source-type target: target-type folding: source-fold
     transport: (.call source-fold .isomorphism target-type keys values)
     state: (.call source-fold .ap (validate source-type (.call source-type .<-list rows)))))

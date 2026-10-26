@@ -841,6 +841,7 @@
       (def next-keys (.cc Wrapper. Domain: UInt Codomain: UInt .ap: identity .unap: identity))
       (def chain (.call (.@ bridge Codomain) .isomorphism (SimpleTrie UInt Integer) next-keys values))
       (def chained (.call chain .ap paired))
+      (def chained-root (.call (.@ chain Codomain) .unap chained))
       (check-equal? (.call (.@ chain Codomain) .get chained) 10)
       (check (eq? (.call bridge .unap (.call chain .unap chained)) state) => #t)
       (.set! unrelated sexp 'other-converter)
@@ -849,7 +850,9 @@
       (.set! keys sexp 'changed-converter)
       (check-exception (.call bridge .ap state) (message? "stale table fold isomorphism"))
       (check-exception (.call (.@ bridge Codomain) .get paired) (message? "stale table fold"))
-      (check-exception (.call (.@ chain Codomain) .get chained) (message? "stale table fold state"))
+      ;; The complete factory scope now catches this before state-lineage admission.
+      (check-exception (.call (.@ chain Codomain) .get chained) (message? "stale table fold"))
+      (check-exception (.call (.@ chain Codomain) .ap chained-root) (message? "stale table fold"))
       (check-equal? (.call folding .get state) 10)
       (def fresh (.call folding .isomorphism target keys values))
       (def fresh-target (.call fresh .ap state))

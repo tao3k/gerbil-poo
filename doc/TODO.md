@@ -2232,3 +2232,24 @@ and first-callback/consumer refusal. Backend laws, stable admitted snapshots/lea
 and supported metadata updates remain explicit premises. This does not infer
 callback termination or roll back effects; all public-boundary admission costs
 remain charged. See collections.md for scope and design reflection.
+
+### Explicit ordinary-fold origins and transitive aggregate scope
+
+Closed the ordinary fold declaration gap: `table-fold` now accepts a finite origin
+list through its existing private constructor, like grouped folds and projections.
+Origins are owned before descriptor/algebra discovery and exposed on the public
+fold. Isomorphism derivation passes the private complete source scope into its
+Codomain fold, so independently initialized target states cannot certify a stale
+source policy merely because converter stamps are fresh. No second invalidation
+engine or source-descriptor clone is introduced.
+
+The weighted capacity ledger combines Tuple/Pair storage, checked callbacks, XOR
+keys, sparse updates, FUN/IO, inverse recovery and fresh policy reconstruction.
+All five represented-data styles remain independent of score-only policies.
+Regressions cover caller buffer reuse, malformed/cyclic declarations, guarded zero
+getters, independent Codomain initialization, converter framing, no-op delta lineage,
+conflict-before-projection, original causes, consumer suppression and retry/undo.
+Finite Lean laws reuse stamp preparation/capture to prove transitive refusal,
+deduplication, identity retention, revision framing and exact fresh callback results.
+Stable explicit dependencies and faithful host revisions remain premises; hidden
+closure-state discovery and runtime cost/GC proofs remain research boundaries.

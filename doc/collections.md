@@ -1403,3 +1403,37 @@ premises, not automatic certificates. Validation and every crossed public bounda
 retain their full costs; no constant-time, GC or arbitrary termination claim follows.
 Design reflection: keep the existing read/fold kernels and custom delegate semantics;
 do not bypass a public validation boundary for an unproved reuse optimization.
+
+### Declared ordinary-fold policies
+
+`table-fold source aggregate project origins` shares the existing constructor with
+its three-argument empty-declaration form. A finite origin list declares metadata
+read by the contribution callback. Its spine is captured before descriptor or
+algebra getters execute; the existing source scope protects discovered participants.
+The public `.sources` field reports the complete declaration. Representation
+construction passes that private scope into its target fold and exposes the bridge
+scope too. A Wrapper identity is not a substitute for the objects it depends on.
+
+Consequently a supported policy revision refuses every dependent old fold, including
+Codomain states initialized directly from target roots. Restoring a policy's old
+value does not restore its old revision. Converter-only changes leave the source
+aggregate valid; an empty delta's additional origins remain specific to states
+that adopted them. A fresh independent state can rebind an unchanged persistent
+representation under its own current scope, retaining the existing reuse protocol.
+
+The policy option in `make-capacity-ledger` demonstrates checked Function leaves,
+Tuple/Pair conversion, XOR keys, ordinary weighted aggregates, sparse changes,
+Reader/FUN/IO and inverse recovery. Score-only policies do not invalidate independent
+represented-data owners in Pure/Mutable/Linear/Posh/Classy styles. Without a supplied
+policy the factory keeps its original projection; it adds no per-row policy branch.
+
+Eight controls in table-fold-test.ss cover declaration capture, malformed/cyclic
+lists, mutation during algebra discovery, independent target caches, selective
+framing, historical no-op lineage, source conflict ordering, exact failures, IO
+suppression and fresh retry/undo. `TableFold.lean` composes the existing stamp
+checker and capture laws; it does not introduce another dependency checker.
+Complete source/target recognition, preparation, conversion and GC costs remain
+charged. Declaration capture copies one spine cell per origin. No automatic hidden
+closure dependency or universal runtime bound is claimed. Design reflection: expose
+an existing constructor capability and transmit its private scope, rather than
+build synthetic source descriptors or stack additional read wrappers.

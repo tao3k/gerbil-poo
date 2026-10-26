@@ -13,94 +13,98 @@
 
 ;; Lift a retractable fold through existing Wrapper and numeric/algebra methods.
 ;; Aggregate supplies .zero/.add/.sub and recognition; project maps admitted k/v
-;; to admitted contributions. Pure stable operations and the optional-write fold
+;; to admitted contributions; origins declares the metadata read by that callback.
+;; Pure stable operations and the optional-write fold
 ;; law are caller premises, not inferred from these method names or membership.
-(def (table-fold descriptor aggregate project)
-  (defvalues (folding _adopt _read) (make-table-fold descriptor aggregate project []))
+(def (table-fold descriptor aggregate project (origins []))
+  (defvalues (folding _adopt _read) (make-table-fold descriptor aggregate project origins))
   folding)
 
 ;; Keep aggregate adoption and the checked state reader private to fold derivation.
 ;; Extra dependencies bind a derived contribution to its explicit inverse maps.
 (def (make-table-fold descriptor aggregate project extra-sources)
-  (using (project :~ procedure?)
-    (def sources (delete-duplicates/hash
-      (append (table-sources descriptor) (list aggregate) extra-sources)
-      table: (make-hash-table-eq) from-end?: #t))
-    (with-table-sources sources
-      (lambda ()
-        (def versions (map object-revision sources))
-        (def owner (list descriptor aggregate project))
-        (def add (.@ aggregate .add))
-        (def sub (.@ aggregate .sub))
-        ;; Recognition preserves admitted aggregate leaves instead of rewrapping.
-        (def (checked value)
-          (unless (element? aggregate value) (raise-type-error aggregate value 'table-fold)) value)
-        (def zero (checked (.@ aggregate .zero)))
-        ;; Guard all captured metadata over callbacks and private construction.
-        (def (guard dependencies action)
-          (with-table-sources dependencies (lambda ()
-            (unless (equal? versions (map object-revision sources)) (error "stale table fold"))
-            (action))))
-        ;; A foreign or stale state never supplies an aggregate or source snapshot.
-        (def (require-state state)
-          (unless (and (table-fold-state? state) (eq? owner (table-fold-state-owner state)))
-            (error "incompatible table fold state"))
-          (unless (equal? (table-fold-state-versions state)
-                          (map object-revision (table-fold-state-sources state)))
-            (error "stale table fold state")))
-        ;; Fresh initialization scans the admitted table once, without normalization.
-        (def (initialize table)
-          (guard sources (lambda ()
-            (require-table descriptor table)
-            (def value (fold-table descriptor zero add project checked table))
-            (make-table-fold-state owner sources versions table value))))
-        ;; Read either part under the same freshness/owner checks as installation.
-        (def (observe state access)
-          (unless (table-fold-state? state) (error "incompatible table fold state"))
-          (guard (table-fold-state-sources state) (lambda () (require-state state) (access state))))
-        ;; Complete old-value and origin checks before any contribution callback.
-        ;; A later projection/arithmetic failure exposes neither staged result.
-        (def (update state delta)
-          (unless (and (table-fold-state? state) (table-delta? delta))
-            (error "table fold state and delta required"))
-          (def dependencies (delete-duplicates/hash
-            (append sources (table-fold-state-sources state) (table-delta-sources delta))
-            table: (make-hash-table-eq) from-end?: #t))
-          (guard dependencies (lambda ()
-            (require-state state)
-            ;; Compatible deltas may come from a less constrained descriptor.
-            ;; Admit the complete final root before any aggregate projection.
-            (let (next (require-table descriptor
-                        (.call descriptor .apply-delta (table-fold-state-table state) delta)))
-              (def value (foldl (lambda (change acc)
-                (def k (table-change-key change))
-                (def before (table-change-before change))
-                (def after (table-change-after change))
-                (def removed (if (some? before)
-                  (checked (sub acc (checked (project k (some-value before))))) acc))
-                (if (some? after)
-                  (checked (add removed (checked (project k (some-value after))))) removed))
-                (table-fold-state-value state) (table-delta-changes delta)))
-              (make-table-fold-state owner dependencies (map object-revision dependencies) next value)))))
-        ;; Trusted conversion has already constructed the admitted carrier; retain
-        ;; its source lineage while reusing an admitted aggregate without refolding.
-        (def (adopt table value origins)
-          (def dependencies (delete-duplicates/hash (append sources origins)
-            table: (make-hash-table-eq) from-end?: #t))
-          (guard dependencies (lambda ()
-            (make-table-fold-state owner dependencies (map object-revision dependencies)
-              table (checked value)))))
-        ;; The checked reader never escapes through the public fold Wrapper.
-        (def (read-state state) (observe state identity))
-        (using ((add :~ procedure?) (sub :~ procedure?))
-          (def folding (.cc Wrapper. Domain: descriptor Value: aggregate .ap: initialize
-            .unap: (cut observe <> table-fold-state-table)
-            .get: (cut observe <> table-fold-state-value) .apply-delta: update
-            .isomorphism: (lambda (target key value)
-              (guard sources (lambda ()
-                (make-table-fold-isomorphism folding descriptor aggregate project
-                  adopt read-state update target key value))))))
-          (values folding adopt read-state))))))
+  (using ((project :~ procedure?) (extra-sources :~ list?))
+    ;; Own explicit origins before any descriptor or algebra getter can reuse them.
+    (def captured (map identity extra-sources))
+    (with-table-sources (append (list descriptor aggregate) captured) (lambda ()
+      (def sources (delete-duplicates/hash
+        (append (table-sources descriptor) (list aggregate) captured)
+        table: (make-hash-table-eq) from-end?: #t))
+      (with-table-sources sources
+        (lambda ()
+          (def versions (map object-revision sources))
+          (def owner (list descriptor aggregate project))
+          (def add (.@ aggregate .add))
+          (def sub (.@ aggregate .sub))
+          ;; Recognition preserves admitted aggregate leaves instead of rewrapping.
+          (def (checked value)
+            (unless (element? aggregate value) (raise-type-error aggregate value 'table-fold)) value)
+          (def zero (checked (.@ aggregate .zero)))
+          ;; Guard all captured metadata over callbacks and private construction.
+          (def (guard dependencies action)
+            (with-table-sources dependencies (lambda ()
+              (unless (equal? versions (map object-revision sources)) (error "stale table fold"))
+              (action))))
+          ;; A foreign or stale state never supplies an aggregate or source snapshot.
+          (def (require-state state)
+            (unless (and (table-fold-state? state) (eq? owner (table-fold-state-owner state)))
+              (error "incompatible table fold state"))
+            (unless (equal? (table-fold-state-versions state)
+                            (map object-revision (table-fold-state-sources state)))
+              (error "stale table fold state")))
+          ;; Fresh initialization scans the admitted table once, without normalization.
+          (def (initialize table)
+            (guard sources (lambda ()
+              (require-table descriptor table)
+              (def value (fold-table descriptor zero add project checked table))
+              (make-table-fold-state owner sources versions table value))))
+          ;; Read either part under the same freshness/owner checks as installation.
+          (def (observe state access)
+            (unless (table-fold-state? state) (error "incompatible table fold state"))
+            (guard (table-fold-state-sources state) (lambda () (require-state state) (access state))))
+          ;; Complete old-value and origin checks before any contribution callback.
+          ;; A later projection/arithmetic failure exposes neither staged result.
+          (def (update state delta)
+            (unless (and (table-fold-state? state) (table-delta? delta))
+              (error "table fold state and delta required"))
+            (def dependencies (delete-duplicates/hash
+              (append sources (table-fold-state-sources state) (table-delta-sources delta))
+              table: (make-hash-table-eq) from-end?: #t))
+            (guard dependencies (lambda ()
+              (require-state state)
+              ;; Compatible deltas may come from a less constrained descriptor.
+              ;; Admit the complete final root before any aggregate projection.
+              (let (next (require-table descriptor
+                          (.call descriptor .apply-delta (table-fold-state-table state) delta)))
+                (def value (foldl (lambda (change acc)
+                  (def k (table-change-key change))
+                  (def before (table-change-before change))
+                  (def after (table-change-after change))
+                  (def removed (if (some? before)
+                    (checked (sub acc (checked (project k (some-value before))))) acc))
+                  (if (some? after)
+                    (checked (add removed (checked (project k (some-value after))))) removed))
+                  (table-fold-state-value state) (table-delta-changes delta)))
+                (make-table-fold-state owner dependencies (map object-revision dependencies) next value)))))
+          ;; Trusted conversion has already constructed the admitted carrier; retain
+          ;; its source lineage while reusing an admitted aggregate without refolding.
+          (def (adopt table value origins)
+            (def dependencies (delete-duplicates/hash (append sources origins)
+              table: (make-hash-table-eq) from-end?: #t))
+            (guard dependencies (lambda ()
+              (make-table-fold-state owner dependencies (map object-revision dependencies)
+                table (checked value)))))
+          ;; The checked reader never escapes through the public fold Wrapper.
+          (def (read-state state) (observe state identity))
+          (using ((add :~ procedure?) (sub :~ procedure?))
+            (def folding (.cc Wrapper. Domain: descriptor Value: aggregate .sources: sources .ap: initialize
+              .unap: (cut observe <> table-fold-state-table)
+              .get: (cut observe <> table-fold-state-value) .apply-delta: update
+              .isomorphism: (lambda (target key value)
+                (guard sources (lambda ()
+                  (make-table-fold-isomorphism folding descriptor aggregate project sources
+                    adopt read-state update target key value))))))
+            (values folding adopt read-state))))))))
 
 ;; One private pairing per transport, including only the currently live key owners.
 ;; Replacing the pairing never retains a chain of prior snapshots or global memo.
@@ -109,9 +113,11 @@
 ;; Derive the target contribution by pullback, then reuse the source aggregate.
 ;; The paired-state invariant is target = map(source), with equal fold values.
 ;; Cold/foreign-state recovery may scan; hits and warm edits do not enumerate.
-(def (make-table-fold-isomorphism folding source aggregate project
+(def (make-table-fold-isomorphism folding source aggregate project fold-sources
        adopt-source read-source update-source target key value)
-  (call-with-table-translations source target key value (list folding aggregate)
+  ;; Pass the private complete scope, rather than infer closure dependencies from
+  ;; the public Wrapper identity. Standalone Codomain folds need these origins too.
+  (call-with-table-translations source target key value (cons folding fold-sources)
     (lambda (base-sources forward backward)
       (def ku (table-translation-unkey forward))
       (def va (table-translation-value forward)) (def vu (table-translation-unvalue forward))
@@ -222,7 +228,7 @@
             (table-fold-state-value next-source) (origins next-source)))
           (set! paired (make-table-fold-pair next-source result live-owners))
           result)))
-      (.cc Wrapper. Domain: folding Codomain: target-fold
+      (.cc Wrapper. Domain: folding Codomain: target-fold .sources: sources
         .ap: convert .unap: recover .apply-delta: update))))
 
 
