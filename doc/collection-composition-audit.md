@@ -220,3 +220,40 @@ the linked workload build took 11.04 seconds and every original study phase ran.
 No timeout, heap cap or test inventory was reduced. Lean's complete gate passed
 and commit `9524c38` passed all 17 CI checks. Remote Scheme CI is checked against
 the resulting commit separately; these local timings are not a paired speedup claim.
+
+
+## Direct Set observation admission and deferred invalidation
+
+The next audited unit found a concrete inconsistency after constructor repair:
+a plain `Set<-Table.` with a refusing whole-root predicate rejected `.list<-`,
+but `.iter<-` still yielded its elements. RationalSet's direct
+`rationaldict-keys` override bypassed even list admission. A cursor created from
+a valid Set also continued pulling after an explicit Set policy was revised.
+These witnesses used matching Elt/backing Key identities; they do not rely on
+loosening the intentional `set-styles` descriptor-identity requirement.
+
+`iterate-set` now admits the complete root before backend issuance and reuses
+`iterator-map` with its existing guard argument. It captures Set, Elt, backing
+and explicit policy versions; each pull checks those versions before backend
+`next!`, including repeated EOF. No metadata protection is held while the caller
+is suspended. Persistent snapshots require one full issuance admission, not a
+full scan per element. RationalSet inherits the existing checked list method
+instead of maintaining an unchecked public fast path. The backing RBTree and
+standard Iterator implementation are unchanged.
+
+The existing set-algebra suite covers complete refusal before backend issuance,
+policy invalidation of pending/exhausted cursors, repeated current EOF, fresh
+retry and boxed Function grants delivered through Reader/FUN/IO. The finite Lean
+`issueSetCursor`/`pullSetElement` laws reuse the existing cursor model, proving
+complete admission refusal, exact accepted enumeration and stale refusal with
+zero backend pulls. These are conditional persistent-model laws, not host runtime
+or compiler verification. General purity-based recognition reuse remains separate.
+
+Local acceptance: the complete standard build and
+`just _check-linked-collections 2 1 4` both exited zero with all 148 modules,
+1,722 passing cases and no error markers. The single-process harness took
+70.55 seconds; linked workload construction took 9.96 seconds and the original
+paired-study stages completed. Limits and test inventory were retained. These
+are acceptance timings, not a controlled claim of speedup. Lean's complete gate
+passed for `ccc42e9`; the existing SetStyle pull/EOF model was reused rather than
+duplicated. Remote CI is verified separately at the resulting PR heads.

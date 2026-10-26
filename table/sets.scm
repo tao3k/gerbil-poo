@@ -23,6 +23,25 @@
   (require-table (.@ descriptor Table) root)
   (require-table descriptor root))
 
+ ;; Admit the complete Set once before issuing its backing stream. Each delayed
+;; pull, including EOF, checks the captured Set/element/backend origins without
+;; rescanning a persistent root or retaining protection across caller suspension.
+(def (iterate-set descriptor input from)
+  (with-set-inputs descriptor (list input) (lambda ()
+    (def table (.@ descriptor Table))
+    (def sources (append (list descriptor (.@ descriptor Elt))
+      (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)))
+    (def versions (map object-revision sources))
+    ;; Reuse the standard mapped Iterator guard; stale refusal precedes next!.
+    (def (guard action)
+      (with-table-sources sources (lambda ()
+        (unless (equal? versions (map object-revision sources))
+          (error "stale set iterator"))
+        (action))))
+    (guard (lambda ()
+      (iterator-map car (if (not from) (.call table .iter<- input)
+        (.call table .iter<- input from)) guard))))))
+
 ;; Both operands, including identical/empty roots, precede relation/merge work.
 (def (with-set-tables descriptor left right action)
   (with-set-inputs descriptor (list left right) action))
@@ -241,11 +260,8 @@
   .find-first: (lambda (f t) (option-ref (.find-first/opt f t))) ;; : Elt <- (Bool <- Elt) @
   .find-last/opt: (lambda (f t) (query-set @ '.find-last/opt f t #t)) ;; : (Option Elt) <- (Bool <- Elt) @
   .find-last: (lambda (f t) (option-ref (.find-last/opt f t))) ;; : Elt <- (Bool <- Elt) @
-  .iter<-: (lambda (t from: (from #f)) ;; : (Iterator Elt) <- @ ?Elt
-              (iterator-map car
-                            (if (not from)
-                              (.call Table .iter<- t)
-                              (.call Table .iter<- t from))))
+  ;; Complete admission precedes issuance; the captured guard covers every pull.
+  .iter<-: (lambda (t from: (from #f)) (iterate-set @ t from))
   ;; The backing stream importer owns coalescing and one final installation.
   ;; Mapping elements to Unit entries does not scan/reconstruct the seed snapshot.
   .<-iter: (case-lambda

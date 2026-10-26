@@ -56,5 +56,5 @@
 (define-type (RationalSet @ [Set<-Table.])
   Elt: Rational
   Table: {(:: @T RationalDict.) Key: Elt Value: Unit}
-  ;; Public endpoint queries inherit the complete Set observation boundary.
-  .list<-: rationaldict-keys)
+  ;; Public observations inherit the complete Set boundary and backend order.
+  )

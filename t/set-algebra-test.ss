@@ -2,7 +2,7 @@
 (export set-algebra-test)
 (import :std/test :std/error :std/iter
         (only-in ../brace @@method)
-        ../object ../mop ../number ../type ../table ../rationaldict ../support/option
+        ../object ../mop ../fun ../number ../type ../table ../rationaldict ../support/option
         (only-in ../trie SimpleTrie SimpleTrieSet)
         (only-in ./table-testing alist-table)
         (only-in ./table-testing box-table)
@@ -30,6 +30,53 @@
 ;; Cover both generic merge and the existing Trie shared-subtree subset path.
 (def set-algebra-test
   (test-suite "finite persistent set algebra"
+    (test-case "direct Set list and iterator observations reject complete refinements before backend work"
+      (for (base (list RationalSet (SimpleTrieSet UInt)))
+        (def root (.call base .<-list '(1 2)))
+        (def rejected (.cc base .element?: (lambda (_) #f)))
+        (check-exception (.call rejected .list<- root) TypeError?)
+        (check-exception (.call rejected .iter<- root) TypeError?))
+      (def backing (.@ RationalSet Table)) (def calls 0)
+      (def table (.cc backing .iter<-: (lambda (root)
+        (set! calls (+ calls 1)) (.call backing .iter<- root))))
+      (def rejected (.cc Set<-Table. Table: table .element?: (lambda (_) #f)))
+      (check-exception (.call rejected .iter<- (.call backing .<-list (list (cons 1 (void))))) TypeError?)
+      (check-equal? calls 0))
+    (test-case "direct Set cursors guard dependencies and repeated EOF before touching the backend"
+      (def dependency (.o epoch: 0))
+      (def descriptor (.cc RationalSet .sources: (list dependency)))
+      (def root (.call descriptor .<-list '(1 2)))
+      (def cursor (.call descriptor .iter<- root))
+      (def exhausted (.call descriptor .iter<- root))
+      (check-equal? (for/collect (key exhausted) key) '(1 2))
+      (using (iterator exhausted :- Iterator)
+        (check-eq? (iterator.next!) #!eof) (check-eq? (iterator.next!) #!eof))
+      (.set! dependency epoch 1)
+      (for (stream (list cursor exhausted))
+        (using (iterator stream :- Iterator)
+          (check-exception (iterator.next!) (message? "stale set iterator"))))
+      (check-equal? (for/collect (key (.call descriptor .iter<- root)) key) '(1 2)))
+    (test-case "Set snapshot observation composes representations Function grants and FUN IO retry"
+      (def signature (Fun Integer <- Integer))
+      (def grant (validate signature (lambda (n) (+ n 1))))
+      (def backing (alist-table signature Unit))
+      (defvalues (boxed _carrier _keys) (box-table backing key:
+        (.cc Wrapper. Domain: signature Codomain: signature .ap: identity .unap: identity)))
+      (def policy (.o epoch: 0))
+      (def descriptor (.cc Set<-Table. Table: boxed .sources: (list policy)))
+      (def root (.call descriptor .singleton grant))
+      (def calls 0)
+      (def action (service.observe-access-action descriptor (lambda (grants)
+        (set! calls (+ calls 1)) grants)))
+      (check-eq? (car (action root)) grant)
+      (check-equal? ((car (action root)) 7) 8)
+      (def refused (.cc descriptor .element?: (lambda (_) #f)))
+      (check-exception ((service.observe-access-action refused (lambda (_)
+        (set! calls (+ calls 1)))) root) TypeError?)
+      (check-equal? calls 2)
+      (.set! policy epoch 1)
+      (check-eq? (car (action root)) grant)
+      (check-equal? calls 3))
     (test-case "finite image responses are captured before Elt recognition and backend deduplication"
       (defvalues (source target image buffer _invalid) (buffered-permission-image))
       (def state (.call image .ap (.call source .<-list '(1 2))))

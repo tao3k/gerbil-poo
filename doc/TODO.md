@@ -375,7 +375,7 @@ original feature backlog is explicitly grouped as follows:
 | --- | --- | --- |
 | Representation optimization | Qualify full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
 | Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
-| Collection protocol | Close the audited singleton/bulk delegation gap across derived collections and five styles before conditional recognition reuse. General automatic discovery remains a separate research goal. | [Composition audit](collection-composition-audit.md); Generic Data Structure Library below |
+| Collection protocol | Constructor delegation is closed across derived collections and five styles. Direct Set observation now shares complete admission and guarded delayed pulls; conditional recognition reuse still requires independent refinement/purity evidence. General automatic discovery remains a separate research goal. | [Composition audit](collection-composition-audit.md); Generic Data Structure Library below |
 | General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
 | Interpreter project | A real Jsonnet/Nix implementation and its language-level correspondence/acceptance, not object examples | Classes below |
 
@@ -1212,6 +1212,16 @@ The first layer can also serve to cache all slot computations and
 hold values of slots modified by side-effects.
 
 ## Generic Data Structure Library
+
+**Direct Set observation** now closes the admission and invalidation bypass in
+`.iter<-` and RationalSet's raw `.list<-` override. List observation inherits the
+existing Set boundary. Cursor issuance admits the complete root once and retains
+Set/Elt/backend/policy stamps; the existing mapped Iterator checks them before
+every pull, including repeated EOF. It does not rescan the root per element or
+introduce another Iterator class. Reader/FUN/IO examples cover whole-root refusal,
+opaque Function grants, invalidation and fresh retry. Finite Lean laws cover
+issuance refusal/order and zero backend pulls after invalidation; host dispatch,
+persistent carriers and arbitrary callback behavior remain explicit premises.
 
 **Constructor delegation implemented:** [the composition audit](collection-composition-audit.md#constructor-delegation-acceptance) records the complete repair across Set, order, representation, indexes and all five styles. Empty, singleton and bulk retain independent refusal domains. Shared Wrapper admission, complete-root refinement and metadata guards remain in place. The same audit separates measured repeated recognition from any proven safe optimization, and distinguishes the original paper from later author proposals.
 
