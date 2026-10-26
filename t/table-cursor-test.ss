@@ -77,7 +77,12 @@
       (for (fixture (observation-fixtures Integer))
         (let* ((base (car fixture)) (root (cdr fixture))
                (refused (.cc base .element?: (lambda (_) #f))))
-          (check-exception (.call refused .list<- root) TypeError?)
+          (check-exception (.call refused .list<- root) TypeError?)))
+      ;; Derived cursors intentionally retain lazy per-row conversion; default
+      ;; concrete backends additionally admit their complete raw input at issuance.
+      (for (raw (list (RationalDict Integer) (SimpleTrie UInt Integer)))
+        (let* ((root (.call raw .singleton 1 10))
+               (refused (.cc raw .element?: (lambda (_) #f))))
           (check-exception (.call refused .iter<- root) TypeError?)))
       (def raw (RationalDict Integer)) (def calls 0)
       (def denied (.cc raw .element?: (lambda (_) #f)
@@ -219,8 +224,8 @@
           (.call raw .foldr f seed root))
         .list<-: (lambda (root) (when blocked? (error "unexpected list materialization"))
           (.call raw .list<- root))
-        .iter<-: (lambda (root (from 0)) (set! starts (+ starts 1))
-          (iterator-map identity (.call raw .iter<- root from)
+        .iter/key: (lambda (root (from 0)) (set! starts (+ starts 1))
+          (iterator-map identity (.call raw .iter/key root from)
             (lambda (action) (set! pulls (+ pulls 1)) (action))))))
       (def ordered (table-order source (.@ source Comparer)))
       (def indexed (table-indexes ordered (list
@@ -261,8 +266,8 @@
     (test-case "every derived layer refuses before active or repeated EOF pulls after invalidation"
       (for* ((kind '(order index wrapper)) (empty? '(#f #t)))
         (def raw (SimpleTrie UInt Integer)) (def pulls 0)
-        (def source (.cc raw .iter<-: (lambda (root (from 0))
-          (iterator-map identity (.call raw .iter<- root from)
+        (def source (.cc raw .iter/key: (lambda (root (from 0))
+          (iterator-map identity (.call raw .iter/key root from)
             (lambda (action) (set! pulls (+ pulls 1)) (action))))))
         (def root (if empty? (.@ raw .empty) (.call raw .singleton 1 10)))
         (def declaration (.cc Type. name: 'value table: (RationalDict UInt) unique?: #t

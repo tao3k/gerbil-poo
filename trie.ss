@@ -882,7 +882,7 @@
   ;; A table-order capability accepts Option bounds; UInt successors implement
   ;; exclusive bounds exactly without overflow or an unrelated comparison mode.
   .seek<-: (lambda (t lower inclusive?)
-    (.call @ .iter<- t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
+    (.call @ .iter/key t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
 
 (define-type (TrieSet. @ Set<-Table.)
   ;; Match RationalSet's binding: one element descriptor owns the backing key

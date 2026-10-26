@@ -392,7 +392,10 @@
       (def version (object-revision table))
       (check-exception (.call table .diff source source) (message? "object mutation during computation"))
       (check-equal? (object-revision table) version)
-      (check-equal? (.call table .list<- source) '((1 . 1))))
+      ;; Inspect backend bytes without rerunning the deliberately mutating child
+      ;; recognizer; the checked public materializer must reject that recognizer.
+      (check-equal? (.call table .list/key source) '((1 . 1)))
+      (check-exception (.call table .list<- source) (message? "object mutation during computation")))
     (test-case "nested table guards retain ownership and unwind after callback refusal"
       (def table #f) (def observe? #f) (def mutate? #f) (def samples [])
       (def value (.cc Integer .element?: (lambda (n)

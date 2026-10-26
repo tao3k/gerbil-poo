@@ -325,3 +325,16 @@ optimized-module-limit experiment was withdrawn after GCC reported expensive
 optimizations disabled at the actual -O1 level. The build options and CI/default
 worker selection remain unchanged. Existing complete CI is the next independent
 acceptance gate; local cold-build performance remains an explicit open result.
+
+
+The first CI candidate exposed an overreach: eager receiver recognition on derived
+cursors forced conversion before pull, duplicated backend starts and invalidated
+the existing narrow-seek work bound. Those assertions were retained unchanged.
+The derived-cursor eager checks were removed: these cursors deliberately operate
+on admitted snapshots with guarded, lazy row conversion. Trie positioning now
+uses the backend iterator capability under its original caller's admission;
+backend instrumentation moved to that same capability. Default raw-table
+iteration and eager materialization retain their new complete admission.
+A deliberately mutating child-recognizer diagnostic now inspects `.list/key`
+without replaying that recognizer, and additionally checks that public `.list<-`
+refuses it. This is a scope correction, not weaker validation or relaxed bounds.

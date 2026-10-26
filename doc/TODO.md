@@ -1219,7 +1219,9 @@ represented/ordered/indexed views. Backend `.list/key` and `.iter/key` retain
 standard materialization/traversal; public `.list<-` and `.iter<-` own complete
 receiver recognition. A shared guarded Iterator checks source/child/origin stamps
 before each delayed default pull, including EOF, without rescanning per element.
-Views retain their original delayed guards and failure causes. Reader/FUN/IO
+Derived cursors intentionally retain their admitted-snapshot, lazy per-row
+conversion contract and original guard failures; full receiver recognition must
+not force those conversions or destroy positioned traversal. Reader/FUN/IO
 covers no-order-assumption observation, all five styles, Function identity,
 refusal and fresh retry. Lean shares Table observation/issuance with Set and
 reuses existing pull laws. Full admission costs and backend laws remain explicit;

@@ -600,10 +600,9 @@
             ;; Guard before every pull, including repeated EOF, without holding
             ;; metadata protection across suspension in the caller.
             .iter<-: (lambda (input) (guard (lambda ()
-              (observe-table @ input (lambda ()
-                (iterator-map (lambda (entry)
-                  (translate-entry forward (car entry) (cdr entry)))
-                  (.call source .iter<- (decode input)) guard))))))
+              (iterator-map (lambda (entry)
+                (translate-entry forward (car entry) (cdr entry)))
+                (.call source .iter<- (decode input)) guard))))
             .merge: binding-merge
             .map/2: (cut binding-map #f <> <>)
             .filter-map/2: (cut binding-map #t <> <>)

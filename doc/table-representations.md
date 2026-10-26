@@ -940,9 +940,13 @@ existing mapped Iterator, capturing source/Key/Value/explicit-origin revisions
 and checking them before each pull, including repeated EOF. Issuance admits the
 whole immutable snapshot once; delayed pulls do not rescan it.
 
-Represented, ordered and indexed public iterators admit their own complete
-receiver before creating their existing cursor. Their original guards and
-specific failure causes stay in place. No other iterator class, cache, sorting
+Represented, ordered and indexed cursors retain their existing admitted-snapshot
+contract: their original source/family guards and lazy per-row conversions stay
+in place. Complete recognition of a represented image at issuance would force
+converters prematurely and is intentionally not added. Eager `.list<-` admits its
+whole receiver; default raw-table iteration admits before backend creation.
+Trie's positioned capability delegates to `.iter/key` after its existing caller's
+admission, preserving narrow seeks instead of repeating a whole-table scan. No other iterator class, cache, sorting
 algorithm, ownership engine or environment variable is introduced. Arbitrary
 explicit public-method replacements remain the author's responsibility; the
 default protocol does not certify user overrides or hidden mutable leaf contents.
