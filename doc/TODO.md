@@ -42,7 +42,7 @@ further tuning of the corresponding workflow.
 | Data representation / usual object optimizations | Implemented protocol: persistent ordered prototype maps, shared symbolic shapes, opt-in receiver-local vectors and guarded inline sites integrated into object reads/writes and descendant invalidation | Concrete protocol closed; full hash removal, Patricia layouts and automatic JIT/PIC policy remain optimization work. See [representation.md](representation.md). Historical speed measurements do not close these. |
 | Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
 | Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `types/relation.ss` / `prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
-| Generic data structure library | Shared finite collection-validation protocol closed: methods.table / RationalDict / Trie / derived sets / Map retain recursively normalized keys and values, Function wrappers, carrier admission and refusal/retry; t/table-validation-test.ss | A general collection library with the proposed protocol and laws is open. |
+| Generic data structure library | Shared finite validation, explicit revisions/isomorphisms, aggregates, indexes, projections and five-style publication have concrete implementations; scoped units are listed below. See the [source-grounded composition audit](collection-composition-audit.md). | General library goals remain open. Priority: singleton delegation across Set, ordered, indexed and represented descriptors substitutes bulk construction and changes refusal domains; executable counterexamples confirm the gap. Recognition reuse is a later, conditional optimization. |
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md). See [generated-testing.md](generated-testing.md). |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
@@ -58,8 +58,9 @@ revision-trace/policy-preservation and compact source-operation bounds accompany
 
 This closes that concrete representation subitem, not the whole original TODO.
 Full-vector/hash removal and measured strategy qualification remain optimization
-work. The proposed general incremental/isomorphism-aware collection library and
-Jsonnet/Nix interpreter remain separate substantial unimplemented projects.
+work. The proposed general incremental/isomorphism-aware collection library remains
+partial, with concrete supported units and open acceptance targets tracked below.
+The Jsonnet/Nix interpreter remains a separate unimplemented project.
 Alternative-order certification, unrestricted inference, arbitrary adapter laws
 and unrestricted recursive metalevel closure retain their stated research bounds;
 they are not being relabeled as reproducible bugs or closed by this work unit.
@@ -374,7 +375,7 @@ original feature backlog is explicitly grouped as follows:
 | --- | --- | --- |
 | Representation optimization | Qualify full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
 | Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
-| Collection protocol | Proposed generic incremental/isomorphism-aware collection library and its laws, beyond existing containers | Generic Data Structure Library below |
+| Collection protocol | Close the audited singleton/bulk delegation gap across derived collections and five styles before conditional recognition reuse. General automatic discovery remains a separate research goal. | [Composition audit](collection-composition-audit.md); Generic Data Structure Library below |
 | General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
 | Interpreter project | A real Jsonnet/Nix implementation and its language-level correspondence/acceptance, not object examples | Classes below |
 
@@ -1211,6 +1212,8 @@ The first layer can also serve to cache all slot computations and
 hold values of slots modified by side-effects.
 
 ## Generic Data Structure Library
+
+**Current audited priority:** [constructor delegation through derived collections](collection-composition-audit.md) is an open complete acceptance unit. Singleton and bulk constructors may have different refusal domains. Preserve the chosen source operation across Set, order, representation, indexes and all five styles before optimizing repeated recognition. The original paper and later author examples/proposals are distinguished in that audit.
 
 **Incremental view composition** now closes the missing chain between
 existing projection, joint join and grouped-aggregate caches. `table-projection-compose`
