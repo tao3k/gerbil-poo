@@ -522,7 +522,14 @@
       .step: step .convert: convert
       ;; Constructors allocate a fresh presentation through the ordinary creator;
       ;; they neither consume an existing owner nor normalize admitted leaves.
-      .<-list: (lambda (rows) (guard (lambda () (create (.call (or set source) .<-list rows)))))
+      .<-list: (lambda (rows)
+        ;; Set elements are opaque leaves, so only their outer spine is owned.
+        ;; Table rows additionally own Pair shells before any custom delegate.
+        ;; Defer malformed outer requests to their existing guarded delegate:
+        ;; stale factories still refuse before the constructor's list contract.
+        (def captured (if (list? rows)
+          (if set (map identity rows) (capture-table-bindings rows)) rows))
+        (guard (lambda () (create (.call (or set source) .<-list captured)))))
       .singleton: (if set
         (lambda (elt) (guard (lambda () (create (.call set .singleton elt)))))
         (lambda (key value) (guard (lambda () (create (.call source .singleton key value))))))

@@ -1,19 +1,24 @@
 ;;; Checked key-preserving maps reuse persistent folds and declared Trie traversal.
 
-;; Snapshot the caller's list spine and Pair shells before any child predicate.
-;; Admitted leaves retain identity. The backend keeps its list duplicate policy
-;; and may build partial raw nodes privately; only its complete result is admitted.
+ ;; Own a finite binding request before metadata or user delegates can run.
+;; Copy only the list spine and Pair shells; admitted leaves remain shared.
+;; Malformed entries stay unchanged for the ordinary typed admission failure.
+(def (capture-table-bindings entries)
+  (map (lambda (row) (if (pair? row) (cons (car row) (cdr row)) row)) entries))
+
+;; Snapshot before descriptor discovery, then retain backend duplicate precedence
+;; and complete-result admission. No constructor normalizes Function leaves.
 (def (construct-table descriptor entries singleton?)
   (using (entries :~ list?)
-    (with-table-sources (table-sources descriptor) (lambda ()
-      (def rows (map (lambda (row) (if (pair? row) (cons (car row) (cdr row)) row)) entries))
-      (def binding (Pair (.@ descriptor Key) (.@ descriptor Value)))
-      (for-each (lambda (row)
-        (unless (element? binding row) (raise-type-error binding row 'table-construction))) rows)
-      (require-table descriptor
-        (if (and singleton? (.has? descriptor .singleton/key))
-          (.call descriptor .singleton/key (caar rows) (cdar rows))
-          (.call descriptor .<-list/key rows)))))))
+  (def rows (capture-table-bindings entries))
+  (with-table-sources (table-sources descriptor) (lambda ()
+    (def binding (Pair (.@ descriptor Key) (.@ descriptor Value)))
+    (for-each (lambda (row)
+      (unless (element? binding row) (raise-type-error binding row 'table-construction))) rows)
+    (require-table descriptor
+      (if (and singleton? (.has? descriptor .singleton/key))
+        (.call descriptor .singleton/key (caar rows) (cdar rows))
+        (.call descriptor .<-list/key rows)))))))
 
 ;; Consume a finite standard Iterable once into its declared backend key space.
 ;; Each yielded Pair shell is captured before child recognition; admitted Function

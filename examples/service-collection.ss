@@ -742,7 +742,8 @@
           (split-ledger-action table pivot (cut consume rank <> <> <>)) car)))))
 
 ;; Reader/FUN constructs the complete admitted ledger before IO; no Function leaf
-;; is normalized again and a constructor failure suppresses the consumer.
+;; is normalized again and a constructor failure suppresses the consumer. The same
+;; entry accepts a raw descriptor or any existing Table/Set style factory.
 (def (construct-ledger-action descriptor consume)
   (using (consume :~ procedure?)
     (.call Observation. .map consume (lambda (rows) (.call descriptor .<-list rows)))))
