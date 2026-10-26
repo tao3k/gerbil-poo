@@ -1213,6 +1213,16 @@ hold values of slots modified by side-effects.
 
 ## Generic Data Structure Library
 
+**Ordered producer row capture** closes validation-before-selection in the
+existing checked cursor. Each emitted Pair shell is captured and recursively
+recognized before lower-bound comparison, including rows that would be filtered
+out. Reused buffers and comparator effects cannot rewrite accepted bindings or
+repair invalid originals. The same cursor, comparer and metadata guard remain;
+Function payloads retain identity. Reader/FUN/IO covers late refusal and fresh
+retry. Finite Lean laws separate admission failure, filtering, selection failure
+and original-entry delivery; arbitrary mutable leaf contents and producer order
+remain declared premises. See [table-order.md](table-order.md).
+
 **Direct Set observation** now closes the admission and invalidation bypass in
 `.iter<-` and RationalSet's raw `.list<-` override. List observation inherits the
 existing Set boundary. Cursor issuance admits the complete root once and retains

@@ -100,13 +100,16 @@
         (require-table descriptor input)
         (require-table-option (.@ descriptor Key) bound)
         (def binding (Pair (.@ descriptor Key) (.@ descriptor Value)))
-        (iterator-map (lambda (entry)
-          (some-value (require-table-entry binding (some entry)))) (in-coroutine (lambda (yield)
-          (for (entry (producer input))
-            (when (or (not bound)
-              (let (sign (.call comparer .compare (car entry) (some-value bound)))
-                (if inclusive? (>= sign 0) (> sign 0))))
-              (yield entry))))) guard)))))))
+        ;; Capture/recognize each producer-owned shell before comparing its key.
+        ;; Even a filtered row must be valid; comparator effects cannot repair or
+        ;; replace the return-time binding. Leaves retain their admitted identity.
+        (iterator-map identity (in-coroutine (lambda (yield)
+          (for (response (producer input))
+            (let (entry (some-value (require-table-entry binding (some response))))
+              (when (or (not bound)
+                (let (sign (.call comparer .compare (car entry) (some-value bound)))
+                  (if inclusive? (>= sign 0) (> sign 0))))
+                (yield entry)))))) guard)))))))
 
  ;; Compare admitted cursor rows without constructing a merge result. Pair shells
 ;; are copied before any other pull/callback; value leaves keep their identity.

@@ -594,3 +594,39 @@ admission and per-pull/EOF invalidation remain. Ordinary caller-side method look
 precedes invocation and is outside this ownership boundary. Finite Lean proofs
 cover endpoint capture and refusal ordering under stable key and faithful revision
 premises; they do not establish arbitrary callback, compiler or GC correctness.
+
+
+## Producer row capture before selection
+
+The checked `table-ordered-cursor` captures every producer-owned Pair through the
+existing `require-table-entry` helper before recognizing child values or invoking
+the lower-bound comparer. Previously comparison ran on the raw producer buffer
+and validation happened only after filtering: a comparator could replace a
+return-time `(1 . 10)` with `(1 . 20)`, and an invalid row below the lower bound
+could disappear without refusal. Both violate this cursor's checked delivery
+boundary; they do not imply that arbitrary producers have certified ordering.
+
+The corrected loop validates one captured row, selects it, then yields that same
+row. It retains the standard coroutine Iterator, original metadata guard and EOF
+discipline. Filtered rows are validated too. Successful comparison may mutate
+the producer's buffer, but cannot rewrite the captured Pair. Admitted Function
+payloads are neither cloned nor normalized; arbitrary mutable leaf contents
+remain the caller's responsibility. Producer and comparator exceptions keep
+their cause, prior callback effects remain, and late refusal suppresses final IO.
+Retry creates a fresh cursor instead of reviving a failed coroutine.
+
+`observe-positioned-ledger-action` composes the declared seek capability with
+Reader/FUN and IO. Regressions cover comparator-written shells, hidden invalid
+rows, malformed Pairs, reused buffers, retained Function leaves and late failure
+followed by a fresh successful attempt. Existing order/Wrapper/index/style tests
+remain the integration checks for this shared cursor boundary.
+
+Lean `observeCapturedEntry` in `Functional/TableObservation.lean` proves refusal
+before selection, exact captured delivery, filtering after admission and exact
+comparator refusal. The model allows admission to return a changed producer heap
+but passes the original pair to selection. It assumes faithful producer order,
+persistent roots and host Iterator dispatch; it does not prove arbitrary callback
+effects, mutable payload internals, compiler behavior or GC. Each emitted row
+incurs one captured shell and child admission before selection; no snapshot scan,
+sorting pass, new cache or second cursor engine is introduced. This correctness
+repair is not a universal wall-clock speedup claim.

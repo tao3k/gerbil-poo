@@ -257,3 +257,25 @@ paired-study stages completed. Limits and test inventory were retained. These
 are acceptance timings, not a controlled claim of speedup. Lean's complete gate
 passed for `ccc42e9`; the existing SetStyle pull/EOF model was reused rather than
 duplicated. Remote CI is verified separately at the resulting PR heads.
+
+
+## Ordered producer delivery discipline
+
+A bounded witness after direct Set observation repair supplied a valid persistent
+root and a producer-owned Pair `(1 . 10)`. Its lawful numeric comparer rewrote the
+producer buffer while comparing against lower bound zero. The checked cursor
+returned `(1 . 20)`: it filtered before capturing/recognizing the producer row.
+The same ordering could hide invalid rows below the bound. The repair uses the
+existing `require-table-entry` before bound comparison inside the original
+coroutine. See [table-order.md](table-order.md#producer-row-capture-before-selection)
+for the complete acceptance unit, explicit costs and finite Lean proof premises.
+This extends the concrete checked cursor, not the paper's illustrative tree
+algorithm, and introduces no new namespace or alternate backend.
+
+Local acceptance for this unit: complete standard build and
+`just _check-linked-collections 2 1 4` exited zero, with 148 modules, 1,725 passing
+cases and no error markers. The single-process harness took 98.60 seconds;
+linked workload construction took 15.31 seconds and every original paired-study
+phase completed. No check or resource limit changed. These are acceptance
+measurements, not a paired wall-clock improvement claim. Lean's complete gate
+passed at `f9332dc`; remote CI is verified separately against the current heads.
