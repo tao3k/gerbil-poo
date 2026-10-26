@@ -2,7 +2,9 @@
 
 Audit date: 2026-10-26. This review follows the existing collection call chain
 from source construction to backend methods, derived views and style publication.
-The findings below remain open; the next acceptance unit is specified explicitly.
+The original findings below record the pre-repair behavior. Constructor delegation
+has since been repaired as described in the acceptance section; repeated
+recognition remains a separate, measured optimization question.
 
 ## Source and implementation identities
 
@@ -127,7 +129,7 @@ through derived collections**, rather than another isolated application example:
   that singleton and bulk have identical failure domains.
 
 No new framework, namespace, general law inference or compatibility path is
-needed to state this unit. This audit does not implement that repair.
+needed to implement this unit. The repair below uses these existing boundaries.
 
 ## Measured structural cost: repeated recognition, not a proven safe deletion
 
@@ -179,3 +181,42 @@ previous complete acceptance do not cover these newly demonstrated constructor
 policies. The snippets are diagnostic witnesses. Convert them into passing regressions
 together with the constructor repair before closing this acceptance target.
 The review establishes neither whole-language nor implementation-platform correctness.
+
+
+## Constructor delegation acceptance
+
+Set's singleton is again the direct `Table.singleton` delegate inside its
+existing shared Wrapper boundary. Its lazy empty operation uses the same boundary
+and the source empty capability. Ordered, indexed and represented descriptors
+supply singleton delegates under their existing guards; indexed construction
+prepares the complete cache family only after source construction succeeds.
+One-entry bulk requests still select bulk. No successful constructor is assumed
+to imply that another constructor accepts the same request.
+
+`t/table-construction-test.ss` exercises both independent refusal directions
+through direct, ordered, indexed, boxed and nested views, all five Set styles,
+invalid-key rejection, and exact Function-leaf retention. The
+`singleton-ledger-action` example composes the selected capability with existing
+Reader/FUN and IO, suppressing the consumer after refusal and accepting a fresh
+retry. Existing final-refinement, stale-factory, index-conflict and ownership
+regressions remain in the same complete suite.
+
+Lean `Functional/TableCapture.lean` models explicit empty/singleton/bulk requests.
+The finite laws preserve source, decoder and preparation errors across nested
+translations and suppress final admission after constructor refusal. Concrete
+service examples show singleton success despite refused empty/bulk policies,
+one-entry bulk refusal and consumer suppression. Faithful host dispatch,
+representation/index laws and external callback behavior remain premises;
+these proofs do not validate the Scheme compiler, runtime or arbitrary effects.
+
+The earlier witness table and recognition counts remain historical diagnostics,
+not post-repair timing measurements. This correctness repair does not claim a
+wall-clock speedup or authorize removing independent business refinements.
+
+Local acceptance after the repair: the unchanged complete build succeeded;
+`just _check-linked-collections 2 1 4` exited zero with 148 modules, 1,719
+passing cases and no error markers. The single-process harness took 79.86 seconds;
+the linked workload build took 11.04 seconds and every original study phase ran.
+No timeout, heap cap or test inventory was reduced. Lean's complete gate passed
+and commit `9524c38` passed all 17 CI checks. Remote Scheme CI is checked against
+the resulting commit separately; these local timings are not a paired speedup claim.

@@ -9,9 +9,74 @@
 ;; Observe the exact cause without accepting another failure family as equivalent.
 (def (caught action) (with-catch identity action))
 
+ ;; Exercise the existing derivations independently and in a nested chain.
+;; Every indexed view uses its own declared cache, never an eager empty source.
+(def (constructor-views source)
+  (defvalues (boxed _carrier _keys) (box-table source))
+  (def (indexed table)
+    (table-indexes table (list (.cc Type. name: 'key unique?: #t
+      table: (RationalDict (.@ table Key)) project: (lambda (key _) key)))))
+  (def index (indexed source))
+  (list source (table-order source (table-comparer (.@ source Key) number-comparer))
+    index boxed (table-order (indexed boxed)
+      (table-comparer (.@ boxed Key) number-comparer))))
+
 ;; Constructor contracts retain leaf identity, backend precedence and final admission.
 (def table-construction-test
   (test-suite "checked complete collection construction"
+    (test-case "derived singleton refusal cannot fall through to successful bulk"
+      (def raw (RationalDict Unit)) (def cause (Error "single denied"))
+      (def singles 0) (def batches 0)
+      (def source (.cc raw
+        .singleton/key: (lambda (_key _value) (set! singles (+ singles 1)) (raise cause))
+        .<-list/key: (lambda (rows) (set! batches (+ batches 1)) (.call raw .<-list/key rows))))
+      (for (view (constructor-views source))
+        (check-eq? (caught (lambda () (.call view .singleton 1 (void)))) cause)
+        (def set (.cc Set<-Table. Table: view))
+        (check-eq? (caught (lambda () (.call set .singleton 1))) cause)
+        (for (style '(Pure Mutable Linear Posh Classy))
+          (def protocol (.ref (set-styles set) style))
+          (check-eq? (caught (lambda () (.call protocol .singleton 1))) cause)))
+      (check-equal? singles 35) (check-equal? batches 0))
+    (test-case "singleton remains available when independent empty and bulk policies refuse"
+      (def raw (RationalDict Unit))
+      (def empty-cause (Error "empty denied")) (def bulk-cause (Error "bulk denied"))
+      (def source (.o (:: @ raw)
+        (.empty (raise empty-cause))
+        .singleton/key: (lambda (key value) (.call raw .singleton key value))
+        .<-list/key: (lambda (_) (raise bulk-cause))))
+      (for (view (constructor-views source))
+        (check-equal? (.call view .count (.call view .singleton 1 (void))) 1)
+        (check-eq? (caught (lambda () (.call view .<-list (list (cons 1 (void)))))) bulk-cause)
+        (check-eq? (caught (lambda () (.@ view .empty))) empty-cause)
+        (def set (.cc Set<-Table. Table: view))
+        (check-equal? (.call set .count (.call set .singleton 1)) 1)
+        (check-eq? (caught (lambda () (.@ set .empty))) empty-cause)
+        (for (style '(Pure Mutable Linear Posh Classy))
+          (def protocol (.ref (set-styles set) style))
+          (check-equal? (.call protocol .count (.call protocol .singleton 1)) 1)
+          (check-eq? (caught (lambda () (.call protocol .<-list '(1)))) bulk-cause))))
+    (test-case "singleton views preserve admission and Function leaves before FUN IO"
+      (def signature (Fun Integer <- Integer))
+      (def callback (validate signature (lambda (n) (+ n 1))))
+      (def raw (RationalDict signature)) (def calls 0) (def effects 0)
+      (def cause (Error "temporarily refused")) (def refuse? #t)
+      (def source (.cc raw .singleton/key: (lambda (key value)
+        (set! calls (+ calls 1))
+        (if refuse? (raise cause) (.call raw .singleton key value)))))
+      (for (view (constructor-views source))
+        (def action (service.singleton-ledger-action view (lambda (root)
+          (set! effects (+ effects 1)) root)))
+        (set! refuse? #t)
+        (check-eq? (caught (lambda () (action (cons 1 callback)))) cause)
+        (let (previous calls)
+          (check-exception (action (cons 'bad callback)) TypeError?)
+          (check-equal? calls previous))
+        (set! refuse? #f)
+        (let (root (action (cons 1 callback)))
+          (check-eq? (.call view .ref root 1) callback)
+          (check-equal? ((.call view .ref root 1) 5) 6)))
+      (check-equal? effects 5) (check-equal? calls 10))
     (test-case "metadata discovery cannot rewrite captured constructor rows or Pair fields"
       (def raw (RationalDict Integer))
       (def second (cons 2 20)) (def rows (list (cons 1 10) second))

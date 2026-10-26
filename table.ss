@@ -553,6 +553,10 @@
               (encode (.call source .<-list (map (lambda (entry)
                 (let* ((k (translate backward #t (car entry)))
                        (v (translate backward #f (cdr entry)))) (cons k v))) bindings))))))
+            ;; Translate one entry and retain the source's own singleton/refusal policy.
+            .singleton/key: (lambda (key value) (guard (lambda ()
+              (encode (.call source .singleton (translate backward #t key)
+                (translate backward #f value))))))
             ;; Delegate FUN operations while protecting the complete user callback.
             .bind/wrap: (lambda (input f) (guard (lambda () (.call checked .bind input f))))
             .map/wrap: (lambda (f input) (guard (lambda () (.call checked .map f input))))

@@ -1213,7 +1213,7 @@ hold values of slots modified by side-effects.
 
 ## Generic Data Structure Library
 
-**Current audited priority:** [constructor delegation through derived collections](collection-composition-audit.md) is an open complete acceptance unit. Singleton and bulk constructors may have different refusal domains. Preserve the chosen source operation across Set, order, representation, indexes and all five styles before optimizing repeated recognition. The original paper and later author examples/proposals are distinguished in that audit.
+**Constructor delegation implemented:** [the composition audit](collection-composition-audit.md#constructor-delegation-acceptance) records the complete repair across Set, order, representation, indexes and all five styles. Empty, singleton and bulk retain independent refusal domains. Shared Wrapper admission, complete-root refinement and metadata guards remain in place. The same audit separates measured repeated recognition from any proven safe optimization, and distinguishes the original paper from later author proposals.
 
 **Incremental view composition** now closes the missing chain between
 existing projection, joint join and grouped-aggregate caches. `table-projection-compose`

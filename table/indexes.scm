@@ -210,6 +210,9 @@
       ;; One complete primary construction precedes one complete cache family.
       .<-list/key: (lambda (bindings) (guard sources
         (lambda () (initialize (.call source .<-list bindings)))))
+      ;; The source singleton accepts before one complete private cache family is built.
+      .singleton/key: (lambda (key value) (guard sources
+        (lambda () (initialize (.call source .singleton key value)))))
       ;; Normalize the complete primary before preparing any replacement cache.
       ;; Unchanged validated leaves retain the original snapshot and index roots.
       (.validate (table-view-validator @ source (lambda (state)

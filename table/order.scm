@@ -271,6 +271,8 @@
       ;; and constructor while protecting comparator/declaration callbacks throughout.
       .key-table: (lambda (value) (protect (lambda () (table-key-table source value))))
       .<-list/key: (lambda (bindings) (protect (lambda () (.call source .<-list bindings))))
+      ;; Preserve independently partial singleton construction, not a one-row bulk request.
+      .singleton/key: (lambda (key value) (protect (lambda () (.call source .singleton key value))))
       ;; Rebind derived methods to this descriptor, not a cached source receiver.
       ;; Point operations keep the original backend and the same metadata discipline.
       .validate-shape: (lambda (state) (observe state (lambda () state)))

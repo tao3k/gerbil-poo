@@ -177,7 +177,7 @@
   .validate: (cut build-set @ [] '.validate <>) ;; : @ <- Any
   .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
   ;; Empty is a partial constructor when the declared set excludes that root.
-  .empty: (.<-list []) ;; : @
+  (.empty (.call methods .empty)) ;; : @
   ;; Set refinement precedes the backing predicate, even for an empty carrier.
   .empty?: (lambda (root) (with-set-inputs @ (list root)
     (lambda () (table-empty-key? Table root)))) ;; : Bool <- @
@@ -186,10 +186,12 @@
     (lambda () (.call Table .key? root elt)))) ;; : Bool <- @ Elt
   ;; One derived boundary admits the family; the backend delegates stay simple.
   methods: (set-methods @
-    (.o .cons: (cut .call Table .acons <> (void) <>)
-        .singleton: (lambda (elt) (.call Table .<-list [(cons elt (void))]))
+    (.o .empty: (lambda () (.@ Table .empty))
+        .cons: (cut .call Table .acons <> (void) <>)
+        .singleton: (lambda (elt) (.call Table .singleton elt (void)))
         (.remove (.@ Table .remove)))
-    (.o (.cons (.cc Function. inputs: [Elt @] outputs: [@]))
+    (.o (.empty (.cc Function. inputs: [] outputs: [@]))
+        (.cons (.cc Function. inputs: [Elt @] outputs: [@]))
         (.singleton (.cc Function. inputs: [Elt] outputs: [@]))
         (.remove (.cc Function. inputs: [@ Elt] outputs: [@]))))
   .cons: (.@ methods .cons) ;; : @ <- Elt @
