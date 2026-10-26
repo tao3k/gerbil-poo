@@ -305,6 +305,9 @@
           (def output (transform key))
           (def keys (if multiple? output (list output)))
           (using (keys :~ list?)
+            ;; Own a borrowed finite result before Elt predicates can reuse it.
+            ;; Single-output keys already have a private list; leaves stay shared.
+            (when multiple? (set! keys (map identity keys)))
             (for-each (lambda (key)
               (unless (element? (.@ target Elt) key)
                 (raise-type-error (.@ target Elt) key 'set-image))) keys)
