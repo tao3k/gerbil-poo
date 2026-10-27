@@ -14,13 +14,13 @@ build-core:
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
 
 build-shared: build-core
-    cd benchmarks/checks && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
+    cd benchmarks/representation-startup && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
 # Standalone studies use their ordinary compiler packages only when requested.
 build-benchmarks group: build-core
     cd "benchmarks/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
-# Standard package commands share the original two-frontend machine budget.
+# Standard package commands preserve the original total job/heap budget.
 # Each phase is at most 300 seconds, preserving the 1200-second whole-build bound.
 build: build-shared
     #!/usr/bin/env bash
@@ -30,6 +30,12 @@ build: build-shared
     workers=2
     if (( cores < workers )); then workers=1; fi
     budget=$(( cores / workers ))
+    # Trade at least one backend slot for one frontend. Both the total process
+    # count and the 1G frontend + 2G backend heap bound decrease or stay equal.
+    if (( cores >= 6 )); then
+      budget=$(( (workers * budget - 1) / 3 ))
+      workers=3
+    fi
     printf '%s\0' t/*/gerbil.pkg | env GERBIL_BUILD_CORES="$budget" {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} build' build
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
@@ -74,7 +80,7 @@ check-built width='2' samples='1' pairs='4':
     just _run-collections "$1" "$2" "$3"
 
 _run-collections width samples pairs:
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/collection-paired-benchmark" {{ test-runtime-options }} "$1" "$2" "$3"
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"
 
 clean:
     printf '%s\0' t/*/gerbil.pkg benchmarks/*/gerbil.pkg gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
@@ -127,3 +133,7 @@ benchmark-combination: (build-benchmarks "combination")
 
 benchmark-scc: build
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
+
+# Standard test execution of the fixed higher-resolution offset study.
+benchmark-slot-offset: build-shared
+    just _test 300 benchmarks/slot-offset-test.ss

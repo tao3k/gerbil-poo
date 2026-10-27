@@ -715,3 +715,100 @@ correctness or a latency bound. The concrete two-plugin lifecycle is checked by
 source regression and paired receipts. Source startup sharing is advanced here;
 arbitrary export discovery, core migration and unrestricted module initialization
 remain explicit boundaries, not hidden successes.
+
+## Explicit two-shape offset sites
+
+The author's [Caching subsection](https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/ltuo_10_efficient_object_implementation.scrbl#L1140)
+proposes one or a few descriptor/offset entries for a constant field identifier,
+with guards and general lookup on misses. The concrete remaining workload was
+alternating two different layouts: the one-entry site forgot the preceding
+layout on every successful switch. This is a bounded implementation refinement,
+not automatic PIC/JIT policy selection or a claim of full hash removal.
+
+`make-slot-cache` accepts explicit `shapes: 1` (the unchanged default record) or
+`shapes: 2`. The latter extends the existing Gerbil record with two fields: one
+immutable previous shape and its certified offset. `slot-cache-offset` exposes
+only a recognized offset; `slot-cache-index` uses the existing shape name table
+when neither descriptor matches. General LRU machinery would add a hash lookup
+and linked nodes to this fixed identity-guard path. No general cache, eviction
+framework, name registry or loader is implemented here.
+
+One successful receiver/revision/layout value guard remains authoritative. Both
+shape entries read current receiver cells. Successful indexed demand updates the
+descriptor history; an evaluator refusal retains both entries and the old value
+guard. A successful missing-name fallback clears its primary offset and leaves
+the secondary intact. A third different descriptor uses ordinary name lookup and
+replaces the older descriptor only after successful indexed demand. Observation
+still selects ordinary `.ref` before preparation or cache binding.
+
+The shared service workflow accepts explicit prototype `variants:` and `shapes:`.
+The existing C3/refinement/FUN chain runs mixed audit/policy services, shared
+approval addition/removal, revision refusal and retry through one action. The
+same argument row is exercised through standard `io.module-action`; Gerbil still
+owns module discovery, initialization and reloading. False and Function cells
+retain their exact values and ordinary wrappers.
+
+Lean's existing `Prototype.Representation` now proves offset soundness, two-shape
+working-set closure after two successful reads, success-only publication, current
+false/Function delivery and exact lazy refusal. Shape identity must denote an
+immutable complete canonical name sequence; supported serialized edits and
+receiver-cache fidelity retain their existing premises. Layout name-to-index work is
+zero for either remembered descriptor and one for an unknown descriptor. This
+bound excludes descriptor comparisons, larger record allocation, shape preparation,
+value guards, refinement, evaluation, module loading and GC.
+
+The complete collection study now invokes its importable module through the
+existing shared-foundation `representation-main` / `io.module-action` entry.
+This avoids a second static link of its full dependency closure; no additional
+loader, executable selector or cache registry is introduced. Startup remains
+charged by the outer whole-command clock and the reported startup counters.
+The original startup reference worker remains a standard executable with its
+90-second build bound.
+
+The complete collection paired study adds `slot-offset-prepare`,
+`slot-offset-hot`, `slot-offset-switch`, `slot-offset-churn` and `slot-offset-workflow`. Both sides
+use the production reader and differ only in explicit capacity. Common ordered
+warming, AB/BA, A/A/B/B, natural/collected regimes and post-GC complete workflows
+retain preparation and tail observations. The three-shape control and complete
+workflow may regress; no default policy or total-time guarantee follows from
+eliminating a hash lookup. Full measurements remain local outputs.
+
+`just benchmark-slot-offset` runs all five offset phases at width 32, 64
+repetitions and six AB/BA pairs using the SAME measurement/reporting engine,
+including A/A/B/B, matched setup, fixed prefixes and all GC regimes. Default
+complete acceptance still runs every collection phase. The focused standard
+TestSuite complements that entry and never replaces it. Access-site operations
+and supported edits are serialized. Cost correspondence additionally assumes
+live canonicalization returns the same descriptor for the same symbol-identity
+set; identity guards alone suffice for safety, not for predicting every hit.
+
+The macOS compiler receipt uses Gerbil 1cfb032, width 32, 64 repetitions and
+six balanced pairs; the fixed focused entry passed in 59.05 seconds, including
+setup, controls, collections and reporting. Both sides use the CURRENT reader;
+only capacity differs. It does not measure a previous-revision default reader.
+Candidate-minus-single-shape median wall microseconds per action were:
+
+| Action | Natural GC | Collected |
+| --- | ---: | ---: |
+| Site construction | +0.011 | +0.013 |
+| One ready receiver | +0.002 | -0.022 |
+| Two-shape traversal | +0.011 | -0.037 |
+| Three-shape traversal | +0.156 | +0.108 |
+| Complete 32-receiver publication | +224.59 | -2.27 |
+
+Construction allocated 32 extra bytes per two-shape site in zero-collection
+samples. Traversal units contain respectively one, two or three receiver reads.
+The three-shape natural range was +0.153 to +0.156 microseconds. Complete natural
+workflow differences ranged from -403.46 to +524.01 microseconds; collected
+differences ranged from -74.45 to +77.02. A/A and B/B controls include millisecond
+outliers, so neither a favorable median nor fewer named probes certifies a
+whole-workflow speedup.
+
+The inclusive post-GC workflow control charges forced collection and first
+invocation as well as the batch. Its median difference was +61.16 microseconds
+(+11.80 to +96.30); additive mean components were +31.31 non-GC CPU, +24.32 GC CPU
+and +2.14 wall-minus-CPU microseconds. This run's difference includes non-GC CPU
+work, but same-side controls preclude attributing it solely to capacity.
+Single-shape remains the default, and two-shape capacity
+is an explicit semantic/cost option, not a recommended automatic promotion.
+Raw samples remain outside Git; these observations are not a stable tail bound.

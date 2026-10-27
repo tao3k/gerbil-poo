@@ -30,9 +30,9 @@
 ;; One action owns one access site. FUN's existing bind threads the same admitted
 ;; receiver into the consumer, preserving normal exception and multiple-value behavior.
 ;; Every invocation still checks its contract; a layout hit is never admission evidence.
-(def (checked-field-action descriptor name consume (layout? #t) (eager? #t))
+(def (checked-field-action descriptor name consume (layout? #t) (eager? #t) (shapes 1))
   (def read (if layout?
-    (let (site (make-slot-cache name eager?: eager?)) (cut .ref/inline <> site))
+    (let (site (make-slot-cache name eager?: eager? shapes: shapes)) (cut .ref/inline <> site))
     (cut .ref <> name)))
   (checked-action descriptor
     (.call observation.Observation. .bind
@@ -41,8 +41,8 @@
 
 ;; The service path retains full refinement before total demand or consumer effects.
 ;; Selected-field clients can opt into deferred seeding at this same boundary.
-(def (checked-total-action consume layout: (layout? #t) eager?: (eager? #t))
-  (checked-field-action ValidService 'total consume layout? eager?))
+(def (checked-total-action consume layout: (layout? #t) eager?: (eager? #t) shapes: (shapes 1))
+  (checked-field-action ValidService 'total consume layout? eager? shapes))
 ;; Inspect an opaque pinned hook through the same Reader/FUN boundary. This does
 ;; not demand unrelated service metadata or authorize arbitrary recursive fields.
 (def (checked-kernel-action consume) (checked-field-action Object 'compute-slot consume))
@@ -64,13 +64,20 @@
 ;; consumer, and recovery requires a fresh successful demand, not a cached error.
 ;; Optional shared approval addition/removal exercises shape changes through the
 ;; SAME checked action, without a second loader, evaluator or validation wrapper.
-(def (service-workflow width layout: (layout? #f) reshape?: (reshape? #f))
-  (using (width :~ (lambda (n) (and (fixnum? n) (>= n 0))))
+;; Explicit prototype variants exercise alternating finite shapes through the same
+;; C3/refinement/FUN pipeline. Capacity selects offset history only, never approval.
+(def (service-workflow width layout: (layout? #f) reshape?: (reshape? #f)
+  shapes: (shapes 1) variants: (variants []))
+  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0)))) (variants :~ list?))
     (let* ((recipe (.cc Service tariff: 3))
-           (receivers (for/collect (n (in-range width)) (.o inherit: [recipe] capacity: n)))
+           (receivers (if (null? variants)
+             (for/collect (n (in-range width)) (.o inherit: [recipe] capacity: n))
+             (let (count (length variants))
+               (for/collect (n (in-range width))
+                 (.o inherit: [recipe (list-ref variants (modulo n count))] capacity: n)))))
            (delivered 0)
            (action (checked-total-action (lambda (_ amount)
-             (set! delivered (1+ delivered)) amount) layout: layout?)))
+             (set! delivered (1+ delivered)) amount) layout: layout? shapes: shapes)))
       ;; Check laziness before the first business demand, without warming it.
       (for-each (lambda (receiver)
         (unless (and (not (object-%instance receiver)) (not (object-%layout receiver)))

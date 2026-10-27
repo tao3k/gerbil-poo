@@ -1,8 +1,9 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main)
+(export main run-offset-study)
 (import :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract-flow checked-action)
+        (only-in :clan/poo/io module-action)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer %slot-read-active?)
         (only-in :gerbil/runtime/loader load-module)
         (prefix-in :clan/poo/examples/representation-service service.)
@@ -24,9 +25,43 @@
 
 ;; Cold preparation, lazy evaluation and switched/tracked hot access all remain
 ;; visible. The module phase measures a standard cached load, not a fresh import.
-(def +slot-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
+;; One finite inventory serves complete acceptance and focused timing.
+(def +slot-offset-phases+ '(slot-offset-prepare slot-offset-hot slot-offset-switch
+  slot-offset-churn slot-offset-workflow))
+(def +slot-phases+ (append '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
-    slot-shape-prepare slot-shape-workflow slot-shape-change))
+    slot-shape-prepare slot-shape-workflow slot-shape-change) +slot-offset-phases+))
+
+;; Both sides use the production reader, evaluator, binder and standard loader.
+;; Capacity alone differs. Preparation includes the larger record allocation;
+;; two shapes expose reuse, three expose bounded eviction, and complete workflows
+;; charge prototype construction, refinement, shared invalidation and retry.
+(def (offset-workload size scenario)
+  (def variants (list (.o audit: #f) (.o policy: identity) (.o tier: 'third)))
+  (def owners (map (lambda (variant) (.o inherit: [service.Service variant] capacity: 4))
+    (case scenario ((slot-offset-hot) (list (car variants)))
+      ((slot-offset-churn) variants) (else (list (car variants) (cadr variants))))))
+  ;; Each capacity owns its site; both traverse exactly the same receivers.
+  (def (action capacity)
+    (def site (make-slot-cache 'total shapes: capacity))
+    ;; Capturing the existing Reader action does not load or initialize a plugin.
+    (def enter (module-action "clan/poo/examples/representation-service"
+      'clan/poo/examples/representation-service#service-workflow))
+    ;; Equal complete warming occurs before either measured side is selected.
+    (for-each (cut .ref/inline <> site) owners)
+    (lambda ()
+      (case scenario
+        ((slot-offset-prepare)
+          (make-slot-cache 'total shapes: capacity))
+        ((slot-offset-workflow)
+          (let (result (enter (list size layout: #t reshape?: #t
+                         shapes: capacity variants: (list (car variants) (cadr variants)))))
+            (unless (= (vector-ref result 3) (* 3 size)) (error "offset workflow oracle")) #t))
+        (else
+          (for-each (lambda (owner)
+            (unless (= (.ref/inline owner site) 15) (error "offset current receiver oracle"))) owners)
+          #t))))
+  (values (action 1) (action 2)))
 
 ;; Compare the same current layout constructor with/without an old shape hint.
 ;; Full operations use the preceding inline route and the production hint route.
@@ -555,7 +590,7 @@
 ;; candidate control distinguishes its own noise from the slower reference's noise.
 ;; No natural-regime GC is forced.
 ;; Full observations go to stdout, never a versioned data file or archive.
-(def (run-collection-study width count rounds)
+(def (run-collection-study width count rounds (phases #f))
   (def n (string->number width)) (def repetitions (string->number count))
   (def pairs (string->number rounds))
   (unless (and (exact-integer? n) (<= 2 n 1024) (exact-integer? repetitions) (<= 1 repetitions 100)
@@ -574,7 +609,7 @@
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
-  (for* ((scenario (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+)) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -586,6 +621,8 @@
              (cut representation-workload n scenario))
             ((memq scenario +order-phases+)
              (cut order-workload n scenario))
+            ((memq scenario +slot-offset-phases+)
+             (cut offset-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
             ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
@@ -674,12 +711,22 @@
         " gc-wall-us=" (median (derived-deltas (lambda (_ h) (vector-ref h 2)))))))
   #t)
 
-;; Charge the entire loaded entry, including diagnostics, setup, prefixes, GC,
-;; formatting and output. Startup remains separately reported by the runtime.
-(def (main (width "64") (count "3") (rounds "6"))
+;; Charge diagnostics, setup, prefixes, GC and output through the same clock.
+;; Startup remains visible in process statistics and the outer command timer.
+(def (report-study action label)
   (def history #f)
-  (defvalues (ok metrics) (measure (cut run-collection-study width count rounds) 1 #f
+  (defvalues (ok metrics) (measure action 1 #f
     (lambda (before after elapsed) (set! history (measurement-history before after elapsed)))))
   (unless ok (error "collection entry oracle"))
-  (displayln "COLLECTION-ENTRY " (vector metrics history))
-  (displayln "COLLECTION-PAIRED-OK"))
+  (displayln label "-ENTRY " (vector metrics history))
+  (displayln label "-PAIRED-OK"))
+
+;; Complete acceptance retains every phase, bound and paired control.
+(def (main (width "64") (count "3") (rounds "6"))
+  (report-study (cut run-collection-study width count rounds) "COLLECTION"))
+
+;; Higher-resolution timing runs all five offset phases using the same engine;
+;; it never changes the complete acceptance inventory or its default entry.
+(def (run-offset-study)
+  (report-study (cut run-collection-study "32" "64" "6" +slot-offset-phases+) "SLOT-OFFSET")
+  #t)

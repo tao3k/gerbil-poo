@@ -7,8 +7,10 @@ ledger, manifest parser, copied source view or test runner.
 
 `just build` prepares the root library, the required benchmark programs and all
 25 functional test packages. `GERBIL_BUILD_CORES` is the compiler's
-standard backend budget. At most two package frontends run locally, sharing that
-budget through ordinary `xargs`. No project scheduler or load-path variable is
+standard backend budget. Package frontends share that budget through ordinary
+`xargs`. On six or more cores, one backend slot is traded for a third frontend;
+rounding down the per-frontend backend budget keeps the total process and heap
+envelopes no larger than the preceding two-frontend profile. No project scheduler or load-path variable is
 introduced. Compiler phases retain their 300-second deadline, 1 GiB frontend
 heap and 2 GiB backend heap. Program builds retain their 90-second bound.
 Aggregate package compilation has one owning timeout.

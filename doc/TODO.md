@@ -2762,3 +2762,17 @@ removed. Their earlier approximately two-second comparison is withdrawn.
 All previous checks/limits remain. See representation.md for acceptance and scope;
 arbitrary effectful/cyclic initialization and compiler/loader verification are not
 claimed as completed by this unit.
+
+### Bounded two-descriptor offset reuse
+
+Closed explicit alternating-layout reuse at a constant-name access site. Opt-in
+`shapes: 2` uses the existing Slot module and one Gerbil record extension; default
+single-shape sites retain their original record. Only immutable descriptor/offset
+history is shared. Receiver cells, revision guards, lazy/observed access, exact
+refusal, missing-name fallback and retry retain the existing engine. Mixed C3
+service variants run through refinement/FUN and standard module actions. Lean
+proves finite offset soundness, working-set closure, current-value/refusal and
+success-only publication laws. Complete paired preparation/switch/churn/workflow
+controls charge the extra allocation and guards. Automatic PIC/JIT selection,
+full-vector-only storage and arbitrary cold-module initialization remain research
+or separate acceptance boundaries. See representation.md.
