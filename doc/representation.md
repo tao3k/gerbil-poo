@@ -225,8 +225,8 @@ checks its result inside timing. No generated datasets or archives belong in Git
 | --- | --- | --- |
 | slot-prepare | ordinary instance preparation | shape/vector construction, no business demand |
 | slot-cold | symbolic `.ref` | fresh instances, site/layout preparation and first lazy demand |
-| slot-hot | prior untracked inline algorithm | unchanged-owner hot reads |
-| slot-switch | prior untracked inline algorithm | repeated same-shape receiver switching |
+| slot-hot | preceding shared-offset inline algorithm | unchanged-owner hot reads |
+| slot-switch | preceding shared-offset inline algorithm | repeated same-shape receiver switching |
 | slot-tracked | symbolic `.ref` | ordinary reader fallback, complete observer scope and dependency records |
 | slot-revision | symbolic `.ref` | shared-parent changes, invalidation, recomputation and recovery |
 | slot-load-workflow | symbolic `.ref` | standard CACHED module load, service clones and first total demand |
@@ -247,10 +247,10 @@ check. First measurements that omitted it are not accepted as a hot-read
 regression result. The final study must be interpreted against its A/A/B/B
 controls, allocation/GC and cold consumer costs.
 
-### Local qualification receipt and remaining priorities
+### Earlier shared-offset qualification receipt and remaining priorities
 
 macOS arm64, released Gerbil `1cfb032`; `just _run-collections 64 3 6` used the
-standard linked consumer and current compiled workload. Each hot/switch/tracked
+standard linked consumer at `3945928`, before live-layout preparation reuse. Each hot/switch/tracked
 operation contains 1,024 reads. Values below are microseconds per COMPLETE
 operation, candidate minus its declared reference, paired wall medians. All old
 phases, AB/BA, four A/A and four B/B controls, first-call and GC diagnostics remain.
@@ -294,3 +294,68 @@ preparation amortization, including a possible full-vector storage backend, and
 a supported design choice, not an alleged missing algorithm in the original
 paper. No second loader, compatibility chain or compiler verification is needed
 for this work; fresh expansion/link/initialization performance remains unclosed.
+
+
+## Cold pinned hooks and live layout reuse
+
+A self-hosted protocol's pinned hooks are available through ordinary `.ref` even
+when unrelated metadata cannot currently be prepared. The prior cold inline
+path called `object-layout` first and incorrectly propagated an unrelated
+`compute-precedence-list` refusal. This was reproduced after supported cache
+invalidation: ordinary hook access returned the exact captured Function while
+inline hook access failed. Observation during construction already selected the
+ordinary reader; this was a separate cold, unobserved route discrepancy.
+
+The inline boundary now reads a cold pinned hook through `.ref` before creating
+an instance/vector or binding a site. Non-anchor fields still require complete
+preparation and preserve its exact refusal; retry can prepare the revised value.
+A live receiver layout reuses completed preparation directly. Supported edits
+clear both layout and instance together; raw generated setters remain outside
+this invariant. Existing owner/revision/layout and current-cell guards still
+apply, and no slot result, exception, module registry or second evaluator is added.
+
+`checked-kernel-action` and `checked-total-action` share one private Reader/FUN
+composition in the existing representation example. The cold hook, consumer,
+refusal, retry, source revision and subsequent ordinary field demand are covered
+together. Lean's `selectLayoutRead` laws model route selection and exact refusal;
+they assume faithful supported invalidation and do not certify arbitrary hook
+termination, compiler effects, allocation, module loading or wall-clock costs.
+
+The hot/switch benchmark reference now retains the immediately preceding
+shared-offset algorithm, including observer checks and current-cell delivery.
+This isolates live preparation reuse from the earlier shape-offset improvement.
+All other phase references and all full-suite controls remain unchanged. Earlier
+hot/switch numbers above refer to their documented earlier reference and are not
+measurements against this new reference.
+
+
+### Prepared-layout qualification receipt
+
+The final source passed all 148 modules and 1,811 cases in the existing single
+process, including the new cold-hook/refusal/retry/FUN regression. The complete
+linked collection study then passed every retained phase. An independent
+`just _run-collections 64 3 6` completed in 30.13s with no concurrent local build
+or full check. Each hot/switch operation performs 1,024 reads; these local paired
+wall deltas compare against the immediately preceding shared-offset algorithm:
+
+| Phase | Natural median | Collected median | Observed AB pair ranges |
+| --- | ---: | ---: | --- |
+| hot | -30.16us | -22.81us | natural -44.27 to -21.93us; collected -25.67 to -18.99us |
+| switch | -31.51us | -32.50us | natural -34.65 to -26.70us; collected -37.59 to -27.02us |
+
+All six pairs in each row/regime improved; recorded GC CPU is zero in these
+pairs. CPU deltas track the improvements and measured sampler allocation is
+unchanged. A/A and B/B remain visible: collected hot A/A includes a -70.33us
+signed wall outlier, so these observations are not a universal tail bound.
+This demonstrates removal of repeated preparation entry in these workloads,
+not general evaluator or module-loader acceleration.
+
+Cold and complete consumer costs still matter. Against ordinary symbolic reads,
+collected cold construction remains +282.61us and cached-load/clone/first-demand
+workflow remains +256.14us per complete 64-receiver operation. Collected tracked
+access remains +29.80us per 1,024 reads; natural tracked gains still include GC
+history effects. These workloads retain the ordinary-reader policy rather than
+justify blanket promotion. They use a different reference from the hot/switch
+rows and must not be mistaken for regressions against the preceding inline code.
+Fresh module discovery, expansion, compilation and initialization remain open
+qualification work under Gerbil's existing loader/build mechanisms.

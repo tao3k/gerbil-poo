@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service expanded-service checked-total-action)
+(export Service expanded-service checked-total-action checked-kernel-action)
 (import ../object
         ../prototype-map
         ../mop
@@ -29,12 +29,18 @@
 ;; One action owns one access site. FUN's existing bind threads the same admitted
 ;; receiver into the consumer, preserving normal exception and multiple-value behavior.
 ;; Every invocation still checks its contract; a layout hit is never admission evidence.
-(def (checked-total-action consume)
-  (def site (make-slot-cache 'total))
-  (checked-action ValidService
+(def (checked-field-action descriptor name consume)
+  (def site (make-slot-cache name))
+  (checked-action descriptor
     (.call observation.Observation. .bind
       (lambda (candidate) (.ref/inline candidate site))
       (lambda (amount) (lambda (candidate) (consume candidate amount))))))
+
+;; The service path retains full refinement before total demand or consumer effects.
+(def (checked-total-action consume) (checked-field-action ValidService 'total consume))
+;; Inspect an opaque pinned hook through the same Reader/FUN boundary. This does
+;; not demand unrelated service metadata or authorize arbitrary recursive fields.
+(def (checked-kernel-action consume) (checked-field-action Object 'compute-slot consume))
 
 ;; A real service crosses the compact contribution bound without changing its
 ;; inheritance/contract protocol. Removing the five auxiliary direct fields later

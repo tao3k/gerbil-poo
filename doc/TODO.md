@@ -2698,3 +2698,15 @@ representation.md. Full hash removal, automatic PIC/JIT/policy selection and
 fresh module expansion/link/initialization performance are NOT completed by this
 unit. They remain explicit optimization/acceptance boundaries rather than claims
 inferred from cache hits or primitive operation counts.
+
+
+### Cold hook access and live prepared layouts
+
+Closed a concrete fixed-layout/lazy-read discrepancy: a cold pinned metalevel
+hook no longer executes unrelated metadata preparation that ordinary `.ref`
+would skip. Non-anchor refusal/retry and source invalidation keep the original
+engine. Live layouts reuse completed instance preparation without an extra
+`instantiate-object!` entry. Reader/FUN examples, exact-cause regressions and
+finite route/refusal proofs accompany the existing complete paired study.
+This is not full-vector storage or cold module-loading qualification; those
+remain the explicit representation acceptance boundaries above.

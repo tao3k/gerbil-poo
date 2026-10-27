@@ -1,7 +1,7 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
-        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-layout-index)
+        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref)
         (only-in ../slot-observation call-with-slot-read-observer %slot-read-active?)
         (only-in :gerbil/runtime/loader load-module)
         (prefix-in ../examples/representation-service service.)
@@ -25,17 +25,18 @@
 ;; visible. The module phase measures a standard cached load, not a fresh import.
 (def +slot-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow))
 
-;; Counterfactual for UNTRACKED mono/switched phases only: the prior guarded
-;; owner-miss algorithm resolves the name and delegates to ordinary lazy .ref.
-;; This is benchmark reference code, never an alternate production access API.
+;; Counterfactual for hot/switch phases: the preceding shared-offset protocol
+;; enters object-layout on each access, even when the receiver is already ready.
+;; Retain its observation selection and current-cell path, so timing isolates
+;; preparation reuse instead of conflating it with the earlier offset change.
 (def (reference-inline receiver cache)
-  (def layout (object-layout receiver)) (def revision (object-revision receiver))
-  (if (slot-cache-hit? cache receiver revision layout)
-    ;; Preserve the original status check even though these phases are untracked.
-    (if (%slot-read-active?) (.ref receiver (slot-cache-name cache)) (slot-cache-read cache))
-    (let* ((slot (slot-cache-name cache)) (index (slot-layout-index layout slot))
-           (value (.ref receiver slot)))
-      (slot-cache-bind! cache receiver revision layout index) value)))
+  (if (%slot-read-active?) (.ref receiver (slot-cache-name cache))
+    (let ((layout (object-layout receiver)) (revision (object-revision receiver)))
+      (if (slot-cache-hit? cache receiver revision layout) (slot-cache-read cache)
+        (let* ((slot (slot-cache-name cache)) (index (slot-cache-index cache layout))
+               (stored (if index (slot-layout-ref layout index) absent-value))
+               (value (if (eq? stored absent-value) (.ref receiver slot) stored)))
+          (slot-cache-bind! cache receiver revision layout index) value)))))
 
 ;; Compare existing symbolic reads with the explicit inline API through the same
 ;; receiver formulas and runtime. Each side owns its parent, instances and site.

@@ -4,7 +4,7 @@
         (only-in :std/list/list find)
         (only-in :gerbil/runtime/loader load-module)
         (only-in ../mop validate TypeError? Fun) (only-in ../number Integer)
-        ../object ../prototype-map ../slot-layout ../slot-observation
+        ../object ../prototype-map ../slot-layout ../slot-observation ../meta-prototype
         (prefix-in ../examples/representation-service service.))
 
 ;; Match protocol refusal rather than accepting unrelated arithmetic exceptions.
@@ -15,6 +15,43 @@
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
+    (test-case "cold pinned hooks do not initialize unrelated metadata or bind a layout"
+      (def denied? #f) (def calls 0) (def cause (list 'preparation-refused))
+      (def source (.o
+        (compute-precedence-list (lambda (_ next)
+          (set! calls (1+ calls)) (when denied? (raise cause)) (next)))
+        (compute-slot (lambda (_ next name) (next)))
+        (payload 7)))
+      (def root (bootstrap-protocol source))
+      (def expected (.ref root 'compute-slot))
+      (def site (make-slot-cache 'compute-slot))
+      (def payload-site (make-slot-cache 'payload))
+      (uninstantiate-object! root) (set! denied? #t)
+      (let (before calls)
+        (check (eq? (.ref/inline root site) expected) => #t)
+        (check-equal? calls before)
+        (def consumed 0)
+        (def inspect (service.checked-kernel-action (lambda (owner hook)
+          (set! consumed (1+ consumed)) (check (eq? owner root) => #t) hook)))
+        (check (eq? (inspect root) expected) => #t)
+        (check-equal? consumed 1) (check-equal? calls before)
+        (check (object-%instance root) => #f) (check (object-%layout root) => #f)
+        (check (slot-cache-hit? site root (object-revision root) #f) => #f)
+        ;; A non-anchor still prepares, preserves the exact cause and can retry.
+        (check (eq? (with-catch identity (cut .ref/inline root payload-site)) cause) => #t)
+        (check (object-%layout root) => #f)
+        (set! denied? #f)
+        (check-equal? (.ref/inline root payload-site) 7)
+        (check (eq? (.ref/inline root site) expected) => #t)
+        (let (retired (object-%layout root))
+          ;; A source revision clears prepared state even for a sealed bootstrap root.
+          (.putslot! source 'payload ($constant-slot-spec 9))
+          (check (object-%layout root) => #f)
+          (check (eq? (.ref/inline root site) expected) => #t)
+          (check (object-%layout root) => #f)
+          (check-equal? (.ref/inline root payload-site) 9)
+          (check (eq? retired (object-%layout root)) => #f)
+          (check-equal? (active-object-constructions) []))))
     (test-case "shared shape reuses only offsets while false and Function cells stay receiver-local"
       (def signature (Fun Integer <- Integer))
       (def f (validate signature (lambda (n) (+ n 1))))

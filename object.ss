@@ -578,19 +578,22 @@
       (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) instance absent-value))
       (set! (object-%layout self) layout) layout)))
 ;; Guarded access sites reuse only an index, never another receiver's slot value.
-;; Observation reuses ordinary .ref, including bootstrap, prechecks and read
-;; records; it needs no vector preparation or duplicate metadata delivery path.
-;; Failed computations publish no new guard; absence never becomes a cached index.
+;; Observation and cold bootstrap anchors use ordinary .ref before preparation.
+;; A live layout already certifies completed instance preparation; supported edits
+;; clear both together. Reuse it directly instead of repeating instantiation.
+;; Failed computations publish no guard; absence never becomes a cached index.
 (def (.ref/inline self cache)
-  (if (%slot-read-active?) (.ref self (slot-cache-name cache))
-    (let ((layout (object-layout self)) (revision (object-revision self)))
-      (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
-        (let* ((slot (slot-cache-name cache)) (index (slot-cache-index cache layout))
-               ;; Only this receiver's current cells may satisfy a switched-owner
-               ;; read. An uncomputed cell still delegates to original lazy .ref.
-               (stored (if index (slot-layout-ref layout index) absent-value))
-               (value (if (eq? stored absent-value) (.ref self slot) stored)))
-          (slot-cache-bind! cache self revision layout index) value)))))
+  (def slot (slot-cache-name cache))
+  (if (%slot-read-active?) (.ref self slot)
+    (let (prepared (object-%layout self))
+      (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
+        (let ((layout (or prepared (object-layout self))) (revision (object-revision self)))
+          (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
+            (let* ((index (slot-cache-index cache layout))
+                   ;; Offset sharing never shares the previous owner's cells.
+                   (stored (if index (slot-layout-ref layout index) absent-value))
+                   (value (if (eq? stored absent-value) (.ref self slot) stored)))
+              (slot-cache-bind! cache self revision layout index) value)))))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))
