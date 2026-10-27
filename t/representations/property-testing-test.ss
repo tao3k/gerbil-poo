@@ -58,11 +58,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 10)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 12)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 10 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 12 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
@@ -159,6 +159,29 @@
              (report (action (.o seed: 43 cases: 100 size: 5 shrink-budget: 100))))
         (check-equal? (.get report status) 'passed)
         (check-equal? consume-count 1)))
+    (test-case "Record interruptions retain progress through the Reader FUN boundary"
+      (def Value (Record count: [UInt]))
+      (def cause (Error "record callback refused"))
+      (def deliveries 0)
+      ;; Typed construction and projection stay in the existing Record layer.
+      (def sampler (make-generator Value (lambda (_random _size) (make-instance Value count: 9))
+        (lambda (value) (map (lambda (count) (make-instance Value count: count))
+          (if (= (.get value count) 9) '(8) '(8 7)))) (lambda (value) (.get value count))))
+      ;; FUN delivers the original error report once, retaining the last admitted
+      ;; witness rather than the candidate whose callback failed.
+      (def action (property-action Value
+        (lambda (value) (when (= (.get value count) 7) (raise cause)) #f)
+        (lambda (report) (set! deliveries (1+ deliveries)) report) sampler: sampler))
+      (def report (action (.o seed: 17 cases: 1 size: 8 shrink-budget: 8)))
+      (check-equal? (list (.get report status) (.get (.get report original) count)
+        (.get (.get report counterexample) count) (.get report attempts) (.get report steps)
+        (.get report minimal?)) '(error 9 8 3 1 #f))
+      (check (eq? (.get report cause) cause) => #t)
+      (check-equal? deliveries 1)
+      (check-exception (replay-counterexample report) Error?)
+      (def again (replay-property report))
+      (check-equal? (list (.get again status) (.get (.get again counterexample) count)
+        (.get again attempts) (.get again steps)) '(error 8 3 1)))
     (test-case "overlapping clauses draw using actual first-match child types"
       (let* ((signature (CaseFunction (Function [Integer] [Integer] optional: [Integer])
                                      (Function [Bool] [Bool Bool])))

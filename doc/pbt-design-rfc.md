@@ -35,11 +35,50 @@ is parametric; it is not a fallback to an unconstrained POO `Any` descriptor.
 The independent-library acceptance copies the actual generic package metadata, build script,
 three generic modules and `examples/property-kernel.ss` into a temporary standard Gerbil package, compiles
 with `defbuild-script` and runs its compiled suite through `gxtest`. Its official
-GERBIL_PATH contains no POO modules. The gate requires all ten case receipts,
+GERBIL_PATH contains no POO modules. The gate requires all twelve case receipts,
 an error-free result and correct process exit status, under the existing heap
 and timeout limits. This is an independent build/run receipt, not an upstream
 publication. The independent package identifier is `clan/property-testing`;
 the typed derivation modules remain under `clan/poo/testing`.
+
+## Checked actions and interrupted shrink receipts
+
+The execution layer uses one private hygienic `with-current` form around domain
+actions. It evaluates an action once and checks its declared sources before and
+after it. Admission, strictly decreasing cost and Boolean falsity compose as
+short-circuiting judgments. The search driver handles only proposal consumption
+and confirmation; it no longer duplicates source checks around each callback or
+passes positional progress vectors between nested loops. A single invocation-owned
+Gerbil record holds the confirmed witness and counters. POO retains its existing
+Record report projection and Reader/FUN report delivery.
+
+Every returned non-EOF proposal is charged before admission, measurement, property
+execution or the trailing source check. EOF and an iterator exception return no
+proposal and add no attempt. A candidate is confirmed only after all judgments
+and freshness checks succeed. Thus an interruption retains the previous confirmed
+witness, charged attempts, accepted steps and the original exception. It reports
+`error`, `stale` or the caller's explicit refusal classification, never a new
+`failed` witness or a minimum. An error in a source observer while classifying an
+earlier error cannot replace that original cause. Error/stale reports keep useful
+progress but cannot authorize concrete counterexample replay.
+
+This follows the existing FUN/IO style of composing owned actions and the Racket
+libraries' separation of lazy shrink trees from property execution. It does not
+copy Rackcheck's `pass?` exception-to-falsified policy: our RFC keeps host errors
+separate from Boolean false. Gerbil's existing Iterator/in-coroutine protocol
+remains the lazy representation. No new stream framework, scheduler, namespace or
+POO dependency is added to the generic library. Filtering is not allowed to hide
+proposal consumption or introduce unbounded search between budgeted attempts.
+
+The independent example interrupts child creation, iteration, admission,
+measurement, properties and observers after a confirmed reduction. It checks
+cause identity, original/reduced values, counters, seeded replay and stale replay
+refusal. The typed Record example delivers the same receipt once through FUN.
+Lean's finite `auditShrinks` distinguishes failed returned proposals from iterator
+exceptions. `auditShrinks_budget`, `interrupted_shrink_preserves` and
+`callback_error_retains` reuse the established shrink laws to prove accounting,
+retained validity/falsity and exclusion of the pending failed proposal. Runtime
+callback termination, source-observer accuracy and PRNG behavior remain premises.
 
 ## Canonical trace admission and execution
 
@@ -518,6 +557,14 @@ linearizability. Performance acceptance is measured separately.
 | Concrete collection proofs | Top-level `Examples/CollectionTesting.lean` reuses `applyIndexed` and `inverseChanges`; proves complete two-key enumeration and checks conflict/retry/inverse/old-value/stale outcomes, final primary/index restoration and detection of premature primary publication |
 | Local full workflow | The complete 149-module workflow and linked paired collection benchmark pass under existing limits; The existing focused PBT cases plus the independent-library cases pass |
 | Published baseline CI | Lean `7932410a339dadc7d3736e286cbc6750c689d220`: 17 successful checks; Gerbil `4be7c411120cce18436fc35875a62da8e420f16a`: 53 successful checks, including single-process acceptance |
+
+The local full-workflow row records the earlier accepted workflow. In the
+interrupted-shrink follow-up, macOS `just check 2 1 4` stopped at the existing
+90-second `build-shared` executable-construction gate. That is an unpassed local
+build gate, not a falsified property or a paired-performance receipt. The existing
+standard build configuration and limits are retained. Standalone kernel tests,
+Record/FUN regressions, complete compiled-suite execution and exact-head CI are
+reported separately; none substitutes for a missing full-entry receipt.
 
 The published baseline CI was checked before this follow-up. Every later revision
 must pass the same CI; that baseline is not evidence for unsubmitted edits. Full

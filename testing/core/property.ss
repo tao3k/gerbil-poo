@@ -30,43 +30,66 @@
 ;; Domain rejection is separate from an exception and from a false property.
 (def (accepts? specification value)
   (boolean-result ((domain-accept specification) value) "domain predicate must return a boolean"))
-;; Scan at most fuel children, pulling only inside the bounded loop body. Selection
-;; returns a smaller false node; EOF alone witnesses exhausted immediate children.
-(def (scan specification property best fuel attempts steps finish current observe)
-  (let/cc reduce
-    (using (children (iter ((sample-children best))) :- Iterator)
-      (for/fold (used 0) (_ (in-range fuel))
-        (let ()
-          (unless (current) (finish (vector 'stale best (+ attempts used) steps #f)))
-          (def child (children.next!))
-          (when (eq? child #!eof)
-            (unless (current) (finish (vector 'stale best (+ attempts used) steps #f)))
-            (finish (vector 'failed best (+ attempts used) steps #t)))
-          (unless (sample? child) (error "shrinker must produce samples"))
-          (observe child)
-          (def count (+ attempts used 1))
-          (def value (sample-value child))
-          (unless (current) (finish (vector 'stale best count steps #f)))
-          (def eligible (and (accepts? specification value)
-            (< (weight specification value) (weight specification (sample-value best)))))
-          (unless (current) (finish (vector 'stale best count steps #f)))
-          (def outcome (if eligible (boolean-result (property value) "property must return a boolean") #t))
-          (unless (current) (finish (vector 'stale best count steps #f)))
-          (unless outcome (reduce (vector child (- fuel used 1) count (1+ steps))))
-          (1+ used))))
-    (finish (vector 'failed best (+ attempts fuel) steps #f))))
-;; Restart only from an admitted smaller false node. Zero fuel invokes neither
-;; a shrink callback nor an iterator; host callback termination remains a premise.
-(def (shrink-failure specification property root budget current observe)
-  (let/cc finish
-    (let loop ((best root) (fuel budget) (attempts 0) (steps 0))
-      (unless (current) (finish (vector 'stale best attempts steps #f)))
-      (when (zero? fuel) (finish (vector 'failed best attempts steps #f)))
-      (apply loop (vector->list (scan specification property best fuel attempts steps finish current observe))))))
+;; One invocation owns the latest confirmed witness and consumed proposals.
+;; A callback error never installs its in-flight candidate as a false witness.
+(defstruct progress (best attempts steps) final: #t)
+;; Every domain action has the same source boundary. The hygienic form keeps
+;; callback evaluation once, checks EOF too, and leaves exceptions to the owner.
+(defrule (with-current current stop body ...)
+  (begin
+    (unless (current) (stop 'stale #f))
+    (begin0 (let () body ...) (unless (current) (stop 'stale #f)))))
+;; Admission, descent and falsity are short-circuiting judgments. Each callback
+;; runs inside the same revision boundary; a refused candidate is still charged.
+(def (smaller-failure? specification property best value current stop)
+  (and (with-current current stop (accepts? specification value))
+       (< (with-current current stop (weight specification value))
+          (with-current current stop (weight specification (sample-value best))))
+       (not (with-current current stop
+         (boolean-result (property value) "property must return a boolean")))))
+;; Pulling owns proposal accounting: charge a returned value before the trailing
+;; source check. EOF and an iterator exception have produced no proposal to charge.
+(def (next-proposal children state current stop)
+  (using (children :- Iterator)
+    (with-current current stop
+      (let (child (children.next!))
+        (unless (eq? child #!eof)
+          (progress-attempts-set! state (1+ (progress-attempts state)))) child))))
+;; Search the current lazy neighborhood without forcing an unused tail. Confirm
+;; only an admitted false candidate; the execution owner handles every exit.
+(def (scan specification property state fuel finish current observe)
+  (def best (progress-best state))
+  (let/cc smaller
+    (using (children (iter (with-current current finish ((sample-children best)))) :- Iterator)
+      (for (_ (in-range fuel))
+        (def child (next-proposal children state current finish))
+        (when (eq? child #!eof) (finish 'failed #t))
+        (unless (sample? child) (error "shrinker must produce samples"))
+        (observe child)
+        (when (smaller-failure? specification property best (sample-value child) current finish)
+          (progress-best-set! state child)
+          (progress-steps-set! state (1+ (progress-steps state)))
+          (smaller #t))))
+    (finish 'failed #f)))
+;; Restart from a confirmed smaller false node; the same owned progress is visible
+;; to exception reporting. Zero fuel invokes neither children nor their iterator.
+(def (shrink-failure specification property state budget finish current observe)
+  (let loop ()
+    (unless (current) (finish 'stale #f))
+    (def fuel (- budget (progress-attempts state)))
+    (when (zero? fuel) (finish 'failed #f))
+    (scan specification property state fuel finish current observe)
+    (loop)))
+;; Source-observer failure during error classification must not replace the
+;; original callback exception. Such a report is an error, never valid evidence.
+(def (failure-status cause current classify)
+  (if (stale-generation? cause) 'stale
+    (with-catch (lambda (_) 'error)
+      (lambda () (if (current) (classify cause) 'stale)))))
 ;; One execution owns its observers. A replay guard is transient: old stamps
 ;; stay checked throughout rerun but are not accumulated into a closure chain.
 (def (execute generator property specification seed cases size budget classify guard)
-  (def trial 0) (def original #f) (def root #f) (def sources [])
+  (def trial 0) (def original #f) (def state (make-progress #f 0 0)) (def sources [])
   (def seen (make-hash-table-eq))
   ;; Capture observer callbacks by identity in an invocation-local registry.
   (def (observe tree)
@@ -75,34 +98,35 @@
   ;; One observation boundary protects all callbacks, trials and shrink proposals.
   (def (current) (and (guard) (current? specification generator sources)))
   ;; Reports are ordinary records, independent of any descriptor/object namespace.
-  (def (result status witness attempts steps minimal? (cause #f))
+  (def (result status minimal? (cause #f))
+    (def witness (progress-best state))
     (make-report status generator property specification seed cases size budget trial original
-      (and witness (sample-value witness)) attempts steps minimal? cause witness sources classify))
+      (and witness (sample-value witness)) (progress-attempts state) (progress-steps state)
+      minimal? cause witness sources classify))
   (with-catch
     (lambda (cause)
-      (def status (if (or (stale-generation? cause) (not (current))) 'stale (classify cause)))
+      (def status (failure-status cause current classify))
       (unless (memq status '(error exhausted unsupported stale)) (error "invalid error classification" status))
-      (result status root 0 0 #f cause))
+      (result status #f cause))
     (lambda ()
       (def random (random-at seed))
       (let/cc finish
+        ;; The same checked action form serves trials and shrinking; only this
+        ;; owner builds reports and classifies failures.
+        (def (stop status minimal?) (finish (result status minimal?)))
         (for (_ (in-range cases))
-          (unless (current) (finish (result 'stale #f 0 0 #f)))
-          (set! trial (1+ trial)) (set! original #f) (set! root #f)
-          (set! root (generate generator random size))
-          (observe root)
-          (set! original (sample-value root))
-          (unless (current) (finish (result 'stale root 0 0 #f)))
-          (unless (accepts? specification original)
+          (with-current current stop
+            (set! trial (1+ trial)) (set! original #f) (progress-best-set! state #f)
+            (progress-best-set! state (generate generator random size))
+            (observe (progress-best state))
+            (set! original (sample-value (progress-best state))))
+          (unless (with-current current stop (accepts? specification original))
             (error "generator produced a value outside its descriptor" original))
-          (unless (current) (finish (result 'stale root 0 0 #f)))
-          (def outcome (boolean-result (property original) "property must return a boolean"))
-          (unless (current) (finish (result 'stale root 0 0 #f)))
-          (unless outcome
-            (let (shrunk (shrink-failure specification property root budget current observe))
-              (finish (result (vector-ref shrunk 0) (vector-ref shrunk 1)
-                (vector-ref shrunk 2) (vector-ref shrunk 3) (vector-ref shrunk 4))))))
-        (result 'passed #f 0 0 #f)))))
+          (unless (with-current current stop
+                    (boolean-result (property original) "property must return a boolean"))
+            (shrink-failure specification property state budget stop current observe))
+          (progress-best-set! state #f))
+        (result 'passed #f)))))
 ;; Public checks require an explicit domain and finite trial/attempt budgets.
 ;; Error classification may describe a caller's own bounded-generation refusals.
 (def (check-property generator (property : :procedure) specification seed: (seed 0)

@@ -130,6 +130,54 @@
       (check changed? => #t)
       (check-equal? (property.report-status report) 'stale)
       (check-exception (property.replay-property report) (message? "stale property replay")))
+    (test-case "interrupted shrinking preserves confirmed progress across callback boundaries"
+      (for (stage '(children iterator admission measure property observer))
+        (def cause (Error (symbol->string stage)))
+        (def observer-failed? #f)
+        ;; Each run first confirms 9 -> 8, then fails at one later boundary.
+        (def source (generator.make-generator (lambda (_random _size) 9)
+          (lambda (value)
+            (cond ((= value 9) [8])
+                  ((eq? stage 'children) (raise cause))
+                  ((eq? stage 'iterator)
+                    (in-coroutine (lambda (yield) (yield 8) (raise cause))))
+                  (else '(8 7))))
+          current?: (lambda () (if observer-failed? (raise cause) #t))))
+        ;; Admission and measure failures belong to the charged proposal, never
+        ;; to a newly confirmed counterexample.
+        (def domain (property.make-specification
+          (lambda (value) (when (and (eq? stage 'admission) (= value 7)) (raise cause)) (exact-integer? value))
+          (lambda (value) (when (and (eq? stage 'measure) (= value 7)) (raise cause)) (abs value))))
+        (def report (property.check-property source
+          (lambda (value)
+            (when (= value 7)
+              (if (eq? stage 'observer) (set! observer-failed? #t) (raise cause))) #f)
+          domain cases: 1 shrink-budget: 8))
+        (check-equal? (property.report-status report) 'error)
+        (check (eq? (property.report-cause report) cause) => #t)
+        (check-equal? (list (property.report-original report) (property.report-counterexample report)
+          (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))
+          (list 9 8 (case stage ((children) 1) ((iterator) 2) (else 3)) 1 #f))
+        (check-exception (property.replay-counterexample report) (message? "failed property report required"))
+        ;; Stable sources replay the same interruption, cause and charged work.
+        (unless (eq? stage 'observer)
+          (let (again (property.replay-property report))
+          (check-equal? (property.report-status again) 'error)
+          (check (eq? (property.report-cause again) cause) => #t)
+          (check-equal? (property.report-counterexample again) 8)
+          (check-equal? (property.report-attempts again) (property.report-attempts report))))))
+    (test-case "stale interruption retains work without promoting the pending proposal"
+      (def epoch 0) (def cause (Error "retired specification"))
+      (def source (generator.make-generator (lambda (_random _size) 9)
+        (lambda (value) (if (= value 9) [8] '(8 7))) current?: (lambda () (= epoch 0))))
+      (def report (property.check-property source
+        (lambda (value) (when (= value 7) (set! epoch 1) (raise cause)) #f)
+        (property.make-specification exact-integer? abs) cases: 1 shrink-budget: 8))
+      (check-equal? (list (property.report-status report) (property.report-counterexample report)
+        (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))
+        '(stale 8 3 1 #f))
+      (check (eq? (property.report-cause report) cause) => #t)
+      (check-exception (property.replay-property report) (message? "stale property replay")))
     (test-case "normalized callback commands survive dependency shrinking and both replays"
       (def normalized []) (def wraps 0) (def opened 0) (def closed 0)
       ;; Both raw and repaired commands belong to this finite command language.
