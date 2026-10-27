@@ -190,10 +190,12 @@
         (unless (element? (.@ source Key) key)
           (raise-type-error (.@ source Key) key 'table-order))
         (admit-source (action) #t))))
-    ;; Sorting reorders pairs only; existing admitted row and Function identities stay.
+    ;; Own observation shells before comparison callbacks can recycle the producer
+    ;; list or Pair cells. Standard sorting reorders those private rows; admitted
+    ;; key/value leaves (including checked Functions) retain their identities.
     (def (bindings state)
       (list-sort (lambda (left right) (< (.call comparer .compare (car left) (car right)) 0))
-        (.call source .list<- state)))
+        (capture-table-bindings (.call source .list<- state))))
     ;; Shared admission runs before backend positioning or the fallback enumeration.
     (def (bounds lower upper lower-inclusive? upper-inclusive?)
       (using ((lower-inclusive? :~ boolean?) (upper-inclusive? :~ boolean?))
@@ -298,7 +300,9 @@
         (for/fold (acc seed) (entry (entries state #f #t)) (f (car entry) (cdr entry) acc)))))
       .foldr: (lambda (f seed state) (observe state (lambda ()
         (foldr (lambda (entry acc) (f (car entry) (cdr entry) acc)) seed
-          (if seek? (.call source .list<- state) (bindings state))))))))
+          ;; Positioned order needs no sort, but callbacks may still recycle the
+          ;; source's temporary observation cells before the next fold step.
+          (if seek? (capture-table-bindings (.call source .list<- state)) (bindings state))))))))
     result)))
 
 ;; Decompose under an explicit lawful order, retaining admitted leaves and indexes.

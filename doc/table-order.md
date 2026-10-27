@@ -630,3 +630,55 @@ effects, mutable payload internals, compiler behavior or GC. Each emitted row
 incurs one captured shell and child admission before selection; no snapshot scan,
 sorting pass, new cache or second cursor engine is introduced. This correctness
 repair is not a universal wall-clock speedup claim.
+
+## Finite observation ownership before ordering and folding
+
+Fallback ordering now feeds `capture-table-bindings` into Gerbil's existing
+`list-sort`. Sorting the spine alone cannot protect the producer's Pair fields:
+a backend can lawfully return temporary observation cells while retaining a
+persistent root. Another read performed during comparison can recycle those cells.
+The captured finite observation therefore owns both the list spine and each Pair
+shell before any comparison. The ordered reverse fold also captures the positioned
+backend's materialized list before user callbacks; its fallback reuses the same
+already captured sorting path. No second copy is added there.
+
+This is a derived-protocol boundary, not a replacement for raw backend folds.
+The original paper's dictionary delegates through `self` (`poof.scrbl:744–773`);
+this implementation likewise retains source construction and traversal capabilities.
+Gerbil's compiler/contract code uses standard `list-sort`; it is retained here
+rather than implementing a sorting algorithm. This extension advances the author's
+collection-library future work, not an omitted concrete algorithm in the paper.
+
+The regressions retain the producer root and leaves while recycling only temporary
+list/Pair cells. Previously, numeric results became 999, false payloads became true,
+and checked service Functions were replaced by other valid Functions. Existing
+`observe-ledger-range` supplies the complete Reader/FUN/IO example: each of Pure,
+Mutable, Linear, Posh and Classy inspects a bounded stream, invokes the original
+checked callbacks and emits one completed result. A comparison refusal suppresses
+IO; the same owner remains observable and a fresh invocation retries. Observation
+never consumes a linear owner.
+
+```scheme
+;; Drain the checked bounded stream before publishing the service results.
+(def action
+  (observe-ledger-range protocol (some 1) (some 3)
+    (lambda (entries)
+      (for/collect (entry entries) ((cdr entry) (car entry))))
+    consume))
+```
+
+The companion `TableCapture` laws reuse `captureRequestBatch`, with no second
+capture engine. They prove original-row delivery, exact sorting refusal, fold
+results and cardinality under an explicit ordering-permutation premise.
+`Examples/CollectionStyles.lean` checks false values and opaque Function folds.
+Faithful finite observations, stable key/value leaves, persistent roots and a
+lawful stable ordering relation remain premises. Scratch-buffer reuse does not
+license mutation of those logical inputs or descriptor revisions. The model does
+not verify the sorting implementation, arbitrary callback termination or the VM.
+
+Capture costs O(n) list and Pair shells for each finite materialization. Sorting,
+complete source admission, comparison work, callback effects, allocation and GC
+remain charged. Positioned lazy iteration still uses its existing cursor path;
+only a positioned reverse fold's already materialized list gains this capture.
+No wall-clock speedup is claimed. The design deliberately reuses one existing
+boundary instead of adding per-operation contracts, caching or another Iterator.

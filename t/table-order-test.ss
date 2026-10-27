@@ -7,6 +7,22 @@
 (def (message? text)
   (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
 
+;; Return faithful temporary observation cells, independently of persistent roots.
+;; Comparisons/fold callbacks may recycle those cells after the observation returns.
+(def (borrowed-order raw poison positioned?)
+  (def pending []) (def active? #f)
+  ;; Recycle both Pair fields and the list spine, never any stored root or leaf.
+  (def (recycle)
+    (when (and active? (pair? pending))
+      (for-each (lambda (row) (set-cdr! row poison)) pending)
+      (set-cdr! pending [])))
+  (def source (.cc raw .list/key: (lambda (root)
+    (set! pending (.call raw .list<- root)) pending)))
+  (def comparer (if positioned? (.@ raw Comparer)
+    (table-comparer (.@ raw Key)
+      (lambda (a b) (recycle) (number-comparer a b)) equal?: =)))
+  (values source (table-order source comparer) (lambda () (set! active? #t)) recycle))
+
 ;; Use one admitted callback identity across publication and inverse recovery.
 (def (fixture)
   (defvalues (indexed source comparer key) (service.make-ordered-services))
@@ -30,6 +46,7 @@
 ;; A whole lifecycle includes changed order, conflict retry and inverse recovery.
 (def table-order-test
   (test-suite "explicit transported table order"
+    (include "table-order/observations.scm")
     (test-case "all finite presence and Bool values agree across structural and cursor comparison"
       (def fixtures (for/collect (code (in-range 27))
         (with-list-builder (emit) (for (key (in-range 3))

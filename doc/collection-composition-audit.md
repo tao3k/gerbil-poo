@@ -839,3 +839,35 @@ Cost boundary: binding the leaf adds no response shell or payload wrapper.
 Candidate-pair/group work, registry preparation, source/target recognition,
 projection, allocation and GC remain charged. No full target diff, additional
 classification pass or VM wall-clock speedup is asserted.
+
+## Finite ordered observation acceptance
+
+A later audit found a concrete gap after the positioned cursor repair: fallback
+`table-order` passed the producer's raw `.list<-` result to standard `list-sort`,
+and the positioned reverse fold passed it directly to user callbacks. A persistent
+root does not imply ownership of temporary list/Pair observation shells. Recycling
+those cells changed numeric values, false values and checked Function identities.
+The three corresponding regressions failed against the original implementation.
+The refusal/retry fixture initially armed its refusal before owner construction;
+its trigger was corrected without changing the protocol or expected cause.
+
+Both boundaries now reuse `capture-table-bindings`. The fallback reverse fold
+reuses its already captured bindings, and Gerbil's sorting and Iterator mechanisms
+remain intact. Four integrated cases cover eager/lazy bounds, both fold paths,
+five-style retained Functions and Reader/FUN/IO refusal/retry. This applies the
+paper's existing self-delegation style to the collection proposal; it does not
+relabel a raw backend extension-point premise as an implementation defect.
+Finite Lean capture/fold/permutation laws, stable-leaf/backend premises and O(n)
+shell costs are stated in table-order.md. No extra wrapper, namespace, scheduler
+or backend algorithm was introduced.
+
+The split ordered-observation cases are explicit standard `std/make`
+`extra-inputs`, as are existing included test cases. The build regression checks
+that declaration. Standard target clean/build restored artifact consistency after
+this missing input was found; no timestamp edits or custom freshness mechanism
+were used. The comparison-refusal control drains the deferred style Iterator, and
+the direct seek control supplies its existing explicit inclusivity argument.
+The retry fixture also retains one style factory for both action and owner;
+constructing separate factories correctly refuses a foreign reference before any
+comparison. The diagnostic confirmed `incompatible table reference`, not coroutine
+rewriting of the original comparator cause.

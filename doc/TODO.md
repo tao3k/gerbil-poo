@@ -2649,3 +2649,17 @@ values and stale-origin retry. revise-placement-action reuses typed point delta
 capture and FUN/IO. Finite payload/presence/refusal laws keep backend, stable-leaf
 and classification premises explicit. Pattern binding adds no wrapper; ordinary
 candidate, validation, construction and GC costs remain charged. See table-mapping.md.
+
+### Owned finite ordered observations
+
+Closed the finite materialization boundary used by fallback ordering and both
+reverse-fold paths. Existing binding capture owns list/Pair shells before sorting
+or user fold callbacks can recycle producer scratch cells; it does not copy roots
+or checked Function leaves. Standard sorting, positioned cursors, bounds, metadata
+guards and five-style observation remain unchanged. Numeric, false and Function
+regressions expose the prior corruption; bounded Reader/FUN/IO inspection covers
+original comparison refusal and retry. Finite Lean laws reuse request capture for
+original-row delivery, sorting refusal, reverse folds and permutation cardinality.
+Faithful backend observations, stable leaves and lawful ordering remain premises.
+The O(n) shell capture/allocation and existing sort/admission costs stay charged;
+see table-order.md. This closes a concrete boundary, not automatic discovery.

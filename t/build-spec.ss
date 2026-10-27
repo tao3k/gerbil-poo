@@ -247,8 +247,12 @@
 (def (test-build-spec files)
   (map (lambda (file)
       (def root (path-strip-extension file))
-      (if (equal? root "t/table-mapping-test")
-        `(gxc: ,root (extra-inputs: ("t/table-mapping/composition.scm"))) root)) files))
+      (match root
+        ("t/table-mapping-test"
+          `(gxc: ,root (extra-inputs: ("t/table-mapping/composition.scm"))))
+        ("t/table-order-test"
+          `(gxc: ,root (extra-inputs: ("t/table-order/observations.scm"))))
+        (else root))) files))
 
 ;; Keep selection explicit. Standard compile/clean/spec/meta arguments pass
 ;; unchanged to defbuild-script; only project inventories are selected here.

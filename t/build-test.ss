@@ -61,7 +61,10 @@
     (test-case "collection case includes participate in standard make freshness"
       (def spec (car (build-request '("tests" "collection-updates" "/tmp/poo-test-output"))))
       (check (and (member '(gxc: "t/table-mapping-test"
-        (extra-inputs: ("t/table-mapping/composition.scm"))) spec) #t) => #t))
+        (extra-inputs: ("t/table-mapping/composition.scm"))) spec) #t) => #t)
+      (def ordered (car (build-request '("tests" "collection-order" "/tmp/poo-test-output"))))
+      (check (and (member '(gxc: "t/table-order-test"
+        (extra-inputs: ("t/table-order/observations.scm"))) ordered) #t) => #t))
     (test-case "collection observation and IO includes participate in standard library freshness"
       (for (mode '("library" "qualification"))
         (def spec (car (build-request (list mode))))
