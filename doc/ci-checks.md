@@ -286,3 +286,12 @@ diagnosis, and the SAME standard `.build/package` path is reconstructed. No runt
 load-path override, versioned receipt, permanent cleanup engine or SDK patch is added.
 CI's source-keyed Linux builds remain a separate platform qualification. Arbitrary
 mixing of old/new SDK object formats is not certified by the collection proofs.
+
+### Native dependency installation
+
+The package build entry uses the ordinary `gxi` interpreter directly. A fixed
+180-second shebang deadline incorrectly terminated cold macOS dependency builds
+with status124 while native make still had pending compiler jobs. CI and caller
+process supervision retain their own deadlines. This removes no Suite, target,
+worker limit or heap limit and introduces no retry/build fallback. Gerbil and
+`std/make` still own compilation, failures and incremental recovery.
