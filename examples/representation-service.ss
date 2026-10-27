@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service expanded-service checked-total-action checked-kernel-action service-workflow main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -61,7 +61,9 @@
 ;; indexed access remains selectable for a directly comparable complete trace.
 ;; Supported source revisions invalidate every child; refused refinement runs no
 ;; consumer, and recovery requires a fresh successful demand, not a cached error.
-(def (service-workflow width layout: (layout? #f))
+;; Optional shared approval addition/removal exercises shape changes through the
+;; SAME checked action, without a second loader, evaluator or validation wrapper.
+(def (service-workflow width layout: (layout? #f) reshape?: (reshape? #f))
   (using (width :~ (lambda (n) (and (fixnum? n) (>= n 0))))
     (let* ((recipe (.cc Service tariff: 3))
            (receivers (for/collect (n (in-range width)) (.o inherit: [recipe] capacity: n)))
@@ -75,6 +77,10 @@
       ;; Standard ordered mapping retains every admission and consumer, including
       ;; the empty batch. It does not infer purity or reuse approval across owners.
       (def (stage tariff)
+        (when reshape?
+          (case tariff
+            ((4) (.putslot! recipe 'approval ($constant-slot-spec #f)))
+            ((5) (.removeslot! recipe 'approval))))
         (.putslot! recipe 'tariff ($constant-slot-spec tariff))
         (let ((total (apply + (map-in-order action receivers)))
               (expected (+ (* 3 width) (* tariff (/ (* width (1- width)) 2)))))

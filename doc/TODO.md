@@ -2738,3 +2738,17 @@ preparation/selected/all-field paired studies. Dense allocation, key/shape work,
 ordinary instance hashes and guard/call/GC costs remain charged. This does not
 close full-vector-only storage, automatic shape policy or arbitrary dynamic module
 startup; see representation.md.
+
+### Certified prior-shape construction reuse
+
+Closed repeated canonical sorting/intern lookup when an access site visits fresh
+receivers with the same complete field set. Existing layout construction accepts
+its prior immutable shape as a hint, after identity-based deduplication, equal
+cardinality and EVERY-name membership checking. Value cells always belong to the
+current receiver. Add/remove, uninterned-name replacement, false/Function,
+observation and failure/retry semantics retain the existing paths. The shared
+service example includes structural changes and original refinement refusal;
+full-set/index/current-value Lean laws and preparation/full/reshape paired phases
+accompany complete regressions. No alternate loader, admission cache or evaluator
+is added. Full-vector-only storage, automatic policy selection and arbitrary cold
+module initialization remain distinct boundaries; see representation.md.

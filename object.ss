@@ -572,11 +572,11 @@
 ;; Prepare a shared symbolic shape lazily. Ordinary lookup retains its hash API;
 ;; Creation may seed existing cached values or allocate demand-filled cells.
 ;; Existing layouts are reused; ordinary lookup remains the value authority.
-(def (object-layout self eager?: (eager? #t))
+(def (object-layout self eager?: (eager? #t) previous: (previous #f))
   (def instance (object-instance self))
   (or (object-%layout self)
     (let (layout (make-slot-layout
-      (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) (and eager? instance) absent-value))
+      (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) (and eager? instance) absent-value previous: previous))
       (set! (object-%layout self) layout) layout)))
 ;; Guarded access sites reuse only an index, never another receiver's slot value.
 ;; Observation and cold bootstrap anchors use ordinary .ref before preparation.
@@ -588,7 +588,7 @@
   (if (%slot-read-active?) (.ref self slot)
     (let (prepared (object-%layout self))
       (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
-        (let ((layout (or prepared (object-layout self eager?: (slot-cache-eager? cache)))) (revision (object-revision self)))
+        (let ((layout (or prepared (object-layout self eager?: (slot-cache-eager? cache) previous: (slot-cache-layout cache)))) (revision (object-revision self)))
           (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
             (let* ((index (slot-cache-index cache layout))
                    ;; Offset sharing never shares the previous owner's cells.

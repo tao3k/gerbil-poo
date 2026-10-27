@@ -15,6 +15,49 @@
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
+    (test-case "shape hints check the complete identity set and never seed foreign cells"
+      (def a (string->uninterned-symbol "same")) (def b (string->uninterned-symbol "same"))
+      (def original (make-slot-layout (list a 'off a) (list->hash-table (list (cons a 7) (cons 'off 9))) absent-value))
+      (def current (make-slot-layout (list 'off a 'off) (list->hash-table (list (cons a #f))) absent-value previous: original))
+      (check (eq? (slot-layout-shape current) (slot-layout-shape original)) => #t)
+      (check (slot-layout-ref current (slot-layout-index current a)) => #f)
+      (check (eq? (slot-layout-ref current (slot-layout-index current 'off)) absent-value) => #t)
+      (slot-layout-set! current (slot-layout-index current a) 11)
+      (check-equal? (slot-layout-ref original (slot-layout-index original a)) 7)
+      ;; Equal lengths and spellings cannot certify a different uninterned name.
+      (def replacement (make-slot-layout (list b 'off) #f absent-value previous: original))
+      (check (eq? (slot-layout-shape replacement) (slot-layout-shape original)) => #f)
+      (check (slot-layout-index replacement a) => #f)
+      (for (names (list (list a) (list a 'off 'extra)))
+        (let (changed (make-slot-layout names #f absent-value previous: original))
+          (check (eq? (slot-layout-shape changed) (slot-layout-shape original)) => #f)))
+      (def empty (make-slot-layout [] #f absent-value))
+      (check (eq? (slot-layout-shape empty)
+        (slot-layout-shape (make-slot-layout [] #f absent-value previous: empty))) => #t))
+    (test-case "standard cached service clones reuse shapes across refinement refusal and structural revision"
+      (load-module "clan/poo/examples/representation-service")
+      (def source (.o inherit: [service.Service] tariff: 3))
+      (def a (.o inherit: [source] capacity: 2)) (def b (.o inherit: [source] capacity: 4))
+      (def delivered 0) (def layouts [])
+      (def action (service.checked-total-action (lambda (owner total)
+        (set! layouts (cons (object-%layout owner) layouts)) (set! delivered (1+ delivered)) total)))
+      (check-equal? (action a) 9) (check-equal? (action b) 15)
+      ;; Refinement owns the admitted receiver; source layouts cannot stand in
+      ;; for the freshly validated candidate used by the checked Reader action.
+      (let (first (car layouts))
+      (check (eq? (slot-layout-shape first) (slot-layout-shape (cadr layouts))) => #t)
+      (.putslot! source 'tariff ($constant-slot-spec -1))
+      (check-exception (action a) TypeError?) (check-equal? delivered 2)
+      (check (object-%layout a) => #f)
+      (.putslot! source 'tariff ($constant-slot-spec 5))
+      (.putslot! source 'approval ($constant-slot-spec #f))
+      (check-equal? (action b) 23) (check-equal? (action a) 13)
+      (check (eq? (slot-layout-shape first) (slot-layout-shape (car layouts))) => #f)
+      (check (eq? (slot-layout-shape (car layouts)) (slot-layout-shape (cadr layouts))) => #t)
+      (.removeslot! source 'approval)
+      (check-equal? (action a) 13)
+      (check (eq? (slot-layout-shape first) (slot-layout-shape (car layouts))) => #t)
+      (check-equal? delivered 5)))
     (test-case "prepared layouts promote only demanded warmed false and checked Function values"
       (def signature (Fun Integer <- Integer))
       (def checked (validate signature (lambda (n) (+ n 1))))
@@ -73,7 +116,8 @@
                               (+ (* 3 width) (* 5 (/ (* width (1- width)) 2)))
                               (* 3 width)))
           (check-equal? (service.service-workflow width) expected)
-          (check-equal? (service.service-workflow width layout: #t) expected)))
+          (check-equal? (service.service-workflow width layout: #t) expected)
+          (check-equal? (service.service-workflow width layout: #t reshape?: #t) expected)))
       (check-exception (service.service-workflow -1) contract-violation-error?)
       (check-exception (service.main "4" "invented") contract-violation-error?))
     (test-case "cold pinned hooks do not initialize unrelated metadata or bind a layout"

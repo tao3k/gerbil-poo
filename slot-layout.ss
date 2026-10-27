@@ -1,26 +1,34 @@
 ;;; Shared shapes and receiver-local value vectors for guarded access sites.
 (export make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
-        make-slot-cache slot-cache-name slot-cache-eager? slot-cache-hit? slot-cache-index slot-cache-read slot-cache-bind!)
+        make-slot-cache slot-cache-name slot-cache-eager? slot-cache-layout slot-cache-hit? slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
 ;; A shape owns the immutable name-to-index mapping. Cells always belong to one receiver.
-(defstruct shape (indices))
+(defstruct shape (indices names))
 (defstruct layout (shape cells))
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
 ;; Canonicalize symbolic identity order, independent of parent/declaration order.
 ;; An explicit initial table seeds all cached values. False selects demand-filled
 ;; cells: make-vector allocates the same finite layout without scanning values.
-(def (make-slot-layout names initial missing)
-  (def keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b)))
-    (delete-duplicates/hash names table: (make-hash-table-eq))))
-  (def canonical (hash-ensure-ref shapes keys
-    (lambda ()
-      (let (indices (make-hash-table-eq))
-        (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
-        (make-shape indices)))))
+;; An old layout supplies only an immutable shape hint. Full identity-set checking
+;; precedes reuse, so additions/removals still canonicalize through the weak table.
+;; Reusing its ordered names skips sorting/interning, never current value seeding.
+(def (make-slot-layout names initial missing previous: (previous #f))
+  (def unique (delete-duplicates/hash names table: (make-hash-table-eq)))
+  (def hint (and previous (slot-layout-shape previous)))
+  (def canonical
+    (if (and hint (= (length unique) (length (shape-names hint)))
+             (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint
+      (let (keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) unique))
+        (hash-ensure-ref shapes keys
+          (lambda ()
+            (let (indices (make-hash-table-eq))
+              (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
+              (make-shape indices keys)))))))
+  (def keys (shape-names canonical))
   (make-layout canonical (if initial
     (list->vector (map (lambda (name) (hash-ref initial name missing)) keys))
     (make-vector (length keys) missing))))
@@ -41,6 +49,8 @@
 (defalias slot-cache-name access-cache-name)
 ;; A creation preference, never value authority: an existing layout is reused.
 (defalias slot-cache-eager? access-cache-eager?)
+;; An old receiver layout is a shape hint only; its cells never seed a new owner.
+(defalias slot-cache-layout access-cache-layout)
 ;; Capture an explicit seeding choice once, without a per-read policy closure.
 ;; Default eager remains qualified; demand filling is opt-in for selected fields.
 (def (make-slot-cache name eager?: (eager? #t))

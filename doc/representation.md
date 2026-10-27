@@ -569,3 +569,86 @@ First layout allocation wins within the receiver generation; no automatic policy
 or wrapper chain is introduced. This closes the explicit demand-promotion
 capability and its failure/invalidation laws, not broad performance qualification
 or arbitrary dynamic-loader startup.
+
+## Certified prior-shape reuse during construction
+
+An inline site's existing layout now supplies a hint to `object-layout` through
+`previous:`. `make-slot-layout` first uses the existing standard identity-based
+duplicate removal. It reuses the prior immutable shape only when cardinality and
+EVERY name's identity membership match. Reordering and repeated catalog entries
+are allowed. Additions, removals and equal-spelling distinct uninterned symbols
+retain the original canonical sort and standard weak-value `hash-ensure-ref` path.
+The shape retains its canonical ordered names alongside its identity hash index;
+reuse skips sorting and intern lookup, not inventory or complete-set checking.
+
+Only positions are shared. Fresh cells are seeded from the CURRENT receiver's
+ordinary cache, or initialized to the existing unpromoted sentinel. False and
+checked Function identity, eager/demand preference, observation routing,
+owner/revision/layout guards and refusal/retry behavior remain unchanged. No new
+per-read wrapper, registry, loader or evaluator is introduced. Existing live
+layouts still return immediately. Supported revisions discard receiver layouts;
+an old site can then provide only a freshly checked shape hint.
+
+The author source's prototype metadata discussion (`poof.scrbl`, "A prototype is
+more than a function") explicitly separates representation choices from open
+recursion; its cache-invalidation section requires deliberate mutation handling.
+Gerbil's standard `runtime/loader.ss` already caches initialization and errors.
+This unit improves clone preparation AFTER that standard loader, not arbitrary
+cold discovery, compilation or initialization. `service-workflow ... layout: #t
+reshape?: #t` uses the existing checked Reader action through shared approval
+addition/removal, invalid refinement and recovery. The source edit changes shape
+without bypassing refinement or forcing unrelated business fields.
+
+Lean's existing Representation namespace proves the full-set certificate from
+unique current names, equal length and membership; selected-name/index presence;
+current owner/revision/token/field preservation; whole-cache fidelity; and the
+existing ordinary value/refusal access law after hint preparation. String identity
+stands for faithful Scheme symbol identity. Canonical fallback and runtime index
+fidelity remain premises. The work law counts skipped canonical-sort entries;
+deduplication, failed-match probes, allocation, current seeding, construction,
+GC, standard loader behavior and wall-clock time are not proved free.
+
+The complete paired study adds `slot-shape-prepare`, `slot-shape-workflow` and
+`slot-shape-change`, without dropping any prior phase. Preparation uses the SAME
+current constructor, with/without `previous:`, including duplicate capture and
+eager seeding. Full operations compare the preceding eager inline route with the
+production shape-hint route in the same runtime, including successful promotion
+on both sides. One existing checked-action boundary admits the receiver before
+either route runs; the source gets no redundant layout. Complete operations include standard cached loading,
+four fresh inherited services, checked consumers, shared revisions, original
+refinement refusal and recovery; change also adds/removes a shared field. AB/BA,
+A/A/B/B, natural/collected execution, all prefixes and per-sample wall/CPU/GC
+metrics remain mandatory. A cached module is not a fresh-process loading sample.
+
+### Local whole-operation receipt and design review
+
+The unchanged bounded full consumer passed all 148 modules / 1,817 cases and all
+study phases. A separate quiet `just _run-collections 64 3 6` passed the COMPLETE
+study in 30.40s on the installed macOS V19 release. This is a study duration,
+not a paired old/new whole-entry speedup. All raw samples remain outside Git.
+Candidate minus reference wall microseconds per complete operation:
+
+| Phase | Natural median (range) | Collected median (range) |
+| --- | --- | --- |
+| Complete preparation | -5.05 (-216.33 to -4.29) | -8.03 (-9.38 to -4.93) |
+| Complete checked service workflow | -288.17 (-401.02 to +100.29) | -227.17 (-292.38 to -191.69) |
+| Workflow with shared field addition/removal | -238.34 (-440.68 to +184.30) | -244.82 (-333.63 to -93.30) |
+
+Each collected workflow has six negative wall differences; collected non-GC CPU
+medians are -245.67us / -213.83us respectively. Their GC CPU medians are +7.83us /
+-8.50us: the improvement is not solely a lower GC count. Components are separately
+summarized medians and must not be added. Natural workflow A/A spans -267.66 to
++241.68us, B/B -586.67 to +329.97us; changed-workflow A/A spans -130.73 to +177.30us,
+B/B -341.34 to +94.97us. The positive natural tails remain visible. Preparation
+also has large natural A/A/B/B wall outliers despite no median GC difference.
+This receipt supports these complete workloads, not universal latency or an
+arbitrary module-loader speed claim. The small two-field full gate retains its
+natural GC counterexamples as well.
+
+The design keeps one shape and one existing access site instead of adding a
+metadata registry or memoizing validated receivers/constructors. Effective methods
+and checked Function fields depend on final self and revision; only immutable
+field positions are safely reusable here. The successful complete-set check has
+real linear work, and a mismatch adds checks before the original sorting path.
+The change-phase benchmark keeps that cost. Ordinary instance hashes and full
+construction/admission still remain; vector-only storage is separate work.

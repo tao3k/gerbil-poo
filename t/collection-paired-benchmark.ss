@@ -1,7 +1,8 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
-        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref make-slot-layout slot-layout-index)
+        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
+        (only-in ../object-contract-flow checked-action)
         (only-in ../slot-observation call-with-slot-read-observer %slot-read-active?)
         (only-in :gerbil/runtime/loader load-module)
         (prefix-in ../examples/representation-service service.)
@@ -24,7 +25,52 @@
 ;; Cold preparation, lazy evaluation and switched/tracked hot access all remain
 ;; visible. The module phase measures a standard cached load, not a fresh import.
 (def +slot-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
-    slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
+    slot-seeding-prepare slot-seeding-workflow slot-seeding-all
+    slot-shape-prepare slot-shape-workflow slot-shape-change))
+
+;; Compare the same current layout constructor with/without an old shape hint.
+;; Full operations use the preceding inline route and the production hint route.
+;; Preparation charges complete name capture, duplicate removal and value seeding.
+;; Full workflows include cached standard loading, fresh inherited owners, checked
+;; Reader consumers, shared invalidation, refused refinement and successful retry.
+;; Changed layouts exercise both added and removed fields, not only steady hits.
+(def (shape-workload size scenario)
+  (def names (for/collect (n (in-range size)) (string->symbol (string-append "extra-" (number->string n)))))
+  (def entries (map (lambda (name) (cons name #f)) names))
+  (def initial (list->hash-table entries))
+  (def old (make-slot-layout names initial absent-value))
+  (def (action reuse?)
+    (lambda ()
+      (if (eq? scenario 'slot-shape-prepare)
+        (let (layout (make-slot-layout (append (reverse names) names) initial absent-value previous: (and reuse? old)))
+          (unless (eq? (slot-layout-ref layout (slot-layout-index layout (car names))) #f)
+            (error "shape preparation oracle")))
+        (begin
+          (load-module "clan/poo/examples/representation-service")
+          (let* ((recipe (.o inherit: [service.Service (object<-alist entries)] tariff: 3))
+                 (owners (for/collect (n (in-range 4)) (.o inherit: [recipe] capacity: n)))
+                 (site (make-slot-cache 'total)) (delivered 0)
+                 (consume (checked-action service.ValidService
+                   (lambda (owner)
+                     (let (total ((if reuse? .ref/inline reference-inline) owner site))
+                       (set! delivered (1+ delivered)) total)))))
+            ;; Exactly one checked boundary owns refinement. Only its admitted
+            ;; receiver is prepared/read; original sources get no duplicate layout.
+            (def (visit tariff)
+              (.putslot! recipe 'tariff ($constant-slot-spec tariff))
+              (let (total (for/fold (sum 0) (owner owners) (+ sum (consume owner))))
+                (unless (= total (+ 12 (* 6 tariff))) (error "shape workflow oracle"))))
+            (visit 3)
+            (when (eq? scenario 'slot-shape-change) (.putslot! recipe 'approval ($constant-slot-spec #f)))
+            (visit 4)
+            (.putslot! recipe 'tariff ($constant-slot-spec -1))
+            (unless (and (TypeError? (with-catch identity (cut consume (car owners)))) (= delivered 8))
+              (error "shape refused consumer oracle"))
+            (when (eq? scenario 'slot-shape-change) (.removeslot! recipe 'approval))
+            (visit 5)
+            (unless (= delivered 12) (error "shape delivery oracle")))))
+      #t))
+  (values (action #f) (action #t)))
 
 ;; Counterfactual for hot/switch: the preceding production read path, with
 ;; eager value seeding and the SAME ready-layout shortcut/observation guard.
@@ -39,7 +85,9 @@
           (if (slot-cache-hit? cache receiver revision layout) (slot-cache-read cache)
             (let* ((index (slot-cache-index cache layout))
                    (stored (if index (slot-layout-ref layout index) absent-value))
-                   (value (if (eq? stored absent-value) (.ref receiver slot) stored)))
+                   (value (if (eq? stored absent-value)
+                     (let (value (.ref receiver slot))
+                       (when index (slot-layout-set! layout index value)) value) stored)))
               (slot-cache-bind! cache receiver revision layout index) value)))))))
 
 ;; Compare cached-value seeding with demand promotion on identical finite shapes.
@@ -540,6 +588,8 @@
              (cut order-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
+            ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
+             (cut shape-workload n scenario))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
           (lambda (before after elapsed) (set! setup-history (measurement-history before after elapsed)))))
