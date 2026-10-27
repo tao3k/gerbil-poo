@@ -764,6 +764,10 @@ loader, executable selector or cache registry is introduced. Startup remains
 charged by the outer whole-command clock and the reported startup counters.
 The original startup reference worker remains a standard executable with its
 90-second build bound.
+The shared entry declares `std/crypto/digest` as a standard runtime dependency:
+the measurement plugin needs its FFI bindings, which a standalone executable
+cannot obtain merely from a compiled Scheme import. This is compiler-owned
+linkage, not a POO module registry or an arbitrary-FFI admission guarantee.
 
 The complete collection paired study adds `slot-offset-prepare`,
 `slot-offset-hot`, `slot-offset-switch`, `slot-offset-churn` and `slot-offset-workflow`. Both sides

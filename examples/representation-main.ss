@@ -2,10 +2,13 @@
 (export main)
 (import (only-in :gerbil/runtime/loader list-modules)
         (only-in ../io module-action)
-        (runtime: :clan/poo/generalized-prototype))
+        (runtime: :clan/poo/generalized-prototype)
+        (runtime: :std/crypto/digest))
 ;; Link only the common foundation. Business modules remain ordinary compiled
 ;; plugins: the same module and explicit binding can be called by gxi or this exe.
 ;; No import-time enumeration, custom search path or entry registry is installed.
+;; Compiled measurement plugins require the standard digest FFI module in the
+;; executable dependency graph; the compiler owns its linkage and initialization.
 (def (main module binding . arguments)
   (let (before (list-modules))
     (display "MODULE-ENTRY ")
