@@ -12,8 +12,7 @@
  ;; Exercise the existing derivations independently and in a nested chain.
 ;; Every indexed view uses its own declared cache, never an eager empty source.
 (def (constructor-views source)
-  (defvalues (boxed _carrier _keys) (box-table source
-        key: (.cc Wrapper. Domain: Integer Codomain: Integer .ap: identity .unap: identity)))
+  (defvalues (boxed _carrier _keys) (box-table source))
   (def (indexed table)
     (table-indexes table (list (.cc Type. name: 'key unique?: #t
       table: (RationalDict (.@ table Key)) project: (lambda (key _) key)))))
