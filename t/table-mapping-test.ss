@@ -2,17 +2,32 @@
 (export table-mapping-test)
 (import :std/test :std/error :std/iter (only-in ../brace @@method)
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie) (only-in ./table-testing box-table) (only-in ./table-testing alist-table)
+        (only-in ../trie SimpleTrie) (only-in ./table-testing box-table borrowing-table) (only-in ./table-testing alist-table)
         (prefix-in ../examples/service-collection service.))
 
 ;; Keep protocol refusals separate from arbitrary callback exceptions.
 (def (message? text)
   (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
 
+ ;; A lawful key-space provider may recycle its returned Option on removal.
+;; Persistent roots and stored row lists stay unchanged; only the borrowed view
+;; shell is invalidated. Consumers must retain its value before the next call.
+(def (recycling-projection-source raw)
+  (def shell (some #f))
+  ;; Retain each requested payload Type and the backend's own key equivalence.
+  (def (registry value)
+    (def base (.call raw .key-table value))
+    (.cc (borrowing-table base shell)
+      .remove: (lambda (root key)
+        (some-value-set! shell [])
+        (.call base .remove root key))))
+  (.cc raw .key-table: registry))
+
 ;; Compare both backends with an independent original-row oracle and all styles.
 (def table-mapping-test
   (test-suite "checked bulk binding maps"
     (include "table-mapping/composition.scm")
+    (include "table-mapping/retraction.scm")
     (test-case "finite projection expands empty and shared Function rows through every publication style"
       (def callback (Fun Integer <- Integer))
       (def f (validate callback (lambda (n) (+ n 1))))

@@ -707,3 +707,45 @@ constructor lookup. A getter may recycle that shell without changing the old
 persistent bucket; the existing borrowing-table fixture verifies that members
 remain the original ones. The finite seedIndexBucket law models that ownership
 boundary under faithful capture, not arbitrary mutable-payload cloning.
+
+
+## Captured projection retraction
+
+The next concrete omission was cached-output eviction in table-projection. The
+ledger's `.ref/opt` response stayed borrowed across `.remove`; a lawful provider
+could recycle that Option without changing any persistent root or stored row
+list. The update then forgot original target keys, retained obsolete outputs,
+or rejected a valid two-owner swap. Six regressions failed against the original
+implementation while all 1,776 existing cases passed.
+
+The shared retraction boundary now uses the existing `map/option identity` before
+any backend eviction. Initial projection admission already owns cached row lists
+and Pair shells; they need no second copy or validation layer. Every original
+output is released before new claims and delivered as an ordinary target deletion.
+Single/multivalued projections, composed middle deltas and five-style publication
+reuse this same code. Function leaves, false keys/values, unchanged entries,
+original callback failures and explicit retries retain their existing semantics.
+
+The reroute-service-action example captures one finite caller route list, retains
+the existing checked service callback, captures one source point delta and delegates
+exact target delivery to the existing Reader/FUN/IO publisher. Collisions and
+whole-target refusal expose neither a successor cache nor an installed target;
+IO after a successful commit retains its existing nonrollback semantics.
+
+TableCapture's finite retireCachedRows model separates completed backend eviction
+from the provider's later response buffer. Laws establish original ordered row
+delivery, absence, buffer independence and original refusal. cachedRetractions
+retains keys, present old values and exact row count; existing inverse installation
+recovers a successfully deleted target view. CollectionStyles covers the prior
+empty-buffer counterexample, two old routes, false values, opaque Functions and
+backend refusal. Backend fidelity, stable cached rows, lawful installers and
+registered/pure projection dependencies remain premises. These laws do not verify
+heap copying, arbitrary callbacks or the Scheme compiler/runtime.
+
+This advances the proposed collection library using the author's dictionary and
+Type Descriptor delegation (`poof.scrbl`, lines 744-773 and 1409-1444); it does not
+reinterpret raw backend folds as missing public validation. One present cached
+entry requires one new Option shell; the existing list and Function objects are
+shared. Retirement still visits every old output and all ordinary admission,
+registry, construction, allocator and GC costs remain charged. No new wall-clock
+speedup or automatic dependency discovery is claimed.

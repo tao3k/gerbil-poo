@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export approved-access-contract revise-focused-access divide-access-action encode-ledger-action)
+(export reroute-service-action approved-access-contract revise-focused-access divide-access-action encode-ledger-action)
 (export observe-ledger-action observe-positioned-ledger-action observe-access-action singleton-ledger-action join-ledger-action reconcile-ledger-action fold-access-action make-policy-capacity-fold make-rational-capacity-ledger apply-indexed-revision admit-ledger-action empty-ledger-action choose-ledger-action decode-ledger-action equal-ledger-action associate-ledger-action construct-ledger-action compare-ledger-action import-ledger-action find-ledger-action divide-ledger-action observe-indexed-range observe-ledger-range make-service-override-view make-service-membership-fold make-service-policy-summary make-service-route-summary drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-combination table-projection table-projection-compose table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
@@ -650,6 +650,22 @@
     (lambda (_key row)
       (map (lambda (route) (cons route (vector-ref row 1))) (vector-ref row 0)))
     multiple?: #t))
+
+ ;; Capture one finite rerouting request, retain the existing checked callback,
+;; and publish its exact target delta through Reader/FUN/IO. Empty routes withdraw
+;; outputs while retaining the service; missing services, collisions and final
+;; target refusal reach no consumer and leave the request's old owners reusable.
+(def (reroute-service-action projection key routes protocol consume)
+  (using (routes :~ list?)
+    (def captured (map identity routes))
+    (publish-collection-action
+      (lambda (request receive)
+        (def source (.@ projection Domain))
+        (def before (.call projection .unap (.@ request state)))
+        (def delta (.call source .delta/opt key (lambda (old)
+          (some (vector captured (vector-ref (option-ref old) 1)))) before))
+        (.call projection .apply-delta (.@ request state) delta receive))
+      protocol consume)))
 
 ;; Expand service routes once, then maintain per-cohort callback capacity totals.
 ;; Exact middle deltas drive grouped invalidation; the existing publisher commits

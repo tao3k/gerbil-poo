@@ -2608,3 +2608,17 @@ identity, equivalent memberships and FUN/IO. Unique indexes retain their conflic
 protocol. Finite materialization/admission and ordered family-stage Lean laws
 state the capabilities and failure boundary. Projection work remains selective,
 but affected-bucket copying/reconstruction is charged; see table-indexes.md.
+
+
+### Captured projection retraction
+
+Closed cached-output retirement across single/multivalued projections, composed
+views and five-style exact target-delta publication. Capture the borrowed ledger
+Option before eviction; reuse its already owned rows to release every original
+key before new claims. Six regressions expose the old leak/collision behavior and
+cover false values, Function identity, late refusal, retry and inverse recovery.
+reroute-service-action composes owned finite requests with existing FUN/IO. Finite
+capture/deletion/inverse laws retain backend and stable-cache premises; output
+traversal, one present Option allocation and complete admission remain charged.
+See table-mapping.md and the composition audit; this is not automatic discovery
+or general mutable-payload ownership.

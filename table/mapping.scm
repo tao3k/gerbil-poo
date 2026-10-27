@@ -431,7 +431,9 @@
               ;; are private ordinary deltas; indexes inspect only the final root.
               (def removals (with-list-builder (emit)
                 (for-each (lambda (key)
-                  (def old (.call ledger .ref/opt cache key))
+                  ;; Eviction may recycle the provider's Option shell. Retain the
+                  ;; already owned cached row list before any backend call.
+                  (def old (map/option identity (.call ledger .ref/opt cache key)))
                   (when (some? old)
                     (begin
                       (set! cache (.call ledger .remove cache key))

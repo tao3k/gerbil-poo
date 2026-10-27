@@ -657,3 +657,16 @@ installation remain costs. Warm resolver count is bounded by distinct edited
 keys, but complete backend/admission work is still charged; no wall-clock speedup
 or generally sublinear workflow is asserted. Automatic resolver/dependency
 discovery remains research work within the proposed collection library.
+
+
+### Captured cached-output retirement
+
+Incremental projections retain a ledger response before backend eviction can
+reuse its Option shell. The already owned cached rows supply all original target
+deletions before any new reservation. This closes single/multiple output maps,
+composed exact delta delivery and all five publication styles without snapshot
+`.diff`, repeated callback execution or a second row-wrapper layer. The integrated
+reroute-service-action captures a finite route request and preserves the service
+Function through the existing FUN/IO publisher. Refusal/retry and inverse recovery
+remain ordinary persistent-delta operations. See the composition audit for the
+six original counterexamples, finite laws, stable-row premise and charged costs.
