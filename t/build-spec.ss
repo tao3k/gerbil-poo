@@ -267,6 +267,8 @@
       ;; std/make rejects duplicate module/exe declarations for the same file.
       [`("examples/representation-service"
           (exe: "examples/representation-main" "-cc-options" ,+gerbil-poo-cc-options+
+            "-ld-options" ,(pkg-config-libs "openssl"))
+          (exe: "t/representation-startup" "-cc-options" ,+gerbil-poo-cc-options+
             "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
     (["library" . options] [(library-build-spec) #f options])
     (["qualification" . options] [+gerbil-poo-build-spec+ #f options])

@@ -2761,6 +2761,9 @@ Representation entry-stage and finite preparation laws preserve original results
 and causes and keep total initialization charged. Cold-process AB/BA, A/A/B/B
 studies distinguish successful-receipt latency from complete exit and retain whole
 CPU/GC observations; raw negative Gambit allocation counters are not byte-cost proof.
+The public study now runs through `gerbil test` and standard-built programs only;
+generated interpreter expressions and the import/runtime command variants are
+removed. Their earlier approximately two-second comparison is withdrawn.
 All previous checks/limits remain. See representation.md for acceptance and scope;
 arbitrary effectful/cyclic initialization and compiler/loader verification are not
 claimed as completed by this unit.

@@ -381,7 +381,7 @@ For a known downstream entry, `just example-representation` uses `defbuild-scrip
 and `std/make` to produce the ordinary loadable `representation-service` module
 and the distinct `representation-main` executable. The latter binds the exact
 same exported `main`, rather than providing another parser or business engine.
-The same `main` can be called after an ordinary `gxi` import. No Lean checkout,
+The same `main` is used by the standard-built programs. No Lean checkout,
 custom load path, environment selector, scheduler or build cache is introduced.
 The existing compiler/heap/timeout limits apply. Link/build work is explicit;
 this is not automatic discovery or a promise that first compilation is free.
@@ -412,71 +412,13 @@ batches with first-refusal semantics. Executable examples cover initial values,
 original refusal and current-view recovery. This is a source-result proof, not a
 proof of module loading, linking, callback effects or physical startup costs.
 
-`just benchmark-representation-startup` compares the standard runtime-only `load-module`
-entry against linking, with four alternating AB/BA pairs
-and four A/A plus four B/B controls per access policy. Every child starts a fresh
-registry and runs the SAME module `main`; the OS filesystem cache is not flushed.
-Parent wall time includes process startup, dependency admission, initialization,
-first demand, revisions, refusal/retry, output and exit. The child's standard
-`time` form separately retains business CPU/GC/allocation. Portable `/usr/bin/time -p` additionally records whole child CPU. Parent process CPU is
-not reported as child CPU. Foreground child deadlines remain in the outer guarded
-process group. A refused child or absent success receipt fails qualification;
-raw observations remain outside Git. Build setup is charged separately and must
-be amortized explicitly before selecting an executable deployment strategy.
+The earlier interpreter-command deployment comparison is withdrawn. Its generated
+`gxi -e` expressions bypassed the standard test interface and charged a different
+bootstrap graph. The old timing tables are retained only in Git history; they do
+not establish a current loading speedup. Current acceptance uses `gerbil test`
+and standard-built programs, as described below. Complete service results,
+initialization/refusal/recovery controls and the original resource limits remain.
 
-A separate CI atom builds and executes both policies and calls the same exported
-entry through ordinary module loading, after checking source revision and release
-compiler identity. All existing compile/test and single-process checks remain.
-This qualifies a concrete fixed-entry deployment path; arbitrary fresh dynamic
-modules, full-vector-only storage and automatic multi-shape policies remain open.
-
-
-### Fixed-entry local receipt and remaining loading costs
-
-macOS arm64, released Gerbil `1cfb032`: the same finite consumer returned
-`#(6240 8256 10272 192)` through the standard import, runtime-only loader and exe.
-All 148 modules / 1,813 tests and the existing complete collection study passed
-under unchanged limits. The final driver was then recompiled through ordinary
-qualification and ran all 48 fresh children, with no concurrent local build or
-full check. Four alternating pairs plus four A/A and four B/B per policy remained.
-Filesystem caches were not flushed. These are process-cold deployment samples,
-not physical-disk-cold or cross-platform latency guarantees.
-
-| Access | Runtime-only whole-process wall median (range) | Linked whole-process wall median (range) | Paired linked-minus-runtime median (range) |
-| --- | --- | --- | --- |
-| symbolic | 2.506s (2.193–2.714s) | 53.70ms (37.62–88.35ms) | -2.431s (-2.670 to -2.156s) |
-| indexed | 2.481s (2.401–2.546s) | 42.40ms (40.99–60.31ms) | -2.430s (-2.505 to -2.357s) |
-
-Whole child CPU medians were 2.315s / 25ms for symbolic and 2.380s / 20ms for
-indexed. Business CPU medians were only 20.39ms / 15.37ms and 23.94ms / 18.38ms,
-respectively. Thus this route qualification does not claim that slots or formulas
-became fifty times faster. Loader/image startup accounts for most of the observed
-whole-entry difference; exact syscall/VM attribution is not established.
-
-A/A runtime wall ranges remained -98.50 to +147.10ms (symbolic) and -111.45 to
-+175.74ms (indexed); linked B/B retained about -46.63 to +0.95ms. All four primary
-pairs improved per policy, but these controls and small sample size prohibit a
-universal tail bound. Standard business timing retained different GC histories
-(runtime about one collection versus linked ten/eleven in representative samples).
-Signed negative allocation counters reported by the stock time form remain raw
-observations, not claimed allocation savings or byte-cost proofs.
-
-An earlier separate full import-entry study also completed its 48 children and
-all controls. Public SSI/import expansion is included there; it is not isolated
-`load-module` timing. It showed a large first-policy wall tail and signed A/A
-residuals; its medians must not be subtracted from the later runtime-only study
-as a paired expander optimization result. No new dynamic import mechanism was
-implemented. Both routes remain executable through the same driver using
-`just benchmark-representation-startup import` or its default `runtime` reference.
-
-The final paired run's standard build check took 4.43s; construction of the final
-module-plus-entry graph earlier took 13.98s using already available dependencies.
-Neither is a genuinely cold compiler or release-build measurement. Building before a one-shot
-invocation can cost more than a dynamic launch; release/deployment tooling should
-prepare the standard artifact once and charge/amortize that setup explicitly.
-Full-vector-only storage, automatic shape policies and cheaper arbitrary dynamic
-module startup remain unclosed. This unit supplies a reproducible fixed-entry
-choice and current-artifact discipline, not a blanket performance default.
 
 ## Explicit demand-filled layout cells
 
@@ -704,16 +646,16 @@ code/initialization, never validated receivers or business results. The ordinary
 service entry remains available as the explicitly selected `#main` binding.
 
 Public `just example-representation` runs BOTH bindings under BOTH access policies.
-The same source also runs through normal gxi import or runtime-only loading; there
-is no compatibility interpreter. The shared executable is appropriate for plugins
+The business binding is shared by the independently built dynamic reference and
+the shared-foundation program. The shared executable is appropriate for plugins
 requiring that foundation: a rebuilt core requires a rebuilt executable, while
 optional modules retain standard dynamic loading/reload behavior. Common startup
 initializers still run once; their work moves to bootstrap instead of disappearing.
 
 ### Cold-process acceptance boundary
 
-Each `benchmark-representation-startup runtime main` or `runtime joint-main` study
-retains 48 fresh child processes: two access policies, four AB/BA pairs and four
+`just benchmark-representation-startup` uses the official `gerbil test` harness.
+Its two cases each retain 48 fresh child processes: two access policies, four AB/BA pairs and four
 A/A plus four B/B controls per policy. Both deployment paths call the SAME compiled
 business binding. Every sample verifies that the selected module was absent
 before demand; the shared entry additionally requires the foundation to be builtin.
@@ -737,41 +679,23 @@ as raw diagnostics and is not admitted as an allocation cost or memory speedup.
 CPU snapshots, child lifetime and parent receipt timing have different boundaries.
 No lower GC count or cached-module hit alone establishes a cold-entry improvement.
 
-The macOS acceptance run used width 64 and four pairs per control, with 48
-successful fresh processes for each selected binding. All four AB/BA pairs in
-each row favored the shared foundation. Seconds below are candidate minus
-runtime-only reference; ranges retain the slowest and fastest observed pairs.
+The earlier approximately two-second difference is withdrawn along with the
+interpreter-command reference. Both current deployment paths are ordinary
+`defbuild-script` executables. The reference is the existing startup module's
+closed `main` binding, which admits the current IO action at runtime; the candidate
+links the shared foundation. Standard `gerbil test` owns discovery, execution and
+failures. There is no generated expression, interpreter subprocess, alternative
+runner, loader or compatibility branch. All 96 processes and both controls remain.
 
-| Entry / access | Complete parent wall median [range] | Receipt latency median [range] | After receipt median [range] |
-| --- | --- | --- | --- |
-| main / symbolic | -2.0023 [-2.1302, -1.9710] | -1.0758 [-1.2024, -1.0398] | -0.9263 [-0.9361, -0.9233] |
-| main / indexed | -2.0608 [-2.0743, -1.9727] | -1.1099 [-1.1292, -1.0478] | -0.9450 [-0.9569, -0.9248] |
-| joint-main / symbolic | -2.0462 [-2.1129, -2.0274] | -1.0855 [-1.1495, -1.0757] | -0.9594 [-0.9660, -0.9517] |
-| joint-main / indexed | -2.0257 [-2.1516, -2.0029] | -1.0800 [-1.1915, -1.0590] | -0.9487 [-0.9601, -0.9379] |
-
-The complete run, including standard build preparation, took 58.37 seconds for
-main and 69.01 seconds for joint-main. A/A and B/B controls remain mandatory:
-joint-main symbolic A/A wall differences ranged from -0.9629 to +0.1907 seconds,
-and indexed A/A receipt differences from -0.2345 to +0.2247 seconds. These controls
-show substantial reference-path variability; they do not support a universal
-latency bound. Separately summarized medians need not add up. About one second
-of the complete-process difference occurred after the successful receipt and
-must not be described as faster initialization.
-
-AB sample pre-exit CPU medians were 1.083--1.132 seconds for main through the
-runtime-only entry versus 0.031 seconds through the shared entry; joint-main was
-1.106--1.116 versus 0.032--0.033 seconds. Pre-exit GC CPU medians were approximately
-0.020--0.022 versus 0.005--0.006 seconds. The measured CPU reduction therefore
-mostly lies outside GC, while complete parent wall also includes time outside
-these snapshots. No claim about physical allocation follows from these counters.
-
-A coherent cold shared test-program build retained all 149 modules, standard
-Gerbil backend parallelism and the existing deadlines; its first compilation
-stage took 84.94 seconds. Preparing the separate example executable subsequently
-took 14.09 seconds while reusing existing objects. The latter is a marginal build
-receipt, not a claim that a completely cold build takes fourteen seconds.
-The complete suite passed 1,837 cases, followed by every existing collection
-paired phase. Raw transcripts remain local rather than committed benchmark data.
+The first corrected macOS run admitted all 96 full-result samples. Main's paired
+whole-process medians were -174.69/-173.39 ms (symbolic/indexed); joint-main's were
+-179.78/-176.45 ms. Successful-receipt medians were approximately -99 to -104 ms,
+with another -71 to -78 ms after the receipt. Main symbolic retained a -781.58 ms
+pair outlier, and main indexed A/A ranged from -10.86 to +210.67 ms, exceeding
+that row's median saving. These are small, controlled observations, not a stable
+tail guarantee. They supersede, rather than reproduce, the withdrawn two-second
+interpreter comparison. Initial standard preparation reused existing objects
+and took 8.43 seconds; it is not a fully cold compiler measurement.
 
 ### Proof and design boundaries
 

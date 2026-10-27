@@ -88,8 +88,8 @@ example-representation: (build "example" "representation-service")
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 indexed
 
 # Fresh processes retain AB/BA and A/A/B/B controls; no filesystem cache flushing.
-benchmark-representation-startup reference='runtime' entry='main': (build "example" "representation-service")
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} t/representation-startup.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" 64 4 "{{ reference }}" "{{ entry }}"
+benchmark-representation-startup: (build "example" "representation-service")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} test t/representation-startup.ss
 
 clean:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }

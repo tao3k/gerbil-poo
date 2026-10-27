@@ -22,9 +22,10 @@
       (check-equal? (cdr request) '(#f ("compile" "--debug"))))
     (test-case "downstream example builds and cleans only its standard executable graph"
       (def request (build-request '("example" "representation-service" "compile" "--debug")))
-      (check-equal? (length (car request)) 2)
+      (check-equal? (length (car request)) 3)
       (check-equal? (caar request) "examples/representation-service")
       (check-equal? (take (cadar request) 2) '(exe: "examples/representation-main"))
+      (check-equal? (take (caddar request) 2) '(exe: "t/representation-startup"))
       (check-equal? (cdr request) '(#f ("compile" "--debug")))
       (check-equal? (clean-request '("example" "representation-service" "compile" "--debug"))
         '("example" "representation-service" "clean")))

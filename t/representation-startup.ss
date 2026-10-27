@@ -1,33 +1,20 @@
 ;;; Fresh-process downstream entry qualification through standard Gerbil commands.
-(export main)
-(import :std/iter :std/misc/process
+(export main representation-startup-test)
+(import :std/test :std/iter :std/misc/process
+        (only-in :gerbil/runtime/loader load-module list-modules)
         (only-in "closure-measure.ss" measure measure-pair median monotonic-seconds))
 
-;; Runtime-only loading and the shared-foundation exe demand the SAME business
+;; Standard-built programs demand the SAME business
 ;; module/binding. Each child has a new registry; filesystem caches are NOT reset.
 ;; Foreground child deadlines stay in the outer guarded process group; the
 ;; existing outer deadline owns the driver and all startup work.
 (def (sample side width access timeout options entry)
   (def module "clan/poo/examples/representation-service")
   (def binding (make-symbol "clan/poo/examples/representation-service#" entry))
-  ;; No POO import executes before the dynamic reference's cold admission.
-  ;; This reports existing standard-loader state, without another module map.
-  (def before
-    `(let ((before (list-modules)))
-      (display "MODULE-ENTRY ")
-      (write (vector (and (assoc ,module before) #t)
-        (andmap (lambda (id) (let ((entry (assoc id before))) (and entry (eq? (cdr entry) 'builtin))))
-          '("clan/poo/object" "clan/poo/mop" "clan/poo/generalized-prototype"))
-        (length before)))
-      (newline) (force-output)))
   (def arguments
     (case side
       ((linked) [(path-expand "bin/representation-main" (gerbil-path)) options module (symbol->string binding) width access])
-      ((import) ["gxi" options "-e" (object->string before) "-e" "(import :clan/poo/examples/representation-service)"
-        "-e" (object->string `(,(string->symbol entry) ,width ,access))])
-      ((runtime) ["gxi" options "-e" (object->string before) "-e"
-        (object->string `(load-module ,module))
-        "-e" (object->string `((eval ',binding) ,width ,access))])
+      ((dynamic) [(path-expand "bin/representation-startup" (gerbil-path)) options entry width access])
       (else (error "unknown service entry" side))))
   (def clock (make-u64vector 1 0))
   (def started (monotonic-seconds clock))
@@ -73,19 +60,16 @@
 ;; Complete every balanced pair before printing or allocating formatted output.
 ;; Parent elapsed time includes spawn, registry/dependency loading, initialization,
 ;; first demand, revisions, refusal/retry and exit; it is not child CPU time.
-(def (main timeout options (width "64") (pairs "4") (reference "runtime") (entry "main"))
+(def (study timeout options (width "64") (pairs "4") (entry "main"))
   (unless (member entry '("main" "joint-main")) (error "unknown service binding" entry))
   (def count (string->number pairs))
-  (def baseline (cond ((equal? reference "runtime") 'runtime)
-                       ((equal? reference "import") 'import)
-                       (else (error "unknown service reference" reference))))
   (using (count :~ (lambda (n) (and (fixnum? n) (>= n 4))))
     (for (access '("symbolic" "indexed"))
       (for (control '(ab aa bb))
         (let ((differences []) (ready-differences []) (exit-differences []))
           (for (index (in-range (if (eq? control 'ab) count 4)))
-            (let ((a (if (eq? control 'bb) 'linked baseline))
-                  (b (if (eq? control 'aa) baseline 'linked))
+            (let ((a (if (eq? control 'bb) 'linked 'dynamic))
+                  (b (if (eq? control 'aa) 'dynamic 'linked))
                   (samples []))
               (measure-pair (if (even? index) '(a b) '(b a))
                 (lambda (slot)
@@ -105,3 +89,42 @@
             " ready-seconds=" (median ready-differences) " ready-min=" (apply min ready-differences) " ready-max=" (apply max ready-differences)
             " after-ready-seconds=" (median exit-differences) " after-ready-min=" (apply min exit-differences) " after-ready-max=" (apply max exit-differences)) (force-output)))))
   (displayln "SERVICE-STARTUP-OK"))
+
+;; Standard exe main for the unlinked reference: no generated expressions or
+;; interpreter subprocess. Observe admission BEFORE loading the existing IO
+;; action, then reuse its current-binding/failure/multiple-values semantics.
+;; The closed binding inventory is ordinary program code, never a command string.
+(def (main entry width access)
+  (unless (and (member entry '("main" "joint-main"))
+               (member access '("symbolic" "indexed")))
+    (error "unknown service entry" entry access))
+  (let (before (list-modules))
+    (display "MODULE-ENTRY ")
+    (write (vector (and (assoc "clan/poo/examples/representation-service" before) #t)
+      (andmap (lambda (id) (let (item (assoc id before)) (and item (eq? (cdr item) 'builtin))))
+        '("clan/poo/object" "clan/poo/mop" "clan/poo/generalized-prototype"))
+      (length before)))
+    (newline) (force-output))
+  (load-module "clan/poo/io")
+  (((eval 'clan/poo/io#module-action) "clan/poo/examples/representation-service"
+    (make-symbol "clan/poo/examples/representation-service#" entry)) (list width access)))
+
+;; The official gerbil test harness owns suite discovery and failure reporting.
+;; Both full bindings retain every AB/BA and A/A/B/B sample. Child programs keep
+;; the existing 90-second/1-GiB bounds; the public recipe retains its outer guard.
+(def representation-startup-test
+  (test-suite "standard-built dynamic module entry pairs"
+    (test-case "unknown compiled entry requests retain refusal"
+      (for (request '(("unknown" "64" "symbolic") ("main" "64" "unknown")))
+        (check-exception
+          (run-process [(cond-expand (darwin "gtimeout") (else "timeout"))
+            "--foreground" "--signal=TERM" "--kill-after=3s" "90s"
+            (path-expand "bin/representation-startup" (gerbil-path))
+            "-:max-heap=1G,debug=q" . request] stderr-redirection: #t)
+          process-error?)))
+    (test-case "complete service entry pairs"
+      (study (cond-expand (darwin "gtimeout") (else "timeout"))
+        "-:max-heap=1G,debug=q" "64" "4" "main"))
+    (test-case "joint service and checkout entry pairs"
+      (study (cond-expand (darwin "gtimeout") (else "timeout"))
+        "-:max-heap=1G,debug=q" "64" "4" "joint-main"))))
