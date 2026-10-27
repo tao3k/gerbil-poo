@@ -3,17 +3,17 @@
 (import (only-in :std/build-script defbuild-script)
         (only-in "t/build-spec.ss" build-request build-consumer consumer-request))
 
-;; The standard macro owns option parsing, dependencies, incremental builds,
-;; cleanup and backend scheduling. Only inventory and output selection vary.
-(def (build-selected spec output options)
-  ;; Compiler children inherit the build process environment; the package manager
+;; Compiler children inherit the build process environment; the package manager
 ;; and its later indexer are outside this native build invocation.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT"
     (string-append (if options (string-append options ",") "")
                    "max-heap=2G,debug=q")))
 
-(defbuild-script spec libdir: output)
+;; The standard macro owns option parsing, dependencies, incremental builds,
+;; cleanup and backend scheduling. Only inventory and output selection vary.
+(def (build-selected spec output options)
+  (defbuild-script spec libdir: output)
   (apply main options))
 
 ;; Consumers own their complete test/example prerequisites. Metadata/spec/clean
