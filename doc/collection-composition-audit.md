@@ -871,3 +871,21 @@ The retry fixture also retains one style factory for both action and owner;
 constructing separate factories correctly refuses a foreign reference before any
 comparison. The diagnostic confirmed `incompatible table reference`, not coroutine
 rewriting of the original comparator cause.
+
+## Ordered query receiver acceptance
+
+A bounded witness found `.list<-` returning typed refusal while `.range`, `.seek`
+and `.iter<-` returned the same denied snapshot. Five original regression cases
+exposed missing inherited admission, child narrowing, receiver attestation,
+recursive admission and bounded FUN/IO refusal. A sixth checks declared origins
+and captured bounds. The repair binds actual `self` at all five public entries
+and shares one issuance boundary and the existing guarded Iterator.
+
+Initial full receiver scans also regressed two existing controls: deferred wrapper
+conversion at issuance and bounded seek work. Those assertions were retained.
+Exact identity and the original constructor revision now delimit reuse of the
+unchanged view's existing admission; inheritance or edits require full receiver
+recognition. Range materialization delegates once, rather than adding another
+validation wrapper. This follows the paper's `self` delegation at
+`poof.scrbl:744–773`; the incremental collection API remains future work.
+See table-order.md for finite proof premises, costs and unchanged design boundaries.

@@ -175,13 +175,30 @@
     ;; Shared Key/Value/comparer origins are prepared once, not revisited per alias.
     (set! sources (delete-duplicates/hash sources table: (make-hash-table-eq) from-end?: #t))
     (def admit-source (table-shape-checker source))
-    (def versions (map object-revision sources)) (def result #f)
+    (def versions (map object-revision sources)) (def result #f) (def result-version #f)
     ;; Complete queries/folds hold metadata guards, including the public receiver.
     (def (protect action)
       (with-table-sources (if result (cons result sources) sources) action sources versions "stale table order"))
     ;; Existing observations still admit their root within the common protected scope.
     (def (observe state action)
       (protect (lambda () (admit-source state) (action))))
+    ;; Admit inherited/changed receivers once, instead of merely their source.
+    ;; Only this constructor's unchanged result reuses its original admission:
+    ;; it adds no refinement and must retain deferred representation conversion.
+    ;; Retained cursors check the exact receiver family without readmission.
+    (def (query receiver state action)
+      (protect (lambda ()
+        (def live (table-sources receiver))
+        (def stamps (map object-revision live))
+        ;; Keep both the original order scope and the inherited receiver current.
+        (def (guard pull)
+          (protect (lambda ()
+            (with-table-sources live pull live stamps "stale ordered table receiver"))))
+        (guard (lambda ()
+          (if (and (eq? receiver result) (= result-version (object-revision receiver)))
+            (admit-source state)
+            (admit-table-observation receiver state))
+          (action guard))))))
     ;; A typed point update preserves shape only when the backend declares that law.
     ;; Run the operation before recording its result: raised callbacks retain no root.
     ;; Unknown roots still pass full admission, including after a failed update.
@@ -221,21 +238,20 @@
     ;; Publish the same ordered cursor for further order/Wrapper composition.
     ;; Existing Iterator mapping guards every deferred pull, including EOF, without
     ;; copying entries or keeping metadata protection across coroutine suspension.
-    (def (position state lower inclusive?)
+    (def (position receiver state lower inclusive?)
       ;; Capture request cells before source admission can invoke caller code.
       (set! lower (map/option identity lower))
-      (observe state (lambda ()
+      (query receiver state (lambda (guard)
         (let-values (((lo _hi) (bounds lower #f inclusive? #t)))
-          (iterator-map identity (entries state lo inclusive?)
-            (lambda (action) (observe state action)))))))
+          (iterator-map identity (entries state lo inclusive?) guard)))))
     ;; Standard coroutine iteration supplies sticky EOF and demand-driven traversal.
     ;; The outer Iterator guard covers every pull, including repeated EOF, without
     ;; retaining metadata protection across a yield or copying admitted payloads.
-    (def (range-cursor state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+    (def (range-cursor receiver state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
       ;; Capture request cells before source admission can invoke caller code.
       (set! lower (map/option identity lower))
       (set! upper (map/option identity upper))
-      (observe state (lambda ()
+      (query receiver state (lambda (guard)
         (let-values (((lo hi) (bounds lower upper lower-inclusive? upper-inclusive?)))
           (def cursor (entries state lo lower-inclusive?))
           (iterator-map identity (in-coroutine (lambda (yield)
@@ -245,19 +261,17 @@
                   (let (sign (.call comparer .compare (car entry) (some-value hi)))
                     (unless (if upper-inclusive? (<= sign 0) (< sign 0)) (stop (void)))))
                 (yield entry)))))
-            (lambda (action) (observe state action)))))))
+            guard)))))
     ;; Materialization is now an ordinary consumer of the same bounded cursor.
-    (def (range state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
-      ;; Capture request cells before source admission can invoke caller code.
-      (set! lower (map/option identity lower))
-      (set! upper (map/option identity upper))
-      (observe state (lambda ()
-        (for/collect (entry (range-cursor state lower upper lower-inclusive? upper-inclusive?)) entry))))
+    (def (range receiver state lower upper (lower-inclusive? #t) (upper-inclusive? #t))
+      ;; Cursor issuance owns bounds/admission once; materialization is just a
+      ;; complete consumer, without another refinement or observation wrapper.
+      (for/collect (entry (range-cursor receiver state lower upper lower-inclusive? upper-inclusive?)) entry))
     ;; Seek observes only the first admitted binding at/after the optional lower bound.
-    (def (seek state lower (inclusive? #t))
+    (def (seek receiver state lower (inclusive? #t))
       ;; Capture request cells before source admission can invoke caller code.
       (set! lower (map/option identity lower))
-      (observe state (lambda ()
+      (query receiver state (lambda (_guard)
         (let-values (((lo _hi) (bounds lower #f inclusive? #t)))
           (using ((cursor (entries state lo inclusive?) :- Iterator))
             (def entry (cursor.next!))
@@ -294,8 +308,11 @@
           (admit-source (.call source .apply-delta state delta)))))))
       ;; Unbounded iteration is the same positioned cursor without a lower bound;
       ;; retain declared seek and every-pull guards instead of materializing a fold.
-      .iter<-: (lambda (state) (position state #f #t))
-      .range: range .range<-: range-cursor .seek: seek .seek<-: position
+      .iter<-: (lambda (state) (position @ state #f #t))
+      .range: (lambda (state lower upper (li? #t) (ui? #t)) (range @ state lower upper li? ui?))
+      .range<-: (lambda (state lower upper (li? #t) (ui? #t)) (range-cursor @ state lower upper li? ui?))
+      .seek: (lambda (state lower (inclusive? #t)) (seek @ state lower inclusive?))
+      .seek<-: (lambda (state lower inclusive?) (position @ state lower inclusive?))
       .foldl: (lambda (f seed state) (observe state (lambda ()
         (for/fold (acc seed) (entry (entries state #f #t)) (f (car entry) (cdr entry) acc)))))
       .foldr: (lambda (f seed state) (observe state (lambda ()
@@ -303,6 +320,9 @@
           ;; Positioned order needs no sort, but callbacks may still recycle the
           ;; source's temporary observation cells before the next fold step.
           (if seek? (capture-table-bindings (.call source .list<- state)) (bindings state))))))))
+    ;; Exact identity plus the construction revision attests the unrefined view;
+    ;; copying it or editing any field revokes this admission reuse.
+    (set! result-version (object-revision result))
     result)))
 
 ;; Decompose under an explicit lawful order, retaining admitted leaves and indexes.

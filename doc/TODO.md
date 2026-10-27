@@ -2663,3 +2663,20 @@ original-row delivery, sorting refusal, reverse folds and permutation cardinalit
 Faithful backend observations, stable leaves and lawful ordering remain premises.
 The O(n) shell capture/allocation and existing sort/admission costs stay charged;
 see table-order.md. This closes a concrete boundary, not automatic discovery.
+
+### Actual receiver admission for ordered queries
+
+Closed inherited/edited receiver admission across `.iter<-`, `.seek<-`, `.seek`,
+`.range<-` and `.range`. One query boundary admits a changed receiver before
+backend positioning or callbacks and retains its child/origin revisions through
+all pulls, including EOF. Recursive admission reuses the existing finite guard.
+Only the exact unchanged constructor result reuses its original source admission;
+its declared deferred representation semantics and seek work bounds remain intact.
+A copied or edited receiver cannot borrow that evidence. Range materialization
+consumes the same cursor without a second receiver refinement. Integrated controls
+cover source/receiver refusal, narrowed invalid tails, false values, Function
+identity, bounds capture, origin invalidation, FUN/IO and five styles. Lean reuses
+the complete observation gate and proves the explicit identity/revision selection.
+Full changed-receiver admission and per-pull metadata work remain charged; no
+arbitrary callback termination, purity inference or VM proof is claimed. See
+table-order.md and the composition audit.

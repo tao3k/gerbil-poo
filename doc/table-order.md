@@ -682,3 +682,49 @@ remain charged. Positioned lazy iteration still uses its existing cursor path;
 only a positioned reverse fold's already materialized list gains this capture.
 No wall-clock speedup is claimed. The design deliberately reuses one existing
 boundary instead of adding per-operation contracts, caching or another Iterator.
+
+## Inherited receiver admission and retained approval
+
+The finite ordered query family binds its actual `self`: `.iter<-`, `.seek<-`,
+`.seek`, `.range<-` and `.range` all enter one local query boundary. Previously,
+`.list<-` rejected a receiver refinement while these methods returned the original
+source's data. A narrowed receiver could also reveal a valid prefix despite an
+invalid tail. This was a missing derived-protocol boundary, not a raw fold law.
+
+The unchanged constructor result retains its existing source admission. This is
+attested by exact object identity and its construction revision, not by comparing
+predicate closures or assuming purity. It adds no receiver refinement and retains
+the explicit deferred representation contract: a positioned wrapper must not
+convert unrelated rows at issuance. Copies, child overrides and edits revoke
+this reuse and run the actual receiver's complete non-normalizing admission once
+before positioning. Raw folds remain extension points for that recognition;
+reentering the same receiver/root during admission fails through the existing
+`active-table-observations` guard.
+
+Each issued cursor keeps the original order scope plus the actual receiver,
+children and explicitly declared origins. Its existing Iterator mapper checks
+those versions before every pull and repeated EOF. It does not reapprove each row.
+Materialized `.range` simply drains that cursor, without nesting another admission
+scope. Bounds are captured before recognizers can alter the caller's Options.
+A changed receiver or declared origin refuses the old cursor; fresh issuance is
+the retry. Undeclared external state and mutable logical leaves remain outside
+this invalidation guarantee.
+
+The existing `observe-ledger-range` example supplies a complete service workflow:
+its refined receiver first refuses without IO, a fresh approved request drains the
+bounded stream and calls the original checked Functions, and Pure/Mutable/Linear/
+Posh/Classy retain their nonconsuming observation semantics. The new regressions
+exercise this path, invalid tails, bounded recursive refusal, caller-bound reuse
+and exhausted-cursor invalidation. The original zero-conversion issuance and
+bounded-seek work controls remain unchanged and must pass.
+
+`TableObservation` models source protection and receiver admission by composing
+`observeTable`, with `orderedReceiverAdmission` selecting only an unchanged exact
+constructor. The laws preserve refusal causes and successful opaque observations;
+existing cursor/reentry laws supply the finite pull and guard behavior. Faithful
+backend/representation laws, identity/revision tracking and stable declared
+metadata are premises. This does not prove the object evaluator, arbitrary
+termination, host scheduling or the compiler. Changed-receiver admission can cost
+O(n), with additional backend validation; metadata capture is O(d), and per-pull
+checks depend on the d declared participants. No automatic admission cache or
+wall-time improvement is inferred.
