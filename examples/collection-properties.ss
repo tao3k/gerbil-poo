@@ -1,0 +1,102 @@
+;;; Runnable model-driven collection properties; use the ordinary std/test runner.
+(export handoff rolling-upgrade optimistic-aba collection-properties-test)
+(import :std/test :std/error :std/iter (only-in :std/list/list take)
+        ../object ../mop ../type ../number ../property-testing ../support/option
+        ./collection-testing)
+
+;; Each example declares its domain prefix and the fault it must discover.
+;; The same trace protocol supplies random tails, dependency repair and replay.
+(define-type Scenario
+  (Record name: [String] commands: [(List Command)]
+          fault: [(Enum atomic stale)] phase: [(Enum state result)]))
+;; Two staged owners cannot swap independently through a unique index. Removal,
+;; re-staging and inverse refusal preserve the complete primary/index correlation.
+(def handoff (make-instance Scenario name: "unique-owner handoff"
+  fault: 'atomic phase: 'state commands:
+  (list #(put 1 10 installed) #(put 2 20 installed)
+    #(stage 0 1 20) #(stage 1 2 10)
+    #(install 0 index-conflict) #(install 1 index-conflict)
+    #(remove 2) #(install 0 installed) #(install 1 conflict)
+    #(stage 2 2 10) #(install 2 installed) #(undo 0 index-conflict)
+    #(remove 2) #(undo 0 restored) #(undo 2 conflict)
+    #(install 2 index-conflict) #(remove 1) #(install 2 installed) #(undo 2 restored))))
+;; Receipts survive as logical data across two source revisions, but may be used
+;; only under their captured epoch. New receipts recover while old ones refuse.
+(def rolling-upgrade (make-instance Scenario name: "rolling service revisions"
+  fault: 'stale phase: 'result commands:
+  (list #(put 1 10 installed) #(stage 0 1 11) #(stage 1 2 20)
+    #(expire) #(read-old) #(refresh) #(install 0 stale-delta) #(install 1 stale-delta)
+    #(stage 2 1 11) #(stage 3 2 20) #(install 2 installed)
+    #(expire) #(read-old) #(refresh) #(undo 2 stale-delta) #(install 3 stale-delta)
+    #(stage 4 1 12) #(stage 5 2 20) #(install 4 installed) #(install 5 installed)
+    #(stage 6 3 20) #(install 6 index-conflict) #(remove 2)
+    #(install 6 installed) #(undo 6 restored) #(undo 4 restored))))
+;; Delta admission compares old values within an epoch: A/B/A permits retry.
+;; An unchanged value after source revision still cannot authorize an old receipt.
+;; This distinguishes the actual contract from a stronger history/serializability claim.
+(def optimistic-aba (make-instance Scenario name: "value ABA versus source epochs"
+  fault: 'stale phase: 'result commands:
+  (list #(put 1 11 installed) #(stage 0 1 22) #(put 1 33 installed)
+    #(install 0 conflict) #(put 1 11 installed) #(install 0 installed) #(undo 0 restored)
+    #(stage 1 1 22) #(expire) #(read-old) #(refresh)
+    #(install 1 stale-delta) #(undo 0 stale-delta)
+    #(stage 2 1 22) #(install 2 installed) #(undo 2 restored))))
+
+;; A fresh real backend belongs to every trial, shrink probe and replay invocation.
+;; This ordinary partial application composes with the existing trace/FUN boundary.
+(def (property-for selected backend (fault 'none))
+  (trace-property selected (cut with-collection-system <> backend: backend fault: fault)))
+;; One reusable sampler tests both backends and several independent seeded runs.
+;; Every run includes the domain prefix and then explores a state-dependent suffix.
+(def (check-scenario scenario)
+  (def commands (.get scenario commands))
+  (def selected (collection-model commands))
+  (def sampler (trace-generator Command selected steps: 64 dependencies: (list scenario)))
+  (for* ((backend '(rationaldict trie)) (seed '(7 41 83)))
+    (def action (property-action (.get sampler descriptor) (property-for selected backend)
+      identity sampler: sampler))
+    (def report (action (.o bind-these: #f seed: seed cases: 4 size: 48 shrink-budget: 96)))
+    (check-equal? (list (.get scenario name) backend seed (.get report status) (.get report cause))
+      (list (.get scenario name) backend seed 'passed #f))
+    (check-equal? (take (.get report original) (length commands)) commands))
+  ;; A faulty implementation must yield a smaller VALID false witness. Error or
+  ;; stale reports are never accepted as evidence that the fault was discovered.
+  (for (backend '(rationaldict trie))
+    (def property (property-for selected backend (.get scenario fault)))
+    (def report (check-property (.get sampler descriptor) property sampler: sampler
+      seed: 41 cases: 1 size: (length commands) shrink-budget: 96))
+    (check-equal? (list (.get report status) (.get report cause)) '(failed #f))
+    (check (.call sampler .accept? (.get report counterexample)) => #t)
+    (check (< (length (.get report counterexample)) (length (.get report original))) => #t)
+    (check (replay-counterexample report) => #f)
+    (check-equal? (.get (replay-property report) counterexample) (.get report counterexample))
+    (def diagnostic (check-trace selected (.get report counterexample)
+      (cut with-collection-system <> backend: backend fault: (.get scenario fault))))
+    (check-equal? (.get diagnostic phase) (.get scenario phase))))
+
+;; Export a regular *-test suite so downstream projects can run this example
+;; through gerbil test after the standard qualification build, without a new runner.
+(def collection-properties-test
+  (test-suite "complex model-driven collection properties"
+    (test-case "owned prefixes and state-derived producer identities"
+      (def command (vector 'stage 2 1 10))
+      (def selected (collection-model (list command)))
+      (vector-set! command 1 99)
+      (def initial (.call selected initial))
+      (def first (some-value (.call selected draw initial (lambda (_) 0) 8)))
+      (check-equal? first #(stage 2 1 10))
+      (defvalues (next _reply) (.call selected advance initial first))
+      ;; Choose the new-stage alternative repeatedly. Tick-derived IDs would
+      ;; collide with retained receipt 2 on the second draw of this short prefix.
+      (for/fold (state next) (_ (in-range 3))
+        (let (command (some-value (.call selected draw state
+                       (lambda (bound) (if (= bound 2) 1 0)) 8)))
+          (check-equal? (vector-ref command 0) 'stage)
+          (check (.call selected enabled? state command) => #t)
+          (let-values (((updated _reply) (.call selected advance state command))) updated)))
+      (check-exception (collection-model '(#(install 9 installed)))
+        (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "invalid collection prefix"))))
+      (check-exception (collection-model '(#(stage 0 1 "bad value"))) TypeError?))
+    (test-case "interleaved ownership transfer and inverse index conflicts" (check-scenario handoff))
+    (test-case "multi-round upgrades with retained stale receipts" (check-scenario rolling-upgrade))
+    (test-case "ABA retry differs from cross-epoch receipt reuse" (check-scenario optimistic-aba))))

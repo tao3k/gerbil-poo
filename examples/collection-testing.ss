@@ -1,5 +1,5 @@
 ;;; Typed command traces compare real indexed deltas with an independent list model.
-(export Command model lifecycle with-collection-system collection-property collection-tests)
+(export Command model lifecycle collection-model with-collection-system collection-property collection-tests)
 (import :std/error :std/iter (only-in :std/list/list filter-map)
         ../object ../mop ../type ../number ../property-testing ../support/option
         ../table ../rationaldict (only-in ../trie SimpleTrie))
@@ -93,19 +93,35 @@
   #(stage 2 3 30) #(put 3 31 installed) #(install 2 conflict) #(remove 3)
   #(install 2 installed) #(undo 2 restored) #(stage 3 4 40) #(expire) #(read-old) #(refresh)
   #(install 3 stale-delta) #(stage 4 4 40) #(install 4 installed) #(undo 4 restored)))
-;; Every random choice uses only the caller's PRNG; enabled alternatives are built
-;; from the CURRENT model, so there is no rejection loop or retained random state.
-(def (draw state random _size)
-  (some (if (< (ledger-tick state) (length lifecycle)) (list-ref lifecycle (ledger-tick state))
-    (if (not (ledger-ready? state)) (if (zero? (random 2)) #(refresh) #(read-old))
-      (let* ((key (random 5)) (value (random 41)) (tickets (ledger-tickets state))
-             (choices (list (vector 'stage (ledger-tick state) key value) (vector 'remove key)
-               (vector 'put key value (if (collision? (ledger-rows state) key value) 'index-conflict 'installed)) #(expire))))
-        (if (and (pair? tickets) (zero? (random 2)))
-          (let* ((entry (list-ref tickets (random (length tickets)))) (inverse? (zero? (random 2))))
-            (let-values (((reply _rows) (installation state (cdr entry) inverse?)))
-              (vector (if inverse? 'undo 'install) (car entry) reply)))
-          (list-ref choices (random (length choices)))))))))
+;; Logical producers are fresh relative to retained tickets, including IDs supplied
+;; by a downstream prefix. A step number alone is not a freshness proof.
+(def (next-ticket state)
+  (foldl (lambda (entry next) (max next (1+ (car entry))))
+    (ledger-tick state) (ledger-tickets state)))
+;; Choose an existing receipt and prescribe its independently predicted outcome.
+(def (draw-ticket state random)
+  (def tickets (ledger-tickets state))
+  (def entry (list-ref tickets (random (length tickets))))
+  (def inverse? (zero? (random 2)))
+  (let-values (((reply _rows) (installation state (cdr entry) inverse?)))
+    (vector (if inverse? 'undo 'install) (car entry) reply)))
+;; Ready-state alternatives share the same current-state policy for every example.
+;; Every choice uses the caller's PRNG; no rejection loop or retained source exists.
+(def (draw-ready state random)
+  (def key (random 5)) (def value (random 41))
+  (def choices (list (vector 'stage (next-ticket state) key value) (vector 'remove key)
+    (vector 'put key value (if (collision? (ledger-rows state) key value) 'index-conflict 'installed)) #(expire)))
+  (cond ((and (pair? (ledger-tickets state)) (zero? (random 2))) (draw-ticket state random))
+        (else (list-ref choices (random (length choices))))))
+;; Prefix selection is one higher-order policy over the SAME reference model.
+;; Its tail remains state-dependent random testing, rather than fixed-script replay.
+(def (draw-prefix prefix)
+  (def count (length prefix))
+  (lambda (state random _size)
+    (some (cond ((< (ledger-tick state) count) (list-ref prefix (ledger-tick state)))
+                ((ledger-ready? state) (draw-ready state random))
+                ((zero? (random 2)) #(refresh))
+                (else #(read-old))))))
 ;; Parameter shrinking preserves prescribed outcomes; prefix repair retires any
 ;; now-disabled dependents, and the existing runner independently checks falsity.
 (def (shrink-command command)
@@ -119,7 +135,16 @@
 ;; The model is an ordinary typed POO object, extensible with .cc for regressions.
 (def model (make-instance TraceGenerator Command: Command State: ModelState Result: Reply Observation: Observation
   initial: (lambda () (make-ledger 0 #t [] [] 0)) enabled?: enabled? advance: advance observe: observe
-  draw: draw shrink: shrink-command measure: command-weight))
+  draw: (draw-prefix (map vector-copy lifecycle)) shrink: shrink-command measure: command-weight))
+
+;; Normalize a downstream prefix once and copy its scalar command vectors. The
+;; existing trace admission rejects missing producers or wrongly prescribed replies
+;; before any actual fixture is created. Caller edits cannot change the owned prefix.
+(def (collection-model commands)
+  (def prefix (map vector-copy (validate (List Command) commands)))
+  (unless (.call (trace-generator Command model steps: 65536) .accept? prefix)
+    (error "invalid collection prefix"))
+  (.cc model draw: (draw-prefix prefix)))
 
 ;; Only these documented protocol failures become expected model results. Every
 ;; unrelated callback/constructor/recognizer exception retains its original cause.

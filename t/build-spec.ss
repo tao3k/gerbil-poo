@@ -154,6 +154,7 @@
     "examples/representation-main"
     "examples/signature-service"
     "examples/collection-testing"
+    "examples/collection-properties"
     "examples/recursive-trees"
     "examples/inherited-services"
     "examples/metaprotocol-services"

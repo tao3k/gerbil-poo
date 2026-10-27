@@ -1,8 +1,9 @@
 ;;; Stateful PBT reuses descriptor admission, ordinary shrink reports and std/test.
-(export collection-testing-test)
+(export collection-testing-test collection-properties-test)
 (import :std/test :std/error :std/iter (only-in :std/list/list take) ../object ../mop ../type ../number
         ../property-testing ../support/option
-        (prefix-in ../examples/collection-testing collection.))
+        (prefix-in ../examples/collection-testing collection.)
+        (only-in ../examples/collection-properties collection-properties-test))
 
 ;; A small dependency oracle isolates sequence repair from table implementation.
 (def Command (Tuple (Enum make use) UInt))
