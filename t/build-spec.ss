@@ -153,6 +153,7 @@
     "examples/representation-service"
     "examples/representation-main"
     "examples/signature-service"
+    "examples/collection-testing"
     "examples/recursive-trees"
     "examples/inherited-services"
     "examples/metaprotocol-services"

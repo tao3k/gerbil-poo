@@ -20,7 +20,7 @@
 ;; tested in an additional group until their author assigns a functional group.
 (def test-groups
   '((objects support object mop parameters inheritance-hooks slot-observation issued-read)
-    (representations row-types prototype-types function-signature property-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
+    (representations row-types prototype-types function-signature property-testing collection-testing recursive-generation representation type type-performance tuple-json-performance tuple-unmarshal-performance)
     ;; Independent collection responsibilities bound retained compiler ASTs.
     ;; Shared fixtures belong to table-testing, already in the common artifact.
     (collections table-validation table-construction table-io table-focus table-selection table-wrapper table-normalization)
