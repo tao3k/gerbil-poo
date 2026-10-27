@@ -2595,3 +2595,16 @@ retry, indexed publication and inverse recovery. Finite Lean laws establish the
 boundary with backend fidelity and stable leaves as premises. Decoder semantics
 and mutable payload internals remain explicit scope boundaries; see the
 composition audit. Capture allocation remains charged, without a speedup claim.
+
+
+### Final-state grouped bucket construction
+
+Closed cold construction and warm grouped-index maintenance over independently
+partial business constructors: existing key spaces stage all membership edits,
+then one finite constructor admits each complete nonempty bucket; empty groups
+disappear without business `.empty`. Five-style cohort and represented-carrier
+controls cover migration, inverse splitting, exact refusal/retry, Function
+identity, equivalent memberships and FUN/IO. Unique indexes retain their conflict
+protocol. Finite materialization/admission and ordered family-stage Lean laws
+state the capabilities and failure boundary. Projection work remains selective,
+but affected-bucket copying/reconstruction is charged; see table-indexes.md.

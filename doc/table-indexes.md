@@ -252,3 +252,17 @@ recognizers and custom root predicates may enumerate all cached bindings or all
 group members, including untouched rows. Cold scans, changed-key maintenance,
 cache recognition, conversions and consumer work are distinct costs. No bounded
 projection count or unchanged-cache identity is used to omit these checks.
+
+
+## Final-state bucket construction
+
+Grouped cold construction and warm revision use the same private key-space
+staging. Only affected old buckets are copied; complete final nonempty buckets
+are built with source `.<-list`, and empty groups are removed without source
+`.empty`. Finite construction may itself refuse, retaining its exact cause and
+all old owners. Unaffected buckets and opaque Functions remain shared. This
+supports nonempty/even cohort constraints and represented carriers without
+requiring invalid intermediate business roots. The source finite constructor
+and value-parametric key-space laws are explicit capabilities. See the
+[composition audit](collection-composition-audit.md#final-state-grouped-bucket-construction)
+for examples, proofs and charged affected-bucket reconstruction costs.

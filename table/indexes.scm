@@ -3,7 +3,7 @@
 ;; The first duplicate retains the declaration and both competing primary owners.
 (defstruct table-index-conflict (name key existing incoming) final: #t)
 ;; Prepared immutable recipes retain the declared backend and pure projection.
-(defstruct %table-index (name table keys project unique?) final: #t)
+(defstruct %table-index (name table keys project unique? buckets groups) final: #t)
 ;; One private snapshot carries the primary root, every index and all live origins.
 (defstruct %indexed-table (owner primary indexes sources versions) final: #t)
 
@@ -59,8 +59,12 @@
       ;; Prepare one finite-key projection for both declaration cardinalities.
       ;; A list-valued single key stays one key unless multiple? is explicit.
       ;; Singleton membership never needs a registry lookup or allocation.
+      ;; Grouped staging uses the declared key spaces, never business .empty.
+      ;; Its scratch carriers need not be representations of source-table roots.
+      (def buckets (and (not unique?) (table-key-table source (.@ source Value))))
+      (def groups (and buckets (table-key-table table buckets)))
       (make-%table-index name table (if multiple? (table-key-table table Unit) table)
-        (if multiple? project (lambda (key row) (list (project key row)))) unique?))) declarations tables))
+        (if multiple? project (lambda (key row) (list (project key row)))) unique? buckets groups))) declarations tables))
   (def names (map %table-index-name recipes))
   (unless (= (length names) (length (delete-duplicates/hash names table: (make-hash-table-eq))))
     (error "duplicate table index name"))
@@ -69,7 +73,8 @@
   (def touched (and (pair? recipes) (table-key-table source Unit)))
   (set! sources (delete-duplicates/hash
     (append sources (append-map table-sources
-      (append (if touched (list touched) []) (map %table-index-keys recipes))))
+      (append (if touched (list touched) []) (map %table-index-keys recipes)
+        (filter identity (append (map %table-index-buckets recipes) (map %table-index-groups recipes))))))
     table: (make-hash-table-eq) from-end?: #t))
   (def versions (map object-revision sources))
   (def owner (list source declarations)) (def result #f)
@@ -108,36 +113,50 @@
   (def (project recipe key row)
     (require-table-index-keys (%table-index-keys recipe)
       ((%table-index-project recipe) key row)))
-  ;; Insert one membership using the existing unique-owner or grouped backend.
-  ;; A grouped bucket shares the exact admitted row, including its Functions.
-  (def (insert-key recipe cache key row projected)
-    (def table (%table-index-table recipe))
-    (def existing (.call table .ref/opt cache projected))
-    (if (%table-index-unique? recipe)
-      (begin
-        (when (and (some? existing) (not (equal? key (some-value existing))))
-          (raise (make-table-index-conflict (%table-index-name recipe) projected (some-value existing) key)))
-        (.call table .acons projected key cache))
-      (.call table .acons projected
-        (.call source .acons key row (option-get/default existing (lambda () (.@ source .empty)))) cache)))
-  ;; Retract one membership. Empty buckets disappear, preserving absence.
-  (def (retract-key recipe cache key row projected)
-    (def table (%table-index-table recipe))
-    (def existing (.call table .ref/opt cache projected))
-    (if (not (some? existing)) cache
-      (if (%table-index-unique? recipe) (.call table .remove cache projected)
-        (let (bucket (if (.call source .key? (some-value existing) key)
-                      (.call source .remove (some-value existing) key) (some-value existing)))
-          (if (table-empty-key? source bucket) (.call table .remove cache projected)
-            (.call table .acons projected bucket cache))))))
-  ;; Fold all memberships through the same persistent insertion protocol.
+  ;; Unique indexes retain their existing remove-before-insert conflict protocol.
   (def (insert recipe cache key row)
-    (foldl (lambda (projected cache) (insert-key recipe cache key row projected))
-      cache (project recipe key row)))
-  ;; Remove all old memberships before any final-row insertion or unique check.
+    (def table (%table-index-table recipe))
+    (foldl (lambda (projected cache)
+      (def existing (.call table .ref/opt cache projected))
+      (when (and (some? existing) (not (equal? key (some-value existing))))
+        (raise (make-table-index-conflict (%table-index-name recipe) projected (some-value existing) key)))
+      (.call table .acons projected key cache)) cache (project recipe key row)))
+  ;; Remove only old unique ownership; grouped removals share final-state staging.
   (def (retract recipe cache key row)
-    (foldl (lambda (projected cache) (retract-key recipe cache key row projected))
-      cache (project recipe key row)))
+    (def table (%table-index-table recipe))
+    (foldl (lambda (projected cache)
+      (if (some? (.call table .ref/opt cache projected))
+        (.call table .remove cache projected) cache)) cache (project recipe key row)))
+  ;; One finite staging path serves cold construction and warm grouped revision.
+  ;; Copy only touched buckets into the declared raw key space, apply all removals
+  ;; before insertions, then build each nonempty final business bucket once.
+  ;; Empty groups remove cache entries without constructing a forbidden source
+  ;; empty. Untouched buckets and opaque payloads retain their exact identities.
+  (def (revise-groups recipe cache remove-rows insert-rows)
+    (def table (%table-index-table recipe))
+    (def buckets (%table-index-buckets recipe))
+    (def groups (%table-index-groups recipe))
+    (def work (.@ groups .empty))
+    ;; Seed lazily from the original bucket, never from an intermediate cache.
+    (def (edit projected key row remove?)
+      (def staged (.call groups .ref/opt work projected))
+      (def original (and (not (some? staged)) (.call table .ref/opt cache projected)))
+      (def bucket (if (some? staged) (some-value staged)
+        (if (some? original) (.call buckets .<-list (.call source .list<- (some-value original)))
+          (.@ buckets .empty))))
+      (set! work (.call groups .acons projected
+        (if remove? (.call buckets .remove bucket key) (.call buckets .acons key row bucket)) work)))
+    ;; Projection order and original callback failures remain remove-before-insert.
+    (def (stage rows remove?)
+      (for-each (lambda (entry)
+        (for-each (lambda (projected) (edit projected (car entry) (cdr entry) remove?))
+          (project recipe (car entry) (cdr entry)))) rows))
+    (stage remove-rows #t)
+    (stage insert-rows #f)
+    (.call groups .foldl (lambda (projected bucket result)
+      (if (table-empty-key? buckets bucket) (.call table .remove result projected)
+        (.call table .acons projected (.call source .<-list (.call buckets .list<- bucket)) result)))
+      cache work))
   ;; Recognize the complete declared cache without normalizing its keys or
   ;; values. Grouped Value=source also checks each final bucket's root refinement.
   ;; Keep this boundary after one recipe finishes and before the next is prepared.
@@ -152,9 +171,13 @@
     (guard sources (lambda ()
       (require-table source primary)
       (snapshot primary (for/collect ((recipe recipes))
-        (checked-entry recipe (.call source .foldl
-          (lambda (key row cache) (insert recipe cache key row))
-          (.@ (%table-index-table recipe) .empty) primary))) (if result (cons result sources) sources)))))
+        (checked-entry recipe
+          (if (%table-index-unique? recipe)
+            (.call source .foldl (lambda (key row cache) (insert recipe cache key row))
+              (.@ (%table-index-table recipe) .empty) primary)
+            (revise-groups recipe (.@ (%table-index-table recipe) .empty) []
+              ;; Own producer shells before the first projection callback.
+              (capture-table-bindings (.call source .list<- primary)))))) (if result (cons result sources) sources)))))
   ;; All primary expectations are checked before index projection. Warm updates
   ;; visit only edit keys: retract all old bindings, then insert final bindings.
   (def (update state delta (admit identity))
@@ -176,12 +199,20 @@
         (def keys (if touched
           (table-distinct-keys touched (map table-change-key (table-delta-changes delta))) []))
         (def indexes (for/collect ((recipe recipes) (entry (%indexed-table-indexes state)))
-          (def stripped (foldl (lambda (key cache)
-            (def old (.call source .ref/opt before key))
-            (if (some? old) (retract recipe cache key (some-value old)) cache)) (cdr entry) keys))
-          (checked-entry recipe (foldl (lambda (key cache)
-            (def new (.call source .ref/opt after key))
-            (if (some? new) (insert recipe cache key (some-value new)) cache)) stripped keys))))
+          (if (%table-index-unique? recipe)
+            (let (stripped (foldl (lambda (key cache)
+                (def old (.call source .ref/opt before key))
+                (if (some? old) (retract recipe cache key (some-value old)) cache)) (cdr entry) keys))
+              (checked-entry recipe (foldl (lambda (key cache)
+                (def new (.call source .ref/opt after key))
+                (if (some? new) (insert recipe cache key (some-value new)) cache)) stripped keys)))
+            (let ((old (filter-map (lambda (key)
+                    (def found (.call source .ref/opt before key))
+                    (and (some? found) (cons key (some-value found)))) keys))
+                  (new (filter-map (lambda (key)
+                    (def found (.call source .ref/opt after key))
+                    (and (some? found) (cons key (some-value found)))) keys)))
+              (checked-entry recipe (revise-groups recipe (cdr entry) old new))))))
         (snapshot after indexes origins))))))
   ;; Capture one optional point edit without a trial carrier/full difference scan.
   ;; The original installer still owns primary conflicts and atomic index updates.

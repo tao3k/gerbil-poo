@@ -653,3 +653,51 @@ sharing codec methods through descriptors. Ownership of these extended collectio
 observations advances that future-work protocol rather than claiming a missing
 concrete paper algorithm. Gerbil rbtree->list already supplies fresh binding
 shells; the regression deliberately recycles only those shells, not tree nodes.
+
+
+## Final-state grouped bucket construction
+
+Grouped indexes now share one cold/warm staging path. A valid nonempty primary
+formerly failed when first-bucket insertion evaluated its forbidden business
+`.empty`. Using checked singleton insertion would also wrongly admit/reject
+intermediate one-row groups when only the final two-row cohort is valid.
+
+Each grouped recipe prepares existing value-parametric key spaces for bucket
+rows and touched groups. These scratch carriers need not equal the source
+carrier. During revision, only touched old buckets are copied, all old memberships
+are retracted before new memberships are inserted, and every final nonempty
+bucket is constructed through source `.<-list` once. Empty groups remove their
+cache entry without constructing an empty business value. Unique-index conflict
+handling, complete cache admission, revision stamps and one final publication
+remain the surrounding protocol. No scratch root escapes; unaffected bucket
+objects and checked Function payloads retain identity.
+
+Finite construction is an explicit grouped-bucket capability. Its original
+failure is preserved even for a well-typed final group; unsupported empty or
+singleton business constructors are not substitutes. A failed constructor or
+whole-cache refinement publishes nothing and leaves every existing owner
+available for explicit retry. Supported pure projections retain removal-before-
+insertion order; arbitrary callback effects are not rolled back.
+
+The existing cohort service example optionally forbids empty primary construction.
+Regressions cover even final cohorts, cold construction, group deletion/merge and
+inverse splitting, all five styles, FUN/IO suppression/retry, represented carriers,
+exact constructor causes, duplicate rational memberships and unaffected buckets.
+Lean TableIndex formalizes optional finite materialization, deletion without an
+empty constructor, unchanged handles, final admission and original refusal. The
+existing ordered heterogeneous cache staging establishes no partial family return;
+existing index-view laws remain conditional on faithful backend staging/enumeration.
+
+This advances the collection-library future work using the author's descriptor
+and dictionary delegation design (`poof.scrbl` Type Descriptors and lines 744-773).
+Raw backend folds remain extension points, not missing checked operations.
+Value-parametric registries, lawful key equality, stable payloads, pure finite
+projections and finite constructor laws are premises. No automatic algorithm
+selection or proof of arbitrary host termination is claimed.
+
+Cost boundary: projections remain restricted to changed primary keys during
+revision, and untouched buckets require no reconstruction. Affected old buckets
+are enumerated/copied and all final rows are delivered to the constructor;
+registry preparation, validation, allocation and backend work remain charged.
+This closes partial-constructor semantics, not a changed-key-only cost theorem
+or a wall-clock speedup. Raw benchmark data and generated products remain outside Git.

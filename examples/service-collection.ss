@@ -258,10 +258,17 @@
 ;; Route checked services in complete cohorts. The primary and every grouped
 ;; bucket use the SAME source Type, so final team membership must have even size.
 ;; Ordinary cache admission enforces that law; no separate approval engine is used.
-(def (make-cohort-services)
+;; The optional nonempty policy forbids public empty construction, while finite
+;; cohorts and each final even-sized bucket retain the same declared Type.
+(def (make-cohort-services (nonempty? #f))
   (def raw (RationalDict (Tuple UInt UInt (Fun Integer <- Integer))))
-  (def source (.cc raw .element?: (lambda (root)
+  (def even-source (.cc raw .element?: (lambda (root)
     (and (element? raw root) (even? (.call raw .count root))))))
+  (def source (if nonempty?
+    (.o (:: @ even-source)
+      (.empty (error "nonempty cohort has no empty constructor"))
+      .element?: (lambda (root)
+        (and (element? even-source root) (positive? (.call raw .count root))))) even-source))
   (def badge (.cc Type. name: 'badge table: (RationalDict (.@ source Key)) unique?: #t
     project: (lambda (_ row) (vector-ref row 0))))
   (def team (.cc Type. name: 'team table: (SimpleTrie UInt source) unique?: #f
