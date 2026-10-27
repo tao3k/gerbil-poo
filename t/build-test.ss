@@ -20,6 +20,14 @@
       (check-equal? (length (car request)) (+ (length qualification) 1))
       (check-equal? (take (list-ref (car request) (length qualification)) 2) '(exe: "t/test-program"))
       (check-equal? (cdr request) '(#f ("compile" "--debug"))))
+    (test-case "downstream example builds and cleans only its standard executable graph"
+      (def request (build-request '("example" "representation-service" "compile" "--debug")))
+      (check-equal? (length (car request)) 2)
+      (check-equal? (caar request) "examples/representation-service")
+      (check-equal? (take (cadar request) 2) '(exe: "examples/representation-main"))
+      (check-equal? (cdr request) '(#f ("compile" "--debug")))
+      (check-equal? (clean-request '("example" "representation-service" "compile" "--debug"))
+        '("example" "representation-service" "clean")))
     (test-case "group snapshots distinguish zombies from live and unrelated members"
       (check-equal? (build-group-states 42 '(" 7 S" " 42 Z" " 42 Z")) '(Z Z))
       (check-equal? (build-group-states 42 '("42 Z" "42 R")) '(Z R))

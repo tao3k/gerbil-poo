@@ -1,6 +1,6 @@
 ;;; Persistent storage and guarded layouts are exercised through real object APIs.
 (export representation-test)
-(import :std/test :std/error (only-in :gerbil/runtime/gambit string->uninterned-symbol)
+(import :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :std/list/list find)
         (only-in :gerbil/runtime/loader load-module)
         (only-in ../mop validate TypeError? Fun) (only-in ../number Integer)
@@ -15,6 +15,16 @@
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
+    (test-case "downstream entry retains lazy cold admission and every revision retry across access policies"
+      (for (width '(0 1 4))
+        (let (expected (vector (+ (* 3 width) (* 3 (/ (* width (1- width)) 2)))
+                              (+ (* 3 width) (* 4 (/ (* width (1- width)) 2)))
+                              (+ (* 3 width) (* 5 (/ (* width (1- width)) 2)))
+                              (* 3 width)))
+          (check-equal? (service.service-workflow width) expected)
+          (check-equal? (service.service-workflow width layout: #t) expected)))
+      (check-exception (service.service-workflow -1) contract-violation-error?)
+      (check-exception (service.main "4" "invented") contract-violation-error?))
     (test-case "cold pinned hooks do not initialize unrelated metadata or bind a layout"
       (def denied? #f) (def calls 0) (def cause (list 'preparation-refused))
       (def source (.o

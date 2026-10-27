@@ -172,6 +172,31 @@ jobs:
         run: cp -a .ci-tests/${{ matrix.group }}/lib/. .ci-library/lib/
       - name: Run independent Scheme module tests
         run: printf '%s\n' ${{ matrix.modules }} | xargs -P 2 -n 1 just test-file
+  representation-entry:
+    name: representation entry
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+        id: gerbil
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: .ci-library
+      - name: Require this run's checked revision
+        run: test "$(cat .ci-library/revision)" = "$(git rev-parse HEAD)"
+      - name: Require the shared library's C toolchain
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - name: Build and run the same downstream lifecycle through standard exe linking
+        run: just example-representation
+      - name: Run the same exported entry through the standard module loader
+        run: timeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q -e '(import :clan/poo/examples/representation-service)' -e '(main "64" "symbolic")'
+      - name: Invoke the exported procedure after runtime-only module loading
+        run: timeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q -e '(load-module "clan/poo/examples/representation-service")' -e '((eval (quote clan/poo/examples/representation-service#main)) "64" "symbolic")'
+
   single-process:
     # Standard compiler progress exposes C generation, object commands and linking.
     env:

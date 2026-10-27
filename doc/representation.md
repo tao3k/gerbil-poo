@@ -14,7 +14,7 @@ prototype maps, explicit compact storage, lazy object values, opt-in vector
 layouts and supported dependency invalidation are implemented. The instance hash
 is still present. Shape-offset reuse across receivers now has a concrete current-
 cell path, tests, a finite model and matched workflow studies. Full-vector-only
-storage, automatic PIC/JIT selection and cold module-loading qualification remain
+storage, automatic PIC/JIT selection and arbitrary dynamic module-loading qualification remain
 separate optimization/acceptance work, not omitted algorithms of the original
 paper. A cached module result is not evidence that fresh expansion, compilation,
 linking or initialization is cheap.
@@ -359,3 +359,116 @@ justify blanket promotion. They use a different reference from the hot/switch
 rows and must not be mistaken for regressions against the preceding inline code.
 Fresh module discovery, expansion, compilation and initialization remain open
 qualification work under Gerbil's existing loader/build mechanisms.
+
+## Standard downstream entry and startup qualification
+
+The author source (`poof.scrbl`, mutable/lazy initialization and cache-invalidation
+sections) separates delayed field demand from representation choices. Gerbil's
+standard loader already caches initialized modules; the POO library does not need
+another module registry or evaluator. A fresh-process phase probe found 50 newly
+admitted modules at `object`, then 235 at `mop` (about 0.92s CPU in this diagnostic).
+The latter graph includes standard JSON/IO/format dependencies. These are actual
+standard-library imports, not duplicated POO parser implementations. The probe
+uses compiled objects and unflushed filesystem caches; its wall times do not
+establish a disk-cold bound or repeated-evaluation defect.
+
+For a known downstream entry, `just example-representation` uses `defbuild-script`
+and `std/make` to produce the ordinary loadable `representation-service` module
+and the distinct `representation-main` executable. The latter binds the exact
+same exported `main`, rather than providing another parser or business engine.
+The same `main` can be called after an ordinary `gxi` import. No Lean checkout,
+custom load path, environment selector, scheduler or build cache is introduced.
+The existing compiler/heap/timeout limits apply. Link/build work is explicit;
+this is not automatic discovery or a promise that first compilation is free.
+
+Both roots must be in the build graph. An exe-only experiment produced new SSI
+and static code while an old dynamic object remained: a fresh module consumer
+reported undefined generated procedures and failed. Declaring a normal module
+and exe for the SAME source is rejected by std/make as duplicate files. The final
+standard graph therefore uses an importable workflow source and a separate
+five-line executable entry, and standard clean/build owns both roots. Regression
+coverage preserves the selected source roots, options and clean ownership. No
+stale-object fallback or ignored warning is used.
+
+`service-workflow` explicitly inherits one shared recipe, visits all children,
+revises the source tariff, refuses a negative tariff before consumer delivery,
+and recovers after a fresh revision. An empty batch and invalid command/width
+controls are retained. Source copies made by `.cc` are snapshots; live source
+revision needs the declared inheritance edge. The consumer action captures its
+access choice once through the existing checked-action and Reader/FUN bind.
+Symbolic access is the one-shot default and retains lazy ordinary value caching
+without a site/vector. Explicit indexed access executes the identical trace;
+neither policy reuses admission across receivers. For width 64, both must produce
+`#(6240 8256 10272 192)`, including exact successful delivery count.
+
+Lean's existing Representation namespace proves symbolic/prepared-demand equality
+under current-cell/evaluator fidelity and lifts it to arbitrary finite ordered
+batches with first-refusal semantics. Executable examples cover initial values,
+original refusal and current-view recovery. This is a source-result proof, not a
+proof of module loading, linking, callback effects or physical startup costs.
+
+`just benchmark-representation-startup` compares the standard runtime-only `load-module`
+entry against linking, with four alternating AB/BA pairs
+and four A/A plus four B/B controls per access policy. Every child starts a fresh
+registry and runs the SAME module `main`; the OS filesystem cache is not flushed.
+Parent wall time includes process startup, dependency admission, initialization,
+first demand, revisions, refusal/retry, output and exit. The child's standard
+`time` form separately retains business CPU/GC/allocation. Portable `/usr/bin/time -p` additionally records whole child CPU. Parent process CPU is
+not reported as child CPU. Foreground child deadlines remain in the outer guarded
+process group. A refused child or absent success receipt fails qualification;
+raw observations remain outside Git. Build setup is charged separately and must
+be amortized explicitly before selecting an executable deployment strategy.
+
+A separate CI atom builds and executes both policies and calls the same exported
+entry through ordinary module loading, after checking source revision and release
+compiler identity. All existing compile/test and single-process checks remain.
+This qualifies a concrete fixed-entry deployment path; arbitrary fresh dynamic
+modules, full-vector-only storage and automatic multi-shape policies remain open.
+
+
+### Fixed-entry local receipt and remaining loading costs
+
+macOS arm64, released Gerbil `1cfb032`: the same finite consumer returned
+`#(6240 8256 10272 192)` through the standard import, runtime-only loader and exe.
+All 148 modules / 1,813 tests and the existing complete collection study passed
+under unchanged limits. The final driver was then recompiled through ordinary
+qualification and ran all 48 fresh children, with no concurrent local build or
+full check. Four alternating pairs plus four A/A and four B/B per policy remained.
+Filesystem caches were not flushed. These are process-cold deployment samples,
+not physical-disk-cold or cross-platform latency guarantees.
+
+| Access | Runtime-only whole-process wall median (range) | Linked whole-process wall median (range) | Paired linked-minus-runtime median (range) |
+| --- | --- | --- | --- |
+| symbolic | 2.506s (2.193–2.714s) | 53.70ms (37.62–88.35ms) | -2.431s (-2.670 to -2.156s) |
+| indexed | 2.481s (2.401–2.546s) | 42.40ms (40.99–60.31ms) | -2.430s (-2.505 to -2.357s) |
+
+Whole child CPU medians were 2.315s / 25ms for symbolic and 2.380s / 20ms for
+indexed. Business CPU medians were only 20.39ms / 15.37ms and 23.94ms / 18.38ms,
+respectively. Thus this route qualification does not claim that slots or formulas
+became fifty times faster. Loader/image startup accounts for most of the observed
+whole-entry difference; exact syscall/VM attribution is not established.
+
+A/A runtime wall ranges remained -98.50 to +147.10ms (symbolic) and -111.45 to
++175.74ms (indexed); linked B/B retained about -46.63 to +0.95ms. All four primary
+pairs improved per policy, but these controls and small sample size prohibit a
+universal tail bound. Standard business timing retained different GC histories
+(runtime about one collection versus linked ten/eleven in representative samples).
+Signed negative allocation counters reported by the stock time form remain raw
+observations, not claimed allocation savings or byte-cost proofs.
+
+An earlier separate full import-entry study also completed its 48 children and
+all controls. Public SSI/import expansion is included there; it is not isolated
+`load-module` timing. It showed a large first-policy wall tail and signed A/A
+residuals; its medians must not be subtracted from the later runtime-only study
+as a paired expander optimization result. No new dynamic import mechanism was
+implemented. Both routes remain executable through the same driver using
+`just benchmark-representation-startup import` or its default `runtime` reference.
+
+The final paired run's standard build check took 4.43s; construction of the final
+module-plus-entry graph earlier took 13.98s using already available dependencies.
+Neither is a genuinely cold compiler/SDK measurement. Building before a one-shot
+invocation can cost more than a dynamic launch; release/deployment tooling should
+prepare the standard artifact once and charge/amortize that setup explicitly.
+Full-vector-only storage, automatic shape policies and cheaper arbitrary dynamic
+module startup remain unclosed. This unit supplies a reproducible fixed-entry
+choice and current-artifact discipline, not a blanket performance default.

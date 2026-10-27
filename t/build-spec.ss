@@ -151,6 +151,7 @@
     "examples/lifecycle"
     "examples/parameter-service"
     "examples/representation-service"
+    "examples/representation-main"
     "examples/signature-service"
     "examples/recursive-trees"
     "examples/inherited-services"
@@ -186,6 +187,7 @@
     "examples/shared-contracts"
     "examples/service-combination"
     "t/closure-measure"
+    "t/representation-startup"
     "t/metadata-paired-cases"
     "t/joint-coordination-cases"
     "t/metadata-paired-benchmark"
@@ -258,6 +260,12 @@
 ;; unchanged to defbuild-script; only project inventories are selected here.
 (def (build-request args)
   (match args
+    (["example" "representation-service" . options]
+      ;; Distinct standard roots keep the importable workflow and exe coherent.
+      ;; std/make rejects duplicate module/exe declarations for the same file.
+      [`("examples/representation-service"
+          (exe: "examples/representation-main" "-cc-options" ,+gerbil-poo-cc-options+
+            "-ld-options" ,(pkg-config-libs "openssl"))) #f options])
     (["library" . options] [(library-build-spec) #f options])
     (["qualification" . options] [+gerbil-poo-build-spec+ #f options])
     ;; Darwin links these same library objects into the checked program. Keeping

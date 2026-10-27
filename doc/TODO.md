@@ -2710,3 +2710,17 @@ engine. Live layouts reuse completed instance preparation without an extra
 finite route/refusal proofs accompany the existing complete paired study.
 This is not full-vector storage or cold module-loading qualification; those
 remain the explicit representation acceptance boundaries above.
+
+### Standard downstream entry and complete startup acceptance
+
+A known service consumer now has an ordinary importable module and a separate
+standard exe entry, sharing the exact same main/workflow. The single std/make
+graph keeps SSI, dynamic objects and linked code coherent; exe-only preparation
+is not accepted as dynamic-module admission. The finite lifecycle includes lazy
+first demand, shared-source invalidation, original refinement refusal/no consumer,
+recovery and explicit symbolic/indexed policies. Source-result batch equivalence
+and failure scope have Lean laws. Fresh-process paired startup retains AB/BA,
+A/A/B/B, child business/GC output and separately charged build work. A CI atom
+checks the actual standard executable and dynamic entry, preserving all previous
+checks. See representation.md. This does not implement another loader, automatic
+PIC/JIT, full hash removal or qualify arbitrary dynamic module startup.

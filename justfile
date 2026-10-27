@@ -80,6 +80,15 @@ _check-linked-collections width='2' samples='1' pairs='4': (_test "t" "300") (_b
 _run-collections width samples pairs:
     {{ if os() == "macos" { "/usr/bin/time -p" } else { "time -p" } }} {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/test-program" {{ test-runtime-options }} benchmark collection-paired-benchmark "{{ width }}" "{{ samples }}" "{{ pairs }}"
 
+# Known downstream entries use standard exe linking; no alternate loader/cache.
+example-representation: (build "example" "representation-service")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} 64 indexed
+
+# Fresh processes retain AB/BA and A/A/B/B controls; no filesystem cache flushing.
+benchmark-representation-startup reference='runtime': (build "example" "representation-service")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} t/representation-startup.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" 64 4 "{{ reference }}"
+
 clean:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} clean
