@@ -4,14 +4,14 @@
 ;; admission is active: a completed observation may legitimately nest another.
 (def active-table-observations (make-parameter []))
 
-;; Reject the same receiver/snapshot during its own recognizer, rather than
-;; recursing through a public observer. Backing-descriptor queries remain legal.
-(def (admit-table-observation descriptor input)
+;; Reject the same receiver/snapshot during its own recognizer. Set admission
+;; supplies its existing backing/refinement sequence; distinct receivers remain legal.
+(def (admit-table-observation descriptor input (admit require-table))
   (def active (active-table-observations))
   (when (ormap (lambda (entry) (and (eq? (car entry) descriptor) (eq? (cdr entry) input))) active)
     (error "recursive table observation admission"))
   (parameterize ((active-table-observations (cons (cons descriptor input) active)))
-    (require-table descriptor input)))
+    (admit descriptor input)))
 
 ;; Protect current descriptors for the whole eager observation. Recognize the
 ;; complete snapshot before any backend work; retain opaque Function leaves.

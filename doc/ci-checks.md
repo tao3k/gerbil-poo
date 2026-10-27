@@ -128,11 +128,12 @@ an end-to-end improvement on their own.
 ## Standard build entry and resource boundaries
 
 `build.ss` selects the project inventory and invokes Gerbil's `defbuild-script`.
-`gerbil clean` followed by `gerbil build` is the standard package recovery path;
+`gerbil clean` followed by `gerbil build` is the usual package recovery path;
 manual selection/deletion of numbered compiled modules is not the workflow.
+The SDK object-format migration below requires a fresh generated package root.
 The default specification is the shared package graph, so the official package
 command does not expand all test roots in the same compiler heap. `just test`
-still compiles all disjoint test batches and runs all 123 modules in one process.
+still compiles all disjoint test batches and runs all 148 modules in one process.
 Its standard `compile`, `clean`, `spec`, `meta`, `--release`, `--optimized` and
 `--debug` options pass through unchanged. `std/make` owns dependency checks,
 incremental compilation and backend scheduling. There is no second local build
@@ -217,7 +218,7 @@ batches; runtime execution still waits for every batch. The collection entry
 also drops its redundant standalone library preparation. Package-only builds
 and the dynamically loaded runtime path on other platforms retain their scope.
 
-Local artifact-cold controls used the same source, standard clean, 12-worker
+Local standard-clean controls used the same source, 12-worker
 budget, 1 GiB compiler heap and 300-second stage limit, in joint/split/split/joint
 order. Only the existing build entry's graph selection changed:
 
@@ -229,7 +230,7 @@ order. Only the existing build entry's graph selection changed:
 Compiler invocation traces confirm the mechanism: the separated path compiles
 `table`'s runtime body and later its static body; the joint path generates C and
 compiles one static object used for both outputs. Queued job names alone are not
-used as compiler invocation evidence. The complete artifact-cold `just build`
+used as compiler invocation evidence. The complete standard-clean `just build`
 then compiled all 148 test modules in eight batches in 270.91 seconds. Runtime
 execution was timed separately: all 1,734 cases passed, the harness took 135.70
 seconds, and the complete test-plus-paired-study entry took 157.70 seconds.
@@ -263,3 +264,25 @@ An unchanged-source repeat of the complete final build passed in 38.30 seconds.
 Verbose compiler tracing contained zero actual GSC/GCC invocations. This confirms
 standard artifact reuse for this source snapshot; dependency inspection, metadata
 loading and process startup still contribute to that whole-entry time.
+
+### Dynamic object format migration
+
+A later Set admission regression exposed a separate migration hazard in this
+released Darwin SDK. The shared/static reuse branch in compiler `driver.ss`
+emits a fixed runtime `.o1`, while the loader can select an older higher-numbered
+dynamic object left by ordinary split compilation. The observed module paths were
+the current `table.o104` stub followed by the old `table~0.o84` body, despite the
+current generated body and `.o1` containing the repair. A bounded recursion probe
+therefore still ran the old recognizer. This is not evidence against the generated
+repair, and successful compilation alone is not evidence of current dynamic loading.
+
+Standard `gerbil clean` delegates to `std/make` declared outputs; it removes SSI
+and static outputs but does not erase those numbered dynamic versions. The earlier
+controls above are consequently standard-clean construction receipts, not proof
+that every dynamic artifact was absent. Migrating this existing local output from
+split compilation to shared/static reuse requires a fresh generated package root.
+For the current acceptance the old project-owned output is moved outside Git for
+diagnosis, and the SAME standard `.build/package` path is reconstructed. No runtime
+load-path override, versioned receipt, permanent cleanup engine or SDK patch is added.
+CI's source-keyed Linux builds remain a separate platform qualification. Arbitrary
+mixing of old/new SDK object formats is not certified by the collection proofs.

@@ -379,8 +379,38 @@ The subsequent build-graph audit found repeated library machine-code compilation
 across qualification and executable construction. A single Darwin `std/make` graph
 now enables the released SDK's shared/static object reuse and removes the final
 redundant construction phase. All eight test batches and the complete harness
-remain. Final-source artifact-cold construction passed in 270.91 seconds with the
+remain. Final-source construction after standard clean passed in 270.91 seconds with the
 original 300-second stages; 148 modules / 1,734 cases and the paired collection
 study passed. See [joint graph acceptance](ci-checks.md#joint-darwin-object-construction)
 for matched controls and scope. The earlier failed runs above remain negative
 history; smaller generated code alone was not the completed fix.
+The later SDK migration audit in that same document qualifies standard-clean
+receipts: retained numbered dynamic bodies were not necessarily absent.
+
+## Shared recursive Set admission
+
+The next source audit distinguishes an intentional primitive from a real protocol
+omission. Raw Table `.foldl`/`.foldr` are declared backend extension points, as in
+the author's dictionary fold; requiring whole receiver recognition inside them
+would reenter recognition and change their domain. They are not missing checked
+Set observers. The concrete defect was instead in `require-set`: its refinement
+could call a checked Set observer and repeat the same admission without Table's
+existing active receiver/snapshot guard.
+
+The existing guard now accepts the backing/refinement continuation. One change to
+the shared Set admission boundary covers reads, construction, algebra, iterators
+and five-style publication. No alternate traversal, namespace or ownership layer
+is introduced. See [recursive Set admission](collections.md#recursive-set-admission)
+for the bounded counterexample, composed Function-grant workflow, conditional Lean
+laws, failure/retry semantics and charged costs. General termination remains a
+research boundary, not a newly claimed implementation feature.
+
+Final-source local acceptance: the standard complete build and all 14 Set
+observation cases passed. `just _check-linked-collections 2 1 4` exited zero with
+148 modules, 1,738 passing cases, no error markers and the existing paired-study
+success marker. The single-process harness took 161.54 seconds; the complete
+check/study entry took 182.99 seconds. These are acceptance observations, not a
+controlled speedup claim. The original heap, deadlines, compiler batches and check
+inventory were retained. Lean's complete 20-phase gate passed, and its resulting
+PR head passed all 17 CI checks. Scheme remote CI is verified separately at the
+resulting commit; the SDK migration limitation remains explicit in ci-checks.md.

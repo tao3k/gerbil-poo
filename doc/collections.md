@@ -1404,6 +1404,51 @@ retain their full costs; no constant-time, GC or arbitrary termination claim fol
 Design reflection: keep the existing read/fold kernels and custom delegate semantics;
 do not bypass a public validation boundary for an unproved reuse optimization.
 
+#### Recursive Set admission
+
+The shared `require-set` boundary now uses the existing Table observation admission
+guard around backing recognition followed by Set refinement. Previously a refinement
+that called its own `.count` reentered the same recognizer indefinitely. A bounded
+pre-repair witness reached four recognizer calls before its diagnostic cutoff;
+the repaired path refuses before the second call. Mutual Set dependencies likewise
+refuse at the first repeated receiver/snapshot pair. Read, iterator, constructor,
+algebra and all five style entry paths share this boundary, without per-method
+wrappers or changing raw Table folds into checked operations.
+The style factory's existing `admitted` function delegates to that same Set
+boundary instead of repeating backing/refinement admission outside its guard;
+it retains both checks and their original order.
+
+Receiver AND snapshot identity matter: a backing Table query over the same root,
+or a Set query over a different persistent root, remains legal. This is active
+admission tracking, not successful-result memoization. Gerbil's standard
+`parameterize` restores the scope on normal and exceptional exits. An independent
+retry performs recognition again; original non-cycle errors retain their cause
+and already performed callback effects. No partial result or successful IO
+publication follows a refused admission.
+
+The Function-grant publication regression uses `fold-access-action` and the
+existing Reader/FUN/IO chain across Pure, Mutable, Linear, Posh and Classy. Cyclic
+policy admission runs neither grant callbacks nor consumers, retains the original
+owner, and retries successfully after policy repair with the same checked Function.
+The direct and mutual recursion tests have bounded negative controls, so a guard
+regression cannot cause an uncontrolled test recursion. Existing Table guard tests
+remain unchanged.
+
+`SetStyle.lean` composes `guardTableAdmission` with the two admission stages and
+proves reentry refusal, exact fresh delegation, backing failure precedence,
+specialized result preservation, direct/mutual cycle refusal and read suppression.
+The top-level `Examples/ServiceCollection.lean` combines shared snapshot identities
+with the existing linear ownership laws. Faithful host identity, persistent roots,
+scope restoration and correspondence of recognizers remain premises. These finite
+future-work laws do not prove arbitrary callback termination, concurrent heap
+behavior, continuation implementation, compiler correctness or GC performance.
+
+Each crossed Set admission adds one shallow active-pair entry and a linear search
+over current admission depth, in addition to all existing recognition work. It adds
+no snapshot scan, normalization, global registry or retained cache. Design reflection:
+extend the existing admission continuation once; keep the author's overridable
+backend primitives and the existing FUN/IO publication unchanged.
+
 ### Declared ordinary-fold policies
 
 `table-fold source aggregate project origins` shares the existing constructor with

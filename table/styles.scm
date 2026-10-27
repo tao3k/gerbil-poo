@@ -304,10 +304,9 @@
     (with-table-sources sources action sources versions "stale table styles"))
   ;; A customized set recognizer may refine its backing carrier. Keep both
   ;; obligations without normalizing keys or trusting a broader custom predicate.
+  ;; Reuse Set's complete admission, including its shared active-request guard.
   (def (admitted value)
-    (require-table source value)
-    (when set (require-table set value))
-    value)
+    (if set (require-set set value) (require-table source value)))
   ;; Allocate one private capability; no capability constructor is public.
   (def (reference style value)
     (make-%table-reference owner style (make-%table-head value) (make-mutex 'table-reference)))

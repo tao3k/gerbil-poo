@@ -19,9 +19,13 @@
 
 ;; A set refinement cannot weaken the backing carrier/child admission. Recognition
 ;; retains admitted Function keys and does not reconstruct or normalize them.
+;; The shared dynamic admission guard rejects direct or mutual receiver/root
+;; reentry before repeating a recognizer, and restores its scope on every exit.
 (def (require-set descriptor root)
-  (require-table (.@ descriptor Table) root)
-  (require-table descriptor root))
+  (admit-table-observation descriptor root
+    (lambda (descriptor root)
+      (require-table (.@ descriptor Table) root)
+      (require-table descriptor root))))
 
  ;; Admit the complete Set once before issuing its backing stream. Each delayed
 ;; pull, including EOF, checks the captured Set/element/backend origins without
