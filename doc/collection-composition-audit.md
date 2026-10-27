@@ -614,3 +614,42 @@ The original 1 GiB heap, stage deadlines and complete check inventory remain.
 Lean's full 20-phase gate passed with zero failures in 130.16 seconds; remote
 results are verified separately at each resulting PR head. Intermediate fixture
 failures are not accepted as closure, and lossless output remains outside Git.
+
+
+### Owned encoder observations
+
+Collection IO now resolves the existing encoder after root admission and before
+backend enumeration, then captures the complete observed element spine (Set) or
+binding spine and Pair shells (Table) before invoking any child codec. The
+existing `capture-table-bindings` and Gerbil `map` supply this boundary; List,
+Pair, JSON, byte and port codecs remain the implementation. No per-method style
+wrappers or second serialization engine are introduced.
+
+A faithful persistent-tree observation can be recycled by a key encoder without
+changing the root: formerly `((1 . 10) (2 . 20))` could encode as `((1 99) (3 20))`,
+and Set `(1 2)` as `(1 99)`. The captured observation now retains the original
+rows across all five presentations. Present false elements and checked Function
+handles remain intact. The FUN/IO service example composes encoding refusal and
+retry with unique-index decoding, publication and inverse-delta recovery.
+
+Admission, method-lookup priority and exact failure causes are preserved. A late
+port failure retains its emitted prefix; external codec effects are not rolled
+back. A retry enumerates and captures a fresh observation. Encoding consumes no
+linear owner. Decoder and constructor policies are unchanged.
+
+The finite Lean model reuses encodeCollection, marshalCollection and
+captureOrigins to establish ordered delivery, admission/lookup refusal and
+stability against later producer-buffer replacement, including opaque functions
+and retained port prefixes. Faithful backend enumeration, stable payload leaves,
+recorded child-codec outcomes and lawful codec output formats are premises. This
+is shallow ownership of observation shells, not deep cloning, parser verification
+or a proof of arbitrary callback termination. Set capture allocates one list cell
+per element; Table capture also copies each binding Pair. Admission, enumeration,
+metadata preparation and the existing child codecs remain charged; no wall-clock
+speedup is claimed.
+
+The author's Type Descriptors / I/O Validation and Beyond section motivates
+sharing codec methods through descriptors. Ownership of these extended collection
+observations advances that future-work protocol rather than claiming a missing
+concrete paper algorithm. Gerbil rbtree->list already supplies fresh binding
+shells; the regression deliberately recycles only those shells, not tree nodes.

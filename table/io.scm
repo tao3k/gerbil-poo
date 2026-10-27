@@ -14,7 +14,13 @@
     (case method
       ((.json<- .bytes<- .marshal)
         (admit input)
-        (apply (.ref schema method) (.call descriptor .list<- input) args))
+        ;; Retain method-lookup priority, then own the complete observation before
+        ;; child codecs can recycle the backend's list or binding Pair shells.
+        ;; Set elements and binding children remain opaque admitted leaves.
+        (let* ((encode (.ref schema method))
+               (rows (.call descriptor .list<- input))
+               (snapshot (if set? (map identity rows) (capture-table-bindings rows))))
+          (apply encode snapshot args)))
       ((.<-json .<-bytes .unmarshal)
         (admit (.call descriptor .<-list (apply (.ref schema method) input args))))
       (else (error "unsupported collection codec" method))))))))

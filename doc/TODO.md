@@ -2582,3 +2582,16 @@ order, exact failure causes, reentrant-winner refusal and explicit retry remain.
 Table/Set and FUN/IO examples plus finite capture/admission/publication laws are
 documented in table-split.md and the composition audit. Persistent roots and
 faithful backend decomposition laws remain premises, not inferred algorithms.
+
+
+### Owned encoder observations
+
+Closed the shared Table/Set encoder boundary across JSON, bytes, ports and all
+five presentations: capture the finite observation before child codecs can reuse
+its list/Pair shells. Reuse existing capture and List/Pair codecs, preserving root
+admission and encoder lookup priority. Controls cover false elements, opaque
+Function handles, original late causes/port prefixes, nonconsuming owners, FUN/IO
+retry, indexed publication and inverse recovery. Finite Lean laws establish the
+boundary with backend fidelity and stable leaves as premises. Decoder semantics
+and mutable payload internals remain explicit scope boundaries; see the
+composition audit. Capture allocation remains charged, without a speedup claim.

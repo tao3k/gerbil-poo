@@ -1777,3 +1777,15 @@ premises. Hidden callback dependencies, concurrent raw mutation and arbitrary
 termination are not established. This is future work beyond the paper's concrete
 examples. Capturing/protecting a finite family and checking its revisions remain
 charged; no wall-clock speedup is claimed.
+
+
+### Owned encoder observations
+
+The shared Table/Set IO boundary captures the observed list and binding shells
+before child codecs run, using existing capture and Gerbil map. JSON, bytes and
+ports retain original method lookup order, causes and late output prefixes. All
+five presentations encode without consuming owners; Function handles remain
+shared. The FUN/IO service example composes encoding retry, indexed decoding and
+inverse recovery. Stable leaves and faithful enumeration remain premises; this
+is not a deep-copy protocol. See [the composition audit](collection-composition-audit.md#owned-encoder-observations)
+for the counterexample, finite Lean laws, costs and scope.
