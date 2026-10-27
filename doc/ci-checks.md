@@ -295,3 +295,13 @@ with status124 while native make still had pending compiler jobs. CI and caller
 process supervision retain their own deadlines. This removes no Suite, target,
 worker limit or heap limit and introduces no retry/build fallback. Gerbil and
 `std/make` still own compilation, failures and incremental recovery.
+
+The demand-filled-cell acceptance reproduced that recorded Darwin migration
+hazard on an interface change: current object~0.o1 defined object-layout__%, while
+an older object~0.o2 exposed only object-layout and was selected by the standard
+loader. Declared std/make clean did not remove that numbered body. Retiring the
+project-generated package output outside Git and rebuilding the SAME standard
+root resolved it; no load-path override or permanent cleanup engine was added.
+The full public checks are rerun against that coherent output. This is local
+output-cohort recovery, not qualification of mixed SDK compilation formats or a
+claim that std/make clean removes every dynamic version.

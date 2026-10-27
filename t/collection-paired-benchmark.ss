@@ -1,7 +1,7 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
-        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref)
+        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref make-slot-layout slot-layout-index)
         (only-in ../slot-observation call-with-slot-read-observer %slot-read-active?)
         (only-in :gerbil/runtime/loader load-module)
         (prefix-in ../examples/representation-service service.)
@@ -23,20 +23,50 @@
 
 ;; Cold preparation, lazy evaluation and switched/tracked hot access all remain
 ;; visible. The module phase measures a standard cached load, not a fresh import.
-(def +slot-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow))
+(def +slot-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
+    slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
 
-;; Counterfactual for hot/switch phases: the preceding shared-offset protocol
-;; enters object-layout on each access, even when the receiver is already ready.
-;; Retain its observation selection and current-cell path, so timing isolates
-;; preparation reuse instead of conflating it with the earlier offset change.
+;; Counterfactual for hot/switch: the preceding production read path, with
+;; eager value seeding and the SAME ready-layout shortcut/observation guard.
+;; Benchmark-only; it is not an alternate production evaluator or compatibility API.
 (def (reference-inline receiver cache)
-  (if (%slot-read-active?) (.ref receiver (slot-cache-name cache))
-    (let ((layout (object-layout receiver)) (revision (object-revision receiver)))
-      (if (slot-cache-hit? cache receiver revision layout) (slot-cache-read cache)
-        (let* ((slot (slot-cache-name cache)) (index (slot-cache-index cache layout))
-               (stored (if index (slot-layout-ref layout index) absent-value))
-               (value (if (eq? stored absent-value) (.ref receiver slot) stored)))
-          (slot-cache-bind! cache receiver revision layout index) value)))))
+  (def slot (slot-cache-name cache))
+  (if (%slot-read-active?) (.ref receiver slot)
+    (let (prepared (object-%layout receiver))
+      (if (and (not prepared) (bootstrap-anchor receiver slot)) (.ref receiver slot)
+        (let ((layout (or prepared (object-layout receiver eager?: #t)))
+              (revision (object-revision receiver)))
+          (if (slot-cache-hit? cache receiver revision layout) (slot-cache-read cache)
+            (let* ((index (slot-cache-index cache layout))
+                   (stored (if index (slot-layout-ref layout index) absent-value))
+                   (value (if (eq? stored absent-value) (.ref receiver slot) stored)))
+              (slot-cache-bind! cache receiver revision layout index) value)))))))
+
+;; Compare cached-value seeding with demand promotion on identical finite shapes.
+;; Preparation isolates the shared-shape/vector work. Complete workflows charge
+;; construction, warming, selected/all reads and supported revision recovery.
+(def (seeding-workload size scenario)
+  (def names (for/collect (n (in-range size)) (string->symbol (string-append "field-" (number->string n)))))
+  (def entries (map (lambda (name) (cons name 1)) names))
+  (def initial (list->hash-table entries))
+  (def first (car names))
+  (def (action deferred?)
+    (lambda ()
+      (if (eq? scenario 'slot-seeding-prepare)
+        (let* ((layout (make-slot-layout names (and (not deferred?) initial) absent-value))
+               (stored (slot-layout-ref layout (slot-layout-index layout first))))
+          (unless (if deferred? (eq? stored absent-value) (= stored 1)) (error "seeding preparation oracle")))
+        (let ((owner (object<-alist entries)) (site (make-slot-cache first eager?: (not deferred?))))
+          ;; Warming belongs INSIDE this complete workflow's timing boundary.
+          (for-each (cut .ref owner <>) names)
+          (if (eq? scenario 'slot-seeding-all)
+            (for-each (lambda (name)
+              (unless (= (.ref/inline owner (make-slot-cache name eager?: (not deferred?))) 1) (error "all-cell oracle"))) names)
+            (unless (= (.ref/inline owner site) 1) (error "selected-cell oracle")))
+          (.putslot! owner first ($constant-slot-spec #f))
+          (unless (eq? (.ref/inline owner site) #f) (error "revised-cell oracle"))))
+      #t))
+  (values (action #f) (action #t)))
 
 ;; Compare existing symbolic reads with the explicit inline API through the same
 ;; receiver formulas and runtime. Each side owns its parent, instances and site.
@@ -508,6 +538,8 @@
              (cut representation-workload n scenario))
             ((memq scenario +order-phases+)
              (cut order-workload n scenario))
+            ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
+             (cut seeding-workload n scenario))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
           (lambda (before after elapsed) (set! setup-history (measurement-history before after elapsed)))))

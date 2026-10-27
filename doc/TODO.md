@@ -2724,3 +2724,17 @@ A/A/B/B, child business/GC output and separately charged build work. A CI atom
 checks the actual standard executable and dynamic entry, preserving all previous
 checks. See representation.md. This does not implement another loader, automatic
 PIC/JIT, full hash removal or qualify arbitrary dynamic module startup.
+
+### Explicit demand-filled static cells
+
+Added a complete production capability for on-demand promotion of warmed hash
+values into a receiver's static layout, including false/Function preservation,
+shared invalidation, exact refusal/old-guard retention and retry. A cache site
+captures one explicit eager boolean through the standard contract binder. Default
+eager is retained; an existing layout is reused and a later generation is prepared
+under its first requesting site's creation preference. Ordinary .ref and FUN/IO
+remain authoritative. Whole-cache fidelity and finite demand-batch laws accompany
+preparation/selected/all-field paired studies. Dense allocation, key/shape work,
+ordinary instance hashes and guard/call/GC costs remain charged. This does not
+close full-vector-only storage, automatic shape policy or arbitrary dynamic module
+startup; see representation.md.

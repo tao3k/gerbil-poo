@@ -1,6 +1,6 @@
 ;;; Shared shapes and receiver-local value vectors for guarded access sites.
-(export make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-put!
-        make-slot-cache slot-cache-name slot-cache-hit? slot-cache-index slot-cache-read slot-cache-bind!)
+(export make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
+        make-slot-cache slot-cache-name slot-cache-eager? slot-cache-hit? slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
@@ -11,6 +11,8 @@
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
 ;; Canonicalize symbolic identity order, independent of parent/declaration order.
+;; An explicit initial table seeds all cached values. False selects demand-filled
+;; cells: make-vector allocates the same finite layout without scanning values.
 (def (make-slot-layout names initial missing)
   (def keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b)))
     (delete-duplicates/hash names table: (make-hash-table-eq))))
@@ -19,23 +21,32 @@
       (let (indices (make-hash-table-eq))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices)))))
-  (make-layout canonical (list->vector (map (lambda (name) (hash-ref initial name missing)) keys))))
+  (make-layout canonical (if initial
+    (list->vector (map (lambda (name) (hash-ref initial name missing)) keys))
+    (make-vector (length keys) missing))))
 ;; Absence is false; zero is a valid index in Scheme.
 (def (slot-layout-index layout name) (hash-get (shape-indices (slot-layout-shape layout)) name))
 ;; Only the guarded object access path consumes an index obtained from this shape.
 (def (slot-layout-ref layout index) (vector-ref (layout-cells layout) index))
+;; Promote one successfully demanded value at its certified CURRENT layout index.
+;; Callers must resolve the index from this layout; false values are ordinary data.
+(def (slot-layout-set! layout index value) (vector-set! (layout-cells layout) index value))
 ;; Keep a prepared vector coherent with ordinary successful object reads/writes.
 (def (slot-layout-put! layout name value)
   (let (index (slot-layout-index layout name))
-    (when index (vector-set! (layout-cells layout) index value))))
+    (when index (slot-layout-set! layout index value))))
 ;; One monomorphic access site retains one receiver/version/layout, never just a shape.
-(defstruct access-cache (name owner revision layout index))
+(defstruct access-cache (name owner revision layout index eager?))
 ;; The fixed slot name belongs to the access site, not to the last receiver.
 (defalias slot-cache-name access-cache-name)
-;; Require symbolic access names; no values or exceptions are cached before success.
-(def (make-slot-cache name)
-  (unless (symbol? name) (error "symbolic cache slot required"))
-  (make-access-cache name #f #f #f #f))
+;; A creation preference, never value authority: an existing layout is reused.
+(defalias slot-cache-eager? access-cache-eager?)
+;; Capture an explicit seeding choice once, without a per-read policy closure.
+;; Default eager remains qualified; demand filling is opt-in for selected fields.
+(def (make-slot-cache name eager?: (eager? #t))
+  (using (eager? :~ boolean?)
+    (unless (symbol? name) (error "symbolic cache slot required"))
+    (make-access-cache name #f #f #f #f eager?)))
 ;; Guard receiver identity, monotone revision and exact receiver-local layout together.
 (def (slot-cache-hit? cache owner revision layout)
   (using (cache : access-cache)

@@ -570,12 +570,13 @@
         (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 ;; Prepare a shared symbolic shape lazily. Ordinary lookup retains its hash API;
-;; opting into an access site adds a coherent receiver-local vector, not a new evaluator.
-(def (object-layout self)
+;; Creation may seed existing cached values or allocate demand-filled cells.
+;; Existing layouts are reused; ordinary lookup remains the value authority.
+(def (object-layout self eager?: (eager? #t))
   (def instance (object-instance self))
   (or (object-%layout self)
     (let (layout (make-slot-layout
-      (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) instance absent-value))
+      (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) (and eager? instance) absent-value))
       (set! (object-%layout self) layout) layout)))
 ;; Guarded access sites reuse only an index, never another receiver's slot value.
 ;; Observation and cold bootstrap anchors use ordinary .ref before preparation.
@@ -587,12 +588,14 @@
   (if (%slot-read-active?) (.ref self slot)
     (let (prepared (object-%layout self))
       (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
-        (let ((layout (or prepared (object-layout self))) (revision (object-revision self)))
+        (let ((layout (or prepared (object-layout self eager?: (slot-cache-eager? cache)))) (revision (object-revision self)))
           (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
             (let* ((index (slot-cache-index cache layout))
                    ;; Offset sharing never shares the previous owner's cells.
                    (stored (if index (slot-layout-ref layout index) absent-value))
-                   (value (if (eq? stored absent-value) (.ref self slot) stored)))
+                   (value (if (eq? stored absent-value)
+                     (let (value (.ref self slot))
+                       (when index (slot-layout-set! layout index value)) value) stored)))
               (slot-cache-bind! cache self revision layout index) value)))))))
 
 ;; Get an existing cached slot value from an object

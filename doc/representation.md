@@ -472,3 +472,100 @@ prepare the standard artifact once and charge/amortize that setup explicitly.
 Full-vector-only storage, automatic shape policies and cheaper arbitrary dynamic
 module startup remain unclosed. This unit supplies a reproducible fixed-entry
 choice and current-artifact discipline, not a blanket performance default.
+
+## Explicit demand-filled layout cells
+
+`make-slot-cache 'total eager?: #f` captures an explicit creation preference for
+selected-field consumers. The default remains eager; this is not an automatic
+promotion threshold or a blanket rollout based on fewer allocations. On a cold
+layout, `.ref/inline` uses the preference through the existing `object-layout`.
+An already allocated layout is shared by the receiver's sites and is reused;
+preferences do not retroactively reseed or replace it. Supported invalidation
+still discards that receiver layout, and the first subsequent creation selects
+its own preference. `object-layout receiver eager?: #f` also exposes explicit
+preparation without inventing another protocol or evaluator.
+
+A demand-filled layout keeps the SAME dense finite vector and canonical shape,
+but initializes cells with the private unpromoted sentinel. It does not enumerate
+ordinary cached values through one `hash-ref` per name or allocate the mapped
+value-list just to populate unused cells. Key inventory, deduplication, sorting,
+shape interning and dense vector allocation/fill remain real work. The ordinary
+instance hash is retained. This is not constant-time construction, a sparse
+storage backend or full hash removal.
+
+First demand delegates to `.ref`, including a warmed cached false or exact checked
+Function. Only success promotes the value at this receiver's certified index,
+then binds the existing owner/revision/layout guard. A refusal promotes no value
+and retains the site's previous successful guard. Successful ordinary dependency
+computations can still populate their own cells, as before; no evaluator rollback
+is claimed. Explicit index writes and named writes share one narrow vector setter,
+without new per-read closures, approval caches or result wrapper objects. The
+site adds one boolean creation preference; its allocation/guard footprint is not
+proved free by the source lookup ledger.
+
+The ordinary direct `object-layout` creation default still seeds cached values
+for eager consumers. Raw layout cells now represent the promoted subset when
+that layout was created with demand filling. An unpromoted cell is not proof of
+field absence or of a body never having been evaluated: ordinary `.ref` remains
+the value authority. Existing slot presence, type/refine/evidence, observation and
+registered invalidation protocols are unchanged. No result from another owner or
+retired generation becomes authorized through shape identity.
+
+Regressions cover warmed false and Function identity without recooking, index
+promotion, shared-source revisions, retired read refusal, original error identity,
+old-guard retention, retry and rejection of a nonboolean preference. The existing
+service example and complete downstream workflow continue to exercise the same
+Reader/FUN/contract chain. Lean's existing Representation model adds deferred
+views, promotion identity/frame/fidelity, arbitrary finite deferred batches and
+explicit initial value-probe counts. Canonical unique names, faithful current
+cells and supported serialized invalidation remain premises; no compiler,
+collector or module-loader proof is implied.
+
+The complete paired study retains every previous phase and adds preparation,
+selected-field workflow and all-field workflow comparisons. Both workflow sides
+charge object construction, ordinary warming, fresh access sites, first reads,
+source revision/invalidation and recovery. Sites retain the selected preference
+across these generations. The reference is explicit eager seeding in the CURRENT
+runtime; hot/switch reference code keeps the preceding read algorithm, not a
+second production implementation. Preparation measures a predeclared finite key
+catalog and ordinary cached table; setup and complete workflows are separately
+visible. Few-field and all-field results must both be admitted before making any
+automatic policy claim.
+
+### Demand-filled-cell local acceptance
+
+Final explicit-choice source passed all 148 modules and 1,815 cases, including
+its multi-service ObjectContract/refine/FUN action with `eager?: #f`. Every prior
+collection phase and the three new phases passed. A separate quiet
+`just _run-collections 64 3 6` completed in 35.97s. Values below are microseconds
+per complete operation, demand minus eager wall medians on this local macOS SDK:
+
+| Phase | Natural | Collected |
+| --- | ---: | ---: |
+| 64-name shape/vector preparation | -3.70 | -3.70 |
+| construction/warm/select/revise/recover | +253.36 | +79.15 |
+| construction/warm/read-all/revise/recover | +91.99 | +17.84 |
+
+The final preparation's six collected pairs all improved (-4.61 to -0.32us),
+with zero measured GC CPU. A representative GC-free three-operation batch
+allocated 85,328 bytes eager versus 76,112 demand-filled. These are local sampler
+observations, not a formal byte bound or persistent-heap reduction. The same
+64-cell vector and ordinary hash still exist.
+
+Complete-workflow data do NOT establish a stable speedup. Natural selected/all
+pairs retain about +230/+206us median GC CPU differences. Collected selected
+CPU improved about 12.33us but its wall delta ranged -2.60ms to +0.93ms; collected
+all-field CPU increased about 23.67us and wall ranged +2.62us to +4.46ms. A/A and
+B/B controls also retain substantial CPU/wall residuals (including collected
+all-field B/B +0.454ms median). Medians of these components are not additive,
+and the residuals are not attributed to another process or a particular VM cause.
+No tail/throughput improvement is certified by a lower initialization count.
+
+Consequently default eager seeding is RETAINED. Selected-field users can request
+`make-slot-cache 'field eager?: #f`, or opt in through the example's existing
+`checked-total-action ... eager?: #f`; the same shared action builder keeps
+complete admission before delivery. All-field callers can keep eager creation.
+First layout allocation wins within the receiver generation; no automatic policy
+or wrapper chain is introduced. This closes the explicit demand-promotion
+capability and its failure/invalidation laws, not broad performance qualification
+or arbitrary dynamic-loader startup.
