@@ -196,8 +196,10 @@
             (for-each (lambda (change)
               (def k (translate (table-change-key change)))
               (def prior (.call overlay .ref/opt pending k))
+              ;; Read-only conversion queries may recycle this backend response.
+              ;; Keep original expectations; private prefix Options need no recopy.
               (def before (if (some? prior) (table-change-after (some-value prior))
-                (.call target .ref/opt (table-fold-state-table current) k)))
+                (map/option identity (.call target .ref/opt (table-fold-state-table current) k))))
               (def after (map/option (lambda (v)
                 (translate-table-value
                   (table-child-type forward table-translation-source-value table-translation-source Value)

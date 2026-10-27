@@ -516,8 +516,11 @@
               (def k (table-change-key change))
               (def mapped-key (translate backward #t k))
               (def prior (.call overlay .ref/opt pending k))
+              ;; Prefix edits already own their Options. Capture only a borrowed
+              ;; backend response before old-value checks or replacement conversion.
               (def source-before (if (some? prior)
-                (table-change-after (cdr (some-value prior))) (.call source .ref/opt before mapped-key)))
+                (table-change-after (cdr (some-value prior)))
+                (map/option identity (.call source .ref/opt before mapped-key))))
               (def target-before (if (some? prior)
                 (table-change-after (car (some-value prior)))
                 (map/option (cut translate forward #f <>) source-before)))

@@ -2622,3 +2622,16 @@ capture/deletion/inverse laws retain backend and stable-cache premises; output
 traversal, one present Option allocation and complete admission remain charged.
 See table-mapping.md and the composition audit; this is not automatic discovery
 or general mutable-payload ownership.
+
+
+### Captured sparse translation expectations
+
+Closed represented delta installation and sparse fold transfer over borrowed
+endpoint reads: capture the original backend Option before old-value checks and
+replacement queries; reuse already owned prefix-overlay Options. Six original
+conflict failures cover pure queries, five styles, ordered/cancelled batches,
+false values/keys, Function identity, aggregate preservation and FUN/IO retry.
+The capacity-ledger value Wrapper refinement reuses the existing transport.
+Finite capture/check/conversion/inverse laws state backend and stable-leaf
+premises. Only present backend expectations add a shell; no full scan/refold or
+VM speedup is claimed. See table-representations.md and the composition audit.

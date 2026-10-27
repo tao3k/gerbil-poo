@@ -749,3 +749,49 @@ entry requires one new Option shell; the existing list and Function objects are
 shared. Retirement still visits every old output and all ordinary admission,
 registry, construction, allocator and GC costs remain charged. No new wall-clock
 speedup or automatic dependency discovery is claimed.
+
+
+## Captured sparse translation expectations
+
+A source audit found the same endpoint obligation in two existing protocols:
+represented table installation retained a borrowed source `.ref/opt` response,
+and sparse fold transport retained a borrowed target response, across replacement
+conversion. A conversion doing an ordinary read-only query can recycle that
+Option while all persistent roots and converted values remain unchanged. A
+correct atomic installer then rejects the damaged expectation as a conflict.
+
+The regression backend exposes borrowed reads but delegates the unchanged atomic
+installer to its original backend. This distinction matters: if installation
+rereads into the same shell, it can accidentally repair an already corrupted
+expectation and hide the defect. Six regressions fail on the original installers
+with conflict keys in their declared public/source coordinates; all 1,782 prior
+cases remain passing.
+
+Both existing read sites now capture the Option with `map/option identity` before
+old-value admission or replacement conversion. Private prefix-overlay Options
+already belong to emitted edits and are reused directly. No translator, delta
+installer, validator or ownership engine is duplicated. Original stale refusal
+priority, callback errors, final refinements and private pairing commit order
+remain. Typed integer/false controls, repeated/cancelling batches, all five
+represented styles, exact inverse recovery and checked Function identity are
+covered. The capacity-ledger example accepts a higher-order refinement of its
+existing value Wrapper, matching its source/target refinements; core endpoint
+and encountered inverse checks still apply. FUN/IO refusal reaches no consumer,
+and a successful retry preserves the aggregate and original callable handles.
+
+TableCapture's captureTranslatedEdit models original admission before conversion,
+records the later provider buffer separately and retains only captured old values.
+Laws cover readiness, absence/presence, provider independence, exact check/convert
+refusal and inverse installation. CollectionStyles includes the false-conflict
+counterexample, ordered repeated edits, false and opaque Function values. Faithful
+backend reads/installers, stable endpoint leaves and lawful registered inverse
+maps remain premises. This advances collection-library future work using the
+author's descriptor/dictionary delegation and explicit typeclass/class style
+correspondence (poof.scrbl, lines 744-773 and 1433-1444); no compiler, heap or
+arbitrary callback termination proof is claimed.
+
+Cost boundary: only a first borrowed present endpoint read allocates an additional
+Option shell. Repeated-key prefix values incur no extra copy, and old payloads
+are never deep-cloned or rewrapped. Existing key ownership, conversion, recognition,
+construction, allocator and GC costs remain charged. No full target scan, trial
+point write, fold reinitialization or new wall-clock speedup is asserted.

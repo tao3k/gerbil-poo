@@ -126,7 +126,7 @@
 ;; Descriptor refinements reuse this same construction chain and child Types;
 ;; source and target final-root admission remains part of each fold publication.
 (def (make-capacity-ledger rows source: (source-refine identity) target: (target-refine identity)
-                           policy: (policy #f))
+                           policy: (policy #f) value: (value-refine identity))
   (def callback (Fun Integer <- Integer))
   (def payload (Tuple callback UInt))
   (def cooked (Pair UInt callback))
@@ -134,9 +134,11 @@
   (def target-type (target-refine (SimpleTrie UInt cooked)))
   (def keys (.cc Wrapper. Domain: UInt Codomain: UInt
     .ap: (cut bitwise-xor <> 1) .unap: (cut bitwise-xor <> 1)))
-  (def values (.cc Wrapper. Domain: payload Codomain: cooked
+  ;; Refine the declared value isomorphism without duplicating the transport.
+  ;; Core construction still checks its endpoint Types and encountered inverses.
+  (def values (value-refine (.cc Wrapper. Domain: payload Codomain: cooked
     .ap: (lambda (v) (cons (vector-ref v 1) (vector-ref v 0)))
-    .unap: (lambda (v) (vector (cdr v) (car v)))))
+    .unap: (lambda (v) (vector (cdr v) (car v))))))
   ;; A supplied policy is an explicit fold origin, independent of representation.
   (def source-fold (table-fold source-type Integer
     (if policy (lambda (_ v) (* (.@ policy weight) (vector-ref v 1)))

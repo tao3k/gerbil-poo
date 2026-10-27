@@ -3,7 +3,7 @@
 (import :std/test :std/iter (only-in :std/error Error? Error-message ContractViolation?)
         ../object ../mop ../number ../type ../table ../rationaldict ../support/option
         (only-in ../fun Wrapper.) (only-in ../support/base number-comparer)
-        (only-in ./table-testing box-table) (prefix-in ../examples/service-collection service.))
+        (only-in ./table-testing box-table borrowing-table alist-table) (prefix-in ../examples/service-collection service.))
 
 ;; Refine a backend through its existing complete recognizer, never a new carrier.
 (def (even-table table)
@@ -17,9 +17,138 @@
 ;; Failure causes, including arbitrary callback payloads, retain exact identity.
 (def (cause-of action) (try (action) #f (catch (cause) cause)))
 
+ ;; Keep the base backend's ordinary atomic installer while exposing borrowed
+;; read responses. Installer lookups therefore cannot accidentally repair a
+;; previously overwritten expectation by reusing the very same response shell.
+(def (borrowed-read-table base)
+  (.cc (borrowing-table base) .apply-delta: (.@ base .apply-delta)))
+
+ ;; Read-only value conversion can recycle a backend's borrowed Option. Neither
+;; the queried root nor the old paired target changes. Observe may inject a
+;; controlled refusal; every ordinary conversion still returns the same value.
+(def (querying-fold-bridge (observe void))
+  (def source (RationalDict Integer))
+  (def target (borrowed-read-table source))
+  (def other (.call source .singleton 9 999))
+  (def payloads (.cc Wrapper. Domain: Integer Codomain: Integer .unap: identity
+    .ap: (lambda (value)
+      (when (>= value 20) (.call target .ref/opt other 9))
+      (observe value) value)))
+  (def folding (table-fold source Integer (lambda (_ value) value)))
+  (values source target folding (.call folding .isomorphism target
+    (identity-wrapper (.@ source Key)) payloads)))
+
 ;; Exercise final-state acceptance through actual public fold and FUN operations.
 (def table-fold-test
   (test-suite "complete incremental fold admission"
+    (test-case "represented installation snapshots source expectations before replacement queries"
+      (def raw (RationalDict Integer)) (def source (borrowed-read-table raw))
+      (def other (.call raw .singleton 9 999))
+      (def payloads (.cc Wrapper. Domain: Integer Codomain: Integer .ap: identity
+        .unap: (lambda (value) (when (>= value 20) (.call source .ref/opt other 9)) value)))
+      (defvalues (view _carrier _keys) (box-table source value: payloads))
+      (def original (.call raw .singleton 1 10)) (def root (.call view .wrap original))
+      (def before (.call raw .singleton -1 10)) (def after (.call raw .singleton -1 20))
+      (def delta (.call raw .diff before after))
+      (def next (.call view .apply-delta root delta))
+      (check-equal? (.call view .ref next -1) 20)
+      (check-equal? (.call raw .ref original 1) 10)
+      (def restored (.call view .apply-delta next (invert-table-delta delta)))
+      (check-equal? (.call view .ref restored -1) 10))
+    (test-case "five represented styles preserve stale refusal priority and allow queried retry and inverse"
+      (def raw (RationalDict Integer)) (def source (borrowed-read-table raw))
+      (def other (.call raw .singleton 9 999)) (def calls 0)
+      (def payloads (.cc Wrapper. Domain: Integer Codomain: Integer .ap: identity
+        .unap: (lambda (value) (when (= value 20)
+          (set! calls (+ calls 1)) (.call source .ref/opt other 9)) value)))
+      (defvalues (view _carrier _keys) (box-table source value: payloads))
+      (def root (.call view .wrap (.call raw .singleton 1 10)))
+      (def after (.call raw .singleton -1 20))
+      (def delta (.call raw .diff (.call raw .singleton -1 10) after))
+      (def stale (.call raw .diff (.call raw .singleton -1 99) after))
+      (for (name '(Pure Mutable Linear Posh Classy))
+        (def protocol (.ref (table-styles view) name)) (def owner (.call protocol .ap root))
+        (set! calls 0)
+        (def cause (cause-of (lambda () (.call protocol .apply-delta owner stale))))
+        (check-equal? (and (table-conflict? cause) #t) #t)
+        (check-equal? (table-conflict-key cause) -1) (check-equal? calls 0)
+        (check-eq? (.call protocol .unap owner) root)
+        (def next (.call protocol .apply-delta owner delta))
+        (check-equal? (.call protocol .ref next -1) 20)
+        (def restored (.call protocol .apply-delta next (invert-table-delta delta)))
+        (check-equal? (.call protocol .ref restored -1) 10)))
+    (test-case "sparse fold transfer preserves old target values across read-only conversion queries"
+      (defvalues (source target folding bridge) (querying-fold-bridge))
+      (def derived (.@ bridge Codomain))
+      (def root (.call source .<-list '((1 . 10) (9 . 90))))
+      (def state (.call folding .ap root)) (def first (.call bridge .ap state))
+      (def delta (.call source .delta/opt 1 (lambda (_) (some 20)) root))
+      (def next (.call bridge .apply-delta state delta))
+      (check-equal? (.call derived .get next) 110)
+      (check-equal? (.call target .ref (.call derived .unap next) 1) 20)
+      (check-equal? (.call derived .get first) 100)
+      (def recovered (.call bridge .unap next))
+      (check-equal? (.call folding .get recovered) 110)
+      (def restored (.call bridge .apply-delta recovered (invert-table-delta delta)))
+      (check-equal? (.call derived .get restored) 100)
+      (check-equal? (.call target .list<- (.call derived .unap restored)) (.call source .list<- root)))
+    (test-case "queried fold batches preserve every repeated and cancelling expectation"
+      (defvalues (source target folding bridge) (querying-fold-bridge))
+      (def derived (.@ bridge Codomain))
+      (def root (.call source .singleton 1 10))
+      (def middle (.call source .singleton 1 20)) (def final (.call source .singleton 1 30))
+      (def batch (.call source .compose-deltas (list (.call source .diff root middle) (.call source .diff middle final))))
+      (def state (.call folding .ap root)) (.call bridge .ap state)
+      (def next (.call bridge .apply-delta state batch))
+      (check-equal? (.call derived .get next) 30)
+      (check-equal? (.call target .ref (.call derived .unap next) 1) 30)
+      (def restored (.call bridge .apply-delta (.call bridge .unap next) (invert-table-delta batch)))
+      (check-equal? (.call derived .get restored) 10)
+      (def cancel (.call source .compose-deltas (list (.call source .diff root middle) (.call source .diff middle root))))
+      (def unchanged (.call bridge .apply-delta state cancel))
+      (check-equal? (.call derived .get unchanged) 10))
+    (test-case "failed queried capacity conversion retains paired Functions and FUN IO retries without refolding"
+      (def signature (Fun Integer <- Integer)) (def f (validate signature (lambda (n) (+ n 3))))
+      (def target #f) (def other #f) (def fail? #f) (def effects 0)
+      (def cause (list 'original-capacity-conversion-refusal))
+      (def ledger (service.make-capacity-ledger
+        (list (cons 1 (vector f 10)) (cons 2 (vector f 40)))
+        target: (lambda (type) (set! target (borrowed-read-table type)) target)
+        value: (lambda (mapping) (.cc mapping .ap: (lambda (row)
+          (when (= (vector-ref row 1) 20)
+            (.call target .ref/opt other 9) (when fail? (raise cause)))
+          (.call mapping .ap row))))))
+      (set! other (.call target .singleton 9 (cons 999 f)))
+      (def source (.@ ledger source)) (def folding (.@ ledger folding))
+      (def bridge (.@ ledger transport)) (def state (.@ ledger state)) (def derived (.@ bridge Codomain))
+      (def first (.call bridge .ap state))
+      (def root (.call folding .unap state))
+      (def delta (.call source .delta/opt 1 (lambda (_) (some (vector f 20))) root))
+      (def action (service.fold-ledger-action bridge state
+        (lambda (next) (set! effects (+ effects 1)) next)))
+      (set! fail? #t)
+      (check-eq? (cause-of (lambda () (action delta))) cause)
+      (check-equal? effects 0) (check-eq? (.call bridge .ap state) first)
+      (check-eq? (.call bridge .unap first) state)
+      (set! fail? #f)
+      (def next (action delta))
+      (check-equal? effects 1) (check-equal? (.call derived .get next) 60)
+      (check-eq? (cdr (.call target .ref (.call derived .unap next) 0)) f)
+      (check-exception ((cdr (.call target .ref (.call derived .unap next) 0)) "bad") TypeError?)
+      (def restored (.call bridge .apply-delta (.call bridge .unap next) (invert-table-delta delta)))
+      (check-equal? (.call derived .get restored) 50))
+    (test-case "represented queried replacements preserve present false values and false keys"
+      (def raw (alist-table Bool Bool)) (def source (borrowed-read-table raw))
+      (def other (.call raw .singleton #t #f))
+      (def payloads (.cc Wrapper. Domain: Bool Codomain: Bool .ap: identity
+        .unap: (lambda (value) (unless value (.call source .ref/opt other #t)) value)))
+      (defvalues (view _carrier _keys) (box-table source key: (identity-wrapper Bool) value: payloads))
+      (def original (.call raw .singleton #f #t)) (def root (.call view .wrap original))
+      (def delta (.call raw .diff original (.call raw .singleton #f #f)))
+      (def next (.call view .apply-delta root delta))
+      (check-equal? (.call view .ref/opt next #f) (some #f))
+      (def restored (.call view .apply-delta next (invert-table-delta delta)))
+      (check-equal? (.call view .ref/opt restored #f) (some #t)))
     (test-case "compatible raw deltas cannot bypass a refined source before projection"
       (def raw (RationalDict Integer)) (def source (even-table raw)) (def calls 0)
       (def folding (table-fold source Integer (lambda (_ value) (set! calls (+ calls 1)) value)))

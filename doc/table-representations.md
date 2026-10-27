@@ -976,3 +976,16 @@ is marked active: legitimate nested completed observations and explicit backing
 receiver queries remain allowed. Refusal unwinds the scope, so fresh attempts do
 not inherit a failed admission. This detects direct reentry; it does not prove
 termination of arbitrary callbacks or unbounded chains of fresh descriptors.
+
+
+### Captured sparse edit expectations
+
+Represented installation and sparse fold transfer retain a backend's old optional
+value before conversion can make further queries into its provider. Private
+prefix-overlay values remain owned and are reused directly. All existing old-value
+checks, conflict coordinates, inverse laws, aggregate reuse and final publication
+remain unchanged. The capacity-ledger example's optional value refinement composes
+with its existing typed Wrapper and source/target refinements; it does not replace
+the transport engine. See the composition audit for the six original failures,
+read-view/installer distinction, five-style and FUN/IO controls, finite laws and
+charged Option/translation/backend costs.
