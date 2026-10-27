@@ -46,7 +46,7 @@ A partial team migration is rejected; an atomic exchange succeeds; an issued
 cursor still sees the old badges. Invalid Function arguments suppress the IO
 consumer; a fresh observation after inverse recovery retains Function identity.
 
-`t/table-cursor-test.ss` also covers streaming without fold/list fallback,
+`t/collection-order/table-cursor-test.ss` also covers streaming without fold/list fallback,
 per-row conversion order, active/empty/exhausted invalidation at each derived
 layer, exact conversion refusal and restart, and snapshots across all five
 styles. Fixtures reuse the existing `box-table` constructor with ordinary Gerbil

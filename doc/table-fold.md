@@ -43,7 +43,7 @@ root. A failed attempt does not discard the previous accepted pair or key regist
 
 `make-capacity-ledger` accepts ordinary Gerbil `source:` / `target:` descriptor
 refinement functions, reusing its existing UInt XOR, Tuple/Pair conversion,
-checked Function admission and fold bridge. `t/table-fold-test.ss` combines a
+checked Function admission and fold bridge. `t/collection-updates/table-fold-test.ss` combines a
 source cardinality constraint with an independent target capacity limit. Refused
 publication suppresses IO, repaired publication preserves the exact admitted
 Function, and inverse recovery restores the original sum and callback identity.

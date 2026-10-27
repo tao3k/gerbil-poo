@@ -192,7 +192,7 @@ measured boundaries; latency remains a separate measurement problem.
 
 Raw receipts for all three studies and the current measurement binary remain
 ignored local artifacts. No complete benchmark data or compressed archive is committed. The
-shared measurement entry now lives in ~t/closure-measure.ss~, so six consumers
+shared measurement entry now lives in ~benchmarks/closure-measure.ss~, so six consumers
 avoid importing the unrelated metadata publication workload solely to measure.
 The standard ~std/make~ executable scope passed within the unchanged 90-second
 fence after that dependency closure was reduced; failed builds remain failures.

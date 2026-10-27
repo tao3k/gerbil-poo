@@ -1,0 +1,32 @@
+(export cyclic-access-test)
+(import :std/test :std/iter :clan/poo/closure :clan/poo/object)
+
+(def (quorum a b c) (either (both a b) (either (both a c) (both b c))))
+(def (declaration seed trust training team compliance)
+  (vector (literal seed) (either (fact 0) (fact 2)) (both (fact 1) (literal trust))
+          (literal training) (both (fact 2) (quorum (fact 3) (literal team) (literal compliance)))
+          (either (fact 4) (fact 6)) (both (fact 5) (literal team))
+          (both (fact 6) (fact 8)) (both (fact 2) (literal compliance))
+          (either (fact 7) (fact 5))))
+(def (public-view result)
+  (.o (member (closure-ref result 1)) (approved (closure-ref result 4))
+      (release (closure-ref result 7)) (active (closure->list result))))
+
+(def cyclic-access-test
+  (test-suite "cyclic construction through real POO public slots"
+    (test-case "quorum, shared membership, loss of source authority and old snapshots"
+      (for* ((seed '(#f #t)) (trust '(#f #t)) (training '(#f #t))
+             (team '(#f #t)) (compliance '(#f #t)))
+        (def plan (compile-closure (declaration seed trust training team compliance)))
+        (def before (public-view (solve-closure plan)))
+        (def count (+ (if training 1 0) (if team 1 0) (if compliance 1 0)))
+        (check-equal? (.@ before member) seed)
+        (check-equal? (.@ before approved) (and seed trust (>= count 2)))
+        (check-equal? (.@ before release) (and seed trust (>= count 2) team compliance))
+        (def next (reconfigure-closure plan (declaration #f trust training team compliance)))
+        (def after (public-view (solve-closure next)))
+        (check-equal? (.@ after member) #f)
+        (check-equal? (.@ after release) #f)
+        (check-equal? (.@ before release) (and seed trust (>= count 2) team compliance))
+        (check-exception (reconfigure-closure plan '#()) true)
+        (check-equal? (.@ before member) seed)))))

@@ -113,19 +113,9 @@ Current receipt SHA256:
 2c89f67ae0c067c9fd148c1652e0e2fa4af44ffbcddf052021bdaef38ef5e22f
 
 Run from this checkout, no companion Lean checkout required:
-#+begin_src sh
-export GERBIL_PATH="$PWD/.build/env"
-just build
-mkdir -p .build/metadata
-env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH \
-  -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin \
-  timeout --signal=TERM --kill-after=3s 90s gxc -d .build/metadata -exe \
-  -ld-options '-L/opt/homebrew/opt/openssl@3/lib' \
-  -o .build/metadata/metadata-paired-simula-staged t/metadata-paired-benchmark.ss
-timeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
-  t/metadata-paired-suite.ss .build/metadata/metadata-paired-simula-staged \
-  "$(command -v timeout)" .build/metadata/metadata-paired-simula-staged.scm
-#+end_src
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
 
 Choose platform linker options as in justfile on non-macOS systems. Runtime and
 measurement use native Scheme only. No empirical constants or Lean output are

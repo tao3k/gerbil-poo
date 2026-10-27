@@ -409,7 +409,7 @@ include expired snapshots; command preconditions and stale-version observations
 remain part of the domain model.
 
 The executable examples are `examples/collection-testing.ss` and
-`t/collection-testing-test.ss`. They exercise both existing RationalDict and trie
+`t/representations/collection-testing-test.ss`. They exercise both existing RationalDict and trie
 backends, including adapters deliberately broken at stale admission, index
 observation, inverse installation and atomic failure. Their reference oracle uses
 logical handles and ordinary lists, independent of backend mutation algorithms.

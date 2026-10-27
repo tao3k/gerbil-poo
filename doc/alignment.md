@@ -67,7 +67,7 @@ metadata or internal counter structures.
 
 ## Fixed native benchmark files
 
-`t/closure-cases.ss` is the case/column definition. Active tools use Scheme
+`benchmarks/closure-cases.ss` is the case/column definition. Active tools use Scheme
 `read`/`write` only; there is no new JSON record format or version series. The
 matrix driver emits common metadata once and streams result vectors. Files are
 read as data, never loaded as Scheme programs. Complete measurements and diagnostic stdout remain local ignored outputs.
@@ -76,7 +76,7 @@ read as data, never loaded as Scheme programs. Complete measurements and diagnos
 GERBIL_PATH=<package-env> just benchmark-closure-phases
 GERBIL_PATH=<package-env> just benchmark-closure-paired
 GERBIL_PATH=<package-env> just benchmark-closure
-GERBIL_PATH=<package-env> gxi t/closure-report.ss .build/closure/closure-benchmarks.scm
+GERBIL_PATH=<package-env> "$GERBIL_PATH/bin/closure-report" .build/closure/closure-benchmarks.scm
 ```
 
 These commands require only this Scheme package and its declared toolchain.
@@ -88,7 +88,7 @@ Minimum source ceilings remain distinct from fastest native execution.
 
 The [standalone native matrix](performance/results.org) records 960
 Scheme observations with source/executable identities. It requires no companion
-repository. `gxi t/closure-parity.ss <study>` validates that Scheme-only matrix;
+repository. `"$GERBIL_PATH/bin/closure-parity" <study>` validates that Scheme-only matrix;
 for current-source validation, call `read-study` with its second argument `#t`.
 Historical dual-runtime observations retain their original driver at the recorded
 commit. This separation changes benchmark orchestration, not closure semantics
@@ -207,7 +207,7 @@ and runtime premises, not a verified Scheme compiler/runtime refinement.
 
 ```
 GERBIL_PATH=<package-env> just benchmark-dispatch
-GERBIL_PATH=<package-env> gxi t/dispatch-report.ss .build/dispatch/dispatch-benchmarks.scm
+GERBIL_PATH=<package-env> "$GERBIL_PATH/bin/dispatch-report" .build/dispatch/dispatch-benchmarks.scm
 ```
 
 The native driver owns the phase/dimension/repetition declaration. It records
@@ -813,7 +813,7 @@ controls. Earlier +84.156us/+60.563us results retain their historical identities
 | Existing functional lens composition and skew focus laws | `slots-lens` folds the existing `Lens.compose`; `.lens` quotes a static path; empty path is identity |
 | `fallbackTo_present`, `fallbackTo_missing` | `fallback-to` reuses the missing-method protocol; local slots, including `#f`, bypass delegate forcing |
 | `guardSlot_cycle`, `guardSlot_fresh` | Active `(receiver . slot)` stack scoped with a Gerbil parameter; `CyclicSlot` reports the repeated path without inspecting/forcing values |
-| `Examples/AlignedServices.lean` lifecycle controls | `examples/lifecycle.ss`, `t/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
+| `Examples/AlignedServices.lean` lifecycle controls | `examples/lifecycle.ss`, `t/tools/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
 
 The chain uses existing Class/Type descriptors, persistent `.cc`, Lens and native
 Reader/FUN mapping; it does not add another object evaluator. Nested admission is
@@ -850,7 +850,7 @@ those hooks part of the paper's Racket implementation.
 | Existing `Proof.invalidatedNodes` and descendant laws; `Object.invalidateCaches_descendant/once/frame` | Registered weak reverse source edges, all derived caches cleared together, diamonds visited once, unaffected owners retained |
 | `Object.guardedEdit`, `publishEdit_sealed` | Active-closure preflight, optional sealing and checked parent topology edits; sequential supported APIs |
 | Existing Slot/Descriptor validation; `DescriptorReflection.publicSlots_visible`, `readSlot_hidden/valid`, `writeSlot_rejected/admitted` | `object<-declarations`, Class bridge, inherited public metadata, typed public reads/writes and metadata-driven recompile |
-| `Examples/InheritedHooks.lean` | `examples/inherited-services.ss`, `t/inheritance-hooks-test.ss` |
+| `Examples/InheritedHooks.lean` | `examples/inherited-services.ss`, `t/objects/inheritance-hooks-test.ss` |
 
 Protocol source edits invalidate owners; descriptor/type edits recompile declaration
 specifications instead of retaining stale defaults/constants/computations. Reflected
@@ -873,7 +873,7 @@ transformed values, then verify recovery after protocol correction.
 | `DeclarativeMetadata.expandForms_append/refused` | `declaration-action`: native Reader/FUN bind/map chain, source-order expansion, same current context and first-error stop |
 | `DeclarativeMetadata.elaborate_source`, `Catalog.names_valid` | Inherited expansion/finalization followed by complete descriptor/name checking and reserved public/private catalogs |
 | `publishDeclarations_refused` | No candidate receiver is returned after an expansion/finalizer/validation error; external I/O is not rolled back |
-| `Examples/MetaBootstrap.lean` | `examples/metaprotocol-services.ss`, `t/meta-prototype-test.ss`: property/getter/annotation expansion, shared branches, refusal/recovery and revisions |
+| `Examples/MetaBootstrap.lean` | `examples/metaprotocol-services.ss`, `t/declarations/meta-prototype-test.ss`: property/getter/annotation expansion, shared branches, refusal/recovery and revisions |
 
 The new hook/elaboration protocol advances the paper's future work; it is not
 asserted to be the paper's literal Racket API. Captured anchors need fresh bootstrap

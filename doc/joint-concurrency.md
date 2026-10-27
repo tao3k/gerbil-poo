@@ -34,7 +34,7 @@ implementation proof.
 
 ## Six lifecycle rounds with genuinely competing receipts
 
-`t/joint-concurrency-test.ss` executes merge / replace / restore TWICE at both
+`t/coordination/joint-concurrency-test.ss` executes merge / replace / restore TWICE at both
 services, using the existing phase/source declarations. In each round:
 
 1. Two approved receipts share one proposed shared policy. Two others independently

@@ -38,7 +38,7 @@ constructs, closes, approves and explicitly restages; older siblings remain pend
 `t/joint-coordination-cases.check-revisions` shares all original whole-state and
 SCC assertions instead of duplicating the original scenario.
 
-`t/coordinator-recovery-test.ss` runs four real coordinator threads:
+`t/coordination/coordinator-recovery-test.ss` runs four real coordinator threads:
 
 - Two survivors compete through merge / replace / restore twice. Every round
   invalidates their shared proposed policy with a B -> B+1 -> B revision trip,

@@ -64,9 +64,9 @@ continue to be provided by DispatchExtension and its existing diamond example.
 
 * Evidence
 
-~t/declarative-metadata-test.ss~ exercises native inheritance, Type interoperability,
+~t/declarations/declarative-metadata-test.ss~ exercises native inheritance, Type interoperability,
 wrapper composition, formula decisions, edit identity and failure priority.
-~t/service-metadata-test.ss~ exercises independent cache warming, freshly bound
+~t/contracts/service-metadata-test.ss~ exercises independent cache warming, freshly bound
 cooked contracts, business errors and atomic refusals.
 
 ~just benchmark-metadata~ compiles a native Scheme executable, runs with the

@@ -904,7 +904,7 @@ captured bound. No new cursor engine, production namespace, per-method contract
 layer or backend traversal is added. Full row traversal and converter/inverse costs
 remain explicit; this repair makes no general timing claim.
 
-`t/table-wrapper-test.ss` covers ordinary/positioned iteration over rewritten source
+`t/collections/table-wrapper-test.ss` covers ordinary/positioned iteration over rewritten source
 shells, a carrier callback that rewrites the caller's seek bound, repeated source
 buffers with Function payloads, attempted payload repair, late failure suppressing
 IO and a fresh successful retry. The existing `observe-positioned-ledger-action`
@@ -951,7 +951,7 @@ algorithm, ownership engine or environment variable is introduced. Arbitrary
 explicit public-method replacements remain the author's responsibility; the
 default protocol does not certify user overrides or hidden mutable leaf contents.
 
-`t/table-cursor-test.ss` covers whole-root refusal on RationalDict, Trie, order,
+`t/collection-order/table-cursor-test.ss` covers whole-root refusal on RationalDict, Trie, order,
 representation and index carriers; counters prove that default materialization
 and iterator factories are not called after refusal. Pending/exhausted direct
 cursors reject policy changes before another backend pull; fresh issuance

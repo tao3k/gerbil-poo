@@ -20,7 +20,7 @@ changing installation semantics. Result order is worker-report arrival order,
 not input order or a formal assertion of lock acquisition order. Report callbacks
 must be pure and locally total; exceptions propagate with existing worker cleanup.
 
-`t/joint-generations-test.ss` uses a private compact observation record with named
+`t/revisions/joint-generations-test.ss` uses a private compact observation record with named
 receipt/snapshot/failure fields. It can therefore reject an old receipt's success
 DIRECTLY rather than inferring its generation from final numerical values.
 

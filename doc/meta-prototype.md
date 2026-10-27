@@ -94,7 +94,7 @@ approval. A shared source feeds billing/risk branches and a diamond join through
 ordinary inheritance. Reader/FUN actions demonstrate refusal, recovery, distinct
 published revisions, getter calls and shared source updates.
 
-`t/meta-prototype-test.ss` checks anchor reflection, root sealing, captured kernel
+`t/declarations/meta-prototype-test.ss` checks anchor reflection, root sealing, captured kernel
 versions, a derived meta level, ordinary cycle refusal, private non-demand,
 computed names, ordered effects, stale-action refusal, final name collisions,
 context-mutation rejection and complete service publication.

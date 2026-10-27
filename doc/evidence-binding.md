@@ -49,7 +49,7 @@ Rebind for a new effective subject, descriptor or context; reusing preparation
 does not reuse a previous approval. No cross-process certificate or automatic
 freshness, source authentication, graph policy or result cache is provided.
 
-`t/evidence-binding-test.ss` tests the public helper without Core imports, with
+`t/contracts/evidence-binding-test.ss` tests the public helper without Core imports, with
 exact references, mismatch refusal, original formulas, cold binding after parent
 preparation and malformed projections. Consumer tests own admission semantics.
 

@@ -41,7 +41,7 @@ For example, existing native component declarations can prepare two approvals:
 
 ## Actual post-approval controls
 
-`t/joint-installation-test.ss` uses returned receipts as deterministic phase
+`t/publication/joint-installation-test.ss` uses returned receipts as deterministic phase
 boundaries. Both local and joint approval have RETURNED before any interference;
 no timing-dependent sleep or side-effecting approval callback is required.
 

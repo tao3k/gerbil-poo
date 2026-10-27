@@ -327,7 +327,7 @@ uses the matching field layout and prefix-fixed constraints with
 proofs. These laws do not verify C3, host descriptor identity, arbitrary getters,
 compiler behavior, default computation or GC. Syntax admission and faithful label
 projection are premises. Existing source revision and resource limits stay intact.
-The concentrated tests are `t/record-inference-test.ss`; complete single-process and
+The concentrated tests are `t/inference/record-inference-test.ss`; complete single-process and
 all existing test groups remain required.
 
 ## Candidate-dependent signatures and field layouts
@@ -463,7 +463,7 @@ reject candidates; an exhausted search aborts before any builder or artifact.
 Existing source/negative/sibling admission remains mandatory. `CoveredServiceType`
 and `infer-covered-service` demonstrate a prefix-bound scalar and inferred callback,
 qualified method invocation, recursive wrapping, FUN/refine and exact evidence
-publication through `catalog-service-action`. See `t/function-coverage-test.ss`.
+publication through `catalog-service-action`. See `t/signatures/function-coverage-test.ss`.
 
 
 `PositionalCallbackServiceType` / `infer-positional-callback-service` and
@@ -471,7 +471,7 @@ publication through `catalog-service-action`. See `t/function-coverage-test.ss`.
 Value prefix, candidate inference, whole declaration builder and
 `catalog-service-action` FUN/refine/bind-evidence chain. Runtime callbacks retain
 ordinary default execution and exact raw token sequence respectively. See
-`t/keyword-coverage-test.ss`, including no-solution/exhaustion before builder calls,
+`t/signatures/keyword-coverage-test.ss`, including no-solution/exhaustion before builder calls,
 outer-versus-exposed carriers, shadowing, required keys and raw-minimum controls.
 
 Lean's `Functional/KeywordArguments.lean` and `Functional/KeywordCoverage.lean`
@@ -488,7 +488,7 @@ future work, not a claim that its Racket implementation has these static checks.
 `KeywordPrefixCallback` / `infer-keyword-prefix-service` specialize the same Value
 prefix and infer a real Gerbil case-lambda: a fixed UInt case and a bounded optional
 Any case. Existing declaration admission and `catalog-service-action` carry it
-through FUN/refine/bind-evidence. `t/keyword-prefix-test.ss` checks fixed-only case
+through FUN/refine/bind-evidence. `t/signatures/keyword-prefix-test.ss` checks fixed-only case
 unions, unused optional Types, trailing escape upper bounds, shared raw arities
 across target cases, stationary rest refusal, nested callbacks/Map-key invariance,
 full publication and no-builder quota/failure paths. Its independent runtime oracle
@@ -535,7 +535,7 @@ inputs and exact-count outputs retain their existing variance rules.
 `KeywordValueCallback` and `infer-keyword-value-service` compose the Any-free
 five-token endpoint with original prefix specialization, complete unique inference,
 unified declarations and `catalog-service-action`'s FUN/refine/bind-evidence chain.
-`t/keyword-values-test.ss` independently enumerates 9331 raw rows of length at most
+`t/signatures/keyword-values-test.ss` independently enumerates 9331 raw rows of length at most
 five over numeric/false/key/escape values, retaining malformed/dangling/duplicate
 controls. It also checks two distinct key payload Types, exact labels, a required
 nested Function's two raw spellings, checked callback result failures, stationary
@@ -570,7 +570,7 @@ its own fixed/optional prefix; beyond that point its rest Type repeats. Counters
 saturate after those prefixes while preserving the source slot of every edge.
 A decoded tail visits every later raw arity cell through the raw sentinel, rather
 than stopping at the upper bound of the shortest decoded row. A late arity-12 bad
-source result is independently rejected by `t/keyword-rest-test.ss`.
+source result is independently rejected by `t/signatures/keyword-rest-test.ss`.
 
 Standard equal?-hash tables record reachable edges and backwards predecessors.
 Only legitimate endings seed backwards closure. The final certificate independently
@@ -591,7 +591,7 @@ Boolean enabled-key payload in later slots. `LiteralRestCallback` carries a firs
 positional rest-escape literal through an arbitrarily long numeric tail. Their
 existing Value/Callback schemas, prefix specialization and complete unique inference
 feed the original unified declaration and FUN/refine/bind-evidence pipeline.
-`t/keyword-rest-test.ss` adds nine cases, an independent 3906-word runtime oracle,
+`t/signatures/keyword-rest-test.ss` adds nine cases, an independent 3906-word runtime oracle,
 long tails through 257 positions, exact Keyword/Exactly/Enum controls, dead arity
 result controls, late-case selection, quota refusal and failure-before-builder.
 Public ordered Union bounds and wrapper semantics retain their invariant judgment.
@@ -636,7 +636,7 @@ original declaration builder, inherited Class initialization and
 `record-service-action` carry recursive wrapping through FUN/refine/bind-evidence;
 no additional declaration, container or effect protocol is introduced.
 
-`t/record-inference-test.ss` checks required/optional presence, both closed-key
+`t/inference/record-inference-test.ss` checks required/optional presence, both closed-key
 directions, hidden incompatible optional values, Function input contravariance,
 Map value covariance and key invariance. An independent oracle compares nine
 layouts and sixteen concrete observations (including absent fields); it uses
@@ -672,7 +672,7 @@ order, required-key payload order, Map key invariance and ordered Union branches
 are preserved. Duplicate/unknown/malformed options and exhausted admission retain
 typed refusal before builder execution; normalization supplies no Any fallback.
 
-`t/function-options-test.ss` checks all 24 option orders, explicit defaults,
+`t/signatures/function-options-test.ss` checks all 24 option orders, explicit defaults,
 prefix substitution, nested callbacks, invariant Map keys, ordered Union/cases,
 and a rich service callback through refinement and evidence binding. The Lean
 FunctionSignature model proves permutation invariance for unique option kinds,
@@ -834,7 +834,7 @@ only changes Super's declared bound to a finite alphabet. A range selected from
 heterogeneous candidates is installed with its original descriptor and passes the
 same FUN/refine/bind-evidence chain. Recursively wrapped callbacks, invariant
 parents, output violations, refinement refusal and failure retries are covered by
-t/range-inference-test.ss (12 cases total, five added for this increment).
+t/scalars/range-inference-test.ss (12 cases total, five added for this increment).
 
 Lean's existing algebra adds an integerEnum view of the target's exact integer
 members; arbitrary noninteger literals and host hash internals are not modeled.
@@ -886,7 +886,7 @@ or failed postcondition. Coverage does not permit fallback after failure. The
 new UnionServiceType changes only Super's bound in the existing rich service;
 prefix/call inference, parameter specialization, original qualifiers and generic,
 callback wrapping, cache owner and FUN/refine/bind-evidence publication are shared.
-t/union-inference-test.ss contains fourteen integrated cases, independent descriptor
+t/scalars/union-inference-test.ss contains fourteen integrated cases, independent descriptor
 witnesses, huge exact endpoints, selected-error controls and retry checks.
 
 Lean puts interval subtraction and its universal coverage theorem in the existing
@@ -1253,7 +1253,7 @@ bind exact context evidence. Policy refusal does not consume the observer;
 a fresh action can retry. Two distinct singleton-List descriptions remain
 genuinely ambiguous. Invalid callback arguments, nonempty batches, unsupported
 late branches and quota exhaustion retain their original failure semantics.
-`t/empty-inference-test.ss` exercises this complete chain without another driver.
+`t/inference/empty-inference-test.ss` exercises this complete chain without another driver.
 
 Lean's `emptyListCheck_into_iff` proves that target membership of nil is both
 necessary and sufficient, using the existing witness and actual List membership.

@@ -1,49 +1,244 @@
-#!/usr/bin/env -S gxi -:max-heap=2G,debug=q
-;;; Standard package build entry; inventories live with the build support.
-(import (only-in :std/build-script defbuild-script)
-        (prefix-in "testing/core/build.ss" property-build.)
-        (only-in "t/build-spec.ss" build-request build-consumer consumer-request))
-
-;; Compiler children inherit the build process environment; the package manager
-;; and its later indexer are outside this native build invocation.
+#!/usr/bin/env -S gxi -:max-heap=1G,debug=q
+;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
+(import (prefix-in "testing/core/build.ss" property-build.) :std/build-script (only-in :std/make include-gambit-sharp pkg-config-libs)
+        (only-in "t/build.ss" call-with-build-jobs))
+;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
-  (setenv "GAMBOPT"
-    (string-append (if options (string-append options ",") "")
-                   "max-heap=2G,debug=q")))
+  (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
+;; Link flags come from the selected pkg-config installation, once per build.
+(def +links+ (pkg-config-libs "openssl"))
+(def +gerbil-poo-cc-options+ "-D___SINGLE_HOST_LIMIT=10000")
 
-;; The standard macro owns option parsing, dependencies, incremental builds,
-;; cleanup and backend scheduling. Only inventory and output selection vary.
-(def (build-selected spec output options)
-  ;; A root-owned compile/clean also owns the independent library. Group output
-  ;; builds consume the checked shared library and cannot clean that producer.
-  (when (and (not output) (or (null? options) (member (car options) '("compile" "clean"))))
-    (apply property-build.main options))
-  (defbuild-script spec libdir: output)
-  (apply main options))
+;; Declare the existing platform-specific linkage for dynamic math symbols.
+(def +gerbil-poo-fq-spec+
+  (cond-expand
+   (darwin
+    ;; Gambit loads this AOT module as a Mach-O bundle. Math symbols such as
+    ;; pow are resolved from the host runtime when the bundle is loaded.
+    '(gxc: "fq" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
+   (else "fq")))
 
-;; Consumers own their complete test/example prerequisites. Metadata/spec/clean
-;; requests remain non-compiling; std/make still owns freshness and scheduling.
-(def (run-consumer args)
-  (def options (caddr (consumer-request args)))
-  ;; Failed prerequisite compilation can leave early outputs too. Standard clean
-  ;; must reach that same owned graph before cleaning the consumer itself.
-  (when (or (null? options) (member (car options) '("compile" "clean")))
-    (apply build-selected (build-request (cons "qualification" options))))
-  (apply build-consumer args))
-
-;; Explicit arguments select shared modules, test groups or benchmark programs;
-;; ordinary compile/clean/spec/meta options pass through to defbuild-script.
-(def (main . args)
-  (match args
-    ;; Standard Gambit timing reports make work/GC separately from whole-process timing.
-    (["library" . _] (time (apply build-selected (build-request args))))
-    (["qualification" . _] (time (apply build-selected (build-request args))))
-    ;; The linked collection workflow already owns complete producer admission.
-    ;; Compile only its workload; standard clean likewise owns only this consumer.
-    (["linked-benchmark" . _] (time (apply build-consumer args)))
-    (["benchmark" . _] (time (run-consumer args)))
-    (["test-program" . _]
-      (cond-expand
-        (darwin (time (apply build-selected (build-request args))))
-        (else (time (run-consumer args)))))
-    (else (apply build-selected (build-request args)))))
+(def +gerbil-poo-build-spec+
+  `("brace"
+    "support/base"
+    "support/debug"
+    "support/io"
+    "support/json"
+    "support/list"
+    "support/option"
+    "support/rationaldict"
+    "support/repr"
+    "support/syntax"
+    "support/object-syntax"
+    "support/testing"
+    "closure"
+    "cyclic-publication"
+    "cli"
+    "debug"
+    ,+gerbil-poo-fq-spec+
+    "recursive"
+    "recursive-cache"
+    "recursive-handling"
+    "fun"
+    (gxc: "io" ,@(include-gambit-sharp))
+    "validation-rebinding"
+    "value-diagnostics"
+    "class-validation"
+    "function-signature"
+    "mop"
+    "parameters"
+    "types/syntax"
+    "recursive-types"
+    "types/relation"
+    "prototype-types"
+    "examples/polymorphic-services"
+    "examples/numeric-services"
+    "examples/row-services"
+    "examples/contract-interop"
+    "examples/service-collection"
+    "method-combination"
+    "multimethod"
+    "dispatch-extension"
+    "declarative-metadata"
+    "types/validation"
+    "variant-validation"
+    "optional-validation"
+    "object-diagnostics"
+    "object-contract-validation"
+    "object-contract"
+    "recursive-validation"
+    "recursive-topology"
+    "recursive-staging"
+    "recursive-publication"
+    "recursive-approvals"
+    "recursive-coordination"
+    "generic-family"
+    "contract-family"
+    "dependency-analysis"
+    "generalized-graph"
+    "component-revision"
+    "component-publication"
+    "joint-publication"
+    "generalized-prototype"
+    "construction-cache"
+    "staged-publication"
+    "number"
+    "prototype-map"
+    "slot-layout"
+    "read-route"
+    "slot-observation"
+    "object-state"
+    "inheritance-hooks"
+    "meta-prototype"
+    "declaration"
+    "recursive-declaration"
+    "method-declaration"
+    "generalized-declaration"
+    "lens-laws"
+    "generalized-closure"
+    "focused-closure"
+    "feedback-closure"
+    "feedback-revision"
+    "feedback-cache"
+    "component-closure"
+    "strong-components"
+    "feedback-graph"
+    "reflection"
+    "object"
+    "polynomial"
+    "proto"
+    "rationaldict"
+    ;; std/make tracks the standard include as an explicit compiler input.
+    ;; Gambit's built-in host limit splits large generated C procedures instead
+    ;; of making GCC optimize the entire collection module as one label graph.
+    ;; Standard compiler inputs, object caching and all stage limits remain owned
+    ;; by std/make; this is a code-generation choice, not a larger resource budget.
+    (gxc: "table" (extra-inputs: ("table/observation.scm" "table/io.scm" "table/fold.scm" "table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"))
+      "-cc-options" ,+gerbil-poo-cc-options+)
+    (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
+    "type"
+    "testing/generation-graph"
+    "testing/recursive-generation"
+    "testing/type"
+    "testing/function"
+    "examples/recursive-catalog"
+    "examples/generalized-checkout"
+    "object-contract-flow"
+    "examples/object-contracts"
+    "examples/contract-publication"
+    "examples/function-publication"
+    "examples/container-publication"
+    "examples/variant-publication"
+    "examples/optional-publication"
+    "examples/class-publication"
+    "examples/computed-publication"
+    "examples/recursive-validation"
+    "examples/recursive-revision"
+    "examples/recursive-migration"
+    "examples/recursive-topology"
+    "examples/recursive-staging"
+    "examples/recursive-restaging"
+    "examples/recursive-publication"
+    "examples/recursive-approvals"
+    "examples/recursive-competition"
+    "examples/recursive-submissions"
+    "examples/recursive-recovery"
+    "examples/recursive-coordination"
+    "examples/lifecycle"
+    "examples/parameter-service"
+    "examples/representation-service"
+    ,(list exe: "examples/representation-main" "-cc-options" +gerbil-poo-cc-options+ "-ld-options" +links+)
+    "examples/signature-service"
+    "examples/collection-testing"
+    "examples/collection-properties"
+    "examples/property-kernel"
+    "examples/recursive-trees"
+    "examples/inherited-services"
+    "examples/metaprotocol-services"
+    "examples/recursive-metaprotocol"
+    "examples/declared-methods"
+    "examples/generalized-declarations"
+    "examples/closed-declarations"
+    "examples/focused-services"
+    "examples/feedback-services"
+    "examples/shared-feedback"
+    "examples/cached-feedback"
+    "examples/component-services"
+    "examples/service-revisions"
+    "examples/component-membership"
+    "examples/component-migration"
+    "examples/component-rounds"
+    "examples/component-requests"
+    "examples/shared-approvals"
+    "examples/joint-services"
+    "examples/joint-topology"
+    "examples/joint-receipts"
+    "examples/joint-coordination"
+    "examples/coordinator-rejoining"
+    "examples/joint-coordination-rounds"
+    "examples/joint-workers"
+    "examples/joint-concurrency"
+    "examples/cyclic-access"
+    "examples/protected-dispatch"
+    "examples/service-metadata"
+    "examples/service-bundle"
+    "examples/construction-workflow"
+    "examples/shared-contracts"
+    "examples/service-combination"
+    "t/joint-coordination-cases"
+    "t/table-testing"
+    "t/build"
+    "benchmarks/binding-benchmark"
+    "benchmarks/binding-cases"
+    "benchmarks/binding-suite"
+    "benchmarks/class-proto-benchmark"
+    "benchmarks/closure-benchmark-support"
+    "benchmarks/closure-cases"
+    "benchmarks/closure-measure"
+    "benchmarks/closure-paired-benchmark"
+    "benchmarks/closure-paired-suite"
+    "benchmarks/closure-parity"
+    "benchmarks/closure-phases"
+    "benchmarks/closure-report"
+    "benchmarks/closure-scale-benchmark"
+    "benchmarks/closure-suite"
+    "benchmarks/collection-paired-benchmark"
+    "benchmarks/combination-benchmark"
+    "benchmarks/combination-cases"
+    "benchmarks/combination-suite"
+    "benchmarks/count-performance-benchmark"
+    "benchmarks/dispatch-benchmark"
+    "benchmarks/dispatch-report"
+    "benchmarks/enum-performance-benchmark"
+    "benchmarks/factory-benchmark"
+    "benchmarks/factory-cases"
+    "benchmarks/factory-paired-benchmark"
+    "benchmarks/factory-suite"
+    "benchmarks/focused-benchmark"
+    "benchmarks/focused-cases"
+    "benchmarks/focused-suite"
+    "benchmarks/generalized-benchmark"
+    "benchmarks/generalized-cases"
+    "benchmarks/generalized-observation-reference"
+    "benchmarks/generalized-suite"
+    "benchmarks/iterator-performance-benchmark"
+    "benchmarks/metadata-benchmark"
+    "benchmarks/metadata-paired-benchmark"
+    "benchmarks/metadata-paired-cases"
+    "benchmarks/metadata-paired-suite"
+    "benchmarks/metadata-report"
+    "benchmarks/object-performance-benchmark"
+    "benchmarks/object-scale-benchmark"
+    "benchmarks/rationaldict-performance-benchmark"
+    "benchmarks/recursive-benchmark"
+    "benchmarks/recursive-cases"
+    "benchmarks/recursive-suite"
+    "benchmarks/representation-startup"
+))
+;; The standard macro owns its complete documented command and option protocol.
+(def build (let () (defbuild-script +gerbil-poo-build-spec+) main))
+;; Close the compiler's own executor if construction refuses before make returns.
+(def (main . options)
+  (call-with-build-jobs (lambda ()
+    (apply property-build.main options)
+    (apply build options))))

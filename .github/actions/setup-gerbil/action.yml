@@ -28,7 +28,7 @@ runs:
         source "${{ runner.temp }}/gerbil/activate"
         echo "$GERBIL_PREFIX/bin" >> "$GITHUB_PATH"
         printf '%s\n' "GERBIL_HOME=$GERBIL_HOME" "GAMBOPT=$GAMBOPT" >> "$GITHUB_ENV"
-        gxi --version
+        gerbil --version
     - name: Identify the released compiler's host build dependencies
       id: compiler
       shell: bash

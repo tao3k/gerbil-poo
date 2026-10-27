@@ -41,7 +41,7 @@ the identical build/benchmark harness into it. std/make owns graph scheduling;
 pkg-config discovers OpenSSL through the selected host environment. No Lean
 checkout is needed. Build outputs and complete receipts belong outside Git.
 
-From the current checkout, import :clan/poo/t/factory-paired-benchmark and call
+From the current checkout, import :clan/poo/benchmarks/factory-paired-benchmark and call
 compare with the absolute baseline executable, candidate executable, baseline
 source directory, timeout executable and output receipt path. Each executable is
 .build/combination/factory-paired-benchmark in its own source checkout.

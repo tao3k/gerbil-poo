@@ -226,7 +226,7 @@ Retained after comparison:
 with a private label override and an optional/keyword/rest summary method. The
 existing FUN Reader returns both charge and summary from fresh receiver data;
 method effects stay ordered and current context is not cached. Nine additional
-cases in `t/library-reuse-test.ss` cover core C4 equivalence, symbolic and lexical
+cases in `t/backends/library-reuse-test.ss` cover core C4 equivalence, symbolic and lexical
 identity, hidden override revision, actual syntax rejection, legacy constructor
 refusals, per-call guards/negative assumptions and the integrated multi-value
 observation. No new Scheme module or namespace is introduced.

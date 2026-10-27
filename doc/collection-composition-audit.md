@@ -193,7 +193,7 @@ prepares the complete cache family only after source construction succeeds.
 One-entry bulk requests still select bulk. No successful constructor is assumed
 to imply that another constructor accepts the same request.
 
-`t/table-construction-test.ss` exercises both independent refusal directions
+`t/collections/table-construction-test.ss` exercises both independent refusal directions
 through direct, ordered, indexed, boxed and nested views, all five Set styles,
 invalid-key rejection, and exact Function-leaf retention. The
 `singleton-ledger-action` example composes the selected capability with existing

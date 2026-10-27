@@ -186,17 +186,9 @@ Use a FRESH output directory. The shared native harness supplies process/I/O,
 metrics and admission; no Python benchmark, versioned JSON, complete data or
 compressed archive is committed. On Darwin:
 
-#+begin_src sh
-GERBIL_PATH="$PWD/.build/env" just build
-GERBIL_PATH="$PWD/.build/env" just test
-mkdir -p .build/focused-repro
-GERBIL_PATH="$PWD/.build/env" env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin \
-  gtimeout --signal=TERM --kill-after=3s 90s gxc -d .build/focused-repro -exe \
-  -ld-options '-L/opt/homebrew/opt/openssl@3/lib' -o .build/focused-repro/paired t/focused-benchmark.ss
-GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
-  gxi -:max-heap=1G,debug=q t/focused-suite.ss .build/focused-repro/paired \
-  /opt/homebrew/bin/gtimeout .build/focused-repro/one.scm
-#+end_src
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
 
 Repeat with two.scm and three.scm. Use platform timeout/linker equivalents on
 Linux. Require FOCUSED-PAIRED-OK children=576 for EACH complete run; exit0 alone

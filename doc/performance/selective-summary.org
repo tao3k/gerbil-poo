@@ -72,4 +72,4 @@ Selected source identities (the raw header records every source):
 - contract-family.ss 43807fb3bb38acdc82f9d31cbe4b36c62aa5b09ca7ab578d29db616d8252e639
 - examples/service-metadata.ss a2f1aebe6a57f14b5146f5533dfda924ea4c99e0801c4f7f7943eb9e0c2e70c0
 - examples/shared-contracts.ss d2fc3966b0b4fd889198898cecabcdbc18bde92e5a3cd8b9f4fc67a1a630b1f4
-- t/metadata-benchmark.ss 4eb35b5c8d1e06734d543bd25985e821ad4fdc27b90a85bc448858a696a6df32
+- benchmarks/metadata-benchmark.ss 4eb35b5c8d1e06734d543bd25985e821ad4fdc27b90a85bc448858a696a6df32

@@ -28,7 +28,7 @@ thread traversal. Work already installed is not rolled back on supervisor failur
 
 ## Two coordinators, six continuously overlapped SCC phases
 
-`t/joint-coordination-test.ss` runs two independent coordinator operations. Each
+`t/coordination/joint-coordination-test.ss` runs two independent coordinator operations. Each
 owns its installation scope through merge / replace / restore TWICE:
 
 1. Supervisor sends both the next phase and ONE shared proposed policy object.

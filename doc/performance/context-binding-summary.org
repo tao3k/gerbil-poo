@@ -130,9 +130,9 @@ Full local data remain ignored under =.build/=; no raw records, JSON or archives
 are committed. Final runtime/descriptor SHA256:
 - =generalized-prototype.ss=: =2e6cdb62a50789de6506e1e48e8db6f5ebee19530be59321794f3686737dd778=
 - =examples/generalized-checkout.ss=: =bffb75dc438720689fcbc458b1aec039184dbe8f1c472961646c02dc03d03fb3=
-- =t/binding-cases.ss=: =4fe6bfe1d38990d142d071004e2e1fa12dbdd3b8162550384b75ae435a6fd99f=
-- =t/binding-benchmark.ss=: =4b9dc98b34c63f1a81ab1de87e8a8043933ba93a8c9b10d5cef4c3f10e0fde45=
-- =t/binding-suite.ss=: =970cd5967fbdcdad2bcc6175eb9ac709826943eb5d5805a94cc7cfeb32f4a9f0=
+- =benchmarks/binding-cases.ss=: =4fe6bfe1d38990d142d071004e2e1fa12dbdd3b8162550384b75ae435a6fd99f=
+- =benchmarks/binding-benchmark.ss=: =4b9dc98b34c63f1a81ab1de87e8a8043933ba93a8c9b10d5cef4c3f10e0fde45=
+- =benchmarks/binding-suite.ss=: =970cd5967fbdcdad2bcc6175eb9ac709826943eb5d5805a94cc7cfeb32f4a9f0=
 
 Executable SHA256: =eb73cdd2316f519ba30ca3cb86dbeb3c5b9034f1592d1962983dbada1d34fee4=.
 - one: =65e91add8bf948f0a1bce66f4c3f05b5730ad43e78f7a0ba710ae2fb19ff9d92=
@@ -218,22 +218,9 @@ their original source identities in their existing summaries. None are pooled.
 Run from this Gerbil checkout with Homebrew Gerbil, GNU timeout and OpenSSL 3;
 no Lean installation or checkout is used. AOT output must be fresh:
 
-#+begin_src sh
-GERBIL_PATH="$PWD/.build/env" just build
-GERBIL_PATH="$PWD/.build/env" just test
-study_dir=$(mktemp -d "$PWD/.build/context-binding.XXXXXX")
-GERBIL_PATH="$PWD/.build/env" env -u SDKROOT -u CPATH -u LIBRARY_PATH \
-  -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET \
-  COMPILER_PATH=/usr/bin gtimeout --signal=TERM --kill-after=3s 90s \
-  gxc -d "$study_dir" -exe -ld-options '-L/opt/homebrew/opt/openssl@3/lib' \
-  -o "$study_dir/paired" t/binding-benchmark.ss
-# Finish builds/tests first. Predeclare all three runs and retain adverse results.
-for run in one two three; do
-  GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
-    gxi -:max-heap=1G,debug=q t/binding-suite.ss "$study_dir/paired" \
-    /opt/homebrew/bin/gtimeout "$study_dir/$run.scm" > "$study_dir/$run.log" 2>&1
-done
-#+end_src
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
 
 Recheck source and executable identity using =binding-suite.read-study= before
 interpreting any receipt after a source change. Binary hashes need not reproduce

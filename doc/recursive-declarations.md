@@ -78,7 +78,7 @@ Budget counts recursive machine depth, not total work or host callback execution
 | Positive metalevel feedback then base self-description | `MetaPrototype.closePositive_fixed/least/cooked/reflect/bound` | `close-protocol` → existing least solver → `cook` → `bootstrap-protocol` |
 | Source-owned recursive fragments | `collectRecursive`, `Resolved.sources` | typed request generator and existing `recursive-cache.ss` receipts |
 | Whole-source nonlocal publication | `elaborateRecursive_source`, `finishRecursive_source`, `publishRecursive_refused` | Reader/FUN roots → finalizer → existing descriptor/catalog constructor |
-| Mutual components and shared service fragments | `Examples/RecursiveMetaprotocol.lean` | `examples/recursive-metaprotocol.ss`, `t/recursive-declaration-test.ss` |
+| Mutual components and shared service fragments | `Examples/RecursiveMetaprotocol.lean` | `examples/recursive-metaprotocol.ss`, `t/declarations/recursive-declaration-test.ss` |
 
 Every accepted Lean chunk has a finite source evaluation for its exact program
 and root. The integrated source theorem connects ALL chunks to finalization at

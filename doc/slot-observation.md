@@ -148,7 +148,7 @@ of trusted runtime primitives and unsynchronized concurrent writes are outside
 the supported serial boundary. Source-observer restrictions and external atomic
 commit protocols remain consumer responsibilities.
 
-`t/issued-read-test.ss` exercises export privacy, actual persistent/miss issuance,
+`t/objects/issued-read-test.ss` exercises export privacy, actual persistent/miss issuance,
 forgery and payload rejection, complete dependency preflight, metadata-route
 replacement before/inside observation, and live/dead transient GC lifetimes.
 
@@ -239,7 +239,7 @@ object path is introduced.
 The standard dynamic environment owns nesting, errors, continuations and thread
 inheritance. Recording replaces only the capture frame. Storage deduplication does
 not deduplicate delivery; callbacks/prechecks retain order, identity, effects and
-original failures. `t/slot-observation-test.ss` covers disabled multivalues/refusal,
+original failures. `t/objects/slot-observation-test.ss` covers disabled multivalues/refusal,
 nested prechecks, exact repeated reads, continuation escape/reentry and separately
 created thread scopes, in addition to the existing stale/replay controls.
 
@@ -354,8 +354,8 @@ explicit unresolved performance boundary; no timeout or check was relaxed.
 
 Use two independent standard builds. Install the same released Gerbil compiler and OpenSSL
 metadata discoverable by `pkg-config`; run `just build` and the complete suite in
-each. Copy the candidate timing-only `t/closure-measure.ss`,
-`t/collection-paired-benchmark.ss`, matching observer test and POSIX timing recipe
+each. Copy the candidate timing-only `benchmarks/closure-measure.ss`,
+`benchmarks/collection-paired-benchmark.ss`, matching observer test and POSIX timing recipe
 to the baseline. Keep baseline `slot-observation.ss` unchanged. Prepare each
 consumer normally, alternate roots in the order above, clean only the benchmark
 target through `build.ss`, then invoke the full entry. Retain every stdout/stderr,

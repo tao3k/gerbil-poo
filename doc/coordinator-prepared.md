@@ -15,7 +15,7 @@ under the same short lock as installation. It performs no rebuilding, binding,
 approval callback or owner write. A successful observation is not a reservation:
 installation rechecks everything and can still lose to another publisher.
 
-`t/coordinator-prepared-test.ss` covers six component merge/delete/split/restore
+`t/recovery/coordinator-prepared-test.ss` covers six component merge/delete/split/restore
 rounds, two recovering names, both release orders, publication while prepared,
 same-value shared approval invalidation, explicit retries, two-way installation
 and historical receipt refusal. All handshakes are bounded; no sleep chooses a winner.

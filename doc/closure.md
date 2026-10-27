@@ -56,7 +56,7 @@ properties; native timing/GC counters are separate measurements.
 GERBIL_PATH=<package-env> just benchmark-closure-phases
 GERBIL_PATH=<package-env> just benchmark-closure-paired
 GERBIL_PATH=<package-env> just benchmark-closure
-GERBIL_PATH=<package-env> gxi t/closure-report.ss .build/closure/closure-benchmarks.scm
+GERBIL_PATH=<package-env> "$GERBIL_PATH/bin/closure-report" .build/closure/closure-benchmarks.scm
 ```
 
 The matrix driver runs Scheme alone using the declared case definition,
@@ -113,7 +113,7 @@ actual descriptor validation, topology comparison and representation work.
 refresh, both seeds and four rotated independent-process trials. Setup time is
 reported separately and included in `lifecycle_seconds`. `just benchmark-closure-paired`
 runs 480 balanced same-process observations with one untimed warmup per engine.
-`gxi t/closure-report.ss <receipt>` reports CPU query and amortized lifecycle times.
+`"$GERBIL_PATH/bin/closure-report" <receipt>` reports CPU query and amortized lifecycle times.
 Native parity checks 23 fields/row (22,080 assertions), including selector visits
 and construction/index counts. Children retain a 20-second deadline and 1 GiB heap.
 All helpers and clocks are native Scheme; no Python benchmark driver is added.
@@ -303,12 +303,12 @@ paper's generalized-protocol future work, within concrete positive equations.
 
 ### Checks and complex workloads
 
-- `t/closure-test.ss`: 512 three-fact equation combinations, independently solved
+- `t/closure/closure-test.ss`: 512 three-fact equation combinations, independently solved
   by synchronous scalar truth tables, checked across four representations and four price profiles;
   private source copies, retained topology, revocation, malformed input, cyclic
   input refusal, empty systems, dense allocation, singleton/empty shortcuts,
   invalid prices and counter partition.
-- `t/cyclic-access-test.ss`: actual POO public slots for membership, quorum,
+- `t/feedback/cyclic-access-test.ss`: actual POO public slots for membership, quorum,
   shared approval/team cycles, compliance join and source revocation across 32
   configurations. Old public snapshots survive refused reconfiguration.
 - Native benchmark families: multilevel diamonds, dense shared dependencies,
@@ -324,7 +324,7 @@ Use the commands in [Reproduction](#reproduction). `just benchmark-closure`
 requires no Lean checkout and writes `.build/closure/closure-benchmarks.scm`.
 The driver uses `:std/misc/process`, SHA-256, and native Scheme `read`/`write`.
 It retains failed launches/checks/timeouts and rejects incomplete or duplicated
-matrices. `t/closure-parity.ss` validates the standalone study, including its
+matrices. `benchmarks/closure-parity.ss` validates the standalone study, including its
 fixed cases and row shapes; the benchmark child owns scalar-oracle checks.
 `closure-report.ss` reports Scheme CPU and allocation medians.
 

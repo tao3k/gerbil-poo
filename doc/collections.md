@@ -553,22 +553,11 @@ The paired wall median difference was -3.281 s; the two A/A differences were
 +0.022/+0.108 s. This establishes improvement for the measured unchanged consumer
 check, not a claim that every 65-second historical run is now 1.5 seconds.
 The allocation/GC counters come from Gambit's standard time form around make.
-The root control is reproducible with the same compiled library and source tree:
-
-```sh
-# Run the two bounded commands in AB/BA and A/A order, with no concurrent build.
-# Use the same official package output for both controls and public preparation.
-export GERBIL_PATH="$PWD/.build/package"
-just build library
-just build test-program
-gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
-  -e '(import :std/make (only-in "./t/build-spec.ss" build-consumer))' \
-  -e '(time (make (quote ("t/collection-paired-benchmark")) srcdir: (current-directory)))'
-gtimeout --signal=TERM --kill-after=3s 90s gxi -:max-heap=1G,debug=q \
-  -e '(import :std/make (only-in "./t/build-spec.ss" build-consumer))' \
-  -e '(time (build-consumer "benchmark" "collection-paired-benchmark"))'
-```
-
+Those measurements belong to the recorded source cohort. Its custom consumer
+preparation and generated interpreter expressions have since been removed.
+Current runs use `just build-shared` and `just check-built 2 1 4`; standard package
+declarations and the compiler own all preparation. The old timings do not qualify
+these replacement entrypoints.
 A general scope-membership filter was rejected: it added about 0.28/0.14 us
 natural/collected hot-call wall time and retained retry regressions. The accepted
 guard implementation instead uses constant-time exact-list-identity and empty-outer
@@ -621,9 +610,9 @@ original process/heap limits, independently of these runtime timing claims.
 
 ## Shared consumer construction and timing boundaries
 
-The linked test program now joins the existing benchmark consumer in
-`t/build-spec.ss`: `build-consumer` uses the standard `defbuild-script` source
-directory and the existing `clan/poo/t` prefix. The complete library producer
+This historical experiment shared a linked test consumer with benchmark
+construction. That consumer, its selector and inventory parser are now removed.
+See [standard test execution](test-execution.md) for the current protocol. The complete library producer
 check still runs first. Consumer dependency discovery uses its compiled
 interfaces; standard make retains all dependency and output freshness checks.
 No dependency database, load path, cache policy or environment flag is added.
@@ -887,7 +876,7 @@ It prints observations only; no generated matrix is part of the package.
  (only-in :clan/poo/support/object-syntax deduplicate-slot-identifiers)
  (for-syntax :std/iter
   (only-in :std/list/list delete-duplicates/hash)
-  (only-in :clan/poo/t/closure-measure measure)))
+  (only-in :clan/poo/benchmarks/closure-measure measure)))
 ;; Compare the actual compiler-phase helper with its independent constant-hash oracle.
 ;; These are declaration-preparation controls, not runtime collection measurements.
 (defsyntax (study stx)
@@ -1154,7 +1143,7 @@ Regressions cover direct/generic/ordered/represented/indexed builders, malformed
 and superseded rows, alias mutation during child recognition, duplicate precedence,
 partial refinements, the Trie singleton capability, all fresh presentations,
 original exceptions and Reader/FUN/IO retry. Constructor-specific tests live in
-`t/table-construction-test.ss`; the existing validation module stays below 1,000
+`t/collections/table-construction-test.ss`; the existing validation module stays below 1,000
 lines and is not expanded with an unrelated monolithic case inventory.
 
 Lean's finite `TableBatch` constructor model proves unchanged admitted row order,
@@ -1291,7 +1280,7 @@ must agree on logical aliases. This does not discover a canonical representation
 or make arbitrary representation-sensitive callbacks congruent. Source, registry
 and declaration revisions remain dependencies; stale metadata refuses reuse.
 
-`t/table-index-equivalence-test.ss` combines RationalDict exact/inexact aliases,
+`t/collection-updates/table-index-equivalence-test.ss` combines RationalDict exact/inexact aliases,
 ordered unique/grouped indexes, chained migrations, inverse recovery, all five
 ownership styles and Function-valued grouped aggregates. The finite companion
 `distinctKeyWork` model proves logical coverage, unique scheduling, first-key

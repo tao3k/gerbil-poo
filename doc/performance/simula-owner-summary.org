@@ -216,7 +216,7 @@ Receipt SHA256 prefixes (binary / lossless native receipt, kept ignored locally)
 Use the package alone, with Gerbil/Gambit and timeout available. Build/test with
 GERBIL_PATH=$PWD/.build/env just build and just test. Compile the benchmark with
 gxc -d .build/metadata -exe, the platform's ordinary linker flags, and
-t/metadata-paired-benchmark.ss. Invoke t/metadata-paired-suite.ss with the executable,
+benchmarks/metadata-paired-benchmark.ss. Invoke benchmarks/metadata-paired-suite.ss with the executable,
 absolute timeout path and an ignored .scm receipt path. Compiler and complete-study
 deadlines are 90 seconds; each native child has 20 seconds and 1 GiB heap.
 Require METADATA-PAIRED-OK children=1248. Source admission must match the checkout.

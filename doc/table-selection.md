@@ -59,7 +59,7 @@ classifier and preserves every checked Function leaf.
 
 ## Formal and executable acceptance
 
-`t/table-selection-test.ss` retains its independent finite oracle and adds strict
+`t/collections/table-selection-test.ss` retains its independent finite oracle and adds strict
 Trie/generic callback controls, original-root-before-callback refusal, final-root
 refinements, no-insertion/no-op write counts, indexed representation transfer,
 all five styles, late second-root refusal and the complete FUN/IO service retry.

@@ -7,11 +7,11 @@
   :std/func
   :std/test
   :std/debug/DBG
-  ../support/base ../support/debug ../support/option ../support/testing
+  :clan/poo/support/base :clan/poo/support/debug :clan/poo/support/option :clan/poo/support/testing
   (only-in :std/list/alist aset arem alist?)
-  (only-in ../table methods.table table-wrapper)
-  (only-in ../fun Wrapper.)
-  ../object ../mop)
+  (only-in :clan/poo/table methods.table table-wrapper)
+  (only-in :clan/poo/fun Wrapper.)
+  :clan/poo/object :clan/poo/mop)
 
 
 ;; One provider cache may serve multiple typed instances. Each lookup is correct

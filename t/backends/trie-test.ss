@@ -1,0 +1,91 @@
+(export #t)
+
+(import
+  :std/iter
+  :std/test
+  :clan/poo/support/base :clan/poo/support/testing
+  :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/trie
+  :clan/poo/t/table-testing)
+
+(def (simple-tests T)
+  (table-test-case T "manual tests ported from legilogic_lib"
+    (test-case "Simple constructors"
+      (check-equal? (E .empty) (Empty))
+      (check-equal? (F .singleton 0 "a") (Leaf "a"))
+      (check-equal? (F .singleton 1 "b") (Skip 0 0 1 (Leaf "b")))
+      (check-equal? (F .<-list '((0 . "a") (1 . "b"))) (Branch 0 (Leaf "a") (Leaf "b")))
+      (check-equal? (F .<-list '((0 . "a") (1 . "b") (2 . "c") (3 . "d")))
+                    (Branch 1 (Branch 0 (Leaf "a") (Leaf "b"))
+                              (Branch 0 (Leaf "c") (Leaf "d"))))
+      (check-equal? (F .<-list '((0 . "a") (1 . "b") (2 . "c")))
+                    (Branch 1 (Branch 0 (Leaf "a") (Leaf "b"))
+                            (Skip 0 0 0 (Leaf "c"))))
+      (check-equal? (F .<-list '((0 . "a") (1 . "b") (3 . "d")))
+                    (Branch 1 (Branch 0 (Leaf "a") (Leaf "b"))
+                            (Skip 0 0 1 (Leaf "d"))))
+      (check-equal? (F .<-list '((0 . "a") (3 . "d")))
+                    (Branch 1 (Skip 0 0 0 (Leaf "a"))
+                              (Skip 0 0 1 (Leaf "d"))))
+      (check-equal? (F .<-list '((1 . "b") (3 . "d")))
+                    (Branch 1 (Skip 0 0 1 (Leaf "b"))
+                              (Skip 0 0 1 (Leaf "d")))))
+    (test-case "zipping"
+      (defrule (check-leaf-focus k v t)
+        (begin
+          (F .validate t)
+          (match (F .refocus ($Costep -1 k) (F .zipper<- t))
+           ((cons focus path)
+            (check-equal? focus (F .leaf<-opt (F .ref/opt t k)))
+            (check-equal? (F .ref t k false) v)
+            (validate (E Path) path)
+            (check-equal? ($Path-costep path) ($Costep -1 k))
+            (check-equal? (F .<-zipper (cons focus path)) t)))))
+      (check-leaf-focus 100 "one hundred" (F .singleton 100 "one hundred"))
+      (check-leaf-focus 101 "needle" (F .<-list '((100 . "hey") (101 . "needle")
+                                                  (102 . "hay") (103 . "haAAy"))))
+      (check-leaf-focus 0 #f (E .empty))
+      (check-leaf-focus 1 #f (E .empty))
+      (check-leaf-focus 3 "c" (F .<-list '((1 . "a") (3 . "c"))))
+      (def t0 (F .<-list '((0 . "a") (1 . "b"))))
+      (def t1 (F .singleton 0 "veni, vidi"))
+      (def t2 (F .acons 2 "veni, vidi" t0))
+      (check-leaf-focus 2 #f t0)
+      (check-equal? (F .acons 2 "veni, vidi" t0) t2)
+      (check-equal? (F .update 2 (lambda _ "veni, vidi") t0) t2))))
+
+(def T (SimpleTrie UInt String))
+
+;;; The G functions make the eval work, which ensures the traces have usable function names.
+(def (G x) (hash-get (object-instance T) x))
+(def (G-set! x y) (hash-put! (object-instance T) x y))
+(def (traceT)
+  (for-each (lambda (k) (def v (.ref T k)) (when (procedure? v) (eval `(trace! (G ',k)))))
+            (.all-slots T)))
+;;(traceT)
+
+(def-table-test-accessors T)
+
+(def trie-test
+  (test-suite "test suite for clan/poo/trie"
+    (init-test-random-source!)
+    (test-case "set iterator maps native table entries"
+      (def set (.call UIntTrieSet .<-list '(1 3 5)))
+      (check (for/collect (element (.call UIntTrieSet .iter<- set)) element)
+             => '(1 3 5))
+      (check (for/collect (element (.call UIntTrieSet .iter<- set from: 3)) element)
+             => '(3 5))
+      (using ((iterator (.call UIntTrieSet .iter<- set) :- Iterator))
+        (check (iterator.next!) => 1)
+        (check (iterator.next!) => 3)
+        (check (iterator.next!) => 5)
+        (check (iterator.next!) => #!eof)
+        (check (iterator.next!) => #!eof)))
+    (test-case "count preserves persistent trie branches"
+      (def base (.call T .<-list '((1 . "one") (3 . "three") (5 . "five"))))
+      (def extended (.call T .acons 7 "seven" base))
+      (check (.call T .count base) => 3)
+      (check (.call T .count extended) => 4)
+      (check (.call T .count (.call T .remove extended 3)) => 3)
+      (check (.call T .count base) => 3))
+    (table-tests T)
+    (simple-tests T)))

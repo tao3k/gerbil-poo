@@ -1,14 +1,14 @@
 ;;; Shared assertions for original and failure-isolated coordinator workflows.
 (export check-revisions)
 (import :std/test
-        ../object
-        ../mop
-        ../brace
-        ../feedback-graph
+        :clan/poo/object
+        :clan/poo/mop
+        :clan/poo/brace
+        :clan/poo/feedback-graph
         (runtime: :clan/poo/joint-publication)
-        (prefix-in (only-in ../joint-publication approval current head) joint.)
-        (prefix-in ../examples/joint-topology service.)
-        ../examples/joint-coordination-rounds)
+        (prefix-in (only-in :clan/poo/joint-publication approval current head) joint.)
+        (prefix-in :clan/poo/examples/joint-topology service.)
+        :clan/poo/examples/joint-coordination-rounds)
 ;; Checkpoint provenance retains the reply for its specific coordinator.
 (defstruct checkpoint (name value reply) final: #t)
 ;; Explicit final-round marker is separate from repeating topology phase names.

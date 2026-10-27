@@ -2,17 +2,17 @@
 
 Gerbil-POO’s `examples/collection-properties.ss` is a runnable `:std/test` example, not a
 second property-testing framework. Its `collection-properties-test` suite is
-re-exported by the checked `t/collection-testing-test.ss` module, so normal local
+re-exported by the checked `t/representations/collection-testing-test.ss` module, so normal local
 and CI checks run it alongside the reusable trace-protocol controls.
 
 From the Gerbil-POO checkout, use the existing guarded build and test entries:
 
 ```sh
-just build test-program
-just test-file t/collection-testing-test.ss
+just build
+just test-file t/representations/collection-testing-test.ss
 ```
 
-The complete workflow remains `just _check-collections 2 1 4`. No Lean checkout,
+The complete workflow remains `just check-built 2 1 4`. No Lean checkout,
 custom loader, extra environment variable or alternate test runner is required.
 Downstream projects can copy the example's domain model/fixture pattern into a
 local test module and export an ordinary `*-test` suite. Package imports and

@@ -35,7 +35,7 @@ locally and held workers must be released within the existing bounded window.
 
 ## Continuous six-phase native workflow
 
-`t/joint-restaging-test.ss` first approves two merge candidates and starts two
+`t/revisions/joint-restaging-test.ss` first approves two merge candidates and starts two
 workers. One installs; the other remains waiting. The coordinator then executes
 replace / restore / merge / replace / restore in the SAME worker scope:
 

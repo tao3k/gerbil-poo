@@ -24,7 +24,7 @@ adds no publication authority, implicit fallback, rollback or automatic reapprov
 
 ## Four failures before rejoining, alongside three active failures
 
-`t/coordinator-retry-test.ss` reuses the existing continuing service operation and
+`t/recovery/coordinator-retry-test.ss` reuses the existing continuing service operation and
 shared whole-state assertions across six merge / replace / restore phases:
 
 | Round | SCC phase | Service participants | Recovery action | Active failure |

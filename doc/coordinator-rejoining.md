@@ -32,7 +32,7 @@ of progress for a policy that indefinitely replaces immediately failing operatio
 
 ## Three recoveries during six SCC phases
 
-`t/coordinator-rejoining-test.ss` reuses `coordinate-revisions` and the shared
+`t/coordination/coordinator-rejoining-test.ss` reuses `coordinate-revisions` and the shared
 `check-revisions` assertions. Coordinator names a/b remain alive for all six phases.
 Coordinator c fails three times and rejoins three times in the SAME supervisor:
 

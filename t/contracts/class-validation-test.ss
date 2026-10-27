@@ -1,0 +1,205 @@
+;;; Effective Slot inheritance, checked factories and normalized publication.
+(export class-validation-test)
+(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object-contract
+        (only-in :clan/poo/type Record List Tuple Maybe TypeValuePair)
+        (prefix-in :clan/poo/examples/class-publication service.)
+        (prefix-in :clan/poo/declarative-metadata metadata.)
+        (prefix-in :clan/poo/examples/contract-publication publication.)
+        (prefix-in :clan/poo/examples/object-contracts config.)
+        (prefix-in :clan/poo/recursive-validation graph.))
+
+;; Authorization policy and exact subject binding remain separate gates.
+(def Call (metadata.contract (metadata.predicate "object" object?)
+  (metadata.predicate "evidence" object?) (lambda (_key _request _result) #t) metadata.truth))
+
+;; The JSON side has no executable code; plugins enter through checked factories.
+(def request "{\"host\":\"api\",\"port\":443,\"capacity\":10,\"used\":2,\"secure\":true}")
+
+;; Reuse warmed inherited metadata across failed recursive admission and retry.
+;; Collecting is a separate control, never a prerequisite of normal validation.
+;; The whole-suite integration gate additionally keeps every test in one process
+;; under the unchanged heap limit, catching source-context retention regressions.
+(def (check-inheritance-history collect?)
+  (def parent (Record run: [service.Transform default: values]))
+  (def proto (.get parent proto)) (def slots (.get parent effective-slots))
+  (def left (Record [parent] left: [Integer default: 1]))
+  (def right (Record [parent] right: [Integer default: 2]))
+  (def child (Record [left right] run: [(Fun Bool <- Integer) default: positive?]))
+  ;; Late refusal follows actual cyclic linking and Function normalization.
+  (def (close accept?)
+    (graph.close-validation (lambda (reference)
+      (def base (Record peer: [(reference 'root)] run: [service.Transform]))
+      (def descriptor (if accept? base (.cc base .element?: (lambda (_) #f))))
+      (def source (.o peer: source run: values))
+      (list (list 'root descriptor source)))))
+  (let loop ((round 0))
+    (when (< round 16)
+      (check-exception (close #f)
+        (lambda (cause) (and (graph.validation-failure? cause)
+          (eq? 'admission (graph.validation-failure-kind cause)))))
+      (when collect? (##gc))
+      (let ((checked (make-instance child)))
+        (check-equal? (.get checked left) 1) (check-equal? (.get checked right) 2)
+        (check-equal? ((.get checked run) 2) #t)
+        (check-exception ((.get checked run) #f) TypeError?)
+        (check (eq? (.get parent proto) proto) => #t)
+        (check (eq? (.get parent effective-slots) slots) => #t)
+        (check-equal? ((.get (make-instance parent) run) 2) 2))
+      (let* ((fresh (close #t)) (root (graph.closed-ref fresh 'root)))
+        (check (eq? (.get root peer) root) => #t)
+        (check-exception ((.get root run) #f) TypeError?))
+      (loop (+ round 1)))))
+
+;; Exercise the CURRENT effective Slot protocol at each construction boundary.
+(def class-validation-test
+  (test-suite "Record Class recursive Function validation"
+    (test-case "defaults and checked macro wrap without changing source"
+      (def source (instance service.ServiceRecord))
+      (def raw (.get source run))
+      (def checked (validate service.ServiceRecord source))
+      (check (eq? raw (.get checked run)) => #f)
+      (check (eq? raw (.get source run)) => #t)
+      (check-exception ((.get checked run) #f) TypeError?)
+      (check-equal? ((.get checked run) 2) 3)
+      (def initialized (.new/checked service.InitializedRecord))
+      (check-equal? ((.get initialized run) 2) 5)
+      (check-exception ((.get initialized audit) #f) TypeError?))
+    (test-case "empty records and optional absence keep identity"
+      (def empty (Record)) (def source (instance empty))
+      (check (eq? (validate empty source) source) => #t)
+      (def optional (Record absent: [service.Transform optional: #t]))
+      (def checked (make-instance optional))
+      (check (.slot? checked 'absent) => #f)
+      (check-exception (validate (Record required: [service.Transform]) (.o)) TypeError?))
+    (test-case "full recursive shape gates every normalizer"
+      (def calls 0)
+      (def counted (.cc Type. .element?: procedure?
+        .validate: (lambda (value) (set! calls (+ calls 1)) value)))
+      (def descriptor (Record good: [counted] nested: [(List (Tuple Integer service.Transform))]))
+      (check-exception (validate descriptor (.o good: values nested: (list (vector #f values)))) TypeError?)
+      (check-equal? calls 0))
+    (test-case "sealed extras inspected without forcing unknown values"
+      (def descriptor (.cc (Record run: [service.Transform]) sealed: #t))
+      (check-exception (validate descriptor (.o run: values extra: (error "forced extra"))) TypeError?))
+    (test-case "multiple inheritance default metadata remains receiver local"
+      (def parent (Record run: [service.Transform default: values]))
+      (.get parent proto) (.get parent effective-slots)
+      (def other (Record limit: [Integer default: 10]))
+      (def child (Record [parent other] run: [(Fun Bool <- Integer) default: positive?]))
+      (def checked (make-instance child))
+      (check-equal? (.get checked limit) 10)
+      (check-equal? ((.get checked run) 2) #t)
+      (check-exception ((.get checked run) #f) TypeError?)
+      (check-equal? ((.get (make-instance parent) run) 2) 2))
+    (test-case "diamond shares base metadata while derived defaults select locally"
+      (def root (Record run: [service.Transform default: values]))
+      (def left (Record [root] left: [Integer default: 1]))
+      (def right (Record [root] right: [Integer default: 2]))
+      (.get left proto) (.get right proto)
+      (def diamond (Record [left right] run: [service.Transform default: (lambda (n) (+ n 3))]))
+      (def checked (make-instance diamond))
+      (check-equal? (.get checked left) 1)
+      (check-equal? (.get checked right) 2)
+      (check-equal? ((.get checked run) 1) 4)
+      (check-exception ((.get checked run) #f) TypeError?)
+      (check-equal? ((.get (make-instance root) run) 1) 1))
+    (test-case "nested container and carried descriptor defaults wrap recursively"
+      (def raw values)
+      (def descriptor (Record plugins: [(Maybe (List (Tuple Integer TypeValuePair)))
+        default: (list (vector 1 (cons service.Transform raw)))]))
+      (def checked (make-instance descriptor))
+      (def typed (vector-ref (car (.get checked plugins)) 1))
+      (check (eq? (car typed) service.Transform) => #t)
+      (check (eq? (cdr typed) raw) => #f)
+      (check-exception ((cdr typed) #f) TypeError?))
+    (test-case "refined child sees wrapped inherited default"
+      (def raw values)
+      (def child (refine (.cc ObjectContract. responsibilities: (.o run: service.Transform))
+        (lambda (candidate path)
+          (if (eq? (.get candidate run) raw) [(.o kind: 'raw path: path)] '()))))
+      (def descriptor (Record nested: [child default: (.o run: raw)]))
+      (check (eq? (.get (make-instance descriptor) nested run) raw) => #f))
+    (test-case "constant equality remains strict after normalization"
+      (check-equal? (.get (make-instance (Record flag: [Bool constant: #t])) flag) #t)
+      (check-exception (make-instance (Record run: [service.Transform constant: values])) TypeError?)
+      (def changing (.cc Integer .validate: (lambda (n) (+ n 1))))
+      (check-exception (make-instance (Record n: [changing constant: 1])) TypeError?))
+    (test-case "custom Slot normalization and final membership remain authoritative"
+      (def visits 0)
+      (define-type (CheckingSlot @ Slot)
+        .slot.validate: (lambda (_ _name original _receiver)
+          (set! visits (+ visits 1)) (+ 1 original))
+        .slot.check: (lambda (_ name candidate) (even? (.ref candidate name))))
+      (def descriptor (.cc Class. slots: (.o n: (.new CheckingSlot type: Integer))))
+      (def checked (validate descriptor (.o n: 1)))
+      (check-equal? (.get checked n) 2)
+      (check-equal? visits 1)
+      (check-exception (validate descriptor (.o n: 2)) TypeError?)
+      (check (pair? (diagnose descriptor (.o n: 1))) => #t))
+    (test-case "persistent normalized replacement retains source ancestry"
+      (def source (instance service.ServiceRecord))
+      (def checked (validate service.ServiceRecord source))
+      (check (and (memq source (compute-precedence-list! checked)) #t) => #t))
+    (test-case "bootstrap Type validation preserves descriptor identity"
+      (check (eq? (validate Type service.Transform) service.Transform) => #t)
+      (check (eq? (validate Type service.ServiceRecord) service.ServiceRecord) => #t))
+    (test-case "hook sees wrapped values and replacements are wrapped again"
+      (def observed #f)
+      (def descriptor (.cc service.ServiceRecord .instantiate:
+        (lambda (checked)
+          (set! observed #t)
+          (check-exception ((.get checked run) #f) TypeError?)
+          (.cc checked run: (lambda (_n) #f)))))
+      (def checked (make-instance descriptor))
+      (check-equal? observed #t)
+      (check-exception ((.get checked run) 1) TypeError?)
+      (def bad (.cc service.ServiceRecord .instantiate: (lambda (_) (.o run: #f))))
+      (check-exception (make-instance bad) TypeError?))
+    (test-case "same-object mutation in hook is revalidated"
+      (def descriptor (.cc service.ServiceRecord .instantiate:
+        (lambda (checked) (.put! checked 'limit #f) checked)))
+      (check-exception (make-instance descriptor) TypeError?))
+    (test-case "full JSON factory refine and exact evidence publication"
+      (def context-value (.o commits: 0))
+      (defvalues (result state refusal)
+        ((service.service-action Call context-value (list (lambda (n) (* n 2)))) request))
+      (check-equal? refusal #f)
+      (check-equal? (.get result total) 10)
+      (check-equal? (.get result approved) #t)
+      (check-equal? (.get state commits) 1)
+      (check-exception ((.get result subject processor run) #f) TypeError?))
+    (test-case "raw and stale evidence refuse before a current retry"
+      (def context-value (.o commits: 1)) (def stale (.o commits: 0))
+      (def source (.o config: (config.decode-service request)
+                         processor: (make-instance service.InitializedRecord)))
+      ;; Bind each admission to its actual normalized root, descriptor and context.
+      (def (action raw-subject evidence-context)
+        (publication.publication-action service.EnvelopeContract Call context-value
+          (lambda (checked)
+            (values (.o subject: (if raw-subject raw-subject checked)
+                        descriptor: service.EnvelopeContract context: evidence-context)
+                    (.o commits: 2)))))
+      (for-each (lambda (publish)
+                  (defvalues (result state refusal) (publish source))
+                  (check-equal? result #f)
+                  (check (eq? state context-value) => #t)
+                  (check-equal? (metadata.failure-phase refusal) 'logic))
+                (list (action source context-value) (action #f stale)))
+      (defvalues (_ next failure) ((action #f context-value) source))
+      (check-equal? failure #f)
+      (check-equal? (.get next commits) 2))
+    (test-case "callback refusal preserves context and retry is independent"
+      (def context-value (.o commits: 0))
+      (defvalues (_result state refusal)
+        ((service.service-action Call context-value (list (lambda (_n) #f))) request))
+      (check (eq? state context-value) => #t)
+      (check-equal? (metadata.failure-phase refusal) 'source)
+      (defvalues (result next-state next-refusal)
+        ((service.service-action Call context-value (void)) request))
+      (check-equal? next-refusal #f)
+      (check-equal? (.get result total) 5)
+      (check-equal? (.get next-state commits) 1))
+    (test-case "warmed diamond metadata survives recursive refusal and retry"
+      (check-inheritance-history #f))
+    (test-case "collection history does not alter inherited defaults or recursive retry"
+      (check-inheritance-history #t))))

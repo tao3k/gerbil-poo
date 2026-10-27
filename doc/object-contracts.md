@@ -147,7 +147,7 @@ arbitrary overrides retain mandatory application requirements.
 
 ## Scheme controls
 
-`t/object-contract-test.ss` covers positive/negative Type adaptation, Function
+`t/contracts/object-contract-test.ss` covers positive/negative Type adaptation, Function
 validation, spelling/missing/nested fields, optional ancestry, parent/child
 prepared maps and constraints, external diagnostic Types, malformed callbacks,
 existing invocation Contract integration and a parent-cached resource projection.
@@ -185,7 +185,7 @@ multiple consumer return values and original validation exceptions are preserved
 construction, shape admission, persistent lens revision, two accumulated relations
 and checked output. Shape admission precedes arithmetic; relation repair can happen
 before the complete contract is demanded. Invalid data never reaches the consumer.
-`t/object-contract-flow-test.ss` adds eight composed cases to the original fourteen.
+`t/contracts/object-contract-flow-test.ss` adds eight composed cases to the original fourteen.
 
 The companion `ObjectDiagnostics` / `ObjectContract` models prove ordered
 accumulation, phase gating, exact required-field existence, strict inventory,
@@ -257,7 +257,7 @@ publication. `bind-evidence` receives the actual normalized root. An evidence
 record naming the raw source, a different descriptor or an old context fails;
 retry starts from the current invocation template. Callback errors preserve the
 old returned state, without undoing effects that the callback already performed.
-`t/object-contract-validation-test.ss` includes these negative controls, input
+`t/contracts/object-contract-validation-test.ss` includes these negative controls, input
 and output arity, higher-order inputs/results, original exception identity,
 prototype preservation and derived-descriptor preparation.
 
@@ -596,7 +596,7 @@ must preserve the source, and snapshots/recursive callbacks must terminate.
 The ledger example composes nested List/Tuple/Function tables, FUN checked-action,
 ObjectContract refinement and IO. A false approval or invalid Function result
 suppresses IO; a fresh approved request can retry. The consumer uses the already
-normalized table without validating it again. `t/table-validation-test.ss` covers
+normalized table without validating it again. `t/collections/table-validation-test.ss` covers
 RationalDict, Trie, generic association backends, sets and the shared Map path,
 including Function keys/values and normalization-versus-recognition call counts.
 

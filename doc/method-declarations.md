@@ -136,7 +136,7 @@ current receiver result, around omission, primary refusal and missing-primary
 behavior. It assumes a supplied correct C3 owner order; existing C3 proofs handle
 linearization separately. It does not prove Gerbil macro expansion or all custom
 policy callbacks. Gerbil `examples/declared-methods.ss` and
-`t/method-declaration-test.ss` separately execute shared C3, descriptor invalidation,
+`t/methods/method-declaration-test.ss` separately execute shared C3, descriptor invalidation,
 actual `.defgeneric` syntax, recursive roots, every adapter, and negative admission.
 No Lean checkout, serialized proof constant or compiler/runtime verification is
 part of Scheme execution. No benchmark data or performance claim accompanies
@@ -221,7 +221,7 @@ precedence and callbacks retain the existing immutable/pure certificate premises
 
 `make-dispatch-family` / `typed-charge-action` combine a shared C3 diamond,
 two dispatch axes, standard qualifiers, a value-sensitive guard, FUN approval and
-an IO consumer. `t/typed-method-declaration-test.ss` also checks every existing
+an IO consumer. `t/methods/typed-method-declaration-test.ss` also checks every existing
 combination policy, warm successor transfer, derived replacement/erasure,
 completed-batch cancellation, refusal/retry, metadata invalidation, signature
 conflicts, arity, output and original-instance binding. The Lean companion proves
@@ -342,7 +342,7 @@ Those policies do not invent extra values for an incompatible output signature.
 
 `examples/polymorphic-services.ss` connects residual inference, qualified methods,
 `.defgeneric` optional/keyword/rest binding, a returned checked Function, FUN
-approval and IO consumption. `t/inferred-declaration-test.ss` also covers varying
+approval and IO consumption. `t/methods/inferred-declaration-test.ss` also covers varying
 case result counts on one warm effective cache, zero values, literal keywords,
 negative-watch refusal, explicit contexts, unchanged-owner retry and original
 exception identity. These are regression controls, not performance measurements.
@@ -467,7 +467,7 @@ Candidate-dependent call inference now resolves whole signature Types and Object
 field/row layouts before invoking the same declaration builder. Alternatives keep
 their own queries and normalized catalog, and complete sibling/source admission
 is unchanged. See [prototype-types.md](prototype-types.md#candidate-dependent-signatures-and-field-layouts)
-and `t/candidate-inference-test.ss` for finite scope and failure categories.
+and `t/inference/candidate-inference-test.ss` for finite scope and failure categories.
 
 
 Cross-mode callback bounds now use the same two controlled coverage witnesses as
@@ -481,7 +481,7 @@ and Keyword/Exactly/Enum ordinary-token restrictions remove impossible raw rows.
 wrapper nor changes the original call row. Exact result count/variance, complete
 search, prefix specialization, sibling/source admission and cache-owner gates
 remain mandatory. See [prototype-types.md](prototype-types.md#ordered-case-call-language-coverage-and-replacement)
-and `t/keyword-coverage-test.ss`, `t/keyword-prefix-test.ss`, `t/keyword-values-test.ss` and `t/keyword-rest-test.ss` for FUN/refine/bind-evidence examples and refusal,
+and `t/signatures/keyword-coverage-test.ss`, `t/signatures/keyword-prefix-test.ss`, `t/signatures/keyword-values-test.ss` and `t/signatures/keyword-rest-test.ss` for FUN/refine/bind-evidence examples and refusal,
 shadowing, escape and no-builder controls. General mixed-wire inclusion is outside
 this conservative finite decision. This is hypothetical type-system future work.
 

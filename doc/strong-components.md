@@ -54,7 +54,7 @@ of changed groups and settlement. A fresh policy approves both commitments and
 their settlement together. Source quota changes rebuild both services and
 settlement but retain the independent group's exact object. Admission refusal,
 retry, missing inputs, divergence, unsupported reads and FUN suffix suppression
-are negative controls in `t/feedback-graph-test.ss`.
+are negative controls in `t/feedback/feedback-graph-test.ss`.
 
 ## Lean correspondence and evidence boundary
 

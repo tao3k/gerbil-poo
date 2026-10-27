@@ -61,7 +61,7 @@ explicit instance assignment; these are separate existing protocols.
 
 ## Integrated acceptance
 
-`t/representation-test.ss` exercises persistent snapshots, duplicate method order,
+`t/representations/representation-test.ss` exercises persistent snapshots, duplicate method order,
 uninterned symbols, live shape sharing, receiver switching, shared-parent diamonds,
 computed values, insert/delete/default/topology changes, failed edits, cycles and
 retry. `examples/representation-service.ss` composes checked ObjectContract/refine

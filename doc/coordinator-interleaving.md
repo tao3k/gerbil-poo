@@ -25,7 +25,7 @@ not itself certify admission, and the adapter adds no retry or publication power
 
 ## Two failed names, five recoveries, six source phases
 
-`t/coordinator-interleaving-test.ss` reuses the continuing service-revision
+`t/recovery/coordinator-interleaving-test.ss` reuses the continuing service-revision
 operation and all shared six-round whole-state assertions. a/b remain alive.
 The active sets and failures are:
 

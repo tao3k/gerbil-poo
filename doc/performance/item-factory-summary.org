@@ -172,9 +172,9 @@ is checked by the native reader in each local receipt):
 - =method-combination.ss=: =b6209e9fe71f81687d3b211f5abc3a80b0ce795e69eaa0810380a09c686e1c26=
 - =examples/generalized-checkout.ss=: =ce7d92ab66e9c8d253c1358f3aed230e3e0d6d2fbe556305bffe2fbdc53433a9=
 - =generalized-prototype.ss=: =2e6cdb62a50789de6506e1e48e8db6f5ebee19530be59321794f3686737dd778=
-- =t/factory-cases.ss=: =505086151a7960165d8851eb4798041996fbf2e599472b92b347303f5353726e=
-- =t/factory-benchmark.ss=: =4fa5bc62a63f596ddd12654d01c7ee22cac16c2d87e470ce87279e9e11cc47b9=
-- =t/factory-suite.ss=: =874ad380d9f3fffac81e09df4add2ee270038f72901cb8cb8dc782c7e29bdda6=
+- =benchmarks/factory-cases.ss=: =505086151a7960165d8851eb4798041996fbf2e599472b92b347303f5353726e=
+- =benchmarks/factory-benchmark.ss=: =4fa5bc62a63f596ddd12654d01c7ee22cac16c2d87e470ce87279e9e11cc47b9=
+- =benchmarks/factory-suite.ss=: =874ad380d9f3fffac81e09df4add2ee270038f72901cb8cb8dc782c7e29bdda6=
 - executable: =55343fb37192132ff4f517a25a12f3c3240d48c1d828a96e1e4d307a25a7c624=
 - receipt one: =b0ad87011b75567d620defcd5f0c09dde9a6ac02389d813d72e5fc960071740a=
 - receipt two: =ce0ace94f2477da59aa4d66a9f7b917fff9bfeece2505d4a7fb607b5f58c1f49=
@@ -187,22 +187,9 @@ binaries remain ignored under .build; no JSON, full data or archives are committ
 * Standalone native reproduction
 From this Gerbil checkout, with native Gerbil/Gambit, GNU timeout and OpenSSL 3:
 
-#+begin_src sh
-GERBIL_PATH="$PWD/.build/env" just build
-GERBIL_PATH="$PWD/.build/env" just test
-study_dir=$(mktemp -d "$PWD/.build/item-factory.XXXXXX")
-GERBIL_PATH="$PWD/.build/env" env -u SDKROOT -u CPATH -u LIBRARY_PATH \
-  -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET \
-  COMPILER_PATH=/usr/bin gtimeout --signal=TERM --kill-after=3s 90s \
-  gxc -d "$study_dir" -exe -ld-options '-L/opt/homebrew/opt/openssl@3/lib' \
-  -o "$study_dir/paired" t/factory-benchmark.ss
-# Finish builds/tests first. Fix all three runs before inspecting their outcomes.
-for run in one two three; do
-  GERBIL_PATH="$PWD/.build/env" gtimeout --signal=TERM --kill-after=3s 90s \
-    gxi -:max-heap=1G,debug=q t/factory-suite.ss "$study_dir/paired" \
-    /opt/homebrew/bin/gtimeout "$study_dir/$run.scm" > "$study_dir/$run.log" 2>&1
-done
-#+end_src
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
 
 Re-admit complete records with =factory-suite.read-study= after committing source.
 Automatic mutable-source invalidation, arbitrary representation law discovery,

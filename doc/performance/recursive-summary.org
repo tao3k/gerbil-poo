@@ -125,11 +125,11 @@ a FRESH output directory, keeping compiler/study deadline 90s, child 20s and hea
 Reproduction (standalone package, Gerbil/Gambit and GNU timeout):
 - GERBIL_PATH=$PWD/.build/env just build
 - GERBIL_PATH=$PWD/.build/env just test
-- Compile t/recursive-benchmark.ss with gxc -exe -d FRESH_DIRECTORY and normal
+- Compile benchmarks/recursive-benchmark.ss with gxc -exe -d FRESH_DIRECTORY and normal
   platform linker flags, under the same 90s watchdog.
-- Invoke gxi -:max-heap=1G,debug=q t/recursive-suite.ss BINARY TIMEOUT IGNORED.scm
+- Invoke gxi -:max-heap=1G,debug=q benchmarks/recursive-suite.ss BINARY TIMEOUT IGNORED.scm
   under the 90s watchdog; require RECURSIVE-PAIRED-OK children=288.
-- read-study in t/recursive-suite.ss rechecks committed source/binary identity.
+- read-study in benchmarks/recursive-suite.ss rechecks committed source/binary identity.
 Full native receipts/binaries/logs remain ignored; no JSON or archive is committed.
 
 * Initial admitted study before source-list completion
