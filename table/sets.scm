@@ -24,14 +24,78 @@
 (def (require-set descriptor root)
   (admit-table-observation descriptor root
     (lambda (descriptor root)
-      (require-table (.@ descriptor Table) root)
+      (require-set-elements descriptor root)
       (require-table descriptor root))))
+
+;; The backing carrier and every declared element are independent obligations.
+;; Matching descriptor identities reuse backing recognition without another scan.
+(def (require-set-elements descriptor root)
+  (def table (.@ descriptor Table))
+  (require-table table root)
+  (def elt (.@ descriptor Elt))
+  (unless (eq? elt (.@ table Key))
+    (when (table-entry-match table (lambda (key _) (element? elt key)) root #f #f)
+      (raise-type-error descriptor root 'set-elements)))
+  root)
+
+;; Default Type recognition includes independently overridden Elt contracts.
+;; Typed refusal is false; callback/backend errors retain their original cause.
+(def (set-element? descriptor root)
+  (try (require-set-elements descriptor root) #t (catch (TypeError? _) #f)))
+
+;; Checked element requests must satisfy Elt AND the backing key domain before
+;; backend work. Recognition preserves existing Function handles, never cooks them.
+(def (require-set-element descriptor element)
+  (def elt (.@ descriptor Elt))
+  (require-table elt element)
+  (unless (eq? elt (.@ (.@ descriptor Table) Key))
+    (require-table-key (.@ descriptor Table) element))
+  element)
+
+;; Normalize through the backing protocol, then an independent Elt if present.
+;; Existing binding validation owns ordered child cooking and collision refusal;
+;; a raw key space stages uniqueness, and only the complete business root is built.
+;; No-change Elt validation retains the backing result without a bulk builder.
+;; Reconstruction recognizes backing membership; it must not cook the keys again.
+(def (validate-set descriptor input)
+  (with-set-inputs descriptor [] (lambda ()
+    (def table (.@ descriptor Table))
+    (def root (validate table input))
+    (def elt (.@ descriptor Elt))
+    (require-set descriptor
+      (if (eq? elt (.@ table Key)) root
+        (validate-bindings (cut validate elt <>) identity root (capture-table-bindings (.call table .list/key root))
+          (lambda (rows)
+            (def keys (table-key-table table Unit))
+            (with-table-sources (table-sources keys) (lambda ()
+              (rebuild-bindings descriptor root rows (lambda () (.@ keys .empty))
+                (lambda (seen key)
+                  (require-table-key table key) (.call keys .key? seen key))
+                (.@ keys .acons))
+              (require-table table (.call table .<-list rows)))))))))))
+
+;; Own the finite element request, recognize every occurrence before backend
+;; coalescing, then reuse the complete bulk constructor and shared Set admission.
+;; Pair-valued elements remain opaque leaves rather than binding shells.
+(def (construct-set descriptor elements)
+  (using (elements :~ list?)
+    (def captured (map identity elements))
+    (with-set-inputs descriptor [] (lambda ()
+      (def elt (.@ descriptor Elt))
+      ;; The existing Table constructor already admits every original Key.
+      (unless (eq? elt (.@ (.@ descriptor Table) Key))
+        (for-each (cut require-table elt <>) captured))
+      (require-set descriptor
+        (.call (.@ descriptor Table) .<-list
+          (map (lambda (element) (cons element (void))) captured)))))))
 
  ;; Admit the complete Set once before issuing its backing stream. Each delayed
 ;; pull, including EOF, checks the captured Set/element/backend origins without
 ;; rescanning a persistent root or retaining protection across caller suspension.
 (def (iterate-set descriptor input from)
   (with-set-inputs descriptor (list input) (lambda ()
+    (when (and from (not (eq? (.@ descriptor Elt) (.@ (.@ descriptor Table) Key))))
+      (require-table (.@ descriptor Elt) from))
     (def table (.@ descriptor Table))
     (def sources (append (list descriptor (.@ descriptor Elt))
       (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)))
@@ -88,7 +152,7 @@
             (for-each (lambda (type value)
               (when (eq? type descriptor) (require-set descriptor value))) inputs args)
             (for-each (lambda (type value)
-              (unless (eq? type descriptor) (require-table (.@ descriptor Elt) value))) inputs args)
+              (unless (eq? type descriptor) (require-set-element descriptor value))) inputs args)
             args)
           .ap: (cut require-set descriptor <>)))
         (cons name (lambda args
@@ -132,7 +196,7 @@
     (with-table-sources sources (lambda ()
       (unless (equal? versions (map object-revision sources)) (error "stale set focus"))
       (with-set-inputs descriptor (list source) (lambda ()
-      (unless (element? (.@ table Key) key) (raise-type-error (.@ table Key) key))
+      (require-set-element descriptor key)
       (action))))))
   (lens-of-get-set
     (lambda (source) (observe source (lambda () (.call table .key? source key))))
@@ -161,6 +225,8 @@
 (def (split-set descriptor pivot input)
   (def table (.@ descriptor Table))
   (with-set-inputs descriptor (list input) (lambda ()
+      (unless (eq? (.@ descriptor Elt) (.@ table Key))
+        (require-table (.@ descriptor Elt) pivot))
       (defvalues (left found right) (.call table .split pivot input))
       (require-set descriptor left)
       (require-set descriptor right)
@@ -187,15 +253,19 @@
 ;; The standard iterator mapper supplies Unit entries lazily inside that scope.
 (def (set-from-iter descriptor sequence seeds)
   (with-set-inputs descriptor seeds (lambda ()
+    (def elt (.@ descriptor Elt))
+    (def independent? (not (eq? elt (.@ (.@ descriptor Table) Key))))
     (require-set descriptor (apply (.@ (.@ descriptor Table) .<-iter)
-      (iterator-map (lambda (elt) (cons elt (void))) sequence) seeds)))))
+      (iterator-map (lambda (element)
+        (when independent? (require-table elt element)) (cons element (void))) sequence) seeds)))))
 
 (define-type (Set<-Table. @ Type. Table sexp)
-  ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
+  ;; Backing values are Unit. Elt defaults to Key; an independent Elt constrains
+  ;; the same keys in addition to their backing domain. Styles require identity.
   Elt: (.@ Table Key) ;; : Type
-  ;; Normalize through the backing protocol once, then admit the set refinement.
-  .validate: (cut build-set @ [] '.validate <>) ;; : @ <- Any
-  .element?: (.@ Table .element?) ;; recognition retains the table protocol without normalization
+  ;; Normalize backing keys, then independent elements, and recognize the result.
+  .validate: (cut validate-set @ <>) ;; raw input retains recursively checked elements
+  .element?: (cut set-element? @ <>) ;; backing and Elt recognition without normalization
   ;; Empty is a partial constructor when the declared set excludes that root.
   (.empty (.call methods .empty)) ;; : @
   ;; Set refinement precedes the backing predicate, even for an empty carrier.
@@ -203,7 +273,7 @@
     (lambda () (table-empty-key? Table root)))) ;; : Bool <- @
   ;; Membership retains backend key equivalence, after complete Set admission.
   .elt?: (lambda (root elt) (with-set-inputs @ (list root)
-    (lambda () (.call Table .key? root elt)))) ;; : Bool <- @ Elt
+    (lambda () (require-set-element @ elt) (.call Table .key? root elt)))) ;; : Bool <- @ Elt
   ;; One derived boundary admits the family; the backend delegates stay simple.
   methods: (set-methods @
     (.o .empty: (lambda () (.@ Table .empty))
@@ -241,8 +311,7 @@
     (lambda () (map car (.call Table .list<- root))))) ;; : (List Elt) <- @
   ;; A complete family may be valid while every singleton is forbidden. Reuse the
   ;; table's bulk constructor once, without exposing intermediate roots.
-  .<-list: (lambda (l) (using (l :~ list?)
-    (build-set @ [] '.<-list (map (lambda (elt) (cons elt (void))) l)))) ;; : @ <- (List Elt)
+  .<-list: (cut construct-set @ <>) ;; : @ <- (List Elt)
   .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(map (.@ Elt sexp<-) (.list<- x))))) ;; : Sexp <- @
   ;; Endpoint observations retain Set refinement and the backing traversal order.
   ;; Option shells distinguish an empty set from a selected false element.

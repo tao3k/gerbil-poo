@@ -1,6 +1,6 @@
 ;;; Recursive validation of existing Pair, Map, Sum and Union representations.
 (export pair-shape map-shape sum-shape union-shape union-diagnostics
-        validate-pair validate-map validate-bindings validate-sum validate-union validate-or)
+        validate-pair validate-map validate-bindings rebuild-bindings validate-sum validate-union validate-or)
 (import :std/iter
         (only-in :std/list/list find append-map map-in-order)
         (only-in ./object .o .get .ref .slot? object? object<-alist)
@@ -39,32 +39,38 @@
 ;; Normalize one finite backend snapshot, key before value in traversal order.
 ;; Keep every returned wrapper. Rebuild only after all children succeed, using
 ;; the backend's own membership/insertion policy to refuse normalized collisions.
-;; Empty supplies a private persistent seed (or a fresh mutable hash table).
+;; Reconstruction receives checked rows only when a child actually changes.
+;; Callers select their existing carrier strategy without replaying validators.
 ;; Child/rebuild exceptions propagate; arbitrary callback effects are not rolled back.
-(def (validate-bindings descriptor key-type value-type source entries empty contains? insert)
+(def (validate-bindings check-key check-value source entries rebuild)
   ;; Gerbil owns ordered traversal; custom Type effects run exactly once per child.
   (def checked (map-in-order
     (lambda (entry)
-      (let* ((key (validate key-type (car entry)))
-             (value (validate value-type (cdr entry))))
+      (let* ((key (check-key (car entry)))
+             (value (check-value (cdr entry))))
         (cons key value))) entries))
   (if (andmap (lambda (before after)
                 (and (eq? (car before) (car after)) (eq? (cdr before) (cdr after)))) entries checked)
     source
-    (foldl (lambda (entry target)
-             (when (contains? target (car entry))
-               (raise-type-error descriptor source 'normalized-key-collision))
-             (insert (car entry) (cdr entry) target))
-           (empty) checked)))
+    (rebuild checked)))
+
+;; Collision checking shares the actual backend equality and original row order.
+;; A private seed is constructed only after all child validators have succeeded.
+(def (rebuild-bindings descriptor source checked empty contains? insert)
+  (foldl (lambda (entry target)
+    (when (contains? target (car entry))
+      (raise-type-error descriptor source 'normalized-key-collision))
+    (insert (car entry) (cdr entry) target)) (empty) checked))
 
 ;; Hash-backed Map retains its comparison/hash policy and never mutates source.
 ;; The same binding protocol also serves persistent tables and their derived sets.
 (def (validate-map descriptor key-type value-type candidate)
   (validate-container descriptor candidate
     (lambda (source)
-      (validate-bindings descriptor key-type value-type source (hash->list source)
-        (lambda () (hash-new source)) hash-key?
-        (lambda (key value target) (hash-put! target key value) target)))))
+      (validate-bindings (cut validate key-type <>) (cut validate value-type <>) source (hash->list source)
+        (lambda (checked)
+          (rebuild-bindings descriptor source checked (lambda () (hash-new source)) hash-key?
+            (lambda (key value target) (hash-put! target key value) target)))))))
 
 ;; Sum dispatch checks carrier and tag before demanding its payload. Only the
 ;; selected payload is traversed; extra source slots retain the existing policy.

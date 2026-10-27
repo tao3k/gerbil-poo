@@ -11,7 +11,7 @@
         table-conflict? table-conflict-key)
 
 (import
-  (only-in ./variant-validation validate-bindings)
+  (only-in ./variant-validation validate-bindings rebuild-bindings)
   (only-in ./slot-observation %slot-read-active?)
   (only-in :gerbil/runtime/thread with-lock)
   :std/interface
@@ -83,9 +83,12 @@
     ;; Ordinary backends retain their original child and collision/error order.
     (require-table descriptor
       (if normalize (normalize source)
-        (validate-bindings descriptor (.@ descriptor Key) (.@ descriptor Value) source
-          (.call descriptor .list<- source) (lambda () (.@ descriptor .empty))
-          (.@ descriptor .key?) (.@ descriptor .acons)))))))
+        (let* ((key (.@ descriptor Key)) (value (.@ descriptor Value)))
+          (validate-bindings (cut validate key <>) (cut validate value <>) source
+            (.call descriptor .list<- source)
+            (lambda (checked)
+              (rebuild-bindings descriptor source checked (lambda () (.@ descriptor .empty))
+                (.@ descriptor .key?) (.@ descriptor .acons))))))))))
 
 ;; Share whole-source normalization only when both child Type identities match.
 ;; An inherited view with overridden Types retains the ordinary validator instead

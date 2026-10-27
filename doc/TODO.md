@@ -2535,3 +2535,15 @@ Design reflection: move the existing Option capture ahead of effectful admission
 rather than adding per-query contracts. Each crossed ownership boundary allocates
 at most one shallow cell per present endpoint. All existing validation and cursor
 guards remain charged; this correctness change claims no elapsed-time speedup.
+
+### Independent Set Elt admission and recursive validation
+
+Closed the complete independent-Elt protocol over existing Table backends:
+whole-root recognition, original-occurrence bulk/iterator admission, membership
+and lens/split/bounds, ordered recursive normalization, normalized-key collision
+refusal, exact returned Function/container keys and failure retry. Backing cooking
+runs first; final recognition cannot recook an Elt wrapper. Unchanged children
+retain the backing result without key-registry or bulk-constructor preparation.
+The existing exact-identity boundary for five-style derivation is intentional and
+unchanged. See collections.md and collection-composition-audit.md for costs,
+complex approved service publication, eight regressions and finite Lean laws.

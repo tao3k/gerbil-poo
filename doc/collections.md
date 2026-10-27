@@ -1701,3 +1701,43 @@ no collection traversal or validation-wrapper layer: prior key recognition now u
 the correct predicate, and its actual cost remains charged. Design reflection:
 reuse the established Set/Table declaration pattern and preserve descriptor identity,
 rather than bypass style admission or widen a requested contract to UInt.
+
+### Independent Set element contracts
+
+`Set<-Table` may declare an `Elt` different from its backing `Table.Key`.
+A complete root must satisfy both domains and the Set refinement. Bulk and
+iterator construction recognize every original element before the backend can
+coalesce equal keys. Membership, membership lenses, split pivots and supplied
+iterator bounds check both domains, even on empty roots. Recognition never cooks
+or replaces an admitted Function handle. A broad custom Set recognizer cannot
+weaken these obligations; explicit style derivation still requires identical
+Elt/Key descriptors rather than inferring their compatibility.
+
+Recursive validation first validates the backing root, then validates an
+independent Elt in backing enumeration order. Returned Function wrappers and
+returned nested containers become the actual keys. If every child is unchanged,
+the backing result is retained without demanding a key-registry capability or a
+bulk constructor. Otherwise the existing raw key space checks normalized-key
+collisions, then the existing bulk constructor receives the complete normalized
+binding list exactly once. Final admission recognizes both domains and the Set
+refinement; it does not cook the keys a second time. This matters for
+non-idempotent validators and Function wrappers. Matching Elt/Key identities
+reuse backing validation without a second normalization pass.
+
+Child failures retain their cause before registry preparation; collisions refuse
+before business construction. No successor is published on refusal, and a fresh
+request can retry from the persistent source. External callback effects are not
+rolled back. Independent Elt recognition adds a member traversal; independent
+normalization adds an ordered child pass, with registry and construction costs
+only when children change. No elapsed-time improvement is claimed.
+
+The service-access example combines an independent Function Elt, approval refine,
+existing exact `bind-evidence` publication and all five styles. Tests also retain
+Function wrappers inside Tuple keys, reject numeric aliases before coalescing,
+refuse invalid lens/cursor requests and control backing/Elt normalization order.
+Finite `SetStyle` laws prove complete member obligations, exact refusal priority,
+unchanged identity, normalized-position retention and exact rebuild handoff.
+Persistent roots, faithful enumeration/key equality, lawful constructors, stable
+opaque leaves and terminating callbacks remain premises. These laws advance the
+paper's future work; they do not establish arbitrary validator commutation,
+compiler correctness or GC behavior.

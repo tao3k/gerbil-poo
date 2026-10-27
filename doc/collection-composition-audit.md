@@ -414,3 +414,50 @@ controlled speedup claim. The original heap, deadlines, compiler batches and che
 inventory were retained. Lean's complete 20-phase gate passed, and its resulting
 PR head passed all 17 CI checks. Scheme remote CI is verified separately at the
 resulting commit; the SDK migration limitation remains explicit in ci-checks.md.
+
+## Independent Set element admission and normalization
+
+The next complete unit is a real contract gap rather than a missing backend
+primitive. Before this repair, an independent UInt8 Elt over a Rational dictionary
+recognized a root containing 256, accepted it through bulk construction and a
+membership lens, and returned false for an invalid empty membership request.
+An independent Function Elt was never recursively cooked by backing validation.
+The author's dictionary construction (`poof.scrbl`, lines 744-773) composes declared
+operations over an existing backend; its raw fold remains a backend primitive.
+This repair preserves that division instead of moving receiver admission into
+raw folds or inventing another collection representation.
+
+The shared Set boundary now enforces Elt, backing Key and custom refinement.
+The existing recursive binding validator is factored into child normalization
+and collision-aware reconstruction, reused by Map, Table and Set. Independent
+Elt normalization uses the existing key registry and complete bulk constructor;
+unchanged children require neither. Backing cooking precedes Elt cooking, and
+final admission performs recognition only. Existing simple point methods,
+FUN/IO publication, styles and raw backends remain in place.
+
+Eight regressions cover original occurrences before alias coalescing, empty
+queries, lenses/bounds, nested Function/Tuple wrappers, one complete constructor,
+collision/refusal/retry, non-idempotent normalization order and approved exact
+publication across five styles. The example shares the existing service approval
+contract rather than adding another executor or evidence wrapper. Lean reuses
+VariantValidation, Validation and the established SetStyle namespace for finite
+member-admission, ordered normalization and failure/ownership laws. Backend
+faithfulness and callback termination remain explicit premises; automatic subtype
+admission for styles and arbitrary validator commutation remain design boundaries.
+
+Design reflection: one complete admission boundary and one shared normalization
+pipeline replace asymmetric checks. Independent contracts necessarily cost an
+additional member pass; aligned Elt/Key descriptors skip the added normalization
+and member scan. No new scheduler, namespace, compatibility layer or per-method
+wrapper is introduced, and no wall-clock speedup is inferred from these laws.
+
+Local acceptance for this unit: the unchanged complete build passed its eight
+compiler batches and all 22 Set observation cases passed. The complete
+`just _check-linked-collections 2 1 4` entry exited zero with 148 modules,
+1,746 passing cases, no error markers, `OK` and `COLLECTION-PAIRED-OK`.
+Its single-process harness took 132.82 seconds and the complete entry took
+161.66 seconds. The original 1 GiB heap and all stage deadlines were retained.
+The full Lean 20-phase gate passed with zero failures in 151.90 seconds.
+These are local acceptance receipts, not controlled performance comparisons or
+remote CI claims; the resulting PR heads are checked separately. Lossless test
+and benchmark output stays outside the repository.
