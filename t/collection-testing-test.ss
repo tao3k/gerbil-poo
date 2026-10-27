@@ -188,6 +188,42 @@
       (check-equal? (.get report status) 'error)
       (check (TypeError? (.get report cause)) => #t)
       (check-equal? calls 0))
+    (test-case "Record command callbacks remain wrapped across complete prefix admission"
+      (def calls 0) (def opened 0) (def closed 0)
+      (def command (Record kind: [(Enum make use)] id: [UInt] callback: [(Fun UInt <- UInt)]))
+      (def selected (.o bind-these: #f Command: command State: State Result: UInt Observation: State
+        initial: (lambda () []) observe: identity
+        enabled?: (lambda (state request)
+          (def present (and (memv (.get request id) state) #t))
+          (if (eq? (.get request kind) 'make) (not present) present))
+        advance: (lambda (state request)
+          (def id (.get request id))
+          (if (eq? (.get request kind) 'make) (values (cons id state) id)
+            (values state (1+ id))))))
+      ;; Real effects see only the callbacks wrapped by the Command Record.
+      (def (fixture invalid-argument?)
+        (lambda (use)
+          (set! opened (1+ opened))
+          (try (use (.o bind-these: #f State: State initial: [] observe: identity
+            step: (lambda (state request)
+              (def id (.get request id))
+              (if (eq? (.get request kind) 'make) (values (cons id state) id)
+                (values state (.call request callback (if invalid-argument? #f id)))))))
+            (finally (set! closed (1+ closed))))))
+      ;; Two consumers share producers; their callbacks are ordinary raw fields.
+      (def action (lambda (id) (set! calls (1+ calls)) (1+ id)))
+      (def requests (for/collect (entry '((make . 1) (make . 2) (use . 1) (use . 2)))
+        (.o bind-these: #f kind: (car entry) id: (cdr entry) callback: action)))
+      (check (.get (check-trace selected requests (fixture #f)) matched?) => #t)
+      (check-equal? calls 2)
+      (check-exception (check-trace selected requests (fixture #t)) TypeError?)
+      (check-equal? calls 2)
+      (check-equal? opened closed)
+      (check-equal? opened 2)
+      (check-exception (check-trace selected
+        (append requests (list (.o kind: 'use id: 99 callback: action))) (fixture #f))
+        (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "invalid command trace"))))
+      (check-equal? opened 2))
     (test-case "real unique indexes and deltas agree through conflict inverse stale restaging and retry"
       (for (backend '(rationaldict trie))
         (def sampler (trace-generator collection.Command collection.model steps: 48))

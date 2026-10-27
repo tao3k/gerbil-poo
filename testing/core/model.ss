@@ -34,15 +34,18 @@
         (let-values (((next _reply) ((reference-advance model) (car progress) command)))
           (cons next (cons command (cdr progress)))) progress)))
     (cons ((reference-initial model)) []) commands))
-;; Complete prefix admission runs before any actual fixture can have effects.
-(def (valid-trace? model commands)
+;; Retain the exact normalized commands admitted by every model prefix. A false
+;; result rejects the whole trace; an empty prepared list is a successful trace.
+(def (prepare-trace model commands)
   (let/cc invalid
     (unless (list? commands) (invalid #f))
-    (fold-trace model commands (lambda (state raw)
+    (reverse (cdr (fold-trace model commands (lambda (state raw)
       (unless (judgment ((reference-accept model) raw) "command predicate must return a boolean") (invalid #f))
       (def command ((reference-normalize model) raw))
       (unless (judgment ((reference-enabled model) state command) "trace precondition must return a boolean") (invalid #f))
-      (values #t command))) #t))
+      (values #t command)))))))
+;; Boolean admission is only a projection of the same preparation protocol.
+(def (valid-trace? model commands) (and (prepare-trace model commands) #t))
 ;; Dependency retirement uses the same fold and never renames logical handles.
 (def (repair-trace model commands)
   (reverse (cdr (fold-trace model commands (lambda (state raw)
@@ -69,7 +72,8 @@
 ;; phase/expected/actual, permitting typed domains to normalize at that boundary.
 (def (check-trace model commands (with-system : :procedure)
                   same?: (same? (lambda (_phase left right) (equal? left right))))
-  (unless (valid-trace? model commands) (error "invalid command trace"))
+  (def prepared (prepare-trace model commands))
+  (unless prepared (error "invalid command trace"))
   ;; The comparison fold exits before any later step or unnecessary observation.
   (def (run actual)
     (unless (system? actual) (error "system required"))
@@ -80,13 +84,13 @@
       (def reference ((reference-initial model)))
       (def initial (fixture-initial actual))
       (compare 'initial 0 #f #f ((reference-observe model) reference) ((fixture-observe actual) initial))
-      (for/fold (states (cons reference initial)) ((command commands) (index (in-range (length commands))))
+      (for/fold (states (cons reference initial)) ((command prepared) (index (in-range (length prepared))))
         (let*-values (((next expected) ((reference-advance model) (car states) command))
                       ((updated found) ((fixture-step actual) (cdr states) command)))
           (compare 'result index #t command expected found)
           (compare 'state index #t command ((reference-observe model) next) ((fixture-observe actual) updated))
           (cons next updated)))
-      (make-trace-report #t 'complete (length commands) #f #f #f #f)))
+      (make-trace-report #t 'complete (length prepared) #f #f #f #f)))
   (def active? #t) (def entered? #f) (def result #f)
   (try
     (let (returned (with-system (lambda (actual)
