@@ -2635,3 +2635,16 @@ The capacity-ledger value Wrapper refinement reuses the existing transport.
 Finite capture/check/conversion/inverse laws state backend and stable-leaf
 premises. Only present backend expectations add a shell; no full scan/refold or
 VM speedup is claimed. See table-representations.md and the composition audit.
+
+
+### Captured grouped-join payloads
+
+Closed warm pair construction over shared read-response buffers: bind the left
+payload before dependent group/right queries and reuse existing joint indexes,
+projection and publication. Six original failures include silent numeric error,
+missed target collision and valid Function placement refusal. Controls cover
+multi-group migration, deduplication, exact deltas, inverse, five styles, false
+values and stale-origin retry. revise-placement-action reuses typed point delta
+capture and FUN/IO. Finite payload/presence/refusal laws keep backend, stable-leaf
+and classification premises explicit. Pattern binding adds no wrapper; ordinary
+candidate, validation, construction and GC costs remain charged. See table-mapping.md.

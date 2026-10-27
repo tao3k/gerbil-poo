@@ -795,3 +795,47 @@ Option shell. Repeated-key prefix values incur no extra copy, and old payloads
 are never deep-cloned or rewrapped. Existing key ownership, conversion, recognition,
 construction, allocator and GC costs remain charged. No full target scan, trial
 point write, fold reinitialization or new wall-clock speedup is asserted.
+
+
+## Captured grouped-join payloads
+
+Warm many-to-many maintenance retained a borrowed left Option across dependent
+group and right-row reads, then reread its payload inside the final pair builder.
+Independently typed readers may share a response buffer while every lookup is
+faithful when returned. A later right query could therefore replace the left
+row. Equal row Types hid the defect: the numeric counterexample produced 40
+instead of 31. Distinct service/worker Types refused an otherwise valid revision;
+the wrong left row could also bypass a required target-key collision.
+
+Six regressions fail against the original implementation while all 1,788 existing
+cases pass. They cover cold/warm correlation, overlapping memberships, joint
+migration, direct reversible target deltas, five styles, Function handles, false
+keys/payloads, collision refusal/retry and stale-origin rederivation.
+
+The existing final-pair builder now uses Gerbil match to bind a present left
+payload before dependent lookups. It never rereads the borrowed Option. Absent
+left rows still skip group queries, later missing groups cannot erase an earlier
+match, and the original lookup/classification/projection failures propagate.
+No additional Option copy, validator, index or join engine is introduced.
+Existing source/index staging, membership deduplication, exact projection deltas
+and one target installation remain authoritative.
+
+The revise-placement-action service example stages two typed point deltas from
+captured immutable source roots and delegates joint maintenance to the existing
+Reader/FUN/IO publisher. It performs no source snapshot diff. Collision/refinement
+failure leaves the target owner reusable; callback effects are not rolled back.
+
+TableCapture models the bound left leaf separately from a later provider buffer.
+Laws cover absence, exact matched pairs, right absence, buffer independence and
+original refusal. CollectionStyles records the numeric false-result example,
+present false and opaque callable identities. Logical grouped-index/join laws
+still require faithful persistent backends, complete source admission, explicit
+finite memberships and stable payloads/registered classification dependencies.
+These are collection-library future-work laws, following the author's descriptor
+and dictionary delegation (poof.scrbl lines 744-773 and 1433-1444), not a compiler,
+heap, arbitrary callback-termination or automatic dependency-discovery proof.
+
+Cost boundary: binding the leaf adds no response shell or payload wrapper.
+Candidate-pair/group work, registry preparation, source/target recognition,
+projection, allocation and GC remain charged. No full target diff, additional
+classification pass or VM wall-clock speedup is asserted.

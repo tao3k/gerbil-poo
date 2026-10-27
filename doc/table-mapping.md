@@ -670,3 +670,15 @@ reroute-service-action captures a finite route request and preserves the service
 Function through the existing FUN/IO publisher. Refusal/retry and inverse recovery
 remain ordinary persistent-delta operations. See the composition audit for the
 six original counterexamples, finite laws, stable-row premise and charged costs.
+
+
+### Captured grouped-join payloads
+
+Warm final-pair construction binds its original left row before group/right
+lookups can recycle a borrowed response. Gerbil match preserves present false
+values and Function handles without another Option copy. Existing membership
+deduplication, exact output deltas and final target publication remain shared.
+revise-placement-action captures one point delta per source and uses the existing
+FUN/IO publisher, with no source snapshot diff. See the composition audit for
+cold/warm numeric and service controls, multi-group migration, five styles,
+collision/refusal retry, inverse recovery and finite proof/cost boundaries.

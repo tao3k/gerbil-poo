@@ -1,5 +1,5 @@
 ;;; Gerbil Iterable classes over checked POO services and source-bound snapshots.
-(export reroute-service-action approved-access-contract revise-focused-access divide-access-action encode-ledger-action)
+(export revise-placement-action reroute-service-action approved-access-contract revise-focused-access divide-access-action encode-ledger-action)
 (export observe-ledger-action observe-positioned-ledger-action observe-access-action singleton-ledger-action join-ledger-action reconcile-ledger-action fold-access-action make-policy-capacity-fold make-rational-capacity-ledger apply-indexed-revision admit-ledger-action empty-ledger-action choose-ledger-action decode-ledger-action equal-ledger-action associate-ledger-action construct-ledger-action compare-ledger-action import-ledger-action find-ledger-action divide-ledger-action observe-indexed-range observe-ledger-range make-service-override-view make-service-membership-fold make-service-policy-summary make-service-route-summary drop-ledger-action decons-ledger-action make-service-routes make-service-placement-join make-service-routing-join publish-join-action make-team-capacity-fold make-service-permission-image publish-set-combination-action publish-access-image-action publish-projected-ledger-action revise-projected-ledger-action map-ledger-into-action make-cohort-access make-service-ledger observe-ledger-first make-cohort-services partition-ledger-action merge-ledger-action split-ledger-action map-ledger-action revise-focused-ledger partition-access-action access-style-action prepare-access-revision prepare-ledger-transport approved-ledger-action ledger-action make-services observe-services observe-cached-services prepare-ledger-revision apply-ledger-revision transport-ledger-action fold-ledger-action make-capacity-ledger batch-ledger-action make-mirrored-ledger revise-ledger-point revise-ledger-styles revise-ledger-receivers observe-indexed-receiver make-indexed-services make-tagged-services make-ordered-services make-seek-services make-ordered-service-indexes revise-indexed-services update-indexed-service publish-indexed-services)
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-combination table-projection table-projection-compose table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
@@ -643,6 +643,20 @@
       (and (vector-ref worker-row 1)
         (some (cons (cons service-key worker-key) (vector-ref service-row 1)))))
     multiple?: multiple?))
+
+ ;; Capture both immutable source snapshots before either user point edit runs.
+;; Existing typed delta capture, joint join maintenance and FUN/IO publication
+;; supply ordering, exact target delivery and retry; no snapshot diff is needed.
+(def (revise-placement-action join left-key left-edit right-key right-edit protocol consume)
+  (publish-collection-action
+    (lambda (request receive)
+      (def domain (.@ join Domain))
+      (def roots (.call join .unap (.@ request state)))
+      (def left (car roots)) (def right (cdr roots))
+      (def dl (.call (.@ domain left) .delta/opt left-key left-edit left))
+      (def dr (.call (.@ domain right) .delta/opt right-key right-edit right))
+      (.call join .apply-deltas (.@ request state) dl dr receive))
+    protocol consume))
 
 ;; Expand one service's declared route keys while retaining its checked callback.
 ;; Shared projection ownership rejects duplicate keys, prepares final-state swaps,

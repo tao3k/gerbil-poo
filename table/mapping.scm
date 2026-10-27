@@ -757,14 +757,17 @@
                     (list (cons old-l old-r) (cons il ir)))))
                 (def before (.call projection .unap (%table-group-join-projection state)))
                 (def edits (map (lambda (key)
-                  (def lv (.call ltype .ref/opt l (car key)))
                   (def final #f)
-                  (when (some? lv)
-                    (matches ri ir cl (car key) (some-value lv) (lambda (bucket)
-                      ;; Absence from a later group cannot erase an earlier match.
-                      (unless (some? final)
-                        (set! final (map/option (lambda (rv) (cons (some-value lv) rv))
-                          (.call rtype .ref/opt bucket (cdr key))))))))
+                  ;; Bind the leaf once: group/right queries may recycle the left
+                  ;; reader's Option. Pattern capture adds no shell or wrapper.
+                  (match (.call ltype .ref/opt l (car key))
+                    ((some left-row)
+                      (matches ri ir cl (car key) left-row (lambda (bucket)
+                        ;; Absence from a later group cannot erase an earlier match.
+                        (unless (some? final)
+                          (set! final (map/option (lambda (right-row) (cons left-row right-row))
+                            (.call rtype .ref/opt bucket (cdr key))))))))
+                    (else (void)))
                   (make-table-change key (map/option identity (.call joined .ref/opt before key)) final)) keys))
                 (def delta (make-table-delta pair-key row-type live (map object-revision live) edits))
                 (.call projection .apply-delta (%table-group-join-projection state) delta
