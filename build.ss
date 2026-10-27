@@ -1,4 +1,4 @@
-#!/usr/bin/env gxi
+#!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package build entry; inventories live with the build support.
 (import (only-in :std/build-script defbuild-script)
         (only-in "t/build-spec.ss" build-request build-consumer consumer-request))

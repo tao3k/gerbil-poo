@@ -305,3 +305,8 @@ root resolved it; no load-path override or permanent cleanup engine was added.
 The full public checks are rerun against that coherent output. This is local
 output-cohort recovery, not qualification of mixed SDK compilation formats or a
 claim that std/make clean removes every dynamic version.
+
+Package compilation establishes its 2 GiB Gambit heap bound in the native
+`build.ss` interpreter invocation. Package-manager indexing uses the compiler
+distribution default; callers must not globally apply compiler heap options to
+all tools. The package entry has no elapsed-time cutoff.
