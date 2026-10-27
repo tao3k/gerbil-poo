@@ -1,5 +1,5 @@
 ;;; Standard build/test acceptance: no project dependency parser or test runner.
-(export build-test)
+(export build-test with-package command write-source modified)
 (import :std/test :std/io/tempfile :std/iter
   (only-in :std/misc/process run-process process-error?)
   (only-in :std/misc/ports read-all-as-lines)
@@ -25,11 +25,11 @@
 
 ;; Invoke only the compiler's public package/test commands under a fixture bound.
 ;; GERBIL_PATH and GERBIL_BUILD_CORES are Gerbil's documented controls.
-(def (command root args (cores "0") (deadline "30s"))
+(def (command root args (cores "0") (deadline "30s") (store root))
   (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"]
                       coprocess: read-all-as-lines)))
   (run-process (append [timeout "--signal=TERM" "--kill-after=3s" deadline
-    "env" (string-append "GERBIL_PATH=" root)
+    "env" (string-append "GERBIL_PATH=" store)
     (string-append "GERBIL_BUILD_CORES=" cores) "gerbil" "-:max-heap=1G,debug=q"] args)
     directory: root stderr-redirection: #t))
 

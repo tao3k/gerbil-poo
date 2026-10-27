@@ -566,6 +566,16 @@ standard build configuration and limits are retained. Standalone kernel tests,
 Record/FUN regressions, complete compiled-suite execution and exact-head CI are
 reported separately; none substitutes for a missing full-entry receipt.
 
+The subsequent macOS build repair was accepted from an entirely empty standard
+`GERBIL_PATH`: `just check 2 1 4` exited zero, all 150 modules / 1,856 cases passed
+in one process, and the complete study emitted `COLLECTION-PAIRED-OK`. Its 584.52
+seconds cover compilation, test preparation/execution and the paired study;
+the startup executable stage separately passed its unchanged 90-second gate.
+The current shared module entry avoids the former duplicate collection link.
+This closes that local build gate without retroactively accepting the failed
+run or proving a host adapter simulation premise. See the macOS receipt in
+`performance/build-summary.org` for the cache-cohort and timing boundaries.
+
 The published baseline CI was checked before this follow-up. Every later revision
 must pass the same CI; that baseline is not evidence for unsubmitted edits. Full
 Lean submission checks and exact-head remote CI remain separate from target proof

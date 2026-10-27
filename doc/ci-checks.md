@@ -10,11 +10,18 @@ with the shared build, representation-entry and full single-process jobs, this
 retains 53 checks. Job enumeration lists package declarations; the project does
 not parse Scheme imports or reconstruct a dependency graph.
 
-The shared job runs `just build-shared`, preparing only the two programs needed
-by the complete acceptance and representation checks. GitHub's `hashFiles` and cache action
+The shared job runs `just build-shared`. The root package builds the shared
+libraries and `representation-main`; complete collection acceptance loads its
+ordinary module through that entry. The startup benchmark has its own small
+standard executable package. It does not relink the complete collection graph.
+GitHub's `hashFiles` and cache action
 own exact-source cross-run lookup; `std/make` owns local dependency freshness.
 Cache misses are not accepted as success and tests always execute. No project
 source-key files, cache admission executable or revision ledger are generated.
+The startup package retains `defbuild-script`'s backend parallelism through
+`GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
+disable concurrent backend object compilation. The 90-second startup-program
+gate remains separate from the 300-second root-library build.
 The standard upload/download actions transfer artifacts within the current
 workflow run, using commit-specific names and their built-in digest verification.
 The shared library/program artifact uses an uncompressed tar in runner temporary
@@ -35,6 +42,16 @@ case, 1 GiB frontend/test heaps and 2 GiB backend heaps. Compiler tracing and
 module/case/harness markers remain visible. No checks are removed for cache hits.
 Failures retain their actual build/test status; a queued job or a local pass is
 never reported as current-commit remote acceptance.
+
+Cold macOS acceptance uses an initially empty standard `GERBIL_PATH`, followed
+by `just check 2 1 4`. It cannot borrow previously generated objects. In the
+installed release, `std/make` clean removes declared outputs but can retain
+numbered loadable objects; the loader selects the last contiguous numbered
+object. A changed interface beside an older higher-numbered body is therefore
+not a valid cache cohort. After an interrupted build or compiler/interface
+change, do not admit such a directory on the strength of a no-op build alone;
+use an empty output prefix for acceptance. Ordinary same-source warm builds
+remain owned by `std/make`, without project file scanners or a second loader.
 
 See [test execution](test-execution.md) for the public commands. These controls
 validate repository build and test behavior. They do not formally verify the

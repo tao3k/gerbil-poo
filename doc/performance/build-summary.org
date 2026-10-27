@@ -454,3 +454,65 @@ its original 90-second bound, or its existing explicit 300-second override.
 The ordinary compiler stage remains 300 seconds. The supervisor's existing
 1200-second ceiling never extends a compiler stage. No failed compilation is
 retried automatically or reported successful after cleanup.
+
+* Empty-prefix macOS executable construction
+The 2026-10-28 investigation used the installed Gerbil 1cfb032 release, Gambit
+ea114fc and its Homebrew patch618d76f9eb72 build, GCC 16.2.0, unchanged compiler
+flags and the standard automatic 12-core budget. These are macOS observations;
+they are not Linux CI timings or cold operating-system page-cache measurements.
+
+The earlier =benchmarks/checks= configuration disabled =std/make= parallelism for
+both consumers together. In the installed implementation that also passes
+=parallel: #f= to executable compilation, disabling concurrent backend objects.
+The empty-prefix reference reached the unchanged 90-second executable gate while
+compiling dependency C, before the first consumer's final compiler/link command.
+A sampled table object compilation used about 40 seconds; its generated C was
+about 13 MB. That observation identifies real C compilation, not 90 seconds of
+linker work or a proved GC cause. The reference's complete shared-build command
+failed with exit 124 after 233.08 seconds, including its successful root build.
+
+A diagnostic repair retained both consumers but let standard makes finish in
+sequence while preserving their backend workers. Their internal elapsed times
+were 50.62 and 3.42 seconds under the original shared 90-second gate. This is
+localization evidence for the former design, not current complete acceptance:
+its later verbose single-process test stage was killed before completion.
+
+The current design instead removes the duplicate collection executable. Complete
+collection acceptance uses the root package's existing =representation-main=
+entry and ordinary module loading. The small startup reference remains a normal
+=defbuild-script= package with backend parallelism and its original 90-second
+bound. No scheduler, new environment control, compiler option or alternate
+loader is added. The startup-package regression executes its actual declaration
+against a shared fixture, checks metadata and program results with two standard
+backend workers, verifies unchanged executable timestamps on a warm build, and
+checks that standard clean removes the executable.
+
+The old default output directory additionally contained a new helper interface
+beside older higher-numbered runtime bodies. The installed runtime chooses the
+last contiguous numbered body; standard make clean does not remove all such
+bodies. Reusing that directory produced a segmentation fault in the helper's
+multiple-values case, whereas its empty-prefix control returned both values.
+A metadata-only no-op is therefore not evidence of a coherent interrupted cache.
+Current acceptance starts with an entirely empty standard =GERBIL_PATH= and
+uses the ordinary =just check 2 1 4= entry, including every compiled test module
+and the complete collection paired study. Raw compiler logs and outputs remain
+outside Git.
+
+The final current-design empty-prefix =just check 2 1 4= exited 0 in 584.52
+seconds wall (1180.02 user, 183.87 system). All 150 compiled modules and 1856
+cases passed in the single process, followed by =COLLECTION-PAIRED-OK=. This is
+the entire build/test/study entry, not the 90-second startup-build phase. Root
+and test-package compilation and single-process execution kept their separate
+300-second gates; startup construction kept 90 seconds. All phases passed.
+
+The immediate same-prefix =just build-shared= took 16.26 seconds wall (14.61
+user, 1.47 system), emitted zero compile jobs, and preserved the timestamps of
+both programs and the table object. This establishes standard warm reuse for
+this cohort, not zero-cost dependency traversal or a cold/warm speedup estimate.
+
+A one-second macOS sample during test preparation found 761 of 797 samples in
+=dyld= segment mapping through =fcntl=. At an earlier process observation,
+95 seconds elapsed corresponded to about four seconds CPU. These observations
+identify dynamic-image loading/validation in that interval; they do not charge
+the entire run to GC, linker CPU, or a particular operating-system service.
+The public test harness and its module/case progress remain unchanged.
