@@ -2,7 +2,7 @@
 (export table-construction-test)
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../table ../rationaldict ../support/option
-        (only-in ../trie SimpleTrie) (only-in ../fun Wrapper.) (only-in ./table-testing box-table alist-table)
+        (only-in ../trie SimpleTrie) (only-in ../fun Wrapper.) (only-in ./table-testing box-table alist-table borrowing-table)
         (only-in ../support/base number-comparer)
         (prefix-in ../examples/service-collection service.))
 
@@ -115,6 +115,21 @@
       (def state (.call index .wrap root))
       (check-equal? (.call source .ref (option-ref (.call index .index-ref/opt state 'group 20)) 2) 20)
       (check-equal? (.call index .index-ref/opt state 'group 99) #f)
+      (check-equal? (.call raw .list<- root) '((1 . 10) (2 . 20))))
+    (test-case "scratch constructor lookup cannot replace a borrowed existing bucket Option"
+      (def shell (some #f)) (def raw (.cc (RationalDict Integer) Key: Integer))
+      (def unrelated (.call raw .singleton 9 90))
+      (def source (.o (:: @ raw)
+        (.<-list (begin (some-value-set! shell unrelated) (.@ raw .<-list)))))
+      (def table (borrowing-table (RationalDict source) shell))
+      (def indexed (table-indexes source (list (.cc Type. name: 'group unique?: #f
+        table: table project: (lambda (_ row) 0)))))
+      (def root (.call raw .<-list '((1 . 10) (2 . 20))))
+      (def state (.call indexed .wrap root))
+      (def delta (.call source .delta/opt 1 (lambda (_) (some 30)) root))
+      (def next (.call indexed .apply-delta state delta))
+      (def bucket (option-ref (.call indexed .index-ref/opt next 'group 0)))
+      (check-equal? (.call raw .list<- bucket) '((1 . 30) (2 . 20)))
       (check-equal? (.call raw .list<- root) '((1 . 10) (2 . 20))))
     (test-case "finite multimembership buckets deduplicate backend-equivalent keys and admit only final groups"
       (def raw (.cc (RationalDict (Tuple (List Rational) Integer)) Key: Integer))

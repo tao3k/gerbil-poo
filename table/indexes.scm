@@ -140,7 +140,9 @@
     ;; Seed lazily from the original bucket, never from an intermediate cache.
     (def (edit projected key row remove?)
       (def staged (.call groups .ref/opt work projected))
-      (def original (and (not (some? staged)) (.call table .ref/opt cache projected)))
+      ;; Own the provider's Option shell before either constructor getter runs.
+      (def original (and (not (some? staged))
+        (map/option identity (.call table .ref/opt cache projected))))
       (def bucket (if (some? staged) (some-value staged)
         (if (some? original) (.call buckets .<-list (.call source .list<- (some-value original)))
           (.@ buckets .empty))))

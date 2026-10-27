@@ -701,3 +701,9 @@ are enumerated/copied and all final rows are delivered to the constructor;
 registry preparation, validation, allocation and backend work remain charged.
 This closes partial-constructor semantics, not a changed-key-only cost theorem
 or a wall-clock speedup. Raw benchmark data and generated products remain outside Git.
+
+The grouped seed captures the cache provider's Option shell once before scratch
+constructor lookup. A getter may recycle that shell without changing the old
+persistent bucket; the existing borrowing-table fixture verifies that members
+remain the original ones. The finite seedIndexBucket law models that ownership
+boundary under faithful capture, not arbitrary mutable-payload cloning.
