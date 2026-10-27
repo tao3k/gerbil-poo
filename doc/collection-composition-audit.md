@@ -804,11 +804,11 @@ group and right-row reads, then reread its payload inside the final pair builder
 Independently typed readers may share a response buffer while every lookup is
 faithful when returned. A later right query could therefore replace the left
 row. Equal row Types hid the defect: the numeric counterexample produced 40
-instead of 31. Distinct service/worker Types refused an otherwise valid revision;
-the wrong left row could also bypass a required target-key collision.
+instead of 31. False-payload and freshly rederived views also disagreed with
+their original source observations while all 1,788 existing cases passed.
 
-Six regressions fail against the original implementation while all 1,788 existing
-cases pass. They cover cold/warm correlation, overlapping memberships, joint
+The six-case regression unit additionally checks distinct service/worker Types
+and target-key collisions. It covers cold/warm correlation, overlapping memberships, joint
 migration, direct reversible target deltas, five styles, Function handles, false
 keys/payloads, collision refusal/retry and stale-origin rederivation.
 

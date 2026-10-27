@@ -2641,8 +2641,9 @@ VM speedup is claimed. See table-representations.md and the composition audit.
 
 Closed warm pair construction over shared read-response buffers: bind the left
 payload before dependent group/right queries and reuse existing joint indexes,
-projection and publication. Six original failures include silent numeric error,
-missed target collision and valid Function placement refusal. Controls cover
+projection and publication. Failing numeric/false/rederived-view controls expose
+the original silent corruption; the six-case unit additionally checks collisions
+and distinct Function placement schemas. Controls cover
 multi-group migration, deduplication, exact deltas, inverse, five styles, false
 values and stale-origin retry. revise-placement-action reuses typed point delta
 capture and FUN/IO. Finite payload/presence/refusal laws keep backend, stable-leaf

@@ -86,7 +86,7 @@
       (for (name '(Pure Mutable Linear Posh Classy))
         (def protocol (.ref (table-styles target) name)) (def effects 0)
         (def owner (.call protocol .ap (.call join .get state)))
-        (def request (.o state: state target: owner))
+        (def request (object<-alist (list (cons 'state state) (cons 'target owner))))
         (def action (service.revise-placement-action join 1 (lambda (_) (some (vector '(20 30) g)))
           2 (lambda (_) (some '#((30) #t))) protocol (lambda (_) (set! effects (+ effects 1)))))
         (def result (action request))
@@ -106,7 +106,7 @@
       (def l (.call left .<-list '((1 . 10) (9 . 90)))) (def r (.call right .singleton 2 20))
       (def state (.call join .ap (cons l r)))
       (def protocol (.@ (table-styles target) Linear)) (def effects 0)
-      (def owner (.call protocol .ap (.call join .get state))) (def request (.o state: state target: owner))
+      (def owner (.call protocol .ap (.call join .get state))) (def request (object<-alist (list (cons 'state state) (cons 'target owner))))
       (def collide (service.revise-placement-action join 1 (lambda (_) (some 90)) 2 identity
         protocol (lambda (_) (set! effects (+ effects 1)))))
       (check-exception (collide request) table-index-conflict?)
