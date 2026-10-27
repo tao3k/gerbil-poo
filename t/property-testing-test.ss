@@ -1,7 +1,7 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
 (export property-testing-test property-kernel-test)
 (import :std/test :std/error :std/iter :std/io/tempfile
-        (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) ../object ../mop ../type ../number
+        (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) ../object ../mop ../type ../number
         ../testing/type ../testing/function
         (prefix-in ../examples/signature-service service.)
         (only-in ../examples/property-kernel property-kernel-test))
@@ -33,11 +33,21 @@
     (write-program (path-expand "check.ss" project)
       (list '(import (prefix-in :gerbil/tools/gxtest tests.))
         (list 'exit (list 'tests.main "-v" "5" artifact))))
+    ;; Released compilers carry relocation options in GAMBOPT. Append the same
+    ;; heap bound without replacing their standard bin/library/include mappings.
+    (def options (getenv "GAMBOPT" ""))
+    (def runtime-options (string-append "GAMBOPT=" options
+      (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
     ;; Standard process arguments and std/build-script own this isolated build.
+    ;; Print captured compiler diagnostics on failure, then preserve its cause.
     (def (run script)
-      (run-process [timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
-        (string-append "GERBIL_PATH=" package) "GAMBOPT=max-heap=1G,debug=q"
-        "gxi" "-:max-heap=1G,debug=q" script] directory: project stderr-redirection: #t))
+      (def output "")
+      (with-catch (lambda (cause) (display output) (force-output) (raise cause))
+        (lambda ()
+          (run-process [timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
+            (string-append "GERBIL_PATH=" package) runtime-options
+            "gxi" "-:max-heap=1G,debug=q" script] directory: project stderr-redirection: #t
+            coprocess: (lambda (port) (set! output (read-all-as-string port)) output)))))
     (run "build.ss")
     (run "test-build.ss")
     (check (file-exists? artifact) => #t)
