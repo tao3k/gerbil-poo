@@ -279,7 +279,7 @@ or automatic amortization threshold is justified by these samples.
 A separate diagnostic ran three FRESH gxi processes under the unchanged 1GiB /
 90s limits, calling the standard loader twice. First module loads took 18.392s,
 1.006s and 1.071s, each about 1.0s CPU, zero recorded GC, admitting 437 modules
-from an SDK baseline of 124. Cached loads took 3/6/4us and admitted no new modules.
+from an Gerbil interpreter baseline of 124. Cached loads took 3/6/4us and admitted no new modules.
 OS filesystem caches were not flushed. The first run's large wall residual is not
 attributed to eval, hashing, linking or scheduling without further evidence.
 This is process-cold loader diagnosis, not a paired implementation comparison.
@@ -360,7 +360,12 @@ rows and must not be mistaken for regressions against the preceding inline code.
 Fresh module discovery, expansion, compilation and initialization remain open
 qualification work under Gerbil's existing loader/build mechanisms.
 
-## Standard downstream entry and startup qualification
+## Original fixed-entry baseline
+
+This section records the preceding fixed-entry deployment and its historical
+receipts. The current runtime-entry interface and acceptance are documented below;
+the historical fixed-entry numbers do not measure dynamic plugin admission.
+
 
 The author source (`poof.scrbl`, mutable/lazy initialization and cache-invalidation
 sections) separates delayed field demand from representation choices. Gerbil's
@@ -466,7 +471,7 @@ implemented. Both routes remain executable through the same driver using
 
 The final paired run's standard build check took 4.43s; construction of the final
 module-plus-entry graph earlier took 13.98s using already available dependencies.
-Neither is a genuinely cold compiler/SDK measurement. Building before a one-shot
+Neither is a genuinely cold compiler or release-build measurement. Building before a one-shot
 invocation can cost more than a dynamic launch; release/deployment tooling should
 prepare the standard artifact once and charge/amortize that setup explicitly.
 Full-vector-only storage, automatic shape policies and cheaper arbitrary dynamic
@@ -538,7 +543,7 @@ Final explicit-choice source passed all 148 modules and 1,815 cases, including
 its multi-service ObjectContract/refine/FUN action with `eager?: #f`. Every prior
 collection phase and the three new phases passed. A separate quiet
 `just _run-collections 64 3 6` completed in 35.97s. Values below are microseconds
-per complete operation, demand minus eager wall medians on this local macOS SDK:
+per complete operation, demand minus eager wall medians on this local macOS Gerbil compiler build:
 
 | Phase | Natural | Collected |
 | --- | ---: | ---: |
@@ -652,3 +657,137 @@ field positions are safely reusable here. The successful complete-set check has
 real linear work, and a mismatch adds checks before the original sorting path.
 The change-phase benchmark keeps that cost. Ordinary instance hashes and full
 construction/admission still remain; vector-only storage is separate work.
+
+## Standard runtime entries and shared dependency preparation
+
+The author source (`poof.scrbl`, checkout `9affa8f`, "Different instance
+representation" and the staged-computation future-work discussion) motivates
+sharing common preparation without replacing observable computation. This unit
+advances that implementation/deployment direction; it is not a claim that the
+paper implemented or verified Gerbil's loader/compiler.
+
+`io.module-action module binding` is a Reader-compatible IO action in the existing
+IO module. Construction checks the two arguments with Gerbil `using` and captures
+a private copy of the path; it performs no requested-module discovery. Invocation
+uses standard `load-module`, then standard `eval` on the explicit canonical runtime
+identifier, then tail `apply` to the original row. No lookup registry, search-path
+rewrite, retained procedure or per-field validation wrapper is added. A concrete
+binding may be the canonical target of a reexport; export-alias inference is not
+performed here. Successful standard reload BETWEEN invocations remains visible.
+
+The loader remains responsible for dependency initialization and its cached errors.
+An already visible global binding is NOT module admission: a module can publish a
+binding and then fail initialization. The action still refuses through the loader
+before looking up that binding. Module-not-found, initialization, missing binding,
+nonprocedure apply and business errors retain their standard causes. No rollback
+of independently initialized dependencies or arbitrary initializer effects is
+promised. Business failures are not cached as initialization errors. Multiple
+values, including false, pass through unchanged.
+
+The example executable imports only the common POO/FUN/IO foundation and delegates
+the selected business module/binding to this action. Normal `defbuild-script` and
+`std/make` own imports, compilation, static object reuse and linking. An invocation
+now supplies the explicit module and runtime binding, for example:
+
+```
+representation-main -:max-heap=1G,debug=q \
+  clan/poo/examples/representation-service \
+  clan/poo/examples/representation-service#joint-main 64 indexed
+```
+
+`entry-workflow` composes three actions with existing Observation/FUN bind/map:
+the checked service lifecycle (shared revisions, shape changes, refusal, recovery)
+precedes on-demand checkout preparation and its C3/lens/final-self report. No
+business plugin is imported merely to construct an action. The joint result for
+width 64 is `#(#(6240 8256 10272 192) (30 33 3))`. Standard module caching shares
+code/initialization, never validated receivers or business results. The ordinary
+service entry remains available as the explicitly selected `#main` binding.
+
+Public `just example-representation` runs BOTH bindings under BOTH access policies.
+The same source also runs through normal gxi import or runtime-only loading; there
+is no compatibility interpreter. The shared executable is appropriate for plugins
+requiring that foundation: a rebuilt core requires a rebuilt executable, while
+optional modules retain standard dynamic loading/reload behavior. Common startup
+initializers still run once; their work moves to bootstrap instead of disappearing.
+
+### Cold-process acceptance boundary
+
+Each `benchmark-representation-startup runtime main` or `runtime joint-main` study
+retains 48 fresh child processes: two access policies, four AB/BA pairs and four
+A/A plus four B/B controls per policy. Both deployment paths call the SAME compiled
+business binding. Every sample verifies that the selected module was absent
+before demand; the shared entry additionally requires the foundation to be builtin.
+Full result values and one whole-process counter receipt are mandatory. Filesystem
+caches are not flushed; these are process/registry-cold, not disk-cold samples.
+
+A standard `read-all` reader timestamps arrival of the successful receipt using the
+SAME parent monotonic clock for readiness and process completion. It retains ALL
+stdout/stderr rather than waiting for EOF before observing readiness. Raw records
+separate receipt latency, complete monotonic lifetime and the interval after the
+receipt; the existing process-statistics parent wall remains an independent clock
+observation. Post-receipt time includes output/EOF, child exit and process waiting;
+it must not be credited entirely to discovery or initialization. This is receipt
+arrival, checked against the complete result, not a universal network latency.
+
+Portable time-p retains whole-child CPU. Standard Gambit snapshots additionally
+retain pre-exit runtime wall/CPU/GC counters, including bootstrap and loading;
+the business time form alone cannot report these stages. Gambit allocation counters
+can be NEGATIVE (also observed in its time form), so that column is preserved only
+as raw diagnostics and is not admitted as an allocation cost or memory speedup.
+CPU snapshots, child lifetime and parent receipt timing have different boundaries.
+No lower GC count or cached-module hit alone establishes a cold-entry improvement.
+
+The macOS acceptance run used width 64 and four pairs per control, with 48
+successful fresh processes for each selected binding. All four AB/BA pairs in
+each row favored the shared foundation. Seconds below are candidate minus
+runtime-only reference; ranges retain the slowest and fastest observed pairs.
+
+| Entry / access | Complete parent wall median [range] | Receipt latency median [range] | After receipt median [range] |
+| --- | --- | --- | --- |
+| main / symbolic | -2.0023 [-2.1302, -1.9710] | -1.0758 [-1.2024, -1.0398] | -0.9263 [-0.9361, -0.9233] |
+| main / indexed | -2.0608 [-2.0743, -1.9727] | -1.1099 [-1.1292, -1.0478] | -0.9450 [-0.9569, -0.9248] |
+| joint-main / symbolic | -2.0462 [-2.1129, -2.0274] | -1.0855 [-1.1495, -1.0757] | -0.9594 [-0.9660, -0.9517] |
+| joint-main / indexed | -2.0257 [-2.1516, -2.0029] | -1.0800 [-1.1915, -1.0590] | -0.9487 [-0.9601, -0.9379] |
+
+The complete run, including standard build preparation, took 58.37 seconds for
+main and 69.01 seconds for joint-main. A/A and B/B controls remain mandatory:
+joint-main symbolic A/A wall differences ranged from -0.9629 to +0.1907 seconds,
+and indexed A/A receipt differences from -0.2345 to +0.2247 seconds. These controls
+show substantial reference-path variability; they do not support a universal
+latency bound. Separately summarized medians need not add up. About one second
+of the complete-process difference occurred after the successful receipt and
+must not be described as faster initialization.
+
+AB sample pre-exit CPU medians were 1.083--1.132 seconds for main through the
+runtime-only entry versus 0.031 seconds through the shared entry; joint-main was
+1.106--1.116 versus 0.032--0.033 seconds. Pre-exit GC CPU medians were approximately
+0.020--0.022 versus 0.005--0.006 seconds. The measured CPU reduction therefore
+mostly lies outside GC, while complete parent wall also includes time outside
+these snapshots. No claim about physical allocation follows from these counters.
+
+A coherent cold shared test-program build retained all 149 modules, standard
+Gerbil backend parallelism and the existing deadlines; its first compilation
+stage took 84.94 seconds. Preparing the separate example executable subsequently
+took 14.09 seconds while reusing existing objects. The latter is a marginal build
+receipt, not a claim that a completely cold build takes fourteen seconds.
+The complete suite passed 1,837 cases, followed by every existing collection
+paired phase. Raw transcripts remain local rather than committed benchmark data.
+
+### Proof and design boundaries
+
+The existing Lean Representation namespace models client stages load/resolve/invoke,
+with exact failure short-circuiting, current binding results and unchanged argument
+rows. Value can denote a bundle of multiple results. A ghost observation of standard
+published readiness retains initialization errors until explicit refresh. The
+finite dependency cost model counts bootstrap and entry initialization separately:
+prelinking removes entry-time discovery/dynamic-admission work for declared common
+dependencies, but preserves their TOTAL initializer count. Registry probes, image
+mapping, build/link costs, code size, GC and exit work remain separately charged.
+
+These laws assume faithful standard registration/resolution and the supplied
+finite required dependency closure. They do not prove arbitrary initializer
+purity/termination, effect reordering, module cycles, concurrent reload, compiler
+correctness or a latency bound. The concrete two-plugin lifecycle is checked by
+source regression and paired receipts. Source startup sharing is advanced here;
+arbitrary export discovery, core migration and unrestricted module initialization
+remain explicit boundaries, not hidden successes.

@@ -46,7 +46,7 @@ companion; it does not change ordinary prototype recursion.
 `just build library` and package installation compile the reusable library roots.
 `gxi build.ss qualification` retains the complete library, example and benchmark
 support inventory. On macOS, `test-program` puts that inventory and the executable
-in one standard `defbuild-script` graph. This lets the released SDK reuse the same
+in one standard `defbuild-script` graph. This lets the released Gerbil compiler reuse the same
 compiled objects for loadable modules and the linked program. The complete
 `just build` then compiles all eight disjoint test batches. Other platforms keep
 their qualified-library and dynamically loaded runtime path.

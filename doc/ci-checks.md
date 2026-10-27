@@ -130,7 +130,7 @@ an end-to-end improvement on their own.
 `build.ss` selects the project inventory and invokes Gerbil's `defbuild-script`.
 `gerbil clean` followed by `gerbil build` is the usual package recovery path;
 manual selection/deletion of numbered compiled modules is not the workflow.
-The SDK object-format migration below requires a fresh generated package root.
+The compiler object-format migration below requires a fresh generated package root.
 The default specification is the shared package graph, so the official package
 command does not expand all test roots in the same compiler heap. `just test`
 still compiles all disjoint test batches and runs all 148 modules in one process.
@@ -153,7 +153,7 @@ After library preparation, benchmark executables share
 there are no separate executable installations or custom linker environment switches.
 Standalone study specifications contain their own roots. On Darwin, the test
 program instead shares one graph with its complete library/example prerequisites,
-so the SDK can emit shared/static objects in the same compilation.
+so the Gerbil compiler can emit shared/static objects in the same compilation.
 Source tests use the released harness after shared compilation, without a
 fabricated source symlink tree or changes to `GERBIL_LOADPATH`.
 
@@ -203,7 +203,7 @@ controls, first-link cost and the boundaries of the performance evidence.
 
 ## Joint Darwin object construction
 
-The SDK's `std/make` enables shared/static runtime object production when its
+Gerbil's `std/make` enables shared/static runtime object production when its
 build graph contains an executable. Separate qualification and executable graphs
 miss that opportunity: the former compiles runtime module bodies, while the
 latter regenerates and compiles their static counterparts. Counting distinct job
@@ -212,7 +212,7 @@ labels or output paths alone cannot detect this repeated source work.
 The Darwin `test-program` request now appends its standard executable to the
 complete qualification graph. Its metadata inspection uses ordinary source
 imports in that graph, allowing a clean build without pre-existing SSI files.
-The SDK owns dependency order, shared/static object emission and linking. The
+Gerbil owns dependency order, shared/static object emission and linking. The
 full driver constructs the program once before all eight test compilation
 batches; runtime execution still waits for every batch. The collection entry
 also drops its redundant standalone library preparation. Package-only builds
@@ -253,7 +253,7 @@ All eight semantic oracles passed. Whole-process wall ranges were 6.72–7.94 s
 CPU means were 6.8516 and 6.9138 s, with non-GC CPU means 4.7058 and 4.7596 s.
 Thus these controls retain a measured +1.2% whole-process wall and +0.9% loaded
 CPU difference for the test executable; they are not evidence of runtime cost
-equivalence. The construction change uses the SDK's shared object representation
+equivalence. The construction change uses the compiler's shared object representation
 rather than separately compiled static objects. Runtime representation pricing
 remains distinct from the verified reduction in compiler work. Production POO
 algorithms and the Lean semantic model are unchanged. No timing threshold or
@@ -268,7 +268,7 @@ loading and process startup still contribute to that whole-entry time.
 ### Dynamic object format migration
 
 A later Set admission regression exposed a separate migration hazard in this
-released Darwin SDK. The shared/static reuse branch in compiler `driver.ss`
+released Darwin Gerbil compiler. The shared/static reuse branch in compiler `driver.ss`
 emits a fixed runtime `.o1`, while the loader can select an older higher-numbered
 dynamic object left by ordinary split compilation. The observed module paths were
 the current `table.o104` stub followed by the old `table~0.o84` body, despite the
@@ -283,9 +283,9 @@ that every dynamic artifact was absent. Migrating this existing local output fro
 split compilation to shared/static reuse requires a fresh generated package root.
 For the current acceptance the old project-owned output is moved outside Git for
 diagnosis, and the SAME standard `.build/package` path is reconstructed. No runtime
-load-path override, versioned receipt, permanent cleanup engine or SDK patch is added.
+load-path override, versioned receipt, permanent cleanup engine or compiler patch is added.
 CI's source-keyed Linux builds remain a separate platform qualification. Arbitrary
-mixing of old/new SDK object formats is not certified by the collection proofs.
+mixing of old/new compiler object formats is not certified by the collection proofs.
 
 ### Native dependency installation
 
@@ -303,7 +303,7 @@ loader. Declared std/make clean did not remove that numbered body. Retiring the
 project-generated package output outside Git and rebuilding the SAME standard
 root resolved it; no load-path override or permanent cleanup engine was added.
 The full public checks are rerun against that coherent output. This is local
-output-cohort recovery, not qualification of mixed SDK compilation formats or a
+output-cohort recovery, not qualification of mixed compiler output formats or a
 claim that std/make clean removes every dynamic version.
 
 Package compilation establishes its 2 GiB Gambit heap bound in the native

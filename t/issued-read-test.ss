@@ -35,8 +35,8 @@
     (recorded (cut .ref/cached receiver 'missing (lambda () #f))))
   watcher)
 (def issued-read-test
- (test-suite "Native issuance with transient tokens and guarded replay"
-  (test-case "the SDK export interface does not expose native mint helpers"
+ (test-suite "Read issuance with transient tokens and guarded replay"
+  (test-case "the Gerbil export interface does not expose private read-issuance helpers"
     (def names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name

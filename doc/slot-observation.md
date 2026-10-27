@@ -192,7 +192,7 @@ protected child. Independent unselected receivers are not frozen. Transient
 miss records protect their receiver without being inserted into the read cache.
 Outside replay, the existing mutation/revision protocol is unchanged.
 
-This guards supported POO edits in a serial callback, not arbitrary SDK stores.
+This guards supported POO edits in a serial callback, not arbitrary raw runtime writes.
 `runtime.slot-set!`, generated raw setters, FFI and concurrent writes do not
 acquire this frame. In particular, raw metadata modification/restoration still
 can execute an effect and leave matching endpoints. This is neither a metadata
@@ -352,7 +352,7 @@ explicit unresolved performance boundary; no timeout or check was relaxed.
 
 ### Reproduction and acceptance
 
-Use two independent standard builds. Install the same released SDK and OpenSSL
+Use two independent standard builds. Install the same released Gerbil compiler and OpenSSL
 metadata discoverable by `pkg-config`; run `just build` and the complete suite in
 each. Copy the candidate timing-only `t/closure-measure.ss`,
 `t/collection-paired-benchmark.ss`, matching observer test and POSIX timing recipe

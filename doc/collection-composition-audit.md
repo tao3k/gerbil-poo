@@ -377,14 +377,14 @@ a controlled speedup. Generated files and diagnostic samples remain outside Git.
 
 The subsequent build-graph audit found repeated library machine-code compilation
 across qualification and executable construction. A single Darwin `std/make` graph
-now enables the released SDK's shared/static object reuse and removes the final
+now enables the released compiler's shared/static object reuse and removes the final
 redundant construction phase. All eight test batches and the complete harness
 remain. Final-source construction after standard clean passed in 270.91 seconds with the
 original 300-second stages; 148 modules / 1,734 cases and the paired collection
 study passed. See [joint graph acceptance](ci-checks.md#joint-darwin-object-construction)
 for matched controls and scope. The earlier failed runs above remain negative
 history; smaller generated code alone was not the completed fix.
-The later SDK migration audit in that same document qualifies standard-clean
+The later compiler artifact migration audit in that same document qualifies standard-clean
 receipts: retained numbered dynamic bodies were not necessarily absent.
 
 ## Shared recursive Set admission
@@ -413,7 +413,7 @@ check/study entry took 182.99 seconds. These are acceptance observations, not a
 controlled speedup claim. The original heap, deadlines, compiler batches and check
 inventory were retained. Lean's complete 20-phase gate passed, and its resulting
 PR head passed all 17 CI checks. Scheme remote CI is verified separately at the
-resulting commit; the SDK migration limitation remains explicit in ci-checks.md.
+resulting commit; the compiler artifact migration limitation remains explicit in ci-checks.md.
 
 ## Independent Set element admission and normalization
 

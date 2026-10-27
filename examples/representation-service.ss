@@ -1,11 +1,12 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow entry-workflow main joint-main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
         ../number
         ../slot-layout
         ../object-contract-flow
+        (only-in ../io module-action)
         (prefix-in ../object-contract contract.)
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in ../generalized-prototype Observation.) observation.))
@@ -99,11 +100,48 @@
           (unless (= delivered (* 3 width)) (error "service delivery count" delivered))
           (vector first revised recovered delivered))))))
 
+;; Three explicit runtime entries share standard initialized dependencies. Reader
+;; bind keeps service refinement/revisions ahead of the second plugin's C3/lens
+;; preparation and report; an original refusal prevents every later consumer.
+;; No business module is imported or discovered merely by constructing an action.
+(def (entry-workflow width layout: (layout? #f))
+  (def service (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#service-workflow))
+  (def prepare (module-action "clan/poo/examples/generalized-checkout"
+    'clan/poo/examples/generalized-checkout#prepare-checkout))
+  (def report (module-action "clan/poo/examples/generalized-checkout"
+    'clan/poo/examples/generalized-checkout#report))
+  (def checkout (.call observation.Observation. .bind prepare
+    (lambda (snapshot) (lambda (_request) (report (list snapshot))))))
+  ((.call observation.Observation. .bind
+    (lambda (_request) (service (list width layout: layout? reshape?: #t)))
+    (lambda (totals) (.call observation.Observation. .map (cut vector totals <>) checkout))) []))
+
+;; The same dynamically selected binding runs through gxi or the shared-core exe.
+;; Standard time retains complete entry business/GC work; startup is charged by
+;; the parent paired study, including both modules' first initialization.
+(def (joint-main (width "64") (access "symbolic"))
+  (using (access :~ (cut member <> '("symbolic" "indexed")))
+    (finish-entry width access (time (entry-workflow (string->number width) layout: (equal? access "indexed"))))))
+
+;; One receipt boundary is shared by both entries. Whole-process standard Gambit
+;; counters include bootstrap/loading GC, unlike the inner business time form.
+;; Columns: CPU, runtime wall, GC CPU, GC wall, collections, raw allocation counter.
+;; The Gambit allocation counter can be negative; it is diagnostic, not a byte cost.
+;; Parent process wall and portable time -p remain independent startup observations.
+(def (finish-entry width access result)
+  (displayln "SERVICE-WORKFLOW-OK " width " " access " " result)
+  (let (stats (##process-statistics))
+    (unless (= (f64vector-length stats) 20) (error "unsupported process statistics layout"))
+    (display "MODULE-PROCESS ")
+    (write (vector (+ (f64vector-ref stats 0) (f64vector-ref stats 1)) (f64vector-ref stats 2)
+      (+ (f64vector-ref stats 3) (f64vector-ref stats 4)) (f64vector-ref stats 5)
+      (f64vector-ref stats 6) (f64vector-ref stats 7)))
+    (newline) (force-output)))
+
 ;; Both ordinary gxi imports and standard exe builds call this SAME entry point.
 ;; Timing belongs to the host time form: no loader registry, alternate evaluator
 ;; or build cache is implemented here. A successful marker requires all stages.
 (def (main (width "64") (access "symbolic"))
   (using (access :~ (cut member <> '("symbolic" "indexed")))
-    (let (result (time (service-workflow (string->number width) layout: (equal? access "indexed"))))
-      (displayln "SERVICE-WORKFLOW-OK " width " " access " " result)
-      (force-output))))
+    (finish-entry width access (time (service-workflow (string->number width) layout: (equal? access "indexed"))))))

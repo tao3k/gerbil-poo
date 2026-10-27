@@ -1,8 +1,11 @@
 ;;; Persistent storage and guarded layouts are exercised through real object APIs.
 (export representation-test)
-(import :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol)
+(import :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
         (only-in :std/list/list find)
-        (only-in :gerbil/runtime/loader load-module)
+        (only-in :gerbil/runtime/loader load-module reload-module! list-modules module-load-order)
+        (only-in :std/io/tempfile call-with-temporary-directory)
+        (only-in ../io module-action)
+        (prefix-in (only-in ../generalized-prototype Observation.) gp.)
         (only-in ../mop validate TypeError? Fun) (only-in ../number Integer)
         ../object ../prototype-map ../slot-layout ../slot-observation ../meta-prototype
         (prefix-in ../examples/representation-service service.))
@@ -11,10 +14,76 @@
 (def (message? text)
   (lambda (cause) (and (Error? cause) (equal? (error-message cause) text))))
 
+;; A genuine standard source module exercises initialization and reload without
+;; an alternate loader, patched runtime, global test registry or compiled fixture.
+;; A closure counter detects repeated initialization; business refusal is separate.
+(def (write-entry-fixture module binding initial)
+  (call-with-output-file (list path: (string-append module ".scm") truncate: #t)
+    (lambda (port)
+      (write (if initial
+        `(define ,binding (let ((calls ,initial))
+          (lambda arguments
+            (set! calls (+ calls 1))
+            (case (car arguments)
+              ((deny) (raise 'entry-business-refusal))
+              ((scalar) calls)
+              (else (values calls #f))))))
+        `(begin (define ,binding (lambda arguments 'partial))
+                (error "entry initialization refused"))) port)
+      (newline port))))
+
 ;; Every case composes storage, inheritance and invalidation instead of testing an
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
+    (test-case "module IO actions delay discovery preserve failures and resolve the current binding"
+      (call-with-temporary-directory "poo-module-entry-" (lambda (directory)
+        (def module (path-expand "service" directory))
+        (def supplied (string-copy module))
+        (def binding (make-symbol "poo-entry-" (object->serial-number supplied)))
+        (def action (module-action supplied binding))
+        (string-set! supplied 0 #\x)
+        (check (assoc module (list-modules)) => #f)
+        (write-entry-fixture module binding #f)
+        (let (cause (with-catch identity (cut action '(ok))))
+          (check ((message? "entry initialization refused") cause) => #t)
+          ;; A partially published binding is not successful module admission.
+          (check (procedure? (eval binding)) => #t)
+          (write-entry-fixture module binding 0)
+          ;; Standard loader errors remain cached until standard explicit reload.
+          (check (eq? (with-catch identity (cut action '(ok))) cause) => #t))
+        (reload-module! module)
+        (let ((first (eval binding)) (order (module-load-order module)))
+          (check-equal? (call-with-values (cut action '(ok)) list) '(1 #f))
+          (check-equal? (call-with-values (cut action '(ok)) list) '(2 #f))
+          (check (eq? first (eval binding)) => #t)
+          (check-equal? (module-load-order module) order)
+          (check (eq? (with-catch identity (cut action '(deny))) 'entry-business-refusal) => #t)
+          (check-equal? (call-with-values (cut action '(ok)) list) '(4 #f))
+          (let (observe (.call gp.Observation. .map (cut + <> 10) action))
+            (check-equal? (observe '(scalar)) 15))
+          (write-entry-fixture module binding 100)
+          (reload-module! module)
+          (check (eq? first (eval binding)) => #f)
+          (check-equal? (call-with-values (cut action '(ok)) list) '(101 #f))
+          (eval `(define ,binding 17))
+          (check-exception (action '(ok)) type-exception?))
+        (check-exception ((module-action module 'poo-missing-entry) '(ok)) unbound-global-exception?)
+        (check-exception (module-action #f binding) contract-violation-error?)
+        (check-exception (module-action module "entry") contract-violation-error?))))
+    (test-case "runtime entries compose existing shared-service and generalized FUN workflows"
+      (def service (module-action "clan/poo/examples/representation-service"
+        'clan/poo/examples/representation-service#service-workflow))
+      (check-equal? (service '(4 layout: #t reshape?: #t)) '#(30 36 42 12))
+      (def prepare (module-action "clan/poo/examples/generalized-checkout"
+        'clan/poo/examples/generalized-checkout#prepare-checkout))
+      (def report (module-action "clan/poo/examples/generalized-checkout"
+        'clan/poo/examples/generalized-checkout#report))
+      (let (action (.call gp.Observation. .bind prepare
+        (lambda (snapshot) (lambda (_request) (report (list snapshot))))))
+        (check-equal? (action []) '(30 33 3)))
+      (check-equal? (service.entry-workflow 4 layout: #t) '#(#(30 36 42 12) (30 33 3)))
+      (check-exception (service.entry-workflow -1) contract-violation-error?))
     (test-case "shape hints check the complete identity set and never seed foreign cells"
       (def a (string->uninterned-symbol "same")) (def b (string->uninterned-symbol "same"))
       (def original (make-slot-layout (list a 'off a) (list->hash-table (list (cons a 7) (cons 'off 9))) absent-value))

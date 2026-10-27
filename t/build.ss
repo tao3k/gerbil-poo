@@ -98,7 +98,7 @@
   (when build-stopping? (error "build admission stopped after cleanup failure"))
   (def started (real-time))
   (displayln "BUILD-STAGE-START command=" args " cores=" cores) (force-output)
-  ;; Use the public SDK launcher, as just does: a linked binary's ~~bin can
+  ;; Use the public Gerbil launcher, as just does: a linked binary's ~~bin can
   ;; retain the release producer's path and bypass relocation/runtime activation.
   ;; Both compilation and recovery use the same bounded process-group ownership.
   ;; Standard clean runs only after the failed compiler group has been reaped.

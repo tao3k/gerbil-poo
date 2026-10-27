@@ -2713,17 +2713,11 @@ remain the explicit representation acceptance boundaries above.
 
 ### Standard downstream entry and complete startup acceptance
 
-A known service consumer now has an ordinary importable module and a separate
-standard exe entry, sharing the exact same main/workflow. The single std/make
-graph keeps SSI, dynamic objects and linked code coherent; exe-only preparation
-is not accepted as dynamic-module admission. The finite lifecycle includes lazy
-first demand, shared-source invalidation, original refinement refusal/no consumer,
-recovery and explicit symbolic/indexed policies. Source-result batch equivalence
-and failure scope have Lean laws. Fresh-process paired startup retains AB/BA,
-A/A/B/B, child business/GC output and separately charged build work. A CI atom
-checks the actual standard executable and dynamic entry, preserving all previous
-checks. See representation.md. This does not implement another loader, automatic
-PIC/JIT, full hash removal or qualify arbitrary dynamic module startup.
+The fixed-entry baseline established a standard importable business module and an
+executable deployment, retaining the complete service lifecycle and source-result
+proofs. The next unit below generalizes that executable to a shared-foundation
+runtime entry; it supersedes the fixed main alias without adding a loader. See
+representation.md for distinct historical and current receipts.
 
 ### Explicit demand-filled static cells
 
@@ -2752,3 +2746,21 @@ full-set/index/current-value Lean laws and preparation/full/reshape paired phase
 accompany complete regressions. No alternate loader, admission cache or evaluator
 is added. Full-vector-only storage, automatic policy selection and arbitrary cold
 module initialization remain distinct boundaries; see representation.md.
+
+### Deferred runtime entries with a shared POO foundation
+
+Closed the fixed-entry-only deployment gap with `io.module-action` and a standard
+shared-foundation executable. Business modules are discovered/initialized only on
+action invocation; Gerbil's loader owns all readiness, dependency and error state.
+Explicit bindings are resolved anew, with private path capture, exact error order,
+multiple values, standard reload and partial-publication refusal regressions.
+The joint service/C3/lens/FUN example exercises a genuinely deferred second plugin.
+No loader, module registry, search-path overlay or cached receiver is introduced.
+
+Representation entry-stage and finite preparation laws preserve original results
+and causes and keep total initialization charged. Cold-process AB/BA, A/A/B/B
+studies distinguish successful-receipt latency from complete exit and retain whole
+CPU/GC observations; raw negative Gambit allocation counters are not byte-cost proof.
+All previous checks/limits remain. See representation.md for acceptance and scope;
+arbitrary effectful/cyclic initialization and compiler/loader verification are not
+claimed as completed by this unit.

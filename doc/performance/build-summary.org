@@ -362,7 +362,7 @@ admission are retained. Standard compiler verbosity 9 on the producer now record
 actual backend commands alongside the consumer's existing trace. No project
 scheduler, extra environment switch, skipped output, source fallback or relaxed
 limit is introduced. Further overlapping of this compiler's frontend and backend
-belongs to a qualified compiled SDK release. With no demonstrated project-level
+belongs to a qualified compiler release. With no demonstrated project-level
 repeated compile left in this observation, work returns to the concrete collection
 TODO instead of expanding the build machinery. A new cold CI run must retain all
 producer/group/consumer cache misses and report the whole workflow separately
@@ -434,9 +434,9 @@ partial-output bug has an explicit recovery regression. Full raw compiler logs,
 objects and timing data remain outside Git.
 
 The linked executable control also exposed why ~~bin/gxi is unsuitable as a tool
-locator: it resolved to the SDK producer's directory, not this installation.
-The boundary now invokes the same public gxi launcher as just. The SDK launcher
-owns relocation and runtime activation; no SDK absolute path or extra project
+locator: it resolved to the compiler release producer's directory, not this installation.
+The boundary now invokes the same public gxi launcher as just. The Gerbil launcher
+owns relocation and runtime activation; no compiler-installation absolute path or extra project
 environment variable is introduced. The temporary build-script fixture uses an
 ordinary quoted build-spec list so compiled datum writing preserves its syntax.
 Consumer construction tests inspect the actual bounded target invocations,

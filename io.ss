@@ -2,6 +2,7 @@
 
 (import
   (only-in :gerbil/runtime/gambit macro-writeenv-style)
+  (only-in :gerbil/runtime/loader load-module)
   :std/assert
   :std/format
   (only-in :std/func compose)
@@ -14,6 +15,20 @@
   ./support/json
   ./object
   ./mop)
+
+;; Capture one runtime entry as a Reader-compatible IO action, without loading it.
+;; The private path copy cannot drift away from the caller's explicit binding.
+;; Gerbil owns discovery, dependency preparation and initialization/error caching.
+;; Resolve the binding on EVERY invocation so successful reloads are visible;
+;; tail apply preserves all values and the original loading/entry exceptions.
+;; Binding is an explicit runtime identifier, including canonical reexport targets;
+;; this boundary does not infer export aliases or retain a second module registry.
+(def (module-action module binding)
+  (using ((module :~ string?) (binding :~ symbol?))
+    (let (path (string-copy module))
+      (lambda (arguments)
+        (load-module path)
+        (apply (eval binding) arguments)))))
 
 ;;; Byte I/O
 

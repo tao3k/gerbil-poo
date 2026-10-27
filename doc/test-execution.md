@@ -8,7 +8,7 @@ no GC is inserted by the runner and no interpreter registry is modified.
 Run `just build` first when invoking individual files after source changes.
 
 On macOS, the library and test executable belong to one standard make graph,
-which enables the SDK's shared/static object reuse. The full build still compiles
+which enables the compiler's shared/static object reuse. The full build still compiles
 every test batch before execution. Other platforms keep the qualified-interface
 and dynamically loaded library path. Compiler stages remain limited to 300 seconds,
 with 1 GiB heaps and the existing 1,200-second full-build supervisor. See
@@ -97,8 +97,8 @@ verifies both partial outputs disappeared, then compiles the same module through
 supervisor-interruption boundaries.
 
 The boundary invokes the public `gxi` launcher used by `just`, rather than the
-linked executable's `~~bin` alias, which can retain the SDK producer's path.
-Release relocation and runtime activation stay with the SDK. The compiled
+linked executable's `~~bin` alias, which can retain the compiler release producer's path.
+Release relocation and runtime activation stay with the Gerbil compiler launcher. The compiled
 recovery fixture verifies a produced-output marker and the standard runner's
 representation of exit 124 before testing cleanup and serial-mode rebuild.
 
@@ -142,10 +142,10 @@ the existing actual interrupted-build/clean/retry test remains intact. The 1 GiB
 heap, 300-second stage/runtime deadlines, three-second timeout kill grace and
 1200-second complete build deadline are unchanged.
 
-### Distinguishing an abandoned SDK object lock
+### Distinguishing an abandoned compiler object lock
 
 The same investigation exposed a separate, real timeout: the executable object
-compiler waited on `lib/static/clan__poo__table.o.lock`. The SDK's `compile-obj`
+compiler waited on `lib/static/clan__poo__table.o.lock`. The compiler's `compile-obj`
 waits for an existing lock file; SIGKILL cannot run its Scheme unwind cleanup.
 Standard `make-clean` removes declared outputs, which do not include this lock.
 Re-running clean/build without investigating that file repeats the wait.
@@ -155,7 +155,7 @@ owner; the one orphan was moved outside the checkout as diagnostic evidence.
 Do not delete locks based on age or suppress the stage timeout. Confirm that no
 producer is running and that the exact lock has no open owner before recovering
 it, then use the normal Gerbil clean/build entry. The project does not introduce
-a competing lock registry or change the released SDK's locking implementation.
+a competing lock registry or change the released compiler's locking implementation.
 A file-existence lock still requires explicit orphan recovery after an external
 hard kill; this is a toolchain lifecycle limitation, not a collection algorithm
 or a paper/formal-model gap.

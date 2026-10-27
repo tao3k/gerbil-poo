@@ -1,4 +1,4 @@
-# Homebrew Gerbil is built with GCC on Darwin. Keep Nix SDK/header/library
+# Homebrew Gerbil is built with GCC on Darwin. Keep Nix toolchain/header/library
 # variables out of child compilations and make GCC's collect2 select Apple's
 # system linker instead of a Nix-provided ld.
 set shell := ["bash", "-euo", "pipefail", "-c"]
@@ -82,12 +82,14 @@ _run-collections width samples pairs:
 
 # Known downstream entries use standard exe linking; no alternate loader/cache.
 example-representation: (build "example" "representation-service")
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} 64 symbolic
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} 64 indexed
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 indexed
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 indexed
 
 # Fresh processes retain AB/BA and A/A/B/B controls; no filesystem cache flushing.
-benchmark-representation-startup reference='runtime': (build "example" "representation-service")
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} t/representation-startup.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" 64 4 "{{ reference }}"
+benchmark-representation-startup reference='runtime' entry='main': (build "example" "representation-service")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gxi {{ test-runtime-options }} t/representation-startup.ss "{{ timeout-executable }}" "{{ test-runtime-options }}" 64 4 "{{ reference }}" "{{ entry }}"
 
 clean:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
