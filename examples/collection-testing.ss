@@ -23,6 +23,8 @@
 (def ModelState (.cc Type. .element?: ledger?))
 ;; Actual snapshots are owned by the scoped fixture and are never report payloads.
 (def ActualState (.cc Type. .element?: actual?))
+;; Compile the fixture Record shape once; instances and backend owners remain per run.
+(define-type ActualSystem (TraceSystem ActualState))
 ;; Both sides expose epoch, liveness, ordered primary rows and complete unique index.
 (def Observation (Tuple UInt Bool (List (Pair UInt Integer)) (List (Pair Integer UInt))))
 
@@ -188,7 +190,7 @@
                   (actual-tickets state) #t) reply))
                (else (values state reply))))
             (else (values state reply))))))
-    (use (make-instance (TraceSystem ActualState) initial: (make-actual indexed (.call indexed .wrap root) root [] #t)
+    (use (make-instance ActualSystem initial: (make-actual indexed (.call indexed .wrap root) root [] #t)
       step: step observe: inspect))))
 ;; Ordinary Boolean projection permits the same fixture in std/test or FUN/IO.
 (def (collection-property backend (fault 'none))

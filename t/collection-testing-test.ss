@@ -19,9 +19,11 @@
   draw: (lambda (state random _size)
     (some (if (null? state) (vector 'make (random 8)) (vector 'use (car state)))))
   shrink: (lambda (_) []) measure: (lambda (command) (vector-ref command 1))))
+;; Reuse one declared fixture shape; every invocation still owns a fresh instance.
+(define-type CounterSystem (TraceSystem State))
 ;; Each callback receives a fresh logical state and may inject one wrong reply.
 (def (with-counter use (wrong? #f))
-  (use (make-instance (TraceSystem State) initial: [] observe: identity
+  (use (make-instance CounterSystem initial: [] observe: identity
     step: (lambda (state command)
       (let-values (((next reply) (.call model advance state command)))
         (values next (if (and wrong? (equal? command #(use 2))) #f reply)))))))
@@ -116,6 +118,59 @@
       (let (before opened)
         (check-exception (replay-counterexample report) (message? "stale property replay"))
         (check-equal? opened before)))
+    (test-case "trial shrink and replay fixtures own distinct instances and always unwind"
+      (def opened 0) (def closed 0) (def active 0) (def owners [])
+      ;; The fixture owns cleanup; the existing runner only composes its callback.
+      (def (fixture use)
+        (check-equal? active 0)
+        (set! active 1) (set! opened (1+ opened))
+        (try
+          (with-counter (lambda (system)
+            (check (and (memq system owners) #t) => #f)
+            (set! owners (cons system owners))
+            (use system)) #t)
+          (finally (set! active 0) (set! closed (1+ closed)))))
+      (def sampler (fixed-trace '(#(make 1) #(make 2) #(use 1) #(use 2))))
+      (def property (trace-property model fixture))
+      (def report (check-property (.get sampler descriptor) property sampler: sampler cases: 1 shrink-budget: 80))
+      (check-equal? (.get report status) 'failed)
+      (check (> opened 1) => #t)
+      (check (replay-counterexample report) => #f)
+      (check-equal? (.get (replay-property report) status) 'failed)
+      (check-equal? (list active opened) (list 0 closed))
+      (check-equal? (length owners) opened)
+      ;; An observation exception must unwind the same fixture boundary too.
+      (check-exception (check-trace model [] fixture same?: (lambda _ (error "comparison fault")))
+        (message? "comparison fault"))
+      (check-equal? (list active opened) (list 0 closed)))
+    (test-case "the first divergence prevents later steps and unnecessary observations"
+      (for (phase '(initial result state))
+        (def calls 0) (def observations 0)
+        ;; Later commands deliberately raise: continuing after a mismatch is observable.
+        (def (fixture use)
+          (use (make-instance CounterSystem initial: (if (eq? phase 'initial) '(9) [])
+            observe: (lambda (state) (set! observations (1+ observations)) state)
+            step: (lambda (state command)
+              (set! calls (1+ calls))
+              (when (> calls 1) (error "executed beyond first difference"))
+              (let-values (((next reply) (.call model advance state command)))
+                (values (if (eq? phase 'state) state next) (if (eq? phase 'result) #f reply)))))))
+        (def report (check-trace model '(#(make 1) #(use 1) #(make 2)) fixture))
+        (check (.get report matched?) => #f)
+        (check-equal? (.get report phase) phase)
+        (check-equal? (.get report index) 0)
+        (check-equal? calls (if (eq? phase 'initial) 0 1))
+        (check-equal? observations (if (eq? phase 'state) 2 1))))
+    (test-case "actual state reply and observation contracts reject malformed adapters"
+      (for (phase '(state result observation))
+        ;; The same Record shape and one transition expose each dependent boundary.
+        (def (fixture use)
+          (use (make-instance CounterSystem initial: []
+            observe: (if (eq? phase 'observation) (lambda (_) #f) identity)
+            step: (lambda (state command)
+              (let-values (((next reply) (.call model advance state command)))
+                (values (if (eq? phase 'state) #f next) (if (eq? phase 'result) 'wrong reply)))))))
+        (check-exception (check-trace model '(#(make 1)) fixture) TypeError?)))
     (test-case "nested Function command validation survives the trace boundary"
       (def calls 0) (def callback (Fun UInt <- UInt))
       (def command (Tuple (Exactly 'invoke) callback))
