@@ -2547,3 +2547,14 @@ retain the backing result without key-registry or bulk-constructor preparation.
 The existing exact-identity boundary for five-style derivation is intentional and
 unchanged. See collections.md and collection-composition-audit.md for costs,
 complex approved service publication, eight regressions and finite Lean laws.
+
+### Coherent Set source capture and retained-consumer invalidation
+
+Closed the shared source protocol over eager Set operations, membership focuses,
+iterators, incremental images/combinations and five-style factories. Declared
+origin spines are owned before Table/Elt discovery; the exact captured family,
+including independent Elt and backing origins, reaches retained consumers.
+A changed original origin or Elt refuses before deferred work; an unrelated
+replacement revision does not manufacture staleness. Fresh construction is the
+explicit retry. See collections.md and collection-composition-audit.md for the
+counterexamples, composed Function publication, finite Lean scope and costs.

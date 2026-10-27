@@ -1,21 +1,29 @@
 ;;; Finite set algebra is an incremental layer over existing Unit-valued tables.
 
-;; Admit both operands before any merge callback or identity shortcut. Recognition
-;; does not normalize Function keys again. Metadata protection covers backend work
-;; and all observed Key/Value origins; callback exceptions retain their cause.
+;; Capture the declared origin spine before Table/Elt getters can recycle it.
+;; Existing source protection owns metadata preparation and the entire callback;
+;; retained consumers receive this same family, including an independent Elt.
+;; Each entry retains its existing non-Unit refusal rather than catching errors.
+(def (with-set-sources descriptor receive (unit-failure "set algebra requires Unit values"))
+  (with-table-sources (list descriptor) (lambda ()
+    (def origins (if (.has? descriptor .sources) (.@ descriptor .sources) []))
+    (using (origins :~ list?)
+      (def captured (map identity origins))
+      (with-table-sources (cons descriptor captured) (lambda ()
+        (def table (.@ descriptor Table))
+        (def backing (table-sources table))
+        (with-table-sources backing (lambda ()
+          (unless (eq? (.@ table Value) Unit) (error unit-failure))
+          (def sources (append (list descriptor (.@ descriptor Elt)) captured backing))
+          (with-table-sources sources (lambda ()
+            (receive sources)))))))))))
+
+;; Admit every input before callbacks or shortcuts, using the one source family.
+;; Recognition does not normalize Function keys; original callback causes survive.
 (def (with-set-inputs descriptor inputs action)
-  (def table (.@ descriptor Table))
-  (with-table-sources (append (list descriptor)
-    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)) (lambda ()
-    (unless (eq? (.@ table Value) Unit) (error "set algebra requires Unit values"))
-    ;; Resolve refinements under the original guard before extending its scope.
-    (def elt (.@ descriptor Elt))
-    ;; The ordinary Key alias needs no second scope; overridden contracts do.
-    (def (admit)
-      (for-each (cut require-set descriptor <>) inputs)
-      (action))
-    (if (eq? elt (.@ table Key)) (admit)
-      (with-table-sources (list elt) admit)))))
+  (with-set-sources descriptor (lambda (_sources)
+    (for-each (cut require-set descriptor <>) inputs)
+    (action))))
 
 ;; A set refinement cannot weaken the backing carrier/child admission. Recognition
 ;; retains admitted Function keys and does not reconstruct or normalize them.
@@ -93,12 +101,11 @@
 ;; pull, including EOF, checks the captured Set/element/backend origins without
 ;; rescanning a persistent root or retaining protection across caller suspension.
 (def (iterate-set descriptor input from)
-  (with-set-inputs descriptor (list input) (lambda ()
+  (with-set-sources descriptor (lambda (sources)
+    (require-set descriptor input)
     (when (and from (not (eq? (.@ descriptor Elt) (.@ (.@ descriptor Table) Key))))
       (require-table (.@ descriptor Elt) from))
     (def table (.@ descriptor Table))
-    (def sources (append (list descriptor (.@ descriptor Elt))
-      (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)))
     (def versions (map object-revision sources))
     ;; Reuse the standard mapped Iterator guard; stale refusal precedes next!.
     (def (guard action)
@@ -187,24 +194,23 @@
 ;; Reuse the project Lens constructor and source admission with one typed key.
 ;; Recognition preserves an already wrapped Function element; it never cooks it.
 (def (set-membership-lens descriptor key)
-  (def table (.@ descriptor Table))
-  (def sources (append (list descriptor)
-    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources table)))
-  (def versions (map object-revision sources))
-  ;; Both accessors guard the same table origins and refuse invalid element keys.
-  (def (observe source action)
-    (with-table-sources sources (lambda ()
-      (unless (equal? versions (map object-revision sources)) (error "stale set focus"))
-      (with-set-inputs descriptor (list source) (lambda ()
-      (require-set-element descriptor key)
-      (action))))))
-  (lens-of-get-set
-    (lambda (source) (observe source (lambda () (.call table .key? source key))))
-    (lambda (present? source)
-      (using (present? :~ boolean?)
-        (observe source (lambda ()
-          (require-set descriptor
-            (if present? (.call table .acons key (void) source) (.call table .remove source key)))))))))
+  (with-set-sources descriptor (lambda (sources)
+    (def table (.@ descriptor Table))
+    (def versions (map object-revision sources))
+    ;; Both accessors guard original Set/Elt/backing origins before recognition.
+    (def (observe source action)
+      (with-table-sources sources (lambda ()
+        (unless (equal? versions (map object-revision sources)) (error "stale set focus"))
+        (with-set-inputs descriptor (list source) (lambda ()
+          (require-set-element descriptor key)
+          (action))))))
+    (lens-of-get-set
+      (lambda (source) (observe source (lambda () (.call table .key? source key))))
+      (lambda (present? source)
+        (using (present? :~ boolean?)
+          (observe source (lambda ()
+            (require-set descriptor
+              (if present? (.call table .acons key (void) source) (.call table .remove source key)))))))))))
 
 ;; Preserve set-specific recognition and declared origins on direct selection,
 ;; including empty inputs. Table methods own traversal; this only changes arity
@@ -382,8 +388,8 @@
   (using ((transform :~ procedure?) (origins :~ list?) (multiple? :~ boolean?))
     ;; Snapshot explicit origins before any descriptor getter is forced.
     (set! origins (map identity origins))
-    (with-table-sources origins (lambda () (with-set-inputs source [] (lambda ()
-      (with-set-inputs target [] (lambda ()
+    (with-table-sources origins (lambda () (with-set-sources source (lambda (source-sources)
+      (with-set-sources target (lambda (target-sources)
         (def primary (table-key-table (.@ source Table) Unit))
         (def groups (table-key-table (.@ target Table) primary))
         (def touched (table-key-table (.@ target Table) Unit))
@@ -405,10 +411,7 @@
             project: (lambda (key _row) (image-keys key))))))
         (def sources (delete-duplicates/hash
           (append (list source target indexes) origins (.@ indexes .sources)
-            (if (.has? source .sources) (.@ source .sources) [])
-            (if (.has? target .sources) (.@ target .sources) [])
-            (table-sources (.@ source Table)) (table-sources (.@ target Table))
-            (table-sources touched) (list (.@ source Elt) (.@ target Elt)))
+            source-sources target-sources (table-sources touched))
           table: (make-hash-table-eq) from-end?: #t))
         (def versions (map object-revision sources))
         (def owner (list source target transform))
@@ -485,15 +488,11 @@
 ;; Keep Set/Elt refinements and their origin scopes, with no second cache engine.
 (def (set-combination left right target operation)
   (def choose (set-operation operation))
-  (with-set-inputs left [] (lambda ()
-    (with-set-inputs right [] (lambda ()
-      (with-set-inputs target [] (lambda ()
+  (with-set-sources left (lambda (left-sources)
+    (with-set-sources right (lambda (right-sources)
+      (with-set-sources target (lambda (target-sources)
         (def lt (.@ left Table)) (def rt (.@ right Table)) (def tt (.@ target Table))
         (unless (and (eq? (.@ lt Key) (.@ rt Key)) (eq? (.@ lt Key) (.@ tt Key)))
           (error "incompatible set combination keys"))
         (make-table-combination left right target lt rt tt (lambda (_key a b) (choose a b)) require-set
-          (append-map (lambda (descriptor)
-            (append (list descriptor (.@ descriptor Elt))
-              (table-sources (.@ descriptor Table))
-              (if (.has? descriptor .sources) (.@ descriptor .sources) [])))
-            (list left right target)) "set combination"))))))))
+          (append left-sources right-sources target-sources) "set combination"))))))))

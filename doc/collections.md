@@ -1741,3 +1741,39 @@ Persistent roots, faithful enumeration/key equality, lawful constructors, stable
 opaque leaves and terminating callbacks remain premises. These laws advance the
 paper's future work; they do not establish arbitrary validator commutation,
 compiler correctness or GC behavior.
+
+### Captured Set sources
+
+All Set entry families reuse `with-set-sources`. It owns the finite `.sources`
+list before Table or Elt getters, protects those original policies during
+metadata preparation, and supplies the same family to the caller. The family
+contains the Set descriptor, its Elt, original declared origins and the existing
+backing Key/Value/origin family. The backing Unit obligation retains its refusal
+priority before independent Elt discovery. Ordinary source protection and Iterator guards
+remain Gerbil/project mechanisms, not a separate cache or validation engine.
+
+Membership lenses retain this family for both accessors; iterators retain it
+through repeated EOF. Images and binary combinations retain their captured
+source/target families across reads, deltas and publication. Set style factories
+reuse the capture instead of rereading a declaration after its getter has
+recycled the producer's list. Styles still require identical Elt/Key descriptors.
+Already checked Function keys retain their exact callable identities.
+
+Reusing the caller's list is allowed after capture. Changing only a replacement
+object does not invalidate the old scope, but supported changes to the original
+policy or an independent Elt refuse before recognizers/backend work. Failed
+metadata preparation restores its dynamic protection scope and keeps the cause;
+a fresh factory can retry at current revisions. Mutable and linear owners remain
+available after precommit refusal; successful linear installation still consumes
+its predecessor. External callback effects are not rolled back.
+
+The integrated service example uses existing access-image publication through
+Reader/FUN/IO, checked Function grants and all five styles: stale policy refuses
+without consumption, a fresh declared source retries, direct target deltas install,
+and inverse deltas restore the original grant identity. Finite SetStyle proofs
+reuse captured origins, stamps and styleStep. Faithful source identities/revisions,
+supported sequential mutation, persistent roots and stable opaque leaves are
+premises. Hidden callback dependencies, concurrent raw mutation and arbitrary
+termination are not established. This is future work beyond the paper's concrete
+examples. Capturing/protecting a finite family and checking its revisions remain
+charged; no wall-clock speedup is claimed.

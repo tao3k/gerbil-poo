@@ -288,12 +288,11 @@
 ;; Derive all five styles from one persistent table. Operations stage callbacks
 ;; outside the lock, then compare the captured head before one whole installation.
 ;; Pure backend callbacks and immutable leaves are explicit ownership premises.
-(def (derive-table-styles source (set #f))
+(def (derive-table-styles source set captured)
   ;; Ordering is an explicit origin even when the raw backend has not repeated
   ;; Comparer in .sources. Deduplicate the union once, not on each observation.
   (def sources (delete-duplicates/hash (append
-    (if set (cons set (if (.has? set .sources) (.@ set .sources) [])) [])
-    (table-sources source)
+    (if set captured (table-sources source))
     (if (.has? source Comparer)
       (cons (.@ source Comparer) (.@ (.@ source Comparer) .sources)) []))
     table: (make-hash-table-eq) from-end?: #t))
@@ -658,14 +657,13 @@
   family)
 
 ;; Public table derivation retains the existing signature and exact protocol shape.
-(def (table-styles source) (derive-table-styles source))
+(def (table-styles source) (derive-table-styles source #f []))
 
 ;; Set styles reuse the Unit-valued backing carrier and the same ownership family.
 ;; Explicit descriptor identities prevent a forged Elt from changing admission.
 (def (set-styles descriptor)
-  (def source (.@ descriptor Table))
-  (with-table-sources (append (list descriptor)
-    (if (.has? descriptor .sources) (.@ descriptor .sources) []) (table-sources source)) (lambda ()
+  (with-set-sources descriptor (lambda (sources)
+    (def source (.@ descriptor Table))
     (unless (and (eq? (.@ source Value) Unit) (eq? (.@ descriptor Elt) (.@ source Key)))
       (error "incompatible set style descriptor"))
-    (derive-table-styles source descriptor))))
+    (derive-table-styles source descriptor sources)) "incompatible set style descriptor"))

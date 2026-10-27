@@ -461,3 +461,54 @@ The full Lean 20-phase gate passed with zero failures in 151.90 seconds.
 These are local acceptance receipts, not controlled performance comparisons or
 remote CI claims; the resulting PR heads are checked separately. Lossless test
 and benchmark output stays outside the repository.
+
+## Coherent Set source capture
+
+Two executable controls established the next omission. An old membership lens
+still returned true after an independent Elt revision. A Set Table getter could
+also replace the caller's origin-list cell before lens creation copied it; the
+retained lens then ignored a revision of the originally declared policy. Equal
+revision numbers on the replacement do not establish identity. This is a missing
+source-ownership/invalidation boundary, not automatic dependency discovery.
+
+The author's dictionary example delegates through declared operations
+(`poof.scrbl`, lines 744-773); its inheritance discussion explains the importance
+of propagating dependencies without repeated manual bookkeeping (lines 1144-1189).
+The concrete collection protocol remains future work. The repair consolidates
+existing source assembly into `with-set-sources`, using standard `using`, ordered
+`map` capture and the established metadata protection. Lens, cursor, image,
+combination and style construction consume the same captured family. Their
+backend algorithms, point-method bodies, validation and ownership engines stay
+in place. No namespace, compatibility layer or per-method wrapper is added.
+
+Six regressions cover independent Elt/EOF invalidation, Table/Elt getter buffer
+reuse across five retained families, original-policy protection during eager
+callbacks and metadata preparation, malformed-declaration failure priority and
+Function image publication with fresh retry/inverse installation in five styles.
+The examples reuse existing service publication rather than add an executor or
+a second delta language. The full suite also retains the existing Set-style
+non-Unit refusal classification; the shared boundary accepts that entry's original
+error directly rather than catching or replacing arbitrary callback failures.
+Lean's SetStyle extends the existing capture/stamp/style
+models with mandatory identity coverage, original-origin retention, unrelated
+replacement stability, deduplication equivalence and refusal before continuations
+or owner consumption. Dynamic-scope fidelity and supported host revision checks
+remain premises; no claim extends to arbitrary callbacks, compiler/runtime/GC
+verification or automatic inference of undeclared dependencies.
+
+Design reflection: ownership belongs where a declaration is first read. Capturing
+later in each consumer both duplicates assembly and permits borrowed-buffer reuse
+to erase a dependency. One captured family replaces those repeated expressions;
+recognition/normalization remain separate and all existing costs/checks remain.
+
+Final-source local acceptance: the unchanged eight-batch build, existing Set
+style suite and all 14 origin-suite cases passed. The complete
+`just _check-linked-collections 2 1 4` entry exited zero with 148 modules,
+1,752 passing cases, no error markers, `OK` and `COLLECTION-PAIRED-OK`.
+The single-process harness took 45.96 seconds and the complete entry took
+66.66 seconds. These are acceptance observations, not controlled speedup claims.
+The original 1 GiB heap, compiler/runtime deadlines and complete check inventory
+were retained. The full Lean 20-phase gate passed with zero failures in 106.89
+seconds; remote CI is checked independently at each resulting PR head. Failed
+intermediate controls are not counted as acceptance, and lossless output remains
+outside Git.
