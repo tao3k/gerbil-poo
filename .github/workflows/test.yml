@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       matrix: ${{ steps.groups.outputs.matrix }}
+      compiler-key: ${{ steps.gerbil.outputs.compiler-key }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: taiki-e/install-action@just
@@ -37,10 +38,12 @@ jobs:
       - name: Prepare the declared libraries and benchmark programs
         if: steps.shared-cache.outputs.cache-hit != 'true'
         run: time -p just build-shared
+      - name: Preserve standard executable permissions for artifact transfer
+        run: tar -cf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library lib bin
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: scheme-library-${{ github.sha }}
-          path: .ci-library
+          path: ${{ runner.temp }}/scheme-shared.tar
           include-hidden-files: true
           retention-days: 1
           compression-level: 0
@@ -61,7 +64,11 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: scheme-library-${{ github.sha }}
-          path: .ci-library
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - name: Compile the standard test package
         run: just build-group '${{ matrix.group }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -88,7 +95,11 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: scheme-library-${{ github.sha }}
-          path: .ci-library
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: scheme-tests-${{ github.sha }}-${{ matrix.group }}
@@ -108,9 +119,13 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: scheme-library-${{ github.sha }}
-          path: .ci-library
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - name: Exercise linked and runtime-loaded entries, including refusals
-        run: just benchmark-representation-startup
+        run: just _test 300 benchmarks/representation-startup.ss
   single-process:
     needs: [build, compile-tests]
     runs-on: ubuntu-latest
@@ -123,7 +138,11 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: scheme-library-${{ github.sha }}
-          path: .ci-library
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: scheme-tests-${{ github.sha }}-*

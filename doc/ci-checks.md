@@ -17,6 +17,10 @@ Cache misses are not accepted as success and tests always execute. No project
 source-key files, cache admission executable or revision ledger are generated.
 The standard upload/download actions transfer artifacts within the current
 workflow run, using commit-specific names and their built-in digest verification.
+The shared library/program artifact uses an uncompressed tar in runner temporary
+storage to retain executable permissions across ZIP transfer. No benchmark data
+or archive is committed. Consumers compare the producer's compiler/host identity
+and execute the prepared programs without rebuilding them.
 
 Each compilation job invokes `gerbil build` in its real test package. The
 namespace matches that directory. Its artifact contains that package's compiled
