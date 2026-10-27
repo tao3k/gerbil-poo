@@ -2570,3 +2570,15 @@ remain unchanged. False keys, strict Boolean replacement, custom Set refinements
 source invalidation, Function identities, failure/retry and inverse recovery have
 integrated controls and finite Lean laws; see set-algebra.md and the composition
 audit for scope and premises.
+
+### Owned multi-result collection groups
+
+Closed result-spine ownership before root admission in direct Set division and
+the shared five-style multi-result installer. A lawful producer's original root
+group is captured before recognizers can recycle its returned list. Partition,
+split and division retain their existing algorithms and one-install ownership
+rules; no root or checked Function is cloned or normalized. Original admission
+order, exact failure causes, reentrant-winner refusal and explicit retry remain.
+Table/Set and FUN/IO examples plus finite capture/admission/publication laws are
+documented in table-split.md and the composition audit. Persistent roots and
+faithful backend decomposition laws remain premises, not inferred algorithms.

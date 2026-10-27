@@ -251,7 +251,7 @@
 ;; the complete division algorithm, including zero/singleton representation.
 (def (divide-set descriptor input)
   (with-set-inputs descriptor (list input) (lambda ()
-    (def roots (.call (.@ descriptor Table) .divide/list input))
+    (def roots (capture-table-roots (.call (.@ descriptor Table) .divide/list input)))
     (for-each (cut require-set descriptor <>) roots)
     roots)))
 

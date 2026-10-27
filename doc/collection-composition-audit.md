@@ -559,3 +559,58 @@ These are local acceptance receipts, not controlled performance comparisons.
 The full Lean 20-phase gate passed with zero failures in 177.41 seconds. Remote
 checks are verified separately at the resulting PR heads; complete transcripts
 and benchmark output remain outside Git.
+
+## Owned multi-result root groups
+
+The next concrete counterexample starts with a LAWFUL original two-part result.
+Its recognizer recycles the producer's root-list cells without changing either
+persistent root. Direct Set division validated the original first root, then
+returned an unvalidated replacement stored into that list. A styled Table could
+instead visit a replacement second part and publish a different grouping. The
+input and original partition were correct; validation itself exposed a borrowed
+container. This is a result-ownership gap, not a claim to repair unlawful backend
+partition algorithms or mutable root contents.
+
+The author's dictionary construction (`poof.scrbl`, lines 744-774) delegates
+persistent root algorithms, while the generalized-prototype discussion (lines
+2101-2133) distinguishes construction/focused representation and consumption.
+The collection protocol remains future work. The repair follows that separation:
+retain the existing root algorithms, capture their finite handle list with Gerbil
+standard mechanisms, then run the unchanged complete checks and one installer.
+One helper is shared by Set division and the common partition/split/division
+style stage. It neither adds per-method validation wrappers nor clones nodes,
+creates another backend/namespace, or normalizes admitted Function values.
+
+Six integrated regressions cover direct Set output, all five Table/Set styles
+and receiver paths, original admission order, exact late refusal and fresh retry,
+reentrant winners and Function-bearing access division through FUN/IO. The service
+example shares its division action between Table and Set, with reconstruction and
+inverse recovery. Existing zero/one/two-part, refinement, indexed and source/owner
+negative controls remain in the complete suite.
+
+TableCapture proves root-group identity and original refusal through existing
+ordered Validation and owned-spine capture. TableSelection reuses styleDivision
+for all-or-nothing delivery and the original first-root installation. Examples
+include recycled cells, a late refusal that cannot be repaired by cell replacement,
+linear retry, opaque functions and a competing generation. Host capture fidelity,
+recorded admission outcomes, persistent leaves and lawful backend decomposition
+remain premises. Arbitrary callback purity/termination, concurrent raw writes and
+compiler/runtime/GC behavior are outside these finite laws.
+
+Design reflection: the defect belongs at the existing result boundary. Capturing
+before admission replaces dependence on a mutable producer spine with an owned
+finite group; it does not replay validation, clone roots or introduce another
+transaction framework. Each crossed boundary charges its shallow pass explicitly;
+no timing improvement is inferred from the semantic repair.
+
+Final-source local acceptance: the standard complete build passed all eight
+compiler batches, and all 39 decomposition-suite cases passed, including the
+six new root-group controls. The unchanged
+`just _check-linked-collections 2 1 4` entry exited zero with 148 modules,
+1,764 passing cases, no error markers, `OK` and `COLLECTION-PAIRED-OK`.
+The single-process harness took 57.03 seconds and the complete entry took
+77.82 seconds. These are acceptance observations, not a controlled speedup claim.
+The original 1 GiB heap, stage deadlines and complete check inventory remain.
+Lean's full 20-phase gate passed with zero failures in 130.16 seconds; remote
+results are verified separately at each resulting PR head. Intermediate fixture
+failures are not accepted as closure, and lossless output remains outside Git.

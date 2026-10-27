@@ -216,3 +216,44 @@ Strictly decreasing finite sizes justify explicit recursion under faithful backe
 laws, not arbitrary callback termination, physical disjoint ownership, automatic
 parallelism, compiler/GC correctness or wall-clock speedups. This advances the
 proposed collection library's future work without declaring the project complete.
+
+### Owned result groups before admission
+
+The complete list of root handles is now captured before the first result
+recognizer runs. The shared `capture-table-roots` boundary uses Gerbil `using`
+and ordinary `map identity` to own only that finite outer spine. Set division
+uses it before checking its Set refinement; the existing multi-result style
+installer uses it before admitting and preparing any output capability. This
+also covers the installer shared by partition and split. Backend algorithms,
+root identities, contained Function wrappers and the single generation commit
+remain unchanged.
+
+A producer may reuse its returned list during a recognizer callback. Such writes
+remain externally visible, but cannot replace an already captured first part or
+a not-yet-checked later part. Initial lawful grouping therefore survives admission;
+this does not infer disjointness or reconstruction for an incorrect backend.
+Malformed outer lists refuse through the standard contract before result checks.
+No successor escapes until every original captured part accepts and installation
+succeeds. The first original refusal retains its cause; failed mutable/linear
+preparation keeps the old capability, while a competing installed winner remains
+visible and cannot be overwritten. Retrying explicitly obtains a new producer
+result. Effects of recognizers and postcommit IO are not rolled back.
+
+Six regressions exercise direct Set division, all five Table/Set styles and
+receiver methods, exact original admission order, late refusal/retry, competing
+installation and checked Function access. `divide-access-action` and
+`divide-ledger-action` share one existing linear Reader/FUN/IO implementation.
+The access example checks no IO on branch refusal, fresh successful delivery,
+reconstruction and inverse deltas without recooking Function keys.
+
+Finite TableCapture laws reuse original-spine capture and ordered Validation;
+TableSelection connects them to the existing styleDivision installer. They prove
+exact root/order/cardinality retention, original refusal, preserved capability
+and original-first-root publication. The model parametrizes recorded admission
+outcomes; it does not prove arbitrary callback purity or identical decisions
+under hidden mutable state. Capturing n handles costs one finite spine pass and
+n shallow positions per crossed ownership boundary; root recognition, capability
+preparation and backend work remain separately charged. The division protocol's
+zero/one/two bound survives capture. This is no byte-allocation, compiler/runtime,
+GC, raw-concurrency or wall-clock performance proof. Root contents must remain
+persistent opaque leaves, as in the existing collection protocol.

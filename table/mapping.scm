@@ -6,6 +6,12 @@
 (def (capture-table-bindings entries)
   (map (lambda (row) (if (pair? row) (cons (car row) (cdr row)) row)) entries))
 
+;; Own only a finite multi-result spine before admitting any root. Backend
+;; buffers may be reused by recognizers; persistent roots and opaque leaves keep
+;; their exact identities. Existing callers retain validation and publication.
+(def (capture-table-roots roots)
+  (using (roots :~ list?) (map identity roots)))
+
 ;; Snapshot before descriptor discovery, then retain backend duplicate precedence
 ;; and complete-result admission. No constructor normalizes Function leaves.
 (def (construct-table descriptor entries singleton?)

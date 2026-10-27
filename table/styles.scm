@@ -390,7 +390,7 @@
         (def state (unwrap input))
         (def expected (and (not (eq? style 'pure)) (capture style state)))
         (def before (if expected (%table-head-value expected) (admitted state)))
-        (def roots (map admitted (transform before)))
+        (def roots (map admitted (capture-table-roots (transform before))))
         ;; Empty division publishes the original empty root for mutable owners;
         ;; linear owners retire once even though no successor capability exists.
         (def first (if (pair? roots) (car roots) before))
