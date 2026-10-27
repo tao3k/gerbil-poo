@@ -420,11 +420,18 @@
     (def (update-opt key transform input)
       (using (transform :~ procedure?)
         (step input (cut update-table-focus source key transform <>))))
-    ;; Focus creation retains this factory's guard and never leaks a raw setter.
+    ;; Reuse the optional focus and its captured-generation modify operation.
+    ;; Lens composition presents Unit presence as Bool for Set membership while
+    ;; retaining the Table focus protocol and the same ownership/commit engine.
     (def (focus key optional?)
-      (make-table-key-focus source key optional?
-        (lambda (input) ((.ref source (if optional? '.ref/opt '.ref)) (read input) key))
+      (def entry (make-table-key-focus source key (if set #t optional?)
+        (lambda (input) ((.ref source (if (or set optional?) '.ref/opt '.ref)) (read input) key))
         (lambda (input transform) (update-opt key transform input)) guard))
+      (if (and set (not optional?))
+        (.call Lens .compose entry
+          (lens-of-get-set some? (lambda (present? _old)
+            (using (present? :~ boolean?) (and present? (some (void)))))))
+        entry))
     ;; Set descriptors change predicate arity only. Backend traversal and both
     ;; return values are retained; stage authenticates input before any callback.
     (def (select method predicate input)

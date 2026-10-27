@@ -512,3 +512,50 @@ were retained. The full Lean 20-phase gate passed with zero failures in 106.89
 seconds; remote CI is checked independently at each resulting PR head. Failed
 intermediate controls are not counted as acceptance, and lossless output remains
 outside Git.
+
+## Boolean membership focus presentation
+
+A complete five-style counterexample exposed a remaining declared-protocol gap:
+present membership returned `void`, absent membership refused and writing true
+refused in every derived Set style. Plain Set membership lenses already behaved
+correctly. The derived presentation was inheriting the required Table field lens
+rather than the Set Boolean interface. This is not a request to infer arbitrary
+lenses or to change required Table focus semantics.
+
+The author's generalized-prototype discussion (`poof.scrbl`, lines 2101-2133)
+expresses focused computation using getter/setter lenses and their composition.
+The collection implementation is future work. The repair follows that abstraction:
+compose the existing optional Table focus with Unit presence using project
+`Lens.compose` and Gerbil's Boolean contract. The existing custom `.modify` hook
+therefore carries ownership capture through nested service composition. No second
+transaction engine, callback scheduler, namespace or per-method validation layer
+is added. Existing Table focus and generation guards are retained.
+
+The service example `revise-focused-access` uses the existing Observation/FUN/IO
+chain after one focused update. Six regressions exercise all five styles, false
+keys, Boolean/no-op laws, refinement and exact-cause refusal, reentrant winners,
+source/capability refusal, fresh retry and inverse deltas over checked Function
+keys. Finite Lean models factor the Boolean operation through TableFocus and
+prove the two-way Unit-presence representation, membership lens/frame laws,
+linear retirement, retained failure and generation-winner preservation. Stable
+leaves, lawful backends and faithful host ownership/invalidation remain premises.
+
+Design reflection: this is a presentation isomorphism over an existing operation,
+so it belongs at style focus derivation. Reimplementing a Boolean point updater
+would duplicate admission and optimistic installation; generic get/set wrapping
+would lose the atomic modifier. Composing the existing lenses keeps both semantics
+and the original failure/ownership machinery visible. Construction and admission
+costs remain charged; this correctness unit claims no measured speedup.
+
+Final-source acceptance used standard `gerbil clean`/build after an edit-time
+interface mismatch; no load-path or cache override was introduced. The complete
+cold construction and all eight compiler batches passed with the original
+resource limits (the shared/test-program stage took 177.28 seconds). All 22 Set
+style cases passed, including six new membership-focus cases. The unchanged
+`just _check-linked-collections 2 1 4` entry exited zero with 148 modules,
+1,758 passing cases, no error markers, `OK` and `COLLECTION-PAIRED-OK`.
+The harness took 149.12 seconds and the complete entry took 171.69 seconds.
+These are local acceptance receipts, not controlled performance comparisons.
+The full Lean 20-phase gate passed with zero failures in 177.41 seconds. Remote
+checks are verified separately at the resulting PR heads; complete transcripts
+and benchmark output remain outside Git.

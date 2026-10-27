@@ -2558,3 +2558,15 @@ A changed original origin or Elt refuses before deferred work; an unrelated
 replacement revision does not manufacture staleness. Fresh construction is the
 explicit retry. See collections.md and collection-composition-audit.md for the
 counterexamples, composed Function publication, finite Lean scope and costs.
+
+### Boolean membership focuses across Set presentations
+
+Closed the Set `.lens` presentation gap: all five styles and Gerbil receivers now
+expose Boolean membership over the existing optional Table focus. The project
+Lens composition protocol preserves the underlying captured-generation modifier,
+so composed service updates cannot overwrite a reentrant winner. No new ownership,
+validation, delta or lens engine is introduced. The original Table focus domains
+remain unchanged. False keys, strict Boolean replacement, custom Set refinements,
+source invalidation, Function identities, failure/retry and inverse recovery have
+integrated controls and finite Lean laws; see set-algebra.md and the composition
+audit for scope and premises.

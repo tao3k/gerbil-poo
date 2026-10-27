@@ -442,3 +442,42 @@ new image rather than reusing an invalidated state. The finite Lean laws reuse
 `indexKeysView`/`reviseIndexKeys` for existential relation membership, singleton
 alignment, duplicate/empty output semantics, frame repair, checked delta repair
 and inverse recovery. Existing occupancy and publication laws apply unchanged.
+
+## Membership focuses across styles
+
+The declared Set `.lens element` protocol is Boolean in Pure, Mutable, Linear,
+Posh and Classy presentations, including the Gerbil receiver `lens` method.
+Before this repair the derived styles inherited the required Table value focus:
+a present member returned Unit, absence refused, and a Boolean setter failed
+payload admission. Style derivation now composes the existing optional Table
+focus with the Unit-presence lens. Project `Lens.compose` propagates the original
+`.modify` hook, preserving the single captured-generation update rather than
+splitting it into an unguarded get/transform/set sequence.
+
+Reading membership is nonconsuming; setting/transforming takes the value before
+the state. A setter accepts only Boolean results through Gerbil `using`; false
+keys remain ordinary keys. On successful admitted writes, persistent root observations satisfy get-put,
+put-get and put-put. These laws do not grant reference reuse: mutable/classy success
+retains identity, pure/posh retains the old observation, and successful linear
+modification retires its predecessor even for a no-op. Callback or complete Set
+refinement refusal leaves the original capability live. Metadata, foreign-owner
+and consumed-owner refusal precede the user modifier. A reentrant winner remains
+installed when an outer captured-generation modification loses.
+
+`examples/service-collection.ss` `revise-focused-access` composes a service's
+access field with this owned membership focus, then publishes the admitted
+snapshot through existing Reader/FUN/IO. An unrelated service field survives,
+precommit refusal suppresses IO, a fresh request retries, and existing table
+deltas/inverses recover Function-grant membership without cooking its keys.
+Effects from the modifier or from IO after a commit are not rolled back.
+
+The optional Table focus and Table required-value focus keep their existing
+Option/required domains; this change concerns the public Set membership `.lens`.
+Six regressions cover the complete style matrix, false keys, no-op retirement,
+composed competition/retry, exact callback causes/refinements, capability/source
+refusal and Function/policy/inverse workflows. Finite SetStyle proofs reuse
+TableFocus, styleStep and generation installation, including the Option Unit/Bool
+isomorphism, lens/frame laws and losing-install refusal. Faithful backend lens
+laws, source stamps and generation installation remain host premises; arbitrary
+callback termination, raw concurrent mutation and compiler/runtime/GC correctness
+are not inferred. This advances the paper's collection/MOP future work.
