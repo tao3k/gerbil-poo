@@ -1,15 +1,60 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export property-testing-test)
-(import :std/test :std/error ../object ../mop ../type ../number
-        ../property-testing ../function-testing
-        (prefix-in ../examples/signature-service service.))
+(export property-testing-test property-kernel-test)
+(import :std/test :std/error :std/iter :std/io/tempfile
+        (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines) ../object ../mop ../type ../number
+        ../testing/type ../testing/function
+        (prefix-in ../examples/signature-service service.)
+        (only-in ../examples/property-kernel property-kernel-test))
 
 ;; Deterministic fixture isolates shrinking from random trial distribution.
 (def (fixed-integer value shrink (measure abs))
   (make-generator Integer (lambda (_random _size) value) shrink measure))
+;; Materialize ordinary Gerbil source forms, keeping paths as data rather than shell text.
+(def (write-program path forms)
+  (call-with-output-file path (lambda (port)
+    (for-each (lambda (form) (write form port) (newline port)) forms))))
+;; An isolated standard project has only the generic modules and their example.
+;; Its official GERBIL_PATH is empty of POO; compiler and runtime keep 1-GiB bounds.
+(def (check-independent-library)
+  (def source-root (current-directory))
+  (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"]
+    coprocess: read-all-as-lines)))
+  (call-with-temporary-directory "property-library-" (lambda (project)
+    (for-each (lambda (file)
+      (copy-file (path-expand (string-append "testing/core/" file) source-root)
+        (path-expand file project))) '("generator.ss" "property.ss" "model.ss" "build.ss" "gerbil.pkg"))
+    (create-directory* (path-expand "examples" project))
+    (copy-file (path-expand "examples/property-kernel.ss" source-root)
+      (path-expand "examples/property-kernel.ss" project))
+    (write-program (path-expand "test-build.ss" project)
+      '((import :std/build-script) (defbuild-script '("examples/property-kernel"))))
+    (def package (path-expand "package" project))
+    (def artifact (path-expand "lib/clan/property-testing/examples/property-kernel.ssi" package))
+    (write-program (path-expand "check.ss" project)
+      (list '(import (prefix-in :gerbil/tools/gxtest tests.))
+        (list 'exit (list 'tests.main "-v" "5" artifact))))
+    ;; Standard process arguments and std/build-script own this isolated build.
+    (def (run script)
+      (run-process [timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
+        (string-append "GERBIL_PATH=" package) "GAMBOPT=max-heap=1G,debug=q"
+        "gxi" "-:max-heap=1G,debug=q" script] directory: project stderr-redirection: #t))
+    (run "build.ss")
+    (run "test-build.ss")
+    (check (file-exists? artifact) => #t)
+    (check (file-exists? (path-expand "lib/clan/poo" package)) => #f)
+    (def lines (string-split (run "check.ss") #\newline))
+    ;; gxtest may print HARNESS-OK even with an error module, so require executed
+    ;; case receipts and an error-free transcript, not merely process exit zero.
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 8)
+      (error "independent suite did not execute all cases" lines))
+    (check (and (member "OK" lines) #t) => #t)
+    (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
+    (displayln "PROPERTY-LIBRARY-OK 8 cases; isolated stdlib-only compiled modules"))))
+
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "generic library builds and runs independently of POO" (check-independent-library))
     (test-case "standard seeded source replays a shrinking failure exactly"
       (let* ((report (check-property Integer (lambda (x) (< (abs x) 4)) seed: 42 cases: 200 size: 100))
              (again (replay-property report)))

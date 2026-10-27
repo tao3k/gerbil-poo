@@ -1,7 +1,7 @@
 ;;; Typed command traces compare real indexed deltas with an independent list model.
 (export Command model lifecycle collection-model with-collection-system collection-property collection-tests)
 (import :std/error :std/iter (only-in :std/list/list filter-map)
-        ../object ../mop ../type ../number ../property-testing ../support/option
+        ../object ../mop ../type ../number ../testing/type ../support/option
         ../table ../rationaldict (only-in ../trie SimpleTrie))
 
 ;; Receipts are logical model data, never real TableDelta objects or owner handles.

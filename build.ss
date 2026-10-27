@@ -1,6 +1,7 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package build entry; inventories live with the build support.
 (import (only-in :std/build-script defbuild-script)
+        (prefix-in "testing/core/build.ss" property-build.)
         (only-in "t/build-spec.ss" build-request build-consumer consumer-request))
 
 ;; Compiler children inherit the build process environment; the package manager
@@ -13,6 +14,10 @@
 ;; The standard macro owns option parsing, dependencies, incremental builds,
 ;; cleanup and backend scheduling. Only inventory and output selection vary.
 (def (build-selected spec output options)
+  ;; A root-owned compile/clean also owns the independent library. Group output
+  ;; builds consume the checked shared library and cannot clean that producer.
+  (when (and (not output) (or (null? options) (member (car options) '("compile" "clean"))))
+    (apply property-build.main options))
   (defbuild-script spec libdir: output)
   (apply main options))
 

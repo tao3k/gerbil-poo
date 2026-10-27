@@ -1593,8 +1593,8 @@ callback state are explicit proof premises, not newly inferred capabilities.
 ## Property-based testing
 
 The finite protocol, including automatic guarded recursive container graphs
-(`generation-graph.ss` / `recursive-generation.ss`), is implemented in `property-testing.ss` and
-`function-testing.ss`, using Gambit's isolated SRFI-27 source, ordinary descriptor
+(`testing/generation-graph.ss` / `testing/recursive-generation.ss`), is implemented in `testing/type.ss` and
+`testing/function.ss`, using Gambit's isolated SRFI-27 source, ordinary descriptor
 extensions and Reader/FUN composition. Acceptance tests cover actual optional and
 keyword invocation, nested callbacks, overlapping clauses, seeded replay, strict
 shrinking budgets, exceptions and descriptor revision refusal. See

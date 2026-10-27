@@ -121,10 +121,10 @@
       "-cc-options" ,+gerbil-poo-cc-options+)
     (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
     "type"
-    "generation-graph"
-    "recursive-generation"
-    "property-testing"
-    "function-testing"
+    "testing/generation-graph"
+    "testing/recursive-generation"
+    "testing/type"
+    "testing/function"
     "examples/recursive-catalog"
     "examples/generalized-checkout"
     "object-contract-flow"
@@ -155,6 +155,7 @@
     "examples/signature-service"
     "examples/collection-testing"
     "examples/collection-properties"
+    "examples/property-kernel"
     "examples/recursive-trees"
     "examples/inherited-services"
     "examples/metaprotocol-services"

@@ -4,8 +4,8 @@
         ../mop
         ../type
         ../number
-        ../function-testing
-        ../property-testing
+        ../testing/function
+        ../testing/type
         (only-in ../types/relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
         ../method-declaration

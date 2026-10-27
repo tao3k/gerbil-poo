@@ -1,7 +1,7 @@
 ;;; Stateful PBT reuses descriptor admission, ordinary shrink reports and std/test.
 (export collection-testing-test collection-properties-test)
 (import :std/test :std/error :std/iter (only-in :std/list/list take) ../object ../mop ../type ../number
-        ../property-testing ../support/option
+        ../testing/type ../support/option
         (prefix-in ../examples/collection-testing collection.)
         (only-in ../examples/collection-properties collection-properties-test))
 

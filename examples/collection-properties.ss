@@ -1,7 +1,7 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
 (export handoff rolling-upgrade optimistic-aba collection-properties-test)
 (import :std/test :std/error :std/iter (only-in :std/list/list take)
-        ../object ../mop ../type ../number ../property-testing ../support/option
+        ../object ../mop ../type ../number ../testing/type ../support/option
         ./collection-testing)
 
 ;; Each example declares its domain prefix and the fault it must discover.

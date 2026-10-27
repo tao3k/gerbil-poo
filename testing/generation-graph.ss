@@ -1,9 +1,9 @@
 ;;; Finite recursive Type graphs; scalar samplers are supplied by the caller.
 (export compile-graph graph-nodes graph-sources graph-costs graph-stamps node-descriptor node-kind node-children node-sampler
         generation-refusal? generation-refusal-kind refuse-generation)
-(import (only-in ./support/base require-value) :std/iter :std/error ./object
-        (only-in ./mop Type validate)
-        (only-in ./type List. Tuple. Pair. Union. Or. Maybe. OrFalse.))
+(import (only-in ../support/base require-value) :std/iter :std/error ../object
+        (only-in ../mop Type validate)
+        (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse.))
 
 ;; Controlled resource refusal is distinct from a property exception or false result.
 (deferror-class GenerationRefusal () generation-refusal?)

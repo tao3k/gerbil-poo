@@ -13,8 +13,8 @@ as an implementation already supplied by the Racket listings.
 | Required / optional positions, rest, declared and required keywords | `mop.ss` Function descriptors; `function-signature.ss` uses the host keyword escapes | `Functional.FunctionSignature.Signature`, `Call`, `accepts` |
 | Ordered case-lambda shapes | `CaseFunction` selects first structural match; no fallback on type/body failure | `select_first`, `select_sound`, `invoke_type_error` |
 | Supplied-only normalization | Child Types wrap nested Function values before one target invocation; defaults stay in the target | `supplied_length`, `invoke_shape_error` |
-| Descriptor generation | `property-testing.ss`, explicit `.generator` extension, higher-order products | `samples`, `samples_length` under stable draw premises |
-| Call-row generation | `FunctionArguments` in `function-testing.ss`; overlapping shapes draw the first selected clause's types | Structural selection laws, finite controls in `Examples/GeneratedCalls.lean` |
+| Descriptor generation | `testing/type.ss`, explicit `.generator` extension, higher-order products | `samples`, `samples_length` under stable draw premises |
+| Call-row generation | `FunctionArguments` in `testing/function.ss`; overlapping shapes draw the first selected clause's types | Structural selection laws, finite controls in `Examples/GeneratedCalls.lean` |
 | Shrinking | Domain membership, strict natural measure decrease, retained falsity, finite attempt budget | `admissible_sound`, `shrink_preserves`, `shrink_budget` |
 | Reuse | Reports capture descriptor/sampler/dependency revisions; stale outcomes and replay are refused | `admit_stale` |
 

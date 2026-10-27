@@ -1,7 +1,7 @@
 ;;; Function call generation shares structural selection with runtime wrapping.
 (export FunctionArguments FunctionArguments.)
 (import (only-in :std/list/list map-in-order delete-duplicates/hash)
-        ./object ./mop ./function-signature ./property-testing)
+        ../object ../mop ../function-signature ./type)
 
 ;; A call-row's types depend on supplied counts, never on optional default values.
 (def (positional-types signature count)

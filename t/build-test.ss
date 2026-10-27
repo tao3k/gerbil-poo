@@ -183,6 +183,11 @@
       (for (group (checked-groups))
         (def selected (map name (car (build-request ["tests" (car group) "/tmp/poo-test-output"]))))
         (check-equal? selected (map path-strip-extension (test-files (car group)))))
+      (for (module '("testing/type" "testing/function" "testing/generation-graph" "testing/recursive-generation"))
+        (check (and (member module (library-modules)) #t) => #t))
+      (for (old '("property-testing" "function-testing" "generation-graph" "recursive-generation"))
+        (check (and (member old (library-modules)) #t) => #f)
+        (check (file-exists? (string-append old ".ss")) => #f))
       (check (and (member "object" (library-modules)) #t) => #t)
       (check (andmap (lambda (file) (not (or (string-prefix? "examples/" file)
         (string-prefix? "t/" file)))) (library-modules)) => #t)
@@ -277,6 +282,11 @@
             (call-with-output-file (path-expand name root) (lambda (port)
               (for-each (lambda (form) (write form port) (newline port)) forms))))
           (save "gerbil.pkg" '((package: consumer-dispatch)))
+          ;; Model the standard subproject with an empty graph: this fixture tests
+          ;; dispatch ownership, while the isolated library test compiles real sources.
+          (create-directory* (path-expand "testing/core" root))
+          (save "testing/core/build.ss"
+            '((export main) (import :std/build-script :std/source) (defbuild-script '())))
           (save "t/build-spec.ss"
             `((export build-request consumer-request build-consumer)
               ;; Record only ownership decisions; std/build-script still processes the empty graph.

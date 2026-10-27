@@ -1,13 +1,14 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export make-generator generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
-(import (only-in ./support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
-        ./object ./mop (only-in ./type String Exactly. Enum. List Record)
-        ./generation-graph ./recursive-generation ./support/option
-        (only-in ./number Integer UInt)
-        (prefix-in ./generalized-prototype observation.))
-;; Gambit's SRFI-27 operations are host builtins, kept local to this module.
-(extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers)
-
+(import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
+        ../object ../mop (only-in ../type String Exactly. Enum. List Record)
+        ./generation-graph ./recursive-generation ../support/option
+        (only-in ../number Integer UInt)
+        (prefix-in ../generalized-prototype observation.)
+        (prefix-in :clan/property-testing/property testing.)
+        (prefix-in (only-in :clan/property-testing/generator make-generator) testing.)
+        (only-in :clan/property-testing/generator integer-shrinks)
+        (prefix-in :clan/property-testing/model model.))
 ;; Recognition-only callable fields deliberately do not wrap shrink callbacks:
 ;; invalid proposals must reach the existing attempt-budget/domain gate, rather
 ;; than become premature Function output errors. No arity/termination is inferred.
@@ -69,11 +70,6 @@
     (lambda (value) (apply + (map weight children (unpack value))))
     dependencies: (apply append (map generator-sources children))))
 
-;; Integer shrinking decreases absolute magnitude and reaches zero without using
-;; floating point. The runner independently enforces domain and strict descent.
-(def (integer-shrinks value)
-  (if (zero? value) []
-    (delete-duplicates/hash (list 0 (quotient value 2) (- value (if (> value 0) 1 -1))))))
 ;; Custom scalar callbacks retain explicit obligations; standard exact/enumerated
 ;; Types are finite leaves and never require recursive data predicates.
 (def (scalar-generator descriptor)
@@ -120,100 +116,71 @@
   (if (.has? sampler .accept?) (.call sampler .accept? value)
     (element? (.get sampler descriptor) value)))
 
-;; Shrink a witnessed false result. Every proposed candidate consumes one unit,
-;; even if invalid/nondecreasing; restart only on a smaller valid false result.
-;; The callbacks must terminate and return finite proper lists. External process
-;; watchdogs bound arbitrary host callbacks; fuel bounds this algorithm's attempts.
-(def (shrink-failure sampler property original budget sources)
-  (let/cc return
-    (let loop ((best original) (remaining budget) (attempts 0) (steps 0))
-      (unless (current? sources sampler) (return (list 'stale best attempts steps #f)))
-      (def candidates (.call sampler shrink best))
-      (require-value candidates list? (lambda () (error "shrinker must return a finite proper list")))
-      (let scan ((rest candidates) (remaining remaining) (attempts attempts))
-        (unless (current? sources sampler) (return (list 'stale best attempts steps #f)))
-        (cond
-          ((null? rest) (list 'failed best attempts steps #t))
-          ((zero? remaining) (list 'failed best attempts steps #f))
-          (else
-            (def value (car rest))
-            (def eligible (and (accepts-value? sampler value)
-                               (< (weight sampler value) (weight sampler best))))
-            (unless (current? sources sampler) (return (list 'stale best (+ attempts 1) steps #f)))
-            (def outcome (if eligible (property value) #t))
-            (unless (boolean? outcome) (error "property must return a boolean" outcome))
-            (unless (current? sources sampler) (return (list 'stale best (+ attempts 1) steps #f)))
-            (if (not outcome) (loop value (- remaining 1) (+ attempts 1) (+ steps 1))
-              (scan (cdr rest) (- remaining 1) (+ attempts 1)))))))))
-
-;; Finite seeded testing is evidence, not universal verification. Errors retain
-;; their cause; neither generation errors nor property exceptions become passes.
-;; minimal? means no smaller failing immediate supplied candidate, never global.
+;; Compile the typed domain boundary once. The independent kernel receives only
+;; admission/cost/current callbacks, never a Type, Record or object-revision API.
+(def (property-specification sampler sources)
+  (testing.make-specification (cut accepts-value? sampler <>) (.@ sampler measure)
+    current?: (lambda () (current? sources sampler))))
+;; Interpret only POO's own generation refusal categories. All other exceptions
+;; keep their original cause and the kernel owns ordinary failure/error reporting.
+(def (generation-status cause)
+  (cond ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'stale)) 'stale)
+        ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'unguarded)) 'unsupported)
+        ((generation-refusal? cause) 'exhausted) (else 'error)))
+;; POO-derived shrink callbacks retain their proper-list contract at one boundary.
+;; The generic kernel itself consumes standard iterators and knows no POO grammar.
+(def (sampler-children sampler value)
+  (require-value (.call sampler shrink value) list?
+    (lambda () (error "shrinker must return a finite proper list"))))
+;; This layer owns Type compilation and the POO report projection. Trial execution,
+;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
 (def (check-property descriptor property seed: (seed 0) cases: (cases 100)
                      size: (size 20) shrink-budget: (shrink-budget 100) sampler: (supplied #f)
                      dependencies: (dependencies []) depth: (depth 32) node-budget: (nodes 256)
                      descriptor-budget: (descriptors 256) search-budget: (search 8192))
   (unless (and (procedure? property) (every (lambda (n) (and (exact-integer? n) (>= n 0)))
-                          (list seed size shrink-budget)) (exact-integer? cases) (> cases 0)
-               (list? dependencies) (every object? dependencies))
-    (error "invalid property testing configuration"))
-  (def sampler supplied)
-  (def sources [])
-  (def trial 0)
-  (def original #f)
-  ;; Initialization failures retain configuration and cause. An incomplete graph
-  ;; has no complete dependency snapshot, so its report explicitly refuses replay.
-  (def (report status counterexample attempts steps minimal? (cause #f))
+    (list seed size shrink-budget)) (exact-integer? cases) (> cases 0)
+    (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
+  (def sampler #f) (def sources [])
+  ;; Initialization can fail before a complete snapshot exists; those reports
+  ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
+  (def (report status original counterexample attempts steps minimal? cause execution)
     (.o bind-these: #f status: status descriptor: descriptor property: property sampler: sampler
-        seed: seed cases: cases size: size shrink-budget: shrink-budget sources: sources
-        trial: trial original: original counterexample: counterexample attempts: attempts
-        steps: steps minimal?: minimal? cause: cause dependencies: dependencies
-        replayable?: (and sampler #t)
-        depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
-        limits: (and sampler (.has? sampler limits) (.get sampler limits))))
+      seed: seed cases: cases size: size shrink-budget: shrink-budget sources: sources
+      trial: (if execution (testing.report-trial execution) 0) original: original counterexample: counterexample
+      attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: dependencies
+      replayable?: (and execution #t) execution: execution
+      depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
+      limits: (and sampler (.has? sampler limits) (.get sampler limits))))
   (with-catch
-    (lambda (cause) (report
-      (cond ((or (not (current? sources sampler))
-                 (and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'stale))) 'stale)
-            ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'unguarded)) 'unsupported)
-            ((generation-refusal? cause) 'exhausted) (else 'error)) original 0 0 #f cause))
+    (lambda (cause) (report (if (not (current? sources sampler)) 'stale (generation-status cause))
+      #f #f 0 0 #f cause #f))
     (lambda ()
       (set! sampler (or supplied (generator descriptor depth node-budget: nodes
-                                               descriptor-budget: descriptors search-budget: search)))
+        descriptor-budget: descriptors search-budget: search)))
       (unless (eq? (.get sampler descriptor) descriptor) (error "sampler descriptor mismatch"))
       (set! sources (snapshot sampler dependencies))
-      (def source (make-random-source))
-      (random-source-pseudo-randomize! source 0 seed)
-      (def random (random-source-make-integers source))
-      (let/cc return
-        (for (_ (in-range cases))
-          (unless (current? sources sampler) (return (report 'stale #f 0 0 #f)))
-          (set! trial (+ trial 1))
-          ;; A failed draw has no candidate for this trial; never reuse a previous
-          ;; successful trial as the reported error's original/counterexample.
-          (set! original #f)
-          (set! original (.call sampler draw random size))
-          (unless (accepts-value? sampler original) (error "generator produced a value outside its descriptor" original))
-          (unless (current? sources sampler) (return (report 'stale original 0 0 #f)))
-          (def outcome (property original))
-          (unless (boolean? outcome) (error "property must return a boolean" outcome))
-          (unless (current? sources sampler) (return (report 'stale original 0 0 #f)))
-          (unless outcome
-            (let (result (shrink-failure sampler property original shrink-budget sources))
-              (return (apply report result)))))
-        (report 'passed #f 0 0 #f)))))
+      (def execution (testing.check-property
+        (testing.make-generator (.@ sampler draw) (cut sampler-children sampler <>)) property
+        (property-specification sampler sources) seed: seed cases: cases size: size
+        shrink-budget: shrink-budget classify-error: generation-status))
+      (report (testing.report-status execution) (testing.report-original execution)
+        (testing.report-counterexample execution) (testing.report-attempts execution)
+        (testing.report-steps execution) (testing.report-minimal? execution)
+        (testing.report-cause execution) execution))))
 
-;; Replay the exact configuration only while descriptor and callback revisions
-;; remain current. Repeatability assumes stable callback behavior and host PRNG.
+;; Project generic replay back to the same POO metadata, retaining the exact
+;; originally captured sources rather than taking a permissive fresh snapshot.
+(def (replayed-report report execution)
+  (.cc report status: (testing.report-status execution) trial: (testing.report-trial execution)
+    original: (testing.report-original execution) counterexample: (testing.report-counterexample execution)
+    attempts: (testing.report-attempts execution) steps: (testing.report-steps execution)
+    minimal?: (testing.report-minimal? execution) cause: (testing.report-cause execution) execution: execution))
+;; Seeded replay delegates to the independent kernel's captured provenance.
 (def (replay-property report)
-  (unless (.get report sampler) (error "generation compilation did not produce a replayable sampler"))
+  (unless (.get report replayable?) (error "property report has no replayable generator"))
   (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
-  (check-property (.get report descriptor) (.get report property)
-    seed: (.get report seed) cases: (.get report cases) size: (.get report size)
-    shrink-budget: (.get report shrink-budget) sampler: (.get report sampler)
-    dependencies: (.get report dependencies) depth: (.get report depth)
-    node-budget: (.get report node-budget) descriptor-budget: (.get report descriptor-budget)
-    search-budget: (.get report search-budget)))
+  (replayed-report report (testing.replay-property (.get report execution))))
 
 ;; Reader/FUN composition makes the test run one observation followed by the
 ;; supplied consumer, which may be an existing IO action or an evidence gate.
@@ -235,20 +202,9 @@
 ;; currentness is checked again after successful execution; callback errors escape.
 (def (replay-counterexample report)
   (unless (eq? (.get report status) 'failed) (error "failed property report required"))
-  (def sampler (.get report sampler)) (def sources (.get report sources))
-  (unless (and sampler (current? sources sampler)) (error "stale property replay"))
-  (def witness (.get report counterexample))
-  (unless (accepts-value? sampler witness) (error "invalid property witness"))
-  (unless (current? sources sampler) (error "stale property replay"))
-  (def outcome ((.get report property) witness))
-  (unless (current? sources sampler) (error "stale property replay"))
-  (require-value outcome boolean? (lambda () (error "property must return a boolean" outcome))))
+  (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
+  (testing.replay-counterexample (.get report execution)))
 
-
-;; Preconditions are Boolean judgments, not truthy evidence or caught exceptions.
-(def (trace-enabled? model state command)
-  (require-value (.call model enabled? state command) boolean?
-    (lambda () (error "trace precondition must return a boolean"))))
 
 ;; Normalize each pure reference successor through its declared State descriptor.
 ;; Result admission is shared by generation, repair and differential execution.
@@ -256,36 +212,18 @@
   (defvalues (next result) (.call model advance state command))
   (values (validate (.get model State) next) (validate (.get model Result) result)))
 
-;; Fold one selected reference prefix. Selection is an ordinary higher-order
-;; policy: strict admission exits on a disabled command; repair omits it. Both
-;; share typed transition semantics and preserve the order of retained commands.
-(def (fold-trace model commands select)
-  (foldl (lambda (raw progress)
-    (match (select (car progress) raw)
-      (#f progress)
-      ((some command)
-       (let-values (((next _reply) (advance-trace model (car progress) command)))
-         (cons next (cons command (cdr progress)))))))
-    (cons (validate (.get model State) (.call model initial)) []) commands))
-
-;; Whole-prefix membership checks no fixture. Invalid logical dependencies leave
-;; through the standard escape continuation, not a second recursive validator.
-(def (valid-trace? model commands)
-  (let/cc invalid
-    (unless (list? commands) (invalid #f))
-    (fold-trace model commands (lambda (state command)
-      (unless (and (element? (.get model Command) command) (trace-enabled? model state command))
-        (invalid #f))
-      (some command)))
-    #t))
-
-;; Retirement is a selection over the SAME typed fold. It preserves independent
-;; suffixes without renaming handles, inventing producers or drawing random data.
-(def (repair-trace model commands)
-  (reverse (cdr (fold-trace model commands (lambda (state raw)
-    (and (element? (.get model Command) raw)
-      (let (command (validate (.get model Command) raw))
-        (and (trace-enabled? model state command) (some command)))))))))
+;; Type preparation is a domain layer over the ordinary Gerbil model protocol.
+;; Every normalized reference successor still uses the declared State/Result Types.
+(def (prepare-model model (normalize identity))
+  (model.make-model
+    (lambda () (validate (.get model State) (.call model initial)))
+    (.@ model enabled?) (cut advance-trace model <> <>) (.@ model observe)
+    (cut element? (.get model Command) <>) normalize))
+;; Prefix admission and dependency repair share the generic fold; neither owns a
+;; second traversal or invokes an actual backend during model validation.
+(def (valid-trace? model commands) (model.valid-trace? (prepare-model model) commands))
+;; The domain normalizer preserves nested Function wrapping while retiring dependents.
+(def (repair-trace model commands) (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands))
 
 ;; Build an ordinary List sampler; the existing runner owns random sources,
 ;; report stamps, proposal budgets and strict decrease/falsity admission.
@@ -302,18 +240,11 @@
       .generator: (lambda () (or result (error "trace generator not initialized")))))
     (def sampler (make-generator descriptor
       (lambda (random size)
-        (let/cc done
-          (def progress (for/fold (progress (cons (validate (.get model State) (.call model initial)) []))
-              (_ (in-range (min steps size)))
-            (match (.call model draw (car progress) random size)
-              (#f (done (reverse (cdr progress))))
-              ((some raw)
-               (def command (validate command-type raw))
-               (unless (trace-enabled? model (car progress) command) (error "disabled generated command" command))
-               (let-values (((next _reply) (advance-trace model (car progress) command)))
-                 (cons next (cons command (cdr progress)))))
-              (else (error "trace draw requires Option")))))
-          (reverse (cdr progress))))
+        (model.draw-trace (prepare-model model (cut validate (.get model Command) <>))
+          (lambda (state random size)
+            (match (.call model draw state random size)
+              (#f (values #f #f)) ((some command) (values #t command))
+              (else (error "trace draw requires Option")))) steps random size))
       (lambda (commands)
         (append
           (for/collect (index (in-range (length commands)))
@@ -333,51 +264,30 @@
 ;; equality relation must return Boolean; an exception is an error, never a pass.
 (def (trace-equal? descriptor same? expected actual)
   (def left (validate descriptor expected)) (def right (validate descriptor actual))
-  (require-value (same? left right) boolean? (lambda () (error "trace equality must return a boolean"))))
+  (same? left right))
 
 ;; Preflight the whole normalized command list before opening a fresh scoped
 ;; fixture. Compare initial state, then each reply/state exactly once; stop on
 ;; first divergence. Reports contain observations, never actual fixture owners.
 (def (check-trace model commands with-system same?: (same? equal?))
   (set! model (validate TraceModel model))
-  (require-value (list with-system same?) (list-of? procedure?) (lambda () (error "invalid trace consumer")))
+  (require-value with-system procedure? (lambda () (error "trace fixture must be a procedure")))
+  (require-value same? procedure? (lambda () (error "trace equality must be a procedure")))
   (def normalized (validate (List (.get model Command)) commands))
-  (unless (valid-trace? model normalized) (error "invalid command trace"))
-  ;; A false command remains present through Option; initial mismatch has no command.
-  (def (report matched? phase index command expected actual)
-    (.o bind-these: #f matched?: matched? phase: phase index: index command: command
-        expected: expected actual: actual))
-  ;; One scoped callback cannot overwrite a mismatch, escape, or be replayed.
-  (def (run system)
-    (set! system (validate (TraceSystem (.get system State)) system))
-    (let/cc different
-      ;; Comparison is composed once, then reused for initial/result/state phases.
-      (def (compare phase index command descriptor expected actual)
-        (unless (trace-equal? descriptor same? expected actual)
-          (different (report #f phase index command expected actual))))
-      (def reference (validate (.get model State) (.call model initial)))
-      (def actual (.get system initial))
-      (compare 'initial 0 #f (.get model Observation) (.call model observe reference) (.call system observe actual))
-      ;; One higher-order state fold owns both transitions and stops at the first
-      ;; difference. Every actual step and every observation executes once.
-      (for/fold (states (cons reference actual)) ((command normalized) (index (in-range (length normalized))))
-        (let*-values (((next expected) (advance-trace model (car states) command))
-                      ((raw found) (.call system step (cdr states) command))
-                      ((updated) (validate (.get system State) raw)))
-          (compare 'result index (some command) (.get model Result) expected found)
-          (compare 'state index (some command) (.get model Observation)
-            (.call model observe next) (.call system observe updated))
-          (cons next updated)))
-      (report #t 'complete (length normalized) #f #f #f)))
-  (def active? #t) (def entered? #f) (def result #f)
-  (try
-    (let (returned (with-system (lambda (system)
-      (unless (and active? (not entered?)) (error "trace fixture callback is not active or was reused"))
-      (set! entered? #t)
-      (set! result (run system)) result)))
-      (unless (and entered? result (eq? returned result)) (error "trace fixture did not return its observation"))
-      result)
-    (finally (set! active? #f))))
+  (def execution (model.check-trace (prepare-model model) normalized
+    (lambda (use)
+      (with-system (lambda (system)
+        (set! system (validate (TraceSystem (.get system State)) system))
+        (use (model.make-system (.get system initial)
+          (lambda (state command)
+            (let-values (((next result) (.call system step state command)))
+              (values (validate (.get system State) next) result))) (.@ system observe))))))
+    same?: (lambda (phase left right)
+      (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right))))
+  (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
+    index: (model.trace-report-index execution)
+    command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))
+    expected: (model.trace-report-expected execution) actual: (model.trace-report-actual execution)))
 
 ;; This is only the Boolean projection expected by check-property. Fresh-fixture
 ;; lifetime and exact step diagnostics remain in the existing callback/IO layer.

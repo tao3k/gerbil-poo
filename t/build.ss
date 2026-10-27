@@ -33,7 +33,7 @@
         (filter (lambda (name) (or (string-suffix? ".ss" name) (equal? name "gerbil.pkg")))
           (directory-files root)))
       (for-each (lambda (name) (copy-tree (path-expand name root) (path-expand name project)))
-        '("support" "types" "table" "trie" "examples" "t"))
+        '("support" "types" "table" "trie" "testing" "examples" "t"))
       (copy-tree (path-expand "lib/clan/poo/" (gerbil-path)) project #t)
       (thunk project))))
 ;; The registry owns only timeout-created process groups from this invocation.

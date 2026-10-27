@@ -1,10 +1,8 @@
 ;;; Guarded finite data generation through the existing recursive Interaction.
 (export recursive-generator)
 (import :std/iter :std/error (only-in :std/list/list map-in-order)
-        ./object (only-in ./mop Any element?) ./generation-graph
-        (prefix-in ./recursive recursive.))
-;; Standard host PRNG state is invocation-local; no mutable source escapes a node.
-(extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers)
+        ../object (only-in ../mop Any element?) ./generation-graph
+        (prefix-in ../recursive recursive.) (only-in :clan/property-testing/generator random-at))
 ;; Immutable finite derivations retain the selected Union branch and normalized
 ;; scalar weight. They are private evidence, not user-injected source receipts.
 (defstruct derivation (node value children weight count) final: #t)
@@ -21,10 +19,6 @@
         (or (not sampler) (not (.has? sampler .current?)) (.call sampler .current?)))) (vector->list nodes))))
 ;; A local deterministic source makes each request replayable from its explicit
 ;; seed. Choices/seeds are fully consumed before a continuation is returned.
-(def (random-at seed)
-  (def source (make-random-source))
-  (random-source-pseudo-randomize! source 0 seed)
-  (random-source-make-integers source))
 ;; Reuse existing carrier representations; transparent descriptors retain values.
 (def (pack node children)
   (case (node-kind node)

@@ -68,7 +68,7 @@ existing process watchdogs and heap limits remain necessary.
 
 | Paper / Scheme concern | Gerbil implementation | Lean evidence |
 | --- | --- | --- |
-| Descriptor-driven generators/compressors | `generation-graph.ss`, `recursive-generation.ss`, existing property runner | `Functional.RecursiveGeneration` finite production grammar |
+| Descriptor-driven generators/compressors | `testing/generation-graph.ss`, `testing/recursive-generation.ss`, existing property runner | `Functional.RecursiveGeneration` finite production grammar |
 | Finite recursive requests | Existing Interaction bind/solve, explicit quota and seed inputs | `program_observation` identifies explicit requests with the bounded DFS result |
 | Successful construction and total quota | Depth rows, reserved sibling costs, guarded branches | `construct_checked`, `construct_budget`, `restore_budget`, `saturation_feasible` |
 | Failed choice/callback and exhausted depth | Distinct report outcomes and original causes | `depth_refusal`, `choice_refusal`, `callback_refusal` |

@@ -1,7 +1,7 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
 (export recursive-generation-test)
 (import :std/test :std/error ../object ../mop ../type ../number
-        ../generation-graph ../property-testing
+        ../testing/generation-graph ../testing/type
         (prefix-in ../examples/recursive-trees trees.))
 
 ;; Match only a controlled refusal and its precise resource tag.

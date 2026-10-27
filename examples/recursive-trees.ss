@@ -4,7 +4,7 @@
         ../mop
         ../type
         ../number
-        ../property-testing
+        ../testing/type
         (runtime: :clan/poo/recursive)
         (prefix-in (only-in ../recursive Generator. bind map-interaction request
                    solve value value-result value?) recursive.))
