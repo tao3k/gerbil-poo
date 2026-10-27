@@ -578,21 +578,19 @@
       (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) instance absent-value))
       (set! (object-%layout self) layout) layout)))
 ;; Guarded access sites reuse only an index, never another receiver's slot value.
+;; Observation reuses ordinary .ref, including bootstrap, prechecks and read
+;; records; it needs no vector preparation or duplicate metadata delivery path.
 ;; Failed computations publish no new guard; absence never becomes a cached index.
 (def (.ref/inline self cache)
-  (def layout (object-layout self))
-  (def revision (object-revision self))
-  (if (slot-cache-hit? cache self revision layout)
-    (if (%slot-read-active?)
-      (let* ((slot (slot-cache-name cache)) (anchor (bootstrap-anchor self slot)))
-        (if anchor (object-read-bootstrap self slot anchor)
-          (begin (%slot-read-demand! self slot)
-                 (object-deliver-value self slot (slot-cache-read cache)))))
-      (slot-cache-read cache))
-    (let* ((slot (slot-cache-name cache)) (index (slot-layout-index layout slot))
-           (value (.ref self slot)))
-      (slot-cache-bind! cache self revision layout index)
-      value)))
+  (if (%slot-read-active?) (.ref self (slot-cache-name cache))
+    (let ((layout (object-layout self)) (revision (object-revision self)))
+      (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
+        (let* ((slot (slot-cache-name cache)) (index (slot-cache-index cache layout))
+               ;; Only this receiver's current cells may satisfy a switched-owner
+               ;; read. An uncomputed cell still delegates to original lazy .ref.
+               (stored (if index (slot-layout-ref layout index) absent-value))
+               (value (if (eq? stored absent-value) (.ref self slot) stored)))
+          (slot-cache-bind! cache self revision layout index) value)))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))

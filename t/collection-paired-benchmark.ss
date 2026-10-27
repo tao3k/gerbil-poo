@@ -1,6 +1,10 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
 (export main)
 (import :std/iter ../object ../mop ../number ../type ../table ../rationaldict
+        (only-in ../slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-layout-index)
+        (only-in ../slot-observation call-with-slot-read-observer %slot-read-active?)
+        (only-in :gerbil/runtime/loader load-module)
+        (prefix-in ../examples/representation-service service.)
         (only-in ../support/base number-comparer) ../support/option (only-in ../fun Wrapper.) (only-in ../trie SimpleTrie Trie. trie-for-each-change) (only-in ../fun IdWrap)
         (only-in "closure-measure.ss" measure measure-pair median mean))
 
@@ -16,6 +20,75 @@
 (def +order-phases+
   '(order-factory order-prepare order-cold order-seek order-range order-diff order-stage
     order-owner order-workflow order-publication))
+
+;; Cold preparation, lazy evaluation and switched/tracked hot access all remain
+;; visible. The module phase measures a standard cached load, not a fresh import.
+(def +slot-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow))
+
+;; Counterfactual for UNTRACKED mono/switched phases only: the prior guarded
+;; owner-miss algorithm resolves the name and delegates to ordinary lazy .ref.
+;; This is benchmark reference code, never an alternate production access API.
+(def (reference-inline receiver cache)
+  (def layout (object-layout receiver)) (def revision (object-revision receiver))
+  (if (slot-cache-hit? cache receiver revision layout)
+    ;; Preserve the original status check even though these phases are untracked.
+    (if (%slot-read-active?) (.ref receiver (slot-cache-name cache)) (slot-cache-read cache))
+    (let* ((slot (slot-cache-name cache)) (index (slot-layout-index layout slot))
+           (value (.ref receiver slot)))
+      (slot-cache-bind! cache receiver revision layout index) value)))
+
+;; Compare existing symbolic reads with the explicit inline API through the same
+;; receiver formulas and runtime. Each side owns its parent, instances and site.
+(def (slot-workload size scenario)
+  ;; Construction binds formulas without demanding either computed field.
+  (def (family)
+    (def parent (.o base: 3))
+    (cons parent (for/collect (n (in-range size))
+      (.o self: self inherit: [parent] offset: n
+        (value (+ (.get self base) (.get self offset)))
+        (unused (error "slot benchmark forced an unrelated body"))))))
+  ;; The sum is checked inside every complete measured operation.
+  (def (action inline?)
+    (def fixture (family))
+    (def reference? (and (not inline?) (memq scenario '(slot-hot slot-switch))))
+    (def site (and (or inline? reference?) (make-slot-cache 'value)))
+    ;; Read only this receiver, never the last owner's retained result.
+    (def (read receiver)
+      (cond (inline? (.ref/inline receiver site)) (reference? (reference-inline receiver site))
+            (else (.ref receiver 'value))))
+    ;; The reference/candidate consume the same ordered receiver trace.
+    (def (visit owners cycles base)
+      (def total (for/fold (sum 0) (_ (in-range cycles))
+        (for/fold (sum sum) (owner owners) (+ sum (read owner)))))
+      (unless (= total (* cycles (+ (* base size) (/ (* size (1- size)) 2))))
+        (error "slot access oracle" scenario total)) #t)
+    (case scenario
+      ((slot-prepare) (lambda ()
+        (for (owner (cdr (family))) ((if inline? object-layout object-instance) owner)) #t))
+      ((slot-cold) (lambda ()
+        (def fresh (family)) (def cold-site (and inline? (make-slot-cache 'value)))
+        (def total (for/fold (sum 0) (owner (cdr fresh))
+          (+ sum (if inline? (.ref/inline owner cold-site) (.ref owner 'value)))))
+        (unless (= total (+ (* 3 size) (/ (* size (1- size)) 2))) (error "cold slot oracle")) #t))
+      ((slot-hot) (lambda ()
+        (def total (for/fold (sum 0) (_ (in-range (* size 16))) (+ sum (read (cadr fixture)))))
+        (unless (= total (* size 16 3)) (error "monomorphic slot oracle")) #t))
+      ((slot-switch) (cut visit (cdr fixture) 16 3))
+      ((slot-tracked) (lambda ()
+        (call-with-slot-read-observer (lambda (_) (void)) (cut visit (cdr fixture) 16 3))))
+      ((slot-revision) (lambda ()
+        (.putslot! (car fixture) 'base ($constant-slot-spec 4)) (visit (cdr fixture) 1 4)
+        (.putslot! (car fixture) 'base ($constant-slot-spec 3)) (visit (cdr fixture) 1 3)))
+      ((slot-load-workflow) (lambda ()
+        (load-module "clan/poo/examples/representation-service")
+        ;; Keep initialization after the loader; Gerbil hoists internal defs.
+        (let* ((access (and inline? (make-slot-cache 'total)))
+               (total (for/fold (sum 0) (n (in-range size))
+                 (let (receiver (.cc service.Service capacity: n))
+                   (+ sum (if inline? (.ref/inline receiver access) (.ref receiver 'total)))))))
+          (unless (= total (+ (* 3 size) (* 3 (/ (* size (1- size)) 2))))
+            (error "cached module service oracle")) #t)))))
+  (values (action #f) (action #t)))
 
 ;; Every variant consumes the same admitted source, delta and exact sum oracle.
 ;; Factory setup is measured in cold; other phases retain their declared setup.
@@ -421,7 +494,8 @@
   (for (scenario +backend-phases+)
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (for* ((scenario (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+)) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication))
+  (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
+  (for* ((scenario (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+)) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -433,6 +507,7 @@
              (cut representation-workload n scenario))
             ((memq scenario +order-phases+)
              (cut order-workload n scenario))
+            ((memq scenario +slot-phases+) (cut slot-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
           (lambda (before after elapsed) (set! setup-history (measurement-history before after elapsed)))))
       (def baseline (vector-ref actions 0))

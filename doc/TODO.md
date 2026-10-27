@@ -2680,3 +2680,21 @@ the complete observation gate and proves the explicit identity/revision selectio
 Full changed-receiver admission and per-pull metadata work remain charged; no
 arbitrary callback termination, purity inference or VM proof is claimed. See
 table-order.md and the composition audit.
+
+### Shared-shape access and lazy evaluation acceptance
+
+The layout protocol now separates a reusable shape/name offset from the successful
+owner/revision/layout value guard. Switched accesses read current receiver cells,
+delegate observed access to the existing ordinary reader before layout preparation, and fall back to ordinary lazy evaluation
+only for an uncomputed cell. False/Function values, failures, parent invalidation,
+read replay and checked multi-service FUN/IO have integrated controls. Standard
+cached module loading preserves recipe identity; it does not force fresh-clone
+business slots. No duplicate loader or evaluator is introduced.
+
+Representation proofs cover shape/index fidelity, current values, lazy/refusal
+and explicit named-resolution work; new paired phases charge preparation, cold
+construction, hot/switch/tracked reads, revision and cached-load workflows. See
+representation.md. Full hash removal, automatic PIC/JIT/policy selection and
+fresh module expansion/link/initialization performance are NOT completed by this
+unit. They remain explicit optimization/acceptance boundaries rather than claims
+inferred from cache hits or primitive operation counts.

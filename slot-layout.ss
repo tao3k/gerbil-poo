@@ -1,6 +1,6 @@
 ;;; Shared shapes and receiver-local value vectors for guarded access sites.
 (export make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-put!
-        make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind!)
+        make-slot-cache slot-cache-name slot-cache-hit? slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
@@ -41,6 +41,15 @@
   (using (cache : access-cache)
     (and (eq? owner cache.owner) (eqv? revision cache.revision)
          (eq? layout cache.layout) cache.index)))
+;; Shape identity certifies only an offset, never another receiver's cells.
+;; Reuse the fixed-name offset across owners/revisions when canonical shapes
+;; coincide; missing names and changed shapes retain the ordinary hash lookup.
+(def (slot-cache-index cache layout)
+  (using (cache : access-cache)
+    (if (and cache.layout cache.index
+             (eq? (slot-layout-shape layout) (slot-layout-shape cache.layout)))
+      cache.index
+      (slot-layout-index layout cache.name))))
 ;; Read the current vector cell, not a retained value that could outlive invalidation.
 (def (slot-cache-read cache)
   (using (cache : access-cache) (slot-layout-ref cache.layout cache.index)))
