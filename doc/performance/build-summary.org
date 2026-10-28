@@ -516,3 +516,49 @@ A one-second macOS sample during test preparation found 761 of 797 samples in
 identify dynamic-image loading/validation in that interval; they do not charge
 the entire run to GC, linker CPU, or a particular operating-system service.
 The public test harness and its module/case progress remain unchanged.
+
+* POO build-boundary ownership and the focused 90-second gate
+The 2026-10-28 follow-up reproduced =just test-atomic build= reaching its original
+90-second deadline. Its outer observer reported 91.20 seconds including process
+termination. The module repeatedly nested package builds and test runners inside
+a standard test run. A complete 300-second acceptance pass did not close this
+focused gate.
+
+Diagnostic commands on one synthetic package measured 0.13 seconds for the
+released CLI's version request, 4.48 for an empty-prefix package build, 2.33 for
+an unchanged package build and 1.84 for one compiled test invocation. These are
+whole child-command boundaries, including startup/preparation. They do not
+isolate fork, module loading, C compilation or GC as independent additive costs.
+The observed parent runner reached its first case at about 1.73 seconds.
+
+The user confirmed the ownership boundary: preserve all POO acceptance and
+remove duplicated Gerbil CLI self-tests. The build module now contains five
+POO-owned cases. Its multiple-value, false-exception and exception-identity
+assertions are unchanged; the public-path assertions formerly embedded in a
+cold dummy build have their own case. The resource-recipe assertions remain.
+Generic make freshness, argument parsing, source/discovery and test-runner
+failure replicas are removed from POO. The dummy startup package, fixture
+factory, command dispatcher and fixture timestamp helper are removed too.
+Gerbil's own validation owns those tool contracts. This change makes no new
+claim about acceptance of the compiler itself.
+
+The actual library, startup executable, examples and paired study retain their
+standard top-level Gerbil build/test commands. All domain checks and resource
+bounds remain. Before changing the test declarations, the old tools package was
+cleaned through =gerbil clean=. The rebuilt output inventory has 149 test
+interfaces; the retired dummy startup interface is absent. The previous
+150-module / 1856-case receipt remains historical: this ownership correction
+replaces 24 mixed build cases with five POO cases and removes one dummy case.
+
+The complete compiled POO build-boundary module then passed in 2.24 seconds wall
+(1.09 user, 0.25 system), and the source-file entry passed in 1.62 seconds
+(1.09 user, 0.23 system). Both executed all five cases under the original
+90-second gate with module/case/harness markers. These figures describe the
+corrected POO acceptance scope, rather than a speedup ratio for the withdrawn
+CLI self-test workload. CI now enforces the focused gate as a tools-job step,
+before the existing complete tools-package and single-process checks.
+
+The complete pre-integration =just check-built 2 1 4= also passed: 149 modules,
+1836 cases and =COLLECTION-PAIRED-OK= in 92.84 seconds wall (64.99 user, 7.13
+system). This reused already compiled, source-consistent project artifacts;
+it is not an empty-prefix build or a substitute for the focused gate.

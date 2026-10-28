@@ -37,6 +37,15 @@ to `gerbil test` in one process, then runs the complete collection paired study.
 The representation job runs the paired startup TestSuite, including both unknown
 request refusals and the runtime-loaded and linked entries.
 
+The tools job first runs the complete POO build-boundary module through
+`just test-atomic build`, enforcing its separate 90-second limit. It then runs
+the ordinary tools package; the full single-process job also remains required.
+The module directly checks POO's value/error boundary, testing-module paths and
+resource recipes. Gerbil's package CLI, make and test-runner self-tests belong
+to Gerbil's own validation. POO tests use `:std/test` without nesting another
+Gerbil build/test process or recreating dummy packages. The actual POO library
+and startup programs still build and execute through the top-level standard CLI.
+
 Limits remain 300 seconds per build/whole-suite stage, 90 seconds for a focused
 case, 1 GiB frontend/test heaps and 2 GiB backend heaps. Compiler tracing and
 module/case/harness markers remain visible. No checks are removed for cache hits.

@@ -25,6 +25,14 @@ on `t/signatures`. `just test-file t/contracts/class-validation-test.ss` selects
 a source file with the existing 90-second focused bound. Tests export suites
 ending in `-test`, as required by the official runner.
 
+`just test-atomic build` checks the entire POO build-boundary module within
+90 seconds. Its direct `:std/test` assertions cover multiple return values,
+false exceptions, exception identity, public module paths and resource recipes.
+The recipe check only dry-runs POO's declared command; it starts no compiler or
+test runner. Generic Gerbil CLI/make/runner self-tests and the copied dummy
+startup package are outside POO's acceptance scope. Actual startup execution,
+all business suites and the complete paired study remain required.
+
 The thin recipe retains verbose module/case/harness progress, the runner's exit
 status and its success markers. An empty run without a case is refused. It does
 not rewrite TestCase/TestSuite procedures, reimplement fixtures, evaluate export

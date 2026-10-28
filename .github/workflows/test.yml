@@ -104,6 +104,9 @@ jobs:
         with:
           name: scheme-tests-${{ github.sha }}-${{ matrix.group }}
           path: .ci-library/lib/clan/poo/t
+      - name: Enforce the complete tools/build 90-second gate
+        if: matrix.group == 'tools'
+        run: time -p just test-atomic build
       - name: Discover and run this package with the official test runner
         run: just test-group '${{ matrix.group }}'
   representation-entry:
