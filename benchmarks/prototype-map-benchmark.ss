@@ -1,6 +1,6 @@
 ;;; Existing prototype-map studies share the same paired measurement engine.
 (export +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
-        +declaration-phases+ declaration-workload reference-reflection reference-read-slot)
+        +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
         (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
@@ -143,18 +143,19 @@
 ;; Cold and single cases pay metadata construction/index preparation. Hot/missing
 ;; and observed controls retain their own explicit setup. Full module workflows
 ;; include every initial descriptor, refinement, consumer and revision/refusal/retry.
-(def +declaration-phases+ '(declaration-empty declaration-single declaration-cold
+(def +declaration-phases+ '(declaration-directory declaration-visibility declaration-visibility-mixed
+  declaration-empty declaration-single declaration-cold declaration-hot-single
   declaration-hot declaration-missing declaration-observed declaration-workflow))
 ;; Compare indexed public access with safe scan selection on the same admitted
 ;; receiver and through identical Slot checks. Reflection outputs remain owned.
 (def (declaration-workload width scenario)
-  (def size (if (eq? scenario 'declaration-single) 1 width))
+  (def size (if (memq scenario '(declaration-single declaration-hot-single)) 1 width))
   (def name (make-symbol "field-" (1- size)))
   ;; Each cold receiver owns its descriptor graph; warm paths share only setup.
   (def (fresh)
     (make-object declarations: (for/collect (n (in-range size))
       (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n)))))
-  (def owner (and (memq scenario '(declaration-hot declaration-missing declaration-observed)) (fresh)))
+  (def owner (and (memq scenario '(declaration-hot-single declaration-hot declaration-missing declaration-observed)) (fresh)))
   (when owner (read-slot owner name) (reference-read-slot owner name))
   (def enter (module-action "clan/poo/examples/representation-service"
     'clan/poo/examples/representation-service#catalog-workflow))
@@ -173,7 +174,7 @@
           (unless (equal? (reflect (make-object)) []) (error "empty reflection oracle")))
         ((declaration-single declaration-cold)
           (unless (= (read (fresh) name) (1- size)) (error "cold declaration oracle")))
-        ((declaration-hot)
+        ((declaration-hot-single declaration-hot)
           (unless (= (read owner name) (1- size)) (error "hot declaration oracle")))
         ((declaration-missing)
           (unless (Error? (with-catch identity (cut read owner 'missing))) (error "missing declaration oracle")))
@@ -187,3 +188,38 @@
             (error "declaration publication oracle"))))
       #t))
   (values (action reference-read-slot reference-reflection) (action read-slot reflect-slots)))
+
+;; Original directory preparation, isolated for a matched construction diagnostic.
+;; Private input maps are identical on both sides, including empty C3 catalogs.
+(def (materialized-directory sources)
+  (prototype-map (delete-duplicates/hash
+    (apply append (map prototype-map-list sources))
+    key: car table: (make-hash-table-eq) from-end?: #t) policy: 'compact))
+;; Original visibility preparation preserves callback order and always rebuilds.
+;; This is a benchmark counterfactual, not another production cache/registry.
+(def (materialized-visibility source)
+  (prototype-map (foldr (lambda (entry rest)
+    (if (.@ (cdr entry) hidden) rest (cons entry rest))) []
+    (prototype-map-list source)) policy: (prototype-map-policy source)))
+;; Separate directory/index building from current visibility reads. Both sides
+;; pay the same result oracle. Main cold/workflow phases still charge everything.
+(def (declaration-preparation-workload size scenario)
+  (def mixed? (eq? scenario 'declaration-visibility-mixed))
+  (def entries (for/collect (n (in-range size))
+    (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n hidden: (and mixed? (zero? (modulo n 4)))))))
+  (def source (prototype-map entries policy: 'compact))
+  (def sources (list (prototype-map []) source (prototype-map [])))
+  ;; Warm descriptor values only for this isolated component diagnostic.
+  (for (entry entries) (.@ (cdr entry) hidden))
+  (def expected (if mixed? (- size (quotient (+ size 3) 4)) size))
+  ;; Directory controls measure old export/dedup/build versus immutable reuse.
+  ;; Visibility controls measure old filtered-map construction versus all-pass reuse.
+  (def (action direct?)
+    (lambda ()
+      (let (result (if (eq? scenario 'declaration-directory)
+        (if direct? (prototype-map-merge-first sources policy: 'compact) (materialized-directory sources))
+        (if direct? (prototype-map-filter source (lambda (_name descriptor) (not (.@ descriptor hidden))))
+          (materialized-visibility source))))
+        (unless (= (prototype-map-length result) expected) (error "declaration preparation oracle"))
+        #t)))
+  (values (action #f) (action #t)))

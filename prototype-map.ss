@@ -1,9 +1,9 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
-        prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
+        prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in :std/vector/vector vector-filter)
-        (only-in :std/list/list length<=n?))
+        (only-in :std/list/list length<=n? foldr delete-duplicates/hash))
 
 ;; Entries retain contribution order, including repeated methods for one slot.
 ;; Names point to the first contribution, matching the public replacement protocol.
@@ -47,7 +47,13 @@
     (cond
       ((specifications? entries)
         (if (or (not policy) (eq? policy (prototype-map-policy entries))) entries
-          (prototype-map (prototype-map-list entries) policy: policy)))
+          ;; Large policy changes retain the same immutable standard trees and
+          ;; sparse ordinal history. Only a small tree/vector conversion copies.
+          (if (and (not (vector? (specifications-entries entries)))
+                   (or (eq? policy 'tree) (> (specifications-count entries) small-map-limit)))
+            (make-specifications (specifications-entries entries) (specifications-names entries)
+              (specifications-count entries) (specifications-next entries) (eq? policy 'compact))
+            (prototype-map (prototype-map-list entries) policy: policy))))
       ((null? entries) (if (eq? policy 'compact) empty-compact empty-tree))
       ((and (eq? policy 'compact) (length<=n? entries small-map-limit))
         (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t))
@@ -70,6 +76,40 @@
         (rbtree-put! ordered count entry)
         (set! count (+ count 1))))
     (make-specifications ordered names count count compact?)))
+;; Detect repeated names using existing private positions, without building a
+;; second set. Tree positions are a scalar for a unique name and a pair otherwise.
+;; Small vectors remain bounded by eight; standard folds inspect existing positions.
+(def (distinct-specifications? source)
+  (def entries (specifications-entries source))
+  (if (vector? entries)
+    (for/fold (unique? #t) (index (in-range (vector-length entries)))
+      (and unique? (= index (small-index entries (car (vector-ref entries index))))))
+    (rbtree-fold (lambda (_name positions unique?) (and unique? (not (pair? positions))))
+      #t (specifications-names source))))
+;; Select first contributions across ordered roots. Empty roots do not force
+;; exports; one distinct root can retain its immutable backend and explicit policy.
+;; Multiple roots/duplicates keep standard ordered deduplication and full capture.
+;; This projection is for keyed catalogs, not method-chain composition.
+(def (prototype-map-merge-first sources policy: (policy #f))
+  (def roots (filter (lambda (source) (positive? (prototype-map-length source))) sources))
+  (cond ((null? roots) (prototype-map [] policy: policy))
+        ((and (null? (cdr roots)) (distinct-specifications? (car roots)))
+          (prototype-map (car roots) policy: policy))
+        (else (prototype-map
+          (delete-duplicates/hash (apply append (map prototype-map-list roots))
+            key: car table: (make-hash-table-eq) from-end?: #t) policy: policy))))
+;; Filter in RIGHT-TO-LEFT callback order, retaining contribution order and values.
+;; All-pass returns the exact source: no replacement vector/tree or policy change.
+;; A partial result keeps the existing policy; original callback exceptions stop
+;; immediately and publish no result. Prior callback effects are not rolled back.
+(def (prototype-map-filter source keep?)
+  (using (keep? :~ procedure?)
+    (def retained 0)
+    (def entries (foldr (lambda (entry rest)
+      (if (keep? (car entry) (cdr entry))
+        (begin (set! retained (1+ retained)) (cons entry rest)) rest)) [] (prototype-map-list source)))
+    (if (= retained (specifications-count source)) source
+      (prototype-map entries policy: (prototype-map-policy source)))))
 ;; Delegate ordered traversal to the existing compact vector or standard RBTree.
 ;; This private iterator never crosses the snapshot boundary.
 (def (in-specifications source)

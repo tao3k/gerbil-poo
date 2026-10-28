@@ -1,6 +1,6 @@
 ;;; Effective metadata indexing preserves source guards and public snapshot ownership.
 (export declaration-index-test)
-(import :std/test :std/error :std/iter
+(import (prefix-in (only-in :gerbil/runtime/mop slot-ref) runtime.) :std/test :std/error :std/iter
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/reflection
         :clan/poo/prototype-map :clan/poo/slot-observation
@@ -16,6 +16,68 @@
 ;; Independent scan observations are compared to private indexing after real edits.
 (def declaration-index-test
   (test-suite "effective declarations, visibility and revision guards"
+    (test-case "first catalog projection reuses only distinct sole roots and preserves C3 priority"
+      (for (policy '(tree compact))
+        (let* ((f identity) (source (prototype-map (list (cons 'a #f) (cons 'b f)) policy: policy))
+               (empty (prototype-map []))
+               (duplicate (prototype-map (list (cons 'a #f) (cons 'a f)) policy: policy)))
+          (check-eq? (prototype-map-merge-first (list empty source empty)) source)
+          (check-equal? (prototype-map-list (prototype-map-merge-first (list duplicate))) '((a . #f)))
+          (let (merged (prototype-map-merge-first (list source (prototype-map '((a . 9) (c . 3))))))
+            (check-equal? (prototype-map-keys merged) '(a b c))
+            (check (prototype-map-ref merged 'a) => #f)
+            (check-eq? (prototype-map-ref merged 'b) f)))
+        (check-equal? (prototype-map-list (prototype-map-merge-first [] policy: policy)) [])))
+    (test-case "all-pass filter reuses identity with ordered duplicates failure and partial policy"
+      (for (policy '(tree compact))
+        (let* ((f identity) (source (prototype-map (list (cons 'a #f) (cons 'a f) (cons 'b f)) policy: policy))
+               (events []))
+          (check-eq? (prototype-map-filter source (lambda (key _value)
+            (set! events (cons key events)) #t)) source)
+          (check-equal? (reverse events) '(b a a))
+          (let (filtered (prototype-map-filter source (lambda (_key value) value)))
+            (check-equal? (prototype-map-policy filtered) policy)
+            (check-equal? (prototype-map-keys filtered) '(a b))
+            (check-eq? (prototype-map-ref filtered 'a) f))
+          (check-eq? (with-catch identity (lambda () (prototype-map-filter source
+            (lambda (key _value) (if (eq? key 'b) (raise 'filter-refusal) #t))))) 'filter-refusal)
+          (check (prototype-map-ref source 'a) => #f)
+          (check-exception (prototype-map-filter source 7) contract-violation-error?))))
+    (test-case "large policy conversion preserves sparse positions and persistent successors"
+      (let* ((source (prototype-map (for/collect (n (in-range 20)) (cons (make-symbol "k-" n) n))))
+             (sparse (prototype-map-remove (prototype-map-remove source 'k-0) 'k-7))
+             (converted (prototype-map sparse policy: 'compact))
+             (changed (prototype-map-put converted 'new #f)))
+        (check-equal? (prototype-map-policy converted) 'compact)
+        (check-equal? (prototype-map-list converted) (prototype-map-list sparse))
+        (check-equal? (prototype-map-policy (prototype-map converted policy: 'tree)) 'tree)
+        (check-equal? (prototype-map-ref changed 'k-19) 19)
+        (check-equal? (prototype-map-keys changed) (append (prototype-map-keys sparse) '(new)))
+        (check-equal? (prototype-map-length sparse) 18)
+        (let (small (prototype-map (for/fold (root sparse) (n (in-range 13))
+                       (prototype-map-remove root (make-symbol "k-" n))) policy: 'compact))
+          (check-equal? (prototype-map-policy small) 'compact)
+          (check-equal? (prototype-map-ref (prototype-map-put small 'next 21) 'k-19) 19))))
+    (test-case "whole visible catalogs share roots but retain the source revision fence"
+      (let* ((root (prototype-map (for/collect (n (in-range 12))
+                     (cons (make-symbol "field-" n) (descriptor n))) policy: 'compact))
+             (owner (make-object declarations: root)))
+        (check-equal? (read-slot owner 'field-11) 11)
+        (let (index (object-%declaration-index owner))
+          (check-eq? (runtime.slot-ref index 'all) root)
+          (check-eq? (runtime.slot-ref index 'visible) root))
+        (.putslot! (prototype-map-ref root 'field-0) 'hidden ($constant-slot-spec #t))
+        (check-equal? (length (reflect-slots owner)) 11)
+        (check-equal? (length (reflect-slots owner include-hidden?: #t)) 12)
+        (check-exception (read-slot owner 'field-0) (message? "slot is hidden or undeclared")))
+      (let* ((slot (descriptor 7)) (owner (make-object declarations: (list (cons 'value slot)))))
+        ;; Even an all-pass reused root is stale after a getter edits its owner.
+        (.putslot! slot 'hidden ($thunk-slot-spec (lambda ()
+          (.putslot! owner 'extra ($constant-slot-spec 9)) #f)))
+        (check-exception (read-slot owner 'value) (message? "object changed during declaration reflection"))
+        (check (object-%declaration-index owner) => #f)
+        (check-equal? (read-slot owner 'value) 7)
+        (check-equal? (.ref owner 'extra) 9)))
     (test-case "indexed map lookup preserves first duplicates false functions and symbol identity"
       (for (policy '(tree compact))
         (let* ((a (string->uninterned-symbol "same")) (b (string->uninterned-symbol "same"))

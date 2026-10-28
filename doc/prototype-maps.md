@@ -323,3 +323,99 @@ the standard representations rebuild for the corrected topology-API test. These
 build/check wall times are not an old/new cold-build comparison or a whole-check
 speedup claim. Focused Lean checks retain 1 GiB/two threads; full gate and remote
 CI remain separate acceptance steps.
+
+## Cold-query preparation reuse
+
+The cold path now eliminates two repeat builders while retaining the existing
+purity-by-default/registered-source discipline. `prototype-map-merge-first`
+ignores empty catalogs, checks existing name positions for a sole distinct root,
+and reuses that immutable backend. Multiple roots or duplicate contributions keep
+the full ordered first-occurrence projection. This is a keyed-catalog operation,
+not method-chain merging. Distinctness costs a bounded small-vector check or a
+standard RBTree fold; no additional cached bit, set or object field is introduced.
+
+Large policy-only conversions wrap the existing immutable trees and retain sparse
+ordinals/high-water position. Small tree/vector transitions still capture their
+finite entry streams. Persistent successors do not mutate either policy view.
+`prototype-map-filter` invokes its predicate right-to-left and preserves entry
+order. An all-pass result returns the original root; partial filtering keeps the
+source policy and rebuilds only its resulting map. Callback errors propagate
+unchanged and prior effects are not rolled back. Private pairs never escape.
+
+Public declaration visibility uses this filter and still checks the owner revision
+BEFORE publishing its result, including an all-pass shared root. Observed calls
+retain the prior ordered reader and the owner-names authentication. Value checks,
+visibility getters and their snapshots remain real costs. The all-pass shortcut
+is justified by actual filtering/sublist plus equal retained length, not arbitrary
+same-cardinality replacement. Source registration, serialized edits and immutable
+standard map operations remain premises.
+
+### Cold-query paired receipt (2026-10-28, macOS)
+
+Base `8e2fad9`, compiler `1cfb032.patch618d76f9eb72`. No build/check from this task
+overlapped either study. Complete declaration study passed in **75.41 s**, with
+**63.58 s** inclusive study. Original cold/hot/missing/observed/workflow phases
+remain, with additional isolated directory, full/mixed visibility and single-hot
+controls. Width 32, sixteen calls/batch, six AB/BA pairs and four A/A and B/B pairs.
+Component descriptors/visibility are warmed only for the component diagnostic;
+whole cold actions still build their complete descriptor graph and receiver.
+
+Collected component medians: directory preparation **-21.87 us** (range
+-22.56 / -21.07), all-visible preparation **-15.84 us** (-16.81 / -7.32), mixed
+visibility **+0.16 us** (-0.94 / +0.82), and single-hot **-1.37 us**
+(-4.25 / +1.24). These isolate actual eliminated builders; they are not summed
+into an end-to-end latency prediction. Complete study cold collected median was
+**+56.66 us**, mean +401.12, one win/five losses and range -8.49 / +1,483.87;
+it did not establish cold-wall closure. Full workflow collected median was
+-9,774.94 us with six wins/no losses and range -13,123.81 / -4,055.62.
+
+A separate longer confirmation retains the SAME cold/full scan oracle, all regimes
+and controls: width 32, thirty-two calls/batch, twelve AB/BA pairs and four A/A/B/B
+pairs. It passed in **50.93 s**, inclusive study **45.84 s**. Positive differences
+below mean candidate regression; the larger batch is additional evidence, not a
+replacement for the shorter adverse samples above.
+
+| Confirmation phase | AB median us | AB mean us | min / max us | wins / losses |
+| --- | ---: | ---: | ---: | ---: |
+| cold collected | -0.89 | +14.37 | -24.02 / +84.72 | 7 / 5 |
+| cold charged GC/first/batch | -8.75 | -1.30 | -59.91 / +73.73 | 7 / 5 |
+| full collected | -3,526.77 | -3,726.31 | -6,702.10 / -2,680.96 | 12 / 0 |
+| full charged GC/first/batch | -3,238.95 | -3,205.65 | -3,553.91 / -2,530.81 | 12 / 0 |
+
+Cold natural AB was six wins/six losses, mean -93.97 and range
+-1,105.46 / +767.91; its A/A max was +754.57 and B/B max +753.86. Cold
+collected A/A ranged -124.28 / +4.60, B/B -17.56 / +3.81. The +84.72 AB
+tail is retained rather than treated as automatically explained by those tighter
+controls. Charged cold A/A ranged -22.22 / +26.41, B/B -23.01 / +57.83.
+
+Charged cold mean components were batch wall +4.05 (non-GC CPU +3.41, GC 0,
+residual +0.65), first +1.00 (non-GC +0.75, residual +0.25), forced GC -6.36
+(GC CPU -5.77, residual -0.56). Thus forced GC contributes much of the negative
+charged cold mean; it does not prove a faster production cold query. Disjoint
+means add; medians do not. CPU improvement alone is not cold-wall acceptance.
+
+Full natural confirmation had ten wins/two losses, mean -2,585.88 and range
+-5,197.16 / +9,552.44; natural A/A max +869.25, B/B max +774.06. Collected
+full A/A ranged -825.12 / +471.00, B/B -202.22 / +53.85. Charged full A/A
+ranged -428.97 / +2,872.75, B/B -359.61 / -113.68. Charged full mean components
+were batch wall -3,134.59 (non-GC CPU -2,422.57, GC CPU -712.74, residual
++0.72), first -75.96, forced GC +4.90 (GC CPU +6.69, residual -1.82).
+
+The earlier +351 us cold median is not reproduced in the longer confirmation,
+and isolated preparation plus complete collected/charged workflows improve.
+Cold mean/tails and natural full-workflow outliers remain unqualified; no universal
+cold, GC or tail-speedup claim follows. Raw allocation histories contain invalid
+negative samples, so no byte-saving claim is inferred. Extra object cache field,
+initial descriptors, uniqueness scans, snapshots, value checks, startup and GC
+remain paid. Complete logs stay outside Git; resource limits/checks are unchanged.
+
+Final integration preserves upstream `688555b` (bounded executable independent
+property build) and `3ba1b34` (standard CI progress level). They do not change
+query/benchmark code; paired data above remain the original cohort, not resampled
+for a better outcome. Final standard build phases passed in 85.66 / 2.84 /
+161.87 seconds. Complete final acceptance passed **150 modules / 1,871 cases**
+with no errors: module phase **223.15 s**, complete paired entry **12.91 s**,
+whole `check-built 2 1 4` **236.61 s**. The additional upstream case checks the
+independent build entry. Per-phase deadlines, frontend/backend heap limits and
+full inventory are unchanged. Focused source proofs/examples pass at 1 GiB/two
+threads; complete Lean gate and exact-head remote CI are separate evidence.

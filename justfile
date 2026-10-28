@@ -160,3 +160,7 @@ benchmark-prototype-catalog: build-shared
 # Point metadata lookup includes cold preparation, observation and full workflows.
 benchmark-declaration-index: build-shared
     just _test 300 benchmarks/declaration-index-test.ss
+
+# Longer cold/full workflow confirmation retains the ordinary bounded test entry.
+benchmark-cold-query: build-shared
+    just _test 300 benchmarks/cold-query-test.ss

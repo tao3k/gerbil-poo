@@ -44,9 +44,8 @@
   (require-declaration-revision self revision)
   (or (object-%declaration-index self)
     (let (index (make-declaration-index
-      (prototype-map (delete-duplicates/hash
-        (apply append (map object-declarations (object-%precedence-list self)))
-        key: car table: (make-hash-table-symbolic) from-end?: #t) policy: 'compact) #f))
+      (prototype-map-merge-first (map object-%declarations (object-%precedence-list self))
+        policy: 'compact) #f))
       (require-declaration-revision self revision)
       (set! (object-%declaration-index self) index)
       index)))
@@ -65,7 +64,10 @@
 ;; never cached. Empty visible maps are successful values, distinct from #f.
 (def (public-declarations self index)
   (or (declaration-index-visible index)
-    (let (visible (prototype-map (visible-declarations self index) policy: 'compact))
+    (let* ((revision (object-revision self))
+           (visible (prototype-map-filter (declaration-index-all index)
+             (lambda (_name descriptor) (not (.@ descriptor hidden))))))
+      (require-declaration-revision self revision)
       (set! (declaration-index-visible index) visible)
       visible)))
 ;; Reflect metadata without demanding slot VALUES. Hidden-inclusive inspection
