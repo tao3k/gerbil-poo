@@ -152,3 +152,7 @@ benchmark-names: build-shared
 # Explicit and opaque SlotSpec encodings retain full construction and publication.
 benchmark-slot-construction: build-shared
     just _test 300 benchmarks/slot-construction-test.ss
+
+# Catalog capture, clone, reflection and checked module publication remain paired.
+benchmark-prototype-catalog: build-shared
+    just _test 300 benchmarks/prototype-catalog-test.ss

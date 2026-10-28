@@ -71,7 +71,7 @@
     (set! (object-%state self) (make-object-state))
     (set! (object-%protocol self) protocol)
     (set! (object-%overrides self) #f)
-    (set! (object-%declarations self) declarations)
+    (set! (object-%declarations self) (prototype-map declarations))
     (set! (object-%bootstrap self) bootstrap)
     (for-each (cut depend-on-object! self <>) (object-supers self))
     (when protocol (depend-on-object! self protocol))))
@@ -80,6 +80,9 @@
 (def (object-slots self) (prototype-map-list (object-%slots self)))
 ;; Reflection returns an owned list while the persistent map remains shareable.
 (def (object-defaults self) (prototype-map-list (object-%defaults self)))
+;; Own the reflected catalog pairs while sharing descriptor objects as registered
+;; sources. Catalog membership changes require a freshly constructed receiver.
+(def (object-declarations self) (prototype-map-list (object-%declarations self)))
 ;; Expose only explicit instance assignments as constant specifications. Recursive
 ;; validation can retain them on a fresh receiver without copying computed caches;
 ;; ordinary prototype inheritance still does not inherit these assignments.
@@ -201,7 +204,7 @@
 (defclass (InvalidObject Exception) (slots) transparent: #t)
 (def (invalid-object-summary self)
   (InvalidObject slots: (append (prototype-map-keys (object-%slots self))
-    (prototype-map-keys (object-%defaults self)) (map car (object-%declarations self)))))
+    (prototype-map-keys (object-%defaults self)) (prototype-map-keys (object-%declarations self)))))
 
 ;; Delegate ordering directly to core C4 while retaining POO cycles, hooks and caches.
 (def (compute-precedence-list! self (heads '()))
@@ -241,13 +244,14 @@
 ;; Only private immutable maps escape the scratch receiver; empty declarations
 ;; need no result pair or public snapshot export.
 (def (declaration-specifications self)
-  (and (not (null? (object-%declarations self)))
+  (and (positive? (prototype-map-length (object-%declarations self)))
     (let (scratch (make-object))
-      (for (([name . descriptor] (object-%declarations self)))
-        (def type (.@ descriptor .type))
-        (depend-on-object! self descriptor)
-        (depend-on-object! self type)
-        (.call type .slot.define descriptor name scratch))
+      (prototype-map-for-each (object-%declarations self)
+        (lambda (name descriptor)
+          (def type (.@ descriptor .type))
+          (depend-on-object! self descriptor)
+          (depend-on-object! self type)
+          (.call type .slot.define descriptor name scratch)))
       (cons (object-%slots scratch) (object-%defaults scratch)))))
 ;; Assemble the ordinary inheritance chain, then let inherited hooks transform
 ;; each effective thunk. Direct specification writes override their declaration.
@@ -646,7 +650,7 @@
     (or (object-%all-slots self)
       (let (esl (merge-super-slots
                  (map (lambda (super) (append (prototype-map-keys (object-%slots super))
-                   (prototype-map-keys (object-%defaults super)) (map car (object-%declarations super))))
+                   (prototype-map-keys (object-%defaults super)) (prototype-map-keys (object-%declarations super))))
                       (object-%precedence-list self))))
         (def defined (filter (lambda (slot) (hash-key? (object-%slot-funs self) slot)) esl))
         (set! (object-%all-slots self) defined)

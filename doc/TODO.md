@@ -2845,3 +2845,20 @@ cost proofs. Standard backend persistence/iteration are premises. No second
 index, tree, loader or registry is introduced; full-vector storage, automatic
 PIC/JIT and arbitrary initializer equivalence remain their declared boundaries.
 See [prototype-maps.md](prototype-maps.md) for the protocol and paired receipt.
+
+### Declaration catalogs: persistent ownership and reflection closure
+
+Closed the unowned declaration-list input and reflected entry-pair escape.
+The existing prototype map captures finite catalog membership, and reflection
+owns its public spines/pairs. Descriptor contents remain registered mutable
+sources, so visibility/value changes propagate to prepared owners and shared
+clones. Grammar refusal precedes hooks; descriptor elaboration stays lazy and
+retryable. Empty immutable roots avoid per-object empty index construction.
+No new cache, namespace, loader or tree is introduced. The standard module and
+refinement/FUN-bind publication pipeline is reused by the catalog workflow.
+Physical alias isolation is tested in Gerbil; Lean proves the corresponding
+ordered capture/public-view frame, exact refusal, private preparation/retry and
+finite export-cost laws under persistent-storage/registered-source premises.
+This advances implementation future work; unrestricted mutation tracking and
+arbitrary module initializer equivalence remain outside the declared scope.
+See [prototype-maps.md](prototype-maps.md) for the paired acceptance receipt.

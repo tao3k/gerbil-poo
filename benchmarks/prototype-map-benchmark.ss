@@ -1,0 +1,115 @@
+;;; Existing prototype-map studies share the same paired measurement engine.
+(export +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload)
+(import :std/iter :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
+        (only-in :clan/poo/io module-action)
+        (only-in :clan/poo/slot-layout make-slot-cache)
+        (only-in :clan/poo/reflection reflect-slots read-slot)
+        (prefix-in :clan/poo/examples/representation-service service.))
+
+;; These controls compare current safe public snapshot composition with direct
+;; ordered traversal/root sharing, including single-field and complete workflows.
+(def +traversal-phases+ '(map-traverse map-keys map-compose map-compose-single map-compose-workflow))
+;; Rebuild the same selected policy through public owned snapshots. The fresh
+;; receiver has the SAME parents/protocol/declarations and no inherited cache.
+(def (snapshot-compose base override)
+  (make-object
+    slots: (prototype-map (object-slots override) policy: (prototype-map-policy (object-%slots override)))
+    defaults: (prototype-map (object-defaults override) policy: (prototype-map-policy (object-%defaults override)))
+    supers: [(object-supers override)... base]
+    protocol: (object-%protocol override) declarations: (object-%declarations override)))
+;; Every result and callback order is checked inside timing; whole workflows also
+;; charge template construction, warming, refinement, publication and retry.
+(def (traversal-workload size scenario)
+  (def entries (append (for/collect (n (in-range size)) (cons (make-symbol "field-" n) n))
+    (list (cons 'target #f) (cons 'target identity))))
+  (def source (prototype-map entries policy: 'compact))
+  (def expected (map car entries))
+  (def single? (eq? scenario 'map-compose-single))
+  (def override (make-object slots: (prototype-map
+    (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
+      (if single? (list (cons 'target identity)) entries)) policy: 'compact)
+    defaults: (prototype-map (if single? [] (list (cons 'enabled #f) (cons 'callback identity))) policy: 'compact)))
+  (.put! override 'total -999)
+  (def enter (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#composition-workflow))
+  ;; An admitted map callback sees ordered values, never a mutable private pair.
+  (def (walk direct?)
+    (def seen '())
+    ;; Charge the consumer's own output equally on both traversal paths.
+    (def (consume key value) (set! seen (cons (cons key value) seen)))
+    (if direct? (prototype-map-for-each source consume)
+      (for (entry (prototype-map-list source)) (consume (car entry) (cdr entry))))
+    (unless (equal? (reverse seen) entries) (error "prototype traversal oracle")))
+  ;; Composition starts from identical warmed templates, then observes every field.
+  (def (compose-and-read compose)
+    (def receiver (compose service.Service override))
+    (def fields (.alist receiver))
+    (unless (and (= (.get receiver total) 33) (eq? (cdr (assq 'target fields)) identity)
+                 (or single? (and (not (cdr (assq 'enabled fields)))
+                                  (eq? (cdr (assq 'callback fields)) identity))))
+      (error "prototype composition oracle")))
+  ;; One standard action factory retains every public boundary on each side.
+  (def (action direct?)
+    (def compose (if direct? .+ snapshot-compose))
+    (lambda ()
+      (case scenario
+        ((map-traverse) (walk direct?))
+        ((map-keys)
+          (unless (equal? (if direct? (prototype-map-keys source) (map car (prototype-map-list source))) expected)
+            (error "prototype keys oracle")))
+        ((map-compose map-compose-single) (compose-and-read compose))
+        ((map-compose-workflow)
+          (unless (equal? (enter (list size compose: compose policy: 'compact)) '#(24 30 36 6))
+            (error "prototype publication oracle"))))
+      #t))
+  (values (action #f) (action #t)))
+
+;; Empty control, full capture, cloning, public reflection and the checked module
+;; workflow are separate phases. Neither side aliases public mutable pairs.
+(def +catalog-phases+ '(catalog-empty catalog-single catalog-cold catalog-clone catalog-reflect catalog-workflow))
+;; Reference recaptures an owned snapshot; candidate shares immutable catalog roots.
+;; Initial descriptor capture, all demanded values and full publication stay charged
+;; in cold/workflow phases. This compares supported current strategies, not an
+;; unsafe old alias or a claim about historical compiler performance.
+(def (catalog-workload width scenario)
+  (def size (if (eq? scenario 'catalog-single) 1 width))
+  ;; Shared descriptor construction uses explicit finite types, not Any fallback.
+  (def (template)
+    (make-object declarations: (prototype-map
+      (for/collect (n (in-range size))
+        (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n))) policy: 'compact)))
+  (def warm (template))
+  (def enter (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#catalog-workflow))
+  ;; Both fresh receivers use identical metadata, policy and normal lazy admission.
+  (def (copy source direct?)
+    (make-object slots: (object-%slots source) defaults: (object-%defaults source)
+      supers: (object-supers source) protocol: (object-%protocol source)
+      declarations: (if direct? (object-%declarations source)
+        (prototype-map (object-declarations source) policy: 'compact))))
+  ;; Demand every declared value and compare complete public names in source order.
+  (def (observe owner)
+    (unless (and (equal? (map car (reflect-slots owner))
+                         (for/collect (n (in-range size)) (make-symbol "field-" n)))
+                 (= (for/fold (sum 0) (n (in-range size))
+                      (+ sum (read-slot owner (make-symbol "field-" n))))
+                    (quotient (* size (1- size)) 2)))
+      (error "catalog observation oracle")))
+  ;; Each timed action contains its oracle and preserves the exact original error.
+  (def (action direct?)
+    (lambda ()
+      (case scenario
+        ((catalog-empty)
+          (unless (and (zero? (prototype-map-length (object-%declarations (make-object))))
+                       (null? (reflect-slots (make-object)))) (error "empty catalog oracle")))
+        ((catalog-single catalog-cold) (observe (copy (template) direct?)))
+        ((catalog-clone) (observe (copy warm direct?)))
+        ((catalog-reflect)
+          (let (view (reflect-slots warm))
+            (set-car! (car view) 'client-only)
+            (observe warm)))
+        ((catalog-workflow)
+          (unless (equal? (enter (list size recapture?: (not direct?) policy: 'compact)) '#(24 30 36 6))
+            (error "catalog publication oracle"))))
+      #t))
+  (values (action #f) (action #t)))

@@ -122,3 +122,95 @@ In the higher-resolution run, collected A/A spans -93.03 to +13.09 and B/B
 identical code. These control ranges overlap meaningful parts of the measured
 signal; twelve pairs are bounded qualification evidence, not a universal latency
 or causal scheduling diagnosis.
+
+## Declaration catalog ownership
+
+The constructor now captures declaration membership through the same persistent
+prototype map as slots/defaults. `object-declarations` returns an owned ordered
+list and entry pairs. `reflect-slots` resolves inherited visibility using those
+owned observations; editing a returned entry cannot replace a descriptor or
+rename an authoritative field. Descriptor objects themselves remain shared,
+registered sources: supported descriptor edits still invalidate every prepared
+owner/clone, refresh visibility and rerun ordinary admission. This does not make
+raw object setters or arbitrary external mutations safe.
+
+Catalog input must satisfy the existing finite symbolic-specification grammar
+at construction. Invalid keys/entry shape refuse before hooks. Descriptor bodies
+are not evaluated by capture: their original elaboration/validation failures
+remain lazy, propagate unchanged, publish no successful partial cache, and allow
+a fresh corrected retry. Duplicate contribution order and most-specific reflection
+selection are unchanged. New membership needs a freshly constructed object.
+`.+` and `.cc` share catalog roots while creating fresh receiver caches.
+
+`prototype-map-length` counts contributions, including duplicates. Two private
+immutable empty snapshots retain the explicit tree/compact policy and avoid
+allocating empty index builders for each undeclared receiver. Persistent writes
+create successors; deleting entries from an existing tree still retains that
+snapshot's monotone ordinal history. No mutable builder or vector is exported.
+
+The paired catalog study compares safe public snapshot recapture with immutable
+root reuse. It separately charges empty construction, fresh typed catalogs,
+clones, owned public reflection, and the full standard module/refine/FUN-bind
+publication with live source edits, refusal and retry. A/A and B/B controls and
+natural/collected/charged post-GC observations remain in the existing sampler.
+This is a current-strategy comparison, not an old-version performance claim.
+Module actions use ordinary cached loads; this is not a fresh-process cold-import
+benchmark. Exact compilation, module initialization and machine GC performance
+are runtime evidence, not consequences of the finite Lean cost laws.
+
+### Catalog paired receipt (2026-10-28, macOS)
+
+Base `81732d5`, Gerbil compiler `1cfb032.patch618d76f9eb72`; no other build or
+verification from this task ran during sampling. The standard `_test 300
+benchmarks/prototype-catalog-test.ss` entry passed in **43.22 s**; its inclusive
+study measured **35.40 s**. Tool approval startup timed out before execution and
+is excluded from both measurements. Width 64, sixteen calls/batch, six AB/BA
+pairs and four pairs per A/A and B/B control; the single-field phase uses width
+one and the empty phase is an identical-path negative control. Both clone sides
+use the same constructor and complete observation; only catalog recapture/root
+reuse differs. Whole workflows include initial typed descriptors and admission.
+
+Positive signed microseconds mean candidate regression. These are collected
+batch results, not independently forced-GC inclusive results:
+
+| Phase | AB median | AB min / max | AB wins / losses |
+| --- | ---: | ---: | ---: |
+| empty control | 0.00 | -20.50 / +4.17 | 3 / 3 |
+| single cold | +0.62 | -2.12 / +3.76 | 3 / 3 |
+| width-64 cold | -80.60 | -127.00 / -36.12 | 6 / 0 |
+| clone | -110.33 | -579.80 / +127.26 | 5 / 1 |
+| identical public reflection control | +19.87 | -10.01 / +66.43 | 2 / 4 |
+| full publication | -97.62 | -479.76 / +443.06 | 3 / 3 |
+
+Natural cold AB mean was **+39.41** (range -307.75 / +220.37), with B/B reaching
++2,167.82. Natural workflow had one win/five losses, mean -590.42 and a range
+of -12,229.86 / +2,702.50; A/A reached +13,168.56 and B/B ranged
+-1,895.92 / -1,166.95. The negative mean is not consistent tail improvement.
+Collected workflow A/A ranged +64.43 / +485.57, and B/B -236.87 / +141.93.
+Single collected A/A ranged -174.87 / +13.50, B/B -93.06 / +83.68. These
+controls prevent treating small signed differences as reliable gains or losses.
+
+CHARGED collection + first call + full batch workflow had median -106.99,
+mean -110.15, five wins/one loss and range -322.08 / +201.41. Its A/A range
+was -322.24 / +183.40 and B/B -245.11 / +1,233.03. Disjoint mean wall
+contributions were batch -84.33, first -13.52, forced GC -12.31 microseconds;
+medians must not be added. Batch non-GC CPU contributed -82.62, GC CPU +4.59
+and residual -6.30. Counter history includes negative/unavailable allocation
+samples, so no physical byte-saving claim is inferred. The formal 2n export
+saving excludes private recapture/builders and is not an allocator measurement.
+
+This accepts functional ownership and safe root reuse, not universal latency or
+GC superiority. No strategy changes, weaker checks, larger limits, second loader
+or snapshot registry were introduced to improve this receipt.
+
+Final local acceptance: all **149 modules / 1,859 cases** passed through the
+unchanged single-process standard test entry in **192.54 s**, followed by the
+complete paired collection entry in **11.55 s**; whole `check-built 2 1 4`
+wall time was **204.52 s**. Each phase retained its 300-second deadline and the
+1 GiB runtime bound. The representation suite independently passed in 31.48 s.
+The standard build completed before sampling; final dependency-currentness/build
+phases were 25.43 / 5.77 / 66.01 seconds, with the final added preparation-refusal
+control rebuilt through the existing representations package. These are reused
+artifact build results, not a true-cold compiler speed claim. Full benchmark logs
+remain outside Git. Lean focused checks retain 1 GiB/two threads; the full gate
+and remote CI are separate acceptance steps.

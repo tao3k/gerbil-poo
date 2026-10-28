@@ -32,7 +32,7 @@
     (def descriptor (cdr entry))
     (if (or include-hidden? (not (.@ descriptor hidden))) (cons entry rest) rest)) []
     (delete-duplicates/hash
-      (apply append (map object-%declarations (object-%precedence-list self)))
+      (apply append (map object-declarations (object-%precedence-list self)))
       key: car table: (make-hash-table-symbolic) from-end?: #t)))
 ;; Resolve a PUBLIC declaration before reading or writing. Raw .ref is a trusted
 ;; low-level operation and is not claimed to enforce access control by itself.

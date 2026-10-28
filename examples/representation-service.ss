@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow entry-workflow main joint-main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -203,6 +203,30 @@
     (.put! override 'total -999)
     (.ref/inline override (make-slot-cache 'callback))
     (reflection-publication (compose Service override) callback .alist)))
+
+;; Capture a finite typed catalog once, then compose fresh receivers from its
+;; immutable root or an owned public recapture. Descriptor objects remain shared
+;; invalidation sources. The existing checked publication pipeline covers module
+;; entry, refinement, FUN binding, live revisions, refusal and corrected retry.
+(def (catalog-workflow width recapture?: (recapture? #f) policy: (policy 'tree))
+  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0))))
+          (recapture? :~ boolean?) (policy :~ (one-of tree compact)))
+    (def callback (lambda (x) (+ x 1)))
+    (def input (append
+      (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) constant: callback))
+            (cons 'enabled (.new Slot type: Bool constant: #f)))
+      (for/collect (n (in-range width))
+        (cons (make-symbol "visible-" n) (.new Slot type: Integer constant: n)))))
+    (def template (make-object declarations: (prototype-map input policy: policy)))
+    ;; Public edits cannot change membership, payload identity or inherited layout.
+    (set-car! (car input) 'client-only)
+    (def catalog (object-declarations template))
+    (set-car! (car catalog) 'client-only)
+    (def recipe (if recapture?
+      (make-object supers: [Service] declarations:
+        (prototype-map (object-declarations template) policy: policy))
+      (.+ Service template)))
+    (reflection-publication recipe callback .alist)))
 
 ;; Explicit self overrides cut construction, not validation or business admission.
 ;; The opaque encoding is the same lawful computation expressed as computed;

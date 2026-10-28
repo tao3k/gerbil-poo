@@ -202,6 +202,7 @@
     "benchmarks/closure-report"
     "benchmarks/closure-scale-benchmark"
     "benchmarks/closure-suite"
+    "benchmarks/prototype-map-benchmark"
     "benchmarks/collection-paired-benchmark"
     "benchmarks/combination-benchmark"
     "benchmarks/combination-cases"

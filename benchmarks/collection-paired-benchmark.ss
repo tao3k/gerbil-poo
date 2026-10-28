@@ -1,6 +1,8 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study)
-(import :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
+(export main run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study)
+(import (only-in :clan/poo/benchmarks/prototype-map-benchmark
+          +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload)
+        :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract-flow checked-action)
         (only-in :clan/poo/io module-action)
@@ -44,64 +46,6 @@
 ;; Both are supported CURRENT encodings: opaque computed versus explicit self.
 ;; Cold phases charge their metadata too; this is not an old-revision speed claim.
 (def +chain-phases+ '(chain-single chain-cold chain-hot chain-workflow))
-
-;; These controls compare current safe public snapshot composition with direct
-;; ordered traversal/root sharing, including single-field and complete workflows.
-(def +traversal-phases+ '(map-traverse map-keys map-compose map-compose-single map-compose-workflow))
-;; Rebuild the same selected policy through public owned snapshots. The fresh
-;; receiver has the SAME parents/protocol/declarations and no inherited cache.
-(def (snapshot-compose base override)
-  (make-object
-    slots: (prototype-map (object-slots override) policy: (prototype-map-policy (object-%slots override)))
-    defaults: (prototype-map (object-defaults override) policy: (prototype-map-policy (object-%defaults override)))
-    supers: [(object-supers override)... base]
-    protocol: (object-%protocol override) declarations: (object-%declarations override)))
-;; Every result and callback order is checked inside timing; whole workflows also
-;; charge template construction, warming, refinement, publication and retry.
-(def (traversal-workload size scenario)
-  (def entries (append (for/collect (n (in-range size)) (cons (make-symbol "field-" n) n))
-    (list (cons 'target #f) (cons 'target identity))))
-  (def source (prototype-map entries policy: 'compact))
-  (def expected (map car entries))
-  (def single? (eq? scenario 'map-compose-single))
-  (def override (make-object slots: (prototype-map
-    (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
-      (if single? (list (cons 'target identity)) entries)) policy: 'compact)
-    defaults: (prototype-map (if single? [] (list (cons 'enabled #f) (cons 'callback identity))) policy: 'compact)))
-  (.put! override 'total -999)
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#composition-workflow))
-  ;; An admitted map callback sees ordered values, never a mutable private pair.
-  (def (walk direct?)
-    (def seen '())
-    ;; Charge the consumer's own output equally on both traversal paths.
-    (def (consume key value) (set! seen (cons (cons key value) seen)))
-    (if direct? (prototype-map-for-each source consume)
-      (for (entry (prototype-map-list source)) (consume (car entry) (cdr entry))))
-    (unless (equal? (reverse seen) entries) (error "prototype traversal oracle")))
-  ;; Composition starts from identical warmed templates, then observes every field.
-  (def (compose-and-read compose)
-    (def receiver (compose service.Service override))
-    (def fields (.alist receiver))
-    (unless (and (= (.get receiver total) 33) (eq? (cdr (assq 'target fields)) identity)
-                 (or single? (and (not (cdr (assq 'enabled fields)))
-                                  (eq? (cdr (assq 'callback fields)) identity))))
-      (error "prototype composition oracle")))
-  ;; One standard action factory retains every public boundary on each side.
-  (def (action direct?)
-    (def compose (if direct? .+ snapshot-compose))
-    (lambda ()
-      (case scenario
-        ((map-traverse) (walk direct?))
-        ((map-keys)
-          (unless (equal? (if direct? (prototype-map-keys source) (map car (prototype-map-list source))) expected)
-            (error "prototype keys oracle")))
-        ((map-compose map-compose-single) (compose-and-read compose))
-        ((map-compose-workflow)
-          (unless (equal? (enter (list size compose: compose policy: 'compact)) '#(24 30 36 6))
-            (error "prototype publication oracle"))))
-      #t))
-  (values (action #f) (action #t)))
 
 ;; Full construction, vector preparation and observation retain the same result.
 ;; The single-contribution control charges admission/collection without a prefix.
@@ -816,7 +760,7 @@
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -836,6 +780,8 @@
              (cut names-workload n scenario))
             ((memq scenario +chain-phases+)
              (cut chain-workload n scenario))
+            ((memq scenario +catalog-phases+)
+             (cut catalog-workload n scenario))
             ((memq scenario +traversal-phases+)
              (cut traversal-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
@@ -970,4 +916,9 @@
 ;; all three regimes and both same-side controls rather than selecting good runs.
 (def (run-composition-study)
   (report-study (cut run-collection-study "64" "32" "12" '(map-compose-workflow)) "COMPOSITION")
+  #t)
+
+;; Finite catalogs use the unchanged AB/BA, A/A, B/B and charged-GC study runner.
+(def (run-catalog-study)
+  (report-study (cut run-collection-study "64" "16" "6" +catalog-phases+) "CATALOG")
   #t)

@@ -1,6 +1,6 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
-        prototype-map-for-each prototype-map-put prototype-map-remove)
+        prototype-map-length prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in :std/vector/vector vector-filter)
         (only-in :std/list/list length<=n?))
@@ -20,6 +20,14 @@
 ;; Symbol identity, including distinct uninterned symbols with the same spelling,
 ;; determines the tree order. Serial numbers are process-local, not serialized IDs.
 (def (compare-name left right) (- (object->serial-number left) (object->serial-number right)))
+;; Empty snapshots are immutable roots, not cached mutable builders. Sharing them
+;; avoids allocating two empty trees for each undeclared receiver; persistent put
+;; still creates a successor. Deleted tree roots retain their own ordinal history.
+(def empty-tree (make-specifications (RBTree -) (RBTree compare-name) 0 0 #f))
+;; Compact policy stays distinct even when there are no contributions.
+(def empty-compact (make-specifications '#() #f 0 0 #t))
+;; Count ordered contributions, including duplicate names, without exporting pairs.
+(defalias prototype-map-length specifications-count)
 ;; Recognize the opaque snapshot without exporting mutable tree accessors.
 (defalias prototype-map? specifications?)
 ;; Capture one private entry pair while retaining the original value/SlotSpec.
@@ -36,12 +44,14 @@
 ;; Conversion owns fresh entry pairs and never changes the original snapshot.
 (def (prototype-map entries policy: (policy #f))
   (using (policy :~ (one-of #f tree compact))
-    (if (specifications? entries)
-      (if (or (not policy) (eq? policy (prototype-map-policy entries))) entries
-        (prototype-map (prototype-map-list entries) policy: policy))
-      (if (and (eq? policy 'compact) (length<=n? entries small-map-limit))
-        (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t)
-        (tree-map entries (eq? policy 'compact))))))
+    (cond
+      ((specifications? entries)
+        (if (or (not policy) (eq? policy (prototype-map-policy entries))) entries
+          (prototype-map (prototype-map-list entries) policy: policy)))
+      ((null? entries) (if (eq? policy 'compact) empty-compact empty-tree))
+      ((and (eq? policy 'compact) (length<=n? entries small-map-limit))
+        (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t))
+      (else (tree-map entries (eq? policy 'compact))))))
 ;; The official RBTree supplies construction and persistent update. Capturing
 ;; each entry also makes promotion independent of private vector entry handles.
 (def (tree-map entries (compact? #f))
