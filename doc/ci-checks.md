@@ -30,10 +30,20 @@ The startup package retains `defbuild-script`'s backend parallelism through
 `GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
 disable concurrent backend object compilation. The 90-second startup-program
 gate remains separate from the 300-second root-library build.
-The complete local entry prints standard `time -p` wall/user/system observations
+The complete local entry prints standard `/usr/bin/time -p` wall/user/system observations
 for shared preparation, startup preparation, test-package preparation, the whole
 test process and the collection study. Existing commands, progress and failure
 markers remain intact; phase CPU observations do not isolate GC or loader costs.
+The local test-package phase runs the 25 ordinary package declarations using
+the existing `xargs` with `max(1, floor(GERBIL_BUILD_CORES / 2))` concurrent
+`gerbil build` commands and one backend slot per command. Each package prints
+`BUILD-PACKAGE` and its directory before invoking the CLI. Its phase duration
+includes every package's import/expansion and freshness checking, even when no
+backend compilation is needed; it is not the delay to the first log message.
+This policy changes the allocation of compiler work slots, not any heap/deadline
+limit. The shared build and the separate CI package jobs keep their standard
+backend settings. See the paired whole-entry observations in
+[build-summary.org](performance/build-summary.org).
 The standard upload/download actions transfer artifacts within the current
 workflow run, using commit-specific names and their built-in digest verification.
 The shared library/program artifact uses an uncompressed tar in runner temporary

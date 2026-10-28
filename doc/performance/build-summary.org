@@ -1,5 +1,76 @@
 #+title: macOS Scheme build preparation and bounded reuse
 
+* Incremental checks and package concurrency
+The 593.93-second receipt below includes source/dependency recompilation and first
+mapping of newly generated libraries. It is not the cost of an unchanged-source
+invocation. A 2026-10-28 follow-up held source =73cc87e=, the precompiled SDK,
+12-core setting, output prefix, full workload and guards fixed. Four complete
+=just check 2 1 4= runs used AB/BA order: A is three package builds with three
+backend slots each; B is six package builds with one backend slot each.
+
+| Order | Shared build | Startup build | Test-package builds | Complete tests | Collection study | Complete wall |
+|-------+--------------+---------------+---------------------+----------------+------------------+---------------|
+| A1    |        17.26 |          2.97 |               41.86 |          56.71 |             8.06 |        128.10 |
+| B1    |        14.56 |          3.13 |               27.59 |          52.52 |             8.13 |        107.27 |
+| B2    |        14.67 |          3.00 |               26.58 |          66.92 |             8.31 |        121.17 |
+| A2    |        13.76 |          2.95 |               42.53 |          54.31 |             7.72 |        122.34 |
+
+Every run passed 149 modules, 1850 cases and =COLLECTION-PAIRED-OK=, with zero
+actual compiler jobs. The test-package column measures all 25 standard
+=gerbil build= commands from launch through completion, not time to first log.
+The phase still imports/expands sources and checks dependency freshness.
+=std/make= imports each source to identify its module before deciding whether to
+build it; its expander registry reuses that context within the invocation. The
+same SDK and library contexts must be initialized in separate build processes.
+Its timestamp observations remain current, including dependencies rebuilt during
+the invocation. A retained POO value or a runtime module-cache hit cannot replace
+these checks.
+
+Package checking improves in both orders. Complete-wall savings are 20.83 seconds
+for A1/B1 and 1.17 for B2/A2: the test-process variation remains material. The
+observed B maximum is 121.17 versus A's 128.10, but two observations per policy do
+not establish a tail distribution. Whole user/system seconds are 173.68/24.79
+and 174.07/25.42 for A, versus 191.61/31.58 and 194.19/31.58 for B. Lower wall
+time therefore does not establish less CPU work or elimination of all repeated
+preparation. B2 also prints the new per-package progress labels.
+
+The local recipe retains its existing =xargs= and standard CLI, choosing
+=max(1, floor(GERBIL_BUILD_CORES / 2))= package builds with one backend each.
+There is no compiler limit of three packages. Six actual compiler frontends were
+observed during the empty-prefix run. On this host both policies admit at most
+12 compiler work slots. Waiting CLI parents are additional processes: counting
+their 1 GiB heaps, the 1 GiB script frontends and 2 GiB backend ceilings gives
+24 GiB in either policy: =3*(1+1+3*2)= versus =6*(1+1+1*2)=. These are declared
+Gambit heap ceilings, not an aggregate RSS bound including the C compiler. All
+original phase deadlines and focused/full checks remain. Shared-library builds
+and independent CI package jobs retain their own standard backend concurrency.
+
+A further empty-prefix B run passed the full workload in 570.35 seconds wall
+(1099.61 user, 169.70 system). Shared build took 129.00, startup build 7.63,
+test-package builds 159.85 and the test process 260.69 seconds. That test process
+used 48.74 user and 5.29 system seconds. Two separated one-second pre-case samples
+placed 861/885 and 873/891 main-thread samples in the macOS =dlopen= mapping
+=fcntl= path. They diagnose those windows, not the entire remaining wall time.
+The loader continued and all tests completed inside the original 300-second
+test gate. This run validates cold construction under the new policy; the older
+source-updated receipt is not an identical empty-prefix control, so no paired
+cold speedup is claimed. First-image latency remains unresolved.
+
+One shell timing field for the cold collection study was malformed (=11.:0=);
+it is not interpreted as a duration. The complete external =/usr/bin/time=
+receipt remains valid. The final recipe uses that standard command for each
+actual build/test/study, placing package timing after the input producer rather
+than relying on the shell's pipeline timer. No substitute test runner is added.
+With that final observer and per-package labels, a complete rerun against the
+completed cold prefix passed all 149 modules, 1850 cases and the paired oracle in
+103.15 seconds (185.84 user, 30.90 system). Phase walls were 13.77 shared build,
+2.99 startup build, 27.60 test-package checking, 49.40 full tests and 7.89 study.
+This is final-recipe verification with a completed prefix, not another cold run
+or a replacement for the AB/BA observations.
+These local measurements predate =9dd67df=. Integrating that later prototype
+update preserves these as =73cc87e= receipts; it does not turn them into timing
+qualification of the later source. Exact-head CI acceptance is recorded separately.
+
 * Library-only compilation and existing runtime cache use
 The 2026-10-28 follow-up inspected the installed release's =std/make.make-build=.
 An =exe:= anywhere in a build declaration enables static runtime object
