@@ -44,7 +44,8 @@
     (test-case "precedence cycle guard uses object identity"
       (def left (.mix))
       (def right (.mix left))
-      (set! (object-supers left) [right])
+      ;; Deliberate private corruption: keep the core cycle guard's negative control.
+      (set! (object-%supers left) [right])
       (check-exception (compute-precedence-list! left) true))
     (test-case "simple tests from poo.md"
       (check-equal? (object? (.o (x 1) (y 2))) #t)

@@ -1148,3 +1148,37 @@ including charged GC preparation, cold construction and complete shared-module
 publication. Both safe scan/index strategies pay the new complete type phase;
 identical construction controls expose variability rather than claiming a causal
 old/new optimization. Raw benchmark output stays outside version control.
+
+`object-supers` now returns a standard owned list copy while retaining actual parent
+object identities, order and repetitions. Changing or cycling a public snapshot
+cannot edit the source graph or its warm C3/value/layout caches. Internal C3,
+composition and clone paths borrow `%supers`; constructor `flatten` still captures
+its own finite parent tree. This follows the standard list implementation, not a
+new snapshot representation or validation wrapper.
+
+`object-supers-set!` directly aliases `replace-object-supers!`. Gerbil's standard
+expanded `(set! (getter args ...) value)` invokes `getter-set!`, so generalized
+assignment shares the SAME C3/cycle admission, sealed/active preflight, dependency
+registration and transitive invalidation. No custom setter macro is needed. The
+explicit private `%supers` corruption test retains the independent C3 cycle guard;
+raw private setters and concurrent mutation remain outside the supported protocol.
+Failed admission does not roll back unrelated callback/preparation effects. Valid
+finite input trees keep their original grammar and refusal semantics. A retained
+parent snapshot is historical data, not a freshness credential; issued value reads
+still reject subsequent source revisions, including restored values.
+
+The existing traversal/composition paired workload now gives both strategies the
+same live parent via `object-supers-set!` on a warmed override INSIDE timing.
+Public snapshot composition and engine-private borrowing then build equivalent
+fresh receivers. Both pay C3 admission, invalidation and the same public result-
+parent identity oracle. The complete module/FUN publication uses its existing
+composition callback; no extra loader or benchmark runner is introduced. This
+expands the workload, so earlier parent-free timings are not a speedup baseline.
+
+Reproduce with standard `just build`, `just test-atomic inheritance-hooks`,
+`just check-built 2 1 4 300` and `just benchmark-prototype-traversal`. The full
+matrix keeps 64 fields, 16 repetitions, six AB/BA pairs and four A/A/B/B controls
+per regime, including charged GC preparation and complete publication. Unsafe
+aliasing is never used as a faster reference. Snapshot output cells are only one
+component: constructor capture, graph preparation, payload admission and GC stay
+paid. Raw traces and full benchmark data remain outside Git.

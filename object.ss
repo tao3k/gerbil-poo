@@ -38,7 +38,7 @@
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
-  (supers ;; : (Listof (Object ?))
+  (%supers ;; : private finite direct parent list
    %slots ;; : persistent ordered direct specifications
    %defaults ;; : persistent ordered defaults
    %reads ;; receiver-local read records; no global receiver retention
@@ -60,7 +60,7 @@
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
       defaults: (defaults '())
       protocol: (protocol #f) declarations: (declarations '()) bootstrap: (bootstrap #f)) ;; : (Listof (Pair Symbol ?))
-    (set! (object-supers self) (flatten supers))
+    (set! (object-%supers self) (flatten supers))
     (set! (object-%slots self) (prototype-map slots))
     (set! (object-%defaults self) (prototype-map defaults))
     (set! (object-%instance self) #f)
@@ -79,9 +79,12 @@
     ;; Register all descriptors before any C3/definition hook can evaluate one.
     (prototype-map-for-each (object-%declarations self)
       (lambda (_name descriptor) (depend-on-object! self descriptor)))
-    (for-each (cut depend-on-object! self <>) (object-supers self))
+    (for-each (cut depend-on-object! self <>) (object-%supers self))
     (when protocol (depend-on-object! self protocol))))
 
+;; Public topology reflection owns its spine; parent objects retain their identity.
+;; Internal construction/lookup borrows %supers, avoiding public snapshot copies.
+(def (object-supers self) (list-copy (object-%supers self)))
 ;; Reflection preserves contribution order without exposing the persistent storage.
 (def (object-slots self) (prototype-map-list (object-%slots self)))
 ;; Reflection returns an owned list while the persistent map remains shareable.
@@ -163,7 +166,9 @@
   (compute-object-precedence! (make-object supers: parents))
   (before-object-edit! self)
   (for-each (cut depend-on-object! self <>) parents)
-  (set! (object-supers self) parents))
+  (set! (object-%supers self) parents))
+;; Standard generalized set! reaches the same checked topology/invalidation boundary.
+(defalias object-supers-set! replace-object-supers!)
 ;; Resolve the most-specific explicit protocol after checked C3 linearization.
 ;; Core ormap returns the exact first protocol and never visits the suffix.
 ;; Select ONE protocol object: a missing hook there does not search other branches.
@@ -236,7 +241,7 @@
         (let (precedence-list
             (first-value
              (c4-linearize*
-              [object] (list (object-supers object)) suffix: (lambda (_) #f)
+              [object] (list (object-%supers object)) suffix: (lambda (_) #f)
               get-precedence-list:
               (lambda (super) (compute super [object . heads]))
               eq: eq?
@@ -642,7 +647,7 @@
 ;; explicit instance assignments are never inherited from the override object.
 (def (.+ base override)
   (make-object slots: (object-%slots override)
-               supers: [(object-supers override)... base] defaults: (object-%defaults override)
+               supers: [(object-%supers override)... base] defaults: (object-%defaults override)
                protocol: (object-%protocol override) declarations: (object-%declarations override)))
 
 ;; : Bool <- (Object _) Symbol
@@ -970,7 +975,7 @@
   (def slots (foldl (lambda (slot source)
     (prototype-map-put source slot (hash-ref added-hash slot))) (object-%slots self) added))
   ;; Clone direct metadata with direct formulas; .cc does not inherit SELF.
-  (make-object slots: slots supers: (object-supers self) defaults: (object-%defaults self)
+  (make-object slots: slots supers: (object-%supers self) defaults: (object-%defaults self)
                protocol: (object-%protocol self) declarations: (object-%declarations self)))
 
 ;; Persistent direct overrides now copy balanced-tree paths; allocation and end-to-end

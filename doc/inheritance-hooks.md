@@ -121,3 +121,9 @@ callback selection, exception unwind and metadata compilation. No proof of the
 Scheme compiler/runtime or new elapsed-time result is supplied. Historical
 performance receipts retain their own source identities and do not qualify this
 new core implementation.
+
+Public `object-supers` owns the returned list spine. Parent objects themselves stay
+shared, and supported writes to those objects still propagate normally. Use
+`object-supers-set!` or `(set! (object-supers receiver) parents)` to replace topology;
+both are the existing `replace-object-supers!` protocol. Internal `%supers` access
+is reserved for engine code and deliberate negative controls.

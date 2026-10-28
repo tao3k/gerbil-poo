@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow replay-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -442,3 +442,32 @@
     (unless (and (pair? reads) (every (lambda (read) (not (object-read-current? read))) reads))
       (error "old typed service read survived definition edit"))
     (vector first (action receiver) delivered)))
+
+;; Parent snapshots own only their list cells. The refined FUN action retains its
+;; access site across checked parent replacement, restored values and stale reads.
+;; Both direct and standard generalized setters use the same topology protocol.
+(def (topology-workflow)
+  (def source (.cc Service capacity: 2))
+  (def replacement (.cc Service capacity: 3))
+  (def receiver (.mix source))
+  (def delivered 0)
+  (def action (checked-total-action (lambda (_ amount) (set! delivered (1+ delivered)) amount)))
+  (def first (action receiver))
+  (def snapshot (object-supers receiver))
+  (def parents (list replacement))
+  (set-car! snapshot replacement)
+  (set-cdr! snapshot snapshot)
+  (unless (and (eq? (car (object-supers receiver)) source) (= (action receiver) first))
+    (error "parent snapshot changed the service source"))
+  (let-values (((_value reads) (%call-with-recorded-slot-reads (cut .ref receiver 'total))))
+    (object-supers-set! receiver parents)
+    (set-car! parents source)
+    (set-cdr! parents parents)
+    (unless (and (eq? (car (object-supers receiver)) replacement) (pair? reads)
+                 (every (lambda (read) (not (object-read-current? read))) reads))
+      (error "parent replacement retained an old source or read"))
+    (let (second (action receiver))
+      (set! (object-supers receiver) [source])
+      (unless (every (lambda (read) (not (object-read-current? read))) reads)
+        (error "restored parents revived obsolete reads"))
+      (vector first second (action receiver) delivered))))

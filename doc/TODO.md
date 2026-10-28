@@ -3012,3 +3012,19 @@ costs. Arbitrary getter side effects, undiscovered sources, raw private writes a
 concurrent mutation remain stated boundaries. Tests and a shared-service diamond
 cover source refusal, false exception preservation, retry and type revision; Lean
 proves ordered capture, phase refusal/frame and registered reverse-closure laws.
+
+### Owned parent reflection and checked setters
+
+Closed a witnessed topology alias gap: `object-supers` returned the retained parent
+spine, so ordinary caller list edits could change source membership without C3
+admission, revision advancement or cache invalidation. Public reflection now uses
+standard `list-copy`; internal C3/clone/composition borrows the private `%supers`
+list. The public `object-supers-set!` is the existing checked replacement operation,
+including Gerbil's standard generalized `set!` naming rule. No second checker,
+registry, loader or namespace is added. Parent identities remain shared and their
+supported edits still invalidate descendants. Snapshot damage, checked shared-
+diamond replacement, cycle/sealed refusal, ABA stale reads and the refined FUN
+service workflow have controls. Lean covers snapshot/frame, admitted publication,
+revision rejection and logical spine-copy costs with host copying/finite valid
+input/sequential mutation premises. Raw private graph corruption remains a negative
+control outside the supported source protocol.

@@ -27,6 +27,7 @@
   (def source (prototype-map entries policy: 'compact))
   (def expected (map car entries))
   (def single? (eq? scenario 'map-compose-single))
+  (def shared-parent (.o parent-marker: #f))
   (def override (make-object slots: (prototype-map
     (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
       (if single? (list (cons 'target identity)) entries)) policy: 'compact)
@@ -52,7 +53,16 @@
       (error "prototype composition oracle")))
   ;; One standard action factory retains every public boundary on each side.
   (def (action direct?)
-    (def compose (if direct? .+ snapshot-compose))
+    (def combine (if direct? .+ snapshot-compose))
+    ;; Both sides replace warmed topology through the SAME checked setter. The
+    ;; reference pays its owned parent snapshot; the engine can borrow privately.
+    ;; Parent admission, invalidation and result ownership stay inside timing.
+    (def (compose base override)
+      (object-supers-set! override [shared-parent])
+      (let (result (combine base override))
+        (unless (eq? (car (object-supers result)) shared-parent)
+          (error "composed parent identity oracle"))
+        result))
     (lambda ()
       (case scenario
         ((map-traverse) (walk direct?))
