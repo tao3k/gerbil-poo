@@ -140,3 +140,12 @@ post-GC first calls. It does not establish statistical PRNG quality or a general
 speedup for non-injective or application-specific generators.
 See [the generator cost receipt](performance/generation-summary.org), including
 the remaining complete-shrink regression rather than only allocation changes.
+
+
+Bind regeneration reuses SRFI-27 initial-state checkpoints owned by one draw's
+sample tree. Every child still receives a fresh mutable random source and invokes
+its selector/draw; a later check owns fresh preparation. Nested binds share only
+deterministic seed expansion, never sample values or observer verdicts. Public
+source lists stay detached; empty/identical internal source lists may be shared.
+See `doc/performance/generation-summary.org` for the full paired controls and
+remaining provenance costs. No process limit or check was removed.

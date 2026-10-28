@@ -66,3 +66,71 @@ P0 functional/finite-proof admission and performance admission remain separate.
 Further optimization must retain branch provenance, all visited source epochs,
 strict failure classification and identical proposal counts. It must not silently
 choose value-only shrinking for an arbitrary mapped or dependent generator.
+
+* Seed preparation repair, 2026-10-28
+
+The reproduced pre-repair natural workflow delta was +73784.11 us per twenty
+checks (range +69509.98 to +79569.34). CPU was +73494.00 us, comprising
++33602.00 us GC and +39892.00 us remaining CPU; extra allocation was 101538118
+bytes. This is a repeatable work difference, not merely GC history or wall noise.
+
+The seed-isolation probe uses only SRFI-27 source/state operations. A preliminary
+no-GC twenty-source control took 3719 us and 9037168 bytes when reseeding, versus
+13 us and 37216 bytes when restoring a previously prepared checkpoint. That
+control excluded checkpoint preparation and therefore is diagnostic only. The
+committed =GENERATOR-SEED-PAIR= probe includes one checkpoint preparation INSIDE
+every restore batch, fresh sources for every draw, AB/BA, A/A, B/B and charged
+post-GC preparation/first calls. Its deterministic draw oracle is identical.
+The [[https://srfi.schemers.org/srfi-27/srfi-27.html][SRFI-27 specification]] owns
+state representation; the implementation does not inspect or persist it.
+
+Bind now captures an invocation-owned standard identity-by-value hash table of
+initial states, shared with nested bind regeneration through an ordinary Scheme
+parameter. A later branch restores a NEW mutable random source. The checkpoint
+table is retained only with that invocation's sample tree, never globally or
+across property runs. Seed splitting, selectors, draws, source checks, proposal
+order and failure classification remain in the existing bind/map implementation.
+No generated value or callback outcome is memoized. A checkpoint is inserted
+only after successful expansion.
+
+Source preparation also shares empty/identical INTERNAL normalized observer
+lists. Public observer inputs/exports are still copied, with both singleton and
+multi-leaf alias-mutation controls. No observer is omitted or accepted on the
+basis of a previous Boolean result. Pure constant units expose their existing
+empty child list directly, and identity mapping can reuse a node only when it
+adds no source ownership. The attempted direct-cursor replacement did not explain
+the large regression and was discarded; coroutine traversal remains unchanged.
+
+Two sequential complete =just benchmark-generators 20 4= entries used the same
+release, limits and original preparation/draw/workflow oracle. Neither overlapped
+our builds or full tests. Deltas below remain tree minus callback, per batch:
+
+| Control | Mean wall, us | Min / max wall, us | CPU, us | GC, us | Bytes |
+|---------+---------------+--------------------+---------+--------+-------|
+| before / natural | +73784.11 | +69509.98 / +79569.34 | +73494.00 | +33602.00 | +101538118 |
+| final 1 / natural | -89.47 | -14467.00 / +8431.20 | +2483.25 | +754.50 | +3858774 |
+| final 2 / natural | +2782.23 | +1899.00 / +3866.91 | +2769.00 | +1237.00 | +3859790 |
+| final 1 / charged post-GC | +1946.39 | +243.66 / +3064.16 | +2023.75 | +604.25 | +4051366 |
+| final 2 / charged post-GC | +4635.27 | +967.26 / +8285.28 | +4502.00 | +1797.00 | +4053228 |
+
+Final natural A/A wall maxima were +850.92/+9904.62 us, and B/B maxima were
++8504.87/+3250.84 us. Charged post-GC A/A maxima were +6505.49/+1215.22 us,
+and B/B maxima +1575.71/+9305.95 us. All final cross-strategy adverse tails
+are well below the previous smallest +69509.98 us natural delta; the near-zero
+first-run mean does NOT establish parity. Second-run natural residual is about
+139 us/check, with 1532 us non-GC CPU per batch. Extra tree allocation remains
+about 193 KB/check. The original multi-millisecond regression is substantially
+removed, but provenance-bearing shrinking still has nonzero cost.
+
+Full warm entries were 40.90 and 21.69 seconds. Startup/build variation and the
+new additional seed study prevent interpreting these as an entry speedup claim.
+The workload result, not startup variation, supports this repair. Raw logs and
+complete sample data remain outside Git.
+
+Regressions retain independent sibling streams after unequal draw counts,
+repeated traversal and a fresh root, unchanged selector/draw invocation counts,
+unused-tail laziness, first interruption, zero fuel, rejected proposals, stale
+sources and replay refusal. Lean proves cache-content/insertion invariants,
+checkpoint-regeneration equivalence including consumed states and first failure,
+and source-join freshness. State restoration is an explicit runtime obligation;
+no theorem claims host PRNG quality, callback termination, GC or elapsed time.

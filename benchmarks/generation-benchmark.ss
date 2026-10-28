@@ -43,6 +43,30 @@
 ;; Report only after the complete pair, preserving the measured inter-sample gap.
 (def (report phase regime order samples)
   (displayln "GENERATOR-PAIR " phase " " regime " " order " " samples))
+;; This standard SRFI-27 probe charges checkpoint preparation inside every batch.
+;; Both alternatives create fresh sources and draw the same deterministic value.
+(def (seed-action strategy repetitions)
+  (def (seeded)
+    (def source (make-random-source))
+    (random-source-pseudo-randomize! source 0 4199442117) source)
+  (def expected ((random-source-make-integers (seeded)) 4294967087))
+  (lambda ()
+    (def checkpoint (and (eq? strategy 'restore) (random-source-state-ref (seeded))))
+    (for/fold (ok #t) (_ (in-range repetitions))
+      (let (source (if checkpoint
+        (let (source (make-random-source)) (random-source-state-set! source checkpoint) source)
+        (seeded)))
+        (and (= ((random-source-make-integers source) 4294967087) expected) ok)))))
+;; Reversed and identical pairs distinguish seed expansion from GC/history noise.
+(def (seed-study repetitions pairs)
+  (for (regime '(natural post-gc))
+    (def reseed (seed-action 'reseed repetitions)) (def restore (seed-action 'restore repetitions))
+    (for (pair (in-range pairs))
+      (for (order (list (if (even? pair) '(reseed restore) '(restore reseed))
+                       '(reseed reseed) '(restore restore)))
+        (measure-pair order
+          (lambda (strategy) (capture (if (eq? strategy 'reseed) reseed restore) 1 regime))
+          (lambda (samples) (displayln "GENERATOR-SEED-PAIR " regime " " order " " samples)))))))
 ;; Full entries include library/module startup; the measured actions contain all
 ;; strategy-specific preparation. Reversed and identical pairs expose ordering noise.
 (def (main (repetitions-text "20") (pairs-text "4"))
@@ -59,4 +83,5 @@
         (measure-pair order
           (lambda (strategy) (capture (if (eq? strategy 'callbacks) callbacks tree) repetitions regime))
           (lambda (samples) (report phase regime order samples))))))
+  (seed-study repetitions pairs)
   (displayln "GENERATOR-PAIRED-OK"))

@@ -140,6 +140,66 @@
       (check-equal? (list old replacement (property.report-counterexample one)) '(0 1 0))
       (def none (property.check-property (generator.generator-no-shrink source) (lambda (_) #f) domain cases: 1))
       (check-equal? (list old (property.report-attempts none) (property.report-minimal? none)) '(0 0 #t)))
+    (test-case "dependent regeneration restores independent random checkpoints"
+      (def seed 71)
+      (def selections 0) (def draws 0)
+      (def split (generator.random-at seed))
+      (split 4294967087)
+      (def child-seed (split 4294967087))
+      (def (expected n)
+        (def random (generator.random-at child-seed))
+        (cons n (for/collect (_ (in-range n)) (random 100003))))
+      (def dependent
+        (generator.generator-bind
+          (generator.make-generator (lambda (_random _size) 3)
+            (lambda (n) (if (= n 3) '(2 1) [])))
+          (lambda (n) (set! selections (1+ selections)) (generator.make-generator
+            (lambda (random _size) (set! draws (1+ draws))
+              (cons n (for/collect (_ (in-range n)) (random 100003))))
+            (lambda (_) [])))))
+      (def root (generator.generate dependent (generator.random-at seed) 8))
+      (check-equal? (generator.sample-value root) (expected 3))
+      (for (_ (in-range 2))
+        (check-equal?
+          (for/collect (child ((generator.sample-children root))) (generator.sample-value child))
+          (map expected '(2 1))))
+      (check-equal? (generator.sample-value root) (expected 3))
+      (check-equal? (list selections draws) '(5 5))
+      ;; A later root owns fresh preparation and still invokes both callbacks.
+      (check-equal? (generator.sample-value
+        (generator.generate dependent (generator.random-at seed) 8)) (expected 3))
+      (check-equal? (list selections draws) '(6 6)))
+    (test-case "bound neighborhoods pull in order without forcing unused factories"
+      (def selections 0) (def parent-starts 0) (def child-starts 0)
+      (def (domain interrupted?)
+        (generator.generator-bind
+          (generator.make-generator (lambda (_random _size) 9)
+            (lambda (_) (set! parent-starts (1+ parent-starts))
+              (in-coroutine (lambda (yield) (yield 8)
+                (when interrupted? (error "parent pull interrupted"))))))
+          (lambda (n) (set! selections (1+ selections))
+            (generator.make-generator (lambda (_random _size) (* n 10))
+              (lambda (value) (set! child-starts (1+ child-starts)) (list (1- value)))))))
+      (def root (generator.generate (domain #f) (generator.random-at 17) 4))
+      (using (children (iter ((generator.sample-children root))) :- Iterator)
+        (check-equal? (list selections parent-starts child-starts) '(1 0 0))
+        (check-equal? (generator.sample-value (children.next!)) 80)
+        (check-equal? (list selections parent-starts child-starts) '(2 1 0))
+        (check-equal? (generator.sample-value (children.next!)) 89)
+        (check-equal? (list selections parent-starts child-starts) '(2 1 1))
+        (check-equal? (children.next!) #!eof)
+        (check-equal? (children.next!) #!eof)
+        (check-equal? (list selections parent-starts child-starts) '(2 1 1)))
+      (def interrupted (generator.generate (domain #t) (generator.random-at 17) 4))
+      (def confirmed #f)
+      ;; An upstream coroutine captures dynamic handlers; keep one failure owner
+      ;; around its entire traversal, exactly as the ordinary property runner does.
+      (check-exception
+        (using (children (iter ((generator.sample-children interrupted))) :- Iterator)
+          (set! confirmed (generator.sample-value (children.next!)))
+          (children.next!)) (message? "parent pull interrupted"))
+      (check-equal? confirmed 80)
+      (check-equal? child-starts 1))
     (test-case "non-injective map retains negative preimages while shrinking"
       (def seen [])
       (def source (generator.make-generator (lambda (_random _size) -9)
@@ -234,7 +294,16 @@
       (def exported-sources (generator.sample-sources root))
       (check-equal? (length exported-sources) 1)
       (set-car! exported-sources (lambda () #t))
+      ;; Empty/identical source joins share only internal lists. Public multi-leaf
+      ;; inputs and exports remain detached even if their caller truncates them.
+      (def provided-pair (list source (lambda () #t)))
+      (def owned (generator.make-sample 1 (lambda () []) sources: provided-pair))
+      (set-car! provided-pair (lambda () #t)) (set-cdr! provided-pair [])
+      (def exposed (generator.proposal-sources owned))
+      (check-equal? (length exposed) 2)
+      (set-car! exposed (lambda () #t)) (set-cdr! exposed [])
       (set! epoch 1)
+      (check ((generator.sample-current owned)) => #f)
       (def stale (property.check-property (generator.make-tree-generator (lambda (_random _size) root))
         (lambda (_) (error "stale shared source reached property"))
         (property.make-specification list? length) cases: 1))

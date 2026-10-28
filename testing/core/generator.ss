@@ -7,7 +7,8 @@
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
         boolean-result live? random-at)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash))
-(extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers)
+(extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
+        random-source-state-ref random-source-state-set!)
 ;; Producers and nodes retain flat source leaves, never recursively composed guards.
 (defstruct generation (run sources) final: #t)
 ;; Nodes have immutable-by-protocol value/child/source ownership within one run.
@@ -32,16 +33,15 @@
 (def (immutable-current) #t)
 ;; Explicit callbacks are leaves. Hash deduplication uses callback identity;
 ;; separately captured revision epochs remain separate callbacks and are retained.
-(def (merge-sources . groups)
-  (def sources (apply append groups))
-  (cond ((null? sources) [])
-        ((null? (cdr sources)) (list (car sources)))
-        (else (delete-duplicates/hash sources table: (make-hash-table-eq)))))
+(def (merge-sources left right)
+  (cond ((null? left) right)
+        ((or (null? right) (eq? left right)) left)
+        (else (delete-duplicates/hash (append left right) table: (make-hash-table-eq)))))
 ;; Normalize and validate the observer boundary once, not at every sample read.
 (def (observer-sources current sources)
   (unless (and (procedure? current) (list? sources) (every procedure? sources))
     (error "source observers must be procedures"))
-  (merge-sources (if (eq? current immutable-current) [] (list current)) sources))
+  (merge-sources (if (eq? current immutable-current) [] (list current)) (map identity sources)))
 ;; Predicate results are strict Boolean judgments, never truthy authorization.
 (def (boolean-result value message)
   (unless (boolean? value) (error message value)) value)
@@ -54,22 +54,41 @@
 (def (sample-sources tree) (map identity (sample-node-sources tree)))
 ;; Each node exposes an ordinary callback for consumers outside the core algebra.
 (def (sample-current tree) (lambda () (every live? (sample-node-sources tree))))
-;; Both ordinary and pruned proposals retain every observed source leaf.
-(def (proposal-sources proposal)
-  (cond ((sample? proposal) (sample-sources proposal))
-        ((rejected? proposal) (map identity (rejected-sources proposal)))
+;; Internal immutable lists can be shared without crossing the public boundary.
+(def (proposal-owned-sources proposal)
+  (cond ((sample? proposal) (sample-node-sources proposal))
+        ((rejected? proposal) (rejected-sources proposal))
         (else (error "shrinker must produce sample proposals"))))
+;; Both ordinary and pruned proposals export detached observer lists.
+(def (proposal-sources proposal) (map identity (proposal-owned-sources proposal)))
 ;; External observation uses the same leaves without a parallel callback registry.
-(def (proposal-current proposal) (lambda () (every live? (proposal-sources proposal))))
+(def (proposal-current proposal) (lambda () (every live? (proposal-owned-sources proposal))))
 ;; Advanced tree construction accepts explicit leaves, retaining one callback boundary.
 (def (make-sample value children (current immutable-current) sources: (sources []))
   (unless (procedure? children) (error "sample child factory required"))
   (make-sample-node value children (observer-sources current sources)))
-;; Draw from a fresh invocation-owned PRNG rather than global random state.
-(def (random-at seed)
+;; Bind owns an invocation-local checkpoint table, like the existing delay quota.
+;; Only opaque initial states are shared; mutable PRNG instances are never cached.
+(def current-random-states (make-parameter #f))
+;; SRFI-27 owns seed expansion and its opaque checkpoint representation.
+(def (expand-random-state seed)
   (def source (make-random-source))
   (random-source-pseudo-randomize! source 0 seed)
+  (random-source-state-ref source))
+;; Nested bind regeneration reuses preparation, not earlier generated values.
+(def (random-state-at seed)
+  (def states (current-random-states))
+  (if states
+    (if (hash-key? states seed) (hash-ref states seed)
+      (let (state (expand-random-state seed)) (hash-put! states seed state) state))
+    (expand-random-state seed)))
+;; Each replay restores a NEW source; sibling draws cannot mutate the checkpoint.
+(def (random-from-state state)
+  (def source (make-random-source))
+  (random-source-state-set! source state)
   (random-source-make-integers source))
+;; Draw from a fresh invocation-owned PRNG rather than global random state.
+(def (random-at seed) (random-from-state (random-state-at seed)))
 ;; Split once per parent/child pair; dependent regeneration reuses the child seed.
 (def (split-seed random) (random 4294967087))
 ;; Root admission merges producer and node sources without nesting callback guards.
@@ -100,39 +119,45 @@
   (make-generation draw (observer-sources current sources)))
 ;; Constants consume no randomness and have no shrink children.
 (def (generator-unit value)
-  (make-generator (lambda (_random _size) value) (lambda (_) [])))
+  (def tree (make-sample-node value (lambda () []) []))
+  (make-generation (lambda (_random _size) tree) []))
 ;; Node mapping retains preimages and flat ownership; rejected proposals skip mapping.
 (def (map-sample tree transform sources)
-  (def observed (merge-sources sources (proposal-sources tree)))
+  (def observed (merge-sources sources (proposal-owned-sources tree)))
   (require-sources! observed)
-  (if (rejected? tree) (make-rejected observed)
-    (make-sample-node (transform (sample-value tree))
+  (cond ((rejected? tree) (make-rejected observed))
+    ;; Identity can share an internal node only when it adds no source ownership.
+    ((and (eq? transform identity) (eq? observed (sample-node-sources tree))) tree)
+    (else (make-sample-node (transform (sample-value tree))
       (lambda () (in-coroutine (lambda (yield)
         (require-sources! observed)
-        (for (child ((sample-children tree))) (yield (map-sample child transform sources)))))) observed)))
+        (for (child ((sample-children tree))) (yield (map-sample child transform sources)))))) observed))))
 ;; Mapping is separate from the domain specification and its decreasing measure.
 (def (generator-map generator (transform : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
   (make-generation (lambda (random size) (map-sample (generate generator random size) transform sources)) sources))
 ;; Parent shrinks regenerate the dependent child using its captured seed. A rejected
 ;; parent never invokes selection; source leaves are unioned rather than rewrapped.
-(def (bind-sample parent select seed size sources)
-  (def observed (merge-sources sources (proposal-sources parent)))
+(def (bind-sample parent select seed size sources states)
+  (def observed (merge-sources sources (proposal-owned-sources parent)))
   (require-sources! observed)
   (if (rejected? parent) (make-rejected observed)
-    (let (child (generate (select (sample-value parent)) (random-at seed) size))
+    (let (child (parameterize ((current-random-states states))
+                 (generate (select (sample-value parent)) (random-at seed) size)))
       (make-sample-node (sample-value child)
         (lambda () (in-coroutine (lambda (yield)
           (require-sources! observed)
-          (for (smaller ((sample-children parent))) (yield (bind-sample smaller select seed size sources)))
+          (for (smaller ((sample-children parent))) (yield (bind-sample smaller select seed size sources states)))
           (for (smaller ((sample-children child))) (yield (map-sample smaller identity observed))))))
         (merge-sources observed (sample-node-sources child))))))
 ;; Bind owns no output-value cache or second PRNG owner.
 (def (generator-bind generator (select : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
   (make-generation (lambda (random size)
-    (def parent-seed (split-seed random)) (def child-seed (split-seed random))
-    (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources)) sources))
+    (def states (or (current-random-states) (make-hash-table-eqv)))
+    (parameterize ((current-random-states states))
+      (def parent-seed (split-seed random)) (def child-seed (split-seed random))
+      (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states))) sources))
 ;; Products lower through bind/map rather than another generation/shrink traversal.
 (def (generator-sequence generators)
   (foldr (lambda (generator tail)
@@ -191,7 +216,7 @@
 ;; Prune rejected branches, yielding a charged tombstone rather than searching
 ;; descendants invisibly. Predicates never receive already rejected proposals.
 (def (filter-sample tree predicate sources)
-  (def observed (merge-sources sources (proposal-sources tree)))
+  (def observed (merge-sources sources (proposal-owned-sources tree)))
   (require-sources! observed)
   (if (rejected? tree) (make-rejected observed)
     (let (accepted? (boolean-result (predicate (sample-value tree)) "filter must return a boolean"))
