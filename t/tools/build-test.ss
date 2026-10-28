@@ -13,6 +13,12 @@
         (check (file-exists? module) => #t))
       (for (old '("property-testing.ss" "function-testing.ss" "generation-graph.ss" "recursive-generation.ss"))
         (check (file-exists? old) => #f)))
+    (test-case "independent property-library build is executable and bounded"
+      ;; Check the published entry itself; the official CLI owns its execution.
+      (def script "testing/core/build.ss")
+      (check (bitwise-and (file-info-mode (file-info script)) #o111) => #o111)
+      (check (call-with-input-file script read-line)
+        => "#!/usr/bin/env -S gxi -:max-heap=1G,debug=q"))
     (test-case "build-job boundary preserves multiple values"
       (check-equal? (call-with-values (cut call-with-build-jobs (lambda () (values 1 2))) list) '(1 2)))
     (test-case "build-job boundary preserves false exceptions"

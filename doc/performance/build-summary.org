@@ -1,5 +1,85 @@
 #+title: macOS Scheme build preparation and bounded reuse
 
+* First-image validation: measured boundary and rejected representation policy
+A macOS follow-up separated two =fcntl= operations used by dyld. A temporary
+=std/ffi= probe in the actual released Gerbil process, against three fresh
+project images, measured successful signature registration
+(=F_ADDFILESIGS_RETURN=) at 0.109--0.179 milliseconds and successful library
+validation (=F_CHECK_LV=) at 0.421--0.475 seconds per image. A fresh-image probe
+outside the tool sandbox still spent 0.626 seconds in validation. This locates
+an operating-system validation boundary; it does not identify its underlying
+policy service or attribute the entire entry's residual wall time to that call.
+No security policy, signing, extended-attribute or compiler changes are retained.
+Apple's [[https://github.com/apple-oss-distributions/dyld/blob/main/dyld/Loader.cpp][dyld Loader source]] distinguishes these operations in image mapping;
+the host measurements, rather than that upstream source, establish these times.
+
+Gerbil already caches canonical module identities, initialization failures and
+load order. =module-action= retains that loader and resolves current bindings
+at execution. In a three-module trace, six distinct phase/runtime images were
+mapped once each. First import of freshly built images took 5.50 seconds, versus
+0.32 in a fresh process reusing the same files. This is not evidence of repeated
+initialization of the same identity, nor a measurement of every full-run load.
+Another one-second sample during the final candidate run contained 379/837
+main-thread samples under =dlopen=, including 348 under =notifyDebuggerLoad=.
+Sampling can itself affect image notification; this observation is not assigned
+as the cause of the preceding unobserved wait or the whole run.
+
+A candidate selected Gerbil's existing Scheme fallback for generated canonical
+forwarders containing only literal =load-module= calls. Runtime/macro phase
+bodies, interfaces and static objects stayed compiled. Its small independent
+import experiment improved from 1.52 to 0.25 seconds, but the complete entry
+failed to reproduce a consistent benefit. It is rejected: no generated-source
+rewriter, new loader/cache, extra build callback or test-package wrapper is
+retained. Standard =defbuild-script= and =gerbil clean/build/test= still own the
+entire compilation, freshness and execution lifecycle.
+
+An initial paired empty-prefix experiment on base =81732d5= took 503.24 seconds
+with compiled forwarders and 486.70 with the candidate. Both arms temporarily
+included a heavy IO dependency in the build helper; it was removed before the
+final experiment. A subsequent candidate warm run took 196.83 seconds, including
+69.17 seconds of test-package checking with no compile jobs. These observations
+did not qualify the later code or establish a stable complete-entry improvement.
+
+The final comparison on base =6701463= kept source, released SDK, six package
+builds, workload and guards fixed. Each arm used a different newly created,
+empty standard =GERBIL_PATH=, then the ordinary =just check 2 1 4= entry. Only
+automatic forwarding selection differed. Both passed 149 modules, 1861 cases
+(including the temporary policy regressions), and =COLLECTION-PAIRED-OK=.
+
+| Wall seconds           | Candidate | Compiled-forwarder control |
+|------------------------+-----------+----------------------------|
+| Root build             |    173.65 |                     105.76 |
+| Startup program build  |      7.53 |                       7.39 |
+| Test-package build     |    194.59 |                     169.89 |
+| Single-process tests   |    244.57 |                     251.62 |
+| Collection study       |      9.83 |                      14.70 |
+| Complete entry         |    632.25 |                     550.53 |
+
+Candidate/control aggregate user seconds were 1181.93/1124.39 and system seconds
+186.36/167.83. The candidate saved 7.05 seconds in the test phase but lost 81.72
+seconds over the complete entry. The candidate run includes the one-second
+sample above. One pair cannot allocate every difference causally, but the local
+import win clearly does not justify automatically changing all build outputs.
+The historical 570.35-second receipt belongs to another source cohort; 550.53
+is not claimed as a measured code-change speedup over it. The overall first-load
+performance problem remains open. No deadline, heap limit or POO acceptance is
+removed or relaxed; full raw data and experimental code remain outside Git.
+
+One independent publication defect is fixed: =testing/core/build.ss= was not
+executable, so its standalone official =gerbil build= failed before compilation.
+It now has executable permissions and the existing 1 GiB script guard. A direct
+regression checks the published file's execute bits and guarded interpreter,
+without nesting another compiler or runner. This correctness fix is not offered
+as an explanation or remedy for the hundreds of seconds of first-image latency.
+The temporary rejected-policy fixtures are removed with that policy; all prior
+POO acceptance remains, plus the publication regression.
+The standard final-design follow-up on base =6701463= passed all 149 modules,
+1860 cases and the paired study in 128.84 seconds wall (207.55 user, 31.09
+system). Its phase walls were 16.00, 2.99, 50.41, 49.89 and 8.17 seconds. The
+normal build refreshed changed test/helper sources first; this is incremental
+acceptance, not a third cold run. These timing receipts precede =8e2fad9=;
+that later declaration-index update is retained and verified separately.
+
 * Incremental checks and package concurrency
 The 593.93-second receipt below includes source/dependency recompilation and first
 mapping of newly generated libraries. It is not the cost of an unchanged-source
