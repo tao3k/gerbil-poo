@@ -94,13 +94,18 @@
   (unless (.call (.@ descriptor .type) .slot.check descriptor name (object<-alist [(cons name value)]))
     (error "declared slot value rejected" name))
   value)
-;; Resolve current public metadata before demanding and validating the value.
+;; Resolve and validate against one source revision. User checks may edit shared\n;; metadata; refuse their stale success without rolling back their own effects.
 ;; Only raw values are cached: earlier successful admission is never reused.
 (def (read-slot self name)
+  (def revision (object-revision self))
   (def descriptor (public-slot self name))
-  (validate-slot-value descriptor name (.ref self name)))
+  (def value (validate-slot-value descriptor name (.ref self name)))
+  (require-declaration-revision self revision)
+  value)
 ;; Validate a proposed value before mutating source. Invalid input neither
 ;; advances a revision nor clears caches; whole-class constraints are separate.
 (def (write-slot! self name value)
+  (def revision (object-revision self))
   (validate-slot-value (public-slot self name) name value)
+  (require-declaration-revision self revision)
   (.putslot! self name ($constant-slot-spec value)))

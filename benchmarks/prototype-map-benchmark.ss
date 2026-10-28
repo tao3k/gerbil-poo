@@ -134,11 +134,13 @@
 ;; Reuse the actual Slot validation protocol after the independent scan; every
 ;; call still checks its concrete value and propagates the original exception.
 (def (reference-read-slot owner name)
+  (def revision (object-revision owner))
   (def descriptor (cdr (or (assq name (reference-reflection owner))
     (error "slot is hidden or undeclared" name))))
   (def value (.ref owner name))
   (unless (.call (.@ descriptor .type) .slot.check descriptor name (object<-alist [(cons name value)]))
     (error "declared slot value rejected" name))
+  (unless (= revision (object-revision owner)) (error "object changed during declaration reflection"))
   value)
 ;; Cold and single cases pay metadata construction/index preparation. Hot/missing
 ;; and observed controls retain their own explicit setup. Full module workflows

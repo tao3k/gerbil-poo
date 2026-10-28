@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow entry-workflow main joint-main)
-(import (only-in :std/list/list map-in-order) :std/iter ../object
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow entry-workflow main joint-main)
+(import :std/error (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
         ../number
@@ -227,6 +227,34 @@
         (prototype-map (object-declarations template) policy: policy))
       (.+ Service template)))
     (reflection-publication recipe callback inspect)))
+
+;; A shared descriptor may invalidate both service branches during its own check.
+;; Reader/FUN publication sees the refusal before consumer effects. Repair uses
+;; the existing source protocol; a fresh request and checked write then succeed.
+(def (admission-workflow)
+  (def slot (.new Slot type: Integer default: 7))
+  (def armed? #f)
+  (def original (.ref slot '.type))
+  (.putslot! slot '.type ($constant-slot-spec
+    (.cc original '.slot.check (lambda (metadata name candidate)
+      (when armed? (.putslot! slot 'hidden ($constant-slot-spec #t)))
+      (.call original .slot.check metadata name candidate)))))
+  (def base (make-object declarations: (list (cons 'value slot))))
+  (def recipe (.mix Service (.mix base) (.mix base)))
+  (def receiver (.cc recipe capacity: 2))
+  (def delivered 0)
+  (def action (checked-total-action (lambda (candidate amount)
+    (read-slot candidate 'value)
+    (set! delivered (1+ delivered)) amount)))
+  (set! armed? #t)
+  (def cause (with-catch identity (cut action receiver)))
+  (unless (and (and (Error? cause) (equal? (error-message cause) "object changed during declaration reflection")) (= delivered 0)) (error "stale admission escaped"))
+  (set! armed? #f)
+  (.putslot! slot 'hidden ($constant-slot-spec #f))
+  (def first (action receiver))
+  (write-slot! receiver 'value 11)
+  (def second (action receiver))
+  (vector first second (read-slot receiver 'value) delivered))
 
 ;; Explicit self overrides cut construction, not validation or business admission.
 ;; The opaque encoding is the same lawful computation expressed as computed;

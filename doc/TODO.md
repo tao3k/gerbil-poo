@@ -2911,3 +2911,17 @@ policies retain duplicate order, payload identity, error precedence and retry.
 See [prototype-maps.md](prototype-maps.md) for the failing original witness and
 complete acceptance. This closes the concrete grammar inconsistency, not automatic
 layout selection, arbitrary Iterable constructors or unrestricted recursion.
+
+### Concrete declaration admission after metadata callbacks
+
+Closed a witnessed stale-success gap after indexed public lookup: a custom
+`.slot.check` could revise registered shared metadata and still return a value or
+continue installing a write. Both public boundaries now reuse the existing
+revision fence after successful concrete validation; writes fence before source
+installation. No per-field wrapper, new index, registry or loader is introduced.
+Original checker refusals/errors retain precedence, callback effects are not
+rolled back, and fresh repaired requests use current sources. Shared inheritance,
+inline layouts, old read credentials and the complete refinement/FUN publication
+path have controls. This advances the author's explicit cache-invalidation future
+work under registered-source/serial-edit premises; arbitrary unregistered effects,
+concurrent mutation and language-wide dependency discovery remain outside scope.

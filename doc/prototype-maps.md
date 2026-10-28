@@ -593,3 +593,48 @@ same deadlines/heaps and do not establish faster builds, loading or query tails.
 The rejected shared-VM preparation experiment emitted zero compilation jobs;
 filesystem inspection found no compiler products written after its start. Its
 failure therefore supplied no accepted artifacts to this independent admission.
+
+### Concrete admission revision fence
+
+Indexed metadata is not lasting authority for a later user validator. A failing
+original regression installed a custom `.slot.check` that changed its shared
+Slot's `hidden` source and returned true; `read-slot` returned successfully, and
+`write-slot!` could continue into installation. Both boundaries now capture the
+owner revision before public metadata lookup and reuse the existing callback-free
+revision check after successful value validation. A write checks before its own
+legitimate revision increment. The change adds no wrapper allocation or cache.
+
+A validator's original false/error takes precedence over the stale-success error.
+Its earlier effects are retained; this does not roll back arbitrary callbacks.
+Supported metadata edits invalidate registered descendants, layouts and issued
+read evidence. The regression retains old credentials across repair to ensure
+revision restoration never reauthorizes them. `admission-workflow` combines a
+shared declaration diamond, checked service refinement, reflected validation,
+failed publication, source repair, checked write and successful FUN/IO consumers.
+
+The author explicitly contrasts purity/caching with registered mutation tracking
+in `poof.scrbl`'s Cache invalidation subsection. This is a concrete implementation
+of that future-work discipline, not a claim that the paper supplies arbitrary
+effect tracking. Gerbil still owns module readiness/loading and standard maps.
+The existing paired declaration study charges the same final admission fence to
+both safe scan and indexed strategies; it retains first-call/full-workflow,
+AB/BA, A/A/B/B, natural, collected and charged-GC controls. No unsafe stale-success
+strategy is used as an optimization baseline.
+
+The matched declaration study (32 fields, 16 repetitions, six AB/BA pairs plus
+four A/A and B/B pairs per regime) completed in 62.07 seconds through the standard
+Gerbil test entry. With the final revision fence on BOTH sides, indexed-minus-
+scan hot-call mean/tail differences were -10.95/-10.07 us under natural GC and
+-10.87/-8.88 us after collection. Full-workflow mean/tail differences were
+-5286.54/-2576.68 us natural, -4328.89/-4213.06 us collected and
+-4727.84/-841.93 us post-GC. All six full-workflow pairs favored indexing in each
+regime; this compares current safe strategies, not the historical unsafe version.
+
+Cold queries remain mixed: mean/tail were -571.65/+82.63 us natural,
++124.98/+623.43 us collected, -5.71/+37.74 us post-GC. Same-side natural cold
+controls themselves had up to 1.94 ms A/A and 1.80 ms B/B differences. These
+controls do not identify every adverse cold sample's cause or prove a universal
+latency bound. The safety fix is retained independently of these fluctuations.
+The complete build passed its unchanged phase limits, all 150 test modules and
+1,878 cases passed in one process, and the original complete paired benchmark
+passed. Raw logs and complete benchmark data remain outside the repository.
