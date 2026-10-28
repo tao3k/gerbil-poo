@@ -510,3 +510,23 @@ variation. This unit therefore accepts the semantic simplification and retains
 favorable complete-workflow evidence WITHOUT claiming universal cold or tail
 closure. No retries were selected to improve these receipts, no limits changed,
 and invalid raw allocation histories are not physical byte-savings evidence.
+
+
+Local final admission passed 150 modules / 1,872 cases in the single process
+(212.96 s), followed by the complete paired admission (12.63 s). The independent
+Lean complete gate passed all 20 phases at automatic 14-worker concurrency after
+restoring its already-installed declared Pandoc to PATH; its initial docs-only
+failure was a missing executable, not a proof failure. Limits were unchanged.
+
+Remote compiler admission retained one real adverse result: run 40651511529
+failed with an unhandled worker-3 Stack overflow before backend cleanup finished
+and exit 70. A subsequent diagnostic first hit the shared cache and was NOT
+accepted as a cold reproduction. Run 40652682280 explicitly used existing
+`just clean` and standard compiler verbosity 9, kept every resource/test limit,
+actually executed cold construction, and passed all 53 checks. Its clean/build
+step took 298 seconds, including 53.84 seconds of standard cleanup. Production
+Scheme sources, package declarations and justfile did not change between these
+runs. The original compiler refusal was not reproduced and its exact cause
+remains unknown; successful cleanup/cold admission is not a causal compiler fix
+or a universal absence-of-overflow proof. Temporary diagnostics are removed:
+normal cache admission and verbosity 3 remain the final workflow policy.
