@@ -71,11 +71,15 @@
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
     (test-case "finite Function values retain typed wrapping and coverage policies"
-      (def signature (Function [Integer] [Integer Integer]
-        keywords: (list (cons scale: Integer)) required-keywords: [scale:]))
+      (def signature (Function [(Exactly 1)] [Integer Integer]
+        keywords: (list (cons scale: (Exactly 2))) required-keywords: [scale:]))
       (def functions (core.generator-map
         (core.generator-function '((1 scale: 2)) (core.generator-unit '(4 5))) core.function-procedure))
       (def sampler (from-generator signature functions (lambda (_) 0)))
+      ;; The Function contract exposes exactly the finite generated observation domain.
+      (def checked (validate signature (core.sample-value (core.generate functions (core.random-at 1) 0))))
+      (check-exception (checked 2 scale: 2) TypeError?)
+      (check-exception (checked 1 scale: 3) TypeError?)
       (def report (check-property signature
         (lambda (function) (equal? (call-with-values (cut function 1 scale: 2) list) '(4 5)))
         sampler: sampler cases: 3 policy: (property.make-policy name: 'typed-function

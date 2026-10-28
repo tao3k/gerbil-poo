@@ -785,7 +785,8 @@ semantics and schema revisions must be included in the explicit replay contract.
 `generator-function` builds one result tuple per distinct finite raw argument row
 (default maximum 256), reusing `generator-sequence` and each result's lazy sample
 tree. `function-procedure` delivers ordinary Gerbil multiple values; existing POO
-Function contracts validate calls/results. Unknown rows are refused, never mapped
+Function contracts validate calls/results. Typed consumers use finite Exactly/Enum
+argument descriptors matching their observed rows. Unknown rows are refused, never mapped
 to a fallback. Domain/result payloads must be immutable or covered by explicit
 source guards. Raw keyword order and escape markers are part of a row's identity;
 this does not claim equivalence of arbitrary keyword languages or infer an
