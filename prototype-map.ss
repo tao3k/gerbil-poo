@@ -3,7 +3,7 @@
         prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in :std/vector/vector vector-filter vector-fold-right/index)
-        (only-in :std/list/list length<=n? delete-duplicates/hash))
+        (only-in :std/list/list length<=n? delete-duplicates/hash foldr))
 
 ;; Entries retain contribution order, including repeated methods for one slot.
 ;; Names point to the first contribution, matching the public replacement protocol.
@@ -92,9 +92,19 @@
       (and unique? (= index (small-index entries (car (vector-ref entries index))))))
     (rbtree-fold (lambda (_name positions unique?) (and unique? (not (pair? positions))))
       #t (specifications-names source))))
+;; Standard backend right folds visit private entries without iterator setup or
+;; snapshot export. Only private consumers see pairs; public callbacks still get
+;; names/payloads. Reverse visitation preserves ordinary ordered result spines.
+(def (fold-specifications-right source consume initial)
+  (def storage (specifications-entries source))
+  (if (vector? storage)
+    (vector-fold-right/index (lambda (_index rest entry) (consume entry rest)) initial storage)
+    (rbtree-foldr (lambda (_ordinal entry rest) (consume entry rest)) initial storage)))
 ;; Select first contributions across ordered roots. Empty roots do not force
 ;; exports; one distinct root can retain its immutable backend and explicit policy.
-;; Multiple roots/duplicates keep standard ordered deduplication and full capture.
+;; Multiple roots fold private entries into one temporary spine; public
+;; snapshots and append copies are unnecessary. Standard ordered deduplication
+;; and final pair capture retain first-name priority and result ownership.
 ;; This projection is for keyed catalogs, not method-chain composition.
 (def (prototype-map-merge-first sources policy: (policy #f))
   (using (sources :~ list?)
@@ -103,7 +113,8 @@
           ((and (null? (cdr roots)) (distinct-specifications? (car roots)))
             (prototype-map (car roots) policy: policy))
           (else (prototype-map
-            (delete-duplicates/hash (apply append (map prototype-map-list roots))
+            (delete-duplicates/hash
+              (foldr (lambda (root rest) (fold-specifications-right root cons rest)) [] roots)
               key: car table: (make-hash-table-eq) from-end?: #t) policy: policy)))))
 ;; Filter in RIGHT-TO-LEFT callback order, retaining contribution order and values.
 ;; All-pass returns the exact source: no replacement vector/tree or policy change.
@@ -117,11 +128,7 @@
     (def (keep-entry entry rest)
       (if (keep? (car entry) (cdr entry))
         (begin (set! retained (1+ retained)) (cons entry rest)) rest))
-    (def storage (specifications-entries source))
-    (def entries
-      (if (vector? storage)
-        (vector-fold-right/index (lambda (_index rest entry) (keep-entry entry rest)) [] storage)
-        (rbtree-foldr (lambda (_ordinal entry rest) (keep-entry entry rest)) [] storage)))
+    (def entries (fold-specifications-right source keep-entry []))
     (if (= retained (specifications-count source)) source
       (prototype-map entries policy: (prototype-map-policy source)))))
 ;; Delegate ordered traversal to the existing compact vector or standard RBTree.

@@ -682,3 +682,58 @@ controls expose adverse samples rather than proving their cause or erasing them
 with a favorable median. This work closes cache ownership, not all performance
 variation. Full build phase limits were retained; all 150 modules/1,881 cases and
 the original complete paired benchmark passed. Raw data stays outside Git.
+
+### Multi-root C3 merge preparation
+
+The author's alternate-prototype-representation discussion identifies key-set union
+and sharing as representation choices (`poof.scrbl:980–1031`). The production
+multi-root merge still exported a fresh public spine AND pair for every input,
+appended the exports, deduplicated them and captured the output. This was a
+repeated-preparation cost, not a previously incorrect first-name result.
+
+The existing standard vector/RBTree right folds now feed one temporary input
+spine through a shared private fold. The standard `delete-duplicates/hash` still owns ordered
+symbol-identity deduplication, and `prototype-map` still captures final pairs.
+Private input pairs never escape; only the temporary input spine borrows them. Public
+snapshots remain owned; root policies, persistent revisions, same-spelling
+uninterned symbols, false/Function identity and first hidden override priority are
+unchanged. No metadata getter is invoked by merge itself. Existing empty and sole
+unique root paths retain their sharing. Result trees, dedup hash/list preparation,
+builder spines and GC remain paid costs.
+
+The existing service example now also accepts an explicit shared-catalog diamond.
+The ordinary standard module entry, live source revisions, reflection/refinement,
+FUN binding, refusal and repair run through that graph. The paired component uses
+identical mixed-backend roots with repeated/overlapping names on both sides;
+the reference retains the public snapshot/append path solely as a benchmark.
+The complete shared-workflow comparison retains safe scan/index boundaries; it
+is not used to attribute every difference solely to input preparation.
+
+The first private-iterator implementation was not accepted on allocation savings
+alone: its matched shared-directory post-GC mean/tail were +16.30/+50.95 us,
+with +14.90 us batch non-GC work. The final implementation shares the EXISTING
+standard vector/RBTree right-fold boundary with visibility filtering, removing
+both duplicated backend dispatch and nested iterator setup. It retains one input
+spine, standard hash deduplication and final pair capture.
+
+The same fixed declaration study (32 fields, 16 repetitions, six AB/BA pairs and
+four A/A/B/B pairs per regime) then measured shared-directory mean/tail differences
+of -0.02/+2.82 us natural, -0.30/+0.43 us collected, -0.28/0.00 us post-GC.
+Post-GC had four wins/two ties/no losses; batch non-GC difference was -0.25 us,
+first-call +0.14 us and forced-GC wall -8.48 us. These finite differences are
+small; the adverse natural tail is retained, not called a universal speedup.
+The complete shared publication kept the existing safe index-versus-scan benefit:
+mean/tail -3947.22/-1924.20 us natural, -3714.92/-2750.31 us collected and
+-4806.73/-3758.68 us post-GC, all six pairs favorable in each regime. That entire
+benefit is not attributed solely to input merging.
+
+Inclusive standard entry wall was 101.83 seconds: unchanged-source dependency
+preparation 39.38, startup preparation 5.24, standard test entry 56.42 (measured
+study 51.89). It emitted zero frontend compilations and zero backend jobs. The
+first iterator entry was 81.80 seconds with preparation 15.46/3.24 and test 62.66;
+these separate runs do not establish an inclusive-entry speedup. Preparation wall
+variation remains visible and is not hidden behind batch or allocation results.
+Both versions' raw logs remain outside Git. The final right-fold version passed
+all 150 modules/1,894 cases in the standard single-process check, plus the complete
+collection and integrated generator paired benchmarks. All original resource
+limits and existing checks remain intact.

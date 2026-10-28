@@ -145,9 +145,9 @@
 ;; Cold and single cases pay metadata construction/index preparation. Hot/missing
 ;; and observed controls retain their own explicit setup. Full module workflows
 ;; include every initial descriptor, refinement, consumer and revision/refusal/retry.
-(def +declaration-phases+ '(declaration-directory declaration-visibility declaration-visibility-mixed declaration-private-filter
+(def +declaration-phases+ '(declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter
   declaration-construction declaration-empty declaration-single declaration-cold declaration-hot-single
-  declaration-hot declaration-missing declaration-observed declaration-workflow))
+  declaration-hot declaration-missing declaration-observed declaration-workflow declaration-workflow-shared))
 ;; Compare indexed public access with safe scan selection on the same admitted
 ;; receiver and through identical Slot checks. Reflection outputs remain owned.
 (def (declaration-workload width scenario)
@@ -192,8 +192,8 @@
             (unless (and (= (call-with-slot-read-observer
               (lambda (event) (set! events (cons event events))) (cut read owner name)) (1- size))
               (pair? events)) (error "observed declaration oracle"))))
-        ((declaration-workflow)
-          (unless (equal? (enter (list size policy: 'compact inspect: (inspect read))) '#(24 30 36 6))
+        ((declaration-workflow declaration-workflow-shared)
+          (unless (equal? (enter (list size policy: 'compact shared?: (eq? scenario 'declaration-workflow-shared) inspect: (inspect read))) '#(24 30 36 6))
             (error "declaration publication oracle"))))
       #t))
   (values (action reference-read-slot reference-reflection) (action read-slot reflect-slots)))
@@ -227,15 +227,20 @@
   (def entries (for/collect (n (in-range size))
     (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n hidden: (and mixed? (zero? (modulo n 4)))))))
   (def source (prototype-map entries policy: 'compact))
-  (def sources (list (prototype-map []) source (prototype-map [])))
+  (def shared? (eq? scenario 'declaration-directory-shared))
+  (def sources (if shared?
+    (list (prototype-map (take entries (quotient size 2)) policy: 'compact)
+          source (prototype-map (reverse entries) policy: 'tree))
+    (list (prototype-map []) source (prototype-map []))))
   ;; Warm descriptor values only for this isolated component diagnostic.
   (for (entry entries) (.@ (cdr entry) hidden))
   (def expected (if mixed? (- size (quotient (+ size 3) 4)) size))
-  ;; Directory controls measure old export/dedup/build versus immutable reuse.
+  ;; Directory controls compare identical ordered roots, including shared overlaps;
+  ;; both pay deduplication/result capture, with only the input export differing.
   ;; Visibility controls measure old filtered-map construction versus all-pass reuse.
   (def (action direct?)
     (lambda ()
-      (let (result (if (eq? scenario 'declaration-directory)
+      (let (result (if (memq scenario '(declaration-directory declaration-directory-shared))
         (if direct? (prototype-map-merge-first sources policy: 'compact) (materialized-directory sources))
         (if direct? (prototype-map-filter source (lambda (_name descriptor) (not (.@ descriptor hidden))))
           (if (eq? scenario 'declaration-private-filter) (snapshot-visibility source (lambda (_name descriptor) (not (.@ descriptor hidden))))

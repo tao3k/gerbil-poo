@@ -2939,3 +2939,17 @@ metadata, FUN revision and repair have executable controls and finite Lean cache
 admission proofs. Physical list-copy isolation is a host premise exercised by
 regressions; arbitrary raw private setters and concurrent mutation remain outside
 this sequential implementation future-work protocol.
+
+### Multi-root declaration merge preparation
+
+The remaining concrete repetition in effective C3 directory preparation was public
+snapshot export of every nonempty root, append, ordered deduplication and result
+recapture. Multi-root merge now uses standard shared right folds over
+private vector/RBTree entries, then the SAME standard first-name deduplication and
+owned result capture. Empty/sole-distinct-root reuse is unchanged. No secondary
+hash, merge registry, loader or namespace is added. This removes redundant input
+pair exports, not all cold construction or result-index costs. Shared-overlap
+component and complete declaration/FUN workflows accompany payload/priority,
+visibility refusal, persistent revision and snapshot-ownership controls. Finite
+Lean laws retain standard-backend/copying premises; arbitrary module initializers,
+automatic layout policy and whole-runtime verification remain their stated scope.

@@ -208,9 +208,9 @@
 ;; immutable root or an owned public recapture. Descriptor objects remain shared
 ;; invalidation sources. The existing checked publication pipeline covers module
 ;; entry, refinement, FUN binding, live revisions, refusal and corrected retry.
-(def (catalog-workflow width recapture?: (recapture? #f) policy: (policy 'tree) inspect: (inspect .alist))
+(def (catalog-workflow width recapture?: (recapture? #f) policy: (policy 'tree) inspect: (inspect .alist) shared?: (shared? #f))
   (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0))))
-          (recapture? :~ boolean?) (policy :~ (one-of tree compact)) (inspect :~ procedure?))
+          (recapture? :~ boolean?) (shared? :~ boolean?) (policy :~ (one-of tree compact)) (inspect :~ procedure?))
     (def callback (lambda (x) (+ x 1)))
     (def input (append
       (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) constant: callback))
@@ -222,10 +222,17 @@
     (set-car! (car input) 'client-only)
     (def catalog (object-declarations template))
     (set-car! (car catalog) 'client-only)
+    ;; The optional diamond splits overlapping catalogs across independent owners;
+    ;; final-self values, first-descriptor priority and shared revision edges remain.
+    (def shared-entries (and shared? (object-declarations template)))
+    (def shared (if shared?
+      (.mix (make-object supers: [template] declarations: (prototype-map (take shared-entries 2) policy: policy))
+            (make-object supers: [template] declarations: (prototype-map (reverse shared-entries) policy: policy)))
+      template))
     (def recipe (if recapture?
-      (make-object supers: [Service] declarations:
-        (prototype-map (object-declarations template) policy: policy))
-      (.+ Service template)))
+      (make-object supers: (if shared? [Service shared] [Service]) declarations:
+        (prototype-map (object-declarations shared) policy: policy))
+      (.+ Service shared)))
     (reflection-publication recipe callback inspect)))
 
 ;; A shared descriptor may invalidate both service branches during its own check.
