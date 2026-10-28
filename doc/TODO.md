@@ -2862,3 +2862,17 @@ finite export-cost laws under persistent-storage/registered-source premises.
 This advances implementation future work; unrestricted mutation tracking and
 arbitrary module initializer equivalence remain outside the declared scope.
 See [prototype-maps.md](prototype-maps.md) for the paired acceptance receipt.
+
+### Effective declaration indexing and observed membership
+
+The declaration catalog now has a complete point-access path through the existing
+persistent compact/RBTree index. Effective C3 membership and public visibility are
+separate lazy caches, cleared with receiver source state; fresh clones start cold.
+Hidden overrides retain priority, public snapshots stay owned, and failed/expired
+preparation cannot publish a successful visibility map. Observed reflection binds
+owner membership through the existing names issuer before ordered descriptor reads.
+Concrete Slot admission remains per invocation. This closes repeated safe catalog
+preparation and the descriptor-only observation gap; arbitrary external mutations,
+callback termination and automatic compiler/JIT choices remain declared boundaries.
+Cold preparation and the extra optional object cache field are paid costs. See
+[prototype-maps.md](prototype-maps.md) for the complete matched acceptance receipt.

@@ -1,7 +1,8 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study)
+(export main run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study)
 (import (only-in :clan/poo/benchmarks/prototype-map-benchmark
-          +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload)
+          +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
+          +declaration-phases+ declaration-workload)
         :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract-flow checked-action)
@@ -760,7 +761,7 @@
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-empty declaration-single declaration-cold declaration-workflow))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -780,6 +781,8 @@
              (cut names-workload n scenario))
             ((memq scenario +chain-phases+)
              (cut chain-workload n scenario))
+            ((memq scenario +declaration-phases+)
+             (cut declaration-workload n scenario))
             ((memq scenario +catalog-phases+)
              (cut catalog-workload n scenario))
             ((memq scenario +traversal-phases+)
@@ -921,4 +924,9 @@
 ;; Finite catalogs use the unchanged AB/BA, A/A, B/B and charged-GC study runner.
 (def (run-catalog-study)
   (report-study (cut run-collection-study "64" "16" "6" +catalog-phases+) "CATALOG")
+  #t)
+
+;; All declaration-index phases retain the established controls, budgets and clocks.
+(def (run-declaration-study)
+  (report-study (cut run-collection-study "32" "16" "6" +declaration-phases+) "DECLARATION")
   #t)

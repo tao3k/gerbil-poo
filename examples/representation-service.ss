@@ -208,9 +208,9 @@
 ;; immutable root or an owned public recapture. Descriptor objects remain shared
 ;; invalidation sources. The existing checked publication pipeline covers module
 ;; entry, refinement, FUN binding, live revisions, refusal and corrected retry.
-(def (catalog-workflow width recapture?: (recapture? #f) policy: (policy 'tree))
+(def (catalog-workflow width recapture?: (recapture? #f) policy: (policy 'tree) inspect: (inspect .alist))
   (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0))))
-          (recapture? :~ boolean?) (policy :~ (one-of tree compact)))
+          (recapture? :~ boolean?) (policy :~ (one-of tree compact)) (inspect :~ procedure?))
     (def callback (lambda (x) (+ x 1)))
     (def input (append
       (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) constant: callback))
@@ -226,7 +226,7 @@
       (make-object supers: [Service] declarations:
         (prototype-map (object-declarations template) policy: policy))
       (.+ Service template)))
-    (reflection-publication recipe callback .alist)))
+    (reflection-publication recipe callback inspect)))
 
 ;; Explicit self overrides cut construction, not validation or business admission.
 ;; The opaque encoding is the same lawful computation expressed as computed;

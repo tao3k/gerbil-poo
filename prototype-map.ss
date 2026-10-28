@@ -1,6 +1,6 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
-        prototype-map-length prototype-map-for-each prototype-map-put prototype-map-remove)
+        prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in :std/vector/vector vector-filter)
         (only-in :std/list/list length<=n?))
@@ -87,6 +87,18 @@
 (def (prototype-map-list source)
   (for/collect (entry (in-specifications source))
     (cons (car entry) (cdr entry))))
+;; Resolve the FIRST contribution through the existing ordinal/name index. False
+;; payloads are returned unchanged; callers choose their own missing-value marker.
+;; Compact lookup stays bounded by eight, while promoted/tree maps use RBTree ref.
+(def (prototype-map-ref source name (default #f))
+  (unless (symbol? name) (error "symbolic specification required"))
+  (def entries (specifications-entries source))
+  (if (vector? entries)
+    (let (index (small-index entries name))
+      (if index (cdr (vector-ref entries index)) default))
+    (let (positions (rbtree-ref (specifications-names source) name #f))
+      (if positions
+        (cdr (rbtree-ref entries (if (pair? positions) (car positions) positions))) default))))
 ;; Copy a bounded compact vector or standard balanced-tree paths. Promotion keeps
 ;; every contribution in order; all later same-name methods retain their identity.
 (def (prototype-map-put source name value)

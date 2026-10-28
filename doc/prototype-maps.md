@@ -214,3 +214,112 @@ control rebuilt through the existing representations package. These are reused
 artifact build results, not a true-cold compiler speed claim. Full benchmark logs
 remain outside Git. Lean focused checks retain 1 GiB/two threads; the full gate
 and remote CI are separate acceptance steps.
+
+## Effective declaration indexing
+
+This advances the author's purity-by-default / explicit cache-flush future work
+(`poof.scrbl` 1533–1553), using the existing persistent map and object invalidation.
+`read-slot` and `write-slot!` previously rebuilt C3 catalog snapshots, deduplicated,
+checked every visibility flag and linearly searched on every call. A lazy private
+receiver index now retains the effective directory and a separately prepared
+visible directory. Existing standard compact/RBTree storage supplies first-entry
+lookup (`prototype-map-ref`); no second tree, loader or registration table is added.
+
+There is one additional optional cache field per object, initialized empty and
+cleared by the same source-invalidation boundary as layouts, methods and reads.
+Fresh clones inherit no prepared index. Actual cache records/maps are allocated
+only when declaration reflection is requested. Initial merging, visibility,
+owned snapshots and map construction remain real cold costs; this does not claim
+that an indexed first query or every small receiver is cheaper.
+
+The earliest C3 declaration wins before visibility filtering. A hidden override
+never falls through to a public ancestor. Include-hidden inspection does not read
+visibility flags. Public lists/pairs are fresh; descriptor objects remain shared
+registered sources. Failures leave no successful partial visible index. Supported
+source changes during visibility getters/observers refuse the old query before
+publication; effects already performed are not rolled back. A corrected retry
+uses the current source and ordinary cache invalidation.
+
+Observed queries always authenticate owner membership through the existing names
+query, then preserve the original foldr visibility-read order. This adds the
+owner structural dependency missing from descriptor-only reflection. Warm observed
+queries still deliver current metadata reads and refuse changed sources; successful
+Type/value admission is never cached. Unobserved warm point queries may reuse the
+current private visibility map, but every read/write still runs the existing Slot
+value checker. Raw struct mutation and arbitrary callback dependencies remain
+outside the registered-source/purity discipline.
+
+The paired reference is a safe snapshot/scan oracle with the SAME owner-membership
+observation and revision fence. Cold/single/empty phases charge preparation;
+hot, missing, observed and full module/FUN/refinement revision/refusal/retry paths
+remain separate. This comparison measures the current indexed protocol against a
+current safe scan, not an unsafe historical implementation or a new module loader.
+
+### Effective-index paired receipt (2026-10-28, macOS)
+
+Base `6701463`, Gerbil compiler `1cfb032.patch618d76f9eb72`. No build or other
+verification from this task overlapped sampling. Standard `_test 300
+benchmarks/declaration-index-test.ss` passed in **79.81 s**, including module/test
+startup; its inclusive study measured **67.27 s** wall, **31.77 s** CPU and
+**14.60 s** reported GC CPU. Width 32 (single uses one field), sixteen calls per
+batch, six AB/BA pairs, four A/A and B/B pairs per regime. Natural and collected
+regimes remain; cold/single/empty/workflow also retain charged post-GC controls.
+Cold actions create their own complete typed descriptor graph. Only hot/missing/
+observed phases prepare a warm owner outside their measured actions. Full workflow
+outer enumeration uses the same public reflection API on both sides; only the
+point resolver changes. Standard module actions use cached loads, not a claim
+about fresh-process import performance.
+
+Positive microseconds indicate candidate regression. These are collected batch
+wall results, including the actual callbacks and concrete Slot checks:
+
+| Phase | AB median | AB min / max | AB wins / losses |
+| --- | ---: | ---: | ---: |
+| empty reflection | +0.72 | -19.88 / +5.75 | 2 / 4 |
+| single cold | +0.25 | -85.32 / +3.81 | 3 / 3 |
+| width-32 cold | +351.31 | -793.37 / +641.63 | 1 / 5 |
+| hot point read | -9.06 | -11.44 / +85.37 | 4 / 2 |
+| missing point read | -9.82 | -42.26 / -9.00 | 6 / 0 |
+| observed point read | -5.77 | -9.55 / +2.88 | 5 / 1 |
+| complete publication | -7,972.91 | -15,304.70 / -6,288.07 | 6 / 0 |
+
+Cold collected CPU/non-GC median was -24.59 while wall residual median was
++235.24; medians are not additive. Cold A/A ranged -2,488.57 / +490.81, B/B
+-1,514.43 / +1,781.39. Natural cold AB ranged -8,351.25 / +338.67, A/A
+-12,147.95 / +13,364.69 and B/B -2,243.25 / +5,304.89. This does not qualify
+stable cold-wall improvement. Initial map preparation is a real cost; a lower
+CPU counter alone does not override an adverse wall observation.
+
+Hot natural pairs all improved, with range -147.31 / -6.81 and mean -32.09.
+Collected hot mean was +14.40 because of its +85.37 tail; A/A ranged
+-14.19 / +61.63, B/B -70.94 / +62.21. Reported medians do not establish a
+universal hot-tail bound. Collected full-publication mean was -9,266.70, with
+A/A range -2,735.56 / +7,886.87 and B/B -6,516.99 / +3,234.21. Natural
+publication had five wins/one loss, mean -3,298.15 and range
+-12,097.12 / +7,098.32; natural A/A reached +21,637.26.
+
+CHARGED GC + first + complete batch workflow had median -5,197.92, mean
+-5,101.55, five wins/one loss and range -12,211.25 / +4,013.90. A/A ranged
+-546.79 / +1,558.93 and B/B -438.06 / +720.82. Its disjoint mean wall
+contributions were batch -4,420.22, first -683.83 and forced GC +2.49.
+Batch non-GC CPU was -2,716.57, GC CPU -1,612.79 and residual -90.85; forced
+GC itself added +15.66 residual. Medians must not be summed. Allocation history
+contains negative/unavailable counters, so no physical byte-saving claim is made.
+Both strategies use the current object representation; this does not measure the
+old/new physical byte difference of the additional optional record field.
+
+This accepts the finite source/observation protocol and demonstrates measured
+point/full-workflow improvements in the reported regimes. It does not qualify
+universal cold, first-call, GC or tail acceleration, nor whole-loader performance.
+Raw benchmark data remain outside Git; checks and resource limits are unchanged.
+
+Final local acceptance retained all **150 modules / 1,866 cases**, with no error
+markers: module phase **245.29 s**, complete paired collection entry **19.73 s**,
+whole `check-built 2 1 4` **265.64 s**. Each phase retained its 300-second limit
+and 1 GiB runtime heap; no process split or admission was removed. The seven new
+regressions independently passed in 8.23 s. Complete build preparation passed;
+final current-artifact phases measured 39.32 / 3.25 / 48.17 seconds, followed by
+the standard representations rebuild for the corrected topology-API test. These
+build/check wall times are not an old/new cold-build comparison or a whole-check
+speedup claim. Focused Lean checks retain 1 GiB/two threads; full gate and remote
+CI remain separate acceptance steps.

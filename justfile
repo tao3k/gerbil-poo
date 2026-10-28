@@ -156,3 +156,7 @@ benchmark-slot-construction: build-shared
 # Catalog capture, clone, reflection and checked module publication remain paired.
 benchmark-prototype-catalog: build-shared
     just _test 300 benchmarks/prototype-catalog-test.ss
+
+# Point metadata lookup includes cold preparation, observation and full workflows.
+benchmark-declaration-index: build-shared
+    just _test 300 benchmarks/declaration-index-test.ss

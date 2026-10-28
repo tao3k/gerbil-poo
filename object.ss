@@ -51,6 +51,7 @@
    %protocol ;; optional ordinary POO object supplying inheritance hooks
    %overrides ;; explicit INSTANCE assignments, never inherited specifications
    %declarations
+   %declaration-index ;; lazy effective/visible catalog; cleared with every source revision
    %bootstrap) ;; explicit constant hook anchors; only the self-hosted root uses them : (Listof Symbol) ; definition order for all slot keys
   constructor: :init!)
 (defmethod {:init! object}
@@ -72,6 +73,7 @@
     (set! (object-%protocol self) protocol)
     (set! (object-%overrides self) #f)
     (set! (object-%declarations self) (prototype-map declarations))
+    (set! (object-%declaration-index self) #f)
     (set! (object-%bootstrap self) bootstrap)
     (for-each (cut depend-on-object! self <>) (object-supers self))
     (when protocol (depend-on-object! self protocol))))
@@ -105,6 +107,7 @@
 (def active-read-replays (make-parameter '()))
 ;; Clear all derived state together. Explicit instance assignments remain separate.
 (def (clear-object-cache! self)
+  (set! (object-%declaration-index self) #f)
   (set! (object-%reads self) #f)
   (set! (object-%instance self) #f)
   (set! (object-%layout self) #f)

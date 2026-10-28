@@ -6,6 +6,7 @@
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
 ;; This is the authoritative make declaration; no source-input scanner is added.
 (def build (let () (defbuild-script '("collection-testing-test"
+    "declaration-index-test"
     "function-signature-test"
     "property-testing-test"
     "prototype-types-test"

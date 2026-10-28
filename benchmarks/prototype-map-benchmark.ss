@@ -1,6 +1,8 @@
 ;;; Existing prototype-map studies share the same paired measurement engine.
-(export +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload)
-(import :std/iter :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
+(export +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
+        +declaration-phases+ declaration-workload reference-reflection reference-read-slot)
+(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
+        (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/reflection reflect-slots read-slot)
@@ -113,3 +115,75 @@
             (error "catalog publication oracle"))))
       #t))
   (values (action #f) (action #t)))
+
+;; An independent safe scan oracle retains owned snapshots and the original
+;; ordered visibility fold. Include the new owner-membership observation/fence
+;; on BOTH sides, so timing does not compare different dependency guarantees.
+(def (reference-reflection owner)
+  (def revision (object-revision owner))
+  (instantiate-object! owner)
+  (when (%slot-read-active?) (.all-slots owner))
+  (unless (= revision (object-revision owner)) (error "object changed during declaration reflection"))
+  (let (result (foldr (lambda (entry rest)
+    (if (.@ (cdr entry) hidden) rest (cons entry rest))) []
+    (delete-duplicates/hash
+      (apply append (map object-declarations (object-%precedence-list owner)))
+      key: car table: (make-hash-table-symbolic) from-end?: #t)))
+    (unless (= revision (object-revision owner)) (error "object changed during declaration reflection"))
+    result))
+;; Reuse the actual Slot validation protocol after the independent scan; every
+;; call still checks its concrete value and propagates the original exception.
+(def (reference-read-slot owner name)
+  (def descriptor (cdr (or (assq name (reference-reflection owner))
+    (error "slot is hidden or undeclared" name))))
+  (def value (.ref owner name))
+  (unless (.call (.@ descriptor .type) .slot.check descriptor name (object<-alist [(cons name value)]))
+    (error "declared slot value rejected" name))
+  value)
+;; Cold and single cases pay metadata construction/index preparation. Hot/missing
+;; and observed controls retain their own explicit setup. Full module workflows
+;; include every initial descriptor, refinement, consumer and revision/refusal/retry.
+(def +declaration-phases+ '(declaration-empty declaration-single declaration-cold
+  declaration-hot declaration-missing declaration-observed declaration-workflow))
+;; Compare indexed public access with safe scan selection on the same admitted
+;; receiver and through identical Slot checks. Reflection outputs remain owned.
+(def (declaration-workload width scenario)
+  (def size (if (eq? scenario 'declaration-single) 1 width))
+  (def name (make-symbol "field-" (1- size)))
+  ;; Each cold receiver owns its descriptor graph; warm paths share only setup.
+  (def (fresh)
+    (make-object declarations: (for/collect (n (in-range size))
+      (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n)))))
+  (def owner (and (memq scenario '(declaration-hot declaration-missing declaration-observed)) (fresh)))
+  (when owner (read-slot owner name) (reference-read-slot owner name))
+  (def enter (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#catalog-workflow))
+  ;; The full publication's inspector demands every typed declared field before
+  ;; returning ordinary values to the existing shared FUN/refinement pipeline.
+  (def (inspect read)
+    (lambda (candidate)
+      (for (entry (reflect-slots candidate)) (read candidate (car entry)))
+      (.alist candidate)))
+  ;; Observed timing charges the owner query on both sides, preserving ordered
+  ;; descriptor deliveries. It does not cache a prior successful Type check.
+  (def (action read reflect)
+    (lambda ()
+      (case scenario
+        ((declaration-empty)
+          (unless (equal? (reflect (make-object)) []) (error "empty reflection oracle")))
+        ((declaration-single declaration-cold)
+          (unless (= (read (fresh) name) (1- size)) (error "cold declaration oracle")))
+        ((declaration-hot)
+          (unless (= (read owner name) (1- size)) (error "hot declaration oracle")))
+        ((declaration-missing)
+          (unless (Error? (with-catch identity (cut read owner 'missing))) (error "missing declaration oracle")))
+        ((declaration-observed)
+          (let (events [])
+            (unless (and (= (call-with-slot-read-observer
+              (lambda (event) (set! events (cons event events))) (cut read owner name)) (1- size))
+              (pair? events)) (error "observed declaration oracle"))))
+        ((declaration-workflow)
+          (unless (equal? (enter (list size policy: 'compact inspect: (inspect read))) '#(24 30 36 6))
+            (error "declaration publication oracle"))))
+      #t))
+  (values (action reference-read-slot reference-reflection) (action read-slot reflect-slots)))
