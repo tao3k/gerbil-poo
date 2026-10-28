@@ -9,7 +9,7 @@
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read object-slot-names
-                    slot-spec-discards-super? compile-slot-specs declaration-specifications) @object? @make-object)
+                    slot-spec-discards-super? compile-slot-specs declaration-specifications compute-object-precedence!) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -155,8 +155,8 @@
   (def parents (flatten supers))
   (for-each (lambda (parent)
     (unless (object? parent) (error "prototype parent required"))
-    (when (memq self (compute-precedence-list! parent)) (error "cyclic prototype revision"))) parents)
-  (compute-precedence-list! (make-object supers: parents))
+    (when (memq self (compute-object-precedence! parent)) (error "cyclic prototype revision"))) parents)
+  (compute-object-precedence! (make-object supers: parents))
   (before-object-edit! self)
   (for-each (cut depend-on-object! self <>) parents)
   (set! (object-supers self) parents))
@@ -190,7 +190,7 @@
         (defvalues (instance dependencies)
           (%call-with-recorded-slot-reads
             (lambda ()
-              (compute-precedence-list! self)
+              (compute-object-precedence! self)
               (compute-slot-funs! self)
               (def instance (make-hash-table-symbolic))
               (when (object-%overrides self)
@@ -209,8 +209,14 @@
   (InvalidObject slots: (append (prototype-map-keys (object-%slots self))
     (prototype-map-keys (object-%defaults self)) (prototype-map-keys (object-%declarations self)))))
 
-;; Delegate ordering directly to core C4 while retaining POO cycles, hooks and caches.
+;; Public inspection owns its spine; mutating it cannot edit cached C3 membership.
+;; Internal construction borrows the private result without per-call snapshot copies.
 (def (compute-precedence-list! self (heads '()))
+  (list-copy (compute-object-precedence! self heads)))
+;; Delegate ordering to core C4. Hook continuations receive independent snapshots;
+;; compare against the private canonical order and retain only that canonical order.
+;; Hook errors and changed/improper orders clear the candidate cache before escape.
+(def (compute-object-precedence! self (heads '()))
   ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
   ;; as private implementation state at this abstraction boundary.
   (def active (make-hash-table-eq))
@@ -234,11 +240,11 @@
         (hash-remove! active object)
         (set! (object-%precedence-list object) precedence-list)
         (try
-          (let (chosen (invoke-object-hook object 'compute-precedence-list (lambda () precedence-list)))
+          (let (chosen (invoke-object-hook object 'compute-precedence-list (lambda () (list-copy precedence-list))))
             (unless (and (list? chosen) (= (length chosen) (length precedence-list))
                          (andmap eq? chosen precedence-list))
               (error "inheritance hook must preserve checked C3 order"))
-            chosen)
+            precedence-list)
           (catch (cause) (clear-object-cache! object) (raise cause)))))))))
 
 ;; Compile declaration metadata through the existing Slot protocol on a fresh

@@ -5,6 +5,38 @@
 ;; Exercise actual native protocol composition, not serialized model constants.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
+    (test-case "public C3 snapshots cannot replace cached inheritance membership"
+      (def parent (.o value: 7))
+      (def child (.mix parent))
+      (def snapshot (compute-precedence-list! child))
+      (def expected (map identity snapshot))
+      (set-car! (cdr snapshot) (.o value: 99))
+      (check-equal? (compute-precedence-list! child) expected)
+      (check-equal? (.ref child 'value) 7))
+    (test-case "in-place C3 hook edits refuse before cache installation and repair retries"
+      (def parent (.o value: 7))
+      (def protocol (.o (compute-precedence-list (lambda (_self next)
+        (def result (next))
+        (set-car! (cdr result) (.o value: 99)) result))))
+      (def child (with-inheritance-hooks protocol (.mix parent)))
+      (check-exception (compute-precedence-list! child) error?)
+      (check (object-%precedence-list child) => #f)
+      (check (object-%instance child) => #f)
+      (object-protocol-set! child (.o))
+      (check-equal? (.ref child 'value) 7))
+    (test-case "accepted hook snapshots stay detached after retention and service revisions"
+      (def saved [])
+      (def protocol (.o (compute-precedence-list (lambda (_ next)
+        (def snapshot (next)) (set! saved (cons snapshot saved)) snapshot))))
+      (def parent (.o value: 7))
+      (def child (with-inheritance-hooks protocol parent))
+      (def expected (compute-precedence-list! child))
+      (for-each (lambda (snapshot) (set-car! snapshot (.o value: 99))) saved)
+      (check-equal? (compute-precedence-list! child) expected)
+      (check-equal? (.ref child 'value) 7)
+      (.putslot! parent 'value ($constant-slot-spec 8))
+      (check-equal? (.ref child 'value) 8)
+      (check-equal? (services.precedence-workflow) '((10 10 10) (20 20 20))))
     (test-case "compiled FUN combination rechecks shared current reflection after revisions"
       (def events [])
       ;; The action records only actual callback observations, never preparation.

@@ -638,3 +638,47 @@ latency bound. The safety fix is retained independently of these fluctuations.
 The complete build passed its unchanged phase limits, all 150 test modules and
 1,878 cases passed in one process, and the original complete paired benchmark
 passed. Raw logs and complete benchmark data remain outside the repository.
+
+### Checked C3 snapshot ownership
+
+The author identifies precedence-list computation as a computation worth sharing
+and discusses explicit invalidation under mutation (`poof.scrbl`, Cache invalidation).
+That sharing requires ownership: the public C3 query and its inherited-hook `next`
+previously exposed the exact cached Scheme list. Original regressions showed that
+editing a returned parent replaced later membership, while a hook could modify
+the candidate against which its chosen order was checked.
+
+`compute-precedence-list!` now returns a standard `list-copy`; a private helper
+retains the same core `c4-linearize*`, cycle/construction guards and cache. Internal
+construction/topology admission borrow that private result. Hook continuations
+receive independent copies and successful hooks retain only the canonical private
+order. A bad order or original exception clears provisional receiver caches.
+Objects themselves remain shared; this isolates the list spine, not arbitrary
+mutable payloads or trusted generated private accessors. Public snapshot copying
+and hook-copy cells remain real charged costs; no new map, loader or policy is
+introduced to hide them.
+
+`precedence-workflow` retains hook/public snapshots from a declared service diamond,
+overwrites them, then uses the existing FUN protocol/revision actions and reflection
+without forcing private fields. Regressions cover public corruption, changed-order
+refusal, cleared candidate state, repair and late edits to accepted hook snapshots.
+This advances the paper's future MOP/invalidation work; alternative C3 orders and
+unrestricted mutation tracking remain research boundaries.
+
+The standard construction study ran after all local correctness/Lean jobs ended:
+64-contribution cold/hot cases and the complete module/refinement/publication path,
+16 repetitions, six AB/BA pairs and four A/A/B/B pairs, with natural, collected and
+charged post-GC regimes unchanged. The inclusive standard entry took 31.71 seconds
+(root dependency check 14.24, startup preparation 3.28, test entry 13.58); the study
+itself reported 7.86 seconds. Both current safe SlotSpec strategies pay C3 snapshot
+ownership; this does not estimate historical unsafe-versus-safe copy overhead.
+
+Explicit-minus-opaque cold mean/tail were -1.88/0.00 us natural and -3.67/-1.56 us
+collected; hot natural mean/tail were +0.005/+0.060 us. Post-GC cold mean/tail were
++9.28/+45.17 us, so no universal cold improvement is claimed. Full-workflow
+mean/tail were -100.04/+1475.13 us natural, +5.34/+109.20 us collected and
++17.06/+94.98 us post-GC. Natural A/A itself reached +1569.87 us. These finite
+controls expose adverse samples rather than proving their cause or erasing them
+with a favorable median. This work closes cache ownership, not all performance
+variation. Full build phase limits were retained; all 150 modules/1,881 cases and
+the original complete paired benchmark passed. Raw data stays outside Git.

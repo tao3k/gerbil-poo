@@ -2925,3 +2925,17 @@ inline layouts, old read credentials and the complete refinement/FUN publication
 path have controls. This advances the author's explicit cache-invalidation future
 work under registered-source/serial-edit premises; arbitrary unregistered effects,
 concurrent mutation and language-wide dependency discovery remain outside scope.
+
+### Checked C3 cache and continuation ownership
+
+Closed a concrete cache-alias gap: public `compute-precedence-list!` and the MOP
+continuation exposed the retained mutable C3 spine. Mutating it could change
+membership without revision or defeat the checked-order comparison. Standard
+`list-copy` now owns both external boundaries; the private construction path still
+borrows the existing core C4 result. Only the canonical reference is retained after
+successful checking, and original refusals clear provisional state. No alternate
+linearizer, loader, index or namespace is added. Retained snapshots, shared service
+metadata, FUN revision and repair have executable controls and finite Lean cache-
+admission proofs. Physical list-copy isolation is a host premise exercised by
+regressions; arbitrary raw private setters and concurrent mutation remain outside
+this sequential implementation future-work protocol.

@@ -1,5 +1,5 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action protocol-action combined-action)
+(export make-services report revision-action protocol-action combined-action precedence-workflow)
 (import ../object
         ../mop
         ../number
@@ -66,3 +66,19 @@
       '(billing risk join))))
   (.call gp.Observation. .map report
     (lambda (services) (program services (list units)) services)))
+
+;; Retained MOP/public snapshots are editable observations, never cached C3 cells.
+;; A shared declaration diamond still supports FUN revision and public reflection
+;; after callers overwrite every retained hook spine. No private field is demanded.
+(def (precedence-workflow)
+  (def family (make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
+  (def saved [])
+  (def protocol (.o (compute-precedence-list (lambda (_ next)
+    (def snapshot (next))
+    (set! saved (cons snapshot saved)) snapshot))))
+  (def initial ((protocol-action protocol) family))
+  (def join (.ref family 'join))
+  (def public (compute-precedence-list! join))
+  (for-each (lambda (snapshot) (set-car! snapshot (.o rogue: #t))) (cons public saved))
+  (unless (eq? (car (compute-precedence-list! join)) join) (error "C3 snapshot escaped"))
+  (list initial ((revision-action 20) family)))
