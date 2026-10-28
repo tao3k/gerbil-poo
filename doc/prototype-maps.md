@@ -536,3 +536,60 @@ reproduces a worker failure at the fixed heap ceiling and separates standard
 GXC frontend admission from backend capacity. That later experiment, rather than
 the earlier clean pass, motivated the historical bounded frontend policy. The report also records its
 replacement by a 2 GiB heap with standard environment-controlled concurrency.
+
+### Finite constructor grammar across storage policies
+
+The next source audit found a concrete representation inconsistency, rather than
+a missing graph algorithm. Before the repair, `prototype-map` accepted a vector
+of symbolic pairs under tree policy through standard generic iteration, while
+compact policy refused the same input. An arbitrary Iterator could likewise be
+consumed on the tree path. The new carrier regression failed on that original
+implementation: tree construction returned a successful specifications root
+instead of the expected contract refusal.
+
+One standard `using` / `list?` admission now precedes raw-list storage selection.
+The existing opaque-root path stays ahead of this scan, preserving root identity
+and policy-only sharing. `prototype-map-merge-first` likewise checks its outer
+finite root list before filtering. Proper lists and existing roots are the
+supported carriers; arbitrary Iterable discovery is not an implicit extension
+point. Standard list recognition rejects improper and cyclic spines without
+executing a producer. Original malformed-entry/Symbol and invalid-policy failures
+remain their own stages; descriptor elaboration is still lazy, not an eager
+procedure/body validation. No new cache, namespace or collection backend is used.
+
+This applies the author's representation-equivalence principle at
+`poof.scrbl:980–1031` to the already-declared host list interface. It does not claim
+the paper mandates this exact API. Lean reuses `captureCatalog`, `prepareCatalog`
+and `visitEntries`: the combined continuation proves policy-independent complete
+observations/refusal, grammar failure before descriptor hooks, and successful
+corrected retry. The standard host recognizer and persistent capture remain
+premises, not a proof of Scheme's list predicate or arbitrary callback termination.
+
+Regression cases cover both policies, vectors and effectful Iterators, improper
+and cyclic entry/root lists, false/Function identity, opaque-root reuse and policy
+conversion. Invalid slots/defaults/declarations refuse before object hooks; corrected
+input and the existing shared-service refinement/FUN/IO workflow succeed. Admission
+runs once on raw constructor input, never again on warm queries or retained-root
+reuse. Its finite proper-list scan is real preparation work, not free metadata.
+
+Design reflection: a separate 40,000-node registered dependency-chain witness
+passed on the existing implementation, including terminal preflight refusal,
+zero clears and successful retry. It did not establish a missing invalidation
+algorithm; no replacement traversal or speculative scheduler was committed.
+
+A warm-source-replacement regression additionally keeps source/child revisions,
+instances, layouts and issued credentials unchanged on carrier refusal. A corrected
+proper-list replacement advances both affected revisions once, revokes the old
+reads and refreshes inline access. Its finite frame law reuses the existing Lean
+publication boundary. Build-time localization and the rejected shared-VM experiment
+are recorded separately in performance/build-summary.org; neither is represented
+as a cold-query performance success.
+
+Final local acceptance passed 150 compiled modules / 1,876 cases in the single
+process (267.12 seconds), followed by the complete paired admission (17.63 seconds;
+286.46 seconds inclusive). The expanded declaration-index suite has sixteen cases.
+The complete Lean gate and source audit also passed. These checks retained the
+same deadlines/heaps and do not establish faster builds, loading or query tails.
+The rejected shared-VM preparation experiment emitted zero compilation jobs;
+filesystem inspection found no compiler products written after its start. Its
+failure therefore supplied no accepted artifacts to this independent admission.

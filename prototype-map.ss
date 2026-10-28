@@ -41,7 +41,8 @@
   (if (specifications-compact? source) 'compact 'tree))
 ;; Select storage explicitly with the core contract binder. New lists default to
 ;; trees; an existing snapshot retains its policy unless conversion is requested.
-;; Conversion owns fresh entry pairs and never changes the original snapshot.
+;; Backend changes capture fresh pairs; policy-only tree views share immutable
+;; storage. Neither conversion changes the original snapshot.
 (def (prototype-map entries policy: (policy #f))
   (using (policy :~ (one-of #f tree compact))
     (cond
@@ -54,10 +55,15 @@
             (make-specifications (specifications-entries entries) (specifications-names entries)
               (specifications-count entries) (specifications-next entries) (eq? policy 'compact))
             (prototype-map (prototype-map-list entries) policy: policy))))
-      ((null? entries) (if (eq? policy 'compact) empty-compact empty-tree))
-      ((and (eq? policy 'compact) (length<=n? entries small-map-limit))
-        (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t))
-      (else (tree-map entries (eq? policy 'compact))))))
+      ;; Both representations admit the same finite list grammar before capture.
+      ;; Standard list? rejects improper/cyclic spines without running Iterables.
+      ;; Retained roots above need no repeated traversal or new wrapper.
+      (else (using (entries :~ list?)
+        (cond
+          ((null? entries) (if (eq? policy 'compact) empty-compact empty-tree))
+          ((and (eq? policy 'compact) (length<=n? entries small-map-limit))
+            (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t))
+          (else (tree-map entries (eq? policy 'compact)))))))))
 ;; The official RBTree supplies construction and persistent update. Capturing
 ;; each entry also makes promotion independent of private vector entry handles.
 (def (tree-map entries (compact? #f))
@@ -91,13 +97,14 @@
 ;; Multiple roots/duplicates keep standard ordered deduplication and full capture.
 ;; This projection is for keyed catalogs, not method-chain composition.
 (def (prototype-map-merge-first sources policy: (policy #f))
-  (def roots (filter (lambda (source) (positive? (prototype-map-length source))) sources))
-  (cond ((null? roots) (prototype-map [] policy: policy))
-        ((and (null? (cdr roots)) (distinct-specifications? (car roots)))
-          (prototype-map (car roots) policy: policy))
-        (else (prototype-map
-          (delete-duplicates/hash (apply append (map prototype-map-list roots))
-            key: car table: (make-hash-table-eq) from-end?: #t) policy: policy))))
+  (using (sources :~ list?)
+    (def roots (filter (lambda (source) (positive? (prototype-map-length source))) sources))
+    (cond ((null? roots) (prototype-map [] policy: policy))
+          ((and (null? (cdr roots)) (distinct-specifications? (car roots)))
+            (prototype-map (car roots) policy: policy))
+          (else (prototype-map
+            (delete-duplicates/hash (apply append (map prototype-map-list roots))
+              key: car table: (make-hash-table-eq) from-end?: #t) policy: policy)))))
 ;; Filter in RIGHT-TO-LEFT callback order, retaining contribution order and values.
 ;; All-pass returns the exact source: no replacement vector/tree or policy change.
 ;; A partial result keeps the existing policy; original callback exceptions stop

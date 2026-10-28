@@ -929,3 +929,41 @@ it is not an empty-prefix build or a substitute for the focused gate.
 
 See [[file:compiler-admission.org][root compiler admission]] for the historical worker refusal,
 GC controls and the current 2 GiB environment-controlled build policy.
+
+* Finite-carrier update: complete rebuild versus repeated preparation
+The 2026-10-28 finite-carrier admission change kept all package declarations,
+checks, compiler flags and limits. Its complete local build took 328.69 seconds:
+84.22 seconds root, 2.87 startup and 241.60 test packages. An earlier 89.61-second
+root build was duplicated after an edit to its source comment during the build.
+That repeated source invalidation is workflow overhead, not a POO query cost or
+an accepted compiler optimization. Finish source edits before the standard build;
+do not forge timestamps or introduce alternate freshness checks.
+
+Two unchanged-source repeated full builds emitted zero frontend compilations and
+zero backend jobs. Their root/startup/package walls were 15.13/3.10/85.24 seconds
+and 14.34/2.96/54.28 seconds; inclusive walls were 104.23 and 72.07 seconds. User
+CPU was 140.68 and 133.20 seconds, respectively. The latter was instrumented and
+is not an optimized arm or a causal speedup. The existing standard cache reused
+products; repeated module preparation and process boundaries remain real costs.
+
+A one-second sample of an active contracts-package compiler contained expander
+syntax/core and collector scanning frames. It does not establish whole-entry
+percentages, a GC-only explanation or the cause of wall residuals. The installed
+gxpkg multiple-package entry itself invokes each package build script in a child
+process; it does not supply a shared compiler VM across their standard makes.
+
+A bounded temporary experiment exported the existing package mains, imported the
+standard source-location macro, and invoked their unchanged make declarations in
+one compiler process. It reached the fifth package before the existing 1GiB heap
+bound refused it (exit 70, 30.93 seconds). That experiment was rejected; all
+experimental exports/imports were removed. No larger heap, grouped scheduler,
+secondary cache, source scanner, new namespace or replacement package entry is
+retained. The large complete rebuild and repeated preparation are not declared
+solved. A further standard-make improvement must preserve dependency/extra-input
+currentness and the existing memory bound rather than hide failed preparation.
+
+These local controls preceded the separately user-authorized 2GiB root-heap
+update; they are historical 1GiB-root receipts, not measurements of the integrated
+2GiB policy. Integration preserves that authorized policy, standard environment
+concurrency, 1GiB independent test processes and all existing time gates. The
+finite-carrier runtime/test sources are unchanged by this build-policy merge.

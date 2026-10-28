@@ -2897,3 +2897,17 @@ keep finite implementation obligations separate from full-vector-only storage,
 automatic policy selection and arbitrary module initialization research. Further
 changes need a concrete repeat operation or missing protocol, not a favorable
 CPU-only statistic or an isolated example.
+
+
+### Finite prototype carrier grammar
+
+Closed a witnessed host/model admission gap: tree construction implicitly accepted
+vectors/Iterators, while compact construction refused them. The existing prototype
+map constructor and C3 merge now use standard proper-list admission before raw
+capture/traversal; retained immutable roots keep their original reuse path. This
+aligns the finite carrier premise of Lean `captureCatalog` with executable input
+acceptance and proves its composition with lazy descriptor preparation. Both
+policies retain duplicate order, payload identity, error precedence and retry.
+See [prototype-maps.md](prototype-maps.md) for the failing original witness and
+complete acceptance. This closes the concrete grammar inconsistency, not automatic
+layout selection, arbitrary Iterable constructors or unrestricted recursion.
