@@ -99,6 +99,27 @@ These paired receipts precede =2dead20=. That subsequent declaration-cache
 update is retained; integrated acceptance is separate from this timing cohort.
 Raw logs, system trace data and diagnostic build products remain outside Git.
 
+** Integrated admission and explicit clean recovery
+After retaining =2dead20=, an incremental build in B's former prefix failed in
+a root =std/make= worker with =Stack overflow= (exit 70, 71.93 seconds), before
+the revised test-package allocation ran. The failed prefix was not accepted or
+used to report a successful incremental check. No compiler processes remained.
+A new empty prefix, with the same 12-core root and unchanged guards, passed the
+root in 117.20 seconds and then the complete entry at =cbcfa9a= in 689.06
+seconds (1207.82 user, 183.48 system): 150 modules, 1871 cases, =OK= and the
+paired study. Startup/package/tests/study walls were 7.33/267.55/280.46/14.98.
+This integrated cold receipt includes the later functional update and is not
+the B arm of the earlier frozen-source comparison. Its CI passed all 53 checks.
+
+In the formerly failed prefix, the ordinary =gerbil clean= succeeded in 2.44
+seconds. The unchanged 12-core =just build-shared= then passed in 135.20 seconds
+(root 126.87, startup 8.26), without another overflow. This qualifies the targeted
+root recovery, not a full suite rerun in that prefix or a definitive cause of
+the original overflow. There is no automatic retry/clean fallback. Use the
+standard clean/build lifecycle for inconsistent artifacts; do not turn a failed
+prefix, successful recovery stage or one clean run into a claim of universal
+incremental correctness. All raw failure/recovery logs remain outside Git.
+
 * First-image validation: measured boundary and rejected representation policy
 A macOS follow-up separated two =fcntl= operations used by dyld. A temporary
 =std/ffi= probe in the actual released Gerbil process, against three fresh
