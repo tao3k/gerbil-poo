@@ -1,10 +1,11 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export property-testing-test property-kernel-test)
+(export property-testing-test property-kernel-test generated-batches-test)
 (import :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
         (prefix-in :clan/poo/examples/signature-service service.)
-        (only-in :clan/poo/examples/property-kernel property-kernel-test))
+        (only-in :clan/poo/examples/property-kernel property-kernel-test)
+        (only-in :clan/poo/examples/generated-batches generated-batches-test))
 
 ;; Deterministic fixture isolates shrinking from random trial distribution.
 (def (fixed-integer value shrink (measure abs))
@@ -58,11 +59,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 12)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 20)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 12 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 20 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test

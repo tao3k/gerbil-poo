@@ -81,6 +81,14 @@ check width='2' samples='1' pairs='4': build (check-built width samples pairs)
 check-built width='2' samples='1' pairs='4':
     just _test 300 "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
     just _run-collections "$1" "$2" "$3"
+    just _run-generators 8 2
+
+# Shared executable and module-action own loading; no new test or benchmark runner.
+benchmark-generators repetitions='20' pairs='4': build-shared
+    just _run-generators "$1" "$2"
+
+_run-generators repetitions pairs:
+    /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/generation-benchmark 'clan/poo/benchmarks/generation-benchmark#main' "$1" "$2"
 
 _run-collections width samples pairs:
     /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"

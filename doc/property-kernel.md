@@ -70,3 +70,73 @@ A returned proposal counts even when admission, cost, property or source checks
 fail; EOF and an iterator exception produce no proposal. The error's cause is
 retained, `minimal?` is false, and concrete replay requires a `failed` report.
 A diagnostic reduced value on an `error` or `stale` report is not certified evidence.
+
+## Composing domain generators
+
+`generator-choice` and `generator-frequency` select explicit generator branches.
+Weights are captured nonnegative integers with a positive total; zero-weight
+branches cannot be selected. `generator-sized`, `generator-resize` and
+`generator-scale` reuse the same lazy tree. `generator-delay` spends an explicit
+construction depth shared by nested delayed forces. `bind-generators` is hygienic
+syntax over the existing bind/unit algebra, not a separate execution language.
+
+`generator-filter` has a finite draw-attempt budget. A rejected shrink child is
+pruned and charged by the ordinary shrink consumer, including under map/bind.
+Its value is never passed to downstream selectors or properties. Descendants
+of that rejected node are not searched: minimality still means only the supplied
+pruned immediate neighborhood. Callback exceptions remain errors; exhausted draw
+or delay budgets report `exhausted`. Construct valid dependent inputs directly
+when possible instead of relying on filtering.
+
+`generator-no-shrink` and `generator-with-shrink` retain the drawn root's sources.
+Neither forces a child factory during preparation or zero-fuel checking.
+`make-tree-generator` / `make-sample` expose the existing owned-tree protocol for
+advanced composition. The consumer validates every returned proposal.
+
+Sources are flat observer leaves, deduplicated by callback identity using the
+standard list/hash helpers. Separately captured epochs remain distinct. Both
+supplied/exported source lists are detached from node ownership. Optional POO
+currentness hooks are prepared once, with source revision checks before every
+call. The finite `mergeSources_mem` / `mergeSources_current` Lean laws justify
+identity union without discarding old branches; observer accuracy remains a premise.
+
+## Sized named properties and typed integration
+
+`define-property` defines an ordinary callable check entry:
+
+```scheme
+(property.define-property (small value)
+  (generator.generator-sized generator.generator-unit)
+  integer-domain
+  (< value 3))
+
+(small seed: 42 cases: 5 size: (lambda (trial) trial) size-limit: 5)
+```
+
+A per-trial size policy requires an explicit natural `size-limit`; constant sizes
+default to their own limit. An invalid or excessive result refuses before drawing.
+Reports retain `report-trial-size` and `report-size-limit`, and seed replay uses
+the same policy and observer. A policy that raises before producing a size leaves
+the diagnostic trial size false. Concrete witness replay invokes no size policy.
+This limits driver-supplied sizes, not arbitrary work inside user callbacks or
+an explicitly resized generator; existing depth/search/process guards still apply.
+
+POO's `from-generator` supplies a Type, core generator and measure; `generator-core`
+retains the sample tree through typed products, recursive carriers and Function
+argument rows. Record construction still owns Function wrapping. Replacing a
+sampler's draw/shrink callback retires its inherited tree binding. Value-only
+shrinking requires an explicit callback when the original sample is unavailable;
+the library never guesses an inverse of a non-injective map.
+
+`examples/generated-batches.ss` demonstrates weighted dependent payloads, inherited
+source invalidation, size scheduling, Reader/FUN, nested Function wrapping and
+seed/witness replay. Import its suite through ordinary Gerbil modules. The generic
+example's twenty cases also build and run in a separate stdlib-only project.
+
+`just benchmark-generators` uses the existing shared executable and paired timing
+helpers. It compares callback/tree strategies on one fixed injective workload,
+with prepare/draw/workflow phases, AB/BA, A/A and B/B, natural GC and charged
+post-GC first calls. It does not establish statistical PRNG quality or a general
+speedup for non-injective or application-specific generators.
+See [the generator cost receipt](performance/generation-summary.org), including
+the remaining complete-shrink regression rather than only allocation changes.

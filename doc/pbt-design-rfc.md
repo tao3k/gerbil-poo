@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: implemented; finite acceptance and evidence boundaries are recorded below.
+- Status: finite V1 and P0 generator composition implemented; P1-P3 below remain planned.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -112,6 +112,155 @@ through the existing conflict, inverse, stale and retry lifecycle and refuses a
 malformed final code. These are pure finite laws: truthful normalization, model
 callback purity/termination, runtime wrapping and the fixture simulation premise
 remain separate executable obligations.
+
+## Next acceptance units
+
+Audit date: 2026-10-28. Scheme source: `bb9729df2aa23a90869924c88e1f860cfd7f9991`.
+Lean proof source: `d4654df01516b134de6ce4171f961241795107ea`.
+These revisions identify the audited implementations; the historical receipts
+below keep their original source identities.
+
+The finite V1 checklist is not a claim of feature parity with Racket. Its
+dependent generation, lazy shrinking, source checks, normalized model traces,
+dependency retirement and replay already exist. The current Lean source also
+contains `mapped_candidate_preimage`, `dependentCandidates_relation`,
+`forceChildren_bounded` and interrupted-shrink preservation, in addition to the
+trace laws. Do not describe these as missing implementations or proofs.
+
+The comparison retains the two pinned Racket sources in the following section.
+Rackcheck's [core combinators](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/core.rkt)
+include choice, size control and shrink control; its
+[base generators](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/base.rkt)
+compose those operations. Quickcheck's
+[generator algebra](https://github.com/ifigueroap/racket-quickcheck/blob/0b6902d8d79973ec959f99e56ccba038beca8fe9/quickcheck/private/generator.rkt)
+separates bind/sequence from its binding syntax. The next work should extend our
+existing algebra and modules rather than import a second runner or framework.
+
+### P0: composable generation through the typed boundary
+
+Current evidence: `testing/core/generator.ss` exports unit/map/bind/sequence,
+but not choice, frequency, size-control, delayed construction or shrink-control
+combinators. `testing/core/property.ss` passes one constant size to every trial.
+`testing/type.ss` separately implements product draws and coordinate shrinking,
+then lifts raw draw/shrink callbacks into the core at execution time. This is a
+reuse/composition gap, not evidence that its current product shrinker is unsound.
+
+Complete one unit across the existing generator, property and Type modules:
+
+- Add explicit choice/weighted choice and sized/resize/scale operations, plus
+  bounded delayed construction and shrink control on the SAME lazy sample tree.
+  Introduce bounded filtering only with explicit attempt accounting; construct
+  valid dependent inputs directly where possible. Do not hide descriptor errors
+  by retrying them or count a refused draw as a successful property test.
+- Let typed sampler composition retain the core tree and captured branch sources,
+  while keeping Type recognition/wrapping and revisions at one existing boundary.
+  Reuse the bounded recursive derivation rather than replacing it.
+- Provide one hygienic dependent-binding form lowering to existing bind/map,
+  and a thin named-property form usable inside ordinary `:std/test` suites.
+  The generic package retains standard Gerbil records; the POO layer retains
+  its existing Record contracts. No new module facade or testing namespace.
+- Permit an explicit bounded per-trial size policy and retain the failing trial's
+  actual size for seed replay. Validate size results and observe policy sources;
+  a size policy must not evade depth, node, search or shrink budgets.
+
+Acceptance uses a downstream typed batch whose declared length determines its
+payload, with weighted operation alternatives and inherited descriptor revisions.
+Exercise ordinary checks, a real injected fault, dependent shrinking, unchanged
+replay and stale-source rejection through the same FUN/IO flow. Retain the
+existing non-injective-map and zero-fuel controls. Include rejected weights,
+empty choices, filter exhaustion and invalid size policies. Extend the existing
+Lean namespace with finite choice-membership, size/budget and provenance laws;
+do not substitute a PRNG-quality or host-termination claim. Compare preparation,
+draw and shrink costs with the current protocol under equal workloads.
+
+### P1: effective-trial coverage and property diagnostics
+
+Current reports record trial count and a fixed configuration, with strict Boolean
+properties. They expose neither labels/histograms nor a coverage requirement.
+Collection examples currently guarantee required lifecycle coverage with explicit
+prefixes; the generic runner does not infer that guarantee from random suffixes.
+
+Build on [Rackcheck labels](https://docs.racket-lang.org/rackcheck/index.html)
+and [Quickcheck classification/configuration](https://docs.racket-lang.org/quickcheck/index.html):
+add run-owned classifications, effective-trial counts, explicit coverage
+requirements and useful named-property failure context in `:std/test`. Coverage
+requirements are our proposed admission policy, not a claim that Rackcheck's
+labels enforce thresholds. Explicit precondition discard, if added, has a separate
+finite budget; errors, stale sources and Type violations retain their meanings.
+All-discard or unmet required coverage must not become a passed run. Shrink probes
+and replay must not inflate generation coverage. Prove finite counter accounting
+and coverage admission under explicit classification premises.
+
+### P2: portable counterexample replay
+
+Current replay reports retain live generators, callbacks and source observers.
+They support in-process seed/witness replay, not a portable cross-process corpus.
+Add explicit application codecs for finite data commands and logical handles,
+plus specification/generator identity checks before opening a fixture. Use Gerbil
+ports and ordinary Scheme data; do not serialize closures, infer fresh-object
+identity from an old revision number, evaluate stored code, or automatically
+commit generated corpora. Test a fresh-process replay, codec refusal, changed
+specification refusal and cleanup on failure. Codec round-trip and finite replay
+correspondence are conditional laws, not proofs of arbitrary host serializers.
+
+### P3: bounded higher-order Function values
+
+`testing/function.ss` currently generates Function ARGUMENT ROWS. It does not
+derive arbitrary procedure implementations. Quickcheck's documented
+[`arbitrary-procedure`](https://docs.racket-lang.org/quickcheck/index.html) identifies
+a separate useful capability to study after P0-P2. Start with explicit finite
+pure input domains, bounded memoization/equality and result generators, then use
+existing Function contracts. Repeated equal inputs, multi-value results, keyword
+interpretation, shrinking and stale-source refusal need joint acceptance.
+Opaque/effectful callbacks and unrestricted higher-order inference remain explicit
+boundaries; neither `Any` nor a universal function-correctness claim closes them.
+
+P1 is the next implementation unit after P0 acceptance. Each unit needs executable downstream examples,
+fault controls, finite Lean laws and the complete existing checks in both PRs.
+Concurrent linearizability, arbitrary callback termination, compiler verification
+and automatic unrestricted Type derivation are not defects in this finite V1.
+
+### P0 implemented protocol
+
+The existing generator module now owns choice/frequency, sized/resize/scale,
+bounded delay/filter, shrink-policy control and `bind-generators`. It retains
+the same lazy sample/provenance representation. Filtered child branches yield
+charged pruned proposals rather than secretly searching behind the shrink
+consumer. Pruning defines a smaller supplied neighborhood, not global minimality.
+
+The property module adds an ordinary callable `define-property` binding and
+per-trial size policies with a mandatory explicit `size-limit`. Constant size
+arguments retain their own default bound. Invalid sizes refuse before drawing;
+the report retains the trial's resolved size and the original policy/observer.
+Concrete witness replay calls no size policy. An interrupted policy retains no
+previous trial size as evidence for the current trial.
+
+`testing/type.ss` keeps its Record contract and owns `from-generator` /
+`generator-core`. Typed products and Function rows delegate sample composition
+to the generic core. Recursive derivations retain scalar sample trees, with
+structural shrinking reattached after every accepted product shrink. Replacing
+a sampler's draw/shrink callback retires its inherited tree binding. An explicit
+value-only shrink callback remains necessary when no original sample is available;
+neither cached output lookup nor an inferred inverse substitutes for provenance.
+
+`examples/generated-batches.ss` covers weighted routes, length-dependent payloads,
+Record-owned nested Function wrapping, Reader/FUN, bounded size scheduling,
+recursive Tuple/Pair carriers, Function argument rows, both replays and stale
+configuration refusal. The stdlib-only generic example now has twenty independent
+cases; no POO import is needed for that project.
+
+`LeanPoo/Functional/PropertyGenerators.lean` extends the existing PropertyTesting
+namespace with finite weighted-selection membership/totality, scheduled size
+ownership, delay-force bounds and charged-pruning preservation/budget laws.
+Top-level `Examples/PropertyGenerators.lean` has positive and negative controls.
+These augment the existing map/bind/provenance and trace laws; they do not prove
+host PRNG quality, callback termination or generated semantic properties universal.
+
+`just benchmark-generators` reuses the existing shared executable and paired
+measurement helpers. Preparation, reused drawing and complete failing workflows
+have AB/BA, A/A and B/B controls, natural GC and charged post-GC first calls.
+The common injective fixture admits both callback and tree strategies; it is not
+a claim that output-only shrinking can recover arbitrary mapped inputs.
 
 ## Quickcheck and Rackcheck source comparison
 

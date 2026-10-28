@@ -1,11 +1,12 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export make-generator generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
-        ../object ../mop (only-in ../type String Exactly. Enum. List Record)
+        ../object ../mop (only-in ../type String Exactly. Enum. List Record OrFalse)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
         (prefix-in ../generalized-prototype observation.)
         (prefix-in :clan/property-testing/property testing.)
+        (prefix-in :clan/property-testing/generator core.)
         (prefix-in (only-in :clan/property-testing/generator make-generator) testing.)
         (only-in :clan/property-testing/generator integer-shrinks)
         (prefix-in :clan/property-testing/model model.))
@@ -16,12 +17,24 @@
 ;; One existing Record contract owns sampler shape and source-list admission.
 (define-type GeneratorRecord
   (Record descriptor: [Type] draw: [Procedure] shrink: [Procedure]
-          measure: [Procedure] sources: [(List Object)]))
+          measure: [Procedure] sources: [(List Object)] generation: [(OrFalse Procedure) default: #f]))
 ;; Public samplers retain ordinary Record/Class initialization and validation.
 ;; Additional mutable callback dependencies remain explicit source objects.
-(def (make-generator descriptor draw shrink measure dependencies: (dependencies []))
+(def (make-generator descriptor draw shrink measure dependencies: (dependencies []) generation: (generation #f))
+  (unless (or (not generation) (core.generator? generation)) (error "generic generator required"))
   (make-instance GeneratorRecord descriptor: descriptor draw: draw shrink: shrink
-    measure: measure sources: (cons descriptor dependencies)))
+    measure: measure sources: (cons descriptor dependencies)
+    ;; A derived sampler that replaces a value callback owns a new protocol.
+    ;; Do not keep using the inherited sample tree after that override.
+    generation: (and generation (lambda (owner)
+      (and (eq? (.get owner draw) draw) (eq? (.get owner shrink) shrink) generation)))))
+;; Type metadata and measures stay in POO; sample provenance stays in the generic
+;; generator. Value-only shrinking, when needed by a domain, is explicitly supplied.
+(def (from-generator descriptor generation measure dependencies: (dependencies [])
+                     shrink: (shrink (lambda (_) (error "value-only shrink callback required"))))
+  (unless (core.generator? generation) (error "generic generator required"))
+  (make-generator descriptor (lambda (random size) (core.sample-value (core.generate generation random size)))
+    shrink measure dependencies: dependencies generation: generation))
 
 ;; The core model and generation hooks share ordinary Record inheritance. Types
 ;; describe the domains; the evaluator alone handles their dependent transitions.
@@ -49,6 +62,20 @@
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
        (or (not sampler) (not (.has? sampler .current?)) (.call sampler .current?))))
+;; Prepare the optional hook once. Source revisions are still checked before
+;; every call, so a replaced/inherited hook cannot acquire fresh authority.
+(def (source-guard sources sampler)
+  (def hook (and (.has? sampler .current?) (.@ sampler .current?)))
+  (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
+    (or (not hook) (hook)))))
+;; Capture one typed boundary without dismantling the generator's lazy tree.
+;; Raw callback samplers are lifted once here; sample-tree compositions stay intact.
+(def (generator-core sampler)
+  (def sources (snapshot sampler []))
+  (def owned (.get sampler generation))
+  (core.generator-map (or (and owned (owned sampler))
+    (core.make-generator (.@ sampler draw) (cut sampler-children sampler <>))) identity
+    current?: (source-guard sources sampler)))
 ;; Measures are natural numbers; malformed callbacks cannot admit shrink steps.
 (def (weight sampler value)
   (def n (.call sampler measure value))
@@ -64,10 +91,10 @@
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Products share draw/shrink/measure composition for tuples, pairs and call rows.
 (def (product-generator descriptor children unpack pack)
-  (make-generator descriptor
-    (lambda (random size) (pack (map-in-order (lambda (child) (.call child draw random size)) children)))
-    (lambda (value) (coordinate-shrinks children (unpack value) pack))
+  (from-generator descriptor
+    (core.generator-map (core.generator-sequence (map generator-core children)) pack)
     (lambda (value) (apply + (map weight children (unpack value))))
+    shrink: (lambda (value) (coordinate-shrinks children (unpack value) pack))
     dependencies: (apply append (map generator-sources children))))
 
 ;; Custom scalar callbacks retain explicit obligations; standard exact/enumerated
@@ -108,9 +135,9 @@
 (def (generator descriptor (depth 32) node-budget: (nodes 256)
                 descriptor-budget: (descriptors 256) search-budget: (search 8192))
   (validate Type descriptor)
-  (recursive-generator descriptor depth nodes descriptors search make-generator scalar-generator))
+  (recursive-generator descriptor depth nodes descriptors search make-generator scalar-generator generator-core))
 
-;; Recognition uses the sampler's bounded grammar when present, avoiding a native
+;; Recognition uses the sampler's bounded grammar when present, avoiding an unbounded
 ;; recursive Type predicate on cyclic carriers or unguarded descriptor aliases.
 (def (accepts-value? sampler value)
   (if (.has? sampler .accept?) (.call sampler .accept? value)
@@ -120,7 +147,7 @@
 ;; admission/cost/current callbacks, never a Type, Record or object-revision API.
 (def (property-specification sampler sources)
   (testing.make-specification (cut accepts-value? sampler <>) (.@ sampler measure)
-    current?: (lambda () (current? sources sampler))))
+    current?: (source-guard sources sampler)))
 ;; Interpret only POO's own generation refusal categories. All other exceptions
 ;; keep their original cause and the kernel owns ordinary failure/error reporting.
 (def (generation-status cause)
@@ -136,18 +163,21 @@
 ;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
 (def (check-property descriptor property seed: (seed 0) cases: (cases 100)
                      size: (size 20) shrink-budget: (shrink-budget 100) sampler: (supplied #f)
+                     size-limit: (size-limit (and (not (procedure? size)) size))
                      dependencies: (dependencies []) depth: (depth 32) node-budget: (nodes 256)
                      descriptor-budget: (descriptors 256) search-budget: (search 8192))
   (unless (and (procedure? property) (every (lambda (n) (and (exact-integer? n) (>= n 0)))
-    (list seed size shrink-budget)) (exact-integer? cases) (> cases 0)
+    (list seed shrink-budget)) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
+    (exact-integer? cases) (> cases 0)
     (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
   (def sampler #f) (def sources [])
   ;; Initialization can fail before a complete snapshot exists; those reports
   ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
   (def (report status original counterexample attempts steps minimal? cause execution)
     (.o bind-these: #f status: status descriptor: descriptor property: property sampler: sampler
-      seed: seed cases: cases size: size shrink-budget: shrink-budget sources: sources
-      trial: (if execution (testing.report-trial execution) 0) original: original counterexample: counterexample
+      seed: seed cases: cases size: size size-limit: size-limit shrink-budget: shrink-budget sources: sources
+      trial: (if execution (testing.report-trial execution) 0)
+      trial-size: (and execution (testing.report-trial-size execution)) original: original counterexample: counterexample
       attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: dependencies
       replayable?: (and execution #t) execution: execution
       depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
@@ -161,8 +191,9 @@
       (unless (eq? (.get sampler descriptor) descriptor) (error "sampler descriptor mismatch"))
       (set! sources (snapshot sampler dependencies))
       (def execution (testing.check-property
-        (testing.make-generator (.@ sampler draw) (cut sampler-children sampler <>)) property
+        (generator-core sampler) property
         (property-specification sampler sources) seed: seed cases: cases size: size
+        size-limit: size-limit
         shrink-budget: shrink-budget classify-error: generation-status))
       (report (testing.report-status execution) (testing.report-original execution)
         (testing.report-counterexample execution) (testing.report-attempts execution)
@@ -173,6 +204,7 @@
 ;; originally captured sources rather than taking a permissive fresh snapshot.
 (def (replayed-report report execution)
   (.cc report status: (testing.report-status execution) trial: (testing.report-trial execution)
+    trial-size: (testing.report-trial-size execution)
     original: (testing.report-original execution) counterexample: (testing.report-counterexample execution)
     attempts: (testing.report-attempts execution) steps: (testing.report-steps execution)
     minimal?: (testing.report-minimal? execution) cause: (testing.report-cause execution) execution: execution))
@@ -190,6 +222,8 @@
       sampler: sampler dependencies: dependencies
       seed: (.get configuration seed) cases: (.get configuration cases)
       size: (.get configuration size) shrink-budget: (.get configuration shrink-budget)
+      size-limit: (if (.has? configuration size-limit) (.get configuration size-limit)
+        (and (not (procedure? (.get configuration size))) (.get configuration size)))
       depth: (if (.has? configuration depth) (.get configuration depth) 32)
       node-budget: (if (.has? configuration node-budget) (.get configuration node-budget) 256)
       descriptor-budget: (if (.has? configuration descriptor-budget) (.get configuration descriptor-budget) 256)

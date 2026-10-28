@@ -2,10 +2,11 @@
 (export recursive-generator)
 (import :std/iter :std/error (only-in :std/list/list map-in-order)
         ../object (only-in ../mop Any element?) ./generation-graph
-        (prefix-in ../recursive recursive.) (only-in :clan/property-testing/generator random-at))
+        (prefix-in ../recursive recursive.) (only-in :clan/property-testing/generator random-at)
+        (prefix-in :clan/property-testing/generator core.))
 ;; Immutable finite derivations retain the selected Union branch and normalized
 ;; scalar weight. They are private evidence, not user-injected source receipts.
-(defstruct derivation (node value children weight count) final: #t)
+(defstruct derivation (node value children weight count sample) final: #t)
 ;; Remaining visit quota flows through every sibling and failed alternative.
 (defstruct answer (value remaining) final: #t)
 
@@ -31,7 +32,7 @@
 (def (constructed index node children)
   (make-derivation index (pack node (map derivation-value children)) children
     (+ 1 (apply + (map derivation-weight children)))
-    (+ 1 (apply + (map derivation-count children)))))
+    (+ 1 (apply + (map derivation-count children))) #f))
 ;; Proper-list admission is bounded and detects cycles by pair identity before
 ;; invoking any recursive Type predicate or computing length on an unknown tail.
 (def (list-carrier value budget)
@@ -45,19 +46,24 @@
 
 ;; Compile only a finite descriptor graph. Bounds apply to grammar visits and
 ;; emitted grammar nodes; primitive callbacks retain their own cost obligations.
-(def (recursive-generator descriptor depth budget descriptor-budget search make-generator scalar)
+(def (recursive-generator descriptor depth budget descriptor-budget search make-generator scalar to-core)
   (def graph (compile-graph descriptor depth budget descriptor-budget search scalar))
   (def nodes (graph-nodes graph))
   (def stamps (append (graph-stamps graph) (capture (graph-sources graph))))
+  ;; One graph observer is shared by all constructor nodes and deduplicated by identity.
+  (def (graph-current?) (fresh? stamps nodes))
+  ;; Compile scalar bridges once per captured graph, not once per drawn leaf.
+  (def scalar-generators (list->vector (map (lambda (node)
+    (and (node-sampler node) (to-core (node-sampler node)))) (vector->list nodes))))
   ;; Read a saturated minimum; zero depth never has an inhabitant.
   (def (cost index level) (vector-ref (vector-ref (graph-costs graph) level) index))
   ;; Scalar callbacks must supply natural weights; their failures are never false
   ;; property results or reasons to choose a different Union alternative.
-  (def (leaf index node value)
+  (def (leaf index node value (sample #f))
     (def sampler (node-sampler node))
     (def weight (.call sampler measure value))
     (unless (and (exact-integer? weight) (>= weight 0)) (error "invalid shrink measure" weight))
-    (make-derivation index value [] (+ weight 1) 1))
+    (make-derivation index value [] (+ weight 1) 1 sample))
   ;; Fold independent child requests with explicit residual quota, using the same
   ;; Interaction bind that source-language recursive programs already use.
   (def (children-action mode ids level remaining values seeds reserve?)
@@ -82,9 +88,10 @@
     (unless (cost index level) (refuse-generation 'depth))
     (when (> (cost index level) remaining) (refuse-generation 'nodes))
     (if (eq? (node-kind node) 'leaf)
-      (let (value (.call (node-sampler node) draw random size))
+      (let* ((sample (core.generate (vector-ref scalar-generators index) random size))
+             (value (core.sample-value sample)))
         (unless (element? (node-descriptor node) value) (error "scalar generator left its descriptor"))
-        (recursive.value (make-answer (leaf index node value) available)))
+        (recursive.value (make-answer (leaf index node value sample) available)))
       (let* ((chosen
           (case (node-kind node)
             ((list)
@@ -186,6 +193,42 @@
   (def (parse value)
     (def witness (run 'inspect value search 0))
     (and witness (<= (derivation-count witness) budget) witness))
+  ;; Convert only a bounded, solver-produced derivation. Scalar leaves retain
+  ;; their original sample; products compose those trees with the core algebra.
+  ;; No inverse lookup from a mapped output to a hidden scalar input is needed.
+  (def (sample-tree witness)
+    (def node (vector-ref nodes (derivation-node witness)))
+    (if (eq? (node-kind node) 'leaf) (derivation-sample witness)
+      (let ((children (map sample-tree (derivation-children witness))))
+        ;; Expose each selected tree as the product's value, so a later scalar
+        ;; shrink still owns the matching tree rather than only its mapped value.
+        (def (annotate tree)
+          (if (core.rejected? tree) tree
+            (core.make-sample tree
+              (lambda () (in-coroutine (lambda (yield)
+                (for (child ((core.sample-children tree))) (yield (annotate child))))))
+              sources: (core.sample-sources tree))))
+        ;; Retained child trees are constants of this derivation, not new draws.
+        (def (product trees)
+          (core.generate
+            (core.generator-map (core.generator-sequence
+              (map (lambda (tree) (core.make-tree-generator (lambda (_random _size) (annotate tree))
+                sources: (core.sample-sources tree))) trees)) identity current?: graph-current?)
+            (random-at 0) 0))
+        ;; Every accepted product gets structural shrinking again. Decorating only
+        ;; the initial root would lose list deletion after the first scalar shrink.
+        (def (decorate root)
+          (if (core.rejected? root) root
+            (let (trees (core.sample-value root))
+              (core.make-sample (pack node (map core.sample-value trees))
+                (lambda () (in-coroutine (lambda (yield)
+                  (case (node-kind node)
+                    ((list) (unless (null? trees)
+                      (yield (decorate (product []))) (yield (decorate (product (cdr trees))))))
+                    ((maybe or-false) (unless (null? trees) (yield (decorate (product []))))))
+                  (for (child ((core.sample-children root))) (yield (decorate child))))))
+                sources: (core.sample-sources root)))))
+        (decorate (product children)))))
   (def sampler (make-generator descriptor
     (lambda (random size)
       (derivation-value (run 'draw size budget (random 268435456))))
@@ -199,7 +242,10 @@
       (def witness (parse value))
       (unless witness (error "value outside bounded recursive grammar"))
       (derivation-weight witness))
-    dependencies: (graph-sources graph)))
+    dependencies: (graph-sources graph)
+    generation: (core.make-tree-generator
+      (lambda (random size) (sample-tree (run 'draw size budget (random 268435456))))
+      current?: graph-current?)))
   (.cc sampler .accept?: (lambda (value) (and (parse value) #t))
-      .current?: (lambda () (fresh? stamps nodes))
+      .current?: graph-current?
       limits: (.o bind-these: #f depth: depth nodes: budget descriptors: descriptor-budget search: search)))

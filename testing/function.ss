@@ -1,7 +1,8 @@
 ;;; Function call generation shares structural selection with runtime wrapping.
 (export FunctionArguments FunctionArguments.)
 (import (only-in :std/list/list map-in-order delete-duplicates/hash)
-        ../object ../mop ../function-signature ./type)
+        ../object ../mop ../function-signature ./type
+        (prefix-in :clan/property-testing/generator core.))
 
 ;; A call-row's types depend on supplied counts, never on optional default values.
 (def (positional-types signature count)
@@ -43,7 +44,7 @@
       (lambda (values)
         (defvalues (pos rest) (split-at values (length positionals)))
         (encode-arguments pos (map cons keys rest) keyword-mode))))
-  (make-generator descriptor
+  (def shapes (core.make-generator
     (lambda (random size)
       (def proposed (list-ref signatures (random (length signatures))))
       (def count (+ (length (.get proposed inputs)) (random (+ (length (.get proposed optional)) 1))
@@ -51,9 +52,13 @@
       (def keys (filter (lambda (entry) (or (memq (car entry) (.get proposed required-keywords)) (= (random 2) 1)))
                         (.get proposed keywords)))
       (def shape (encode-arguments (make-list count #f) (map (lambda (entry) (cons (car entry) #f)) keys) keyword-mode))
-      (.call (product shape) draw random size))
-    (lambda (arguments) (.call (product arguments) shrink arguments))
+      shape)
+    (lambda (_) [])))
+  (from-generator descriptor
+    (core.generator-bind shapes (lambda (shape) (generator-core (product shape))))
     (lambda (arguments) (.call (product arguments) measure arguments))
+    shrink:
+    (lambda (arguments) (.call (product arguments) shrink arguments))
     dependencies: (append (cons function signatures)
       (apply append (map (lambda (entry) (cons (cdr entry) (.get (cdr entry) sources))) samplers)))))
 

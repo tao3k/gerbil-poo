@@ -1,0 +1,68 @@
+#+title: Generator composition cost admission
+
+* Scope and controls
+
+=just benchmark-generators 20 4= uses the existing shared executable,
+=module-action= and =closure-measure= process-statistics helpers. No new runner,
+process scheduler, environment setting, JSON dataset or archive is introduced.
+The complete entry includes standard library preparation and first module load.
+Per-phase results separately measure sampler preparation, reused drawing, and
+preparation plus complete falsification/shrinking.
+
+Both callback and tree strategies use the SAME injective two-UInt product,
+constant draws, seed, admission, measure and property. Each complete run must
+produce the exact false witness =#(0 3)=, ten proposals, three accepted descents
+and observed local exhaustion. This is a common-domain comparison, not evidence
+that output-only shrinking can invert arbitrary non-injective mappings.
+
+Each phase retains AB/BA, A/A and B/B. Natural GC is untouched. Post-GC batches
+record collection preparation and the first invocation separately and charge
+both in the summarized totals. CPU, wall, GC, collections and allocation remain
+available in the ordinary Scheme output. Raw logs stay outside Git.
+
+* Source admission changes
+
+Initial compositions nested source-check callbacks. The core now retains flat
+leaf observers and uses standard identity-hash deduplication. Rejected proposals,
+earlier successful trials and rejected draw branches retain their observers.
+Caller-owned source-list mutation cannot edit stored node ownership. Bounded
+recursive derivations prepare scalar bridges once per captured graph.
+
+POO additionally prepares the optional =.current?= hook once. Its source revisions
+are checked before every use, so an overridden hook does not gain fresh authority.
+These mechanisms reduce repeated preparation without a global source cache.
+The existing stale/EOF/zero-fuel tests and identity-union laws retain the failure
+semantics. They are not proofs of callback termination or runtime hash behavior.
+
+* Observed macOS control, 2026-10-28
+
+The comparison used the same installed Gerbil/Gambit release as compiler admission.
+These are four-pair observations, not future tail bounds or Linux CI timings.
+Each difference is tree minus callback for a batch of twenty operations; charged
+post-GC totals include preparation and the first call.
+
+| Phase / regime | Mean wall delta, us | Minimum / maximum delta, us | Mean CPU delta, us |
+|----------------+--------------------+-----------------------------+--------------------|
+| prepare / natural | +61.27 | -60.80 / +212.91 | +58.25 |
+| draw / natural | -169.28 | -1013.99 / +304.94 | -172.25 |
+| workflow / natural | +70181.13 | +69108.96 / +72415.83 | +70127.00 |
+| workflow / charged post-GC | +72714.75 | +70430.28 / +74054.96 | +72855.50 |
+
+Natural workflow A/A maximum was +946.04 us and B/B +2566.10 us. Thus the
+approximately +3.51 ms per complete tree workflow is a real observed regression
+in this fixture, not justified away by ordering controls. Its mean GC difference
+was +31656 us per batch and remaining CPU difference +38471 us. Allocation also
+increased. Preparation and reused draw results do not close complete-workflow
+performance acceptance.
+
+Before flat observers and prepared hooks, the same four-pair workload had a
+natural workflow mean +98050.71 us and maximum +121649.03 us. The later control
+reduced that adverse difference but did not eliminate it. These consecutive
+observations are not a randomized proof attributing every difference to one edit.
+The whole warm entries were 24.83 and 23.97 seconds respectively; startup/cache
+and wall residual variation must not be presented as a stable entry speedup.
+
+P0 functional/finite-proof admission and performance admission remain separate.
+Further optimization must retain branch provenance, all visited source epochs,
+strict failure classification and identical proposal counts. It must not silently
+choose value-only shrinking for an arbitrary mapped or dependent generator.
