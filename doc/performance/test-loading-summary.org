@@ -3,8 +3,9 @@
 * Current protocol, 2026-10-28
 
 =gerbil test -v 5= remains the only test entry. There is no POO test executable,
-export parser, alternative runner or load-path layer. The complete current
-inventory is 150 modules and 1896 cases. Ordinary compiler setup and the release
+export parser, alternative runner or load-path layer. The measured PBT
+cohort contains 150 modules and 1896 cases; the CLI always discovers the complete
+current inventory rather than freezing that historical case count. Ordinary compiler setup and the release
 binary are unchanged; Scheme does not depend on a Lean checkout.
 
 The user authorized a larger complete-suite observation/completion budget after
@@ -85,8 +86,15 @@ The older linked wrapper is not restored, no POO resolver parses interfaces,
 and no security/library-validation policy is disabled. A larger deadline alone
 is not a performance repair.
 
-The existing-path complete check also retains both paired studies; its full
-completion is admitted separately from the fresh-path test-only control. Raw logs,
+The existing-path complete check completed normally in 75.61 seconds: standard
+test wall 62.99 seconds, collections 10.34 seconds and generators 1.05 seconds.
+Its observed preparation/harness intervals were about 10/46 seconds, with
+150 modules, 1896 cases and both PAIRED-OK markers. The CASE/SUITE label sequence
+hash matched the fresh-path control. This control reused validated files and ran
+later, so its difference is not proof of a unique cache, path or sandbox cause.
+The subsequent symbolic-key admission integration is admitted separately through
+the rebuilt complete check and current CI, without relabeling these timings as
+measurements of that different source cohort. Raw logs,
 stack samples, downloaded inspection material and cloned products stay outside
 Git. A larger deadline must never turn a killed process or missing normal exit
 into an acceptance receipt.
