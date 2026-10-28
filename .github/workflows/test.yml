@@ -38,7 +38,8 @@ jobs:
           key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/*-test.ss') }}
       - name: Prepare the declared libraries and benchmark programs
         if: steps.shared-cache.outputs.cache-hit != 'true'
-        run: time -p just build-shared
+        # Diagnostic: standard compiler phase traces identify the failing worker.
+        run: time -p env GERBIL_BUILD_VERBOSE=9 just build-shared
       - name: Preserve standard executable permissions for artifact transfer
         run: tar -cf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library lib bin
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
