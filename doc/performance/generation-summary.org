@@ -112,6 +112,8 @@ our builds or full tests. Deltas below remain tree minus callback, per batch:
 | final 2 / natural | +2782.23 | +1899.00 / +3866.91 | +2769.00 | +1237.00 | +3859790 |
 | final 1 / charged post-GC | +1946.39 | +243.66 / +3064.16 | +2023.75 | +604.25 | +4051366 |
 | final 2 / charged post-GC | +4635.27 | +967.26 / +8285.28 | +4502.00 | +1797.00 | +4053228 |
+| normalized input control / natural | +1973.33 | +1419.07 / +2585.17 | +1984.75 | +780.25 | +3860102 |
+| normalized input control / charged post-GC | +901.34 | -4189.49 / +4086.49 | +1551.25 | +570.75 | +4052960 |
 
 Final natural A/A wall maxima were +850.92/+9904.62 us, and B/B maxima were
 +8504.87/+3250.84 us. Charged post-GC A/A maxima were +6505.49/+1215.22 us,
@@ -134,3 +136,13 @@ sources and replay refusal. Lean proves cache-content/insertion invariants,
 checkpoint-regeneration equivalence including consumed states and first failure,
 and source-join freshness. State restoration is an explicit runtime obligation;
 no theorem claims host PRNG quality, callback termination, GC or elapsed time.
+
+The final observer-boundary review explicitly normalizes caller-provided duplicate
+leaves BEFORE empty/identical internal joins. Its repeated complete paired entry
+retained all oracles and took 26.62 seconds. The additional control above has
+natural A/A maximum +614.88 us and B/B maximum +364.07 us; charged post-GC
+maxima were +2315.04/+2236.84 us. Natural residual is about 99 us/check, including
+about 60 us/check non-GC CPU, so it must still not be called zero overhead.
+The current branch also integrates the independent multi-root catalog change;
+these timing rows identify the PBT source cohort before that integration, while
+the complete integrated check and CI provide its separate correctness admission.

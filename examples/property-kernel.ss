@@ -286,7 +286,8 @@
       (check-equal? (property.report-status report) 'passed)
       (def epoch 0)
       (def source (lambda () (= epoch 0)))
-      (def provided (list source))
+      ;; Caller duplicates are normalized once before internal sharing is allowed.
+      (def provided (list source source))
       (def shared (generator.make-generator (lambda (_random _size) 1) (lambda (_) []) sources: provided))
       (set-car! provided (lambda () #t))
       (def root (generator.generate (generator.generator-sequence (make-list 16 shared))

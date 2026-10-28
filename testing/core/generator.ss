@@ -41,7 +41,10 @@
 (def (observer-sources current sources)
   (unless (and (procedure? current) (list? sources) (every procedure? sources))
     (error "source observers must be procedures"))
-  (merge-sources (if (eq? current immutable-current) [] (list current)) (map identity sources)))
+  (def owned (map identity sources))
+  (merge-sources (if (eq? current immutable-current) [] (list current))
+    (if (and (pair? owned) (pair? (cdr owned)))
+      (delete-duplicates/hash owned table: (make-hash-table-eq)) owned)))
 ;; Predicate results are strict Boolean judgments, never truthy authorization.
 (def (boolean-result value message)
   (unless (boolean? value) (error message value)) value)
