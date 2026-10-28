@@ -2,8 +2,9 @@
 (export make-specification specification? check-property replay-property replay-counterexample define-property
         report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
-        report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit)
-(import :std/error :std/iter
+        report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
+        make-policy policy?)
+(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
         (only-in ./generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
           stale-generation? boolean-result live? random-at))
@@ -11,7 +12,43 @@
 (defstruct domain (accept measure current) final: #t)
 ;; Reports retain exact execution configuration and observed source provenance.
 (defstruct report (status generator property specification seed cases size trial-size size-limit size-current shrink-budget
-                   trial original counterexample attempts steps minimal? cause witness sources classify) final: #t)
+                   trial original counterexample attempts steps minimal? cause witness sources classify policy accepted discarded labels) final: #t)
+;; Trial policy is independent of descriptors; coverage uses minimum effective counts.
+(defstruct trial-policy (name precondition labels required discard-budget) final: #t constructor: :init!)
+;; Copy requirements at construction so callers cannot mutate an admitted policy.
+(defmethod {:init! trial-policy}
+  (lambda (self name precondition labels required discard-budget)
+    (unless (and (or (not name) (symbol? name) (string? name))
+      (procedure? precondition) (procedure? labels) (list? required)
+      (every (lambda (entry) (and (pair? entry) (symbol? (car entry))
+        (exact-integer? (cdr entry)) (>= (cdr entry) 0))) required)
+      (exact-integer? discard-budget) (>= discard-budget 0)) (error "invalid trial policy"))
+    (set! (trial-policy-name self) name)
+    (set! (trial-policy-precondition self) precondition)
+    (set! (trial-policy-labels self) labels)
+    (set! (trial-policy-required self) (map (lambda (entry) (cons (car entry) (cdr entry))) required))
+    (set! (trial-policy-discard-budget self) discard-budget)))
+;; The public constructor names policy dimensions rather than positional callbacks.
+(def (make-policy name: (name #f) precondition: (precondition (lambda (_) #t))
+                  labels: (labels (lambda (_) [])) required: (required []) discard-budget: (budget 0))
+  (make-trial-policy name precondition labels required budget))
+;; Identity recognition stays with the standard record implementation.
+(def policy? trial-policy?)
+;; Property names are diagnostic identity, never source-currentness authority.
+(def (report-name report) (trial-policy-name (report-policy report)))
+;; A discarded trial is explicit, Boolean and separate from descriptor refusal.
+(def (eligible? policy value)
+  (boolean-result ((trial-policy-precondition policy) value) "precondition must return a boolean"))
+;; Each label counts once per effective trial; classification never runs in shrinking.
+(def (classify-trial! policy value counts)
+  (def labels ((trial-policy-labels policy) value))
+  (unless (and (list? labels) (every symbol? labels)) (error "labels must be a list of symbols"))
+  (for (label (delete-duplicates/hash labels))
+    (hash-put! counts label (1+ (hash-ref counts label 0)))))
+;; Threshold failure is an inconclusive coverage report, never a false property.
+(def (covered? policy counts)
+  (every (lambda (entry) (>= (hash-ref counts (car entry) 0) (cdr entry)))
+    (trial-policy-required policy)))
 ;; Specifications have ordinary Gerbil record identity.
 (def specification? domain?)
 ;; Callback construction uses Gerbil's existing procedure contracts.
@@ -90,9 +127,13 @@
         (if (generation-exhausted? cause) 'exhausted (classify cause)) 'stale)))))
 ;; One execution owns its observers. A replay guard is transient: old stamps
 ;; stay checked throughout rerun but are not accumulated into a closure chain.
-(def (execute generator property specification seed cases size size-limit budget classify guard size-current)
+(def (execute generator property specification seed cases size size-limit budget classify guard size-current policy)
   (def trial 0) (def original #f) (def state (make-progress #f 0 0)) (def sources [])
   (def trial-size #f)
+  (def accepted 0) (def discarded 0) (def counts (make-hash-table-eq))
+  ;; Shrink admission preserves preconditions without recording new coverage.
+  (def (shrink-property value)
+    (or (not (eligible? policy value)) (boolean-result (property value) "property must return a boolean")))
   (def seen (make-hash-table-eq))
   ;; Capture observer callbacks by identity in an invocation-local registry.
   (def (observe tree)
@@ -105,7 +146,7 @@
     (def witness (progress-best state))
     (make-report status generator property specification seed cases size trial-size size-limit size-current budget trial original
       (and witness (sample-value witness)) (progress-attempts state) (progress-steps state)
-      minimal? cause witness sources classify))
+      minimal? cause witness sources classify policy accepted discarded (hash->list counts)))
   (with-catch
     (lambda (cause)
       (def status (failure-status cause current classify))
@@ -117,24 +158,35 @@
         ;; The same checked action form serves trials and shrinking; only this
         ;; owner builds reports and classifies failures.
         (def (stop status minimal?) (finish (result status minimal?)))
-        (for (_ (in-range cases))
-          (with-current current stop
-            (set! trial (1+ trial)) (set! original #f) (progress-best-set! state #f)
-            (set! trial-size #f)
-            (set! trial-size (if (procedure? size) (size trial) size))
-            (unless (and (exact-integer? trial-size) (>= trial-size 0))
-              (error "size policy must return a natural number" trial-size))
-            (when (> trial-size size-limit) (error "size policy exceeded its declared limit" trial-size size-limit))
-            (unless (current) (stop 'stale #f))
-            (progress-best-set! state (generate generator random trial-size))
-            (observe (progress-best state))
-            (set! original (sample-value (progress-best state))))
-          (unless (with-current current stop (accepts? specification original))
-            (error "generator produced a value outside its descriptor" original))
-          (unless (with-current current stop
-                    (boolean-result (property original) "property must return a boolean"))
-            (shrink-failure specification property state budget stop current observe))
-          (progress-best-set! state #f))
+        (let/cc complete
+          (for (_ (in-range (+ cases (trial-policy-discard-budget policy))))
+            (with-current current stop
+              (set! trial (1+ trial)) (set! original #f) (progress-best-set! state #f)
+              (set! trial-size #f)
+              (set! trial-size (if (procedure? size) (size trial) size))
+              (unless (and (exact-integer? trial-size) (>= trial-size 0))
+                (error "size policy must return a natural number" trial-size))
+              (when (> trial-size size-limit) (error "size policy exceeded its declared limit" trial-size size-limit))
+              (unless (current) (stop 'stale #f))
+              (progress-best-set! state (generate generator random trial-size))
+              (observe (progress-best state))
+              (set! original (sample-value (progress-best state))))
+            (unless (with-current current stop (accepts? specification original))
+              (error "generator produced a value outside its descriptor" original))
+            (cond
+              ((not (with-current current stop (eligible? policy original)))
+               (set! discarded (1+ discarded))
+               (when (> discarded (trial-policy-discard-budget policy)) (stop 'exhausted #f)))
+              (else
+               (set! accepted (1+ accepted))
+               (with-current current stop (classify-trial! policy original counts))
+               (unless (with-current current stop
+                         (boolean-result (property original) "property must return a boolean"))
+                 (shrink-failure specification shrink-property state budget stop current observe))))
+            (progress-best-set! state #f)
+            (when (= accepted cases) (complete #t))))
+        (unless (= accepted cases) (stop 'exhausted #f))
+        (unless (covered? policy counts) (stop 'coverage #f))
         (result 'passed #f)))))
 ;; Public checks require an explicit domain and finite trial/attempt budgets.
 ;; Error classification may describe a caller's own bounded-generation refusals.
@@ -142,17 +194,21 @@
                      cases: (cases 100) size: (size 20) shrink-budget: (budget 100)
                      size-limit: (size-limit (and (not (procedure? size)) size))
                      size-current?: (size-current (lambda () #t))
-                     classify-error: (classify (lambda (_) 'error)))
-  (unless (and (generator? generator) (specification? specification) (procedure? classify)
+                     classify-error: (classify (lambda (_) 'error))
+                     policy: (policy (make-policy)) name: (name #f))
+  (unless (and (policy? policy) (generator? generator) (specification? specification) (procedure? classify)
     (procedure? size-current) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
     (every (lambda (n) (and (exact-integer? n) (>= n 0))) (list seed budget size-limit))
     (exact-integer? cases) (> cases 0)) (error "invalid property testing configuration"))
-  (execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current))
+  (def named (if name (make-policy name: name
+    precondition: (trial-policy-precondition policy) labels: (trial-policy-labels policy)
+    required: (trial-policy-required policy) discard-budget: (trial-policy-discard-budget policy)) policy))
+  (execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named))
 ;; Named properties remain ordinary callable Gerbil bindings inside :std/test.
 ;; Generator/specification expressions run once per check; replay owns that run.
 (defrule (define-property (name value) generator specification body ...)
   (def (name . options)
-    (apply check-property generator (lambda (value) body ...) specification options)))
+    (apply check-property generator (lambda (value) body ...) specification name: 'name options)))
 ;; Seed replay observes the original run's entire visited provenance throughout
 ;; rerun, while its new report owns only that rerun's observations.
 (def (replay-property report)
@@ -161,7 +217,7 @@
   (unless (current) (error "stale property replay"))
   (execute (report-generator report) (report-property report) (report-specification report)
     (report-seed report) (report-cases report) (report-size report) (report-size-limit report) (report-shrink-budget report)
-    (report-classify report) current (report-size-current report)))
+    (report-classify report) current (report-size-current report) (report-policy report)))
 ;; Concrete replay draws nothing and forces no selectors/children. Both accepted
 ;; witness provenance and earlier visited sources retain their original stamps.
 (def (replay-counterexample report)
@@ -170,7 +226,8 @@
   (def (current) (and (live? (report-size-current report))
     (current? specification generator (report-sources report))))
   (unless (current) (error "stale property replay"))
-  (unless (accepts? specification (report-counterexample report)) (error "invalid property witness"))
+  (unless (and (eligible? (report-policy report) (report-counterexample report))
+               (accepts? specification (report-counterexample report))) (error "invalid property witness"))
   (unless (current) (error "stale property replay"))
   (def outcome ((report-property report) (report-counterexample report)))
   (unless (current) (error "stale property replay"))

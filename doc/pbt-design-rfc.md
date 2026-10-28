@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0 generator composition implemented; P1-P3 below remain planned.
+- Status: finite V1 and P0 implemented; P1-P3 implemented within the finite domains below, under joint acceptance.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -138,12 +138,9 @@ existing algebra and modules rather than import a second runner or framework.
 
 ### P0: composable generation through the typed boundary
 
-Current evidence: `testing/core/generator.ss` exports unit/map/bind/sequence,
-but not choice, frequency, size-control, delayed construction or shrink-control
-combinators. `testing/core/property.ss` passes one constant size to every trial.
-`testing/type.ss` separately implements product draws and coordinate shrinking,
-then lifts raw draw/shrink callbacks into the core at execution time. This is a
-reuse/composition gap, not evidence that its current product shrinker is unsound.
+Original P0 finding (now resolved): generator composition was not retained through
+the typed product boundary and size was constant. The implemented protocol below
+records the shared tree algebra, typed integration and bounded size policy.
 
 Complete one unit across the existing generator, property and Type modules:
 
@@ -175,8 +172,8 @@ draw and shrink costs with the current protocol under equal workloads.
 
 ### P1: effective-trial coverage and property diagnostics
 
-Current reports record trial count and a fixed configuration, with strict Boolean
-properties. They expose neither labels/histograms nor a coverage requirement.
+Original P1 finding: reports had trial counts but no effective-trial classification
+or coverage requirements. The new run-owned policy closes this finite protocol.
 Collection examples currently guarantee required lifecycle coverage with explicit
 prefixes; the generic runner does not infer that guarantee from random suffixes.
 
@@ -193,8 +190,8 @@ and coverage admission under explicit classification premises.
 
 ### P2: portable counterexample replay
 
-Current replay reports retain live generators, callbacks and source observers.
-They support in-process seed/witness replay, not a portable cross-process corpus.
+Live reports retain generators, callbacks and source observers for in-process
+replay. The new explicit codec complements them with portable finite data.
 Add explicit application codecs for finite data commands and logical handles,
 plus specification/generator identity checks before opening a fixture. Use Gerbil
 ports and ordinary Scheme data; do not serialize closures, infer fresh-object
@@ -205,8 +202,9 @@ correspondence are conditional laws, not proofs of arbitrary host serializers.
 
 ### P3: bounded higher-order Function values
 
-`testing/function.ss` currently generates Function ARGUMENT ROWS. It does not
-derive arbitrary procedure implementations. Quickcheck's documented
+`testing/function.ss` generates Function ARGUMENT ROWS. Finite function values
+now belong to the generic generator algebra; arbitrary procedures remain outside
+the decidable domain. Quickcheck's documented
 [`arbitrary-procedure`](https://docs.racket-lang.org/quickcheck/index.html) identifies
 a separate useful capability to study after P0-P2. Start with explicit finite
 pure input domains, bounded memoization/equality and result generators, then use
@@ -215,7 +213,7 @@ interpretation, shrinking and stale-source refusal need joint acceptance.
 Opaque/effectful callbacks and unrestricted higher-order inference remain explicit
 boundaries; neither `Any` nor a universal function-correctness claim closes them.
 
-P1 is the next implementation unit after P0 acceptance. Each unit needs executable downstream examples,
+P1-P3 share the existing runner; acceptance covers the following finite contracts. Each unit needs executable downstream examples,
 fault controls, finite Lean laws and the complete existing checks in both PRs.
 Concurrent linearizability, arbitrary callback termination, compiler verification
 and automatic unrestricted Type derivation are not defects in this finite V1.
@@ -755,3 +753,56 @@ The finite V1 protocol is complete within the stated scope. Keep universal
 correctness claims separate from generated evidence, and verify each submitted
 revision through the unchanged full gates. The matrix identifies reproducible
 checks; it does not turn this document into a replacement for their results.
+
+
+## Effective coverage, portable replay and finite functions
+
+`make-policy` names a run, supplies a Boolean precondition and a label callback,
+sets minimum effective counts via `required:`, and bounds discards. Labels are
+symbols, deduplicated once per effective trial. `accepted` counts eligible trial
+roots (including a falsifying root), `discarded` counts explicit precondition
+refusals, and `trial` counts draws. The first over-budget discard is counted and
+refused; the run draws at most `cases + discard-budget` roots. Descriptor errors,
+callback errors, generation exhaustion and stale sources are not discarded tests.
+All-discard gives `exhausted`; unmet minima give `coverage`; neither means passed.
+Shrinking preserves preconditions and contributes no labels. Concrete replay
+contributes no coverage; seed replay owns a new ledger. Named syntax retains the
+property name. POO `check-property` and `property-action` accept the same policy
+and project effective counts/labels without a second runner.
+
+`testing/core/replay.ss` uses explicit application codec identity (include format,
+specification and generator revisions), encode/decode callbacks, a source guard,
+and node/depth limits. It serializes finite Scheme trees: pairs, vectors, strings,
+characters, symbols, keywords, Booleans, integers and nil. It neither serializes
+closures nor evaluates persisted code. Identity is checked before decoding or
+opening a fixture. Encoding and bounded envelope construction precede writing;
+I/O itself can still fail after a partial write. Decoding reuses domain/currentness
+admission and invokes the property once with zero shrinking. Reader allocation
+stays under existing process limits, not a fictitious post-read byte bound.
+Application decoders reconstruct logical handles, not runtime owners; precondition
+semantics and schema revisions must be included in the explicit replay contract.
+
+`generator-function` builds one result tuple per distinct finite raw argument row
+(default maximum 256), reusing `generator-sequence` and each result's lazy sample
+tree. `function-procedure` delivers ordinary Gerbil multiple values; existing POO
+Function contracts validate calls/results. Unknown rows are refused, never mapped
+to a fallback. Domain/result payloads must be immutable or covered by explicit
+source guards. Raw keyword order and escape markers are part of a row's identity;
+this does not claim equivalence of arbitrary keyword languages or infer an
+unbounded function. Result-only shrinking preserves the finite input domain and
+branch currentness. Domains may be empty; every call then refuses.
+
+`examples/property-workflows.ss` is a downstream `:std/test` suite, with fresh-process
+replay through the existing module-action executable. The typed boundary is checked
+in `t/representations/property-testing-test.ss`. Lean models generation accounting,
+coverage thresholds from actual labels, bounded prefixes, identity refusal before
+fixture binding, conditional codec round trips, absent-row refusal and preservation
+of lookup under result mapping. These are finite protocol laws, not verification
+of Scheme callbacks, readers, PRNG quality or global counterexample minimality.
+
+Finite function codecs can compose `function-table` with `function-from-table`.
+The former exports fresh row/result spines under the function's source guard; the
+latter validates finite row count, unique rows and tuple shape before restoring a
+value. The existing collection scenario suite uses per-run operation coverage on
+both RationalDict and Trie and replays reduced logical command data through fresh
+scoped fixtures after serialization.

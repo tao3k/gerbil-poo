@@ -164,6 +164,7 @@
 (def (check-property descriptor property seed: (seed 0) cases: (cases 100)
                      size: (size 20) shrink-budget: (shrink-budget 100) sampler: (supplied #f)
                      size-limit: (size-limit (and (not (procedure? size)) size))
+                     policy: (policy (testing.make-policy))
                      dependencies: (dependencies []) depth: (depth 32) node-budget: (nodes 256)
                      descriptor-budget: (descriptors 256) search-budget: (search 8192))
   (unless (and (procedure? property) (every (lambda (n) (and (exact-integer? n) (>= n 0)))
@@ -176,6 +177,10 @@
   (def (report status original counterexample attempts steps minimal? cause execution)
     (.o bind-these: #f status: status descriptor: descriptor property: property sampler: sampler
       seed: seed cases: cases size: size size-limit: size-limit shrink-budget: shrink-budget sources: sources
+      name: (and execution (testing.report-name execution))
+      accepted: (if execution (testing.report-accepted execution) 0)
+      discarded: (if execution (testing.report-discarded execution) 0)
+      labels: (if execution (testing.report-labels execution) [])
       trial: (if execution (testing.report-trial execution) 0)
       trial-size: (and execution (testing.report-trial-size execution)) original: original counterexample: counterexample
       attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: dependencies
@@ -194,7 +199,7 @@
         (generator-core sampler) property
         (property-specification sampler sources) seed: seed cases: cases size: size
         size-limit: size-limit
-        shrink-budget: shrink-budget classify-error: generation-status))
+        shrink-budget: shrink-budget classify-error: generation-status policy: policy))
       (report (testing.report-status execution) (testing.report-original execution)
         (testing.report-counterexample execution) (testing.report-attempts execution)
         (testing.report-steps execution) (testing.report-minimal? execution)
@@ -203,7 +208,9 @@
 ;; Project generic replay back to the same POO metadata, retaining the exact
 ;; originally captured sources rather than taking a permissive fresh snapshot.
 (def (replayed-report report execution)
-  (.cc report status: (testing.report-status execution) trial: (testing.report-trial execution)
+  (.cc report name: (testing.report-name execution) accepted: (testing.report-accepted execution)
+    discarded: (testing.report-discarded execution) labels: (testing.report-labels execution)
+    status: (testing.report-status execution) trial: (testing.report-trial execution)
     trial-size: (testing.report-trial-size execution)
     original: (testing.report-original execution) counterexample: (testing.report-counterexample execution)
     attempts: (testing.report-attempts execution) steps: (testing.report-steps execution)
@@ -220,6 +227,8 @@
   (.call observation.Observation. .bind
     (lambda (configuration) (check-property descriptor property
       sampler: sampler dependencies: dependencies
+      policy: (if (.has? configuration policy) (.get configuration policy)
+        (testing.make-policy))
       seed: (.get configuration seed) cases: (.get configuration cases)
       size: (.get configuration size) shrink-budget: (.get configuration shrink-budget)
       size-limit: (if (.has? configuration size-limit) (.get configuration size-limit)

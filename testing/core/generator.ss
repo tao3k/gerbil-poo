@@ -5,7 +5,9 @@
         generator-delay generator-filter generator-no-shrink generator-with-shrink
         generate generator-current? sample? sample-value sample-children sample-current sample-sources
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
-        boolean-result live? random-at)
+        boolean-result live? random-at
+        generator-function function-value? function-domain function-apply function-procedure
+        function-table function-from-table)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
@@ -253,3 +255,58 @@
       sources: (merge-sources sources (sample-node-sources tree))) random size)) sources))
 ;; Disabling shrinking is the empty policy, using the same source-owned protocol.
 (def (generator-no-shrink generator) (generator-with-shrink generator (lambda (_) [])))
+
+;; Finite functions store raw argument rows and result tuples, not opaque closures.
+(defstruct function-value (entries current) final: #t)
+;; Domain inspection returns fresh spines; callers own mutable payload dependencies.
+(def (function-domain value) (map (lambda (entry) (map identity (car entry))) (function-value-entries value)))
+;; Unknown rows are refused explicitly; repeated equal rows select the same tuple.
+(def (function-apply value arguments)
+  (unless (live? (function-value-current value)) (raise (make-stale)))
+  (def entry (assoc arguments (function-value-entries value)))
+  (unless entry (error "arguments outside finite function domain" arguments))
+  (def result (cdr entry))
+  (unless (live? (function-value-current value)) (raise (make-stale)))
+  (map identity result))
+;; Gerbil owns keyword forwarding and multiple-value delivery; Function contracts
+;; may wrap this ordinary rest procedure without changing its finite table.
+(def (function-procedure value)
+  (lambda arguments (apply values (function-apply value arguments))))
+;; Lift the SAME result-product tree, retaining each node's own branch observers.
+(def (function-tree tree rows current)
+  (if (rejected? tree) tree
+    (let (results (sample-value tree))
+      (def guard (sample-current tree))
+      (unless (and (list? results) (= (length rows) (length results)) (every list? results))
+        (error "finite function results must be value tuples" results))
+      (make-sample-node
+        (make-function-value (map cons rows (map (cut map identity <>) results))
+          (lambda () (and (live? current) (guard))))
+        (lambda () (in-coroutine (lambda (yield)
+          (for (child ((sample-children tree))) (yield (function-tree child rows current))))))
+        (sample-node-sources tree)))))
+;; The finite row boundary is shared by generators and portable table restoration.
+(def (function-rows rows limit)
+  (unless (and (list? rows) (every list? rows) (exact-integer? limit) (>= limit 0)
+    (<= (length rows) limit) (= (length rows) (length (delete-duplicates/hash rows))))
+    (error "invalid finite function domain" rows))
+  (map (cut map identity <>) rows))
+;; Export fresh row/result spines; payload ownership remains the declared source law.
+(def (function-table value)
+  (unless (live? (function-value-current value)) (raise (make-stale)))
+  (map (lambda (entry) (cons (map identity (car entry)) (map identity (cdr entry))))
+    (function-value-entries value)))
+;; A decoder restores finite data directly without drawing or evaluating stored code.
+(def (function-from-table entries domain-limit: (limit 256) current?: (current immutable-current))
+  (unless (and (list? entries) (every pair? entries) (every (lambda (entry) (list? (cdr entry))) entries)
+    (procedure? current)) (error "invalid finite function table" entries))
+  (def rows (function-rows (map car entries) limit))
+  (make-function-value (map cons rows (map (lambda (entry) (map identity (cdr entry))) entries)) current))
+;; Explicit finite domains avoid universal function inference or a fallback value.
+;; Generate one tuple per distinct raw row; product shrinking preserves the domain.
+(def (generator-function rows result-generator domain-limit: (limit 256) current?: (current immutable-current))
+  (unless (and (generator? result-generator) (procedure? current)) (error "invalid function result generator"))
+  (def domain (function-rows rows limit))
+  (def tuples (generator-sequence (map (lambda (_) result-generator) domain)))
+  (make-tree-generator (lambda (random size)
+    (function-tree (generate tuples random size) domain current)) current?: current))

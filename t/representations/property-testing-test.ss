@@ -1,10 +1,12 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export property-testing-test property-kernel-test generated-batches-test)
-(import :std/test :std/error :std/iter :std/io/tempfile
+(export property-testing-test property-kernel-test property-workflows-test generated-batches-test)
+(import (prefix-in :clan/property-testing/generator core.)
+        (prefix-in :clan/property-testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
         (prefix-in :clan/poo/examples/signature-service service.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
+        (only-in :clan/poo/examples/property-workflows property-workflows-test)
         (only-in :clan/poo/examples/generated-batches generated-batches-test))
 
 ;; Deterministic fixture isolates shrinking from random trial distribution.
@@ -23,13 +25,13 @@
   (call-with-temporary-directory "property-library-" (lambda (project)
     (for-each (lambda (file)
       (copy-file (path-expand (string-append "testing/core/" file) source-root)
-        (path-expand file project))) '("generator.ss" "property.ss" "model.ss" "build.ss" "gerbil.pkg"))
+        (path-expand file project))) '("generator.ss" "property.ss" "model.ss" "replay.ss" "build.ss" "gerbil.pkg"))
     (create-directory* (path-expand "examples" project))
     (copy-file (path-expand "examples/property-kernel.ss" source-root)
       (path-expand "examples/property-kernel.ss" project))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
-        (defbuild-script '("generator" "property" "model" "examples/property-kernel"))))
+        (defbuild-script '("generator" "property" "model" "replay" "examples/property-kernel"))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))
@@ -68,6 +70,20 @@
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "finite Function values retain typed wrapping and coverage policies"
+      (def signature (Function [Integer] [Integer Integer]
+        keywords: (list (cons scale: Integer)) required-keywords: [scale:]))
+      (def functions (core.generator-map
+        (core.generator-function '((1 scale: 2)) (core.generator-unit '(4 5))) core.function-procedure))
+      (def sampler (from-generator signature functions (lambda (_) 0)))
+      (def report (check-property signature
+        (lambda (function) (equal? (call-with-values (cut function 1 scale: 2) list) '(4 5)))
+        sampler: sampler cases: 3 policy: (property.make-policy name: 'typed-function
+          labels: (lambda (_) '(keyword)) required: '((keyword . 3)))))
+      (check-eq? (.get report status) 'passed)
+      (check-equal? (.get report accepted) 3)
+      (check-equal? (.get report labels) '((keyword . 3)))
+      (check-eq? (.get report name) 'typed-function))
     (test-case "generic library builds and runs independently of POO" (check-independent-library))
     (test-case "standard seeded source replays a shrinking failure exactly"
       (let* ((report (check-property Integer (lambda (x) (< (abs x) 4)) seed: 42 cases: 200 size: 100))

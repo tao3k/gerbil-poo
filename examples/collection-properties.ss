@@ -1,6 +1,8 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
 (export handoff rolling-upgrade optimistic-aba collection-properties-test)
-(import :std/test :std/error :std/iter (only-in :std/list/list take)
+(import :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
+        (prefix-in :clan/property-testing/property property.)
+        (prefix-in :clan/property-testing/replay replay.)
         ../object ../mop ../type ../number ../testing/type ../support/option
         ./collection-testing)
 
@@ -52,12 +54,19 @@
   (def commands (.get scenario commands))
   (def selected (collection-model commands))
   (def sampler (trace-generator Command selected steps: 64 dependencies: (list scenario)))
+  ;; The generator's admitted prefix becomes an explicit per-run coverage contract.
+  (def required (map (lambda (tag) (cons tag 4))
+    (delete-duplicates/hash (map (cut vector-ref <> 0) commands))))
+  (def policy (property.make-policy name: (.get scenario name)
+    labels: (lambda (trace) (map (cut vector-ref <> 0) trace)) required: required))
   (for* ((backend '(rationaldict trie)) (seed '(7 41 83)))
     (def action (property-action (.get sampler descriptor) (property-for selected backend)
       identity sampler: sampler))
-    (def report (action (.o bind-these: #f seed: seed cases: 4 size: 48 shrink-budget: 96)))
+    (def report (action (.o bind-these: #f seed: seed cases: 4 size: 48 shrink-budget: 96 policy: policy)))
     (check-equal? (list (.get scenario name) backend seed (.get report status) (.get report cause))
       (list (.get scenario name) backend seed 'passed #f))
+    (check-equal? (.get report accepted) 4)
+    (for (entry required) (check (cdr (assq (car entry) (.get report labels))) => 4))
     (check-equal? (take (.get report original) (length commands)) commands))
   ;; A faulty implementation must yield a smaller VALID false witness. Error or
   ;; stale reports are never accepted as evidence that the fault was discovered.
@@ -69,6 +78,12 @@
     (check (.call sampler .accept? (.get report counterexample)) => #t)
     (check (< (length (.get report counterexample)) (length (.get report original))) => #t)
     (check (replay-counterexample report) => #f)
+    ;; The codec stores only command data/logical IDs; fresh fixtures stay scoped.
+    (def codec (replay.make-codec (list 'collection 1 (.get scenario name) backend (.get scenario fault)) values values))
+    (def port (open-output-string))
+    (replay.write-counterexample (.get report execution) codec port)
+    (check (replay.read-counterexample codec (open-input-string (get-output-string port))
+      (property.make-specification (cut .call sampler .accept? <>) length) property) => #f)
     (check-equal? (.get (replay-property report) counterexample) (.get report counterexample))
     (def diagnostic (check-trace selected (.get report counterexample)
       (cut with-collection-system <> backend: backend fault: (.get scenario fault))))

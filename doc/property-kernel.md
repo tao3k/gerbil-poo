@@ -149,3 +149,35 @@ deterministic seed expansion, never sample values or observer verdicts. Public
 source lists stay detached; empty/identical internal source lists may be shared.
 See `doc/performance/generation-summary.org` for the full paired controls and
 remaining provenance costs. No process limit or check was removed.
+
+
+## Effective coverage and portable failure data
+
+```scheme
+(import (prefix-in :clan/property-testing/property property.)
+        (prefix-in :clan/property-testing/replay replay.))
+(def policy (property.make-policy name: 'revision
+  labels: (lambda (commands) (map (cut vector-ref <> 0) commands))
+  required: '((install . 10) (undo . 10)) discard-budget: 100))
+;; Pass policy: policy to the existing core or POO check-property/property-action.
+(def codec (replay.make-codec '(revision 1 command-schema-2 generator-1)
+  encode-commands decode-commands current?: command-schema-current?))
+;; Keep generated corpora outside the repository unless deliberately curated.
+(call-with-output-file failure-path
+  (cut replay.write-counterexample failed-report codec <>))
+(call-with-input-file failure-path
+  (lambda (port) (replay.read-counterexample codec port specification property)))
+```
+
+`report-accepted`, `report-discarded`, `report-labels` and `report-name` expose the
+run-owned diagnostic ledger. `coverage` and `exhausted` are refusals, not passes.
+The snippets' encoders, schema guards and finite requirements are application-owned.
+A codec identity must change when its domain/property/precondition interpretation
+changes. Persist data only, never a report's closures or backend owner objects.
+
+For higher-order properties, `generator-function` takes finite raw argument rows
+and a generator of result tuples. Map `function-procedure` through the existing
+generator algebra to derive a sampler for a POO Function descriptor. Calls outside
+those rows refuse. Multi-value and keyword calls use Gerbil's ordinary call path;
+there is no generated evaluator or second argument parser. See the executable
+[property workflows](../examples/property-workflows.ss) and the PBT RFC for bounds.
