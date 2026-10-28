@@ -5,7 +5,7 @@
         (only-in ./slot-observation %slot-read-active?) (only-in ./type element? validate))
 ;; Compile named Slot descriptors through their existing .slot.define method.
 ;; Validate the whole declaration list before creating any externally visible value.
-;; Metadata descriptors are sources too: edits invalidate every declared receiver.
+;; The common object constructor owns descriptor edges for this path and clones.
 (def (object<-declarations entries supers: (supers []) protocol: (protocol #f))
   (unless (and (list? entries)
       (andmap (lambda (entry) (and (pair? entry) (symbol? (car entry))
@@ -13,8 +13,6 @@
       (= (length entries) (length (delete-duplicates/hash (map car entries)))))
     (error "distinct named Slot descriptors required"))
   (def self (make-object supers: supers protocol: protocol declarations: entries))
-  (for (([name . descriptor] entries))
-    (depend-on-object! self descriptor))
   (instantiate-object! self)
   self)
 ;; Bridge the existing Class effective-slot catalog and checked constructor to

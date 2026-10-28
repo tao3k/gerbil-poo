@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow replay-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow replay-workflow entry-workflow main joint-main)
 (import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -379,3 +379,32 @@
     (action receiver))
   (let (second (revise 3))
     (vector first second (revise 2) delivered)))
+
+;; Copied catalogs share live descriptor sources, never evaluated receiver caches.
+;; A definition hook cannot edit a later declaration while its clone is active.
+;; Repair and supported source revision use the same refined FUN consumer.
+(def (declaration-source-workflow)
+  (def tariff (.new Slot type: Integer constant: 3))
+  (def original (.ref tariff '.type))
+  (def attack? #t)
+  (def defining (.cc original '.slot.define
+    (lambda (metadata name target)
+      (when attack? (.putslot! tariff 'constant ($constant-slot-spec 99)))
+      (.call original .slot.define metadata name target))))
+  (def capacity (.cc (.new Slot type: Integer constant: 2) '.type defining))
+  (def recipe (make-object supers: [Service]
+    declarations: (list (cons 'capacity capacity) (cons 'tariff tariff))))
+  (def receivers (list (.cc recipe fee: 1) (.cc recipe fee: 1)))
+  (def delivered 0)
+  (def action (checked-total-action (lambda (_ amount) (set! delivered (1+ delivered)) amount)))
+  (def failure (with-catch identity (cut action (car receivers))))
+  (unless (and (Error? failure) (equal? (error-message failure) "object mutation during computation")
+               (= (.ref tariff 'constant) 3) (= delivered 0))
+    (error "later declaration escaped construction guard"))
+  (set! attack? #f)
+  (let* ((initial (map-in-order action receivers)))
+    (defvalues (_value reads) (%call-with-recorded-slot-reads (cut .ref (car receivers) 'total)))
+    (.putslot! tariff 'constant ($constant-slot-spec 4))
+    (unless (every (lambda (read) (not (object-read-current? read))) reads)
+      (error "old declared service read survived source edit"))
+    (vector initial (map-in-order action receivers) delivered)))

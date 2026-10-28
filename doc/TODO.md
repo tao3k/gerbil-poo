@@ -2979,3 +2979,17 @@ have controls, including the existing checked service/FUN/module workflow.
 Lean proves bounded saved-spine comparison and exact refusal/retry/frame laws
 under the standard finite-list recognizer premise. Arbitrary callback termination,
 weak-retention timing and whole-language mutation tracking remain boundaries.
+
+### Constructor-owned declaration sources
+
+Closed a construction-path gap: raw object construction and `.cc` did not register
+the entire known descriptor catalog until individual fields were defined. A first
+field's definition hook could revise a later descriptor without the active-owner
+preflight noticing. Descriptor source edges now belong to the common constructor;
+the declaration wrapper and per-field preparation no longer bind them again.
+Existing weak dependencies, finite propagation and supported mutation guards own
+all behavior. Type objects are still registered when resolved, with no new loader,
+cache registry or evaluator. Complex clone/shared-service refusal, repair and
+revision controls accompany finite Lean reachability, active-edit frame/retry and
+logical registration-attempt laws. This does not discover arbitrary callback
+sources or prove host weak-table, GC or concurrent behavior.

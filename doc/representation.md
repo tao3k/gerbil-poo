@@ -1073,3 +1073,50 @@ This compares two safe strategies on the corrected implementation, not an old/ne
 causal measurement of the guard. The concrete improvement is terminating cold
 root admission with no second grammar scan on an exact warm hit; physical GC,
 allocation and machine-time claims are outside the finite Lean cost bound.
+
+The common object constructor now owns the complete finite direct descriptor
+catalog's dependency registration before C3 or field-definition hooks can run.
+Direct `make-object`, `.cc` and the declaration convenience constructor share that
+boundary. Previously the convenience constructor registered every descriptor but
+raw construction/cloning only registered them as each field was defined: an early
+hook could revise a later descriptor without reaching its active receiver. Those
+late and convenience-layer duplicate bindings are removed. Discovery/registration
+of resolved type objects remains at the existing preparation boundary. Unknown
+callback sources, raw field setters and concurrent edits remain outside scope.
+
+The regression first witnessed a successful value where active-construction
+refusal was required. Direct definition hooks, clone inheritance hooks, both
+compact/tree catalogs, shared source revision and the refined FUN service workflow
+cover refusal before cache publication, unchanged source values, repair and normal
+post-construction invalidation. `declaration-source-workflow` crosses a failed
+first clone construction, retry, two shared services and rejection of old reads.
+This advances the author's explicit scoped cache-invalidation future work.
+
+Acceptance passed 22 declaration-index cases and the complete single-process
+150-module / 1,904-case suite (243.23 seconds at the explicit 300-second limit),
+plus the unchanged collection (13.87 seconds) and generator (3.79 seconds) checks.
+The full standard declaration matrix ran separately: 32 fields, 16 repetitions,
+six AB/BA pairs and four A/A/B/B controls per regime. Inclusive entry took 75.22
+seconds (dependency preparation 13.69, startup 2.88, test entry 57.99; study 53.25),
+with no frontend compilations or backend jobs.
+
+Indexed-minus-safe-scan cold mean / empirical p90 were -459.31/+10.43 us natural,
+-11.17/+32.38 us collected and +3.78/+37.13 us post-GC. Complete publication
+mean / p90 were -3751.43/-2203.69 us, -4177.66/-3928.12 us and
+-5672.02/-3926.38 us respectively; shared publication was
+-5054.74/-4147.81 us, -3171.11/-2581.19 us and -4601.72/-3823.13 us.
+All six complete-workflow pairs favored indexing in each regime. The construction
+phase intentionally measures identical constructors: its natural mean / p90
+were -15.76/+1427.99 us, so it is a variability control, not an optimization win.
+Both query strategies pay the corrected constructor and its earlier descriptor
+registration; this is not an old/new causal wall-time comparison of that change.
+Only logical repeated known-descriptor binding attempts are removed by the Lean
+cost law. Type discovery, cold registration, iterators, construction and GC remain
+paid costs, including for a receiver whose fields have not yet been demanded.
+
+Those local 150-module receipts precede the independent test-ownership migration
+in `9afe842`; they describe the implementation cohort, not the later compiled
+module inventory. The retired tools package is cleaned using its original standard
+build declaration and `gerbil clean` before the current standard build, so obsolete
+interfaces cannot silently enter the post-integration complete-suite glob. The
+latest declared inventory and CI are separate integration acceptance.

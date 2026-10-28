@@ -75,6 +75,10 @@
     (set! (object-%declarations self) (prototype-map declarations))
     (set! (object-%declaration-index self) #f)
     (set! (object-%bootstrap self) bootstrap)
+    ;; The finite direct catalog is a source at construction, including clones.
+    ;; Register all descriptors before any C3/definition hook can evaluate one.
+    (prototype-map-for-each (object-%declarations self)
+      (lambda (_name descriptor) (depend-on-object! self descriptor)))
     (for-each (cut depend-on-object! self <>) (object-supers self))
     (when protocol (depend-on-object! self protocol))))
 
@@ -258,7 +262,6 @@
       (prototype-map-for-each (object-%declarations self)
         (lambda (name descriptor)
           (def type (.@ descriptor .type))
-          (depend-on-object! self descriptor)
           (depend-on-object! self type)
           (.call type .slot.define descriptor name scratch)))
       (cons (object-%slots scratch) (object-%defaults scratch)))))

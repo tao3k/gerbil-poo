@@ -17,6 +17,43 @@
 ;; Independent scan observations are compared to private indexing after real edits.
 (def declaration-index-test
   (test-suite "effective declarations, visibility and revision guards"
+    (test-case "construction owns later declaration sources before the first definition hook"
+      (def later (descriptor 7))
+      (def original (.ref later '.type))
+      (def attack? #t)
+      (def first-type (.cc original '.slot.define
+        (lambda (metadata name target)
+          (when attack? (.putslot! later 'constant ($constant-slot-spec 99)))
+          (.call original .slot.define metadata name target))))
+      (def first (.cc (descriptor 3) '.type first-type))
+      (def owner (make-object declarations: (list (cons 'first first) (cons 'later later))))
+      (check-exception (.ref owner 'first) (message? "object mutation during computation"))
+      (check-equal? (.ref later 'constant) 7)
+      (check (object-%instance owner) => #f)
+      (set! attack? #f)
+      (check-equal? (read-slot owner 'later) 7))
+    (test-case "clones own shared catalog sources before inheritance hooks and later edits"
+      (for (policy '(tree compact))
+        (let* ((slot (descriptor 7)) (attack? #t)
+               (protocol (.o (compute-precedence-list (lambda (_ next)
+                 (when attack? (.putslot! slot 'constant ($constant-slot-spec 99))) (next)))))
+               (recipe (make-object declarations: (prototype-map [(cons 'value slot)] policy: policy)))
+               (left (.cc recipe)) (right (.cc recipe)))
+          (object-protocol-set! left protocol)
+          (check-exception (.ref left 'value) (message? "object mutation during computation"))
+          (check-equal? (.ref slot 'constant) 7)
+          (check (object-%precedence-list left) => #f)
+          (set! attack? #f)
+          (check-equal? (read-slot left 'value) 7)
+          (check-equal? (read-slot right 'value) 7)
+          (let ((a (object-revision left)) (b (object-revision right)))
+            (.putslot! slot 'constant ($constant-slot-spec 8))
+            (check-equal? (object-revision left) (1+ a))
+            (check-equal? (object-revision right) (1+ b))
+            (check (object-%layout left) => #f)
+            (check-equal? (read-slot left 'value) 8)
+            (check-equal? (read-slot right 'value) 8))))
+      (check-equal? (service.declaration-source-workflow) '#((9 9) (11 11) 4)))
     (test-case "catalog carriers refuse non-list inputs uniformly before producer effects"
       (for (policy '(tree compact))
         (check-exception (prototype-map (vector (cons 'value #f)) policy: policy) contract-violation-error?)
