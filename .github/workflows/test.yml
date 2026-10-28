@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: true
 env:
   GERBIL_PATH: ${{ github.workspace }}/.ci-library
-  GERBIL_BUILD_VERBOSE: 9
+  # Standard compile/job progress; level 9 additionally traces each optimizer call.
+  GERBIL_BUILD_VERBOSE: 3
 jobs:
   build:
     runs-on: ubuntu-latest

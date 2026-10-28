@@ -80,6 +80,32 @@ normal build refreshed changed test/helper sources first; this is incremental
 acceptance, not a third cold run. These timing receipts precede =8e2fad9=;
 that later declaration-index update is retained and verified separately.
 
+* CI progress volume and a real compiler-worker refusal
+After retaining =8e2fad9=, the complete local standard entry at =688555b= passed
+150 modules, 1867 cases and the paired study in 489.21 seconds (1032.79 user,
+146.60 system). Root/startup/test preparation took 85.78/2.97/153.71 seconds;
+tests and the study took 232.67/12.88. This refreshed dependencies after the
+integrated declaration update in the existing prefix; it is not an empty-prefix
+comparison with the earlier receipts.
+
+The first CI run of =688555b= failed in actual library preparation, not release
+download, queueing or artifact upload. The log records a worker =Stack overflow=
+at 05:38:35 UTC, followed by propagation of that refusal and exit 70 at 05:40:27;
+the root step took 206.76 seconds, below its unchanged 300-second deadline.
+It produced 110,903,069 bytes and 562,713 lines of output. Two archived-log reads
+failed with HTTP/2 cancellation/EOF; the official single-job log endpoint
+returned the complete log. Transport errors are distinct from the compiler error.
+
+CI had enabled =GERBIL_BUILD_VERBOSE=9=. In the installed =std/make= source,
+=settings-verbose>=? 9= forwards the compiler's per-call verbosity flag; it is
+separate from optimization, debug and compilation settings. CI now uses the
+same standard level 3 as the complete local entry. Module/job preparation,
+errors and the level-5 test runner's module/case markers remain. No check,
+compiler optimization, job bound, heap ceiling or deadline is disabled or
+increased. Removing this debug-output workload does not by itself establish
+the cause or absence of the worker stack failure; exact-head CI admission is
+required separately. The large raw log remains outside Git.
+
 * Incremental checks and package concurrency
 The 593.93-second receipt below includes source/dependency recompilation and first
 mapping of newly generated libraries. It is not the cost of an unchanged-source
