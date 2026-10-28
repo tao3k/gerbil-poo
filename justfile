@@ -142,6 +142,14 @@ benchmark-slot-offset: build-shared
 benchmark-prototype-map: build-shared
     just _test 300 benchmarks/prototype-map-test.ss
 
+# Private traversal and immutable-map composition share the full standard sampler.
+benchmark-prototype-traversal: build-shared
+    just _test 300 benchmarks/prototype-traversal-test.ss
+
+# Higher-resolution complete publication retains the same paired controls.
+benchmark-prototype-composition: build-shared
+    just _test 300 benchmarks/prototype-composition-test.ss
+
 # Structural snapshots and private enumeration use the same standard test entry.
 benchmark-names: build-shared
     just _test 300 benchmarks/names-test.ss

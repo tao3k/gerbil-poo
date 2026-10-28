@@ -2828,3 +2828,20 @@ not erase source admission, temporary list/hash preparation, descriptors or GC.
 Fair current-encoding cold/hot/single/full-workflow samples remain required for
 performance qualification; automatic body analysis/JIT and arbitrary module
 initialization remain separate boundaries. See [slot-specs.md](slot-specs.md).
+
+### Persistent prototype traversal and composition boundaries
+
+Closed internal direct-map snapshot materialization and `.+` export/rebuild.
+Existing standard vector/RBTree iteration now delivers only ordered names and
+shared values; name projection returns an owned spine without entry copies.
+`.+` shares immutable direct slots/defaults and preserves their explicit policy,
+while constructor/C3/descriptor admission, new receiver caches and source revision
+invalidation stay with the existing engine. No evaluated override instance or
+instance-only assignment is inherited.
+
+Five regression groups and the shared module/refinement/FUN lifecycle accompany
+ordered snapshot/traversal, exact refusal, policy/cache frame and finite export
+cost proofs. Standard backend persistence/iteration are premises. No second
+index, tree, loader or registry is introduced; full-vector storage, automatic
+PIC/JIT and arbitrary initializer equivalence remain their declared boundaries.
+See [prototype-maps.md](prototype-maps.md) for the protocol and paired receipt.

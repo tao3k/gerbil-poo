@@ -1,5 +1,6 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
-(export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-put prototype-map-remove)
+(export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
+        prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in :std/vector/vector vector-filter)
         (only-in :std/list/list length<=n?))
@@ -59,11 +60,22 @@
         (rbtree-put! ordered count entry)
         (set! count (+ count 1))))
     (make-specifications ordered names count count compact?)))
+;; Delegate ordered traversal to the existing compact vector or standard RBTree.
+;; This private iterator never crosses the snapshot boundary.
+(def (in-specifications source)
+  (let (entries (specifications-entries source))
+    (if (vector? entries) (in-vector entries) (in-rbtree-values entries))))
+;; Deliver only symbols and shared payloads, never private entry pairs/handles.
+;; Standard iteration preserves order and stops at the original callback refusal.
+(def (prototype-map-for-each source consume)
+  (using (consume :~ procedure?)
+    (for (entry (in-specifications source)) (consume (car entry) (cdr entry)))))
+;; Names need an owned spine, without exporting/copying every unused entry pair.
+(def (prototype-map-keys source)
+  (for/collect (entry (in-specifications source)) (car entry)))
 ;; Return fresh list/entry pairs so caller edits cannot corrupt retained snapshots.
 (def (prototype-map-list source)
-  (for/collect ((entry (if (vector? (specifications-entries source))
-                        (in-vector (specifications-entries source))
-                        (in-rbtree-values (specifications-entries source)))))
+  (for/collect (entry (in-specifications source))
     (cons (car entry) (cdr entry))))
 ;; Copy a bounded compact vector or standard balanced-tree paths. Promotion keeps
 ;; every contribution in order; all later same-name methods retain their identity.

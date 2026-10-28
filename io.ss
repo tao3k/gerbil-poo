@@ -14,6 +14,7 @@
   ./support/io
   ./support/json
   ./object
+  (only-in ./prototype-map prototype-map-keys)
   ./mop)
 
 ;; Capture one runtime entry as a Reader-compatible IO action, without loading it.
@@ -81,7 +82,8 @@
     (cond
      ((and (object-%instance self) (not (object-%slot-funs self)))
       (d "#" (object->serial-number self) "#;{(inconsistent object)")
-      (for-each (lambda (slot) (d " " slot)) (map car (append (object-slots self) (object-defaults self))))
+      (for-each (lambda (slot) (d " " slot))
+        (append (prototype-map-keys (object-%slots self)) (prototype-map-keys (object-%defaults self))))
       (d "}"))
      ((.has? self .type .print-representation) ((.@ self .type .print-representation) self port options))
      ((.has? self .type .sexp<-) (write ((.@ self .type .sexp<-) self) port))
@@ -202,7 +204,8 @@
     (def inconsistent? (not (object-%slot-funs self)))
     (defvalues (slots h)
       (if inconsistent?
-        (values (map car (append (object-slots self) (object-defaults self))) (hash))
+        (values (append (prototype-map-keys (object-%slots self))
+                        (prototype-map-keys (object-%defaults self))) (hash))
         (values (.all-slots self) (object-%instance self))))
     (def style (macro-writeenv-style we))
     (def mark? (eq? style 'mark))

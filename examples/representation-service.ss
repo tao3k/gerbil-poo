@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow entry-workflow main joint-main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -151,8 +151,13 @@
            (extra (for/collect (n (in-range width))
              (cons (string->symbol (string-append "visible-" (number->string n))) ($constant-slot-spec n))))
            (recipe (make-object supers: (list Service) slots: (append extra slots
-             (list (cons 'callback ($constant-slot-spec callback)) (cons 'enabled ($constant-slot-spec #f))))))
-           (receivers (list (.o inherit: [recipe] capacity: 2) (.o inherit: [recipe] capacity: 4)))
+             (list (cons 'callback ($constant-slot-spec callback)) (cons 'enabled ($constant-slot-spec #f)))))))
+      (reflection-publication recipe callback inspect))))
+
+;; One existing checked pipeline serves ordinary and composed persistent recipes.
+;; Sharing specifications never shares receivers, evidence or successful results.
+(def (reflection-publication recipe callback inspect)
+    (let* ((receivers (list (.o inherit: [recipe] capacity: 2) (.o inherit: [recipe] capacity: 4)))
            (delivered 0)
            (action (checked-total-action
              (lambda (candidate amount)
@@ -181,7 +186,23 @@
           (let (third (apply + (map-in-order action receivers)))
             (unless (equal? (vector first second third delivered) '#(24 30 36 6))
               (error "reflection revision oracle"))
-            (vector first second third delivered)))))))
+            (vector first second third delivered))))))
+
+;; Compose owned immutable specifications with a live shared service. The override
+;; is deliberately warmed and assigned an instance-only total: neither cache nor
+;; assignment belongs to the newly composed recipe. Both storage policies use the
+;; SAME refinement/FUN/IO revision/refusal/retry pipeline above.
+(def (composition-workflow width compose: (compose .+) policy: (policy 'tree))
+  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0))))
+          (compose :~ procedure?) (policy :~ (one-of tree compact)))
+    (def callback (lambda (x) (+ x 1)))
+    (def override (make-object
+      slots: (prototype-map (for/collect (n (in-range width))
+        (cons (string->symbol (string-append "visible-" (number->string n))) ($constant-slot-spec n))) policy: policy)
+      defaults: (prototype-map (list (cons 'callback callback) (cons 'enabled #f)) policy: policy)))
+    (.put! override 'total -999)
+    (.ref/inline override (make-slot-cache 'callback))
+    (reflection-publication (compose Service override) callback .alist)))
 
 ;; Explicit self overrides cut construction, not validation or business admission.
 ;; The opaque encoding is the same lawful computation expressed as computed;

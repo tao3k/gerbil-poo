@@ -9,7 +9,7 @@
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read object-slot-names
-                    slot-spec-discards-super? compile-slot-specs) @object? @make-object)
+                    slot-spec-discards-super? compile-slot-specs declaration-specifications) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -200,7 +200,8 @@
 
 (defclass (InvalidObject Exception) (slots) transparent: #t)
 (def (invalid-object-summary self)
-  (InvalidObject slots: (map car (append (object-slots self) (object-defaults self) (object-%declarations self)))))
+  (InvalidObject slots: (append (prototype-map-keys (object-%slots self))
+    (prototype-map-keys (object-%defaults self)) (map car (object-%declarations self)))))
 
 ;; Delegate ordering directly to core C4 while retaining POO cycles, hooks and caches.
 (def (compute-precedence-list! self (heads '()))
@@ -237,33 +238,38 @@
 ;; Compile declaration metadata through the existing Slot protocol on a fresh
 ;; private receiver. Repeating this after descriptor edits cannot retain stale
 ;; constant/default/compute specifications from the previous metadata revision.
+;; Only private immutable maps escape the scratch receiver; empty declarations
+;; need no result pair or public snapshot export.
 (def (declaration-specifications self)
-  (if (null? (object-%declarations self)) (cons [] [])
+  (and (not (null? (object-%declarations self)))
     (let (scratch (make-object))
       (for (([name . descriptor] (object-%declarations self)))
         (def type (.@ descriptor .type))
         (depend-on-object! self descriptor)
         (depend-on-object! self type)
         (.call type .slot.define descriptor name scratch))
-      (cons (object-slots scratch) (object-defaults scratch)))))
+      (cons (object-%slots scratch) (object-%defaults scratch)))))
 ;; Assemble the ordinary inheritance chain, then let inherited hooks transform
 ;; each effective thunk. Direct specification writes override their declaration.
 (def (compute-slot-funs! self)
   (def h (make-hash-table-symbolic))
   (def sources (map (lambda (super) (cons super (declaration-specifications super)))
                    (reverse (object-%precedence-list self))))
+  ;; The same consumers handle normalized declarations and persistent maps;
+  ;; no private entry pair escapes and no direct-map snapshot is materialized.
+  (def (default! slot value) (hash-put! h slot (list ($constant-slot-spec value))))
+  ;; Keep original admission order and diagnostics even for shadowed input.
+  (def (contribution! slot spec)
+    (def discards? (slot-spec-discards-super? spec))
+    (unless (or discards? ($computed-slot-spec? spec)) (apply-slot-spec self spec #f))
+    (if discards? (hash-put! h slot (list spec))
+      (hash-ensure-modify! h slot (lambda () []) (cut cons spec <>))))
   (for (([super . declarations] sources))
-    (for (([slot . value] (append (cdr declarations) (object-defaults super))))
-      (hash-put! h slot (list ($constant-slot-spec value)))))
+    (when declarations (prototype-map-for-each (cdr declarations) default!))
+    (prototype-map-for-each (object-%defaults super) default!))
   (for (([super . declarations] sources))
-    (for (([slot . spec] (append (car declarations) (object-slots super))))
-      ;; Validate even shadowed input, in its original source order. Only the
-      ;; three explicit super-independent constructors can discard a prefix;
-      ;; computed bodies remain opaque, however they happen to use their super.
-      (def discards? (slot-spec-discards-super? spec))
-      (unless (or discards? ($computed-slot-spec? spec)) (apply-slot-spec self spec #f))
-      (if discards? (hash-put! h slot (list spec))
-        (hash-ensure-modify! h slot (lambda () []) (cut cons spec <>)))))
+    (when declarations (prototype-map-for-each (car declarations) contribution!))
+    (prototype-map-for-each (object-%slots super) contribution!))
   ;; Compile every surviving chain BEFORE invoking any user hook. A hook cannot
   ;; change the payload capture time of another field's SlotSpec.
   (for (([slot . specs] (hash->list h)))
@@ -606,9 +612,11 @@
   (make-object slots: slots supers: [self] defaults: defaults))
 ;; Merge direct specifications together with their direct protocol/declarations.
 ;; Declaration compilation registers copied metadata sources before any cache exists.
+;; Immutable direct maps retain their policy and sharing; receiver caches and
+;; explicit instance assignments are never inherited from the override object.
 (def (.+ base override)
-  (make-object slots: (object-slots override)
-               supers: [(object-supers override)... base] defaults: (object-defaults override)
+  (make-object slots: (object-%slots override)
+               supers: [(object-supers override)... base] defaults: (object-%defaults override)
                protocol: (object-%protocol override) declarations: (object-%declarations override)))
 
 ;; : Bool <- (Object _) Symbol
@@ -637,7 +645,8 @@
     (instantiate-object! self)
     (or (object-%all-slots self)
       (let (esl (merge-super-slots
-                 (map (lambda (super) (map car (append (object-slots super) (object-defaults super) (object-%declarations super))))
+                 (map (lambda (super) (append (prototype-map-keys (object-%slots super))
+                   (prototype-map-keys (object-%defaults super)) (map car (object-%declarations super))))
                       (object-%precedence-list self))))
         (def defined (filter (lambda (slot) (hash-key? (object-%slot-funs self) slot)) esl))
         (set! (object-%all-slots self) defined)
