@@ -531,7 +531,8 @@ remains unknown; successful cleanup/cold admission is not a causal compiler fix
 or a universal absence-of-overflow proof. Temporary diagnostics are removed:
 normal cache admission and verbosity 3 remain the final workflow policy.
 
-The subsequent [root compiler shared-heap admission](performance/build-summary.org)
+The subsequent [root compiler shared-heap admission](performance/compiler-admission.org)
 reproduces a worker failure at the fixed heap ceiling and separates standard
 GXC frontend admission from backend capacity. That later experiment, rather than
-the earlier clean pass, motivates the bounded frontend policy.
+the earlier clean pass, motivated the historical bounded frontend policy. The report also records its
+replacement by a 2 GiB heap with standard environment-controlled concurrency.
