@@ -2776,3 +2776,19 @@ success-only publication laws. Complete paired preparation/switch/churn/workflow
 controls charge the extra allocation and guards. Automatic PIC/JIT selection,
 full-vector-only storage and arbitrary cold-module initialization remain research
 or separate acceptance boundaries. See representation.md.
+
+### Indexed persistent contribution removal
+
+Closed the full-filter/tree-rebuild path in prototype field removal. The existing
+private name tree now records every contribution ordinal while retaining its
+first replacement target. Standard persistent RBTree deletion removes only those
+ordinals; a separate monotone next ordinal prevents sparse delete/reinsert from
+overwriting surviving methods. Missing names retain the original snapshot and
+explicit compact policy still demotes at eight LIVE contributions. C3/cache
+invalidation, sealed rejection, false/Function payloads and checked Reader retry
+use the existing object engine. Finite Lean laws establish complete deletion,
+unchanged indices, ordered append/freshness and delegated primitive-work counts.
+The full/paired studies charge current index preparation, snapshot export and
+shared-service publication; they compare current supported strategies rather
+than certify previous-revision constructor costs. No replacement tree/hash or
+loader is introduced. See representation.md for premises and measured scope.

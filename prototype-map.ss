@@ -6,7 +6,7 @@
 
 ;; Entries retain contribution order, including repeated methods for one slot.
 ;; Names point to the first contribution, matching the public replacement protocol.
-(defstruct specifications (entries names count compact?))
+(defstruct specifications (entries names count next compact?))
 ;; Count contributions, not distinct names: repeated methods still occupy cells.
 ;; This bounds each compact scan/copy; larger maps retain the standard tree path.
 (def small-map-limit 8)
@@ -39,7 +39,7 @@
       (if (or (not policy) (eq? policy (prototype-map-policy entries))) entries
         (prototype-map (prototype-map-list entries) policy: policy))
       (if (and (eq? policy 'compact) (length<=n? entries small-map-limit))
-        (make-specifications (list->vector (map capture-entry entries)) #f (length entries) #t)
+        (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t)
         (tree-map entries (eq? policy 'compact))))))
 ;; The official RBTree supplies construction and persistent update. Capturing
 ;; each entry also makes promotion independent of private vector entry handles.
@@ -47,10 +47,18 @@
   (let ((ordered (RBTree -)) (names (RBTree compare-name)) (count 0))
     (for (input entries)
       (let (entry (capture-entry input))
-        (unless (rbtree-ref names (car entry) #f) (rbtree-put! names (car entry) count))
+        ;; The first ordinal remains the replacement target. Later ordinals need
+        ;; no ordering among themselves; immutable consing retains every method.
+        ;; Keep the common singleton as its ordinal, without allocating a list.
+        ;; Only actual duplicate methods require a position spine.
+        (rbtree-update! names (car entry)
+          (lambda (positions)
+            (cond ((not positions) count)
+                  ((pair? positions) (cons (car positions) (cons count (cdr positions))))
+                  (else (list positions count)))) #f)
         (rbtree-put! ordered count entry)
         (set! count (+ count 1))))
-    (make-specifications ordered names count compact?)))
+    (make-specifications ordered names count count compact?)))
 ;; Return fresh list/entry pairs so caller edits cannot corrupt retained snapshots.
 (def (prototype-map-list source)
   (for/collect ((entry (if (vector? (specifications-entries source))
@@ -67,27 +75,40 @@
       (if index
         (let (next (vector-copy entries))
           (vector-set! next index (cons name value))
-          (make-specifications next #f (specifications-count source) #t))
+          (make-specifications next #f (specifications-count source) (specifications-count source) #t))
         (let (next (vector-append entries (vector (cons name value))))
           (if (<= (vector-length next) small-map-limit)
-            (make-specifications next #f (vector-length next) #t)
+            (make-specifications next #f (vector-length next) (vector-length next) #t)
             (tree-map (vector->list next) #t)))))
-    (let (index (rbtree-ref (specifications-names source) name #f))
+    (let* ((positions (rbtree-ref (specifications-names source) name #f))
+           (index (and positions (if (pair? positions) (car positions) positions)))
+           (next (specifications-next source)))
       (make-specifications
-        (rbtree-put entries (or index (specifications-count source)) (cons name value))
+        (rbtree-put entries (or index next) (cons name value))
         (if index (specifications-names source)
-          (rbtree-put (specifications-names source) name (specifications-count source)))
-        (+ (specifications-count source) (if index 0 1)) (specifications-compact? source)))))
+          (rbtree-put (specifications-names source) name next))
+        (+ (specifications-count source) (if index 0 1))
+        (+ next (if index 0 1)) (specifications-compact? source)))))
 ;; Remove every direct contribution for a name; inherited contributions are untouched.
-;; Compact filtering reuses std/vector. Tree removal retains the existing ordered
-;; rebuild, demoting when it fits; an absent name preserves the original snapshot.
-;; No logarithmic deletion or deep-value immutability is claimed.
+;; Compact filtering reuses std/vector. Tree deletion delegates only the indexed
+;; ordinals to persistent RBTree removal; surviving ordinals are never renumbered.
+;; A monotone next ordinal prevents delete/reinsert from overwriting survivors.
+;; Explicit compact policy still demotes at eight live contributions; missing
+;; names preserve the exact snapshot. Payloads are not deeply copied.
 (def (prototype-map-remove source name)
   (def entries (specifications-entries source))
   (if (vector? entries)
     (if (small-index entries name)
       (let (next (vector-filter (lambda (entry) (not (eq? (car entry) name))) entries))
-        (make-specifications next #f (vector-length next) #t)) source)
-    (if (rbtree-ref (specifications-names source) name #f)
-      (prototype-map (filter (lambda (entry) (not (eq? (car entry) name))) (prototype-map-list source))
-        policy: (prototype-map-policy source)) source)))
+          (make-specifications next #f (vector-length next) (vector-length next) #t)) source)
+    (let (indexed (rbtree-ref (specifications-names source) name #f))
+      (if indexed
+        (let* ((positions (if (pair? indexed) indexed (list indexed)))
+               (ordered (for/fold (tree entries) (index positions) (rbtree-remove tree index)))
+               (count (- (specifications-count source) (length positions)))
+               (next (make-specifications ordered
+                       (rbtree-remove (specifications-names source) name)
+                       count (specifications-next source) (specifications-compact? source))))
+          (if (and (specifications-compact? source) (<= count small-map-limit))
+            (prototype-map (prototype-map-list next) policy: 'compact) next))
+        source))))

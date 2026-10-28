@@ -1,5 +1,5 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-offset-study)
+(export main run-offset-study run-map-study)
 (import :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract-flow checked-action)
@@ -7,6 +7,7 @@
         (only-in :clan/poo/slot-observation call-with-slot-read-observer %slot-read-active?)
         (only-in :gerbil/runtime/loader load-module)
         (prefix-in :clan/poo/examples/representation-service service.)
+        :clan/poo/prototype-map
         (only-in :clan/poo/support/base number-comparer) :clan/poo/support/option (only-in :clan/poo/fun Wrapper.) (only-in :clan/poo/trie SimpleTrie Trie. trie-for-each-change) (only-in :clan/poo/fun IdWrap)
         (only-in "closure-measure.ss" measure measure-pair median mean))
 
@@ -31,6 +32,52 @@
 (def +slot-phases+ (append '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
     slot-shape-prepare slot-shape-workflow slot-shape-change) +slot-offset-phases+))
+
+;; Compare indexed deletion against the supported complete-specification rebuild.
+;; Construction and snapshot observation are charged in the cold/full paths.
+(def +map-phases+ '(map-remove-hot map-remove-cold map-remove-miss map-remove-repeat map-remove-workflow))
+
+;; The preceding present-name strategy, using the current public representation.
+;; This deliberately omits its old initial name probe, favoring the reference.
+;; Both constructors use the current index; this is not a prior-revision cold test.
+(def (reference-map-remove source name)
+  (prototype-map (filter (lambda (entry) (not (eq? (car entry) name))) (prototype-map-list source))
+    policy: (prototype-map-policy source)))
+
+;; Existing whole-specification installation owns invalidation on the reference.
+(def (reference-object-remove source name)
+  (object-slots-set! source
+    (filter (lambda (entry) (not (eq? (car entry) name))) (object-slots source))))
+
+;; A shared source contains duplicate contributions and a false opaque payload.
+;; Complete observations remain inside timing, so removing rebuilding does not
+;; conceal export/copy work. Every retry keeps the same immutable initial root.
+(def (map-workload size scenario)
+  (def entries (append (for/collect (n (in-range size))
+    (cons (string->symbol (string-append "entry-" (number->string n))) n))
+    (list (cons 'target #f) (cons 'kept identity) (cons 'target identity))))
+  (def source (prototype-map entries))
+  (def expected (filter (lambda (entry) (not (eq? (car entry) 'target))) entries))
+  (def enter (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#removal-workflow))
+  ;; Preserve finite reinsert order across gaps instead of reusing live count.
+  (def (action remove)
+    (lambda ()
+      (case scenario
+        ((map-remove-workflow)
+          (unless (equal? (enter (list size
+                    remove: (if (eq? remove prototype-map-remove) .removeslot! reference-object-remove)))
+                   '#(54 24 30 24 54 10)) (error "map service oracle")))
+        ((map-remove-miss)
+          (unless (eq? (prototype-map-remove source 'absent) source) (error "map absent identity oracle")))
+        (else
+          (let* ((root (if (eq? scenario 'map-remove-cold) (prototype-map entries) source))
+                 (removed (remove root 'target))
+                 (result (if (eq? scenario 'map-remove-repeat)
+                   (remove (prototype-map-put removed 'target #f) 'target) removed)))
+            (unless (equal? (prototype-map-list result) expected) (error "map ordered payload oracle")))))
+      #t))
+  (values (action reference-map-remove) (action prototype-map-remove)))
 
 ;; Both sides use the production reader, evaluator, binder and standard loader.
 ;; Capacity alone differs. Preparation includes the larger record allocation;
@@ -609,7 +656,7 @@
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -623,6 +670,8 @@
              (cut order-workload n scenario))
             ((memq scenario +slot-offset-phases+)
              (cut offset-workload n scenario))
+            ((memq scenario +map-phases+)
+             (cut map-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
             ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
@@ -729,4 +778,9 @@
 ;; it never changes the complete acceptance inventory or its default entry.
 (def (run-offset-study)
   (report-study (cut run-collection-study "32" "64" "6" +slot-offset-phases+) "SLOT-OFFSET")
+  #t)
+
+;; Reuse the complete pairing, setup, GC and tail machinery at a fixed workload.
+(def (run-map-study)
+  (report-study (cut run-collection-study "64" "16" "6" +map-phases+) "MAP-REMOVE")
   #t)

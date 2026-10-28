@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow entry-workflow main joint-main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -106,6 +106,41 @@
         (let (recovered (stage 5))
           (unless (= delivered (* 3 width)) (error "service delivery count" delivered))
           (vector first revised recovered delivered))))))
+
+;; Duplicate local tariff methods, sparse deletion/reinsertion and restoration
+;; exercise the same C3/contract/Reader chain on shared descendants. The removal
+;; argument admits an existing whole-specification replacement for paired costs;
+;; production callers use .removeslot!, with no alternate cache or slot engine.
+(def (removal-workflow width remove: (remove .removeslot!) policy: (policy 'tree))
+  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0)))) (remove :~ procedure?))
+    (let* ((callback (lambda (x) (+ x 1)))
+           (auxiliary (for/collect (n (in-range width))
+             (cons (string->symbol (string-append "aux-" (number->string n))) ($constant-slot-spec n))))
+           (specs (append auxiliary
+             (list (cons 'callback ($constant-slot-spec callback)) (cons 'enabled ($constant-slot-spec #f))
+               (cons 'tariff ($constant-slot-spec 7))
+               (cons 'tariff ($computed-slot-spec (lambda (_ next) (+ 1 (next))))))))
+           (recipe (make-object supers: (list Service) slots: (prototype-map specs policy: policy)))
+           (receivers (list (.o inherit: [recipe] capacity: 2) (.o inherit: [recipe] capacity: 4)))
+           (delivered 0)
+           (action (checked-total-action (lambda (_ amount) (set! delivered (1+ delivered)) amount))))
+      ;; One shared action owns validation, static demand and consumer effects.
+      (def (observe expected)
+        (let (total (apply + (map-in-order action receivers)))
+          (unless (= total expected) (error "indexed removal service oracle" total expected)) total))
+      (def initial (object-slots recipe))
+      (observe 54)
+      (remove recipe 'tariff) (observe 24)
+      (.putslot! recipe 'tariff ($constant-slot-spec 4)) (observe 30)
+      (when (pair? auxiliary) (remove recipe (caar auxiliary)))
+      (.putslot! recipe 'tariff ($constant-slot-spec -1))
+      (let ((before delivered) (cause (with-catch identity (cut action (car receivers)))))
+        (unless (and (TypeError? cause) (= before delivered)) (error "refused removal consumer")))
+      (remove recipe 'tariff) (observe 24)
+      (object-slots-set! recipe initial) (observe 54)
+      (unless (and (= delivered 10) (eq? (.get recipe callback) callback) (not (.get recipe enabled)))
+        (error "indexed removal payload or delivery oracle"))
+      (vector 54 24 30 24 54 delivered))))
 
 ;; Three explicit runtime entries share standard initialized dependencies. Reader
 ;; bind keeps service refinement/revisions ahead of the second plugin's C3/lens

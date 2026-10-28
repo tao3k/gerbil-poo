@@ -137,3 +137,7 @@ benchmark-scc: build
 # Standard test execution of the fixed higher-resolution offset study.
 benchmark-slot-offset: build-shared
     just _test 300 benchmarks/slot-offset-test.ss
+
+# Fixed indexed-deletion study through the ordinary runner and shared producer.
+benchmark-prototype-map: build-shared
+    just _test 300 benchmarks/prototype-map-test.ss

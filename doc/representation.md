@@ -31,8 +31,9 @@ continues to belong to the standard loader. These failure policies are distinct.
 It stores ordered contributions and a first-name index. Persistent updates copy
 balanced-tree paths, preserve later same-name methods and append new names. Input
 and reflection list spines/entry pairs are owned; values and SlotSpecs are shared.
-`prototype-map-remove` removes all direct contributions for a name, rebuilding the
-order tree. There is no logarithmic removal or deep-value immutability claim.
+`prototype-map-remove` removes all direct contributions through private ordinal
+indices and standard persistent RBTree deletion. It preserves surviving order;
+there is no deep-value immutability or verified tree-balancing claim.
 
 The actual `object.ss` constructor, defaults, setters, `.putslot!`, `.putdefault!`
 and `.cc` use these snapshots. `.cc` shares unaffected tree paths and rebinds
@@ -107,7 +108,8 @@ This is source-level persistence, not deep immutability of arbitrary values.
 The limit bounds a compact scan at eight identity comparisons and a compact
 write's resulting row at nine cells, including promotion. Standard vector copying,
 `std/vector/vector` filtering and `std/struct/rbtree` perform the storage work.
-Promotion still pays tree construction; tree removal still rebuilds in order.
+Promotion still pays tree construction. Current tree deletion uses indexed
+positions; earlier rebuild measurements below describe the preceding strategy.
 There is no logarithmic removal, universal speedup or allocator/GC cost theorem.
 
 `representation-test.ss` compares 96 mixed revisions and every retained snapshot
@@ -816,3 +818,85 @@ work, but same-side controls preclude attributing it solely to capacity.
 Single-shape remains the default, and two-shape capacity
 is an explicit semantic/cost option, not a recommended automatic promotion.
 Raw samples remain outside Git; these observations are not a stable tail bound.
+
+## Sparse persistent contribution deletion
+
+The author's efficient representation discussion separates lookup indices,
+contribution order and cache invalidation. The concrete previous omission was
+`prototype-map-remove`: even one removed name rebuilt every remaining ordered
+contribution and its name index. Gerbil `std/struct/rbtree` already provides
+`rbtree-remove`, so the POO layer now supplies its existing ordinal keys directly.
+No balancing algorithm, secondary hash or module cache is implemented.
+
+The private name index stores a single ordinal directly for an ordinary field.
+Only duplicate methods need a list, with the first contribution ordinal at its
+head and every later duplicate in its tail. Construction uses immutable consing;
+first-contribution replacement keeps that head. Removal visits all indexed
+positions and removes the one name-index entry. Surviving ordinals retain their
+order and are never renumbered. Live contribution count controls compact demotion;
+a separate next ordinal controls append, including empty sparse trees. Using
+live count as a new key would overwrite an unrelated survivor after deletion.
+Old snapshots and opaque false/Function payloads retain their observations.
+
+For a present name with k contributions, the non-demoting path delegates k
+ordered removals, one name lookup and one name removal. No complete snapshot
+traversal is needed by deletion itself. This is a primitive-work bound, not a
+verified RBTree balance, pointer-sharing, integer-bit or wall-time theorem.
+Compact demotion exports at most eight remaining contributions. Missing names
+return the original map after the ordinary name lookup. Singleton preparation
+allocates no position list. Duplicate names retain one cell per contribution and
+allocate up to two new cons cells per additional contribution; singleton removal
+uses one temporary position cell. The next-ordinal field is also real metadata.
+
+`removal-workflow` composes duplicate local tariff methods, two shared consumers,
+C3 fallback after removal, sparse reinsert, static total demand, contract refusal,
+retry and whole-source restoration through the existing Reader action. The same
+workflow runs with explicit compact policy across promotion/demotion. Ordinary
+sealed-edit rejection retains a previously warmed descendant guard.
+
+`Prototype.RepresentationIndex` stays in the existing Representation namespace.
+`IndexMatches` requires complete and sound name/ordinal membership; ordinal
+freshness requires `PositionsBelow`. With these premises, indexed deletion equals
+the authoritative ordered name filter, removes every duplicate, preserves other
+indices and allows append after arbitrary gaps. Remembering another contribution
+preserves the first ordinal and adds exactly one logical position. Singleton and
+list storage normalize to the same finite index in this model. Model String
+keys denote injective symbol identities; equal-spelling uninterned controls run
+in Gerbil. Standard tree correctness and supported serialized edits are premises.
+
+The complete paired suite adds hot/cold removal, misses, remove/reinsert and full
+publication phases. `just benchmark-prototype-map` runs the same engine at width
+64, 16 repetitions and six pairs, with AB/BA, A/A/B/B, natural/collected GC and
+post-GC cold/full controls. The reference uses the supported public whole-map
+rebuild/whole-specification installation. Both strategies use the current index
+constructor, so these measurements do NOT certify an old-versus-new cold builder.
+Cold/full samples include preparation and complete snapshot observation. The
+reference omits its previous initial name probe, favoring rebuilding. All original
+checks and limits remain; samples and binaries stay outside Git.
+
+The macOS 1cfb032 receipt (width 64, 16 repetitions, six pairs) completed all five
+phases and controls. Candidate-minus-rebuild median wall microseconds per action:
+
+| Action | Natural GC | Collected |
+| --- | ---: | ---: |
+| Prepared source, delete and export | -65.59 | -68.31 |
+| Construct, delete and export | -56.00 | -53.84 |
+| Missing-name identity control | +0.007 | +0.007 |
+| Delete, reinsert, delete and export | -90.81 | -99.23 |
+| Complete shared-service publication | -122.69 | -151.63 |
+
+Every hot/cold/reinsert pair improved in both regimes. All collected workflow
+pairs improved (-296.76 to -117.50 microseconds), with zero GC CPU in measured
+batches and -152.41 microseconds median CPU. A/A ranges were -45.94 to +24.42 and
+B/B -52.36 to +79.94 microseconds. The inclusive post-GC workflow control also
+improved in every pair: median -126.40, range -200.23 to -73.42 microseconds.
+Its additive mean components were -146.66 non-GC CPU, +12.77 GC CPU and +0.91
+wall-minus-CPU microseconds, retaining forced collection and first invocation.
+
+Natural workflow tails still overlap zero (-1,616.70 to +1,482.44 microseconds),
+as do natural same-side controls near +/-1.5 milliseconds. No universal natural
+tail improvement follows. The whole command took 40.51 seconds, with 9.83 CPU;
+reported pre-study process wall/CPU were 31.16/1.70 seconds and the measured
+complete study was 7.71 wall seconds. Thus the per-action gains do not establish
+whole-command startup acceleration or explain its large pre-study wall residual.
+No raw log, versioned data file or archive is committed.
