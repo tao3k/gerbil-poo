@@ -4,7 +4,7 @@
         (only-in :clan/poo/benchmarks/metadata-paired-suite check-study expected-order)
         (only-in :clan/poo/benchmarks/metadata-paired-benchmark workload))
 ;; Synthetic admission controls only; these are never published measurements.
-;; Synthetic current-identity admission fixture, never native performance evidence.
+;; Synthetic current-identity admission fixture, never performance evidence.
 ;; Its binary identity intentionally points to a small source file used only in tests.
 (def (header)
   `(metadata-paired (scenarios ,@study.scenarios) (regimes ,@study.regimes)

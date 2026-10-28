@@ -813,7 +813,7 @@ controls. Earlier +84.156us/+60.563us results retain their historical identities
 | Existing functional lens composition and skew focus laws | `slots-lens` folds the existing `Lens.compose`; `.lens` quotes a static path; empty path is identity |
 | `fallbackTo_present`, `fallbackTo_missing` | `fallback-to` reuses the missing-method protocol; local slots, including `#f`, bypass delegate forcing |
 | `guardSlot_cycle`, `guardSlot_fresh` | Active `(receiver . slot)` stack scoped with a Gerbil parameter; `CyclicSlot` reports the repeated path without inspecting/forcing values |
-| `Examples/AlignedServices.lean` lifecycle controls | `examples/lifecycle.ss`, `t/tools/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
+| `Examples/AlignedServices.lean` lifecycle controls | `examples/lifecycle.ss`, `t/objects/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
 
 The chain uses existing Class/Type descriptors, persistent `.cc`, Lens and native
 Reader/FUN mapping; it does not add another object evaluator. Nested admission is

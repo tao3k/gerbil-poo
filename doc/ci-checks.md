@@ -59,18 +59,17 @@ to `gerbil test` in one process, then runs the complete collection paired study.
 The representation job runs the paired startup TestSuite, including both unknown
 request refusals and the runtime-loaded and linked entries.
 
-The tools job first runs the complete POO build-boundary module through
-`just test-atomic build`, enforcing its separate 90-second limit. It then runs
-the ordinary tools package; the full single-process job also remains required.
-The module directly checks POO's value/error boundary, testing-module paths and
-resource recipes. Gerbil's package CLI, make and test-runner self-tests belong
-to Gerbil's own validation. POO tests use `:std/test` without nesting another
-Gerbil build/test process or recreating dummy packages. The actual POO library
-and startup programs still build and execute through the top-level standard CLI.
+Static packaging checks run through `just check-layout` in the shared build and
+cached full acceptance. `t/tools` tests actual POO CLI/debug/metadata behavior;
+object lifecycle assertions belong to `t/objects`. There is no separate
+`tools/build` suite that launches Just or mirrors its recipe text. Gerbil owns
+CLI/make/runner validation; POO's compiler failure-drain support is imported as
+source during builds, not compiled into the runtime library.
 
-Limits remain 300 seconds per build/whole-suite stage, 90 seconds for a focused
-case, 1 GiB frontend/test heaps and 2 GiB backend heaps. Compiler tracing and
-module/case/harness markers remain visible. No checks are removed for cache hits.
+Limits remain 300 seconds per build/group stage, 90 seconds for focused checks,
+and 900 seconds for complete-suite imports plus execution. Package/test heaps
+remain 1 GiB and root/backend heaps 2 GiB. Compiler tracing and module/case/harness
+markers remain visible. All POO behavior checks run on cache hits too.
 Failures retain their actual build/test status; a queued job or a local pass is
 never reported as current-commit remote acceptance.
 

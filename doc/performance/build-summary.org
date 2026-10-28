@@ -880,6 +880,13 @@ the entire run to GC, linker CPU, or a particular operating-system service.
 The public test harness and its module/case progress remain unchanged.
 
 * POO build-boundary ownership and the focused 90-second gate
+This section records the earlier experiment. The subsequent ownership audit
+removed the infrastructure-only =t/tools/build-test.ss= suite: packaging checks
+now live in =just check-layout=, recipe-text and generic forwarding self-tests
+are retired, and compiler failure draining remains source-only build support.
+All POO behavior assertions remain; lifecycle coverage moved to =t/objects=.
+The timings below are historical and do not measure this refactor.
+
 The 2026-10-28 follow-up reproduced =just test-atomic build= reaching its original
 90-second deadline. Its outer observer reported 91.20 seconds including process
 termination. The module repeatedly nested package builds and test runners inside

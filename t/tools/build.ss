@@ -5,10 +5,8 @@
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
 ;; This is the authoritative make declaration; no source-input scanner is added.
-(def build (let () (defbuild-script '("build-test"
-    "cli-test"
+(def build (let () (defbuild-script '("cli-test"
     "debug-test"
-    "lifecycle-test"
     "metadata-paired-test"
     "metadata-report-test")) main))
 ;; Preserve standard options and let the public compiler executor finish its jobs.

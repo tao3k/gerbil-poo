@@ -1,3 +1,4 @@
+;;; Source-only build support; never a POO runtime library dependency.
 ;;; Retain compiler resource cleanup through its public API; no second scheduler.
 (export call-with-build-jobs)
 (import (only-in :gerbil/compiler execute-pending-compile-jobs!))

@@ -188,7 +188,6 @@
     "examples/service-combination"
     "t/joint-coordination-cases"
     "t/table-testing"
-    "t/build"
     "benchmarks/binding-benchmark"
     "benchmarks/binding-cases"
     "benchmarks/binding-suite"

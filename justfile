@@ -9,7 +9,18 @@ export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 test-runtime-options := "-:max-heap=1G,debug=q"
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
-build-core:
+# Packaging assertions belong to task management, not runtime TestSuites.
+check-layout:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for module in testing/type.ss testing/function.ss testing/generation-graph.ss testing/recursive-generation.ss; do test -f "$module"; done
+    for retired in property-testing.ss function-testing.ss generation-graph.ss recursive-generation.ss; do test ! -e "$retired"; done
+    test -x testing/core/build.ss
+    IFS= read -r entry < testing/core/build.ss
+    test "$entry" = '#!/usr/bin/env -S gxi -:max-heap=1G,debug=q'
+    printf 'LAYOUT-OK\n'
+
+build-core: check-layout
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
     /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build
 
@@ -80,7 +91,7 @@ test-source-file file: build-shared
 
 check width='2' samples='1' pairs='4' test-seconds='900': build (check-built width samples pairs test-seconds)
 
-check-built width='2' samples='1' pairs='4' test-seconds='900':
+check-built width='2' samples='1' pairs='4' test-seconds='900': check-layout
     just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2

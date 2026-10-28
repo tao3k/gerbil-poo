@@ -2,7 +2,7 @@
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/brace (prefix-in :clan/poo/examples/lifecycle lifecycle.))
 ;; Functional TODO controls: explicit admission, optics, lazy fallback and cycles.
 (def lifecycle-test
-  (test-suite "native object lifecycle and delegation"
+  (test-suite "object lifecycle and delegation"
     (test-case "checked constructors validate before hooks and validate replacements"
       (def hooks 0)
       (define-type (Account @ Class.)

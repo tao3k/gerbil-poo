@@ -5,7 +5,7 @@
   `(metadata-benchmarks (status complete) (sources ,@(source-digests benchmark.sources))
      (rounds ,benchmark.rounds) (phases ,@benchmark.phases) (rows ,@rows)))
 (def metadata-report-test
-  (test-suite "native metadata study admission"
+  (test-suite "metadata study admission"
     (test-case "missing duplicate stale and invalid allocation controls"
       (def rows (with-list-builder (add)
         (for* ((gc '(natural collected)) (round (in-range benchmark.rounds)) (phase benchmark.phases))

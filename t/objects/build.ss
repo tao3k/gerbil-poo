@@ -7,6 +7,7 @@
 ;; This is the authoritative make declaration; no source-input scanner is added.
 (def build (let () (defbuild-script '("inheritance-hooks-test"
     "issued-read-test"
+    "lifecycle-test"
     "mop-test"
     "object-test"
     "parameters-test"

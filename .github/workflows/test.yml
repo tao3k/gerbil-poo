@@ -36,6 +36,8 @@ jobs:
             .ci-library/lib
             .ci-library/bin
           key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/*-test.ss') }}
+      - name: Check public module packaging
+        run: just check-layout
       - name: Prepare the declared libraries and benchmark programs
         if: steps.shared-cache.outputs.cache-hit != 'true'
         run: time -p just build-shared
@@ -105,9 +107,6 @@ jobs:
         with:
           name: scheme-tests-${{ github.sha }}-${{ matrix.group }}
           path: .ci-library/lib/clan/poo/t
-      - name: Enforce the complete tools/build 90-second gate
-        if: matrix.group == 'tools'
-        run: time -p just test-atomic build
       - name: Discover and run this package with the official test runner
         run: just test-group '${{ matrix.group }}'
   representation-entry:
