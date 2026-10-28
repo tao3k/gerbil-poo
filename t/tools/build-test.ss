@@ -30,6 +30,9 @@
     (test-case "public check recipes retain the standard entry and resource limits"
       ;; Dry-run POO's recipe only; this does not launch another build or test.
       (def output (run-process '("just" "--dry-run" "check-built" "2" "1" "4") stderr-redirection: #t))
-      (check (string-contains output "_test 300") ? integer?)
+      (check (string-contains output "_test 900") ? integer?)
       (check (string-contains output "_run-collections") ? integer?)
-      (check (string-contains output "gxi") => #f))))
+      (check (string-contains output "gxi") => #f)
+      (def bounded (run-process '("just" "--dry-run" "check-built" "2" "1" "4" "300") stderr-redirection: #t))
+      (check (string-contains bounded "_test 300") ? integer?)
+      (check (string-contains bounded "_run-generators") ? integer?))))

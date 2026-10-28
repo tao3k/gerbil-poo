@@ -45,8 +45,10 @@ build: build-shared
 build-group group:
     cd "t/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
 
-test: build
-    just _test 300 "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+# Complete-suite time includes gxtest's eager import of every declared module.
+# Keep this explicit at the CLI; compilation, focused tests and heaps keep their bounds.
+test test-seconds='900': build
+    just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
 
 test-file file:
     just _test 90 "$1"
@@ -76,10 +78,10 @@ _test max-seconds +targets:
 test-source-file file: build-shared
     just _test 90 "$1"
 
-check width='2' samples='1' pairs='4': build (check-built width samples pairs)
+check width='2' samples='1' pairs='4' test-seconds='900': build (check-built width samples pairs test-seconds)
 
-check-built width='2' samples='1' pairs='4':
-    just _test 300 "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+check-built width='2' samples='1' pairs='4' test-seconds='900':
+    just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2
 

@@ -1,6 +1,103 @@
-#+title: Bounded single-process test loading
+#+title: Standard CLI complete-suite loading
 
-* Scope and unchanged acceptance
+* Current protocol, 2026-10-28
+
+=gerbil test -v 5= remains the only test entry. There is no POO test executable,
+export parser, alternative runner or load-path layer. The complete current
+inventory is 150 modules and 1896 cases. Ordinary compiler setup and the release
+binary are unchanged; Scheme does not depend on a Lean checkout.
+
+The user authorized a larger complete-suite observation/completion budget after
+an actual 300-SECOND timeout. This was not a 300-millisecond limit. =just test=,
+=just check= and =just check-built= now expose an optional =test-seconds= argument,
+defaulting to 900 seconds. =just check-built 2 1 4 300= retains the previous
+complete 300-second control. Every module and both paired studies still run.
+Focused tests remain 90 seconds; package/group builds and group tests remain
+300 seconds. Test heaps remain 1 GiB, root builds 2 GiB, and TERM/KILL process
+group cleanup is unchanged. Only the single-process CI job gets twenty minutes,
+allowing artifact setup, the complete test and paired studies around the bounded
+suite. This budget change is completion headroom, not a speedup claim.
+
+* Concurrency and the observed preparation boundary
+
+The current machine reports twelve physical and twelve logical cores. The
+existing =GERBIL_BUILD_CORES= export resolves to twelve unless supplied by the
+caller. Standard compilation consumes it; the installed October 9 macOS SDK's
+=gxtest= CLI does not expose =--jobs= and its =prepare-harness= uses a serial
+=for/fold= calling =prepare-module= for every file. Each call imports its module,
+resolves exports and evaluates the suite bindings before =test-run!= begins.
+Consequently no =HARNESS= or =CASE= line is promised during this preparation.
+Passing compiler concurrency does not make this loop parallel. This statement
+is about the installed compiled SDK, not all newer Gerbil sources or releases.
+
+Source inspection also finds the standard runtime module-state cache; no second
+POO loader cache is introduced. A live loaded-image snapshot included 905
+compiled =.oN= files, 443 from project modules, with no same basename mapped at
+multiple generations. This is not a count of repeated module-body evaluations;
+phase-split files are distinct images. Samples in both restricted and ordinary
+processes concentrated in =dyld -> dlopen -> mapSegments -> fcntl=. They do not
+identify a specific kernel fcntl command or prove every wait has that cause.
+Apple's [[https://github.com/apple-oss-distributions/dyld/blob/main/dyld/Loader.cpp][loader source]] places code-signature and library-validation operations
+in this path; no system validation/security setting is changed.
+
+* Current controls and admission boundaries
+
+All controls use the same installed Gerbil/Gambit binaries, checked by SHA-256,
+and copies of the same compiled library. Only the POO resource-policy assertion
+was rebuilt when changing the published deadline. APFS cloning creates fresh
+paths/inodes without purging global disk, signature or SDK caches. Runs are
+sequential controls, not randomized causal attribution or worst-case bounds.
+System =awk/date= observes stdout boundary times outside the project; it does not
+construct suites, alter discovery or replace Gerbil's assertions/cleanup.
+
+| Control | Observed wall seconds | User / system CPU seconds | Outcome |
+|---------+-----------------------+---------------------------+---------|
+| prior complete 300-second run | 304.24 | 6.67 / 1.33 | exit 124 before harness output |
+| fresh /tmp path, restricted process, 600-second control | 398.04 | 63.36 / 7.17 | 150 modules, 1896 cases, HARNESS-OK and OK; outer RSS observer refused |
+| fresh /tmp path, ordinary process, 600-second control | 600.04 | 56.43 / 5.56 | all markers reached, then exit 124 at process deadline |
+
+The restricted control's extra =time -l= observer failed to read =sysctl= and
+returned nonzero; its marker success is not promoted to clean external admission.
+Subsequent controls use ordinary =time -p=. The ordinary /tmp control observed
+about 517 seconds before =HARNESS= and 79 seconds between =HARNESS= and
+=HARNESS-OK=. Even after =OK=, the process deadline is authoritative: that run
+was refused, not declared passed. The data rule out explaining the original
+304-second wait by its eight seconds of total CPU, but GC was not separately
+instrumented, so no exact whole-run GC fraction is claimed. An ordinary process
+also reproduced the mapping wait, so the tool sandbox alone is not an adequate
+explanation.
+
+A fresh project-local APFS path completed normally under the final budget:
+306.17 seconds for the standard test command and 307.81 seconds for the external
+observer, user/system CPU 56.32/5.78 seconds. Its observed preparation interval
+was about 236 seconds and harness execution 64 seconds; about six more seconds
+remained before command completion. All 150 modules, 1896 cases, HARNESS-OK and
+OK were present, with external exit zero. This one run already exceeds 300
+seconds, without demonstrating a functional regression or infinite evaluation.
+Comparing it to the /tmp control changes both path and order/cache history, so
+it does NOT isolate a unique path-related cause or establish a speedup.
+
+The exact role of each kernel verification wait remains an upstream SDK/OS
+investigation. The evidence supports reducing the standard CLI's eager
+export-discovery/import cost, and checking released SDK support for isolated
+parallel tests, while retaining the additional shared-state complete check.
+The older linked wrapper is not restored, no POO resolver parses interfaces,
+and no security/library-validation policy is disabled. A larger deadline alone
+is not a performance repair.
+
+The existing-path complete check also retains both paired studies; its full
+completion is admitted separately from the fresh-path test-only control. Raw logs,
+stack samples, downloaded inspection material and cloned products stay outside
+Git. A larger deadline must never turn a killed process or missing normal exit
+into an acceptance receipt.
+
+* Historical prelinked experiment, 123-module inventory
+
+The following receipts describe an older experiment. Its linked test entry was
+subsequently removed when the project unified on =gerbil test=. These historical
+numbers do not describe the active CLI or establish a current regression.
+
+** Scope and unchanged acceptance
 The complete suite still contains 123 modules and runs through the released
 Gerbil gxtest harness in one test process. Export discovery, setup/cleanup,
 module/case order, assertions and failure status remain owned by that harness.
@@ -9,7 +106,7 @@ Compilation remains parallel through std/make and GERBIL_BUILD_CORES; independen
 CI semantic jobs remain parallel. This additional single-process gate detects
 state retained between modules, which isolated module processes cannot check.
 
-* Diagnosis on macOS
+** Diagnosis on macOS
 The same compiled baseline passed in two separate processes with these counters:
 
 | Control | Harness wall seconds | Process CPU seconds | GC CPU seconds | Collections |
@@ -25,7 +122,7 @@ mapSegments/fcntl path under dlopen. The elapsed difference is not explained by
 GC CPU and does not establish a repeated-validation defect. These are fresh-path
 controls, not global disk-cache purges or randomized performance trials.
 
-* Standard executable and launch
+** Standard executable and launch
 The test-only executable imports runtime library roots from the existing build
 specification. Compiled interfaces identify macro-only roots without expanding
 all library sources. Gerbil's standard executable linker prelinks 90 shared
@@ -48,7 +145,7 @@ complete run through the standard launcher took 103.80 seconds, with all 123
 MODULE-OK records and the original HARNESS-OK / OK result. Root loading summed
 to 11.075 seconds. This warm run is not evidence of a cold-start speedup.
 
-* Rejected routes and retained costs
+** Rejected routes and retained costs
 Linking all test bodies took 298.173 seconds in one successful link; that route
 was rejected because first-build cost approached the existing stage deadline.
 A separate test-export harness was also rejected after a 305.67-second killed
@@ -63,7 +160,7 @@ added to the package. Raw logs, samples, binaries and full payloads remain outsi
 version control. First build, incremental build, launcher startup and execution
 must be reported separately; a lower allocation count alone is not a speed claim.
 
-* Current-source acceptance
+** Current-source acceptance
 After rebuilding the modified runner and build tests, the shared-root relink
 completed in 74.58 seconds (68.933 seconds inside its build stage). All compiler
 settings and the twelve-worker std/make budget were unchanged.
