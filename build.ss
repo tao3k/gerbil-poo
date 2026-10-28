@@ -153,6 +153,7 @@
     "examples/collection-properties"
     "examples/property-kernel"
     "examples/property-workflows"
+    "examples/property-refusals"
     "examples/generated-batches"
     "examples/recursive-trees"
     "examples/inherited-services"

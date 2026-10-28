@@ -1,6 +1,7 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
 (export property-testing-test property-kernel-test property-workflows-test generated-batches-test)
-(import (prefix-in :clan/property-testing/generator core.)
+(import (prefix-in :clan/property-testing/test assertion.)
+        (prefix-in :clan/property-testing/generator core.)
         (prefix-in :clan/property-testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
@@ -25,13 +26,13 @@
   (call-with-temporary-directory "property-library-" (lambda (project)
     (for-each (lambda (file)
       (copy-file (path-expand (string-append "testing/core/" file) source-root)
-        (path-expand file project))) '("generator.ss" "property.ss" "model.ss" "replay.ss" "build.ss" "gerbil.pkg"))
+        (path-expand file project))) '("generator.ss" "property.ss" "model.ss" "replay.ss" "test.ss" "build.ss" "gerbil.pkg"))
     (create-directory* (path-expand "examples" project))
     (copy-file (path-expand "examples/property-kernel.ss" source-root)
       (path-expand "examples/property-kernel.ss" project))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
-        (defbuild-script '("generator" "property" "model" "replay" "examples/property-kernel"))))
+        (defbuild-script '("generator" "property" "model" "replay" "test" "examples/property-kernel"))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))
@@ -61,15 +62,29 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 22)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 24)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 22 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 24 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "typed reports use the standard assertion and existing source guard"
+      (assertion.check-property
+        (check-property (Tuple Integer UInt) (lambda (row) (= (vector-length row) 2)) cases: 5)
+        diagnostics: report-diagnostics)
+      (def source (.o epoch: 0))
+      (def passed (check-property Integer positive? sampler: (fixed-integer 1 core.integer-shrinks)
+        dependencies: (list source) cases: 1))
+      (.set! source epoch 1)
+      (check-eq? (cdr (assq 'status (report-diagnostics passed))) 'stale)
+      (def cause (cons 'type 'preparation))
+      (define-type Refused (.cc Type. .element?: exact-integer? .generator: (lambda () (raise cause))))
+      (def refused (check-property Refused positive? cases: 1))
+      (check-eq? (cdr (assq 'phase (report-diagnostics refused))) 'preparation)
+      (check-eq? (cdr (assq 'cause (report-diagnostics refused))) cause))
     (test-case "finite Function values retain typed wrapping and coverage policies"
       (def signature (Function [(Exactly 1)] [Integer Integer]
         keywords: (list (cons scale: (Exactly 2))) required-keywords: [scale:]))

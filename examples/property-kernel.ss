@@ -1,6 +1,6 @@
 ;;; Independent-library examples: standard Gerbil plus the generic testing modules.
 (export property-kernel-test)
-(import :std/test :std/error :std/iter (only-in :std/list/list take drop)
+(import (prefix-in :clan/property-testing/test assertion.) :std/test :std/error :std/iter (only-in :std/list/list take drop)
         (prefix-in :clan/property-testing/generator generator.)
         (prefix-in :clan/property-testing/property property.)
         (prefix-in :clan/property-testing/model model.))
@@ -27,10 +27,35 @@
   (check-equal? (property.report-counterexample right) (property.report-counterexample left))
   (check-equal? (property.report-attempts right) (property.report-attempts left)))
 
-;; This suite can be copied with testing/core/{generator,property,model}.ss into a
+;; A standard named property can bind later draws to earlier generated arguments.
+(def signed-domain (property.make-specification exact-integer? abs))
+;; Fixed domains are prepared once; dependent generation uses the existing bind tree.
+(assertion.define-property balanced-arguments
+  ((left (generator.make-generator (lambda (random size) (- (random (1+ (* 2 size))) size))
+          generator.integer-shrinks) signed-domain)
+   (right (generator.generator-unit (- left)) signed-domain))
+  (= (+ left right) 0))
+;; Names that coincide with implementation temporaries remain ordinary user bindings.
+(assertion.define-property shadowed-arguments
+  ((options (generator.generator-unit 2) signed-domain)
+   (domain (generator.generator-unit (1+ options)) signed-domain)
+   (report (generator.generator-unit (+ options domain)) signed-domain))
+  (= report (+ options domain)))
+;; This suite can be copied with testing/core/{generator,property,model,test}.ss into a
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
+    (test-case "standard checks evaluate report and formatter exactly once"
+      (def reports 0) (def formats 0)
+      (assertion.check-property
+        (begin (set! reports (1+ reports))
+          (property.check-property (generator.generator-unit 1) positive? signed-domain cases: 1))
+        diagnostics: (lambda (report) (set! formats (1+ formats)) (property.report-diagnostics report)))
+      (check-equal? (list reports formats) '(1 1)))
+    (test-case "named dependent arguments register ordinary standard checks"
+      (balanced-arguments seed: 42 cases: 20 size: 8)
+      (balanced-arguments seed: 7 cases: 5 size: 0)
+      (shadowed-arguments seed: 3 cases: 2))
     (test-case "weighted choices capture their table and refuse malformed configurations"
       (def weights (list (cons 0 (generator.generator-unit 'unreachable))
                          (cons 4 (generator.generator-unit 'selected))))

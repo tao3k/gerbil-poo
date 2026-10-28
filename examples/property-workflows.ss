@@ -2,6 +2,7 @@
 (export property-workflows-test main)
 (import :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines)
+        (prefix-in :clan/property-testing/test assertion.)
         (prefix-in :clan/property-testing/generator g.)
         (prefix-in :clan/property-testing/property p.)
         (prefix-in :clan/property-testing/replay r.))
@@ -20,8 +21,49 @@
 ;; Named syntax expands into the existing runner, preserving property identity.
 (p.define-property (named-ledger value) (g.generator-unit 2) integer-domain (< value 3))
 ;; One workflow owns source revisions, so stale generators and retained functions agree.
+;; Exercise PBT failure propagation through the official CLI and the existing
+;; Just admission guard. The fixture tests this library's checks, not Gerbil recipes.
+(def (check-standard-refusals)
+  (def fixture (path-expand "lib/clan/poo/examples/property-refusals.ssi" (getenv "GERBIL_PATH")))
+  (def timeout (car (run-process '("sh" "-c" "command -v gtimeout || command -v timeout")
+    coprocess: read-all-as-lines)))
+  (def exit-status #f)
+  (def lines (run-process (list timeout "--signal=TERM" "--kill-after=3s" "90s" "just" "test-file" fixture)
+    stderr-redirection: #t coprocess: read-all-as-lines
+    check-status: (lambda (status _settings) (set! exit-status status))))
+  ;; A completed refusal is guard exit 1 or gxtest exit 42, in POSIX wait format.
+  ;; Timeout, spawn refusal and signal termination cannot satisfy this control.
+  (check (and (memv exit-status '(#x100 #x2a00)) #t) => #t)
+  (unless (= (length (filter (cut string-prefix? "CASE " <>) lines)) 6)
+    (error "PBT refusal fixture did not execute all six cases" lines))
+  (check-equal? (filter (cut string-prefix? "CASE-OK " <>) lines) [])
+  (check-equal? (filter (cut string=? "OK" <>) lines) [])
+  (def text (string-join lines "\n"))
+  (for (detail '("status . failed" "status . coverage" "status . exhausted" "status . stale"
+                "status . error" "status . unsupported" "left . 4" "right . 5"
+                "left . 1" "right . 2" "minimal? . #t" "seed . 42" "property-refusals.ss\"@"))
+    (check (string-contains text detail) ? integer?)))
+;; Ordinary suites combine the new assertion path with the existing report API.
 (def property-workflows-test
   (test-suite "coverage portable replay and finite functions"
+    (test-case "non-passing property checks refuse the public test entry"
+      (check-standard-refusals))
+    (test-case "diagnostics retain binding names cause identity and source admission"
+      (def cause (cons 'original 'cause))
+      (def failed (p.check-property (g.generator-unit 2) (lambda (_) (raise cause)) integer-domain cases: 1))
+      (check-eq? (cdr (assq 'cause (p.report-diagnostics failed))) cause)
+      (def live #t)
+      (def passed (p.check-property (g.make-generator (lambda (_random _size) 2) (lambda (_) [])
+        current?: (lambda () live)) positive? integer-domain cases: 1))
+      (set! live #f)
+      (check-eq? (p.report-status passed) 'passed)
+      (check-eq? (cdr (assq 'status (p.report-diagnostics passed))) 'stale)
+      (def product (p.make-product-specification (list integer-domain integer-domain)))
+      (check-eq? (p.report-status (p.check-property (g.generator-unit '(1 2))
+        (lambda (_) #t) product cases: 1)) 'passed)
+      (check-eq? (p.report-status (p.check-property (g.generator-unit '(1 2 3))
+        (lambda (_) #t) product cases: 1)) 'error)
+      (check-exception (p.report-diagnostics passed bindings: '(same same)) Error?))
     (test-case "effective trials classify once and reject unmet coverage"
       (def policy (p.make-policy name: 'ledger
         labels: (lambda (value) (if (even? value) '(even even) '(odd))) required: '((even . 3))))

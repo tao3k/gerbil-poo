@@ -3,7 +3,7 @@
         report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
-        make-policy policy?)
+        make-policy policy? make-product-specification report-current? report-diagnostics)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
         (only-in ./generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
@@ -68,6 +68,41 @@
 ;; Domain rejection is separate from an exception and from a false property.
 (def (accepts? specification value)
   (boolean-result ((domain-accept specification) value) "domain predicate must return a boolean"))
+;; Products share the existing domain/measure/currentness gates; domains are fixed
+;; for one check while dependent generator branches retain their own provenance.
+(def (make-product-specification specifications)
+  (unless (and (list? specifications) (every specification? specifications))
+    (error "product specifications required"))
+  (def domains (map identity specifications))
+  (make-specification
+    (lambda (values) (and (list? values) (= (length values) (length domains))
+      (andmap (lambda (domain value) (accepts? domain value)) domains values)))
+    (lambda (values) (apply + (map weight domains values)))
+    current?: (lambda () (every (lambda (domain) (live? (domain-current domain))) domains))))
+;; Delayed assertions cannot reuse a formerly passing report after its sources change.
+(def (report-current? report)
+  (unless (report? report) (error "property report required"))
+  (and (live? (report-size-current report))
+    (current? (report-specification report) (report-generator report) (report-sources report))))
+;; Labels belong to one generated row; preserve a malformed/absent row as data.
+(def (argument-bindings names value)
+  (def row (if (vector? value) (vector->list value) value))
+  (if (and (pair? names) (list? row) (= (length names) (length row))) (map cons names row) value))
+;; Pure diagnostics contain no generator/property closures. Original exception
+;; identity is retained as data; only a passing report requires fresh admission.
+(def (report-diagnostics report bindings: (names []))
+  (unless (and (report? report) (list? names) (every symbol? names)
+    (= (length names) (length (delete-duplicates/hash names)))) (error "invalid property diagnostics"))
+  (def status (report-status report))
+  (when (and (eq? status 'passed) (not (report-current? report))) (set! status 'stale))
+  (list (cons 'status status) (cons 'property (report-name report))
+    (cons 'seed (report-seed report)) (cons 'trial (report-trial report))
+    (cons 'trial-size (report-trial-size report)) (cons 'accepted (report-accepted report))
+    (cons 'discarded (report-discarded report)) (cons 'labels (report-labels report))
+    (cons 'original (argument-bindings names (report-original report)))
+    (cons 'counterexample (argument-bindings names (report-counterexample report)))
+    (cons 'attempts (report-attempts report)) (cons 'steps (report-steps report))
+    (cons 'minimal? (report-minimal? report)) (cons 'cause (report-cause report))))
 ;; One invocation owns the latest confirmed witness and consumed proposals.
 ;; A callback error never installs its in-flight candidate as a false witness.
 (defstruct progress (best attempts steps) final: #t)

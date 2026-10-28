@@ -10,12 +10,14 @@
 The generic library is organized by Gerbil modules, with direct imports rather
 than an `api.ss` forwarding module. The generic sources form a standard subproject at `testing/core/`, with
 `gerbil.pkg` declaring `clan/property-testing` and `defbuild-script` compiling
-its three modules. POO imports them directly by their module identifiers.
+its declared generator, property, model, replay and test modules. POO imports them directly by their module identifiers.
 
 | Module | Responsibility | Dependencies |
 | --- | --- | --- |
 | `testing/core/generator.ss` | Invocation-local random sources, unit/map/bind/sequence, lazy value-and-shrink provenance | Gerbil standard library |
 | `testing/core/property.ss` | Explicit domain specifications, finite checks, bounded child consumption, reports and both replay forms | Generic generator module and standard library |
+| `testing/core/test.ss` | Standard check registration, named argument binding and source-aware diagnostics | Generic property/generator modules and :std/test |
+| `testing/core/replay.ss` | Bounded portable witness data with explicit codec identity | Generic property/generator modules and standard ports |
 | `testing/core/model.ss` | Pure model folds, dependency retirement, bounded trace draw, scoped first-difference comparison | Gerbil standard library |
 | `testing/type.ss` | Type-driven derivation, Record contracts, bounded membership, POO source observations, typed reports and Reader/FUN actions | POO and generic modules |
 | `testing/function.ss` | FunctionArguments derivation from checked signatures | POO function/signature modules and testing/type |
@@ -807,3 +809,46 @@ latter validates finite row count, unique rows and tuple shape before restoring 
 value. The existing collection scenario suite uses per-run operation coverage on
 both RationalDict and Trie and replays reduced logical command data through fresh
 scoped fixtures after serialization.
+
+## Next acceptance units after finite P1-P3
+
+### P4: standard test integration and named multi-argument properties
+
+Implemented in `testing/core/test.ss` through the installed Gerbil `do-check!`,
+`test-check!` and TestError protocol. Report APIs remain data APIs. The separate
+assertion module owns standard check registration, caller location and named
+binding diagnostics; it does not execute another property runner. Every status
+other than a currently valid `passed` is a standard test failure with the original
+PBT status and cause retained. No error/refusal is rewritten as falsification.
+
+Named argument syntax lowers directly to existing generator bind and a fixed
+product specification. Shape/domain admission, measure sums and source guards
+reuse existing boundaries. Generator branches may depend on earlier values;
+per-value domain inference is outside this interface. The POO report projection
+lives in `testing/type.ss` and handles both full execution and preparation refusal.
+
+Acceptance includes one-time evaluation, dependent generation, macro hygiene,
+wrong product shape, delayed source invalidation, original cause identity,
+independent stdlib-only compilation, and six intentionally failing properties
+in the ordinary `examples/property-refusals.ss` module under the standard CLI
+plus the existing Just admission guard. No Scheme fixture source is generated. The current SDK's
+CLI can return zero despite ERROR HARNESS; the test does not confuse that with
+TestResult success or claim to repair the compiler/CLI in POO. Lean proves check
+admission, preservation of non-passing status/cause/arguments, and fixed product
+domain soundness and row length. It does not certify operating-system exit status.
+
+### P5: reusable data generation families
+
+Planned: compose character, byte, string and symbol families from the existing
+algebra and standard representations, then let POO scalar derivation reuse them.
+Current automatic String generation covers lowercase ASCII only. Explicitly name
+character domains and boundary policies; preserve shrinking membership, size and
+replay. Do not turn arbitrary descriptor obligations into Any or hidden retries.
+
+### P6: bounded generator and shrink diagnostics
+
+Planned: bounded sample/shrink inspection using the same owned random source,
+lazy sample trees and proposal accounting. Show distribution, admission refusals
+and shrink paths without running a second test engine or inflating property
+coverage. Keep global minimality and arbitrary callback termination outside the
+finite protocol's claims.

@@ -181,3 +181,58 @@ generator algebra to derive a sampler for a POO Function descriptor. Calls outsi
 those rows refuse. Multi-value and keyword calls use Gerbil's ordinary call path;
 there is no generated evaluator or second argument parser. See the executable
 [property workflows](../examples/property-workflows.ss) and the PBT RFC for bounds.
+
+## Standard TestSuite assertions and named arguments
+
+Import the report API and the standard assertion module separately:
+
+```scheme
+(export balance-test)
+(import :std/test
+        (prefix-in :clan/property-testing/generator generator.)
+        (prefix-in :clan/property-testing/property property.)
+        (only-in :clan/property-testing/test define-property check-property))
+;; The application owns its finite domain and decreasing measure.
+(def domain (property.make-specification exact-integer? abs))
+;; Later draws may depend on earlier arguments; fixed domains are prepared once.
+(define-property balanced
+  ((left (generator.make-generator
+           (lambda (random size) (- (random (1+ (* 2 size))) size))
+           generator.integer-shrinks) domain)
+   (right (generator.generator-unit (- left)) domain))
+  (= (+ left right) 0))
+;; Standard Gerbil discovery and TestCase failure propagation remain unchanged.
+(def balance-test
+  (test-suite "balanced amounts"
+    (test-case "dependent arguments" (balanced seed: 42 cases: 100 size: 20))))
+```
+
+`property.check-property` returns data for inspection, shrinking and replay.
+The `check-property` macro exported by `:clan/property-testing/test` instead
+registers one ordinary `:std/test` check. It evaluates its report and diagnostics
+formatter once, preserves the caller location through `do-check!`, and raises a
+standard TestError for every non-passing outcome. Diagnostics retain status,
+property name, seed, trial/size, effective counts, labels, named original/reduced
+arguments, shrink accounting and original cause identity. A previously passing
+report is refused if its captured sources are no longer current.
+
+For an existing report, use `(check-property report)`. For a POO report, import
+`report-diagnostics` from `:clan/poo/testing/type` and use
+`(check-property typed-report diagnostics: report-diagnostics)`. This also handles
+Type/generator preparation refusals with no generic execution report. The generic
+library imports no POO module; the POO projection adds no test-runner dependency.
+
+Property bodies return strict Booleans. An exception from a body, including a
+nested standard assertion, is an error rather than a generated falsification;
+keep assertions around the returned report or use the named Boolean property.
+Specifications are fixed within a check, while generator expressions can depend
+on earlier arguments. This is not unrestricted dependent-type inference.
+
+The installed compiled Gerbil CLI can print `ERROR HARNESS` while returning zero
+(the dispatcher does not propagate the tool's numeric result). The standard
+TestResult still records the failure. This repository's existing Just admission
+requires case/harness success and rejects ERROR markers; downstream CI must use
+an entry that preserves those checks until its Gerbil release propagates failure
+status. The ordinary `examples/property-refusals.ss` module verifies all six PBT failure categories
+through the same public entry. It is invoked explicitly by the positive workflow
+suite; no temporary Scheme source, custom runner or fixture lifecycle is generated.

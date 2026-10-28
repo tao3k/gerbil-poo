@@ -1,5 +1,5 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
         ../object ../mop (only-in ../type String Exactly. Enum. List Record OrFalse)
         ./generation-graph ./recursive-generation ../support/option
@@ -215,6 +215,14 @@
     original: (testing.report-original execution) counterexample: (testing.report-counterexample execution)
     attempts: (testing.report-attempts execution) steps: (testing.report-steps execution)
     minimal?: (testing.report-minimal? execution) cause: (testing.report-cause execution) execution: execution))
+;; Standard test integration consumes the same generic report when preparation
+;; succeeded. Early Type/generator refusals retain their own cause and phase.
+(def (report-diagnostics report bindings: (names []))
+  (def execution (.get report execution))
+  (if execution (testing.report-diagnostics execution bindings: names)
+    (list (cons 'status (.get report status)) (cons 'property (.get report name))
+      (cons 'phase 'preparation) (cons 'seed (.get report seed))
+      (cons 'trial (.get report trial)) (cons 'cause (.get report cause)))))
 ;; Seeded replay delegates to the independent kernel's captured provenance.
 (def (replay-property report)
   (unless (.get report replayable?) (error "property report has no replayable generator"))
