@@ -2,8 +2,8 @@
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
         prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
-        (only-in :std/vector/vector vector-filter)
-        (only-in :std/list/list length<=n? foldr delete-duplicates/hash))
+        (only-in :std/vector/vector vector-filter vector-fold-right/index)
+        (only-in :std/list/list length<=n? delete-duplicates/hash))
 
 ;; Entries retain contribution order, including repeated methods for one slot.
 ;; Names point to the first contribution, matching the public replacement protocol.
@@ -105,9 +105,16 @@
 (def (prototype-map-filter source keep?)
   (using (keep? :~ procedure?)
     (def retained 0)
-    (def entries (foldr (lambda (entry rest)
+    ;; Fold private storage directly: the predicate receives only name/payload,
+    ;; and partial reconstruction captures pairs before any result can escape.
+    (def (keep-entry entry rest)
       (if (keep? (car entry) (cdr entry))
-        (begin (set! retained (1+ retained)) (cons entry rest)) rest)) [] (prototype-map-list source)))
+        (begin (set! retained (1+ retained)) (cons entry rest)) rest))
+    (def storage (specifications-entries source))
+    (def entries
+      (if (vector? storage)
+        (vector-fold-right/index (lambda (_index rest entry) (keep-entry entry rest)) [] storage)
+        (rbtree-foldr (lambda (_ordinal entry rest) (keep-entry entry rest)) [] storage)))
     (if (= retained (specifications-count source)) source
       (prototype-map entries policy: (prototype-map-policy source)))))
 ;; Delegate ordered traversal to the existing compact vector or standard RBTree.

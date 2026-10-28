@@ -143,8 +143,8 @@
 ;; Cold and single cases pay metadata construction/index preparation. Hot/missing
 ;; and observed controls retain their own explicit setup. Full module workflows
 ;; include every initial descriptor, refinement, consumer and revision/refusal/retry.
-(def +declaration-phases+ '(declaration-directory declaration-visibility declaration-visibility-mixed
-  declaration-empty declaration-single declaration-cold declaration-hot-single
+(def +declaration-phases+ '(declaration-directory declaration-visibility declaration-visibility-mixed declaration-private-filter
+  declaration-construction declaration-empty declaration-single declaration-cold declaration-hot-single
   declaration-hot declaration-missing declaration-observed declaration-workflow))
 ;; Compare indexed public access with safe scan selection on the same admitted
 ;; receiver and through identical Slot checks. Reflection outputs remain owned.
@@ -172,6 +172,13 @@
       (case scenario
         ((declaration-empty)
           (unless (equal? (reflect (make-object)) []) (error "empty reflection oracle")))
+        ((declaration-construction)
+          ;; Both sides construct and instantiate the same fresh descriptor graph.
+          ;; This A/A phase exposes shared preparation/GC noise, not query savings.
+          (let (candidate (fresh))
+            (instantiate-object! candidate)
+            (unless (= (prototype-map-length (object-%declarations candidate)) size)
+              (error "declaration construction oracle"))))
         ((declaration-single declaration-cold)
           (unless (= (read (fresh) name) (1- size)) (error "cold declaration oracle")))
         ((declaration-hot-single declaration-hot)
@@ -201,6 +208,16 @@
   (prototype-map (foldr (lambda (entry rest)
     (if (.@ (cdr entry) hidden) rest (cons entry rest))) []
     (prototype-map-list source)) policy: (prototype-map-policy source)))
+;; Previous all-pass-sharing filter, retained only as an attribution control.
+;; It exports private input first; both sides retain the same final-root shortcut.
+(def (snapshot-visibility source keep?)
+  (using (keep? :~ procedure?)
+    (def retained 0)
+    (def entries (foldr (lambda (entry rest)
+      (if (keep? (car entry) (cdr entry))
+        (begin (set! retained (1+ retained)) (cons entry rest)) rest)) [] (prototype-map-list source)))
+    (if (= retained (prototype-map-length source)) source
+      (prototype-map entries policy: (prototype-map-policy source)))))
 ;; Separate directory/index building from current visibility reads. Both sides
 ;; pay the same result oracle. Main cold/workflow phases still charge everything.
 (def (declaration-preparation-workload size scenario)
@@ -219,7 +236,8 @@
       (let (result (if (eq? scenario 'declaration-directory)
         (if direct? (prototype-map-merge-first sources policy: 'compact) (materialized-directory sources))
         (if direct? (prototype-map-filter source (lambda (_name descriptor) (not (.@ descriptor hidden))))
-          (materialized-visibility source))))
+          (if (eq? scenario 'declaration-private-filter) (snapshot-visibility source (lambda (_name descriptor) (not (.@ descriptor hidden))))
+            (materialized-visibility source)))))
         (unless (= (prototype-map-length result) expected) (error "declaration preparation oracle"))
         #t)))
   (values (action #f) (action #t)))

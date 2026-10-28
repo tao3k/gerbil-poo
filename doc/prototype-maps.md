@@ -419,3 +419,94 @@ whole `check-built 2 1 4` **236.61 s**. The additional upstream case checks the
 independent build entry. Per-phase deadlines, frontend/backend heap limits and
 full inventory are unchanged. Focused source proofs/examples pass at 1 GiB/two
 threads; complete Lean gate and exact-head remote CI are separate evidence.
+
+
+### Private reverse-fold visibility preparation
+
+The author's `poof.scrbl` representation section (980–1031) distinguishes shared
+persistent dictionaries from repeated superclass evaluation. Its cache-invalidation
+section (1527–1553) makes purity/explicit invalidation a premise, rather than a
+guarantee for arbitrary side effects. This implementation retains that boundary:
+receiver revisions invalidate both declaration directories, observed queries
+still deliver ordered reads, and concrete Type admission runs on every call.
+
+The remaining visibility preparation exported a complete owned snapshot before
+filtering, even when the all-pass result reused its original root. Filtering now
+uses the installed standard `rbtree-foldr` or `vector-fold-right/index` directly.
+Callbacks receive only names and payloads; private pairs never cross the callback
+boundary. Partial results go through the existing capturing constructor, while
+public `prototype-map-list` results remain independently owned. No new cache,
+registry, layout field or namespace is added. The retained result spine and
+partial reconstruction are still real costs; only the input spine/pair export
+is eliminated. Right-to-left callback order, exact refusal, prefix effects and
+the post-callback revision fence are unchanged.
+
+The complete declaration study adds `declaration-private-filter`, comparing the
+previous snapshot/all-pass-sharing filter with direct folding, and an identical
+A/A `declaration-construction` phase. The longer cold/full-workflow confirmation
+also charges this shared-construction control. Its two sides do the same fresh
+Slot graph and receiver instantiation, so its variation is not a query speedup.
+These supplement every original phase, first-call sample, AB/BA order, A/A/B/B
+control and natural/collected/charged GC regime. Main cold/workflow operations
+continue to pay their own fresh constructors and full publication oracle.
+
+
+#### Paired acceptance and remaining cold-tail uncertainty
+
+The complete unchanged declaration study plus the two new diagnostics passed in
+61.82 s outer / 53.54 s inclusive time (width 32, batch 16, six AB/BA pairs and
+four A/A plus four B/B per regime). The longer confirmation passed in 77.84 s
+outer / 73.78 s inclusive time (batch 32, twelve pairs, the same controls).
+Compilation and local checks did not overlap either study. Both keep the full
+fresh-construction and publication oracles. The scan baseline is the existing
+safe scan, not a historical binary; `declaration-private-filter` separately
+isolates the previous snapshot filter with its SAME all-pass root shortcut.
+
+All values below are candidate-minus-reference wall microseconds per operation;
+negative values favor the candidate. These are finite samples, not tail bounds.
+
+| Study / collected regime | Mean | Minimum / maximum | Wins / losses |
+| --- | ---: | ---: | ---: |
+| private filter, six pairs | -0.10 | -0.49 / +0.37 | 3 / 1 (two ties) |
+| cold query, six pairs | +5.21 | -8.37 / +19.27 | 3 / 3 |
+| complete workflow, six pairs | -4,475.19 | -4,952.12 / -3,995.88 | 6 / 0 |
+| identical construction, twelve pairs | +4.02 | -46.28 / +45.13 | 5 / 7 |
+| cold query, twelve pairs | +0.55 | -38.34 / +53.13 | 7 / 5 |
+| complete workflow, twelve pairs | -4,981.40 | -17,640.81 / +5,447.72 | 10 / 2 |
+
+The longer cold collected median was -4.76 us and p90 +18.90 us. Mean components
+were non-GC CPU +0.51 us, GC CPU 0, wall-minus-CPU +0.04 us. Its worst positive
+pair was +53.13 us: +42.84 non-GC CPU and +10.29 residual, with no batch GC.
+Thus the remaining cold tail cannot simply be called GC cost. Identical fresh
+construction itself reached +45.13 us (+44.31 non-GC CPU); construction B/B
+reached +113.78 us. These shared controls expose preparation variation but must
+NOT be subtracted from candidate results or used to dismiss a positive tail.
+Cold-query collected A/A reached +4,350.65 us, including +4,227.59 us residual;
+B/B reached -4,189.22 / +99.12 us. A residual is an observation, not proof of an
+OS scheduling, compiler, collector or other-process cause.
+
+Natural cold mean was -55.10 us, with -990.38 / +790.18 us range; the worst
+positive pair included +758.63 us GC CPU, +27.69 non-GC CPU and +3.87 residual.
+Natural workflow retained its +8,423.25 us adverse tail: non-GC CPU -2,757.28 us,
+GC CPU -1,186.22 us, residual +12,366.75 us. The collected workflow's +5,447.72 us
+adverse pair similarly had lower CPU but +6,895.40 us residual. Neither is
+converted to wall-time success merely because CPU fell.
+
+Charged GC/first/batch workflow won all twelve pairs: mean -3,547.48 us, median
+-3,446.27 us, range -4,202.46 / -3,182.16 us. Its disjoint means were batch wall
+-3,487.07 us (non-GC CPU -2,586.53, GC -820.79, residual -79.75), first call
+-73.47 us (non-GC -74.81, residual +1.33), and forced-GC wall +13.06 us (GC CPU
++8.46, residual +4.61). Charged cold mean -896.67 us is NOT accepted as a query
+speedup: batch residual alone was -709.60 us and the range remained
+-6,806.89 / +1,427.67 us. First-call non-GC CPU still cost +3.52 us on this
+inclusive normalization. Identical-construction charged controls also reached
++1,274.98 us. GC-history/first-call and residual controls remain separate.
+
+The earlier +14.37 us mean / +84.72 us maximum were not reproduced at the same
+size in this confirmation; +0.55 / +53.13 us is not a causal old/new binary
+speedup estimate. Direct folding removes a redundant export and its finite law
+is proved, but its isolated sub-microsecond measurement is within same-side
+variation. This unit therefore accepts the semantic simplification and retains
+favorable complete-workflow evidence WITHOUT claiming universal cold or tail
+closure. No retries were selected to improve these receipts, no limits changed,
+and invalid raw allocation histories are not physical byte-savings evidence.

@@ -761,7 +761,7 @@
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-empty declaration-single declaration-cold declaration-workflow declaration-directory declaration-visibility declaration-visibility-mixed))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-directory declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -781,7 +781,7 @@
              (cut names-workload n scenario))
             ((memq scenario +chain-phases+)
              (cut chain-workload n scenario))
-            ((memq scenario '(declaration-directory declaration-visibility declaration-visibility-mixed))
+            ((memq scenario '(declaration-directory declaration-visibility declaration-visibility-mixed declaration-private-filter))
              (cut declaration-preparation-workload n scenario))
             ((memq scenario +declaration-phases+)
              (cut declaration-workload n scenario))
@@ -936,5 +936,5 @@
 ;; Confirm the cold/full-workflow wall and tails with longer matched batches.
 ;; Keep the same safe scan oracle, all GC regimes and both same-side controls.
 (def (run-cold-query-study)
-  (report-study (cut run-collection-study "32" "32" "12" '(declaration-cold declaration-workflow)) "COLD-QUERY")
+  (report-study (cut run-collection-study "32" "32" "12" '(declaration-construction declaration-cold declaration-workflow)) "COLD-QUERY")
   #t)

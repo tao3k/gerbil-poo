@@ -2876,3 +2876,24 @@ preparation and the descriptor-only observation gap; arbitrary external mutation
 callback termination and automatic compiler/JIT choices remain declared boundaries.
 Cold preparation and the extra optional object cache field are paid costs. See
 [prototype-maps.md](prototype-maps.md) for the complete matched acceptance receipt.
+
+
+### Direct private visibility preparation and cost boundary
+
+Closed one concrete repeated-preparation operation: declaration visibility folds
+standard private RBTree/vector storage directly instead of exporting its entire
+input first. Existing callback order, partial reconstruction, owned public
+snapshots, revision fences and per-value Type admission are preserved. Sparse
+backend transitions, false/Function identity, exact refusal and post-reflection
+snapshot mutation have executable controls; Lean identifies the reverse `Except`
+fold with the original visibility specification and counts only input exports.
+No new registry, map backend, namespace or cache policy is introduced.
+
+Complete and longer paired studies include shared fresh-construction controls,
+first calls, natural/collected/charged GC and both same-side controls. The cold
+mean/tail is not declared universally closed; non-GC and wall residual adverse
+samples remain in [prototype-maps.md](prototype-maps.md). The next TODO audit must
+keep finite implementation obligations separate from full-vector-only storage,
+automatic policy selection and arbitrary module initialization research. Further
+changes need a concrete repeat operation or missing protocol, not a favorable
+CPU-only statistic or an isolated example.
