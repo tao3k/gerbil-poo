@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow entry-workflow main joint-main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -141,6 +141,47 @@
       (unless (and (= delivered 10) (eq? (.get recipe callback) callback) (not (.get recipe enabled)))
         (error "indexed removal payload or delivery oracle"))
       (vector 54 24 30 24 54 delivered))))
+
+;; A schema presenter may edit its own names without changing shared recipes.
+;; Borrowed internal enumeration still crosses the same names observation and
+;; checked Reader boundary; inspection is a normal alist consumer, not a loader.
+(def (reflection-workflow width inspect: (inspect .alist))
+  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0)))) (inspect :~ procedure?))
+    (let* ((callback (lambda (x) (+ x 1)))
+           (extra (for/collect (n (in-range width))
+             (cons (string->symbol (string-append "visible-" (number->string n))) ($constant-slot-spec n))))
+           (recipe (make-object supers: (list Service) slots: (append extra
+             (list (cons 'callback ($constant-slot-spec callback)) (cons 'enabled ($constant-slot-spec #f))))))
+           (receivers (list (.o inherit: [recipe] capacity: 2) (.o inherit: [recipe] capacity: 4)))
+           (delivered 0)
+           (action (checked-total-action
+             (lambda (candidate amount)
+               (let (fields (inspect candidate))
+                 (unless (and (eq? (cdr (assq 'callback fields)) callback)
+                              (not (cdr (assq 'enabled fields)))
+                              (= (cdr (assq 'total fields)) amount))
+                   (error "reflection payload oracle")))
+               (set! delivered (1+ delivered)) amount))))
+      ;; Names require structural preparation, never eager business evaluation.
+      (let* ((expected (.all-slots recipe)) (client (.all-slots recipe)))
+        (unless (eq? (.ref/cached recipe 'total (lambda () 'not-forced)) 'not-forced)
+          (error "reflection forced a lazy total"))
+        (set-car! client 'client-only)
+        (unless (equal? (.all-slots recipe) expected) (error "public names changed the cache")))
+      ;; The same validated consumers cover shape changes, refusal and retry.
+      (let (first (apply + (map-in-order action receivers)))
+        (.putslot! recipe 'approval ($constant-slot-spec #f))
+        (.putslot! recipe 'tariff ($constant-slot-spec 4))
+        (let (second (apply + (map-in-order action receivers)))
+          (.putslot! recipe 'tariff ($constant-slot-spec -1))
+          (let ((before delivered) (cause (with-catch identity (cut action (car receivers)))))
+            (unless (and (TypeError? cause) (= before delivered)) (error "reflection refused consumer")))
+          (.removeslot! recipe 'approval)
+          (.putslot! recipe 'tariff ($constant-slot-spec 5))
+          (let (third (apply + (map-in-order action receivers)))
+            (unless (equal? (vector first second third delivered) '#(24 30 36 6))
+              (error "reflection revision oracle"))
+            (vector first second third delivered)))))))
 
 ;; Three explicit runtime entries share standard initialized dependencies. Reader
 ;; bind keeps service refinement/revisions ahead of the second plugin's C3/lens

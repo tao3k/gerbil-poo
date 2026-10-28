@@ -2792,3 +2792,23 @@ The full/paired studies charge current index preparation, snapshot export and
 shared-service publication; they compare current supported strategies rather
 than certify previous-revision constructor costs. No replacement tree/hash or
 loader is introduced. See representation.md for premises and measured scope.
+
+### Structural reflection ownership and selective read repair
+
+The representation/cache acceptance now includes owned public `.all-slots`
+spines and separately owned structural read snapshots. Existing internal
+enumerators borrow the canonical directory through the same observed query.
+Bounded identity authentication rejects altered, cyclic and improper spines;
+observed repair retains preparation dependencies, static layouts and value
+caches. Replaced credentials remain stale after contents are restored. Derived
+cached graphs containing damaged evidence still require the existing explicit
+flush before retry; repair never silently blesses their old parents.
+
+Five regression cases cover shallow-sealed receivers, same-spelling uninterned
+symbols, false/Function/list payload identity, retained cold preparation edges,
+foreign issuers, ABA, dependent graph refusal/retry and shared module/FUN/IO
+publication. The companion finite Lean laws prove bounded spine inspection,
+owned-view frame properties, exact failure order, selective repair frames and
+logical copy counts. This closes this ownership defect; raw heap mutation,
+unrestricted callback termination and language-wide mutation tracking remain
+explicit boundaries, not completed features.

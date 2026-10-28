@@ -900,3 +900,75 @@ reported pre-study process wall/CPU were 31.16/1.70 seconds and the measured
 complete study was 7.71 wall seconds. Thus the per-action gains do not establish
 whole-command startup acceleration or explain its large pre-study wall residual.
 No raw log, versioned data file or archive is committed.
+
+## Owned structural names and bounded read authentication
+
+Public `.all-slots` now returns an owned list spine. Previously it exposed the
+receiver's cached canonical directory: editing a returned pair could corrupt
+later reflection while a warmed static access site retained a different view.
+The existing private `object-slot-names` query retains canonical ownership;
+`.alist`, `.for-each!` and `force-object` borrow it internally. They preserve the
+same names observation and preparation parents without allocating a temporary
+public names list. Symbols, false values, Function values and ordinary mutable
+field payloads retain identity. A user field named `names` is not the structural
+query key `'(names)`.
+
+The original weak read authority moves into the existing `read-route` module;
+there is no second registry, loader or cache. Structural read records expose a
+separate names spine, checked against private finite canonical names. The check
+recurses over that finite directory, so cyclic or improper presented spines
+cannot prolong authentication indefinitely. A damaged cached names record is
+replaced only before observed delivery. Revision, preparation parents, current
+value cells and warmed static layout remain unchanged. Restoring the old record's
+contents does not revive its current identity after replacement.
+
+This selective repair does not rewrite cached dependency graphs containing the
+old record. Those graphs still refuse before consumer work. The existing explicit
+`uninstantiate-object!` flush permits fresh computation and retry. Ordinary
+observer exceptions preserve their exact cause. Supported source revisions still
+invalidate old evidence; raw record setters and mutation of the deliberately
+borrowed `hash<-object` table remain outside this protocol.
+
+This implements a concrete ownership discipline within the author's cached,
+purity-by-default choice (`poof.scrbl`, cache discussion at lines 1533–1553).
+It does not implement pervasive language-wide mutation tracking. Gerbil's
+standard list map, HashTable, runtime reflection and module-action/FUN/IO remain
+the underlying mechanisms. The issuer extraction reduces `object.ss` below 1,000
+lines and keeps provenance in its existing functional module. The extra public
+copy and observed authentication are real costs: safety is not free.
+
+`benchmarks/names-test.ss` uses the existing paired sampler through `gerbil test`.
+Both strategies are safe: public names-plus-lookup is the reference; existing
+internal enumeration is the candidate. Cold construction, every result pair,
+field read and complete dynamic-entry/refinement/publication work remain charged.
+This is not a comparison against the old unsafe implementation. Natural,
+collected and inclusive post-GC controls retain AB/BA and A/A/B/B samples.
+
+### Local paired receipt
+
+On macOS with Gerbil 1cfb032 / Gambit ea114fc, 64 additional fields,
+16 actions per batch and six cross-side pairs, candidate-minus-reference median
+wall microseconds were:
+
+| Complete operation | Natural | Collected | Inclusive post-GC |
+| --- | ---: | ---: | ---: |
+| Alist export | -0.44 | -0.38 | n/a |
+| Callback enumeration | -0.29 | -0.25 | n/a |
+| Observed export and authentication | -0.34 | -2.00 | n/a |
+| Construct and export | -9.66 | +6.47 | -11.19 |
+| Shared module/refinement/publication workflow | -526.09 | -57.40 | -34.74 |
+
+These are current safe strategies, not before/after revision claims. Collected
+cold pairs span -194.70 to +58.11 microseconds. Collected workflow pairs span
+-438.50 to +265.20, and inclusive post-GC pairs -665.83 to +233.69. Natural
+workflow pairs span -3,273.38 to +8,022.19; same-side controls also show large
+history effects (natural B/B median +751.09). Thus neither cold construction nor
+complete-workflow tail acceleration is established. Collected workflow median
+CPU difference is only -4.75 microseconds; do not attribute its entire wall
+median to saved copying. Every allocation statistic must retain its zero-GC,
+nonnegative-counter validity guard.
+
+The command took 27.85 wall seconds; the inner study took 15.79. Process startup
+reported 8.88 wall / 2.41 CPU seconds. Those costs are not hidden inside the
+sub-microsecond export result and do not establish faster module discovery or
+startup. Raw logs remain outside Git. All original checks and limits remain.

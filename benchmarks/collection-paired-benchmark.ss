@@ -1,5 +1,5 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-offset-study run-map-study)
+(export main run-offset-study run-map-study run-names-study)
 (import :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract-flow checked-action)
@@ -36,6 +36,60 @@
 ;; Compare indexed deletion against the supported complete-specification rebuild.
 ;; Construction and snapshot observation are charged in the cold/full paths.
 (def +map-phases+ '(map-remove-hot map-remove-cold map-remove-miss map-remove-repeat map-remove-workflow))
+
+;; Both strategies own public outputs and authenticate the same structural reads.
+;; Only the temporary public names copy differs from private internal borrowing.
+(def +names-phases+ '(names-export names-enumerate names-observed names-cold names-workflow))
+
+;; A safe public composition is the reference; the old leaking view is NOT a
+;; valid alternative. Result pairs and every ordinary field read remain charged.
+(def (reference-names-alist source)
+  (map (lambda (name) (cons name (.ref source name))) (.all-slots source)))
+
+;; Fixed false/Function/list payloads detect accidental deep copying. Warm, cold,
+;; observed and complete module/contract workflows share the same finite oracles.
+(def (names-workload size scenario)
+  (def payload (list #f identity))
+  (def entries (append (for/collect (n (in-range size))
+    (cons (string->symbol (string-append "visible-" (number->string n))) n))
+    (list (cons 'enabled #f) (cons 'callback identity) (cons 'names payload))))
+  (def source (force-object (object<-alist entries)))
+  (def enter (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#reflection-workflow))
+  ;; A callback path must retain ordered effects, not just equal final counts.
+  (def (enumerate owner borrowed?)
+    (def seen '())
+    ;; Retain every callback's key/value order for the measured result oracle.
+    (def (consume key value) (set! seen (cons (cons key value) seen)))
+    (if borrowed? (.for-each! owner consume)
+      (for-each (lambda (key) (consume key (.ref owner key))) (.all-slots owner)))
+    (reverse seen))
+  ;; Each side uses ordinary supported public APIs on the same warmed source.
+  (def (action borrowed?)
+    (def inspect (if borrowed? .alist reference-names-alist))
+    (lambda ()
+      (case scenario
+        ((names-workflow)
+          (unless (equal? (enter (list size inspect: inspect)) '#(24 30 36 6))
+            (error "names publication oracle")))
+        (else
+          (let ((owner (if (eq? scenario 'names-cold) (object<-alist entries) source))
+                (observed 0))
+            ;; Actual issuance/currentness remains checked on every observed call.
+            (def (observe read)
+              (when (equal? (slot-read-key read) '(names))
+                (unless (object-read-current? read) (error "names credential oracle"))
+                (set! observed (1+ observed))))
+            ;; Both strategies produce the full alist before validating its oracle.
+            (def (read)
+              (if (eq? scenario 'names-enumerate) (enumerate owner borrowed?) (inspect owner)))
+            (let (result (if (eq? scenario 'names-observed)
+              (call-with-slot-read-observer observe read) (read)))
+              (unless (and (equal? result entries)
+                           (or (not (eq? scenario 'names-observed)) (= observed 1)))
+                (error "names observation oracle"))))))
+      #t))
+  (values (action #f) (action #t)))
 
 ;; The preceding present-name strategy, using the current public representation.
 ;; This deliberately omits its old initial name probe, favoring the reference.
@@ -656,7 +710,7 @@
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -672,6 +726,8 @@
              (cut offset-workload n scenario))
             ((memq scenario +map-phases+)
              (cut map-workload n scenario))
+            ((memq scenario +names-phases+)
+             (cut names-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
             ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
@@ -783,4 +839,9 @@
 ;; Reuse the complete pairing, setup, GC and tail machinery at a fixed workload.
 (def (run-map-study)
   (report-study (cut run-collection-study "64" "16" "6" +map-phases+) "MAP-REMOVE")
+  #t)
+
+;; Fixed complete names matrix uses the existing clocks, controls and tail reports.
+(def (run-names-study)
+  (report-study (cut run-collection-study "64" "16" "6" +names-phases+) "NAMES")
   #t)

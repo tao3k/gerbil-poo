@@ -141,3 +141,7 @@ benchmark-slot-offset: build-shared
 # Fixed indexed-deletion study through the ordinary runner and shared producer.
 benchmark-prototype-map: build-shared
     just _test 300 benchmarks/prototype-map-test.ss
+
+# Structural snapshots and private enumeration use the same standard test entry.
+benchmark-names: build-shared
+    just _test 300 benchmarks/names-test.ss

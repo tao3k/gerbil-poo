@@ -5,6 +5,7 @@
         (only-in :gerbil/runtime/loader load-module reload-module! list-modules module-load-order)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
+        (only-in :clan/poo/read-route make-read-issuer)
         (prefix-in (only-in :clan/poo/generalized-prototype Observation.) gp.)
         (only-in :clan/poo/mop validate TypeError? Fun) (only-in :clan/poo/number Integer)
         :clan/poo/object :clan/poo/prototype-map :clan/poo/slot-layout :clan/poo/slot-observation :clan/poo/meta-prototype
@@ -13,6 +14,16 @@
 ;; Match protocol refusal rather than accepting unrelated arithmetic exceptions.
 (def (message? text)
   (lambda (cause) (and (Error? cause) (equal? (error-message cause) text))))
+
+;; Obtain only the actual structural read without using raw receiver accessors.
+(def (names-token owner)
+  (def token #f)
+  (call-with-slot-read-observer
+    (lambda (read)
+      (when (and (eq? (slot-read-receiver read) owner) (equal? (slot-read-key read) '(names)))
+        (set! token read)))
+    (cut .all-slots owner))
+  token)
 
 ;; A genuine standard source module exercises initialization and reload without
 ;; an alternate loader, patched runtime, global test registry or compiled fixture.
@@ -36,6 +47,102 @@
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
+    (test-case "public names snapshots cannot corrupt canonical reflection or static cells"
+      (let* ((f (lambda (x) x)) (payload (list #f f))
+             (source (.o enabled: #f callback: f names: payload))
+             (site (make-slot-cache 'callback))
+             (expected (.all-slots source)) (client (.all-slots source)))
+        (check-eq? (.ref/inline source site) f)
+        (seal-object! source)
+        (set-car! client 'client-only) (set-cdr! client client)
+        (check-equal? (.all-slots source) expected)
+        (check-equal? (map car (.alist source)) expected)
+        (check-eq? (.ref/inline source site) f)
+        ;; A list-valued ordinary field called names is USER DATA, not metadata.
+        (check-eq? (.get source names) payload)
+        (set-car! payload 9)
+        (check-eq? (.get source names) payload)
+        (check-equal? (car (.get source names)) 9)))
+    (test-case "tampered structural spines refuse and repair only the read credential"
+      (let* ((a (string->uninterned-symbol "same")) (b (string->uninterned-symbol "same"))
+             (source (object<-alist (list (cons a #f)))) (site (make-slot-cache a))
+             (token (names-token source)))
+        (check (.ref/inline source site) => #f)
+        (let ((layout (slot-cache-layout site)) (revision (object-revision source)))
+          (set-car! (slot-read-value token) b)
+          (check (object-read-issued? token) => #f)
+          (let ((calls 0))
+            (check-exception (replay-slot-reads! (list token) (lambda _ (set! calls (1+ calls))))
+              (message? "unissued slot dependency"))
+            (check-equal? calls 0))
+          (let (fresh (names-token source))
+            (check (object-read-issued? fresh) => #t)
+            (check (object-read-current? fresh) => #t)
+            (check (object-read-current? token) => #f)
+            (check-equal? (.all-slots source) (list a))
+            (check-equal? (object-revision source) revision)
+            (check-eq? (slot-cache-layout site) layout)
+            (check-equal? (slot-cache-hit? site source revision layout) 0)
+            ;; Restoring old contents cannot revive a replaced record (ABA).
+            (set-car! (slot-read-value token) a)
+            (check (object-read-issued? token) => #t)
+            (check (object-read-current? token) => #f)
+            (check-exception (replay-slot-reads! (list token) (lambda _ (void)))
+              (message? "stale slot dependency"))
+            ;; A cycle is rejected in work bounded by the private finite names.
+            (set-cdr! (slot-read-value fresh) (slot-read-value fresh))
+            (check (object-read-issued? fresh) => #f)
+            (let (repaired (names-token source))
+              (check (object-read-current? repaired) => #t)
+              (set-cdr! (slot-read-value repaired) 'improper-tail)
+              (check (object-read-issued? repaired) => #f)
+              (let (last (names-token source))
+                (.putslot! source 'added ($constant-slot-spec 7))
+                (check (object-read-current? last) => #f)
+                (check-equal? (length (.all-slots source)) 2)))))))
+    (test-case "names repair retains cold preparation edges and isolates issuer authorities"
+      (let* ((policy (.o port: 1)) (source (.o value: #f)))
+        (object-protocol-set! source (.o compute-slot:
+          (lambda (_self next _slot) (.get policy port) (next))))
+        (let (old (names-token source))
+          (set-car! (slot-read-value old) 'forged)
+          (let (fresh (names-token source))
+            (check (object-read-issued? fresh) => #t)
+            (.put! policy 'port 2)
+            (check-exception (replay-slot-reads! (list fresh) (lambda _ (void)))
+              (message? "stale slot dependency")))))
+      (let-values (((issue issued? _inspect) (make-read-issuer)))
+        (let* ((source (.o value: #f)) (instance (object-instance source))
+               (foreign (issue source 'value (object-revision source) instance #f '() object-read-current?)))
+          (check (issued? foreign) => #t)
+          (check (object-read-issued? foreign) => #f))))
+    (test-case "repair never blesses a cached derived graph containing an old names record"
+      (let* ((source (.o self: self enabled: #f count: (length (.all-slots self)))))
+        (let-values (((value roots) (%call-with-recorded-slot-reads (cut .get source count))))
+          (check-equal? value 2)
+          (reobserve-slot-reads! roots)
+          (let (token (names-token source))
+            (set-car! (slot-read-value token) 'forged)
+            (names-token source)
+            (let (calls 0)
+              (check-exception (reobserve-slot-reads! roots (lambda () (set! calls (1+ calls))))
+                (message? "unissued slot dependency"))
+              (check-equal? calls 0))
+            ;; Use the existing explicit flush for evidence depending on damage;
+            ;; retaining unrelated values is not authority to rewrite old parents.
+            (uninstantiate-object! source)
+            (let-values (((fresh current) (%call-with-recorded-slot-reads (cut .get source count))))
+              (check-equal? fresh 2)
+              (reobserve-slot-reads! current))))))
+    (test-case "names copies preserve observer refusals and shared checked module workflows"
+      (let* ((source (.o enabled: #f)) (cause (list 'observer-refused)))
+        (check-eq? (with-catch identity
+          (lambda () (call-with-slot-read-observer (lambda (_) (raise cause)) (cut .all-slots source)))) cause)
+        (check-equal? (.all-slots source) '(enabled)))
+      (let (run (module-action "clan/poo/examples/representation-service"
+                  'clan/poo/examples/representation-service#reflection-workflow))
+        (for (width '(0 16))
+          (check-equal? (run (list width)) '#(24 30 36 6)))))
     (test-case "indexed persistent deletion preserves sparse append first-method replacement and snapshots"
       (for (policy '(tree compact))
         (let* ((callback (lambda (x) x))

@@ -8,10 +8,9 @@
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays) @object? @make-object)
+                    call-with-issued-reads active-read-replays issue-object-read object-slot-names) @object? @make-object)
 
 (import
-  (only-in :gerbil/runtime/hash HashTable)
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
   (only-in ./support/object-syntax parse-object-options
            deduplicate-slot-identifiers prepare-shared-slot-specs
@@ -24,7 +23,7 @@
   :std/iter
   ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method) read-runtime.)
-  (only-in ./read-route require-read-route!)
+  (only-in ./read-route require-read-route! make-read-issuer)
   ./object-state
   ./prototype-map
   ./slot-layout
@@ -330,88 +329,15 @@
                (or (pair? key)
                    (eq? (slot-read-value read)
                         (hash-ref (object-%instance self) key absent-value))))))))
-(defvalues (object-record-read object-read-issued? object-read-issuance)
-  (let ()
-    ;; Both sides are weak: the registry is not a root for records, receivers or
-    ;; birth closures. A live record itself keeps its original closure alive.
-    (def issued (HashTable (make-table test: eq? weak-keys: #t weak-values: #t)))
-    (def record-class
-      (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)))
-    (def (same-list? current saved)
-      (if (null? saved) (null? current)
-        (and (pair? current) (eq? (car current) (car saved))
-             (same-list? (cdr current) (cdr saved)))))
-    ;; A single non-vector identity needs no separate private vector. The
-    ;; dense fallback also handles unusual vector-valued parents without an
-    ;; ambiguous tag. Public spines, repeated occurrences and delivery stay
-    ;; unchanged; neither representation caches an authentication result.
-    (def (same-dependencies? current saved)
-      (if (vector? saved)
-        (let loop ((current current) (index 0))
-          (if (= index (##vector-length saved)) (null? current)
-            (and (pair? current) (eq? (car current) (##vector-ref saved index))
-                 (loop (cdr current) (1+ index)))))
-        (and (pair? current) (eq? (car current) saved) (null? (cdr current)))))
-    (def (issue self key value dependencies)
-      (def preparation (and (object-%reads self)
-                           (hash-get (object-%reads self) '(preparation))))
-      (def parents
-        (if (and preparation
-                 (not (and (pair? key) (memq (car key) '(preparation bootstrap)))))
-          (cons preparation dependencies) dependencies))
-      (def revision (object-revision self))
-      (def instance (object-%instance self))
-      (def key-copy (and (pair? key) (map values key)))
-      (def parent-copy
-        (cond ((null? parents) '#())
-              ((and (null? (cdr parents)) (not (vector? (car parents)))) (car parents))
-              (else (list->vector parents))))
-      (def checker object-read-current?)
-      (def read (make-slot-read self key revision instance value parents checker))
-      ;; Captured payload is not a public struct whose fields can be rewritten
-      ;; through runtime.slot-set!. The registry authenticates this procedure
-      ;; before it is invoked, so replacing birth with a true-returning closure
-      ;; does not turn another arbitrary callback into a trusted checker.
-      (def birth
-        ;; RTD-checked records are truthy. False is the private copy request;
-        ;; the public inspector still obtains ONLY the registered procedure.
-        ;; A fixed lane captures this payload once, rather than retaining two
-        ;; payload closures and a rest-argument case-lambda dispatcher per read.
-        (lambda (candidate)
-          ;; Copy primitive metadata; do not dispatch a mutable class constructor.
-          (if (not candidate)
-              (values read
-                (vector self key revision instance value
-                  (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
-                (and key-copy (map values key-copy)))
-          (and (eq? candidate read)
-               (eq? (slot-read-receiver read) self)
-               (eq? (slot-read-key read) key)
-               (or (not key-copy) (same-list? key key-copy))
-               (= (slot-read-revision read) revision)
-               (eq? (slot-read-instance read) instance)
-               (eq? (slot-read-value read) value)
-               (eq? (read-runtime.slot-ref read 'current?) checker)
-               (same-dependencies? (slot-read-dependencies read) parent-copy)))))
-      (read-runtime.slot-set! read 'birth birth)
-      (hash-put! issued read birth)
-      read)
-    (def (issued? read)
-      (and (eq? (read-runtime.object-class read) record-class)
-        (let (birth (read-runtime.slot-ref read 'birth))
-          (and (procedure? birth) (eq? birth (hash-get issued read)) (birth read)))))
-    ;; Inspect the actual private association, not a caller's alleged birth.
-    ;; Only the registered native closure is invoked, and only in copy mode.
-    (def (inspect read)
-      (unless (eq? (read-runtime.object-class read) record-class)
-        (error "foreign slot-read type"))
-      (def presented (read-runtime.slot-ref read 'birth))
-      (def original (hash-get issued read))
-      (if original
-        (let-values (((signed snapshot shape) (original #f)))
-          (values presented original signed snapshot shape))
-        (values presented #f #f #f #f)))
-    (values issue issued? inspect)))
+(defvalues (issue-object-read object-read-issued? object-read-issuance) (make-read-issuer))
+;; Capture source state and preserve preparation parents at this one boundary.
+;; The existing read module owns provenance, without receiver-accessor callbacks.
+(def (object-record-read self key value dependencies)
+  (def preparation (and (object-%reads self) (hash-get (object-%reads self) '(preparation))))
+  (def parents
+    (if (and preparation (not (and (pair? key) (memq (car key) '(preparation bootstrap)))))
+      (cons preparation dependencies) dependencies))
+  (issue-object-read self key (object-revision self) (object-%instance self) value parents object-read-current?))
 
 (def (require-object-read-route! read)
   (def receiver (slot-read-receiver read))
@@ -541,7 +467,13 @@
   (defvalues (value dependencies) (%call-with-recorded-slot-reads action))
   (unless (= revision (object-revision self)) (error "object changed during query" key))
   (def table (object-read-table self))
-  (def read (or (and cache? (hash-get table key))
+  (def saved (and cache? (hash-get table key)))
+  ;; Unobserved readers only consume the private value, never the record. Before
+  ;; observed delivery, replace a damaged name snapshot through the SAME issuer;
+  ;; the preparation parent survives, and old credentials remain rejected.
+  (def read (or (and saved
+                    (or (not (and (%slot-read-active?) (equal? key '(names))))
+                        (object-read-issued? saved)) saved)
                (let (read (object-record-read self key value dependencies))
                  (when cache? (hash-put! table key read)) read)))
   (%deliver-slot-read read value))
@@ -673,29 +605,33 @@
   ((_ x slot) (.slot? x 'slot))
   ((_ x slot1 slot2 slot3 ...) (and (.has? x slot1) (.has? x slot2 slot3 ...))))
 
-;; : (Listof Symbol) <- (Object _)
+;; Public structural reflection owns its finite list spine. Symbols are shared;
+;; callers can edit their result without changing the cached directory or shapes.
 (def (.all-slots self)
-  (object-read-query self '(names) (cut object-slot-names self)))
+  (map values (object-slot-names self)))
+;; Private borrowed directory for enumerators that never expose its spine. The
+;; same query still delivers the original preparation/observation dependencies.
 (def (object-slot-names self)
-  (instantiate-object! self)
-  (or (object-%all-slots self)
+  (object-read-query self '(names) (lambda ()
+    (instantiate-object! self)
+    (or (object-%all-slots self)
       (let (esl (merge-super-slots
                  (map (lambda (super) (map car (append (object-slots super) (object-defaults super) (object-%declarations super))))
                       (object-%precedence-list self))))
         (def defined (filter (lambda (slot) (hash-key? (object-%slot-funs self) slot)) esl))
         (set! (object-%all-slots self) defined)
-        defined)))
+        defined)))))
 
 ;; : Unit <- (Object A) (Fun _ <- s:Symbol (A s))
 (def (.for-each! self fun)
-  (for-each (lambda (slot) (fun slot (.ref self slot))) (.all-slots self)))
+  (for-each (lambda (slot) (fun slot (.ref self slot))) (object-slot-names self)))
 
 ;; : (Listof Symbol) <- (Object _)
 (def (.all-slots/sort object) (list-sort symbol<? (.all-slots object)))
 
 ;; : (Listof (Pair s:Symbol (A s))) <- (Object A)
 (def (.alist self)
-  (map (λ (slot) (cons slot (.ref self slot))) (.all-slots self)))
+  (map (λ (slot) (cons slot (.ref self slot))) (object-slot-names self)))
 
 ;; : (Listof (Pair s:Symbol (A s))) <- (Object A)
 (def (.alist/sort self)
@@ -703,7 +639,7 @@
 
 ;; Force the lazy computation of all slots in an object
 ;; : (Object A) <- (Object A)
-(def (force-object self) (for-each (cut .ref self <>) (.all-slots self)) self)
+(def (force-object self) (for-each (cut .ref self <>) (object-slot-names self)) self)
 
 ;; : (Table (A s) <- s:Symbol) <- (Object A)
 (def (hash<-object self)
