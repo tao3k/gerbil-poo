@@ -1,14 +1,14 @@
 ;;; Native producer-owned issuance tests; no Core fixtures or dependencies.
 (export issued-read-test test-cleanup!)
-(import :std/test :clan/poo/object :clan/poo/slot-observation
+(import :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class) runtime.)
         (only-in :gerbil/expander current-expander-context make-top-context
                  core-import-module module-context-export module-export-name)
-        (only-in :std/error Error? Error-message))
+        (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 17)
-  (displayln "ISSUED-READ: 17 cases completed"))
+  (check-equal? completed 20)
+  (displayln "ISSUED-READ: 20 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
 (extern namespace: clan/poo/object call-with-issued-reads)
@@ -36,6 +36,51 @@
   watcher)
 (def issued-read-test
  (test-suite "Read issuance with transient tokens and guarded replay"
+  (test-case "cold cyclic root spines refuse before replay"
+    (.def Root port: 5432)
+    (def read (selected (recorded (cut .get Root port)) 'port))
+    (def roots (list read))
+    (set-cdr! roots roots)
+    (check-exception (replay-slot-reads! roots (lambda (_r _k) (error "must not deliver")))
+      contract-violation-error?)
+    (set! completed (+ completed 1)))
+  (test-case "cold root grammar precedes authentication without consuming source state"
+    (.def Root port: 5432)
+    (def read (selected (recorded (cut .get Root port)) 'port))
+    (def forged (copy-read read))
+    (def revision (object-revision Root))
+    (def instance (object-%instance Root))
+    (def delivered 0)
+    (for-each (lambda (bad)
+      (check-exception (replay-slot-reads! bad (lambda (_r _k) (set! delivered (+ delivered 1))))
+        contract-violation-error?))
+      (list #f 7 "roots" (vector read) (cons read 'tail) (cons forged 'tail)))
+    (check-equal? delivered 0)
+    (check-equal? (object-revision Root) revision)
+    (check-equal? (eq? (object-%instance Root) instance) #t)
+    (check-equal? (object-read-current? read) #t)
+    (refuses "unissued slot dependency" (cut replay-slot-reads! (list forged) (lambda (_r _k) (void))))
+    (replay-slot-reads! [] (lambda (_r _k) (error "empty roots delivered")))
+    (set! completed (+ completed 1)))
+  (test-case "damaged warm root spines refuse and repaired requests retain current checks"
+    (.def Root port: 5432)
+    (def read (selected (recorded (cut .get Root port)) 'port))
+    (def roots (list read))
+    (def before (captured-order roots))
+    (set-cdr! roots roots)
+    (check-exception (captured-order roots) contract-violation-error?)
+    (set-cdr! roots 'tail)
+    (check-exception (captured-order roots) contract-violation-error?)
+    (set-cdr! roots [])
+    (check-equal? (captured-order roots) before)
+    (check-equal? (object-read-current? read) #t)
+    (.putslot! Root 'port ($constant-slot-spec 5433))
+    (refuses "stale slot dependency" (cut captured-order roots))
+    (def fresh (recorded (cut .get Root port)))
+    (replay-slot-reads! fresh (lambda (_r _k) (void)))
+    (check-equal? ((module-action "clan/poo/examples/representation-service"
+                    'clan/poo/examples/representation-service#replay-workflow) []) '#(9 12 9 3))
+    (set! completed (+ completed 1)))
   (test-case "the Gerbil export interface does not expose private read-issuance helpers"
     (def names
       (parameterize ((current-expander-context (make-top-context)))

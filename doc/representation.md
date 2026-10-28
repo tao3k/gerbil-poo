@@ -1032,3 +1032,44 @@ A one-second sample of that invocation observed 854/888 main-thread samples in
 of every loading delay nor certifies cold-loader stability. No security checks,
 module inventory, process model, timeout or heap limit were changed. No task
 process remained from the timed-out invocation. Raw traces/data stay outside Git.
+
+Replay roots share one cold admission boundary: the standard core `using` /
+`list?` contract rejects improper or cyclic caller spines before projection
+construction. A warm exact signature is already finite and keeps its original
+per-record issuance/freshness checks without another list scan. The cached weak
+projection remains an optimization, never a saved validation verdict. Valid root
+order, duplicate-node elimination and error messages are retained; malformed root
+grammar now precedes entry authentication. Refusal does not undo caller argument
+or spine mutation effects. Repairing the spine retries normally, while supported
+source revisions keep old records stale even after values are restored.
+
+A diagnostic reproduction reached the cold cyclic-root case and timed out at a
+shorter 30-second diagnostic deadline before the fix. The regression also covers
+foreign/improper roots, forged entries in proper versus improper lists, empty
+roots, damaged warm signatures and corrected retry. `replay-workflow` combines
+this boundary with the existing module action, refined checked total and FUN
+publication, preserving exact stale-read refusal across source revisions. This
+advances the author's scoped cache-invalidation future work, not pervasive host
+mutation tracking or proof of module initializer termination.
+
+This unit's focused suite passed all 20 cases. The complete single-process run
+passed 150 modules / 1,902 cases in 240.33 seconds at an explicit 300-second test
+limit, followed by the unchanged complete collection (14.25 seconds) and generator
+(4.30 seconds) paired checks. One second of loading observed 881 samples in
+`dynamic_load` / `dlopen`, including 846 in segment mapping / `fcntl`; that window
+is not an explanation of the whole run or proof of cold-loader stability.
+
+The unchanged standard names matrix ran separately after builds/checks: 64 fields,
+16 repetitions, six AB/BA pairs and four A/A/B/B controls per regime, including
+charged post-GC preparation. Full standard entry took 30.71 seconds (dependency
+preparation 13.85, startup 2.91, test entry 13.36, study 9.08), with zero frontend
+compilations/backend jobs. Borrowed-minus-owned cold mean / empirical p90 were
+-6.14/+18.88 us natural, -0.03/+11.50 us collected and -1.19/+16.12 us post-GC.
+Full workflow mean / p90 were +603.41/+1568.88 us natural,
++138.99/+810.56 us collected and +10.10/+107.26 us post-GC. Natural same-side
+A/A and B/B p90 were +1550.12/+1427.43 us; collected B/B reached +1593.20 us.
+The adverse observations remain part of acceptance, not a universal speedup claim.
+This compares two safe strategies on the corrected implementation, not an old/new
+causal measurement of the guard. The concrete improvement is terminating cold
+root admission with no second grammar scan on an exact warm hit; physical GC,
+allocation and machine-time claims are outside the finite Lean cost bound.

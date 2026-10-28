@@ -421,7 +421,8 @@
           (hash-put! receivers (slot-read-receiver read) #t)
           (set! ordered (cons read ordered))
           (for-each collect (slot-read-dependencies read))))
-      ;; Preserve the original full preflight, even for malformed root input.
+      ;; The cold selector admits a finite root spine before entering this DFS.
+      ;; Preserve full issuance preflight and its order for every admitted root.
       ;; Only successful traversal copies roots and publishes a cached value.
       (for-each collect roots)
       (make-projection owner (map values roots) (reverse ordered) receivers))
@@ -438,16 +439,21 @@
           ;; does not prove live revisions, values or external sources current.
           (for-each require-issued! (projection-reads cached))
           cached))
-       ((construction-current?)
-        (let* ((owner (make-object slots:
-                        (list (cons 'projection
-                          ($self-slot-spec (lambda (self) (build self roots)))))))
-               (next (.ref owner 'projection)))
-          ;; Existing native slot computation owns success/failure caching.
-          ;; Do not install a failed or partially authenticated projection.
-          (table-set! owners roots owner)
-          next))
-       (else (build #f roots))))
+       (else
+        ;; A warm signature already proves exact finite membership. On a miss,
+        ;; reject improper/cyclic caller spines before allocation or traversal;
+        ;; successful validation itself is never stored as a reusable verdict.
+        (using (roots :~ list?)
+          (if (construction-current?)
+            (let* ((owner (make-object slots:
+                            (list (cons 'projection
+                              ($self-slot-spec (lambda (self) (build self roots)))))))
+                   (next (.ref owner 'projection)))
+              ;; Existing slot computation owns success/failure caching.
+              ;; Do not install a failed or partially authenticated projection.
+              (table-set! owners roots owner)
+              next)
+            (build #f roots))))))
     (lambda (roots consume)
       (def selected (without-observation (lambda () (obtain roots))))
       (def traversal (projection-reads selected))

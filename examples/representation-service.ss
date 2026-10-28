@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow entry-workflow main joint-main)
-(import :std/error (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow replay-workflow entry-workflow main joint-main)
+(import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
         ../number
@@ -348,3 +348,34 @@
       (error "rejected key changed service generations")))
   (.removeslot! source 'capacity)
   (vector first (apply + (map-in-order action receivers)) delivered))
+
+;; A caller-owned replay spine can be damaged independently of genuine records.
+;; Repair reuses ordinary checked replay, never a cached freshness verdict. The
+;; same FUN action admits revised/restored values; obsolete reads remain stale.
+(def (replay-workflow)
+  (def receiver (.cc Service capacity: 2))
+  (def delivered 0)
+  (def action (checked-total-action (lambda (_ amount) (set! delivered (1+ delivered)) amount)))
+  (def first (action receiver))
+  (defvalues (_value roots)
+    (%call-with-recorded-slot-reads (cut .ref receiver 'total)))
+  (def visits 0)
+  ;; Keep the same callback so refusals cannot masquerade as successful delivery.
+  (def (observe _owner _key) (set! visits (1+ visits)))
+  (def initial (begin (replay-slot-reads! roots observe) visits))
+  (def cause (begin (set-cdr! roots roots)
+    (with-catch identity (lambda () (replay-slot-reads! roots observe)))))
+  (unless (and (contract-violation-error? cause) (= visits initial))
+    (error "damaged replay roots delivered"))
+  (set-cdr! roots [])
+  (replay-slot-reads! roots observe)
+  ;; Legitimate source edits keep old credentials stale, including ABA values.
+  (def (revise capacity)
+    (def failure (begin
+      (.putslot! receiver 'capacity ($constant-slot-spec capacity))
+      (with-catch identity (lambda () (replay-slot-reads! roots observe)))))
+    (unless (and (Error? failure) (equal? (error-message failure) "stale slot dependency"))
+      (error "obsolete replay roots accepted"))
+    (action receiver))
+  (let (second (revise 3))
+    (vector first second (revise 2) delivered)))

@@ -2966,3 +2966,16 @@ retain source roots, overrides, shared descendant generations, layouts and issue
 reads; corrected Symbol requests use the normal mutation/FUN path. This is not
 rollback of earlier Scheme argument effects or arbitrary callback side effects.
 The host recognizer and registered/serialized invalidation remain premises.
+
+### Replay root-spine admission and retry
+
+Closed a concrete termination gap in the existing issued-read projection: DFS
+node deduplication did not bound the outer traversal of cyclic caller roots.
+One standard `using` / `list?` cold boundary now protects construction and its
+cache publication. Warm finite signature matching still authenticates entries
+and source freshness on every use; no verdict is cached. Improper grammar,
+forged proper entries, repaired requests, duplicate order and stale ABA records
+have controls, including the existing checked service/FUN/module workflow.
+Lean proves bounded saved-spine comparison and exact refusal/retry/frame laws
+under the standard finite-list recognizer premise. Arbitrary callback termination,
+weak-retention timing and whole-language mutation tracking remain boundaries.
