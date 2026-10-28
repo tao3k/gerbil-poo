@@ -47,6 +47,70 @@
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
+    (test-case "explicit overrides retain final self false Functions and computed suffix order"
+      (for (policy '(tree compact))
+        (let* ((f (lambda (x) x)) (events '())
+               (source (make-object slots: (prototype-map
+                 (list (cons 'value ($thunk-slot-spec (lambda () (error "discarded body"))))
+                       (cons 'value ($computed-slot-spec (lambda (_ next) (next))))
+                       (cons 'value ($self-slot-spec (lambda (self) (.get self payload))))
+                       (cons 'value ($computed-slot-spec (lambda (_ next)
+                         (set! events (cons 'outer events)) (next))))) policy: policy)
+                 defaults: (list (cons 'payload f)))))
+          (check-eq? (.ref source 'value) f)
+          (check-equal? events '(outer))
+          (check-eq? (.ref/inline source (make-slot-cache 'value)) f)
+          (check (.ref (.cc source payload: #f) 'value) => #f))))
+    (test-case "mixed constructors agree with the original chronological SlotSpec fold"
+      (let* ((events '()) (owner (.o seed: 9))
+             (specs (list ($constant-slot-spec 1)
+               ($computed-slot-spec (lambda (_ next) (+ 1 (next))))
+               ($thunk-slot-spec (lambda () 4))
+               ($computed-slot-spec (lambda (_ next) (* 2 (next))))
+               ($self-slot-spec (lambda (self) (.get self seed)))
+               ($computed-slot-spec (lambda (_ next)
+                 (set! events (cons 'suffix events)) (+ 5 (next))))))
+             (reference (foldl (cut apply-slot-spec owner <> <>) (lambda () -1) specs))
+             (actual (make-object supers: (list owner)
+               slots: (map (lambda (spec) (cons 'value spec)) specs))))
+        (check-equal? (reference) 14)
+        (check-equal? (.ref actual 'value) 14)
+        (check-equal? events '(suffix suffix))))
+    (test-case "malformed shadowed specifications still refuse before hook installation"
+      ;; Tag admission must not invent eager body/procedure validation either.
+      (check-equal? (.ref (make-object slots:
+        (list (cons 'value ($thunk-slot-spec 42))
+              (cons 'value ($self-slot-spec 42))
+              (cons 'value ($constant-slot-spec 7)))) 'value) 7)
+      (let ((calls 0) (bad (make-object slots:
+              (list (cons 'value 'invalid) (cons 'value ($constant-slot-spec 7))))))
+        (object-protocol-set! bad (.o compute-slot: (lambda (_ next _name) (set! calls (1+ calls)) (next))))
+        (check-exception (.ref bad 'value) (message? "No clause matching"))
+        (check-equal? calls 0)
+        (check (object-%instance bad) => #f)
+        (object-slots-set! bad (list (cons 'value ($constant-slot-spec 7))))
+        (check-equal? (.ref bad 'value) 7)
+        (check-equal? calls 1)))
+    (test-case "all slot payloads are captured before compute hooks run"
+      (let* ((spec ($constant-slot-spec 7))
+             (source (make-object slots: (list (cons 'a spec) (cons 'b spec)))))
+        (object-protocol-set! source (.o compute-slot: (lambda (_ next _name)
+          (set! ($constant-slot-spec-value spec) 99) (next))))
+        (check-equal? (.ref source 'a) 7)
+        (check-equal? (.ref source 'b) 7)))
+    (test-case "retained computed refusal is retryable and missing super stays lazy"
+      (let* ((calls 0) (cause (list 'body-refused))
+             (source (make-object slots: (list (cons 'value ($computed-slot-spec
+               (lambda (_ _next) (set! calls (1+ calls))
+                 (if (= calls 1) (raise cause) #f))))))))
+        (check-eq? (with-catch identity (cut .ref source 'value)) cause)
+        (check (.ref source 'value) => #f)
+        (check-equal? calls 2)))
+    (test-case "override construction composes the shared module and checked revision workflow"
+      (let (run (module-action "clan/poo/examples/representation-service"
+                  'clan/poo/examples/representation-service#override-workflow))
+        (for* ((depth '(0 64)) (opaque? '(#f #t)))
+          (check-equal? (run (list depth opaque?: opaque?)) '#(24 30 36 6)))))
     (test-case "public names snapshots cannot corrupt canonical reflection or static cells"
       (let* ((f (lambda (x) x)) (payload (list #f f))
              (source (.o enabled: #f callback: f names: payload))

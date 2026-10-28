@@ -8,7 +8,8 @@
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays issue-object-read object-slot-names) @object? @make-object)
+                    call-with-issued-reads active-read-replays issue-object-read object-slot-names
+                    slot-spec-discards-super? compile-slot-specs) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -253,12 +254,20 @@
                    (reverse (object-%precedence-list self))))
   (for (([super . declarations] sources))
     (for (([slot . value] (append (cdr declarations) (object-defaults super))))
-      (hash-put! h slot (lambda _ value))))
+      (hash-put! h slot (list ($constant-slot-spec value)))))
   (for (([super . declarations] sources))
     (for (([slot . spec] (append (car declarations) (object-slots super))))
-      (hash-ensure-modify! h slot
-        (lambda () (cut no-applicable-method self slot))
-        (cut apply-slot-spec self spec <>))))
+      ;; Validate even shadowed input, in its original source order. Only the
+      ;; three explicit super-independent constructors can discard a prefix;
+      ;; computed bodies remain opaque, however they happen to use their super.
+      (def discards? (slot-spec-discards-super? spec))
+      (unless (or discards? ($computed-slot-spec? spec)) (apply-slot-spec self spec #f))
+      (if discards? (hash-put! h slot (list spec))
+        (hash-ensure-modify! h slot (lambda () []) (cut cons spec <>)))))
+  ;; Compile every surviving chain BEFORE invoking any user hook. A hook cannot
+  ;; change the payload capture time of another field's SlotSpec.
+  (for (([slot . specs] (hash->list h)))
+    (hash-put! h slot (compile-slot-specs self slot specs)))
   (for (([slot . standard] (hash->list h)))
     ;; Pinned hook definitions are the terminating base of self-description.
     (def compiled (if (bootstrap-anchor self slot) standard
@@ -280,6 +289,18 @@
 (defstruct ($self-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self as argument, not super
 (defstruct ($computed-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self and superfun as arguments
 
+;; These existing constructors explicitly ignore the prior effective thunk.
+;; Never infer this property from a Function body or a successful cached value.
+(def (slot-spec-discards-super? spec)
+  (or ($constant-slot-spec? spec) ($thunk-slot-spec? spec) ($self-slot-spec? spec)))
+;; Lists are most-specific first. Standard reverse/foldl builds only the suffix
+;; retained after the last super-independent contribution, without recursive
+;; construction or a second declaration evaluator. Missing-super stays lazy.
+(def (compile-slot-specs self slot specs)
+  (def ordered (reverse specs))
+  (foldl (cut apply-slot-spec self <> <>)
+    (if (slot-spec-discards-super? (car ordered)) #f (cut no-applicable-method self slot)) ordered))
+;; Interpret one admitted SlotSpec through its original constructor semantics.
 (def (apply-slot-spec self spec superfun)
   (match spec
     (($constant-slot-spec val) (lambda _ val))

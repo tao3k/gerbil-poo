@@ -1,5 +1,5 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-offset-study run-map-study run-names-study)
+(export main run-offset-study run-map-study run-names-study run-chain-study)
 (import :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract-flow checked-action)
@@ -40,6 +40,53 @@
 ;; Both strategies own public outputs and authenticate the same structural reads.
 ;; Only the temporary public names copy differs from private internal borrowing.
 (def +names-phases+ '(names-export names-enumerate names-observed names-cold names-workflow))
+
+;; Both are supported CURRENT encodings: opaque computed versus explicit self.
+;; Cold phases charge their metadata too; this is not an old-revision speed claim.
+(def +chain-phases+ '(chain-single chain-cold chain-hot chain-workflow))
+
+;; Full construction, vector preparation and observation retain the same result.
+;; The single-contribution control charges admission/collection without a prefix.
+(def (chain-workload size scenario)
+  (def single? (eq? scenario 'chain-single))
+  (def enter (module-action "clan/poo/examples/representation-service"
+    'clan/poo/examples/representation-service#override-workflow))
+  ;; Build both representations from fresh metadata inside every cold operation.
+  (def (build opaque?)
+    ;; Final receiver lookup stays lazy in both constructor encodings.
+    (def (value self) (.get self seed))
+    (make-object defaults: (list (cons 'seed 6) (cons 'enabled #f) (cons 'callback identity))
+      slots: (append
+        (if single? []
+          (cons (cons 'value ($thunk-slot-spec (lambda () (error "shadowed benchmark body"))))
+            (for/collect (_ (in-range size))
+              (cons 'value ($computed-slot-spec (lambda (_self next) (next)))))))
+        (list (cons 'value (if opaque?
+          ($computed-slot-spec (lambda (self _next) (value self))) ($self-slot-spec value))))
+        (if single? [] (list (cons 'value
+          ($computed-slot-spec (lambda (_self next) (+ 1 (next))))))))))
+  ;; Even the hot control uses the same public guarded API and complete oracle.
+  (def (observe owner site)
+    (def value (.ref/inline owner site))
+    (def fields (.alist owner))
+    (unless (and (= value (if single? 6 7)) (= (length fields) 4)
+                 (= (cdr (assq 'value fields)) value)
+                 (not (cdr (assq 'enabled fields)))
+                 (eq? (cdr (assq 'callback fields)) identity))
+      (error "slot construction oracle")) #t)
+  ;; Warm state belongs to each side independently; no business result is shared.
+  (def (action opaque?)
+    (def warm (force-object (build opaque?)))
+    (def site (make-slot-cache 'value))
+    (observe warm site)
+    (lambda ()
+      (if (eq? scenario 'chain-workflow)
+        (begin
+          (unless (equal? (enter (list size opaque?: opaque?)) '#(24 30 36 6))
+            (error "slot construction publication oracle")) #t)
+        (observe (if (eq? scenario 'chain-hot) warm (build opaque?))
+                 (if (eq? scenario 'chain-hot) site (make-slot-cache 'value))))))
+  (values (action #t) (action #f)))
 
 ;; A safe public composition is the reference; the old leaking view is NOT a
 ;; valid alternative. Result pairs and every ordinary field read remain charged.
@@ -710,7 +757,8 @@
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow))
+  (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -728,6 +776,8 @@
              (cut map-workload n scenario))
             ((memq scenario +names-phases+)
              (cut names-workload n scenario))
+            ((memq scenario +chain-phases+)
+             (cut chain-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
             ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
@@ -844,4 +894,9 @@
 ;; Fixed complete names matrix uses the existing clocks, controls and tail reports.
 (def (run-names-study)
   (report-study (cut run-collection-study "64" "16" "6" +names-phases+) "NAMES")
+  #t)
+
+;; The standard paired runner retains every cold/hot/workflow and same-side control.
+(def (run-chain-study)
+  (report-study (cut run-collection-study "64" "16" "6" +chain-phases+) "CHAINS")
   #t)

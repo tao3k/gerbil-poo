@@ -2812,3 +2812,19 @@ owned-view frame properties, exact failure order, selective repair frames and
 logical copy counts. This closes this ownership defect; raw heap mutation,
 unrestricted callback termination and language-wide mutation tracking remain
 explicit boundaries, not completed features.
+
+### Super-independent effective construction
+
+Closed the concrete lossy/K-style construction item using the EXISTING SlotSpec
+constructors: constant/thunk/self reset the retained builder stack; computed
+remains opaque. Every original input still undergoes admission, even if shadowed.
+All effective fields are captured before user hooks, then published together by
+the existing engine. Final self, lazy super, false/Function identity, original
+refusal/retry and cache invalidation remain unchanged.
+
+Six regressions and the existing shared-service FUN/IO workflow accompany the
+SlotSpec compile/fold and first-error proofs. Logical retained-builder savings do
+not erase source admission, temporary list/hash preparation, descriptors or GC.
+Fair current-encoding cold/hot/single/full-workflow samples remain required for
+performance qualification; automatic body analysis/JIT and arbitrary module
+initialization remain separate boundaries. See [slot-specs.md](slot-specs.md).

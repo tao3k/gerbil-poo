@@ -950,7 +950,7 @@ On macOS with Gerbil 1cfb032 / Gambit ea114fc, 64 additional fields,
 16 actions per batch and six cross-side pairs, candidate-minus-reference median
 wall microseconds were:
 
-| Complete operation | Natural | Collected | Inclusive post-GC |
+| Complete operation | Natural | Collected | Post-GC batch |
 | --- | ---: | ---: | ---: |
 | Alist export | -0.44 | -0.38 | n/a |
 | Callback enumeration | -0.29 | -0.25 | n/a |
@@ -960,7 +960,7 @@ wall microseconds were:
 
 These are current safe strategies, not before/after revision claims. Collected
 cold pairs span -194.70 to +58.11 microseconds. Collected workflow pairs span
--438.50 to +265.20, and inclusive post-GC pairs -665.83 to +233.69. Natural
+-438.50 to +265.20, and post-GC batch pairs -665.83 to +233.69. Natural
 workflow pairs span -3,273.38 to +8,022.19; same-side controls also show large
 history effects (natural B/B median +751.09). Thus neither cold construction nor
 complete-workflow tail acceleration is established. Collected workflow median
@@ -972,3 +972,13 @@ The command took 27.85 wall seconds; the inner study took 15.79. Process startup
 reported 8.88 wall / 2.41 CPU seconds. Those costs are not hidden inside the
 sub-microsecond export result and do not establish faster module discovery or
 startup. Raw logs remain outside Git. All original checks and limits remain.
+
+
+The names study's separately CHARGED inclusive workflow includes forced GC and
+first invocation: median -41.84, mean -93.40, range -610.07 to +434.74
+microseconds. The post-GC batch column above excludes those preparation stages
+and must not be described as inclusive. Its natural workflow mean is +644.46
+microseconds despite a favorable median; no uniform workflow gain follows.
+
+See [slot-specs.md](slot-specs.md) for super-independent construction and its
+separately charged preparation/first-call/GC controls.

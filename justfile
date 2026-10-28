@@ -145,3 +145,7 @@ benchmark-prototype-map: build-shared
 # Structural snapshots and private enumeration use the same standard test entry.
 benchmark-names: build-shared
     just _test 300 benchmarks/names-test.ss
+
+# Explicit and opaque SlotSpec encodings retain full construction and publication.
+benchmark-slot-construction: build-shared
+    just _test 300 benchmarks/slot-construction-test.ss

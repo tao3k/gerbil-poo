@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow entry-workflow main joint-main)
 (import (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -145,12 +145,12 @@
 ;; A schema presenter may edit its own names without changing shared recipes.
 ;; Borrowed internal enumeration still crosses the same names observation and
 ;; checked Reader boundary; inspection is a normal alist consumer, not a loader.
-(def (reflection-workflow width inspect: (inspect .alist))
-  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0)))) (inspect :~ procedure?))
+(def (reflection-workflow width inspect: (inspect .alist) slots: (slots '()))
+  (using ((width :~ (lambda (n) (and (fixnum? n) (>= n 0)))) (inspect :~ procedure?) (slots :~ list?))
     (let* ((callback (lambda (x) (+ x 1)))
            (extra (for/collect (n (in-range width))
              (cons (string->symbol (string-append "visible-" (number->string n))) ($constant-slot-spec n))))
-           (recipe (make-object supers: (list Service) slots: (append extra
+           (recipe (make-object supers: (list Service) slots: (append extra slots
              (list (cons 'callback ($constant-slot-spec callback)) (cons 'enabled ($constant-slot-spec #f))))))
            (receivers (list (.o inherit: [recipe] capacity: 2) (.o inherit: [recipe] capacity: 4)))
            (delivered 0)
@@ -182,6 +182,24 @@
             (unless (equal? (vector first second third delivered) '#(24 30 36 6))
               (error "reflection revision oracle"))
             (vector first second third delivered)))))))
+
+;; Explicit self overrides cut construction, not validation or business admission.
+;; The opaque encoding is the same lawful computation expressed as computed;
+;; its unused inherited chain must remain available because bodies are opaque.
+;; Both share the complete existing reflection/refinement/FUN revision workflow.
+(def (override-workflow depth opaque?: (opaque? #f))
+  (using ((depth :~ (lambda (n) (and (fixnum? n) (>= n 0)))) (opaque? :~ boolean?))
+    ;; Final-self reads are the same computation in the explicit/opaque encodings.
+    (def (base self) (* (.get self capacity) (.get self tariff)))
+    (reflection-workflow 0 slots:
+      (append
+        (list (cons 'total ($thunk-slot-spec (lambda () (error "shadowed body forced")))))
+        (for/collect (_ (in-range depth))
+          (cons 'total ($computed-slot-spec (lambda (_self next) (+ 100 (next))))))
+        (list (cons 'total (if opaque?
+                ($computed-slot-spec (lambda (self _next) (base self))) ($self-slot-spec base)))
+              (cons 'total ($computed-slot-spec
+                (lambda (self next) (+ (next) (.get self fee) (.get self surcharge))))))))))
 
 ;; Three explicit runtime entries share standard initialized dependencies. Reader
 ;; bind keeps service refinement/revisions ahead of the second plugin's C3/lens
