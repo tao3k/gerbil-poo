@@ -27,12 +27,17 @@ build: build-shared
     set -euo pipefail
     [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
     cores=$((10#$GERBIL_BUILD_CORES))
-    # Preserve the previous slot/heap envelope while allowing each standard make
-    # to overlap backend compilation. At 12 cores: three packages, three backends.
+    # Preserve the existing slot/heap envelope with standard backend overlap.
+    # More package VMs also parallelize independent dependency preparation.
     budget=$(( cores / 2 ))
     if (( budget < 1 )); then budget=1; fi
     workers=$(( (budget + 1) / 2 ))
     backends=$(( 2 * budget / workers - 1 ))
+    # Spend the same declared slots on more isolated frontend VMs when possible.
+    # Keep at least two backends for standard make's asynchronous submission.
+    # CLI+frontend heaps are 1 GiB each; each backend is 2 GiB: 2 GiB per slot.
+    candidates=$(( workers * (backends + 1) / 3 ))
+    if (( candidates > workers )); then workers=$candidates; backends=2; fi
     printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
     printf '%s\0' t/*/gerbil.pkg | /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && printf "BUILD-PACKAGE %s\n" "$PWD" && exec gerbil {{ test-runtime-options }} build' build
 

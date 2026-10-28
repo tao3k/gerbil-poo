@@ -967,3 +967,46 @@ update; they are historical 1GiB-root receipts, not measurements of the integrat
 2GiB policy. Integration preserves that authorized policy, standard environment
 concurrency, 1GiB independent test processes and all existing time gates. The
 finite-carrier runtime/test sources are unchanged by this build-policy merge.
+
+* Parallel standard package preparation within the existing budget
+The package stage still uses the same ordinary =gerbil build= commands and all
+25 package declarations. At 12 configured cores its allocation changes from
+three independent packages with three standard-make workers/backends each to
+four packages with two each. The existing =xargs= entry is retained; no scheduler,
+manifest, cache, environment variable or compiler modification is added. The
+repartition is selected only when it increases independent package capacity and
+keeps asynchronous backend submission. Small allocations retain their existing
+policy. Root standard concurrency and its separately authorized 2 GiB heap are
+unchanged; package CLI/GXC heaps remain 1 GiB and GSC heaps 2 GiB.
+
+Both configurations declare 12 process/executor slots and a 24 GiB aggregate
+Scheme heap envelope; aggregate GXC workers/GSC capacity falls from nine to
+eight. These quantities exclude C compiler RSS, mappings and C stacks. The
+companion Lean model proves the general capacity/heap inequalities and selected
+asynchronous-backend count, not a physical-memory or wall-time guarantee.
+
+An unchanged-source, same-prefix ABBA preparation control executed all 25 packages
+in every arm, with zero frontend or backend compilations. Walls (seconds) were
+A1 42.28, B1 37.55, B2 32.45, A2 40.90. Both ordered pairs favored B by 4.73 and
+8.45 seconds; means were 41.59 versus 35.00. User CPU was respectively 103.32,
+112.94, 106.96 and 101.49 seconds: this is better preparation overlap, not less
+computation or a GC-only explanation. Two pairs do not establish a stable p99.
+
+A complete rebuild with the new allocation took 251.81 seconds: root 82.75,
+startup 2.94, test packages 165.63. It used an existing prefix and recompiled 147
+test modules, so it is neither an empty-cache receipt nor a matched causal ratio
+against the earlier 328.69-second/1-GiB-root run. Its full check passed all 150
+modules and 1,876 cases plus the complete paired benchmark; inclusive check wall
+was 233.96 seconds. Existing deadlines, checks, negative controls and resource
+limits are retained. Raw logs stay outside the repository.
+
+To separate that partial rebuild from cold package preparation, both allocations
+were then run after the same standard =gerbil clean= on the 25 test packages,
+retaining the same root/library products and unchanged test sources. The old
+3-by-3 allocation took 155.53 seconds (user 709.69, sys 76.99); the new 4-by-2
+allocation took 143.48 (user 718.73, sys 76.71). Both recompiled all 150 test
+modules. This single ordered cold pair favors the new allocation by 12.05 seconds;
+it is not an empty-cache whole-library comparison or a stable-tail guarantee.
+Concurrent verbose output interleaves some backend lines, so textual job counts
+are not used as exact artifact-inventory proofs. Complete checks admit the
+resulting products. No CPU-reduction claim is made.
