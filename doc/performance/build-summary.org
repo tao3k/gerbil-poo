@@ -924,3 +924,66 @@ The complete pre-integration =just check-built 2 1 4= also passed: 149 modules,
 1836 cases and =COLLECTION-PAIRED-OK= in 92.84 seconds wall (64.99 user, 7.13
 system). This reused already compiled, source-consistent project artifacts;
 it is not an empty-prefix build or a substitute for the focused gate.
+
+* Root compiler shared-heap admission
+
+The diagnostic CI sequence is recorded in [[file:../prototype-maps.md][prototype-map admission]]. The
+current source before this correction is =96ab90b=. Its 53 checks passed, but
+the earlier worker-3 failure was real and a later clean pass did not explain it.
+
+Gambit's [[https://gambitscheme.org/4.9.7/manual/#Exception-objects-related-to-memory-management][memory-management exception protocol]] defines =stack-overflow-exception=
+as failure to allocate a continuation frame within available heap space. It
+does not by itself identify infinite recursion or exhaustion of the OS stack.
+The installed Gerbil release has two separate concurrency controls:
+
+- =std/make= uses =parallelize:= for GXC frontend workers sharing one process.
+- The compiler backend executor reads =GERBIL_BUILD_CORES= independently and
+  runs GSC jobs with their own heaps. A frontend count above one enables its
+  asynchronous submission protocol.
+
+On macOS, two consecutive empty-prefix root builds used the same release,
+source, 1 GiB frontend heap, 2 GiB per-backend bound, 300-second deadline and
+12-backend setting. Gambit's standard =debug=q5= option added GC reports without
+changing optimization or the limits. The ordinary build-script =compile= entry
+was invoked directly for this diagnostic; it is not a new public command.
+
+| GXC frontends | Backend capacity | Result | Wall seconds | Peak post-GC live MiB |
+|---------------+------------------+--------+--------------+-----------------------|
+|            12 |               12 | worker 4 stack overflow | 102.70 | 904 |
+|             3 |               12 | complete root build | 116.72 | 869 |
+
+Both reached the configured heap ceiling. These are sampled post-GC live heap
+figures, not RSS, per-job memory or a process-group memory measurement. A failed
+build is not a faster performance baseline. Concurrent logs do not identify the
+failing module, and this pair does not establish a compiler recursion defect.
+The observations support a shared-heap pressure diagnosis and bound the chosen
+frontend admission policy; they do not prove absence of every future refusal.
+
+The existing root =defbuild-script= now passes =parallelize:= capped at three,
+preserving the standard backend setting. No scheduler, cache, cleanup fallback,
+compiler flag or timeout is added. Counts 0/1 retain serial behavior, 2 retains
+two frontends, and 12 admits three frontends with backend capacity 12. Invalid
+integer configuration is still refused. Progress reports both controls. This
+does not impose a three-job limit on backend compilation or test packages.
+
+A separate ordinary =just check 2 1 4= run started from another empty output
+prefix with production =debug=q=. The unchanged per-phase =time -p= gates passed:
+root 124.57 seconds, startup 7.10, test packages 221.08, all 150 modules / 1872
+cases 277.30, and the paired study 18.96 with =COLLECTION-PAIRED-OK=. The observed
+whole-entry wall was 650.06 seconds (1151.08 user, 170.71 system). The older
+689.06-second observation used an earlier source cohort; this is not a paired
+performance ratio or a tail-stability claim. Complete testing remains the
+largest measured phase, followed by package preparation.
+
+The temporary outer =time -l= diagnostic then refused =sysctl kern.clockrate=
+in the sandbox, returning 1 after the completed workflow. The same refusal
+reproduces with =time -l true=; =time -p true= exits 0. The GC controls above also
+used that diagnostic timer: their wall/GC figures are retained, but no RSS or
+outer exit-success claim is derived from it. The repository already uses the
+working =time -p= entry, without =-l=. This measurement refusal is not ignored
+or converted to a POO failure. A subsequent complete =time -p just check 2 1 4=
+on the same artifacts exited 0 in 154.93 seconds: 14.19 root, 3.17 startup,
+54.51 packages, 64.77 complete tests and 16.38 paired study. It retained all
+150 modules / 1872 cases and the paired success marker, with no frontend or
+backend compilation markers. This is a warm correctness/cache-reuse control,
+not a second cold measurement or a cold speedup estimate.

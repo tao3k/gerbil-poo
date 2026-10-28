@@ -236,10 +236,21 @@
     "benchmarks/recursive-suite"
     "benchmarks/representation-startup"
 ))
-;; The standard macro owns its complete documented command and option protocol.
-(def build (let () (defbuild-script +gerbil-poo-build-spec+) main))
+;; GXC frontends share this process's 1 GiB heap; backend jobs have separate heaps.
+;; Keep the standard backend executor at GERBIL_BUILD_CORES while bounding the
+;; number of simultaneously live macro-expansion and optimization contexts.
+(def +gerbil-poo-build-frontends+
+  (min 3 (: (string->number (getenv "GERBIL_BUILD_CORES" "0")) :integer)))
+;; The standard macro owns scheduling, dependencies, freshness and command options.
+(def build
+  (let ()
+    (defbuild-script +gerbil-poo-build-spec+
+      parallelize: +gerbil-poo-build-frontends+)
+    main))
 ;; Close the compiler's own executor if construction refuses before make returns.
 (def (main . options)
+  (displayln "BUILD-CONCURRENCY root-frontends=" (max 1 +gerbil-poo-build-frontends+)
+    " root-backends=" (getenv "GERBIL_BUILD_CORES" "0"))
   (call-with-build-jobs (lambda ()
     (apply property-build.main options)
     (apply build options)
