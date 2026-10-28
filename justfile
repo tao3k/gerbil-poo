@@ -11,6 +11,7 @@ timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || c
 
 build-core:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    printf 'BUILD-CONCURRENCY root-backends=%s\n' "$GERBIL_BUILD_CORES"
     /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
 
 build-shared: build-core
@@ -27,11 +28,14 @@ build: build-shared
     set -euo pipefail
     [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
     cores=$((10#$GERBIL_BUILD_CORES))
-    # Each ordinary build owns one frontend and one backend. Give serialized
-    # dependency preparation more frontends without increasing the job/heap bound.
-    workers=$(( cores / 2 ))
-    if (( workers < 1 )); then workers=1; fi
-    printf '%s\0' t/*/gerbil.pkg | /usr/bin/time -p env GERBIL_BUILD_CORES=1 {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && printf "BUILD-PACKAGE %s\n" "$PWD" && exec gerbil {{ test-runtime-options }} build' build
+    # Preserve the previous slot/heap envelope while allowing each standard make
+    # to overlap backend compilation. At 12 cores: three packages, three backends.
+    budget=$(( cores / 2 ))
+    if (( budget < 1 )); then budget=1; fi
+    workers=$(( (budget + 1) / 2 ))
+    backends=$(( 2 * budget / workers - 1 ))
+    printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
+    printf '%s\0' t/*/gerbil.pkg | /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && printf "BUILD-PACKAGE %s\n" "$PWD" && exec gerbil {{ test-runtime-options }} build' build
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:

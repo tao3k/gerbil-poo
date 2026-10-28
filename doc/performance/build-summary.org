@@ -1,5 +1,104 @@
 #+title: macOS Scheme build preparation and bounded reuse
 
+* System validation and standard make backend overlap
+The next controlled study froze source =3ba1b34= on a host reporting 12 physical
+and 12 logical cores. Root and startup compilation still receive the standard
+=GERBIL_BUILD_CORES=12=. Test packages previously used six official build CLIs,
+each with =GERBIL_BUILD_CORES=1=. This was a deliberate earlier allocation, not
+an absence of concurrency. A live process snapshot confirmed six package CLIs;
+a completed warm build took 41.35 seconds, including 23.33 for package checks.
+It did not establish that the allocation was optimal for cold compilation.
+
+In the installed =std/make=, =gerbil-build-cores= reads this standard variable;
+=settings-parallelize > 1= enables asynchronous GSC compilation. Setting each
+package to 1 therefore removes that overlap. The standard make also serializes
+imports with its import mutex and waits for dependencies: configuring 12 does
+not imply 12 independent backend jobs are ready immediately. No build script,
+compiler, importer, module registry or =module-action= is replaced in this change.
+
+** Separating validation, mapping and repeated loading
+A temporary =std/ffi= probe used valid copies of the actual compiled generator
+image. It registered the signature, called =F_CHECK_LV= and separately timed
+=dlopen=, retaining handles without invoking the Gambit module linker or Scheme
+initializers. Every admitted call returned success; malformed-image refusal is
+not counted as a zero-cost load. The probe is diagnostic code outside Git.
+
+| Operation on a real generated image             | Wall time |
+|------------------------------------------------+-----------|
+| First validation of a new copy                  | 438.562 ms |
+| Immediate validation of that same file          |   0.007 ms |
+| Same file, fresh Gerbil process                 |   0.010 ms |
+| New hard-link name for an already checked inode |   8.564 ms |
+| Byte-identical copy with a new inode            | 301.444 ms |
+| Separate sample: validate, then first dlopen    | 425.094 ms + 1.247 ms |
+| Separate unchecked copy: first dlopen           | 244.501 ms |
+| Immediate repeated dlopen                       |   0.058 ms |
+
+The unchecked =dlopen= used 1.366 ms of client process CPU; the prevalidated
+mapping used 1.240 ms. Validation after the unchecked load took 0.005 ms.
+This separates a first-file policy wait from mapping and repeated calls in this
+small image experiment. It neither measures Scheme initialization nor implies
+that every full-run image has the same cost or that every wait has one cause.
+The alias/copy control is consistent with file-identity-sensitive system reuse;
+it does not prove an undocumented cache's complete key or eviction discipline.
+
+The matching system log now identifies the service path. At 14:30:57.980 local
+time the kernel's AMFI records the probe copy's missing CMS blob; at
+14:30:58.418 =syspolicyd= records its =GK evaluateScanResult= and provenance
+processing. That interval matches the measured 438 ms. The linked image is
+valid ad-hoc/linker-signed code: =codesign --verify --strict= succeeds and the
+sample has no =com.apple.quarantine= attribute. The CMS diagnostic is not a
+final load refusal. XNU's [[https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_descrip.c][F_CHECK_LV implementation]] forwards the request to
+=mac_file_check_library_validation=. The host evidence thus identifies AMFI /
+Gatekeeper assessment through =syspolicyd=; it does not partition that daemon's
+internal scan, queue and IPC time. No signing, security policy or attributes are
+changed. Reusing existing standard artifacts preserves the demonstrated system
+cache benefit; another POO cache cannot remove first validation of a new file.
+
+** Complete cold AB and warm BA controls
+Each cold arm used a newly created empty standard =GERBIL_PATH=. Both ran the
+ordinary =just check 2 1 4= with the same source, installed release and guards.
+Warm trials reversed the order, B then A, against the same completed B prefix.
+Initial library/package preparation emitted zero compile jobs in both warm
+trials; the unchanged suite still runs its ordinary fixtures. All four complete
+entries exited 0, with 150 modules, 1867 cases, =OK= and =COLLECTION-PAIRED-OK=.
+
+| Wall seconds          | Cold A: 6 x 1 | Cold B: 3 x 3 | Warm B | Warm A |
+|-----------------------+---------------+---------------+--------+--------|
+| Root build            |        114.98 |        108.06 |  13.90 |  33.30 |
+| Startup build         |         16.55 |          7.26 |   2.93 |   5.16 |
+| Test-package build    |        294.08 |        201.28 |  40.96 |  60.62 |
+| Single-process tests  |        280.51 |        248.43 |  53.28 |  69.73 |
+| Collection study      |         16.72 |         20.07 |   9.03 |  11.80 |
+| Complete entry        |        724.32 |        586.67 | 121.58 | 182.09 |
+
+Cold complete wall improves by 137.65 seconds (19.0%); package wall by 92.80
+seconds. Aggregate cold user/system seconds are 1224.56/201.26 versus
+1121.50/166.72. B's cold package phase sampled up to seven simultaneous actual
+GSC processes; the configured package backend capacity is nine. The observer
+only reads process listings, avoiding dyld debugger attachment. Even unchanged
+root/startup phases vary, especially in the warm pair. Neither one cold pair
+nor one warm pair establishes stable tail bounds or attributes every difference
+to scheduling. The older 550.53-second cohort is not this control; a single
+current-source cold arm must not be described as a measured win against it.
+The single-process first-load cost remains substantial and is not declared closed.
+
+** Same allocation envelope, standard executor
+Let M=max(1,floor(cores/2)), the former package count. Use G=ceil(M/2) package
+CLIs and K=floor(2*M/G)-1 standard backends per package. G*(1+K)<=2*M, and the
+declared CLI/frontend/backend Gambit heap envelope G*(2+2*K)<=4*M GiB. At 12
+cores both package policies admit 12 modeled work slots and 24 GiB of declared heaps:
+6*(1+1+2) versus 3*(1+1+3*2). This is not an aggregate RSS or OS-thread bound,
+including C compiler children. The arithmetic was checked for core values 0
+through 256. Existing 1 GiB frontends, 2 GiB backends, focused/full deadlines
+and all POO acceptance remain. No new environment variable or scheduler is
+introduced: the existing xargs and official build CLI receive the redistribution.
+Root and package settings are printed explicitly as =BUILD-CONCURRENCY= progress.
+
+These paired receipts precede =2dead20=. That subsequent declaration-cache
+update is retained; integrated acceptance is separate from this timing cohort.
+Raw logs, system trace data and diagnostic build products remain outside Git.
+
 * First-image validation: measured boundary and rejected representation policy
 A macOS follow-up separated two =fcntl= operations used by dyld. A temporary
 =std/ffi= probe in the actual released Gerbil process, against three fresh
