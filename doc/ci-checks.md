@@ -14,6 +14,14 @@ The shared job runs `just build-shared`. The root package builds the shared
 libraries and `representation-main`; complete collection acceptance loads its
 ordinary module through that entry. The startup benchmark has its own small
 standard executable package. It does not relink the complete collection graph.
+The root entry composes the independent property library, the POO library-only
+declaration and `examples/build.ss`, in that order, within the same 300-second
+guard. The examples package declares the existing executable with its existing
+module identity. This separation matters: the released `std/make` requests static
+runtime objects for every library in a declaration containing an `exe:`. Keeping
+the library declaration free of executables lets the executable compiler prepare
+only its actual static dependency closure. Standard freshness and parallel jobs
+remain responsible for those objects; there is no project object cache.
 GitHub's `hashFiles` and cache action
 own exact-source cross-run lookup; `std/make` owns local dependency freshness.
 Cache misses are not accepted as success and tests always execute. No project
@@ -22,6 +30,10 @@ The startup package retains `defbuild-script`'s backend parallelism through
 `GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
 disable concurrent backend object compilation. The 90-second startup-program
 gate remains separate from the 300-second root-library build.
+The complete local entry prints standard `time -p` wall/user/system observations
+for shared preparation, startup preparation, test-package preparation, the whole
+test process and the collection study. Existing commands, progress and failure
+markers remain intact; phase CPU observations do not isolate GC or loader costs.
 The standard upload/download actions transfer artifacts within the current
 workflow run, using commit-specific names and their built-in digest verification.
 The shared library/program artifact uses an uncompressed tar in runner temporary

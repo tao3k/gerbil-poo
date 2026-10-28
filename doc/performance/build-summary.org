@@ -1,5 +1,70 @@
 #+title: macOS Scheme build preparation and bounded reuse
 
+* Library-only compilation and existing runtime cache use
+The 2026-10-28 follow-up inspected the installed release's =std/make.make-build=.
+An =exe:= anywhere in a build declaration enables static runtime object
+compilation for every library in that declaration. The former root declaration
+mixed the full library/example/study inventory with =representation-main=.
+Most of that inventory is dynamically loaded rather than statically linked into
+the shared foundation.
+
+The standard root build now composes a library-only declaration followed by the
+existing executable's =examples/build.ss= declaration. The independent property
+library remains first. These are ordinary =defbuild-script= components inside
+the same top-level =gerbil build= and original 300-second guard. No compiler
+options, worker/heap limits, POO acceptance or test packages are removed. The
+executable compiler owns its actual closure and object freshness. The root
+=gerbil clean= reaches the same components through their ordinary =main= entries.
+
+An empty-prefix complete =just check 2 1 4= on base =f42e8c6= plus this separation
+passed 149 modules, 1839 cases and =COLLECTION-PAIRED-OK= in 564.23 seconds wall
+(1099.92 user, 160.55 system). Its final static-object inventory contains 27
+objects, compared with 207 in the original completed prefix. Both the ordinary
+compiled libraries and the two real programs were built; the reduction does not
+omit their dynamic modules or any POO tests. The older 609.11-second receipt was
+a broad rebuild, not an identical empty-prefix control: these observations do
+not establish a paired wall-clock speedup or close the remaining latency issue.
+
+Before this change, an unchanged-source complete entry took 165.49 seconds:
+23.26 shared preparation, 4.69 startup preparation, 73.54 test-package
+preparation, 55.44 complete tests and 7.47 collection study. No frontend compile
+jobs ran. These are measured phase walls, not additive causal estimates of
+startup, dependency traversal or GC. The current recipe retains standard
+=time -p= phase output to make subsequent complete measurements reviewable.
+
+The empty-prefix test process spent a long interval before its first case. A
+one-second sample placed 853 of 888 main-thread samples inside the macOS
+=dlopen= image-mapping =fcntl= path. This identifies that window only; it neither
+attributes the complete run nor establishes a general loader defect. No signing
+changes, preloading stage or alternative loader were introduced.
+
+Self-application already has two distinct owners. The shared executable calls
+=io.module-action=; Gerbil caches successful initialization and initialization
+errors, while every invocation resolves the current explicit binding before
+calling it. The service's =checked-field-action= uses the existing indexed
+access-site cache and retains refinement before each consumer effect. Revision,
+reload, false/Function payload, refusal and retry tests remain active. Neither
+cache is a compiler-output cache. Sharing mutable access sites or retaining old
+callable bindings globally would change these semantics, so neither is used as
+a shortcut around preparation or first image mapping.
+
+After integrating =91ae012=, the same prefix was rebuilt and the complete entry
+passed 149 modules, 1850 cases and the collection paired oracle in 593.93 seconds
+(1098.99 user, 156.65 system). Phase walls were 121.89 shared build, 2.90 startup
+preparation, 201.22 test-package compilation, 255.18 full test process and 10.69
+collection study. The test process used 51.45 user and 5.75 system seconds; the
+remaining wall time is not labelled GC. Its static-object inventory contains 28
+objects. Source/dependency changes caused recompilation and first mappings, so
+this receipt is neither an unchanged-source warm control nor a second empty-prefix
+control. It validates the newer implementation with the original limits; it
+does not establish a complete-wall performance improvement.
+
+An attempted single =std/make= declaration for all 149 test sources exhausted
+the original 1 GiB frontend heap during eager import preparation. It was
+withdrawn completely; the existing 25 standard test packages and their existing
+parallel/resource policy remain. That failed experiment is not an accepted
+optimization or a reason to enlarge the heap.
+
 * Measurement boundary
 These receipts use the macOS ARM64 precompiled Gerbil release 1cfb032 / Gambit
 ea114fc, Homebrew package patch618d76f9eb72, GCC 16.2.0 and macOS 26.6.1.

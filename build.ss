@@ -1,12 +1,13 @@
 #!/usr/bin/env -S gxi -:max-heap=1G,debug=q
 ;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
-(import (prefix-in "testing/core/build.ss" property-build.) :std/build-script (only-in :std/make include-gambit-sharp pkg-config-libs)
+(import (prefix-in "testing/core/build.ss" property-build.)
+        (prefix-in "examples/build.ss" entry-build.)
+        :std/build-script (only-in :std/make include-gambit-sharp)
         (only-in "t/build.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
-;; Link flags come from the selected pkg-config installation, once per build.
-(def +links+ (pkg-config-libs "openssl"))
+;; Keep the established backend split bound for the table implementation.
 (def +gerbil-poo-cc-options+ "-D___SINGLE_HOST_LIMIT=10000")
 
 ;; Declare the existing platform-specific linkage for dynamic math symbols.
@@ -147,7 +148,6 @@
     "examples/lifecycle"
     "examples/parameter-service"
     "examples/representation-service"
-    ,(list exe: "examples/representation-main" "-cc-options" +gerbil-poo-cc-options+ "-ld-options" +links+)
     "examples/signature-service"
     "examples/collection-testing"
     "examples/collection-properties"
@@ -241,4 +241,5 @@
 (def (main . options)
   (call-with-build-jobs (lambda ()
     (apply property-build.main options)
-    (apply build options))))
+    (apply build options)
+    (apply entry-build.main options))))

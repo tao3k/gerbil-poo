@@ -11,10 +11,10 @@ timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || c
 
 build-core:
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
+    time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
 
 build-shared: build-core
-    cd benchmarks/representation-startup && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
+    cd benchmarks/representation-startup && time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
 # Standalone studies use their ordinary compiler packages only when requested.
 build-benchmarks group: build-core
@@ -36,7 +36,7 @@ build: build-shared
       budget=$(( (workers * budget - 1) / 3 ))
       workers=3
     fi
-    printf '%s\0' t/*/gerbil.pkg | env GERBIL_BUILD_CORES="$budget" {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} build' build
+    time -p printf '%s\0' t/*/gerbil.pkg | env GERBIL_BUILD_CORES="$budget" {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} build' build
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:
@@ -63,7 +63,7 @@ _test max-seconds +targets:
     shift
     log="$(mktemp "${TMPDIR:-/tmp}/gerbil-poo-test.XXXXXX")"
     trap 'rm -f "$log"' EXIT
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s "${seconds}s" gerbil {{ test-runtime-options }} test -v 5 "$@" 2>&1 | tee "$log"
+    time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s "${seconds}s" gerbil {{ test-runtime-options }} test -v 5 "$@" 2>&1 | tee "$log"
     grep -q '^MODULE-OK ' "$log"
     grep -q '^CASE-OK ' "$log"
     grep -q '^HARNESS-OK ' "$log"
@@ -80,7 +80,7 @@ check-built width='2' samples='1' pairs='4':
     just _run-collections "$1" "$2" "$3"
 
 _run-collections width samples pairs:
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"
+    time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"
 
 clean:
     printf '%s\0' t/*/gerbil.pkg benchmarks/*/gerbil.pkg gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
