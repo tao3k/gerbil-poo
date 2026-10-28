@@ -2994,3 +2994,21 @@ cache registry or evaluator. Complex clone/shared-service refusal, repair and
 revision controls accompany finite Lean reachability, active-edit frame/retry and
 logical registration-attempt laws. This does not discover arbitrary callback
 sources or prove host weak-table, GC or concurrent behavior.
+
+### Complete declaration type preparation
+
+Closed a witnessed gap after descriptor registration: an early `.slot.define`
+could revise the type object of a later field or C3 branch before that type was
+registered. Preparation now resolves/registers the whole finite C3 family's types
+before any definition hook. One-shot private actions then use the existing Slot
+protocol and per-catalog scratch receivers in their original order. Metadata
+resolution errors precede definition effects; definition errors, incremental
+scratch visibility, failed-build cleanup and corrected retry retain their exact
+second-phase behavior. Standard ordered mapping/builders and existing weak source
+edges own all mechanics. There is no new evaluator, registry or namespace, no
+persisted admission verdict and no repeated type read during action execution.
+Cold actions/list capture and earlier metadata reads on failed requests are paid
+costs. Arbitrary getter side effects, undiscovered sources, raw private writes and
+concurrent mutation remain stated boundaries. Tests and a shared-service diamond
+cover source refusal, false exception preservation, retry and type revision; Lean
+proves ordered capture, phase refusal/frame and registered reverse-closure laws.

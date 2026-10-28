@@ -17,6 +17,53 @@
 ;; Independent scan observations are compared to private indexing after real edits.
 (def declaration-index-test
   (test-suite "effective declarations, visibility and revision guards"
+    (test-case "all resolved declaration types are protected before definition hooks"
+      (def original (.ref (descriptor 7) '.type))
+      (def later-type (.cc original))
+      (def later (.cc (descriptor 7) '.type later-type))
+      (def attack? #t)
+      (def first-type (.cc original '.slot.define
+        (lambda (metadata name target)
+          (when attack? (.putslot! later-type '.slot.define
+            ($constant-slot-spec (lambda (_metadata key receiver)
+              (.putslot! receiver key ($constant-slot-spec 99))))))
+          (.call original .slot.define metadata name target))))
+      (def first (.cc (descriptor 3) '.type first-type))
+      (def owner (make-object declarations: [(cons 'first first) (cons 'later later)]))
+      (check-exception (.ref owner 'first) (message? "object mutation during computation"))
+      (check-eq? (.ref later-type '.slot.define) (.ref original '.slot.define))
+      (check (object-%instance owner) => #f)
+      (set! attack? #f)
+      (check-equal? (read-slot owner 'later) 7))
+    (test-case "type resolution failure precedes definition effects and exact failures can retry"
+      (def original (.ref (descriptor 7) '.type))
+      (def calls 0)
+      (def defining (.cc original '.slot.define (lambda (_ _key _target)
+        (set! calls (1+ calls)) (raise 'definition-refused))))
+      (def first (.cc (descriptor 3) '.type defining))
+      (def later (descriptor 7))
+      (.putslot! later '.type ($thunk-slot-spec (lambda () (raise #f))))
+      (def owner (make-object declarations: [(cons 'first first) (cons 'later later)]))
+      (check-equal? (with-catch (lambda (cause) (list cause)) (cut .ref owner 'first)) '(#f))
+      (check-equal? calls 0)
+      (check (object-%slot-funs owner) => #f)
+      (.putslot! later '.type ($constant-slot-spec original))
+      (check-eq? (with-catch identity (cut .ref owner 'first)) 'definition-refused)
+      (check-equal? calls 1)
+      (.putslot! defining '.slot.define ($constant-slot-spec (.ref original '.slot.define)))
+      (check-equal? (read-slot owner 'later) 7))
+    (test-case "complete C3 type preparation preserves incremental definitions and shared service retry"
+      (def seen [])
+      (def original (.ref (descriptor 7) '.type))
+      (def recording (.cc original '.slot.define (lambda (metadata name target)
+        (set! seen (cons (map car (object-slots target)) seen))
+        (.call original .slot.define metadata name target))))
+      (def owner (make-object declarations:
+        [(cons 'first (.cc (descriptor 3) '.type recording))
+         (cons 'second (.cc (descriptor 7) '.type recording))]))
+      (check-equal? (.ref owner 'second) 7)
+      (check-equal? (reverse seen) '(() (first)))
+      (check-equal? (service.declaration-type-workflow) '#(9 11 2)))
     (test-case "construction owns later declaration sources before the first definition hook"
       (def later (descriptor 7))
       (def original (.ref later '.type))

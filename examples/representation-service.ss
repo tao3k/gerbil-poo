@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow replay-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow replay-workflow entry-workflow main joint-main)
 (import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -408,3 +408,37 @@
     (unless (every (lambda (read) (not (object-read-current? read))) reads)
       (error "old declared service read survived source edit"))
     (vector initial (map-in-order action receivers) delivered)))
+
+;; A resolved type is a source even when its descriptor lives on another branch.
+;; One checked FUN consumer survives refusal, repaired preparation and a supported
+;; type-definition revision; old reads cannot authorize the rebuilt service.
+(def (declaration-type-workflow)
+  (def original (.ref (.new Slot type: Integer constant: 3) '.type))
+  (def tariff-type (.cc original))
+  (def attack? #t)
+  (def capacity-type (.cc original '.slot.define
+    (lambda (metadata name target)
+      (when attack? (.putslot! tariff-type '.slot.define
+        ($constant-slot-spec (lambda (_ key receiver)
+          (.putslot! receiver key ($constant-slot-spec 99))))))
+      (.call original .slot.define metadata name target))))
+  (def older (make-object supers: [Service] declarations:
+    [(cons 'capacity (.cc (.new Slot type: Integer constant: 2) '.type capacity-type))]))
+  (def newer (make-object supers: [Service] declarations:
+    [(cons 'tariff (.cc (.new Slot type: Integer constant: 3) '.type tariff-type))]))
+  ;; Reverse C3 consumes older first; the later branch's type must already be bound.
+  (def receiver (make-object supers: [newer older]))
+  (def delivered 0)
+  (def action (checked-total-action (lambda (_ amount) (set! delivered (1+ delivered)) amount)))
+  (def cause (with-catch identity (cut action receiver)))
+  (unless (and (Error? cause) (equal? (error-message cause) "object mutation during computation")
+               (= delivered 0) (eq? (.ref tariff-type '.slot.define) (.ref original '.slot.define)))
+    (error "later type escaped family preparation"))
+  (set! attack? #f)
+  (let (first (action receiver))
+    (defvalues (_value reads) (%call-with-recorded-slot-reads (cut .ref receiver 'total)))
+    (.putslot! tariff-type '.slot.define ($constant-slot-spec
+      (lambda (_ key target) (.putslot! target key ($constant-slot-spec 4)))))
+    (unless (and (pair? reads) (every (lambda (read) (not (object-read-current? read))) reads))
+      (error "old typed service read survived definition edit"))
+    (vector first (action receiver) delivered)))

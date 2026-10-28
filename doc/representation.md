@@ -1120,3 +1120,31 @@ module inventory. The retired tools package is cleaned using its original standa
 build declaration and `gerbil clean` before the current standard build, so obsolete
 interfaces cannot silently enter the post-integration complete-suite glob. The
 latest declared inventory and CI are separate integration acceptance.
+
+Complete finite C3 type preparation closes the next source-binding gap. Before
+any `.slot.define` executes, the standard ordered map resolves/registers every
+catalog's actual `.type`; standard list builders capture private one-shot actions.
+Only after all catalogs resolve do those actions define the original per-catalog
+scratch receivers, preserving definition order and incremental scratch visibility.
+No pending action is retained on an owner or reused after failure/revision. The
+existing weak source graph, invalidation guards and Slot dispatch own all runtime
+behavior; no evaluator, namespace, loader or registry is added.
+
+The observable admission policy is explicit: a type-resolution exception (even
+`#f`) wins before ALL definition effects; once resolution succeeds, original
+first-definition errors still win. Type getters themselves remain ordered and may
+have their ordinary effects; this is not rollback or discovery of arbitrary
+callback sources. Active receivers protect the registered type identities, including
+later C3 branches. Failed attempts publish no scratch method table and repair
+resolves fresh identities. Empty catalogs allocate no pending action/scratch.
+One-shot closures and family lists are paid cold preparation costs; warm values
+or successful old checks never stand in for current source admission.
+
+Reproduce this unit with the existing standard `just build`,
+`just test-atomic declaration-index`, `just check-built 2 1 4 300`, and
+`just benchmark-declaration-index` entries. The fixed declaration matrix retains
+32 fields, 16 repetitions, six AB/BA pairs and four A/A/B/B controls per regime,
+including charged GC preparation, cold construction and complete shared-module
+publication. Both safe scan/index strategies pay the new complete type phase;
+identical construction controls expose variability rather than claiming a causal
+old/new optimization. Raw benchmark output stays outside version control.

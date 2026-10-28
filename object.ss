@@ -9,7 +9,7 @@
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read object-slot-names
-                    slot-spec-discards-super? compile-slot-specs declaration-specifications compute-object-precedence!) @object? @make-object)
+                    slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -29,7 +29,7 @@
   ./prototype-map
   ./slot-layout
   (only-in :std/list/list-builder with-list-builder)
-  (only-in :std/list/list flatten delete-duplicates/hash)
+  (only-in :std/list/list flatten delete-duplicates/hash map-in-order)
   (only-in :std/string/symbol symbol<?)
   :std/stxparam
   (only-in :std/values first-value)
@@ -251,26 +251,30 @@
             precedence-list)
           (catch (cause) (clear-object-cache! object) (raise cause)))))))))
 
-;; Compile declaration metadata through the existing Slot protocol on a fresh
-;; private receiver. Repeating this after descriptor edits cannot retain stale
-;; constant/default/compute specifications from the previous metadata revision.
-;; Only private immutable maps escape the scratch receiver; empty declarations
-;; need no result pair or public snapshot export.
-(def (declaration-specifications self)
+;; Resolve/register each finite catalog before running ANY definition hook in C3.
+;; The one-shot private action retains actual type identities, never a validation
+;; verdict. Empty catalogs allocate neither scratch receivers nor pending actions.
+(def (prepare-declaration-specifications self)
   (and (positive? (prototype-map-length (object-%declarations self)))
-    (let (scratch (make-object))
+    (let (definitions (with-list-builder (add)
       (prototype-map-for-each (object-%declarations self)
         (lambda (name descriptor)
           (def type (.@ descriptor .type))
           (depend-on-object! self type)
-          (.call type .slot.define descriptor name scratch)))
-      (cons (object-%slots scratch) (object-%defaults scratch)))))
-;; Assemble the ordinary inheritance chain, then let inherited hooks transform
-;; each effective thunk. Direct specification writes override their declaration.
+          (add (lambda (scratch) (.call type .slot.define descriptor name scratch)))))))
+      (lambda ()
+        (let (scratch (make-object))
+          (for-each (lambda (define-slot) (define-slot scratch)) definitions)
+          (cons (object-%slots scratch) (object-%defaults scratch)))))))
+;; Capture the whole C3 family first, then define each source in its original order.
+;; Incremental scratch visibility remains local to each catalog; nothing pending
+;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
   (def h (make-hash-table-symbolic))
-  (def sources (map (lambda (super) (cons super (declaration-specifications super)))
-                   (reverse (object-%precedence-list self))))
+  (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
+                             (reverse (object-%precedence-list self))))
+  (def sources (map-in-order (lambda (entry)
+    (cons (car entry) (and (cdr entry) ((cdr entry))))) prepared))
   ;; The same consumers handle normalized declarations and persistent maps;
   ;; no private entry pair escapes and no direct-map snapshot is materialized.
   (def (default! slot value) (hash-put! h slot (list ($constant-slot-spec value))))
