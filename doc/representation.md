@@ -982,3 +982,53 @@ microseconds despite a favorable median; no uniform workflow gain follows.
 
 See [slot-specs.md](slot-specs.md) for super-independent construction and its
 separately charged preparation/first-call/GC controls.
+
+### Symbolic mutation admission
+
+The paper presents named slots with Symbol keys (`poof.scrbl:251,384–421`), and
+POO's direct read/write protocols already enforce symbolic specification names.
+The old removal path instead treated non-symbols as missing names, allowing
+`.removeslot!`/`.removedefault!` to invalidate shared owners. `.put!` invalidated
+before reaching its symbolic hash. The original non-symbol-removal regression
+failed because no key refusal occurred before this edit boundary.
+
+Two standard `using` contracts now close that grammar: persistent map removal and
+explicit instance writes. They run before traversal/invalidation, without another
+per-method wrapper or namespace. Supported Symbol behavior is unchanged, including
+uninterned identity, missing-name revisions, sealed-source refusal and explicit
+instance values independent of direct source removal. A rejected key neither
+allocates an override table nor clears a warmed shape/vector, source snapshot or
+issued credential. Explicit instance assignments remain local, even though\ntheir ordinary invalidation clears descendants; only specification edits change\ninherited contributions. Argument expressions are evaluated before entry and their
+side effects are not undone. Invalid-key grammar takes precedence just as existing
+prototype-map writes admit keys before mutation preflight.
+
+Regressions retain shared-diamond cache identity and generations across false,
+number, string, empty-list and vector key refusals, then verify once-only
+invalidation and old-read rejection after a corrected Symbol write. False and
+Function payloads keep their identity. `symbolic-edit-workflow` composes these
+refusals with the existing checked total/FUN action and fresh successful service
+publication. The ordinary standard map study compares valid indexed removal with
+a safe snapshot/rebuild strategy; it does not use unsafe invalid-key behavior as
+a faster baseline or claim that the new guard makes successful writes faster.
+
+The fixed standard removal study (64 fields, 16 repetitions, six AB/BA and four
+A/A/B/B pairs per regime) retained the full oracle and current constructors.
+Indexed-minus-safe-rebuild mean/tail differences were -88.00/-85.52 us for hot
+natural removal, -61.26/-51.69 us cold natural, and -83.81/-47.95 us cold post-GC.
+These are retained indexed-removal benefits, not a causal claim about guard cost.
+Complete-workflow mean/tail were +112.03/+1431.57 us natural,
+-89.10/+283.49 us collected and -286.63/+209.12 us post-GC. Natural same-side
+A/A and B/B tails were +1420.69/+1492.38 us. The adverse samples remain visible;
+there is no universal workflow-speedup claim. Inclusive standard entry took 31.57
+seconds: root dependency preparation 14.36, startup 2.94 and test entry 13.85
+(study 9.56). Zero frontend compilations/backend jobs were emitted.
+
+The first complete macOS check stopped at the unchanged 300-second module-
+preparation limit (303.54 inclusive seconds, 7.02 user/1.48 system, no cases).
+A same-source/same-product complete diagnostic invocation passed all 150 modules
+and 1,899 cases, plus both complete collection/generator paired benchmarks.
+A one-second sample of that invocation observed 854/888 main-thread samples in
+`dynamic_load`/`dlopen` segment mapping's `fcntl` path; it neither proves the cause
+of every loading delay nor certifies cold-loader stability. No security checks,
+module inventory, process model, timeout or heap limit were changed. No task
+process remained from the timed-out invocation. Raw traces/data stay outside Git.

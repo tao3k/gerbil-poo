@@ -922,15 +922,17 @@
   ((_ object slot (slots ...) slotspec ...)
    (.def! object slot (:: self [] slots ...) slotspec ...)))
 
-;; Side-effect the value of a field into an object.
+;; Admit the symbolic key before invalidation, then install an explicit value.
+;; Bad keys retain all source/cache generations; argument evaluation is not undone.
 ;; Assumes the top-object-proto was used.
 ;; : Unit <- (Object A) s:Symbol (A s)
 (def (.put! self slot value)
-  (before-object-edit! self)
-  (unless (object-%overrides self)
-    (set! (object-%overrides self) (make-hash-table-symbolic)))
-  (hash-put! (object-%overrides self) slot value)
-  (hash-put! (object-instance self) slot value))
+  (using (slot :~ symbol?)
+    (before-object-edit! self)
+    (unless (object-%overrides self)
+      (set! (object-%overrides self) (make-hash-table-symbolic)))
+    (hash-put! (object-%overrides self) slot value)
+    (hash-put! (object-instance self) slot value)))
 
 (defrules .set! () ((_ object. slot value) (.put! object. 'slot value)))
 

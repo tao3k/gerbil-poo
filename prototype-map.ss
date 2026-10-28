@@ -189,21 +189,23 @@
 ;; ordinals to persistent RBTree removal; surviving ordinals are never renumbered.
 ;; A monotone next ordinal prevents delete/reinsert from overwriting survivors.
 ;; Explicit compact policy still demotes at eight live contributions; missing
-;; names preserve the exact snapshot. Payloads are not deeply copied.
+;; names preserve the exact snapshot. Non-symbol keys refuse before traversal.
+;; Payloads are not deeply copied.
 (def (prototype-map-remove source name)
-  (def entries (specifications-entries source))
-  (if (vector? entries)
-    (if (small-index entries name)
-      (let (next (vector-filter (lambda (entry) (not (eq? (car entry) name))) entries))
-          (make-specifications next #f (vector-length next) (vector-length next) #t)) source)
-    (let (indexed (rbtree-ref (specifications-names source) name #f))
-      (if indexed
-        (let* ((positions (if (pair? indexed) indexed (list indexed)))
-               (ordered (for/fold (tree entries) (index positions) (rbtree-remove tree index)))
-               (count (- (specifications-count source) (length positions)))
-               (next (make-specifications ordered
-                       (rbtree-remove (specifications-names source) name)
-                       count (specifications-next source) (specifications-compact? source))))
-          (if (and (specifications-compact? source) (<= count small-map-limit))
-            (prototype-map (prototype-map-list next) policy: 'compact) next))
-        source))))
+  (using (name :~ symbol?)
+    (def entries (specifications-entries source))
+    (if (vector? entries)
+      (if (small-index entries name)
+        (let (next (vector-filter (lambda (entry) (not (eq? (car entry) name))) entries))
+            (make-specifications next #f (vector-length next) (vector-length next) #t)) source)
+      (let (indexed (rbtree-ref (specifications-names source) name #f))
+        (if indexed
+          (let* ((positions (if (pair? indexed) indexed (list indexed)))
+                 (ordered (for/fold (tree entries) (index positions) (rbtree-remove tree index)))
+                 (count (- (specifications-count source) (length positions)))
+                 (next (make-specifications ordered
+                         (rbtree-remove (specifications-names source) name)
+                         count (specifications-next source) (specifications-compact? source))))
+            (if (and (specifications-compact? source) (<= count small-map-limit))
+              (prototype-map (prototype-map-list next) policy: 'compact) next))
+          source)))))

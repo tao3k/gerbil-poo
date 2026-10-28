@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow entry-workflow main joint-main)
+(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow entry-workflow main joint-main)
 (import :std/error (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -326,3 +326,25 @@
 (def (main (width "64") (access "symbolic"))
   (using (access :~ (cut member <> '("symbolic" "indexed")))
     (finish-entry width access (time (service-workflow (string->number width) layout: (equal? access "indexed"))))))
+
+;; Rejected symbolic edits preserve one shared service generation and both inline
+;; consumers. A corrected symbolic specification edit invalidates descendants once;
+;; the same existing checked FUN action revalidates before delivering new totals.
+(def (symbolic-edit-workflow)
+  (def source (.o capacity: 2 tariff: 3))
+  (def recipe (.mix source Service))
+  (def receivers (list (.mix recipe) (.mix recipe)))
+  (def delivered 0)
+  (def action (checked-total-action (lambda (_ amount) (set! delivered (1+ delivered)) amount)))
+  (def first (apply + (map-in-order action receivers)))
+  (def revisions (map object-revision (cons source receivers)))
+  (for* ((bad (list #f 7 "capacity"))
+         (edit (list (lambda () (.put! source bad -1))
+                     (lambda () (.removeslot! source bad))
+                     (lambda () (.removedefault! source bad)))))
+    (def cause (with-catch identity edit))
+    (unless (contract-violation-error? cause) (error "symbolic edit did not refuse"))
+    (unless (equal? revisions (map object-revision (cons source receivers)))
+      (error "rejected key changed service generations")))
+  (.removeslot! source 'capacity)
+  (vector first (apply + (map-in-order action receivers)) delivered))

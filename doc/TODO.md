@@ -2953,3 +2953,16 @@ component and complete declaration/FUN workflows accompany payload/priority,
 visibility refusal, persistent revision and snapshot-ownership controls. Finite
 Lean laws retain standard-backend/copying premises; arbitrary module initializers,
 automatic layout policy and whole-runtime verification remain their stated scope.
+
+### Symbolic mutation admission before invalidation
+
+Closed a witnessed key-grammar gap: non-symbol direct removals could proceed into
+invalidation, and explicit instance writes invalidated before reaching their
+symbolic hash. Standard `using` admission now guards persistent removal and the
+instance-write boundary BEFORE mutation preflight. The existing direct/default
+removal methods reuse that one map boundary. Valid-symbol missing-name, sealed,
+active-computation and ordinary revision semantics remain unchanged. Invalid keys
+retain source roots, overrides, shared descendant generations, layouts and issued
+reads; corrected Symbol requests use the normal mutation/FUN path. This is not
+rollback of earlier Scheme argument effects or arbitrary callback side effects.
+The host recognizer and registered/serialized invalidation remain premises.
