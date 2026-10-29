@@ -1,7 +1,6 @@
 (export #t)
 
 (import
-  (only-in :gerbil/runtime/gambit macro-writeenv-style)
   (only-in :gerbil/runtime/loader load-module)
   :std/assert
   :std/format
@@ -16,6 +15,12 @@
   ./object
   (only-in ./prototype-map prototype-map-keys)
   ./mop)
+
+(extern namespace: "clan/poo/io" writeenv-style)
+(begin-foreign
+  (include "~~lib/_gambit#.scm")
+  (define (clan/poo/io#writeenv-style environment)
+    (macro-writeenv-style environment)))
 
 ;; Capture one runtime entry as a Reader-compatible IO action, without loading it.
 ;; The private path copy cannot drift away from the caller's explicit binding.
@@ -207,7 +212,7 @@
         (values (append (prototype-map-keys (object-%slots self))
                         (prototype-map-keys (object-%defaults self))) (hash))
         (values (.all-slots self) (object-%instance self))))
-    (def style (macro-writeenv-style we))
+    (def style (writeenv-style we))
     (def mark? (eq? style 'mark))
     (def (s x) (unless mark? (##wr-str we x)))
     (def (w x) (##wr we x))
@@ -250,7 +255,7 @@
   transparent: #t)
 (defmethod (@method :wr TV)
   (lambda (self writeenv)
-    (def style (macro-writeenv-style writeenv))
+    (def style (writeenv-style writeenv))
     (def mark? (eq? style 'mark))
     (def (s x) (unless mark? (##wr-str writeenv x)))
     (def (w x) (##wr writeenv x))

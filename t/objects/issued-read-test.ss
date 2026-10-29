@@ -7,8 +7,8 @@
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 20)
-  (displayln "ISSUED-READ: 20 cases completed"))
+  (check-equal? completed 21)
+  (displayln "ISSUED-READ: 21 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
 (extern namespace: clan/poo/object call-with-issued-reads)
@@ -374,10 +374,41 @@
                 (set! calls (+ calls 1))
                 (apply original self args)) #t))
           (lambda ()
+            (check-equal? (object-construction-current?) #f)
             ;; A distinct list makes this a cold index demand.
             (check-equal? (car (captured-order (list read))) read)
             (check-equal? calls 0))
           (lambda () (runtime.bind-method! klass ':init! original #t))))
       (list object::t (runtime.object-class (object-%state Root))))
+    (check-equal? (object-construction-current?) #t)
+    (set! completed (+ completed 1)))
+  (test-case "scope inspections preserve callback identities without invoking callbacks"
+    (def calls 0)
+    (def before (lambda (_receiver _key) (set! calls (+ calls 1))))
+    (def cause (cons 'scope 'failure))
+    (check-equal? (slot-read-precheck-active? before) #f)
+    (call-with-slot-read-observer void
+      (lambda ()
+        (check-equal? (slot-read-precheck-active? before) #t)
+        (check-equal? (slot-read-observers-compatible? (list void)) #f)
+        (check-equal? (slot-read-observers-compatible? (list void) (list before)) #t)
+        (defvalues (_ reads)
+          (%call-with-recorded-slot-reads
+            (lambda ()
+              (check-equal? (slot-read-observers-compatible? (list void) (list before)) #t))))
+        (check-equal? reads '())
+        (def caught
+          (with-catch values
+            (lambda ()
+              (call-with-slot-read-observer (lambda (_read) (set! calls (+ calls 1)))
+                (lambda ()
+                  (check-equal? (slot-read-observers-compatible? (list void) (list before)) #f)
+                  (raise cause))))))
+        (check-equal? (eq? caught cause) #t)
+        (check-equal? (slot-read-observers-compatible? (list void) (list before)) #t))
+      before: before)
+    (check-equal? calls 0)
+    (check-equal? (slot-read-precheck-active? before) #f)
+    (check-equal? (slot-read-observers-compatible? '()) #t)
     (set! completed (+ completed 1)))
 ))

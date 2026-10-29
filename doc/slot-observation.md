@@ -365,3 +365,21 @@ old executable with a different library output or rewrite artifact mtimes.
 Initial final-core checks passed all 128 modules / 1,279 cases on both sides.
 The final comment/test cleanup is rechecked by the same full bounded suite. Raw
 observations, generated JSON and compressed archives are not repository inputs.
+
+## Producer-owned state inspection
+
+`object-construction-current?` (from `object`) compares the actual object and
+object-state initializer identities with those captured by the producer. A
+changed constructor cannot acquire the cached traversal path by invoking an
+unknown initializer during authentication. Restoring the original identities
+restores eligibility; read issuance and currentness are still checked separately.
+
+`slot-read-precheck-active?` and `slot-read-observers-compatible?` (from
+`slot-observation`) inspect the current dynamic scope without invoking callbacks.
+Compatibility compares actual callback identities against the consumer's exact
+allowed observer and precheck lists. Capture frames are not observer callbacks.
+Nested scopes and exceptions retain the normal parameter restoration behavior.
+These queries neither suppress delivery nor certify callback purity. Consumers
+must retain per-visit issuance, route and currentness checks, including the
+post-observer check; a compatible callback is not authorization to cache an
+admission conclusion or reuse observations across effects.

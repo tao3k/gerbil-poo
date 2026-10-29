@@ -399,6 +399,13 @@
   (require-read-route! (slot-read-key read)
     (object-%reads receiver) (object-%instance receiver)))
 
+(def object-construction-current?
+  (let* ((object-init (read-runtime.find-method object::t #f ':init!))
+         (state-class (read-runtime.object-class (make-object-state)))
+         (state-init (read-runtime.find-method state-class #f ':init!)))
+    (lambda ()
+      (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
+           (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 (def call-with-issued-reads
   (let ()
     ;; The index owns neither roots nor cache receivers. A live projection keeps
@@ -408,18 +415,15 @@
     (defstruct projection (owner roots reads receivers) final: #t)
     ;; A cold cache owner must not dispatch an injected CLOS initializer during
     ;; authentication. Changed constructor metadata keeps the original DFS path.
-    (def object-init (read-runtime.find-method object::t #f ':init!))
-    (def state-class (read-runtime.object-class (make-object-state)))
-    (def state-init (read-runtime.find-method state-class #f ':init!))
-    (def (construction-current?)
-      (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
-           (eq? state-init (read-runtime.find-method state-class #f ':init!))))
+    (def construction-current? object-construction-current?)
     (def (require-issued! read)
       (unless (object-read-issued? read) (error "unissued slot dependency")))
     (def (require-current! read)
       (require-issued! read)
-      ;; Keep the original issuance/route/currentness order and diagnostics.
-      (unless (object-read-current? read)
+      ;; Birth was authenticated immediately above; retain route and freshness
+      ;; on every visit and the existing post-observer visit.
+      (require-object-read-route! read)
+      (unless (object-issued-read-current? read)
         (error "stale slot dependency" (slot-read-key read))))
     (def (same-roots? roots saved)
       (if (null? saved) (null? roots)
@@ -781,9 +785,11 @@
 (defrule (object/init self super slots ((default-slot default-value) ...) (slot slotspec ...) ...)
   (make-object
    supers: super
-   slots: (%with-shared-slot-bindings slots (slot-self)
-           (list (cons 'slot (object/slot-spec %with-shared-slots slot-self self slots slot slotspec ...)) ...))
-   defaults: (object/defaults (default-slot default-value) ...)))
+   slots: (prototype-map
+            (%with-shared-slot-bindings slots (slot-self)
+              (list (cons 'slot (object/slot-spec %with-shared-slots slot-self self slots slot slotspec ...)) ...))
+            policy: 'compact)
+   defaults: (prototype-map (object/defaults (default-slot default-value) ...) policy: 'compact)))
 
 (defrules object/slot-spec (=> =>.+ lexical-slot-value)
   ((_ scope slot-self self slots slot lexical-slot-value value)

@@ -4,7 +4,7 @@
         slot-read-revision slot-read-instance slot-read-value slot-read-dependencies
         call-with-slot-read-observer without-observation
         %slot-read-active? %slot-read-demand! %deliver-slot-read
-        %call-with-recorded-slot-reads)
+        %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?)
 (import :std/error)
 (defstruct slot-read (receiver key revision instance value dependencies current? birth)
   final: #t constructor: :init!)
@@ -21,6 +21,23 @@
 (defstruct read-scope (frame observers prechecks) final: #t)
 ;; The standard dynamic parameter provides lexical restoration and inheritance.
 (def current-read-scope (make-parameter #f))
+(def (slot-read-precheck-active? check)
+  (let (scope (current-read-scope))
+    (and (read-scope? scope) (memq check (read-scope-prechecks scope)) #t)))
+;; Inspect actual dynamic callback identities without executing or disabling
+;; them. This is compatibility, NOT a certificate that supplied callbacks are
+;; pure. A caller must justify its exact allowed identities for BOTH callback
+;; classes. Capture frames themselves are not callbacks. Nothing is disabled.
+(def (slot-read-observers-compatible? allowed (prechecks '()))
+  (unless (and (list? allowed) (andmap procedure? allowed)
+               (list? prechecks) (andmap procedure? prechecks))
+    (error "expected slot-read observer procedures"))
+  (let (scope (current-read-scope))
+    (or (not (read-scope? scope))
+        (and (andmap (lambda (check) (and (memq check prechecks) #t))
+                     (read-scope-prechecks scope))
+             (andmap (lambda (observe) (and (memq observe allowed) #t))
+                     (read-scope-observers scope))))))
 ;; Preserve the existing frame-or-Boolean result, with one parameter lookup.
 (def (%slot-read-active?)
   (let (scope (current-read-scope))
