@@ -46,6 +46,71 @@
 ;; Ordinary suites combine the new assertion path with the existing report API.
 (def property-workflows-test
   (test-suite "coverage portable replay and finite functions"
+    (test-case "portable replay enforces preconditions without generating coverage"
+      (def report (p.check-property (g.generator-unit 4) ledger-property integer-domain cases: 1))
+      (def output (open-output-string))
+      (r.write-counterexample report (ledger-codec) output)
+      (def text (get-output-string output))
+      (def calls [])
+      (def policy (p.make-policy precondition: (lambda (value)
+        (set! calls (cons 'precondition calls)) (= value 4))
+        labels: (lambda (_) (error "concrete replay must not classify a trial"))
+        required: '((install . 10))))
+      (for (outcome '(#f #t))
+        (set! calls [])
+        (check-eq? (r.read-counterexample (ledger-codec) (open-input-string text) integer-domain
+          (lambda (_) (set! calls (cons 'property calls)) outcome) policy: policy) outcome)
+        (check-equal? (reverse calls) '(precondition property)))
+      (set! calls [])
+      (check-exception (r.read-counterexample (ledger-codec) (open-input-string text) integer-domain
+        (lambda (_) (set! calls (cons 'property calls)) #f)
+        policy: (p.make-policy precondition: (lambda (_) #f))) Error?)
+      (check-equal? calls []))
+    (test-case "invalid portable policy refuses before application decoding"
+      (def report (p.check-property (g.generator-unit 4) ledger-property integer-domain cases: 1))
+      (def output (open-output-string))
+      (r.write-counterexample report (ledger-codec) output)
+      (def decodes 0)
+      (def codec (r.make-codec 'ledger-v1 values (lambda (value) (set! decodes (1+ decodes)) value)))
+      (check-exception (r.read-counterexample codec (open-input-string (get-output-string output))
+        integer-domain ledger-property policy: #f) Error?)
+      (check-equal? decodes 0))
+    (test-case "in-memory precondition revisions refuse before domain and fixture effects"
+      (def live #t) (def armed #f) (def domains 0) (def fixtures 0)
+      (def domain (p.make-specification (lambda (value) (set! domains (1+ domains)) (exact-integer? value))
+        abs current?: (lambda () live)))
+      (def policy (p.make-policy precondition: (lambda (_) (when armed (set! live #f)) #t)))
+      (def report (p.check-property (g.generator-unit 4)
+        (lambda (_) (set! fixtures (1+ fixtures)) #f) domain cases: 1 policy: policy))
+      (set! domains 0) (set! fixtures 0) (set! armed #t)
+      (check-exception (p.replay-counterexample report) Error?)
+      (check-equal? (list domains fixtures) '(0 0)))
+    (test-case "portable precondition revisions stop codec and domain admission chains"
+      (def report (p.check-property (g.generator-unit 4) ledger-property integer-domain cases: 1))
+      (def output (open-output-string))
+      (r.write-counterexample report (ledger-codec) output)
+      (def text (get-output-string output))
+      (for (changed '(domain codec))
+        (let* ((domain-live #t) (codec-live #t) (domains 0) (fixtures 0)
+               (domain (p.make-specification (lambda (_) (set! domains (1+ domains)) #t)
+                 abs current?: (lambda () domain-live)))
+               (codec (r.make-codec 'ledger-v1 values values current?: (lambda () codec-live)))
+               (policy (p.make-policy precondition: (lambda (_)
+                 (if (eq? changed 'domain) (set! domain-live #f) (set! codec-live #f)) #t))))
+          (check-exception (r.read-counterexample codec (open-input-string text) domain
+            (lambda (_) (set! fixtures (1+ fixtures)) #f) policy: policy) Error?)
+          (check-equal? (list domains fixtures) '(0 0)))))
+    (test-case "witness admission preserves strict Boolean refusals and original causes"
+      (for (outcome '(refuse malformed throw))
+        (let* ((domains 0) (fixtures 0) (cause (cons outcome 'precondition))
+               (domain (p.make-specification (lambda (_) (set! domains (1+ domains)) #t) abs))
+               (policy (p.make-policy precondition: (lambda (_)
+                 (case outcome ((refuse) #f) ((malformed) 'truthy) (else (raise cause))))))
+               (invoke (lambda () (p.check-counterexample 4
+                 (lambda (_) (set! fixtures (1+ fixtures)) #f) domain policy: policy))))
+          (if (eq? outcome 'throw) (check-eq? (with-catch values invoke) cause)
+            (check-exception (invoke) Error?))
+          (check-equal? (list domains fixtures) '(0 0)))))
     (test-case "stale codecs refuse export before invoking properties or encoders"
       (let* ((calls 0) (encodes 0)
              (report (p.check-property (g.generator-unit 4) (lambda (_) (set! calls (1+ calls)) #f) integer-domain cases: 1))

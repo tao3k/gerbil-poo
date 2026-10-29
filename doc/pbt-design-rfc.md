@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P9 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P10 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1048,3 +1048,45 @@ application codec round-trip laws. Identity must change with semantic revisions.
 [Rackcheck's documented generator/property separation](https://docs.racket-lang.org/rackcheck/index.html)
 remains the comparison point. This source-current corpus handoff is our explicit
 protocol obligation, not a claim that Racket requires POO revision observers.
+
+### P10: shared policy-admitted concrete witness replay
+
+Audit finding: portable import used a one-case generation check with a fresh
+default policy, so it could not enforce the application's original precondition.
+In-memory concrete replay checked sources around the complete admission pair,
+allowing a precondition revision to reach domain recognition before refusal.
+P1 already requires replay not to inflate generation coverage; portable replay
+therefore needs concrete admission, not a second trial disguised as replay.
+
+`check-counterexample` in the existing property module now owns one callback chain:
+currentness, precondition, domain recognition, and strict-Boolean property execution.
+Every callback is checked before and after normal return. In-memory replay supplies
+its captured policy and complete report sources; portable import supplies explicit
+`policy:` and codec/domain sources. The existing typed sampler bridge forwards that
+policy and its captured descriptor sources. No runner, framework, namespace or
+independent policy representation is added. A callback exception retains its cause;
+false/non-Boolean preconditions refuse before domain/property effects. Invalid
+policy records refuse before application decoding.
+
+Concrete replay returns the property's Boolean without sampling, shrinking,
+measuring, size scheduling, label classification or required-coverage admission.
+Coverage remains a generation-run obligation. Seed replay still regenerates the
+original run with its original coverage policy. A codec identity must name the
+property/precondition interpretation; application policy closures are not serialized.
+Import's omitted `policy:` retains the existing always-eligible default.
+
+Acceptance includes admitted true/false outcomes under deliberately unsatisfied
+coverage requirements, classification callbacks that must never run, source changes
+inside preconditions (codec, domain and typed configuration), ineligible and malformed
+Boolean results, exact callback causes and zero downstream effects after refusal.
+The Record/FUN/debug corpus example stores logical fields and reconstructs its
+known Function through ordinary initialization. Lean models the same ordered
+judgments with `admitWitness`/`checkWitness` and the prior guarded `replayStage`:
+refusal suppresses later callbacks, stale and application causes stay distinct,
+and admitted property results are exact. Truthful terminating callbacks/observers,
+codec semantics and host resource/I/O behavior remain explicit premises.
+
+[Rackcheck](https://docs.racket-lang.org/rackcheck/index.html) separates generator
+and property execution; this work preserves that ownership while satisfying our
+explicit source-bound replay protocol. It does not claim a universal policy
+serializer or unrestricted higher-order inference.

@@ -45,6 +45,31 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "typed corpus policy admits wrapped Record functions without coverage callbacks"
+      (let*-values (((descriptor configuration) (make-batch-domain)))
+        (def sampler (generator descriptor))
+        (def report ((property-debug-action #f descriptor batch-correct? sampler: sampler)
+          (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3)))
+        ;; Store all logical fields; ordinary construction restores the known handler.
+        (def codec (corpus.make-codec '(batch-policy 1)
+          (lambda (batch) (list (.get batch count) (.get batch payload) (.get batch route)))
+          (lambda (row) (make-instance Batch count: (car row) payload: (cadr row)
+            route: (caddr row) handler: abs))))
+        (def output (open-output-string))
+        (write-counterexample report codec output)
+        (def text (get-output-string output))
+        (def calls 0)
+        (def policy (policy.make-policy precondition: (lambda (batch)
+          (and (= ((.@ batch handler) -7) 7) (>= (.get batch count) 2)))
+          labels: (lambda (_) (error "replay must not classify coverage")) required: '((batch . 100))))
+        (check-eq? (read-counterexample sampler codec (open-input-string text)
+          (lambda (batch) (set! calls (1+ calls)) (batch-correct? batch)) policy: policy) #f)
+        (check-equal? calls 1)
+        (check-exception (read-counterexample sampler codec (open-input-string text)
+          (lambda (_) (set! calls (1+ calls)) #f)
+          policy: (policy.make-policy precondition: (lambda (_)
+            (.putslot! configuration 'maximum ($constant-slot-spec 8)) #t))) Error?)
+        (check-equal? calls 1)))
     (test-case "typed Record corpus replay brackets decoding with source revisions"
       (let*-values (((descriptor configuration) (make-batch-domain)))
         (def sampler (generator descriptor))

@@ -378,7 +378,7 @@ Use the existing modules directly; application codecs carry only logical data:
 (call-with-output-file failure-path
   (cut typed.write-counterexample failed-typed-report codec <>))
 (call-with-input-file failure-path
-  (lambda (port) (typed.read-counterexample sampler codec port batch-correct?)))
+  (lambda (port) (typed.read-counterexample sampler codec port batch-correct? policy: batch-policy)))
 ```
 
 `decode-batch` uses ordinary Record construction to restore validation and Function
@@ -390,3 +390,16 @@ Both stages check sources after a normal return. Callback exceptions keep their
 original cause. Export rejects source changes during preparation before writing
 any bytes. Ordinary port failures remain ordinary I/O failures and may leave a
 partial write; applications own durable file replacement and codec semantic laws.
+
+### Concrete witness policies
+
+`read-counterexample` in both the generic replay and typed sampler modules accepts
+`policy:` (the existing `make-policy` record). Supply the same semantic precondition
+used by the property and include its interpretation in codec identity. If omitted,
+the normal always-eligible default applies; no policy closure is decoded from disk.
+`check-counterexample` in the property module is the shared Boolean witness path.
+It performs guarded precondition/domain/property calls, not a generation run.
+Rejected or non-Boolean preconditions cannot reach recognition or property effects.
+Labels, coverage thresholds, PRNG state, size policies and shrinking are untouched.
+Seed replay still owns complete generation/coverage behavior. See
+`examples/generated-batches.ss` for the Record/FUN-to-corpus policy workflow.

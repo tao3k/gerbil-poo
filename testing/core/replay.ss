@@ -1,6 +1,6 @@
 ;;; Portable counterexamples are data with application-owned codec identity.
 (export make-codec write-counterexample read-counterexample)
-(import :std/error :std/iter ./property (only-in ./generator generator-unit))
+(import :std/error :std/iter ./property)
 ;; The codec owns format/specification/generator identity and bounded data admission.
 (defstruct replay-codec (identity encode decode current nodes depth) final: #t constructor: :init!)
 ;; Capture codec identity as finite data rather than retaining a mutable caller key.
@@ -61,7 +61,8 @@
     (with-codec codec (lambda () (write envelope port) (newline port)) current)))
 ;; Identity admission precedes application callbacks. Decoding and execution have
 ;; separate source brackets, so a stale decoder cannot open a property fixture.
-(def (read-counterexample codec port specification property)
+(def (read-counterexample codec port specification property policy: (policy (make-policy)))
+  (unless (policy? policy) (error "property policy required"))
   (def envelope (copy-data (read port) (replay-codec-nodes codec) (replay-codec-depth codec)))
   (unless (and (vector? envelope) (= (vector-length envelope) 4)
     (eq? (vector-ref envelope 0) 'property-counterexample)
@@ -71,11 +72,7 @@
   (def (current) (specification-current? specification))
   (let (value (with-codec codec
       (lambda () ((replay-codec-decode codec) (vector-ref envelope 3))) current))
-    (with-codec codec (lambda ()
-      ;; The ordinary runner owns domain admission and source checks; no new
-      ;; generation, shrinking, fixture runner or coverage table is introduced.
-      (let (report (check-property (generator-unit value) property specification cases: 1 shrink-budget: 0))
-        (case (report-status report)
-          ((passed) #t) ((failed) #f)
-          ((error) (raise (report-cause report)))
-          (else (error "replay witness refused" report))))) current)))
+    ;; The shared witness boundary observes codec/domain sources between each
+    ;; admission callback. Labels and required coverage belong only to generation.
+    (check-counterexample value property specification policy: policy
+      current?: (replay-codec-current codec))))

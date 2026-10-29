@@ -275,9 +275,9 @@
   (replay.write-counterexample (.get report execution) codec port))
 ;; Reuse the sampler's bounded domain without drawing or opening a new runner.
 ;; Application codecs reconstruct ordinary validated Record/Function carriers.
-(def (read-counterexample sampler codec port property)
+(def (read-counterexample sampler codec port property policy: (policy (testing.make-policy)))
   (def sources (snapshot sampler []))
-  (replay.read-counterexample codec port (property-specification sampler sources) property))
+  (replay.read-counterexample codec port (property-specification sampler sources) property policy: policy))
 
 ;; Reader/FUN composition makes the test run one observation followed by the
 ;; supplied consumer, which may be an existing IO action or an evidence gate.

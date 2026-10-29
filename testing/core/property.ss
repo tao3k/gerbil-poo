@@ -1,5 +1,5 @@
 ;;; Independent property execution and replay; only generic generators and stdlib.
-(export make-specification specification? check-property replay-property replay-counterexample define-property
+(export make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
         report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
@@ -352,17 +352,24 @@
   (execute (report-generator report) (report-property report) (report-specification report)
     (report-seed report) (report-cases report) (report-size report) (report-size-limit report) (report-shrink-budget report)
     (report-classify report) current (report-size-current report) (report-policy report)))
+
+;; Concrete witnesses are admitted by their captured precondition/domain, not by
+;; generation coverage. Each callback shares the existing source boundary.
+(def (check-counterexample value (property : :procedure) specification
+                          policy: (policy (make-policy)) current?: (guard (lambda () #t)))
+  (unless (and (specification? specification) (policy? policy) (procedure? guard))
+    (error "invalid counterexample configuration"))
+  ;; A callback may revise either the domain or its declared external sources.
+  (def (current) (and (live? guard) (specification-current? specification)))
+  ;; Concrete replay refuses stale evidence instead of constructing a run report.
+  (def (stop _status _minimal) (error "stale property replay"))
+  (unless (with-current current stop (eligible? policy value)) (error "invalid property witness"))
+  (unless (with-current current stop (accepts? specification value)) (error "invalid property witness"))
+  (with-current current stop (boolean-result (property value) "property must return a boolean")))
 ;; Concrete replay draws nothing and forces no selectors/children. Both accepted
 ;; witness provenance and earlier visited sources retain their original stamps.
 (def (replay-counterexample report)
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
-  (def specification (report-specification report)) (def generator (report-generator report))
-  (def (current) (and (live? (report-size-current report))
-    (current? specification generator (report-sources report))))
-  (unless (current) (error "stale property replay"))
-  (unless (and (eligible? (report-policy report) (report-counterexample report))
-               (accepts? specification (report-counterexample report))) (error "invalid property witness"))
-  (unless (current) (error "stale property replay"))
-  (def outcome ((report-property report) (report-counterexample report)))
-  (unless (current) (error "stale property replay"))
-  (boolean-result outcome "property must return a boolean"))
+  (check-counterexample (report-counterexample report) (report-property report)
+    (report-specification report) policy: (report-policy report)
+    current?: (lambda () (report-current? report))))
