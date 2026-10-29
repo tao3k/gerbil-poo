@@ -2,8 +2,8 @@
 (export recursive-generator)
 (import :std/iter :std/error (only-in :std/list/list map-in-order)
         ../object (only-in ../mop Any element?) ./generation-graph
-        (prefix-in ../recursive recursive.) (only-in :clan/property-testing/generator random-at)
-        (prefix-in :clan/property-testing/generator core.))
+        (prefix-in ../recursive recursive.) (only-in :clan/poo/testing/property/generator random-at)
+        (prefix-in :clan/poo/testing/property/generator core.))
 ;; Immutable finite derivations retain the selected Union branch and normalized
 ;; scalar weight. They are private evidence, not user-injected source receipts.
 (defstruct derivation (node value children weight count sample) final: #t)

@@ -2,7 +2,7 @@
 (export FunctionArguments FunctionArguments.)
 (import (only-in :std/list/list map-in-order delete-duplicates/hash)
         ../object ../mop ../function-signature ./type
-        (prefix-in :clan/property-testing/generator core.))
+        (prefix-in :clan/poo/testing/property/generator core.))
 
 ;; A call-row's types depend on supplied counts, never on optional default values.
 (def (positional-types signature count)

@@ -1,9 +1,9 @@
 ;;; Independent-library examples: standard Gerbil plus the generic testing modules.
 (export property-kernel-test)
-(import (prefix-in :clan/property-testing/test assertion.) :std/test :std/error :std/iter (only-in :std/list/list take drop)
-        (prefix-in :clan/property-testing/generator generator.)
-        (prefix-in :clan/property-testing/property property.)
-        (prefix-in :clan/property-testing/model model.))
+(import (prefix-in :clan/poo/testing/property/test assertion.) :std/test :std/error :std/iter (only-in :std/list/list take drop)
+        (prefix-in :clan/poo/testing/property/generator generator.)
+        (prefix-in :clan/poo/testing/property property.)
+        (prefix-in :clan/poo/testing/property/model model.))
 
 ;; A dependent packet exposes its generated count and its matching payload.
 (defstruct packet (count payload) final: #t)
@@ -60,7 +60,7 @@
       (generator.sample-sequence (list (generator.generate source random size))
         (lambda (values) (mutate) values)))))
     (else (error "unknown callback stage" stage))))
-;; This suite can be copied with testing/core/{generator,property,model,test}.ss into a
+;; This suite can be copied with testing/property.ss and testing/property/{generator,model,replay,test}.ss into a
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"

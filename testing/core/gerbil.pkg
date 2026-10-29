@@ -1,2 +1,0 @@
-;; Independent property-testing library; standard Gerbil dependencies only.
-(package: clan/property-testing)

@@ -8,7 +8,7 @@
         inspection-draws inspection-attempts inspection-events inspection-counts
         inspection-truncated? inspection-cause inspection-current?)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
-        (only-in ./generator generator? generate generator-current? sample? sample-value
+        (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
           stale-generation? boolean-result live? random-at))
 ;; Domain admission, measure and revision ownership remain explicit callbacks.

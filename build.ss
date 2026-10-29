@@ -1,7 +1,6 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
-(import (prefix-in "testing/core/build.ss" property-build.)
-        (prefix-in "examples/build.ss" entry-build.)
+(import (prefix-in "examples/build.ss" entry-build.)
         :std/build-script (only-in :std/make include-gambit-sharp)
         (only-in "t/build.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
@@ -115,6 +114,11 @@
     "type"
     "testing/generation-graph"
     "testing/recursive-generation"
+    "testing/property/generator"
+    "testing/property"
+    "testing/property/model"
+    "testing/property/replay"
+    "testing/property/test"
     "testing/type"
     "testing/function"
     "examples/recursive-catalog"
@@ -239,6 +243,5 @@
 (def (main . options)
   (displayln "BUILD-CONCURRENCY root-configured-cores=" (getenv "GERBIL_BUILD_CORES" "0"))
   (call-with-build-jobs (lambda ()
-    (apply property-build.main options)
     (apply build options)
     (apply entry-build.main options))))

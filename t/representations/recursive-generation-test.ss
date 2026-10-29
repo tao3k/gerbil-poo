@@ -1,6 +1,6 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
 (export recursive-generation-test)
-(import (only-in :std/list/list take drop) (prefix-in :clan/property-testing/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
+(import (only-in :std/list/list take drop) (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/generation-graph :clan/poo/testing/type
         (prefix-in :clan/poo/examples/recursive-trees trees.))
 

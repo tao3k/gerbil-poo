@@ -1,7 +1,7 @@
 ;;; Matched callback/tree strategies with AB/BA and identical-strategy controls.
 (export main)
 (import :std/iter ../object ../mop ../type ../number ../testing/type
-        (prefix-in :clan/property-testing/generator core.)
+        (prefix-in :clan/poo/testing/property/generator core.)
         (only-in ./closure-measure measure measure-pair))
 
 ;; This finite injective product admits both value-only and provenance shrinking.

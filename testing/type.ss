@@ -4,12 +4,12 @@
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
-        (prefix-in :clan/property-testing/property testing.)
-        (prefix-in :clan/property-testing/replay replay.)
-        (prefix-in :clan/property-testing/generator core.)
-        (prefix-in (only-in :clan/property-testing/generator make-generator) testing.)
-        (only-in :clan/property-testing/generator integer-shrinks)
-        (prefix-in :clan/property-testing/model model.)
+        (prefix-in :clan/poo/testing/property testing.)
+        (prefix-in :clan/poo/testing/property/replay replay.)
+        (prefix-in :clan/poo/testing/property/generator core.)
+        (prefix-in (only-in :clan/poo/testing/property/generator make-generator) testing.)
+        (only-in :clan/poo/testing/property/generator integer-shrinks)
+        (prefix-in :clan/poo/testing/property/model model.)
         (prefix-in (only-in ../fun Observation.) fun.))
 ;; Recognition-only callable fields deliberately do not wrap shrink callbacks:
 ;; invalid proposals must reach the existing attempt-budget/domain gate, rather

@@ -2,10 +2,10 @@
 (export make-batch-domain generated-batches-test)
 (import (prefix-in ../support/testing pbt.)
         (only-in ../debug property-debug-action)
-        (prefix-in :clan/property-testing/property policy.)
-        (prefix-in :clan/property-testing/replay corpus.)
+        (prefix-in :clan/poo/testing/property policy.)
+        (prefix-in :clan/poo/testing/property/replay corpus.)
         :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function
-        (prefix-in :clan/property-testing/generator core.))
+        (prefix-in :clan/poo/testing/property/generator core.))
 
 ;; Record construction owns nested Function wrapping; the property runner does
 ;; not invent a second record recognizer or procedure representation.

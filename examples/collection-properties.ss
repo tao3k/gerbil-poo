@@ -1,8 +1,8 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
 (export handoff rolling-upgrade optimistic-aba collection-properties-test)
 (import :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
-        (prefix-in :clan/property-testing/property property.)
-        (prefix-in :clan/property-testing/replay replay.)
+        (prefix-in :clan/poo/testing/property property.)
+        (prefix-in :clan/poo/testing/property/replay replay.)
         ../object ../mop ../type ../number ../testing/type ../support/option
         ./collection-testing)
 

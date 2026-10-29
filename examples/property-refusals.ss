@@ -5,9 +5,9 @@
  (only-in :clan/poo/mop Type. define-type)
  (only-in :clan/poo/type Exactly)
  (only-in :clan/poo/object .cc)
- (prefix-in :clan/property-testing/generator g.)
- (prefix-in :clan/property-testing/property p.)
- (prefix-in :clan/property-testing/test pbt.))
+ (prefix-in :clan/poo/testing/property/generator g.)
+ (prefix-in :clan/poo/testing/property p.)
+ (prefix-in :clan/poo/testing/property/test pbt.))
 ;; A fixed scalar domain isolates refusal classes from random distribution.
 (def domain (p.make-specification exact-integer? abs))
 ;; Dependent shrinking preserves the relation while naming both reduced values.

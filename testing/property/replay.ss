@@ -1,6 +1,6 @@
 ;;; Portable counterexamples are data with application-owned codec identity.
 (export make-codec write-counterexample read-counterexample)
-(import :std/error :std/iter ./property)
+(import :std/error :std/iter ../property)
 ;; The codec owns format/specification/generator identity and bounded data admission.
 (defstruct replay-codec (identity encode decode current nodes depth) final: #t constructor: :init!)
 ;; Capture codec identity as finite data rather than retaining a mutable caller key.

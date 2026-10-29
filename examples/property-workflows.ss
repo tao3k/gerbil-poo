@@ -2,10 +2,10 @@
 (export property-workflows-test main)
 (import :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines)
-        (prefix-in :clan/property-testing/test assertion.)
-        (prefix-in :clan/property-testing/generator g.)
-        (prefix-in :clan/property-testing/property p.)
-        (prefix-in :clan/property-testing/replay r.))
+        (prefix-in :clan/poo/testing/property/test assertion.)
+        (prefix-in :clan/poo/testing/property/generator g.)
+        (prefix-in :clan/poo/testing/property p.)
+        (prefix-in :clan/poo/testing/property/replay r.))
 ;; The same explicit domain is used before and after serializing a counterexample.
 (def integer-domain (p.make-specification exact-integer? abs))
 ;; Portable identity names the application's format, specification and generator.

@@ -1,17 +1,16 @@
 # Using the property-testing modules
 
-The generic library is a standard Gerbil project at `testing/core/`. Its
-`gerbil.pkg` declares `clan/property-testing`; it imports no POO modules.
-From that directory, use the ordinary `gerbil build` command. The POO root
-build invokes this same standard build before compiling typed consumers.
+The generic modules live under `testing/property`, within the ordinary POO
+package build. Run `gerbil build` from the package root. They import only the
+Gerbil standard library; typed derivation stays in `testing/type`.
 
 Import the modules you use directly:
 
 ```scheme
 (export arithmetic-test)
 (import :std/test
-        (prefix-in :clan/property-testing/generator generator.)
-        (prefix-in :clan/property-testing/property property.))
+        (prefix-in :clan/poo/testing/property/generator generator.)
+        (prefix-in :clan/poo/testing/property property.))
 
 ;; Draw and shrink signed integers with one explicit random source.
 (def integers
@@ -35,7 +34,7 @@ Import the modules you use directly:
 The example is exported as a normal `*-test` suite for `gerbil test` discovery.
 See `examples/property-kernel.ss` for dependent packets, non-injective maps,
 lazy bounded shrinking, source invalidation and a model with logical handles.
-`testing/core/model.ss` owns model execution and repair; it does not instantiate
+`testing/property/model.ss` owns model execution and repair; it does not instantiate
 a POO object or prescribe an application representation.
 
 POO users import `:clan/poo/testing/type` for descriptor-driven generators and
@@ -154,8 +153,8 @@ remaining provenance costs. No process limit or check was removed.
 ## Effective coverage and portable failure data
 
 ```scheme
-(import (prefix-in :clan/property-testing/property property.)
-        (prefix-in :clan/property-testing/replay replay.))
+(import (prefix-in :clan/poo/testing/property property.)
+        (prefix-in :clan/poo/testing/property/replay replay.))
 (def policy (property.make-policy name: 'revision
   labels: (lambda (commands) (map (cut vector-ref <> 0) commands))
   required: '((install . 10) (undo . 10)) discard-budget: 100))
@@ -189,9 +188,9 @@ Import the report API and the standard assertion module separately:
 ```scheme
 (export balance-test)
 (import :std/test
-        (prefix-in :clan/property-testing/generator generator.)
-        (prefix-in :clan/property-testing/property property.)
-        (only-in :clan/property-testing/test define-property check-property))
+        (prefix-in :clan/poo/testing/property/generator generator.)
+        (prefix-in :clan/poo/testing/property property.)
+        (only-in :clan/poo/testing/property/test define-property check-property))
 ;; The application owns its finite domain and decreasing measure.
 (def domain (property.make-specification exact-integer? abs))
 ;; Later draws may depend on earlier arguments; fixed domains are prepared once.
@@ -208,7 +207,7 @@ Import the report API and the standard assertion module separately:
 ```
 
 `property.check-property` returns data for inspection, shrinking and replay.
-The `check-property` macro exported by `:clan/property-testing/test` instead
+The `check-property` macro exported by `:clan/poo/testing/property/test` instead
 registers one ordinary `:std/test` check. It evaluates its report and diagnostics
 formatter once, preserves the caller location through `do-check!`, and raises a
 standard TestError for every non-passing outcome. Diagnostics retain status,
@@ -372,7 +371,7 @@ Use the existing modules directly; application codecs carry only logical data:
 
 ```scheme
 (import (prefix-in :clan/poo/testing/type typed.)
-        (prefix-in :clan/property-testing/replay corpus.))
+        (prefix-in :clan/poo/testing/property/replay corpus.))
 (def codec (corpus.make-codec '(batch 1) encode-batch decode-batch
   current?: batch-schema-current?))
 (call-with-output-file failure-path
@@ -438,7 +437,7 @@ their existing obligation to declare accurate source leaves for their own nodes.
 ## Finite-key HashTable / Map workflows
 
 ```scheme
-(import (prefix-in :clan/property-testing/generator gen.)
+(import (prefix-in :clan/poo/testing/property/generator gen.)
         (prefix-in :clan/poo/testing/type typed.))
 (def counts (gen.generator-integer 0 8))
 (def partial-table (gen.generator-hash '(read write audit) counts domain-limit: 3))

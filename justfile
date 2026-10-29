@@ -15,9 +15,8 @@ check-layout:
     set -euo pipefail
     for module in testing/type.ss testing/function.ss testing/generation-graph.ss testing/recursive-generation.ss; do test -f "$module"; done
     for retired in property-testing.ss function-testing.ss generation-graph.ss recursive-generation.ss; do test ! -e "$retired"; done
-    test -x testing/core/build.ss
-    IFS= read -r entry < testing/core/build.ss
-    test "$entry" = '#!/usr/bin/env -S gxi -:max-heap=1G,debug=q'
+    for module in testing/property.ss testing/property/{generator,model,replay,test}.ss; do test -f "$module"; done
+    test ! -e testing/core
     printf 'LAYOUT-OK\n'
 
 build-core: check-layout

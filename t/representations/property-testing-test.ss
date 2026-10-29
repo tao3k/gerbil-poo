@@ -1,8 +1,8 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
 (export property-testing-test property-kernel-test property-workflows-test generated-batches-test)
-(import (prefix-in :clan/property-testing/test assertion.)
-        (prefix-in :clan/property-testing/generator core.)
-        (prefix-in :clan/property-testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
+(import (prefix-in :clan/poo/testing/property/test assertion.)
+        (prefix-in :clan/poo/testing/property/generator core.)
+        (prefix-in :clan/poo/testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
         (prefix-in :clan/poo/examples/signature-service service.)
@@ -24,15 +24,18 @@
   (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"]
     coprocess: read-all-as-lines)))
   (call-with-temporary-directory "property-library-" (lambda (project)
+    (create-directory* (path-expand "property" project))
     (for-each (lambda (file)
-      (copy-file (path-expand (string-append "testing/core/" file) source-root)
-        (path-expand file project))) '("generator.ss" "property.ss" "model.ss" "replay.ss" "test.ss" "build.ss" "gerbil.pkg"))
+      (copy-file (path-expand (string-append "testing/" file) source-root)
+        (path-expand file project)))
+      '("property.ss" "property/generator.ss" "property/model.ss" "property/replay.ss" "property/test.ss"))
+    (write-program (path-expand "gerbil.pkg" project) '((package: clan/poo/testing)))
     (create-directory* (path-expand "examples" project))
     (copy-file (path-expand "examples/property-kernel.ss" source-root)
       (path-expand "examples/property-kernel.ss" project))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
-        (defbuild-script '("generator" "property" "model" "replay" "test" "examples/property-kernel"))))
+        (defbuild-script '("property/generator" "property" "property/model" "property/replay" "property/test" "examples/property-kernel"))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))
@@ -40,7 +43,7 @@
         (lambda (port) (display "#!/usr/bin/env -S gxi -:max-heap=1G,debug=q\n" port) (display text port)))
       (run-process ["chmod" "755" file]))
     (def package (path-expand "package" project))
-    (def artifact (path-expand "lib/clan/property-testing/examples/property-kernel.ssi" package))
+    (def artifact (path-expand "lib/clan/poo/testing/examples/property-kernel.ssi" package))
     ;; Released compilers carry relocation options in GAMBOPT. Append the same
     ;; heap bound without replacing their standard bin/library/include mappings.
     (def options (getenv "GAMBOPT" ""))
@@ -58,7 +61,10 @@
             coprocess: (lambda (port) (set! output (read-all-as-string port)) output)))))
     (run "build")
     (check (file-exists? artifact) => #t)
-    (check (file-exists? (path-expand "lib/clan/poo" package)) => #f)
+    ;; The module path does not load parent modules: no POO runtime is installed.
+    (for-each (lambda (file)
+      (check (file-exists? (path-expand file package)) => #f))
+      '("lib/clan/poo/object.ssi" "lib/clan/poo/mop.ssi" "lib/clan/poo/testing/type.ssi"))
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.

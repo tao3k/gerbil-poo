@@ -9,7 +9,7 @@
   (only-in :std/test do-check!)
   (only-in ../type Tuple)
   (prefix-in ../testing/type property.)
-  (only-in :clan/property-testing/test require-passed)
+  (only-in :clan/poo/testing/property/test require-passed)
   ./io)
 
 (defrule (assert-equal! actual expected)
