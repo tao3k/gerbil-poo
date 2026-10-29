@@ -57,11 +57,19 @@
 ;; A stale producer cannot invoke its next selector or construct a replacement.
 (def (require-sources! sources)
   (unless (every live? sources) (raise (make-stale))))
-;; Callback stages share one hygienic source boundary, without retaining a new
-;; guard closure per node. Exceptions bypass post-return checks unchanged.
+;; Standard dynamic scope carries inherited leaves through selected child
+;; graphs. It is restored on every exit and never owns a registry or PRNG.
+(def current-generation-sources (make-parameter []))
+;; One hygienic callback boundary checks the merged leaves. Dynamic binding is
+;; skipped for an already shared context identity, avoiding an extra frame.
+;; Exceptions bypass post-return checks unchanged, and the callback runs once.
 (defrule (with-sources sources body ...)
-  (begin (require-sources! sources)
-    (begin0 (let () body ...) (require-sources! sources))))
+  (let* ((inherited (current-generation-sources)) (owned (merge-sources inherited sources)))
+    (require-sources! owned)
+    (begin0
+      (if (eq? inherited owned) (let () body ...)
+        (parameterize ((current-generation-sources owned)) body ...))
+      (require-sources! owned))))
 ;; Public source lists are copies, so a downstream consumer cannot edit node ownership.
 (def (sample-sources tree) (map identity (sample-node-sources tree)))
 ;; Each node exposes an ordinary callback for consumers outside the core algebra.
@@ -107,10 +115,11 @@
 (def (generate generator random size)
   (unless (generator? generator) (error "generator required"))
   (unless (and (exact-integer? size) (>= size 0)) (error "natural generator size required" size))
-  (def tree (with-sources (generation-sources generator) ((generation-run generator) random size)))
+  (def observed (merge-sources (current-generation-sources) (generation-sources generator)))
+  (def tree (with-sources observed ((generation-run generator) random size)))
   (unless (sample? tree) (error "generator must produce a sample"))
   (make-sample-node (sample-value tree) (sample-children tree)
-    (merge-sources (generation-sources generator) (sample-node-sources tree))))
+    (merge-sources observed (sample-node-sources tree))))
 ;; Signed shrinking is a general value algorithm independent of POO Types.
 (def (integer-shrinks value)
   (if (zero? value) []
@@ -119,12 +128,15 @@
 (def (make-generator (draw : :procedure) (shrink : :procedure)
                     current?: (current immutable-current) sources: (sources []))
   (def observed (observer-sources current sources))
-  (def (tree value)
+  ;; Capture invocation ownership in the recursive tree, so later independently
+  ;; retained children keep inherited leaves after dynamic scope has unwound.
+  (def (tree value owned)
     (make-sample-node value
       (lambda () (in-coroutine (lambda (yield)
-        (require-sources! observed)
-        (for (child (shrink value)) (yield (tree child)))))) observed))
-  (make-generation (lambda (random size) (tree (draw random size))) observed))
+        (require-sources! owned)
+        (for (child (shrink value)) (yield (tree child owned)))))) owned))
+  (make-generation (lambda (random size)
+    (tree (draw random size) (merge-sources (current-generation-sources) observed))) observed))
 ;; An advanced producer returns a validated sample tree using the same protocol.
 (def (make-tree-generator (draw : :procedure) current?: (current immutable-current) sources: (sources []))
   (make-generation draw (observer-sources current sources)))

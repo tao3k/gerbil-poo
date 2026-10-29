@@ -1111,7 +1111,7 @@ No new generator, property runner, namespace, PRNG owner or retry policy is adde
 The standalone callback matrix covers draw, map, bind, sized, delay, pack and a
 child that revises its inherited parent source. It checks source refusal before
 unstarted child effects, original exceptions after revision, deterministic repeated
-seeded values and lazy child preparation. Independent compilation now runs 39 cases.
+seeded values and lazy child preparation. Independent compilation now runs 41 cases.
 The downstream Record/FUN example refuses construction after a selector revision,
 explicitly prepares fresh typed sources, performs real dependent shrinking, checks
 Function wrapping and tests both replay forms. Seed replay repeats the whole
@@ -1128,3 +1128,17 @@ flat source identity, proposal budgets and captured child seed semantics remain.
 [Rackcheck's map/bind algebra](https://docs.racket-lang.org/rackcheck/index.html)
 informs composition through the same retained shrink tree. Revision observers are
 our additional explicit protocol, not an assertion that Racket mandates POO sources.
+
+Inherited source lists use Gerbil's standard dynamically scoped parameter inside
+this same boundary. Selected child graphs see parent leaves before their own
+mapping/selection callbacks. Already shared context identities skip a new dynamic frame; no
+parameter environment leaks after success, refusal or exceptions. `generate`
+retains the inherited leaves on its returned node for later lazy consumers.
+The source-union laws justify joint parent/child admission. Regression controls
+cover nested child maps under bind, size, delay and an advanced producer, and
+confirm an unrelated draw remains valid after an interrupted context unwinds.
+
+Standard value generators capture the invocation's inherited leaves in their
+recursive sample factory. Separately retained lazy children therefore keep those
+leaves after dynamic scope unwinds. Advanced handwritten sample producers retain
+their existing obligation to declare accurate source leaves for their own nodes.

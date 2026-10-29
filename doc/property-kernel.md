@@ -415,8 +415,22 @@ and resource budgets are unchanged. Dynamic sample leaves still belong to their
 node/consumer admission; this does not certify undeclared mutable payloads or
 undo effects already performed by a callback. Observers must be pure and accurate.
 
-See the 39-case independent `examples/property-kernel.ss` and the Record/FUN repair
+See the 41-case independent `examples/property-kernel.ss` and the Record/FUN repair
 workflow in `examples/generated-batches.ss`. The latter explicitly rebuilds a sampler
 after revision rather than silently refreshing an old generation closure, performs
 real shrinking and checks that concrete replay draws nothing while seeded replay
 repeats the full dependent construction schedule.
+
+Inherited source lists use Gerbil's standard dynamically scoped parameter inside
+this same boundary. Selected child graphs see parent leaves before their own
+mapping/selection callbacks. Already shared context identities skip a new dynamic frame; no
+parameter environment leaks after success, refusal or exceptions. `generate`
+retains the inherited leaves on its returned node for later lazy consumers.
+The source-union laws justify joint parent/child admission. Regression controls
+cover nested child maps under bind, size, delay and an advanced producer, and
+confirm an unrelated draw remains valid after an interrupted context unwinds.
+
+Standard value generators capture the invocation's inherited leaves in their
+recursive sample factory. Separately retained lazy children therefore keep those
+leaves after dynamic scope unwinds. Advanced handwritten sample producers retain
+their existing obligation to declare accurate source leaves for their own nodes.

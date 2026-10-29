@@ -71,6 +71,41 @@
                  (lambda (_random _size) (set! draws (1+ draws)) 1))))
           (check-exception (generator.generate generation (generator.random-at 41) 3) generator.stale-generation?)
           (check-equal? draws (if (eq? stage 'child) 1 0)))))
+    (test-case "inherited sources guard maps inside selected child graphs"
+      (for (stage '(bind sized delay producer))
+        (let* ((live #t) (mapped 0) (guard (lambda () live))
+               (child (generator.generator-map
+                 (generator.make-generator (lambda (_random _size) (set! live #f) 1) (lambda (_) []))
+                 (lambda (value) (set! mapped (1+ mapped)) value)))
+               (generation (case stage
+                 ((bind) (generator.generator-bind
+                   (generator.make-generator (lambda (_random _size) 0) (lambda (_) []) current?: guard)
+                   (lambda (_) child)))
+                 ((sized) (generator.generator-sized (lambda (_) child) current?: guard))
+                 ((delay) (generator.generator-delay (lambda () child) current?: guard))
+                 (else (generator.make-tree-generator
+                   (lambda (random size) (generator.generate child random size)) current?: guard)))))
+          (check-exception (generator.generate generation (generator.random-at 41) 3) generator.stale-generation?)
+          (check-equal? mapped 0)
+          ;; Unwinding a failed stage must not poison an unrelated later draw.
+          (check-equal? (generator.sample-value
+            (generator.generate (generator.generator-unit 7) (generator.random-at 41) 3)) 7))))
+    (test-case "inherited sources remain on separately retained lazy children"
+      (def live #t)
+      (def child (generator.make-generator (lambda (_random _size) 2)
+        (lambda (value) (if (= value 2) [1] []))))
+      (def generation (generator.make-tree-generator
+        (lambda (random size) (generator.generate child random size)) current?: (lambda () live)))
+      (def root (generator.generate generation (generator.random-at 41) 3))
+      (def children (for/collect (node ((generator.sample-children root))) node))
+      (check-equal? (map generator.sample-value children) [1])
+      (set! live #f)
+      (check ((generator.sample-current (car children))) => #f)
+      (check-exception (for (node ((generator.sample-children (car children)))) (void)) generator.stale-generation?)
+      (check-eq? (property.report-status (property.check-property
+        (generator.make-tree-generator (lambda (_random _size) (car children)))
+        (lambda (_) (error "stale retained child reached property"))
+        (property.make-specification exact-integer? abs) cases: 1)) 'stale))
     (test-case "callback exceptions keep their identity after source revisions"
       (for (stage '(draw map bind sized delay pack child))
         (let* ((live #t) (cause (cons stage 'failure))
