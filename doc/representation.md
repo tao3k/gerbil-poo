@@ -429,9 +429,10 @@ initialization/refusal/recovery controls and the original resource limits remain
 The receiver's primary vector starts with private uncomputed sentinels. False
 and wrapped Function values remain ordinary successful values. Ordinary `.ref`
 and `.ref/inline` demand the same evaluator and retain its exact successful value;
-no second promotion/write is needed. Failure adds no target-cell publication and
-retains the original cause. Already evaluated dependencies and callback effects
-are not rolled back. Delete/clear make the affected cells demandable again.
+no second promotion/write is needed. Refused slot-body evaluation adds no target
+publication and retains the original cause. Already evaluated dependencies and
+callback effects are not rolled back. An observer/consumer refusal after a
+successful publication does not undo that memo. Delete/clear make cells demandable again.
 
 The former per-site eager/demand option and record field have been removed.
 They controlled seeding of an auxiliary value cache, which no longer exists.
@@ -1194,6 +1195,11 @@ This advances the author's TODO representation proposal. Compiled method tables,
 source overrides, shape indices and provenance still use their existing metadata
 representations. Full hash removal, automatic JIT/PIC policy and OS cold-mapping
 latency are separate boundaries.
+
+`slot-value-storage` selects a backend only when preparing a new instance. It
+does not migrate a live store or create a hash/vector pair. Preparation, fresh
+shape costs and GC history remain charged in the study. GC-affected or negative
+allocation differences are not admitted as attributable allocation savings.
 
 The existing slot benchmark suite includes the full value-storage study with
 shared/fresh shapes, cold/hot access, preparation, exact refusal/retry and paired
