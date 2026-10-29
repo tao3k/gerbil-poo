@@ -1,12 +1,25 @@
-;;; Explicit order integrates index publication, inversion and ownership transfer.
-(export table-order-test)
-(import (only-in :clan/poo/support/base number-comparer) (only-in :std/list/list-builder with-list-builder) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
-        (only-in :clan/poo/brace @@method) (only-in :clan/poo/t/table-testing alist-table) (only-in :clan/poo/t/table-testing box-table) (only-in :clan/poo/fun Wrapper. IdWrap) (only-in :clan/poo/trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in :clan/poo/examples/service-collection service.))
+;;; Fixture-free ordered collection suites share one standard module image.
+;;; Export order retains the original gxtest suite delivery order; private
+;;; helpers stay in this existing functional owner, without wrapper closures.
+(export rationaldict-order-test table-cursor-test table-order-test table-split-test)
+(import :std/test :std/error :std/iter
+        :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
+        :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
+        (only-in :clan/poo/support/base number-comparer)
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in :clan/poo/brace @@method)
+        (only-in :clan/poo/t/table-testing alist-table box-table)
+        (only-in :clan/poo/fun Wrapper. IdWrap)
+        (only-in :clan/poo/trie SimpleTrie Trie. Branch Leaf trie-for-each-change)
+        (prefix-in :clan/poo/examples/service-collection service.))
 
-;; Keep deliberate protocol refusal separate from arbitrary comparator failures.
+;; Match only the precise protocol refusal; arbitrary callback causes propagate.
 (def (message? text)
   (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
 
+(include "table-order/rationaldict.scm")
+(include "table-order/cursors.scm")
+;
 ;; Return faithful temporary observation cells, independently of persistent roots.
 ;; Comparisons/fold callbacks may recycle those cells after the observation returns.
 (def (borrowed-order raw poison positioned?)
@@ -33,8 +46,10 @@
 
  ;; A finite three-key oracle compares presence before Bool payloads, independently
 ;; of the tree/cursor implementation; all 27 by 27 source pairs are exercised.
+;; Compare Boolean observations without coercing false to missing.
 (def (bool-comparison a b) (cond ((eq? a b) 0) (a 1) (else -1)))
 ;; Scan only the known finite test domain, with no descriptor query or merge.
+;; Inspect a finite declaration under the same explicit comparison policy.
 (def (finite-comparison-oracle left right)
   (let/cc return
     (for (key '(0 1 2))
@@ -848,3 +863,4 @@
       (def good (table-comparer (.@ source Key) number-comparer))
       (def broken (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key) .ap: (lambda (x) (+ x 1)) .unap: identity))
       (check-exception (.call (table-comparer-wrapper good broken) .compare 1 2) table-isomorphism-failure?))))
+(include "table-order/decomposition.scm")
