@@ -1470,3 +1470,15 @@ It is a warm, instrumented qualification, not a cold speedup receipt or proof
 that the library-validation delay is fixed. The cold-loader performance issue
 remains open. Existing Lean laws concern source-level caching and preparation;
 they do not prove macOS policy latency or physical cleanup time.
+
+After normally merging the concurrent PBT changes, the standard incremental build
+completed in 198.70 seconds (library 44.26, startup package 3.62, all 25 test
+packages 149.83). The first subsequent uninstrumented complete check naturally
+exited with 149 modules / 2,027 cases: main test 119.87 seconds, collections 14.10,
+generators 2.52, whole entry 138.30. A read-only log observer measured approximately
+8.27 seconds from main `OK` to the test command's natural return; this includes
+cleanup and reporting, not exclusively dyld. The isolated fresh package used
+26.98 seconds for build and 5.89 for its 55-case test. This is a post-incremental-
+build qualification with the existing package prefix, not an empty-prefix cold
+comparison. It preserves the full workload and does not establish that the
+previous 276-second library-validation episode cannot recur.
