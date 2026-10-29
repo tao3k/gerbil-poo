@@ -3,7 +3,6 @@
 ;;
 ;; Next version of poo, with multiple inheritance and a budding meta-object protocol.
 ;; See doc/poo.md for documentation
-;; TODO: see Future Features and the Internals TODO sections in document above.
 
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
@@ -43,7 +42,7 @@
    %defaults ;; : persistent ordered defaults
    %reads ;; receiver-local read records; no global receiver retention
    %layout ;; : optional shared shape and receiver-local value vector
-   %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
+   %instance ;; : standard HashTable interface over the sole receiver-local value store
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
    %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
    %all-slots
@@ -190,7 +189,7 @@
 ;; Instantiate atomically with respect to native exceptions. Mutating callbacks and
 ;; concurrent reads/writes are outside the sequential protocol, and are rejected
 ;; for actively evaluated receivers rather than returning a partially built value.
-(def (instantiate-object! self)
+(def (instantiate-object! self previous: (previous #f))
   (unless (object? self) (error "Not an object"))
   (unless (object-%instance self)
     (when (memq self (active-object-constructions)) (error "recursive object construction"))
@@ -201,13 +200,10 @@
             (lambda ()
               (compute-object-precedence! self)
               (compute-slot-funs! self)
-              (def instance (make-hash-table-symbolic))
-              (when (object-%overrides self)
-                (for (([key . value] (object-%overrides self))) (hash-put! instance key value)))
-              ;; The constant base is also present in ordinary full-cache reflection.
-              (when (and (eq? (object-%protocol self) self) (object-%bootstrap self))
-                (for (([key . value] (object-%bootstrap self))) (hash-put! instance key value)))
-              instance)))
+              (make-slot-values (hash-keys (object-%slot-funs self))
+                (object-%overrides self)
+                (if (eq? (object-%protocol self) self) (or (object-%bootstrap self) []) [])
+                absent-value previous: previous))))
         (set! (object-%instance self) instance)
         (hash-put! (object-read-table self) '(preparation)
           (object-record-read self '(preparation) instance dependencies))
@@ -562,19 +558,17 @@
           (def read (object-record-read self slot value dependencies))
           (hash-put! instance slot value)
           (hash-put! (object-read-table self) slot read)
-          (when (object-%layout self) (slot-layout-put! (object-%layout self) slot value))
           (%deliver-slot-read read value))
         (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
-;; Prepare a shared symbolic shape lazily. Ordinary lookup retains its hash API;
-;; Creation may seed existing cached values or allocate demand-filled cells.
-;; Existing layouts are reused; ordinary lookup remains the value authority.
+;; Expose the existing primary vector by identity, without seeding another store.
+;; The explicit hash qualification stays symbolic and never allocates a second cache.
+;; Creation hints cannot erase values already computed in the authoritative cells.
 (def (object-layout self eager?: (eager? #t) previous: (previous #f))
-  (def instance (object-instance self))
+  (instantiate-object! self previous: previous)
   (or (object-%layout self)
-    (let (layout (make-slot-layout
-      (append (hash-keys (object-%slot-funs self)) (hash-keys instance)) (and eager? instance) absent-value previous: previous))
-      (set! (object-%layout self) layout) layout)))
+    (let (layout (slot-values-layout (object-%instance self)))
+      (when layout (set! (object-%layout self) layout)) layout)))
 ;; Guarded access sites reuse only an index, never another receiver's slot value.
 ;; Observation and cold bootstrap anchors use ordinary .ref before preparation.
 ;; A live layout already certifies completed instance preparation; supported edits
@@ -585,15 +579,20 @@
   (if (%slot-read-active?) (.ref self slot)
     (let (prepared (object-%layout self))
       (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
-        (let ((layout (or prepared (object-layout self eager?: (slot-cache-eager? cache) previous: (slot-cache-layout cache)))) (revision (object-revision self)))
-          (if (slot-cache-hit? cache self revision layout) (slot-cache-read cache)
-            (let* ((index (slot-cache-index cache layout))
-                   ;; Offset sharing never shares the previous owner's cells.
-                   (stored (if index (slot-layout-ref layout index) absent-value))
-                   (value (if (eq? stored absent-value)
-                     (let (value (.ref self slot))
-                       (when index (slot-layout-set! layout index value)) value) stored)))
-              (slot-cache-bind! cache self revision layout index) value)))))))
+        (let (layout (or prepared (object-layout self previous: (slot-cache-layout cache))))
+          (if (not layout) (.ref self slot)
+            (let (revision (object-revision self))
+              (if (slot-cache-hit? cache self revision layout)
+                (let (value (slot-cache-read cache))
+                  (if (eq? value absent-value) (.ref self slot) value))
+                (let* ((shape (slot-layout-shape layout))
+                       (index (slot-cache-index cache layout))
+                       (stored (if index (slot-layout-ref layout index) absent-value))
+                       (value (if (eq? stored absent-value) (.ref self slot) stored)))
+                  ;; Evaluation may memoize a dynamic dependency and reorder cells.
+                  (slot-cache-bind! cache self revision layout
+                    (if (eq? shape (slot-layout-shape layout)) index
+                      (slot-layout-index layout slot))) value)))))))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))

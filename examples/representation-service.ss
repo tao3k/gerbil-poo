@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
+(export value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -471,3 +471,11 @@
       (unless (every (lambda (read) (not (object-read-current? read))) reads)
         (error "restored parents revived obsolete reads"))
       (vector first second (action receiver) delivered))))
+
+;; Complete shared-diamond revisions, shape edits, failed admission and retry use
+;; both readers through the existing FUN consumer. Each trace owns fresh receivers;
+;; the declared backend changes storage, never evaluation, contracts or approval.
+(def (value-storage-workflow width storage)
+  (parameterize ((slot-value-storage storage))
+    (vector (service-workflow width layout: #f reshape?: #t)
+            (service-workflow width layout: (eq? storage 'vector) reshape?: #t))))

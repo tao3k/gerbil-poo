@@ -1,11 +1,13 @@
 ;;; Read provenance and metadata routes; no receiver getters or user callbacks.
 (export require-read-route! make-read-issuer)
-(import :std/error ./slot-observation (only-in :gerbil/runtime/hash HashTable)
+(import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation (only-in :gerbil/runtime/hash HashTable)
   (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock))
 ;; Validate the actual selected metadata route, without calling its methods.
 ;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.
 (defstruct route (wrapper ref backend hash test) final: #t)
+;; Pin only class/method identities, never a receiver, value or validation result.
+(defstruct value-route (ref backend shape missing) final: #t)
 (def require-read-route!
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
@@ -15,6 +17,14 @@
         (read-runtime.object-class backend) (&raw-table-hash backend) (&raw-table-test backend)))
     (def reads-route (capture (make-hash-table)))
     (def instance-route (capture (make-hash-table-symbolic)))
+    (def vector-route
+      (parameterize ((slot-value-storage 'vector))
+        (let* ((table (make-slot-values [] #f [] absent-value))
+               (backend (read-runtime.slot-ref table 'object))
+               (shape (read-runtime.slot-ref backend 'shape)))
+          (make-value-route (read-runtime.slot-ref table 'ref)
+            (read-runtime.object-class backend) (read-runtime.object-class shape)
+            (read-runtime.slot-ref backend 'missing)))))
     ;; Refuse changed metadata without dispatching its mutable public methods.
     (def (check table expected)
       (unless (eq? (read-runtime.object-class table) (route-wrapper expected))
@@ -28,6 +38,24 @@
                      (eq? (&raw-table-test backend) (route-test expected))
                      (not (&raw-table-lock backend)))
           (error "changed metadata hash/test"))))
+    ;; Authenticate the vector route before any HashTable/index method can run.
+    ;; Index metadata uses the same pinned standard symbolic hash/test implementation.
+    (def (check-instance table)
+      (unless (eq? (read-runtime.object-class table) (route-wrapper instance-route))
+        (error "foreign metadata wrapper"))
+      (let (backend (read-runtime.slot-ref table 'object))
+        (if (eq? (read-runtime.object-class backend) (value-route-backend vector-route))
+          (begin
+            (unless (eq? (read-runtime.slot-ref table 'ref) (value-route-ref vector-route))
+              (error "changed metadata ref"))
+            (unless (and (vector? (read-runtime.slot-ref backend 'cells))
+                         (eq? (read-runtime.slot-ref backend 'missing) (value-route-missing vector-route)))
+              (error "changed value cells"))
+            (let (shape (read-runtime.slot-ref backend 'shape))
+              (unless (eq? (read-runtime.object-class shape) (value-route-shape vector-route))
+                (error "foreign vector shape"))
+              (check (read-runtime.slot-ref shape 'indices) instance-route)))
+          (check table instance-route))))
     (lambda (key reads instance)
       (unless (or (symbol? key)
                   (and (pair? key)
@@ -39,7 +67,7 @@
         (error "unsupported metadata key"))
       (unless (and (pair? key) (eq? (car key) 'bootstrap))
         (when reads (check reads reads-route))
-        (when instance (check instance instance-route))))))
+        (when instance (check-instance instance))))))
 
 
 ;; One authority owns the original weak table and authenticated birth closures.

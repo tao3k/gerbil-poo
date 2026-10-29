@@ -1,14 +1,14 @@
-;;; Native producer-owned issuance tests; no Core fixtures or dependencies.
+;;; Producer-owned issuance tests; no Core fixtures or dependencies.
 (export issued-read-test test-cleanup!)
-(import :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
+(import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class) runtime.)
         (only-in :gerbil/expander current-expander-context make-top-context
                  core-import-module module-context-export module-export-name)
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 21)
-  (displayln "ISSUED-READ: 21 cases completed"))
+  (check-equal? completed 23)
+  (displayln "ISSUED-READ: 23 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
 (extern namespace: clan/poo/object call-with-issued-reads)
@@ -36,6 +36,51 @@
   watcher)
 (def issued-read-test
  (test-suite "Read issuance with transient tokens and guarded replay"
+  (test-case "vector value and index routes refuse replaced refs before dispatch"
+    (for (index? '(#f #t))
+      (def owner (.o value: #f))
+      (def roots (recorded (cut .ref owner 'value)))
+      (def instance (object-instance owner))
+      (def table (if index?
+        (runtime.slot-ref (runtime.slot-ref (runtime.slot-ref instance 'object) 'shape) 'indices)
+        instance))
+      (def original (runtime.slot-ref table 'ref))
+      (def calls 0)
+      (try
+        (runtime.slot-set! table 'ref
+          (lambda (_self _key _default) (set! calls (1+ calls)) #f))
+        (refuses "changed metadata ref" (cut reobserve-slot-reads! roots))
+        (check-equal? calls 0)
+        (finally (runtime.slot-set! table 'ref original))))
+    (set! completed (1+ completed)))
+  (test-case "vector storage exposure and shape growth preserve genuine read authority"
+    (def parent (.o value: #f))
+    (def owner (.o inherit: [parent]))
+    (def site (make-slot-cache 'value shapes: 2))
+    (def record #f)
+    (call-with-slot-read-observer
+      (lambda (read) (when (eq? (slot-read-key read) 'value) (set! record read)))
+      (cut .ref owner 'value))
+    (def instance (object-instance owner))
+    (def layout (object-layout owner))
+    (check (object-read-current? record) => #t)
+    (check-eq? (slot-read-instance record) instance)
+    (check (.ref/inline owner site) => #f)
+    (hash-put! instance 'new-key identity)
+    (check (object-read-current? record) => #t)
+    (check (.ref/inline owner site) => #f)
+    (hash-put! instance 'value identity)
+    (check (object-read-current? record) => #f)
+    (check-eq? (.ref/inline owner site) identity)
+    (.put! parent 'value 7)
+    (check (object-%instance owner) => #f)
+    (check (object-%layout owner) => #f)
+    ;; Instance assignments do not replace inherited slot specifications.
+    (check (.ref/inline owner site) => #f)
+    (check (eq? layout (object-%layout owner)) => #f)
+    (.putslot! parent 'value ($constant-slot-spec 7))
+    (check-equal? (.ref/inline owner site) 7)
+    (set! completed (1+ completed)))
   (test-case "cold cyclic root spines refuse before replay"
     (.def Root port: 5432)
     (def read (selected (recorded (cut .get Root port)) 'port))

@@ -1,10 +1,10 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study)
-(import (only-in :clan/poo/benchmarks/prototype-map-benchmark
+(export main run-values-study run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study)
+(import (only-in :gerbil/runtime/gambit string->uninterned-symbol) (only-in :clan/poo/benchmarks/prototype-map-benchmark
           +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
           +declaration-phases+ declaration-workload declaration-preparation-workload)
         :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
-        (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
+        (only-in :clan/poo/slot-layout slot-value-storage make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract checked-action)
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer %slot-read-active?)
@@ -32,7 +32,8 @@
 ;; One finite inventory serves complete acceptance and focused timing.
 (def +slot-offset-phases+ '(slot-offset-prepare slot-offset-hot slot-offset-switch
   slot-offset-churn slot-offset-workflow))
-(def +slot-phases+ (append '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
+(def +slot-value-phases+ '(slot-values-prepare slot-values-newshape slot-values-cold slot-values-hot slot-values-workflow slot-values-retry))
+(def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
     slot-shape-prepare slot-shape-workflow slot-shape-change) +slot-offset-phases+))
 
@@ -301,6 +302,44 @@
           (unless (eq? (.ref/inline owner site) #f) (error "revised-cell oracle"))))
       #t))
   (values (action #f) (action #t)))
+
+;; Both sides run the same evaluator, contracts, revisions and result oracle.
+;; Cold phases charge construction; setup and both same-side controls are retained.
+(def (slot-values-workload size scenario)
+  (def (action storage)
+    (parameterize ((slot-value-storage storage))
+      (def owner (force-object (.o value: #f callback: identity)))
+      (def site (and (eq? storage 'vector) (make-slot-cache 'value)))
+      (def read (if site (cut .ref/inline <> site) (cut .ref <> 'value)))
+      (def denied? #t)
+      (def failing (.o (value (if denied? (raise 'value-store-refused) #f))))
+      (lambda ()
+        (parameterize ((slot-value-storage storage))
+          (case scenario
+            ((slot-values-prepare)
+             (let (fresh (.o value: #f callback: identity))
+               (instantiate-object! fresh) (unless (= 0 (hash-length (object-instance fresh))) (error "value prepare oracle"))))
+            ((slot-values-newshape)
+             (let* ((key (string->uninterned-symbol "fresh"))
+                    (fresh (make-object slots: (list (cons key ($constant-slot-spec #f)))))
+                    (access (and (eq? storage 'vector) (make-slot-cache key))))
+               (unless (not (if access (.ref/inline fresh access) (.ref fresh key)))
+                 (error "fresh shape oracle"))))
+            ((slot-values-hot) (unless (not (read owner)) (error "value hot oracle")))
+            ((slot-values-cold)
+             (let ((fresh (.o value: #f callback: identity))
+                   (access (and (eq? storage 'vector) (make-slot-cache 'value))))
+               (unless (and (not (if access (.ref/inline fresh access) (.ref fresh 'value)))
+                            (eq? (.ref fresh 'callback) identity)) (error "value cold oracle"))))
+            ((slot-values-retry)
+             (set! denied? #t) (uninstantiate-object! failing)
+             (unless (eq? (with-catch identity (cut read failing)) 'value-store-refused)
+               (error "value refusal oracle"))
+             (set! denied? #f)
+             (unless (not (read failing)) (error "value retry oracle")))
+            (else (service.value-storage-workflow size storage)))
+          #t))))
+  (values (action 'hash) (action 'vector)))
 
 ;; Compare existing symbolic reads with the explicit inline API through the same
 ;; receiver formulas and runtime. Each side owns its parent, instances and site.
@@ -761,7 +800,7 @@
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
   (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -793,6 +832,7 @@
              (cut seeding-workload n scenario))
             ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
              (cut shape-workload n scenario))
+            ((memq scenario +slot-value-phases+) (cut slot-values-workload n scenario))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
           (lambda (before after elapsed) (set! setup-history (measurement-history before after elapsed)))))
@@ -937,4 +977,9 @@
 ;; Keep the same safe scan oracle, all GC regimes and both same-side controls.
 (def (run-cold-query-study)
   (report-study (cut run-collection-study "32" "32" "12" '(declaration-construction declaration-cold declaration-workflow)) "COLD-QUERY")
+  #t)
+
+;; Fixed full-workflow pairs retain AB/BA, A/A/B/B, charged GC and tail reports.
+(def (run-values-study)
+  (report-study (cut run-collection-study "16" "16" "6" +slot-value-phases+) "SLOT-VALUES")
   #t)

@@ -1231,3 +1231,43 @@ boundary; the business plugin stays cold. Readiness and exit clocks bracket the
 actual IO in explicit evaluation order. Fresh process/registry state does not
 mean the OS filesystem cache was reset. Historical executable comparisons apply
 only to their recorded source/ABI, not to a later module ownership revision.
+
+## Authoritative vector values
+
+The default `slot-value-storage` is `vector`: `object-instance` returns the
+standard Gerbil `HashTable` interface over one receiver-local layout. Ordinary
+`.ref`, `.ref/cached`, printing, copy/iteration and inline sites share its cells.
+`object-layout` exposes that existing layout by identity; it never copies a hash
+value table. Creation hints do not erase computed cells. The explicit `hash`
+qualification remains a single symbolic value table; inline requests fall back
+to ordinary lookup and never create an auxiliary value vector.
+
+`slot-layout.ss` implements the actual core `HashTable` methods using the same
+`bind-method!` convention as Gerbil runtime/hash. Unknown successful delegation
+prepares a complete new shape/cell arrangement before installing it. Sites retain
+the old immutable shape identity separately from the mutable layout. Evaluation
+can insert an earlier dependency, so cold binding rechecks the final descriptor
+and resolves its final index. Delete/clear leave cells uncomputed; subsequent
+hits demand the original cycle-aware evaluator. False and Function identities
+remain values. Failures publish no target value or new successful guard; earlier
+dependency memoization and callback effects are retained.
+
+The existing invalidation protocol discards instance and exposed layout together
+through registered shared descendants. The read-route guard now recognizes the
+pinned vector wrapper/ref/backend/shape/missing identities and authenticates its
+standard index-table route before calling it. It keeps the old hash route and
+read-provenance checks. No successful validation verdict or receiver registry is
+added. Raw setters/namespace mutation, arbitrary callback termination, concurrent
+cache mutation and runtime/compiler correctness remain outside this protocol.
+
+This advances the author's TODO representation proposal. Compiled method tables,
+source overrides, shape indices and provenance still use their existing metadata
+representations. Full hash removal, automatic JIT/PIC policy and OS cold-mapping
+latency are separate boundaries.
+
+The existing slot benchmark suite includes the full value-storage study with
+shared/fresh shapes, cold/hot access, preparation, exact refusal/retry and paired
+FUN service publication. Both strategies run the same evaluator and contracts;
+complete setup, prefix, AB/BA, A/A/B/B, natural/collected/post-GC and tails remain
+charged. `ValueStorage.lean` proves logical publication/read/reshape laws and a
+preparation-sensitive work bound, not allocator or wall-clock speed.
