@@ -1,7 +1,7 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
-        ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or)
+        ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
         (prefix-in :clan/property-testing/property testing.)
@@ -108,6 +108,33 @@
     shrink: (lambda (value) (coordinate-shrinks children (unpack value) pack))
     dependencies: (apply append (map generator-sources children))))
 
+;; Finite-key Maps reuse their existing validation/wrapping protocol once per
+;; materialized node. Key validation must preserve the supplied representation;
+;; callers normalize keys explicitly before declaring this finite domain.
+(def (map-generator descriptor keys value-sampler domain-limit: (limit 256) dependencies: (dependencies []))
+  (validate Type descriptor)
+  (unless (memq Map. (compute-precedence-list! descriptor)) (error "Map descriptor required"))
+  (set! value-sampler (validate GeneratorRecord value-sampler))
+  (def key-type (validate Type (.get descriptor Key)))
+  (def value-type (validate Type (.get descriptor Value)))
+  (unless (eq? value-type (.get value-sampler descriptor)) (error "Map value sampler descriptor mismatch"))
+  (unless (list? keys) (error "finite Map keys required"))
+  (def domain (list-copy keys))
+  (def sources (append (list descriptor key-type value-type) dependencies))
+  (def guard (source-guard (snapshot value-sampler sources) value-sampler))
+  ;; Kernel domain admission precedes application key validators. Its captured
+  ;; guard also prevents silently refreshing a sampler between preparation/run.
+  (def generation (core.generator-hash domain (generator-core value-sampler) domain-limit: limit current?: guard))
+  (for (key domain)
+    (unless (core.live? guard) (error "stale Map generator preparation"))
+    (def checked (begin0 (validate key-type key)
+      (unless (core.live? guard) (error "stale Map generator preparation"))))
+    (unless (eq? checked key) (error "finite Map key validation must preserve representation" key)))
+  (unless (core.live? guard) (error "stale Map generator preparation"))
+  (.cc (from-generator descriptor (core.generator-map generation (cut validate descriptor <>))
+    (lambda (table) (+ (hash-length table)
+      (hash-fold (lambda (_key value total) (+ total (weight value-sampler value))) 0 table)))
+    dependencies: (append sources (generator-sources value-sampler))) .current?: guard))
 ;; Standard data Types reuse the independent algebra, including its lazy shrink tree.
 ;; Content weight permits same-length coordinate shrinking; required byte lengths
 ;; remain explicit rather than silently falling back to a different Type.

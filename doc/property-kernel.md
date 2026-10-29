@@ -434,3 +434,37 @@ Standard value generators capture the invocation's inherited leaves in their
 recursive sample factory. Separately retained lazy children therefore keep those
 leaves after dynamic scope unwinds. Advanced handwritten sample producers retain
 their existing obligation to declare accurate source leaves for their own nodes.
+
+## Finite-key HashTable / Map workflows
+
+```scheme
+(import (prefix-in :clan/property-testing/generator gen.)
+        (prefix-in :clan/poo/testing/type typed.))
+(def counts (gen.generator-integer 0 8))
+(def partial-table (gen.generator-hash '(read write audit) counts domain-limit: 3))
+;; With the ordinary POO Type/number modules imported:
+(def map-type (Map (Enum read write audit) -> UInt))
+(def sampler (typed.map-generator map-type '(read write audit) (typed.generator UInt)))
+```
+
+`generator-hash` copies/validates its finite domain once, draws only selected values
+and materializes fresh standard tables from retained sample nodes. Structural
+shrinks delete entries without redrawing; value shrinks keep keys. Size bounds the
+number of entries, not arbitrary callback execution or bytes. Hash key payloads
+must remain stable while used as keys; mutable payloads are not deep-frozen.
+
+`map-generator` reuses the existing Map validator and Record sampler contract.
+Value sampler descriptor identity must match the Map's Value; key validation must
+be representation-preserving, not an implicit key normalization. `dependencies:`
+declares application source objects and `domain-limit:` bounds admitted keys.
+Its currentness hook remains tied to preparation; a revised sampler requires explicit
+new preparation. Value measures must accept the validated value representation.
+No automatic arbitrary Map/Record derivation is claimed. A custom refinement that
+rejects generated subsets is a domain error unless the application supplies a
+suitable explicit generator/filter; it is not silently retried.
+
+See `examples/generated-batches.ss` for a Record/FUN workflow containing Maps of
+Records with Functions, an aggregate falsification, structural/value shrinking,
+zero-draw inspection, source revision/refusal, fresh retry and portable logical
+entry encoding. Codecs own logical field/format identity and restore ordinary
+validated Records; they do not serialize hash order or closures.

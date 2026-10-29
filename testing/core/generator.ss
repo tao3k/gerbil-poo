@@ -9,7 +9,7 @@
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-character generator-byte generator-list
-        generator-string generator-symbol generator-bytes data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
+        generator-string generator-symbol generator-bytes generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
@@ -367,6 +367,27 @@
         (make-tree-generator (lambda (random size)
           (let (tree (generate row random size))
             (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))))
+;; Finite key domains use the same equality as Gerbil's ordinary HashTable.
+;; Validate uniqueness once; fixed-key structural/value shrinking cannot collide.
+(def (generator-hash keys value-generator domain-limit: (limit 256) current?: (current immutable-current))
+  (unless (and (list? keys) (generator? value-generator) (exact-integer? limit) (>= limit 0)
+    (<= (length keys) limit)) (error "invalid finite hash domain"))
+  (def domain (list-copy keys))
+  (def seen (make-hash-table seed: 0))
+  (for (key domain)
+    (when (hash-key? seen key) (error "duplicate finite hash key" key))
+    (hash-put! seen key #t))
+  (make-generation (lambda (random size)
+    ;; Consider every key, then cap selected rows by size. No value is drawn for
+    ;; absent keys; size zero neither samples keys nor invokes value producers.
+    (def selected (if (zero? size) []
+      (let (active (filter (lambda (_) (zero? (random 2))) domain))
+        (take active (min size (length active))))))
+    (def row (generator-sequence (map (lambda (key)
+      (sampled-generator (generator-map value-generator (lambda (value) (cons key value))))) selected)))
+    (let (tree (generate row random size))
+      (sample-sequence (sample-value tree) (lambda (entries) (list->hash-table entries seed: 0)) sources: (sample-sources tree))))
+    (observer-sources current [])))
 ;; Standard Scheme carriers are mapped once; shrinking keeps the hidden list tree.
 (def (generator-string (character (generator-character)) min-length: (minimum 0) max-length: (maximum 128))
   (generator-map (generator-list character min-length: minimum max-length: maximum) list->string))

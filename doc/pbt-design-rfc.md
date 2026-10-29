@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P11 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P12 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1142,3 +1142,60 @@ Standard value generators capture the invocation's inherited leaves in their
 recursive sample factory. Separately retained lazy children therefore keep those
 leaves after dynamic scope unwinds. Advanced handwritten sample producers retain
 their existing obligation to declare accurate source leaves for their own nodes.
+
+### P12: finite-key HashTable and typed Map generation
+
+The next finite collection capability is a HashTable with an explicit finite key
+domain. Racket provides hash generation, while our supported container algebra
+previously required applications to hand-build unique entries and reconnect their
+shrinks. This unit extends that finite algebra; unrestricted key inference,
+recursive hash-key synthesis and arbitrary mutation remain outside it.
+
+`generator-hash keys values` uses standard HashTable equality to reject duplicate
+keys once at preparation (`domain-limit:` defaults to 256). The key-list spine is
+copied. A nonzero-size root considers every key and keeps at most size selected
+keys; zero size draws no keys or values. Only retained values are drawn, using the
+existing sequence/sample protocol. `sample-sequence` provides structural deletion
+before value coordinates, retaining original samples and all observed sources.
+Keys never shrink or normalize. `list->hash-table` materializes a fresh table per
+node with an explicit seed; no second hash implementation or collision retry loop
+is introduced. Mutable value payloads remain caller-owned. Hash iteration order is
+not the generation, shrink or portable-corpus order; declared key order is.
+
+`map-generator descriptor keys value-sampler` in the existing Type module requires
+an existing Map descriptor and exactly its declared value sampler descriptor. Key
+validators must leave supplied representations unchanged. Their own source boundary
+refuses a revision before another key validator runs. Constructor errors (including
+duplicate keys and limit/mismatched Types) are not hidden by resampling. The existing
+Map validator alone owns recursive value validation and nested Function wrapping.
+The measure combines cardinality with child value weights, so both deletion and
+strictly smaller value coordinates can advance falsification. Dependencies and the
+existing currentness hook capture prepared Map/Key/Value/sampler/application epochs;
+stale preparation is never silently refreshed. Derived Record/FUN samplers forward
+that child hook through their existing protocol.
+
+Acceptance includes equal-but-distinct duplicate strings, false values versus
+absence, detached key spines, size bounds/zero draws, fresh tables, deletion without
+redrawing, value coordinates, retained-source refusal and exact callback causes.
+Typed tests cover key normalization refusal, descriptor mismatch, collision refusal before key validation and value drawing, source revision during key preparation, raw Function wrapping
+and a Record of Maps of linked Records/Functions. That workflow shrinks an aggregate
+fault to one key/value, exercises bounded empty-map inspection, both replay forms,
+explicit fresh preparation and data-only corpus handoff. Independent generic
+compilation executes 45 cases without POO.
+
+Lean's `selectedHashKeys`/`hashEntries` prove subset/order, size/domain bounds,
+uniqueness, finite lookup including false-like values, deletion commutation and
+value transformation preserving keys. The standard hash protocol's equality/hash
+compatibility, stable key payloads, pure stable validators, accurate observers and
+terminating value callbacks remain explicit premises. No global uniform sampling,
+arbitrary codec law, hash iteration ordering, constant hash lookup cost, host GC
+bound or compiler verification is claimed. Accepted preparation traverses the finite domain and performs two hash operations
+per key, excluding Type/validator costs. Nonzero roots test all domain keys and
+draw at most min(size, domain length) values. Fresh packing inserts one entry per
+retained key. Hashing, source checks, seed preparation and validation retain their
+own costs; these counts are not constant-time or wall-clock bounds.
+
+[Rackcheck hash generators](https://docs.racket-lang.org/rackcheck/index.html)
+provide the comparison point. This implementation intentionally declares unique,
+stable key identities rather than silently collapsing generated duplicate keys;
+existing value-generation and shrinking protocols remain the only runner algebra.
