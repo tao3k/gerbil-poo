@@ -1,7 +1,9 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
+(export main)
 (import (prefix-in "examples/build.ss" entry-build.)
-        :std/build-script (only-in :std/make include-gambit-sharp)
+        :std/build-script (only-in :std/source this-source-file)
+        (only-in :std/make include-gambit-sharp)
         (only-in "t/build.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
@@ -238,10 +240,16 @@
     "benchmarks/representation-startup"
 ))
 ;; Standard make and its backend executor both use GERBIL_BUILD_CORES.
-(def build (let () (defbuild-script +gerbil-poo-build-spec+) main))
+;; One native Make call sees the executable and its library closure together.
+;; The SDK can retain each generated module for dynamic and static consumers.
+(def build
+  (let ()
+    (defbuild-script
+      (append +gerbil-poo-build-spec+
+              (entry-build.representation-build-spec "examples/representation-main")))
+    main))
 ;; Close the compiler's own executor if construction refuses before make returns.
 (def (main . options)
   (displayln "BUILD-CONCURRENCY root-configured-cores=" (getenv "GERBIL_BUILD_CORES" "0"))
   (call-with-build-jobs (lambda ()
-    (apply build options)
-    (apply entry-build.main options))))
+    (apply build options))))
