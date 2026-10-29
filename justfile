@@ -37,8 +37,8 @@ build: build-shared
     set -euo pipefail
     [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
     cores=$((10#$GERBIL_BUILD_CORES))
-    workers=2
-    if (( cores < 4 )); then workers=1; fi
+    workers=$((cores / 3))
+    if (( workers < 1 )); then workers=1; elif (( workers > 4 )); then workers=4; fi
     backends=$((cores / workers - 1))
     if (( backends < 1 )); then backends=1; fi
     printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
@@ -47,8 +47,10 @@ build: build-shared
 [parallel]
 _build-test-packages: (_build-test-package "collections") (_build-test-package "prototypes") (_build-test-package "contracts") (_build-test-package "publication")
 
+# The outer 300-second phase owns every child process group; avoid nested
+# timeout groups that can outlive the task runner after a failure.
 _build-test-package part:
-    cd "t/build/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build
+    cd "t/build/$1" && {{ platform-env }} gerbil {{ test-runtime-options }} build
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:
