@@ -11,7 +11,8 @@
                 "collection-order/table-order/cursors.scm"
                 "collection-order/table-order/queries.scm"
                 "collection-order/table-order/decomposition.scm"
-                "collection-order/table-order/observations.scm")))))
+                "collection-order/table-order/observations.scm"))
+              "-cc-options" "-D___SINGLE_HOST_LIMIT=10000")))
         (check (and (member ordered complete) #t) => #t)
         (check (and (member '(gxc: "collection-updates/table-mapping-test"
           (extra-inputs: ("collection-updates/table-mapping/composition.scm"
@@ -19,7 +20,8 @@
       (check (test-build-spec "collection-order") =>
         '((gxc: "table-order-test" (extra-inputs: ("table-order/rationaldict.scm"
           "table-order/cursors.scm" "table-order/queries.scm"
-          "table-order/decomposition.scm" "table-order/observations.scm"))))))
+          "table-order/decomposition.scm" "table-order/observations.scm"))
+          "-cc-options" "-D___SINGLE_HOST_LIMIT=10000"))))
     (test-case "compiler partitions cover every existing package exactly once"
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))

@@ -32,10 +32,13 @@
     "table-capture-test"
     "table-origins-test"
     "table-transport-test")
+    ;; Reuse the root table's existing Gambit host bound for the combined suite.
+    ;; Test checks stay intact; one unlimited C host need not grow with all cases.
     ("collection-order"
     (gxc: "table-order-test" (extra-inputs: ("table-order/rationaldict.scm"
       "table-order/cursors.scm" "table-order/queries.scm"
-      "table-order/decomposition.scm" "table-order/observations.scm"))))
+      "table-order/decomposition.scm" "table-order/observations.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=10000"))
     ("collection-styles" "set-algebra-test"
     "set-observation-test"
     "set-style-test"
@@ -173,12 +176,12 @@
 ;; Relocate the closed declaration forms into the parent package, preserving
 ;; included-source dependencies. Refuse unsupported forms rather than lose inputs.
 (def (prefix-test-spec group spec)
-  ;; Keep every source and extra input under the same existing package directory.
+  ;; Relocate sources/includes only; standard GSC flags pass through unchanged.
   (def (path file) (string-append group "/" file))
   (match spec
     ((? string?) (path spec))
-    ([gxc: file [extra-inputs: inputs]]
-     [gxc: (path file) [extra-inputs: (map path inputs)]])
+    ([gxc: file [extra-inputs: inputs] . options]
+     [gxc: (path file) [extra-inputs: (map path inputs)] . options])
     (else (error "unsupported test build declaration" group spec))))
 
 ;; Select the existing package verbatim, or flatten every package in declaration
