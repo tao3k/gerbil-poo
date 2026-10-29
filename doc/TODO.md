@@ -1621,6 +1621,12 @@ retains data identity and Record/Function restoration. P16 in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced failures, admission
 order and nontransactional I/O boundary.
 
+Paused shrink iterators now check source ownership before every resumed producer
+pull, and rebuilt dependent samples keep the original selected branch's epochs.
+Retained Record subtrees cannot refresh them through a new FUN run. P17 in
+[pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced failures, shared
+Iterator implementation and source-free fast path.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

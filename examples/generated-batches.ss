@@ -4,7 +4,7 @@
         (only-in ../debug property-debug-action)
         (prefix-in :clan/poo/testing/property policy.)
         (prefix-in :clan/poo/testing/property/replay corpus.)
-        :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function ../support/option
+        :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type ../testing/function ../support/option
         (prefix-in :clan/poo/testing/property/generator core.))
 
 ;; Record construction owns nested Function wrapping; the property runner does
@@ -45,6 +45,41 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "retained dependent Record subtrees cannot refresh their original branch epoch"
+      (def epoch 0) (def calls 0)
+      (def generation (core.generator-bind
+        (core.make-generator (lambda (_random _size) 3)
+          (lambda (count) (if (> count 0) (list (1- count)) [])))
+        (lambda (count)
+          (let (stamp epoch)
+            (core.make-generator (lambda (_random _size)
+              (make-instance Batch count: count payload: (make-list count 0) route: 'put handler: abs))
+              (lambda (_) []) current?: (lambda () (or (not (= count 3)) (= stamp epoch))))))))
+      ;; A downstream consumer may retain a sample and lift it through the normal
+      ;; typed bridge. Its origin authority must survive that separate execution.
+      (def (retain-smaller)
+        (def root (core.generate generation (core.random-at 17) 3))
+        (car (for/collect (child ((core.sample-children root))) child)))
+      (def (sampler-for tree)
+        (from-generator Batch (core.make-tree-generator (lambda (_random _size) tree))
+          (lambda (batch) (.get batch count))))
+      (def old (retain-smaller))
+      (set! epoch 1)
+      (def refused ((property-debug-action #f Batch
+        (lambda (_) (set! calls (1+ calls)) #f) sampler: (sampler-for old))
+        (make-instance PropertyConfiguration cases: 1)))
+      (check-eq? (.get refused status) 'stale)
+      (check-equal? calls 0)
+      (def current (retain-smaller))
+      (def report ((property-debug-action #f Batch batch-correct? sampler: (sampler-for current))
+        (make-instance PropertyConfiguration seed: 17 cases: 1 shrink-budget: 32)))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get (.get report counterexample) count) 2)
+      (check-exception ((.@ (.get report counterexample) handler) 'invalid) TypeError?)
+      (check-eq? (replay-counterexample report) #f)
+      (check-equal? (.get (.get (replay-property report) counterexample) count) 2)
+      (set! epoch 2)
+      (check-exception (replay-property report) Error?))
     (test-case "FUN policy revisions stop shrink effects and require fresh preparation"
       (def rules (.o epoch: 0))
       (def calls [])

@@ -46,6 +46,73 @@
 ;; Ordinary suites combine the new assertion path with the existing report API.
 (def property-workflows-test
   (test-suite "coverage portable replay and finite functions"
+    (test-case "paused value shrink iterators refuse before the next producer effect"
+      (def live #t) (def pulls 0) (def first #f)
+      (def generation (g.make-generator (lambda (_random _size) 9)
+        (lambda (_) (in-coroutine (lambda (yield)
+          (set! pulls (1+ pulls)) (yield 8)
+          (set! pulls (1+ pulls)) (yield 7)))) current?: (lambda () live)))
+      (def root (g.generate generation (g.random-at 17) 3))
+      ;; One exception scope owns both coroutine pulls and their continuations.
+      (check-exception (using (children (iter ((g.sample-children root))) :- Iterator)
+        (set! first (g.sample-value (children.next!)))
+        (set! live #f) (children.next!)) g.stale-generation?)
+      (check-equal? first 8)
+      (check-equal? pulls 1))
+    (test-case "composed shrink iterators guard every resume through the shared protocol"
+      (for (kind '(map filter bind sequence function))
+        (let ((live #t) (pulls 0))
+          (def source (g.make-generator (lambda (_random _size) 9)
+            (lambda (_) (in-coroutine (lambda (yield)
+              (set! pulls (1+ pulls)) (yield 8)
+              (set! pulls (1+ pulls)) (yield 7))))))
+          (def guard (lambda () live))
+          (def generation (case kind
+            ((map) (g.generator-map source (lambda (value) value) current?: guard))
+            ((filter) (g.generator-filter source positive? current?: guard))
+            ((bind) (g.generator-bind source g.generator-unit current?: guard))
+            ((sequence) (g.make-tree-generator (lambda (random size)
+              (g.sample-sequence (list (g.generate source random size)))) current?: guard))
+            (else (g.generator-function '((0)) (g.generator-map source list) current?: guard))))
+          (def root (g.generate generation (g.random-at 17) 3))
+          (check-exception (using (children (iter ((g.sample-children root))) :- Iterator)
+            ;; Structural proposals may precede the first value-coordinate pull.
+            (let/cc found
+              (for (_ (in-range 8))
+                (when (eq? (children.next!) #!eof) (error "missing coordinate proposal"))
+                (when (= pulls 1) (found #t)))
+              (error "coordinate proposal budget exceeded"))
+            (set! live #f) (children.next!)) g.stale-generation?)
+          (check-equal? pulls 1))))
+    (test-case "rebuilt bind children retain the originally selected branch sources"
+      (def epoch 0) (def selections 0)
+      (def generation (g.generator-bind
+        (g.make-generator (lambda (_random _size) 3)
+          (lambda (value) (if (> value 0) (list (1- value)) [])))
+        (lambda (value)
+          (set! selections (1+ selections))
+          (let (stamp epoch)
+            (g.make-generator (lambda (_random _size) value) (lambda (_) [])
+              current?: (lambda () (or (not (= value 3)) (= stamp epoch))))))))
+      (def root (g.generate generation (g.random-at 17) 3))
+      (def smaller (car (for/collect (child ((g.sample-children root))) child)))
+      (check-equal? (g.sample-value smaller) 2)
+      (set! epoch 1)
+      (check-eq? ((g.sample-current smaller)) #f)
+      (let (before selections)
+        (check-exception (for/collect (child ((g.sample-children smaller))) child) g.stale-generation?)
+        (check-equal? selections before))
+      ;; Fresh invocation captures the new epoch; no generated value cache is reused.
+      (def fresh (g.generate generation (g.random-at 17) 3))
+      (check-eq? ((g.sample-current fresh)) #t))
+    (test-case "iterator exceptions preserve their cause when a pull changes sources"
+      (def live #t) (def cause (cons 'iterator 'interrupted))
+      (def generation (g.make-generator (lambda (_random _size) 9)
+        (lambda (_) (in-coroutine (lambda (_yield) (set! live #f) (raise cause))))
+        current?: (lambda () live)))
+      (def root (g.generate generation (g.random-at 17) 3))
+      (check-eq? (with-catch values (lambda ()
+        (using (children (iter ((g.sample-children root))) :- Iterator) (children.next!)))) cause))
     (test-case "portable replay enforces preconditions without generating coverage"
       (def report (p.check-property (g.generator-unit 4) ledger-property integer-domain cases: 1))
       (def output (open-output-string))

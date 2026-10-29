@@ -70,6 +70,19 @@
       (if (eq? inherited owned) (let () body ...)
         (parameterize ((current-generation-sources owned)) body ...))
       (require-sources! owned))))
+;; One private iteration form uses the standard Iterator protocol. Factory
+;; evaluation and every next! (including EOF) share the inherited source boundary;
+;; a paused traversal therefore refuses before resuming stale producer effects.
+(defrule (for-sources (value sequence sources) body ...)
+  (let (owned (merge-sources (current-generation-sources) sources))
+    ;; With no owned or inherited leaves there is nothing to recheck. Keep the
+    ;; standard loop directly, avoiding a guarded next! layer on immutable data.
+    (if (null? owned) (for (value sequence) body ...)
+      (using (children (iter (with-sources owned sequence)) :- Iterator)
+        (let next ()
+          (let (value (with-sources owned (children.next!)))
+            (unless (eq? value #!eof)
+              (let () body ...) (next))))))))
 ;; Public source lists are copies, so a downstream consumer cannot edit node ownership.
 (def (sample-sources tree) (map identity (sample-node-sources tree)))
 ;; Each node exposes an ordinary callback for consumers outside the core algebra.
@@ -133,8 +146,7 @@
   (def (tree value owned)
     (make-sample-node value
       (lambda () (in-coroutine (lambda (yield)
-        (require-sources! owned)
-        (for (child (shrink value)) (yield (tree child owned)))))) owned))
+        (for-sources (child (shrink value) owned) (yield (tree child owned)))))) owned))
   (make-generation (lambda (random size)
     (tree (draw random size) (merge-sources (current-generation-sources) observed))) observed))
 ;; An advanced producer returns a validated sample tree using the same protocol.
@@ -153,8 +165,8 @@
       ((and (eq? transform identity) (eq? observed (sample-node-sources tree))) tree)
       (else (make-sample-node (transform (sample-value tree))
         (lambda () (in-coroutine (lambda (yield)
-          (require-sources! observed)
-          (for (child ((sample-children tree))) (yield (map-sample child transform sources)))))) observed)))))
+          (for-sources (child ((sample-children tree)) observed)
+            (yield (map-sample child transform observed)))))) observed)))))
 ;; Mapping is separate from the domain specification and its decreasing measure.
 (def (generator-map generator (transform : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
@@ -168,13 +180,17 @@
     (let* ((selected (with-sources observed (select (sample-value parent))))
            (child (with-sources observed
              (parameterize ((current-random-states states))
-               (generate selected (random-at seed) size)))))
+               (generate selected (random-at seed) size))))
+           ;; The returned node and its rebuilds own all already observed leaves,
+           ;; including the child selected for the original parent value.
+           (owned (merge-sources observed (sample-node-sources child))))
+      (require-sources! owned)
       (make-sample-node (sample-value child)
         (lambda () (in-coroutine (lambda (yield)
-          (require-sources! observed)
-          (for (smaller ((sample-children parent))) (yield (bind-sample smaller select seed size sources states)))
-          (for (smaller ((sample-children child))) (yield (map-sample smaller identity observed))))))
-        (merge-sources observed (sample-node-sources child))))))
+          (for-sources (smaller ((sample-children parent)) owned)
+            (yield (bind-sample smaller select seed size owned states)))
+          (for-sources (smaller ((sample-children child)) owned)
+            (yield (map-sample smaller identity owned)))))) owned))))
 ;; Bind owns no output-value cache or second PRNG owner.
 (def (generator-bind generator (select : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
@@ -248,7 +264,8 @@
         (if accepted?
           (make-sample-node (sample-value tree)
             (lambda () (in-coroutine (lambda (yield)
-              (for (child ((sample-children tree))) (yield (filter-sample child predicate observed)))))) observed)
+              (for-sources (child ((sample-children tree)) observed)
+                (yield (filter-sample child predicate observed)))))) observed)
           (make-rejected observed))))))
 ;; Even rejected draws retain their leaves in the accepted root. Their independent
 ;; finite retry quota does not consume or evade the shrink consumer's attempt quota.
@@ -355,7 +372,7 @@
           (for (smaller (list-deletions trees minimum)) (yield (sequence smaller observed)))
           (let coordinates ((tail trees) (before []))
             (unless (null? tail)
-              (for (child ((sample-children (car tail))))
+              (for-sources (child ((sample-children (car tail))) observed)
                 (yield (sequence (append (reverse before) (cons child (cdr tail))) observed)))
               (coordinates (cdr tail) (cons (car tail) before))))))) observed)))
   (sequence (list-copy samples) inherited))
@@ -436,7 +453,8 @@
         (make-function-value (map cons rows (map (cut map identity <>) results))
           (lambda () (and (live? current) (guard))))
         (lambda () (in-coroutine (lambda (yield)
-          (for (child ((sample-children tree))) (yield (function-tree child rows current))))))
+          (for-sources (child ((sample-children tree)) (sample-node-sources tree))
+            (yield (function-tree child rows current))))))
         (sample-node-sources tree)))))
 ;; The finite row boundary is shared by generators and portable table restoration.
 (def (function-rows rows limit)
