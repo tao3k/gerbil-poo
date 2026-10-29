@@ -47,7 +47,7 @@
 (def property-workflows-test
   (test-suite "coverage portable replay and finite functions"
     (test-case "mixed Unicode and byte data replay owns copies and charges byte budgets"
-      (def witness (vector #\x10ffff "λ\x00;" (string->symbol "a b") #u8(0 128 255)))
+      (def witness (vector #\x10ffff "λ\x00;" (string->symbol "a b") (list->u8vector '(0 128 255))))
       (def domain (p.make-specification (lambda (value)
         (and (vector? value) (= (vector-length value) 4) (u8vector? (vector-ref value 3)))) (lambda (_) 0)))
       (def report (p.check-property (g.generator-unit witness) (lambda (_) #f) domain cases: 1))
@@ -56,7 +56,7 @@
       (def text (get-output-string output))
       (u8vector-set! (vector-ref witness 3) 0 99)
       (check-eq? (r.read-counterexample (r.make-codec 'data-v1 values values) (open-input-string text) domain
-        (lambda (value) (not (equal? (vector-ref value 3) #u8(0 128 255))))) #f)
+        (lambda (value) (not (equal? value (vector #\x10ffff "λ\x00;" (string->symbol "a b") #u8(0 128 255)))))) #f)
       (def bytes-report (p.check-property (g.generator-unit #u8(1 2 3 4)) (lambda (_) #f)
         (p.make-specification u8vector? u8vector-length) cases: 1))
       (def refused (open-output-string))
