@@ -1,16 +1,4 @@
-;;; Standard Iterator capabilities survive composed collection protocols.
-(export table-cursor-test)
-(import :std/test :std/error :std/iter
-        :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
-        (only-in :clan/poo/fun Wrapper.) (only-in :clan/poo/trie SimpleTrie)
-        (only-in :clan/poo/support/base number-comparer)
-        (only-in :clan/poo/t/table-testing box-table)
-        (prefix-in :clan/poo/examples/service-collection service.))
-
-;; Match metadata refusal without accepting unrelated backend/type failures.
-(def (message? text)
-  (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
-
+;
 ;; A typed involution shares the existing Wrapper contract and inverse checks.
 (def (key-wrapper source forward backward)
   (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key)

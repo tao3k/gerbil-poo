@@ -32,10 +32,10 @@
     "table-capture-test"
     "table-origins-test"
     "table-transport-test")
-    ("collection-order" "rationaldict-order-test"
-    "table-cursor-test"
-    (gxc: "table-order-test" (extra-inputs: ("table-order/observations.scm")))
-    "table-split-test")
+    ("collection-order"
+    (gxc: "table-order-test" (extra-inputs: ("table-order/rationaldict.scm"
+      "table-order/cursors.scm" "table-order/queries.scm"
+      "table-order/decomposition.scm" "table-order/observations.scm"))))
     ("collection-styles" "set-algebra-test"
     "set-observation-test"
     "set-style-test"
