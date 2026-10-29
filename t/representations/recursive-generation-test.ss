@@ -1,6 +1,6 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
 (export recursive-generation-test)
-(import (only-in :std/list/list take drop any) (prefix-in :clan/property-testing/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
+(import (only-in :std/list/list take drop) (prefix-in :clan/property-testing/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/generation-graph :clan/poo/testing/type
         (prefix-in :clan/poo/examples/recursive-trees trees.))
 
@@ -27,9 +27,12 @@
         (if (>= (length (core.sample-value tree)) 3) tree (find (1+ seed)))))
       (def original (core.sample-value root))
       (def expected (append (take original 1) (drop original 2)))
-      (def found (any (lambda (child)
-        (and (core.sample? child) (equal? (core.sample-value child) expected)))
-        ((core.sample-children root))))
+      ;; Stop at the retained witness without draining the lazy Iterator.
+      (def found (let/cc return
+        (for (child ((core.sample-children root)))
+          (when (and (core.sample? child) (equal? (core.sample-value child) expected))
+            (return #t)))
+        #f))
       (check-eq? found #t)
       (def callbacks 0)
       (define-type GuardedLeaf (.cc Type. .element?: exact-integer?
@@ -138,18 +141,23 @@
         (check (.call sampler .accept? 3) => #t)
         (check (element? trees.Tree '(1 2)) => #t)
         (check (.call sampler .accept? '(1 2)) => #f)))
-    (test-case "shrink construction exhaustion retains the original false witness"
-      (let* ((descriptor (List Integer))
-             (base (generator descriptor 2 node-budget: 20 search-budget: 15))
-             (sampler (.cc base draw: (lambda (_random _size) '(8 8 8 8 8 8))))
-             (report (check-property descriptor false sampler: sampler))
-             (again (replay-property report)))
-        (check-equal? (.get report status) 'exhausted)
-        (check-equal? (reason report) 'candidates)
-        (check-equal? (.get report original) '(8 8 8 8 8 8))
-        (check (.get report minimal?) => #f)
-        (check-equal? (.get report limits search) 15)
-        (check-equal? (reason again) 'candidates)))
+    (test-case "work and candidate exhaustion retain the original false witnesses"
+      ;; Keep the six-element workload: root + nine structural reservations + six
+      ;; child walks exceed 15. Four elements fit that work but yield >15
+      ;; candidates. Both phases retain exact refusal kinds, inputs and replay.
+      (for (fixture (list (cons '(8 8 8 8 8 8) 'search)
+                         (cons '(8 8 8 8) 'candidates)))
+        (let* ((descriptor (List Integer))
+               (base (generator descriptor 2 node-budget: 20 search-budget: 15))
+               (sampler (.cc base draw: (lambda (_random _size) (car fixture))))
+               (report (check-property descriptor false sampler: sampler))
+               (again (replay-property report)))
+          (check-equal? (.get report status) 'exhausted)
+          (check-equal? (reason report) (cdr fixture))
+          (check-equal? (.get report original) (car fixture))
+          (check (.get report minimal?) => #f)
+          (check-equal? (.get report limits search) 15)
+          (check-equal? (reason again) (cdr fixture)))))
     (test-case "compilation-time descriptor mutation cannot capture fresh authority"
       (let* ((root #f) (calls 0)
              (child (.o self: self inherit: [Type.] .element?: exact-integer?
