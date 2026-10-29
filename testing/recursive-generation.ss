@@ -152,20 +152,25 @@
     (def value (derivation-value witness))
     (if (eq? (node-kind node) 'leaf)
       (recursive.value (make-answer (.call (node-sampler node) shrink value) (- remaining 1)))
-      (let loop ((rest children) (before []) (left (- remaining 1)) (out []))
+      (let (structural-count (if (eq? (node-kind node) 'list)
+                              (core.list-deletion-count (length value) 0) 0))
+        ;; Reserve the whole structural batch before invoking coordinate callbacks.
+        (when (> structural-count (- remaining 1)) (refuse-generation 'search))
+        (let loop ((rest children) (before []) (left (- remaining 1 structural-count)) (out []))
         (if (null? rest)
-          (recursive.value (make-answer
-            (append (case (node-kind node)
-                      ((list) (if (null? value) [] (list [] (cdr value))))
-                      ((maybe) (if (void? value) [] (list (void))))
-                      ((or-false) (if value [#f] [])) (else [])) out) left))
+          (let* ((structural
+                   (case (node-kind node)
+                     ((list) (for/collect (candidate (core.list-deletions value 0)) candidate))
+                     ((maybe) (if (void? value) [] (list (void))))
+                     ((or-false) (if value [#f] [])) (else []))))
+            (recursive.value (make-answer (append structural out) left)))
           (recursive.bind (recursive.request (list 'shrink 0 0 left 0 (car rest)))
             (lambda (candidates)
               (unless (list? (answer-value candidates)) (error "shrinker must return a finite proper list"))
               (loop (cdr rest) (cons (derivation-value (car rest)) before) (answer-remaining candidates)
                 (append out (map (lambda (smaller)
                   (pack node (append (reverse before) (cons smaller (map derivation-value (cdr rest))))))
-                  (answer-value candidates))))))))))
+                  (answer-value candidates)))))))))))
   ;; The program's requests carry all quotas and seeds. No cross-run memo is reused
   ;; for random/stateful callbacks; source observation depth remains independent.
   (def (generate request)
@@ -193,42 +198,15 @@
   (def (parse value)
     (def witness (run 'inspect value search 0))
     (and witness (<= (derivation-count witness) budget) witness))
-  ;; Convert only a bounded, solver-produced derivation. Scalar leaves retain
-  ;; their original sample; products compose those trees with the core algebra.
-  ;; No inverse lookup from a mapped output to a hidden scalar input is needed.
+  ;; Finite constructor trees use the generic retained-sequence protocol. Scalar
+  ;; leaves keep their preimages; only nullable/list carriers permit deletion.
   (def (sample-tree witness)
     (def node (vector-ref nodes (derivation-node witness)))
     (if (eq? (node-kind node) 'leaf) (derivation-sample witness)
-      (let ((children (map sample-tree (derivation-children witness))))
-        ;; Expose each selected tree as the product's value, so a later scalar
-        ;; shrink still owns the matching tree rather than only its mapped value.
-        (def (annotate tree)
-          (if (core.rejected? tree) tree
-            (core.make-sample tree
-              (lambda () (in-coroutine (lambda (yield)
-                (for (child ((core.sample-children tree))) (yield (annotate child))))))
-              sources: (core.sample-sources tree))))
-        ;; Retained child trees are constants of this derivation, not new draws.
-        (def (product trees)
-          (core.generate
-            (core.generator-map (core.generator-sequence
-              (map (lambda (tree) (core.make-tree-generator (lambda (_random _size) (annotate tree))
-                sources: (core.sample-sources tree))) trees)) identity current?: graph-current?)
-            (random-at 0) 0))
-        ;; Every accepted product gets structural shrinking again. Decorating only
-        ;; the initial root would lose list deletion after the first scalar shrink.
-        (def (decorate root)
-          (if (core.rejected? root) root
-            (let (trees (core.sample-value root))
-              (core.make-sample (pack node (map core.sample-value trees))
-                (lambda () (in-coroutine (lambda (yield)
-                  (case (node-kind node)
-                    ((list) (unless (null? trees)
-                      (yield (decorate (product []))) (yield (decorate (product (cdr trees))))))
-                    ((maybe or-false) (unless (null? trees) (yield (decorate (product []))))))
-                  (for (child ((core.sample-children root))) (yield (decorate child))))))
-                sources: (core.sample-sources root)))))
-        (decorate (product children)))))
+      (let (children (map sample-tree (derivation-children witness)))
+        (core.sample-sequence children (cut pack node <>)
+          min-length: (if (memq (node-kind node) '(list maybe or-false)) 0 (length children))
+          current?: graph-current?))))
   (def sampler (make-generator descriptor
     (lambda (random size)
       (derivation-value (run 'draw size budget (random 268435456))))

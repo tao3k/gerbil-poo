@@ -55,7 +55,7 @@ observed exhausted immediate neighborhood, not a globally smallest value.
 Seed replay regenerates under the recorded configuration; concrete replay checks
 the retained witness without drawing or shrinking. Mutable callback dependencies
 must be declared through accurate source observers. The isolated regression builds
-the actual generic package and executes thirty-three cases without any POO modules in
+the actual generic package and executes thirty-six cases without any POO modules in
 its package directory, under the existing heap and timeout limits.
 
 Model normalization is an explicit boundary: `check-trace` first prepares the
@@ -332,3 +332,27 @@ for the same shrinking and replay protocol. Debugging does not assert a passing
 property. See `examples/generated-batches.ss` for the full Record/FUN workflow.
 The installed CLI exit-status caveat described above still applies; project
 acceptance retains its existing error admission guard.
+
+## Retained structural shrinking
+
+`generator-list` chooses its length once, then composes retained element sample
+nodes through `sample-sequence`. Structural candidates delete aligned blocks,
+halving block widths down to every single position before coordinate shrinking.
+`min-length:` constrains length, not which prefix must survive. Retained elements
+keep their identities/preimages; deletion never draws replacement values. String,
+Symbol and byte-vector families inherit the same tree policy through map.
+
+`list-deletions` is the lazy value/subsequence policy; `list-deletion-count`
+counts its finite proposal positions without inspecting payloads. Equal values
+at different positions remain distinct proposals because provenance may differ.
+Fixed-length sequences have no deletion candidates. Every resulting node gets
+structural shrinking again after a coordinate step. Deleted branch observers
+remain attached to descendants and stale replay is refused.
+
+Typed recursive Lists and nullable carriers use the same sample-tree operation;
+Tuple/Pair/Union constructors retain their mandatory arity. Value-only List
+shrinking uses the same deletion policy and refuses before materializing a batch
+larger than the remaining solver search quota. No candidate list is silently
+truncated. Core lazy proposals still use the ordinary property/inspection budget.
+This is finite operation coverage, not a promise of global minimality. Mapping
+and arbitrary callback execution retain their own cost/purity obligations.

@@ -44,6 +44,22 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Record FUN shrinking removes middle payloads and retains wrapped callbacks"
+      (def generation (core.generator-map
+        (core.make-tree-generator (lambda (_random _size)
+          (core.sample-sequence (map (lambda (value) (core.make-sample value (lambda () []))) '(11 99 22)))))
+        (lambda (payload) (make-instance Batch count: (length payload) payload: payload route: 'put handler: abs))))
+      (def sampler (from-generator Batch generation
+        (lambda (batch) (+ (.get batch count) (apply + (.get batch payload))))))
+      (def action (property-debug-action #f Batch (lambda (batch)
+        (not (and (memv 11 (.get batch payload)) (memv 22 (.get batch payload))))) sampler: sampler))
+      (def report (action (make-instance PropertyConfiguration seed: 42 cases: 1 shrink-budget: 32)))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get (.get report counterexample) payload) '(11 22))
+      (check-equal? (.get (.get report counterexample) count) 2)
+      (check-equal? ((.@ (.get report counterexample) handler) -7) 7)
+      (check-eq? (replay-counterexample report) #f)
+      (check-equal? (.get (.get (replay-property report) counterexample) payload) '(11 22)))
     (test-case "Reader configuration revisions refuse successful-looking callbacks"
       (def configured (make-instance PropertyConfiguration cases: 2))
       (def calls 0)

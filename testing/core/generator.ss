@@ -9,8 +9,8 @@
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-character generator-byte generator-list
-        generator-string generator-symbol generator-bytes data-list-shrinks character-shrinks)
-(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash take))
+        generator-string generator-symbol generator-bytes data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
+(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
 ;; Producers and nodes retain flat source leaves, never recursively composed guards.
@@ -283,24 +283,71 @@
   (generator-map (generator-integer (character-rank lower) (character-rank upper)) rank-character))
 ;; Bytes are exact octets, independent of text encoding and locale.
 (def (generator-byte) (generator-integer 0 255))
-;; One finite value-level policy is shared by typed sequences and custom domains.
-;; Deletions and coordinate proposals retain the caller's explicit minimum length.
-(def (data-list-shrinks values shrink minimum)
+;; Aligned blocks halve down to individual positions. No value equality or
+;; callback participates: equal values at different positions keep distinct origins.
+(def (list-deletion-count size minimum)
+  (unless (and (exact-integer? size) (exact-integer? minimum) (<= 0 minimum size))
+    (error "invalid deletion bounds"))
+  (let sizes ((width (- size minimum)) (count 0))
+    (if (zero? width) count (sizes (quotient width 2) (+ count (quotient size width))))))
+;; Produce structural subsequences lazily, keeping every retained element intact.
+;; Minimum is a length constraint; it does not privilege any particular prefix.
+(def (list-deletions values minimum)
   (def size (length values))
-  (append (if (> size minimum)
-    (delete-duplicates/hash (list (take values minimum) (take values (max minimum (quotient size 2))))) [])
+  (list-deletion-count size minimum)
+  (in-coroutine (lambda (yield)
+    (let sizes ((width (- size minimum)))
+      (unless (zero? width)
+        (for (start (in-range 0 (1+ (- size width)) width))
+          (yield (append (take values start) (drop values (+ start width)))))
+        (sizes (quotient width 2)))))))
+;; Value-only callbacks share structural deletion with the lazy sample protocol.
+(def (data-list-shrinks values shrink minimum)
+  (append (for/collect (candidate (list-deletions values minimum)) candidate)
     (let coordinates ((tail values) (before []))
       (if (null? tail) []
         (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) (shrink (car tail)))
           (coordinates (cdr tail) (cons (car tail) before)))))))
-;; Length shrinking and coordinate shrinking reuse bind/sequence sample provenance.
-;; Size bounds additional elements; fixed required prefixes survive size zero.
+;; Compose retained element trees without drawing again. Every descendant keeps
+;; all previously observed leaves, including sources of structurally removed nodes.
+(def (sample-sequence samples (pack identity) min-length: (minimum 0)
+                      current?: (current immutable-current) sources: (sources []))
+  (unless (and (list? samples) (procedure? pack)) (error "sample sequence required"))
+  (list-deletion-count (length samples) minimum)
+  (def inherited (observer-sources current sources))
+  ;; One tree policy serves raw Lists, mapped data and typed recursive carriers.
+  (def (sequence trees inherited)
+    (def observed (foldl (lambda (tree sources) (merge-sources sources (proposal-owned-sources tree))) inherited trees))
+    (require-sources! observed)
+    (if (not (every sample? trees)) (make-rejected observed)
+      (make-sample-node (pack (map sample-value trees))
+        (lambda () (in-coroutine (lambda (yield)
+          (require-sources! observed)
+          (for (smaller (list-deletions trees minimum)) (yield (sequence smaller observed)))
+          (let coordinates ((tail trees) (before []))
+            (unless (null? tail)
+              (for (child ((sample-children (car tail))))
+                (yield (sequence (append (reverse before) (cons child (cdr tail))) observed)))
+              (coordinates (cdr tail) (cons (car tail) before))))))) observed)))
+  (sequence samples inherited))
+;; Capture each root as a value without forcing its descendants. Wrapping does
+;; not split or consume randomness, so the existing sequence draw schedule survives.
+(def (sampled-generator generator)
+  (make-generation (lambda (random size)
+    (let (tree (generate generator random size))
+      (make-sample-node tree (lambda () []) (sample-node-sources tree)))) (generation-sources generator)))
+;; Length is chosen once. Structural shrinking deletes retained trees rather
+;; than regenerating payloads under a shorter length's dependent seed.
 (def (generator-list element min-length: (minimum 0) max-length: (maximum 128))
   (unless (and (generator? element) (exact-integer? minimum) (exact-integer? maximum)
                (<= 0 minimum maximum)) (error "invalid sequence generator bounds"))
   (generator-sized (lambda (size)
-    (generator-bind (generator-integer minimum (+ minimum (min size (- maximum minimum))))
-      (lambda (count) (generator-sequence (make-list count element)))))))
+    (generator-bind (generator-no-shrink (generator-integer minimum (+ minimum (min size (- maximum minimum)))))
+      (lambda (count)
+        (def row (generator-sequence (make-list count (sampled-generator element))))
+        (make-tree-generator (lambda (random size)
+          (let (tree (generate row random size))
+            (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))))
 ;; Standard Scheme carriers are mapped once; shrinking keeps the hidden list tree.
 (def (generator-string (character (generator-character)) min-length: (minimum 0) max-length: (maximum 128))
   (generator-map (generator-list character min-length: minimum max-length: maximum) list->string))

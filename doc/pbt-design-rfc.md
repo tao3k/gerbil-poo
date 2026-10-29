@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P7 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P8 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -972,3 +972,41 @@ and [Quickcheck's RackUnit check form](https://docs.racket-lang.org/quickcheck/i
 inform the standard-check ownership. The remaining comparison is not a blanket
 parity checklist: optional domain families need explicit application requirements;
 current documented finite/Boolean/termination boundaries are retained as boundaries.
+
+### P8: retained structural collection shrinking
+
+Audit finding: generic Lists shrank a length seed and regenerated the payload;
+typed recursive Lists offered empty/tail deletion only. A failure requiring both
+endpoints could therefore retain unrelated middle data. This is missing deletion
+operation coverage in the finite collection protocol, not a demand for global
+minimality, arbitrary Record derivation or unrestricted recursive values.
+
+`sample-sequence` now owns retained structural and coordinate proposals for both
+families. It preserves retained node identity and scalar preimages, never redraws
+siblings, and retains all observed source leaves even when their values are
+removed. A rejected coordinate stays a charged tombstone. Structural deletion is
+lazy and uses aligned blocks with halving widths, finishing at every single
+position. `list-deletions` supplies that same policy to value callbacks;
+`list-deletion-count` allows typed value-only search to refuse oversized candidate
+batches before allocation. Minimum lengths are preserved; fixed arities have no
+deletion proposals. Selected Union branches remain fixed.
+
+List/string/byte/symbol roots use the existing draw algebra. Pack/map callbacks
+still run to produce each consumed candidate and retain their own costs. All
+proposals remain subject to domain admission, strict measure descent, source
+checks and the unchanged resource budgets. Duplicate visible values are not
+collapsed across different retained source positions. Portable codecs still own
+application format/specification/generator revision identity.
+
+Acceptance includes endpoint-preserving middle/tail deletion, minimum/fixed
+lengths, retained identities and no extra draws, historical removed-source
+refusal in independently retained subtrees and reports, deterministic replay,
+typed recursive List value/tree paths, and Record/FUN pipelines with wrapped
+Function fields. Independent compilation executes 36 generic cases. Lean proves
+block length/descent, subsequence order, map commutation and retention of old
+observer identities. These finite laws do not certify arbitrary callbacks or a
+runtime-wide cost model.
+
+[Rackcheck's list shrinking](https://docs.racket-lang.org/rackcheck/index.html)
+informs the removal-before-coordinate policy. The implementation reuses the
+existing modules, iterators, sample records, domain gates and check runner.

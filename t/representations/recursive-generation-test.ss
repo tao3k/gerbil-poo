@@ -1,6 +1,6 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
 (export recursive-generation-test)
-(import :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
+(import (only-in :std/list/list take drop) (prefix-in :clan/property-testing/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/generation-graph :clan/poo/testing/type
         (prefix-in :clan/poo/examples/recursive-trees trees.))
 
@@ -14,6 +14,29 @@
 ;; make a recursive descriptor pass, and no inconclusive result is a success.
 (def recursive-generation-test
   (test-suite "automatic guarded recursive generators"
+    (test-case "typed recursive Lists share complete structural deletion and value callbacks"
+      (def descriptor (List UInt))
+      (def sampler (generator descriptor))
+      (def candidates (.call sampler shrink '(11 99 22)))
+      (check (and (member '(11 22) candidates) #t) => #t)
+      (check (and (member '(11 99) candidates) #t) => #t)
+      (def generation (generator-core sampler))
+      (def root (let find ((seed 0))
+        (when (= seed 100) (error "fixture needs a nontrivial typed list"))
+        (def tree (core.generate generation (core.random-at seed) 5))
+        (if (>= (length (core.sample-value tree)) 3) tree (find (1+ seed)))))
+      (def original (core.sample-value root))
+      (def expected (append (take original 1) (drop original 2)))
+      (def found (for/or (child ((core.sample-children root)))
+        (and (core.sample? child) (equal? (core.sample-value child) expected))))
+      (check-eq? found #t)
+      (def callbacks 0)
+      (define-type GuardedLeaf (.cc Type. .element?: exact-integer?
+        .generator: (lambda () (make-generator GuardedLeaf (lambda (_random _) 1)
+          (lambda (_) (set! callbacks (1+ callbacks)) []) abs))))
+      (def limited (generator (List GuardedLeaf) search-budget: 6))
+      (check-exception (.call limited shrink '(1 2 3 4)) (limited? 'search))
+      (check-equal? callbacks 0))
     (test-case "Or reuses bounded alternative generation shrinking and replay"
       (def descriptor (Or (List UInt) (Tuple Bool)))
       (def passed (check-property descriptor (cut element? descriptor <>)
