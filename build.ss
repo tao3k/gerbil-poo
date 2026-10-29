@@ -244,8 +244,8 @@
     "benchmarks/representation-startup"
 ))
 ;; Standard make and its backend executor both use GERBIL_BUILD_CORES.
-;; One native Make call sees the executable and its library closure together.
-;; The SDK can retain each generated module for dynamic and static consumers.
+;; One standard make graph sees the executable and its library closure together.
+;; The compiler reuses runtime C for dynamic and static consumers.
 (def build
   (let ()
     (defbuild-script

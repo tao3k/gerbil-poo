@@ -1482,3 +1482,74 @@ cleanup and reporting, not exclusively dyld. The isolated fresh package used
 build qualification with the existing package prefix, not an empty-prefix cold
 comparison. It preserves the full workload and does not establish that the
 previous 276-second library-validation episode cannot recur.
+
+### Bounded standard compiler sessions
+
+The build audit found repeated preparation. Concurrent progress fragments can
+interleave, so raw parsed log counts are not used as an exact job inventory.
+The completed source-matched controls each retain 149 test interfaces and 310
+first-version test loader/runtime/meta objects. Each of the 25 original test
+packages started its own package CLI and compiler, imported common compiler/POO contexts, and unloaded
+them at exit. An actually empty project prefix then exceeded the unchanged
+300-second test-build phase: library 118.10 s, startup program 8.55 s, overall
+427.58 s with exit 124. It is a failed baseline, not a completed speed measurement.
+The installed compiler/release and OS caches were not removed.
+
+One all-test graph overflowed the 1-GiB compiler frontend before compilation;
+sequential groups in one session also overflowed at group 6. With the explicitly
+authorized 2-GiB frontend ceiling, that session still overflowed at group 15.
+The standard expander retains module contexts for the session lifetime. Clearing
+its private registry or growing the heap is not the repair.
+
+Four compiler-only standard packages now bound those context lifetimes by
+collections, prototypes, contracts and publication. Their empty `gerbil.pkg`
+descriptors add no installed library namespace. The existing `t/build.ss` owns one
+ordinary make-spec inventory; the original 25 CI packages select it unchanged.
+The four local builders use the same source paths and `clan/poo/t` output prefix.
+Gerbil still owns dependency discovery, freshness, code generation and backend
+jobs. Just's standard `[parallel]`/`--jobs` owns concurrent recipes; no custom queue,
+source scanner, loader or persistent cache has been added.
+
+On the 12-core machine, four compiler sessions use two backends each. Compiler
+frontends and backends remain capped at 2 GiB; the waiting package CLIs and test
+processes retain their original 1-GiB bounds. The original outer 300-second phase
+owns the complete compiler process tree; redundant nested timeout groups are
+removed. TERM and resistant-KILL controls each started four recorded descendants
+and left none. These are negative controls, not successful application exits.
+RSS snapshots around 1.0–2.1 GiB are observations, not aggregate memory bounds.
+Lean's `BuildPreparation.lean` separates configured ceilings from physical RSS,
+bounds active capacities, and counts repeated common preparation requests.
+
+Matched project-artifact-empty cohorts used source base `b6ca3ea` and the same
+149 compiled suites / 2,037 cases, plus three source-only build-declaration cases:
+
+| Standard Just / Gerbil policy | Library | Startup program | Test build | Complete `just check 2 1 4 600` |
+| --- | ---: | ---: | ---: | ---: |
+| Two sessions, five backends each | 154.49 s | 10.37 s | 269.75 s | 833.00 s |
+| Four sessions, two backends each | 106.43 s | 7.46 s | 242.15 s | 725.52 s |
+
+Both entries naturally exited zero, including normal cleanup and the complete
+collection/generator studies. The four-session build-stage timers sum to 356.04 s;
+that sum excludes task-launch overhead and is not a separately measured build-only
+wall clock. Root library settings/work were unchanged, yet its time varied; the
+full test processes also varied (372.07 / 328.72 s). Therefore the entire observed
+entry difference is not attributed to scheduling, and no stable tail/speedup or
+exclusive dyld/GC latency bound is claimed. The earlier 512.41-s standard-clean
+build retained versioned dynamic objects and is a different coldness definition.
+
+A repeated complete build naturally exited in 56.49 s with zero compilation jobs.
+Touching the two existing ordered/mapping include files rebuilt only their two
+registered targets; original timestamps and contents were restored. Their focused
+standard tests passed. Declaration regressions also retain the included-source
+paths, distinct package inventory and refusal on an unknown package. All 149
+installed test interfaces had compiled loader objects; interface counts alone
+were not accepted as build success. Build data/traces remain outside Git. These are
+infrastructure/cache-cost results, not completion of a paper feature or compiler
+correctness verification; cold dyld admission remains a separate measured limit.
+
+After merging the independent property-test changes through `a724da4`, the full
+unchanged entry naturally exited zero in 391.69 s. It ran all 149 compiled
+modules / 2,052 cases and the source-only declaration suite / three cases, plus
+the collection and generator studies. Its test build took 150.70 s and its
+single-process tests took 149.08 s. This source-current acceptance reused standard
+artifacts and is not another cold-performance sample.
