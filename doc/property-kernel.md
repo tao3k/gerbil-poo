@@ -55,7 +55,7 @@ observed exhausted immediate neighborhood, not a globally smallest value.
 Seed replay regenerates under the recorded configuration; concrete replay checks
 the retained witness without drawing or shrinking. Mutable callback dependencies
 must be declared through accurate source observers. The isolated regression builds
-the actual generic package and executes twenty-eight cases without any POO modules in
+the actual generic package and executes thirty-three cases without any POO modules in
 its package directory, under the existing heap and timeout limits.
 
 Model normalization is an explicit boundary: `check-trace` first prepares the
@@ -268,3 +268,39 @@ families, including recursive container leaves. Custom scalar domains use
 Concrete replay codecs may retain u8vectors directly; byte lengths count toward
 the codec's existing node budget. Symbols are interned spellings rather than
 identifiers; escaped reader spellings are preserved by ordinary write/read.
+
+## Bounded sample and shrink inspection
+
+Import the ordinary property module and call `property.inspect-generator` with
+an existing generator and specification. No test property or fixture is run.
+
+```scheme
+;; Sampling observes the same owned source without forcing shrink factories.
+(def samples (property.inspect-generator rows row-domain seed: 42 count: 10 size: 8))
+;; The global proposal quota is shared by all root trees.
+(def tree (property.inspect-generator rows row-domain seed: 42 count: 3 size: 8
+  depth: 3 proposal-budget: 50 labels: (lambda (_) '(packet))))
+(property.inspection-events tree)   ; #(path kind value) entries
+(property.inspection-attempts tree) ; returned proposals, including tombstones
+(property.inspection-counts tree)   ; admitted-root empirical labels only
+```
+
+Paths start with the zero-based root index and append returned child indices.
+Events distinguish `root`, `value`, `pruned`, `outside-domain`, `nondecreasing`.
+Only valid decreasing children authorize expansion. `inspection-status` is
+`complete` after requested roots, or `error`/`stale`/`exhausted`/`unsupported` on
+interruption; `inspection-cause` retains the original exception. `inspection-count`, `inspection-depth`, and `inspection-budget` retain the
+requested bounds. `inspection-draws` counts attempted calls to generate, including an interrupted call, rather than
+individual PRNG requests or internal filter retries. `inspection-truncated?`
+conservatively marks unexpanded neighborhoods, even at depth zero. It is not a
+minimality verdict. Event count is at most count + proposal-budget; EOF is free,
+a returned stale proposal is charged, and zero fuel/depth never forces children.
+Labels are counted once per admitted root and cannot satisfy property coverage.
+
+POO's `testing/type` module exports the same operation over an existing sampler:
+`(inspect-generator (generator descriptor) seed: 42 count: 3 depth: 2 proposal-budget: 20)`.
+The returned generic inspection retains the sampler's Type/source stamps.
+Use `inspection-current?` before treating old diagnostics as current; rebuilding a
+sampler after a supported revision is explicit. These are caller-owned diagnostic
+values, not portable counterexample reports. See the dependent packet inspection
+and interruption controls in `examples/property-kernel.ss`.

@@ -3,7 +3,10 @@
         report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
-        make-policy policy? make-product-specification report-current? report-diagnostics)
+        make-policy policy? make-product-specification report-current? report-diagnostics
+        inspect-generator inspection? inspection-status inspection-seed inspection-size inspection-count inspection-depth inspection-budget
+        inspection-draws inspection-attempts inspection-events inspection-counts
+        inspection-truncated? inspection-cause inspection-current?)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
         (only-in ./generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
@@ -39,12 +42,16 @@
 ;; A discarded trial is explicit, Boolean and separate from descriptor refusal.
 (def (eligible? policy value)
   (boolean-result ((trial-policy-precondition policy) value) "precondition must return a boolean"))
-;; Each label counts once per effective trial; classification never runs in shrinking.
-(def (classify-trial! policy value counts)
-  (def labels ((trial-policy-labels policy) value))
+;; Count one classification at most once per root; diagnostics and checks use
+;; separate count tables, so an inspection can never satisfy property coverage.
+(def (classify-labels! classify value counts)
+  (def labels (classify value))
   (unless (and (list? labels) (every symbol? labels)) (error "labels must be a list of symbols"))
   (for (label (delete-duplicates/hash labels))
     (hash-put! counts label (1+ (hash-ref counts label 0)))))
+;; Shrink candidates never contribute effective-trial coverage.
+(def (classify-trial! policy value counts)
+  (classify-labels! (trial-policy-labels policy) value counts))
 ;; Threshold failure is an inconclusive coverage report, never a false property.
 (def (covered? policy counts)
   (every (lambda (entry) (>= (hash-ref counts (car entry) 0) (cdr entry)))
@@ -160,6 +167,94 @@
     (with-catch (lambda (_) 'error)
       (lambda () (if (current)
         (if (generation-exhausted? cause) 'exhausted (classify cause)) 'stale)))))
+;; Both execution owners retain the precise visited leaves, including rejected
+;; proposals. Identity deduplication preserves the existing source-check order.
+(def (observe-sources tree seen sources)
+  (foldl (lambda (source sources)
+    (if (hash-key? seen source) sources
+      (begin (hash-put! seen source #t) (cons source sources)))) sources (proposal-sources tree)))
+
+;; Inspections are diagnostic data, never property evidence or serialized trees.
+;; No sample child factory is retained in their public event sequence.
+(defstruct inspection (generator specification seed size count depth budget status draws attempts events counts truncated? cause sources) final: #t)
+;; Delayed consumers can refuse diagnostics whose visited sources have changed.
+(def (inspection-current? inspection)
+  (current? (inspection-specification inspection) (inspection-generator inspection) (inspection-sources inspection)))
+;; One finite observer handles sampling (depth/budget zero) and depth-first shrink
+;; exploration. Paths are [draw-index child-index ...]; tombstones are charged.
+;; Depth and exhausted fuel never force children merely to discover an EOF.
+(def (inspect-generator generator specification seed: (seed 0) count: (count 10)
+                       size: (size 20) depth: (depth 0) proposal-budget: (budget 0)
+                       labels: (labels (lambda (_) [])) classify-error: (classify (lambda (_) 'error)))
+  (unless (and (generator? generator) (specification? specification) (procedure? labels) (procedure? classify)
+    (every (lambda (n) (and (exact-integer? n) (>= n 0))) (list seed count size depth budget)))
+    (error "invalid generator inspection configuration"))
+  (def state (make-progress #f 0 0))
+  (def sources []) (def seen (make-hash-table-eq))
+  (def events []) (def counts (make-hash-table-eq))
+  (def draws 0) (def truncated? #f)
+  ;; Currentness includes every visited branch, even a refused or pruned child.
+  (def (current) (current? specification generator sources))
+  ;; Partial diagnostics retain charged work and the original callback exception.
+  (def (result status (cause #f))
+    (make-inspection generator specification seed size count depth budget status draws (progress-attempts state)
+      (reverse events) (hash->list counts) truncated? cause sources))
+  ;; Flat events preserve false values distinctly from pruned proposals.
+  (def (record! path kind value)
+    (set! events (cons (vector path kind value) events)))
+  ;; Observation is shared with property execution, rather than a second registry.
+  (def (observe tree) (set! sources (observe-sources tree seen sources)))
+  (with-catch (lambda (cause)
+      (def status (failure-status cause current classify))
+      (unless (memq status '(error exhausted unsupported stale)) (error "invalid error classification" status))
+      (result status cause))
+    (lambda ()
+      (let/cc finish
+        ;; The same source boundary also owns post-callback and EOF checks.
+        (def (stop status _minimal?) (finish (result status)))
+        ;; Admission is a finite classification, independent of traversal policy.
+        ;; Refused nodes never invoke measures or descendant factories.
+        (def (node-diagnosis tree root? parent-weight)
+          (cond
+            ((rejected? tree) (values 'pruned #f #f))
+            (else
+              (def value (sample-value tree))
+              (if (not (with-current current stop (accepts? specification value)))
+                (values 'outside-domain value #f)
+                (let (cost (with-current current stop (weight specification value)))
+                  (values (cond (root? 'root) ((< cost parent-weight) 'value) (else 'nondecreasing)) value cost))))))
+        ;; Child pulls share next-proposal with the real shrinker: returned
+        ;; tombstones count, EOF/throws do not, and unused tails remain untouched.
+        (def (children! tree path remaining cost)
+          (using (children (iter (with-current current stop ((sample-children tree)))) :- Iterator)
+            (let next ((index 0))
+              (if (= (progress-attempts state) budget) (set! truncated? #t)
+                (let (child (next-proposal children state current stop))
+                  (unless (eq? child #!eof)
+                    (visit child (append path (list index)) (1- remaining) cost #f)
+                    (next (1+ index))))))))
+        ;; Record the edge before exploring descendants; only decreasing admitted
+        ;; values authorize expansion. No search hides behind a refused node.
+        (def (visit tree path remaining parent-weight root?)
+          (with-current current stop
+            (observe tree)
+            (unless (current) (stop 'stale #f))
+            (let-values (((kind value cost) (node-diagnosis tree root? parent-weight)))
+              (record! path kind value)
+              (when (eq? kind 'root) (with-current current stop (classify-labels! labels value counts)))
+              (when (memq kind '(root value))
+                (if (or (zero? remaining) (= (progress-attempts state) budget))
+                  (set! truncated? #t)
+                  (children! tree path remaining cost))))))
+        (def random (random-at seed))
+        (for (index (in-range count))
+          (with-current current stop
+            (set! draws (1+ draws))
+            (def tree (generate generator random size))
+            (observe tree)
+            (visit tree (list index) depth #f #t)))
+        (with-current current stop (result 'complete))))))
+
 ;; One execution owns its observers. A replay guard is transient: old stamps
 ;; stay checked throughout rerun but are not accumulated into a closure chain.
 (def (execute generator property specification seed cases size size-limit budget classify guard size-current policy)
@@ -172,8 +267,7 @@
   (def seen (make-hash-table-eq))
   ;; Capture observer callbacks by identity in an invocation-local registry.
   (def (observe tree)
-    (for (source (proposal-sources tree))
-      (unless (hash-key? seen source) (hash-put! seen source #t) (set! sources (cons source sources)))))
+    (set! sources (observe-sources tree seen sources)))
   ;; One observation boundary protects all callbacks, trials and shrink proposals.
   (def (current) (and (guard) (live? size-current) (current? specification generator sources)))
   ;; Reports are ordinary records, independent of any descriptor/object namespace.

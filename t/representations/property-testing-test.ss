@@ -62,15 +62,25 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 28)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 33)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 28 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 33 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "typed inspections share recursive sampler domains and source epochs"
+      (def descriptor (Tuple (List (BytesN 3)) Symbol))
+      (def sampler (generator descriptor))
+      (def result (inspect-generator sampler seed: 42 count: 3 size: 4 depth: 2 proposal-budget: 20))
+      (check-eq? (property.inspection-status result) 'complete)
+      (for (event (property.inspection-events result))
+        (when (memq (vector-ref event 1) '(root value))
+          (check (element? descriptor (vector-ref event 2)) => #t)))
+      (.put! sampler 'diagnostic-epoch 1)
+      (check-eq? (property.inspection-current? result) #f))
     (test-case "standard scalar data Types share generic generation and shrinking"
       (for (descriptor (list String Symbol Bytes (BytesN 4)))
         (def sampler (generator descriptor))

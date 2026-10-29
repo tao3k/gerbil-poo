@@ -1,5 +1,5 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse)
         ./generation-graph ./recursive-generation ../support/option
@@ -165,6 +165,16 @@
 (def (property-specification sampler sources)
   (testing.make-specification (cut accepts-value? sampler <>) (.@ sampler measure)
     current?: (source-guard sources sampler)))
+;; Typed diagnostics reuse the existing sampler bridge and captured Type sources.
+;; Preparation errors remain ordinary Type errors; execution refusals retain the
+;; generic inspection status/cause. No property, assertion or coverage is run.
+(def (inspect-generator sampler seed: (seed 0) count: (count 10) size: (size 20)
+                       depth: (depth 0) proposal-budget: (budget 0) labels: (labels (lambda (_) [])))
+  (def sources (snapshot sampler []))
+  (testing.inspect-generator (generator-core sampler) (property-specification sampler sources)
+    seed: seed count: count size: size depth: depth proposal-budget: budget
+    labels: labels classify-error: generation-status))
+
 ;; Interpret only POO's own generation refusal categories. All other exceptions
 ;; keep their original cause and the kernel owns ordinary failure/error reporting.
 (def (generation-status cause)

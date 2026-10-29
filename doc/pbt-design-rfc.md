@@ -875,8 +875,51 @@ or implicit filter/retry policy is introduced.
 
 ### P6: bounded generator and shrink diagnostics
 
-Planned: bounded sample/shrink inspection using the same owned random source,
-lazy sample trees and proposal accounting. Show distribution, admission refusals
-and shrink paths without running a second test engine or inflating property
-coverage. Keep global minimality and arbitrary callback termination outside the
-finite protocol's claims.
+Implemented in the existing property module: `inspect-generator` owns one
+`random-at` source and returns an `inspection` record. `count:` bounds root
+attempts, `depth:` bounds descendant edges, and `proposal-budget:` is a global
+budget across all roots. Size is an explicit fixed natural for this diagnostic
+interface; scheduled sizes remain the property runner's separate protocol.
+Defaults (`depth: 0 proposal-budget: 0`) sample roots without forcing children.
+
+Flat events are `#(path kind value)`, with zero-based draw/child paths. Kinds are
+`root`, `value`, `outside-domain`, `nondecreasing`, and `pruned`. Only admitted,
+strictly decreasing children are expanded; refusals do not hide traversal.
+`next-proposal` is shared with real shrinking: returned tombstones and a proposal
+that triggers a trailing stale check are charged; EOF and iterator exceptions
+produce no charged proposal. A positive budget is required before constructing
+an iterator or pulling its next item. Cutoffs do not probe EOF. `truncated?`
+therefore conservatively describes unexpanded neighborhoods, including a depth-zero
+sample; `complete` only means requested root attempts finished, never minimality.
+Events are bounded by count + proposal-budget, even for infinite neighborhoods.
+
+Optional `labels:` counts each label once per admitted root. It never classifies
+shrink proposals and owns a separate table from property coverage. No property,
+precondition, fixture or assertion is executed by inspection. Statuses `error`,
+`stale`, `exhausted` and `unsupported` retain partial events, charged attempts and
+the original callback cause; diagnostic values are not falsification witnesses.
+`inspection-current?` observes every visited source, including refused branches.
+Callbacks must satisfy the existing purity/currentness obligations. Values remain
+caller-owned; the inspector does not serialize or freeze arbitrary Scheme objects.
+
+The POO module's `inspect-generator` accepts an existing typed sampler and supplies
+its normal generator bridge, specification, revision snapshots and refusal mapping.
+Preparation Type errors remain ordinary errors. Generic records/diagnostics import
+no POO modules. Equal seeds/configurations repeat diagnostics under deterministic
+callbacks; source invalidation cannot be repaired by silently refreshing old samplers.
+
+Acceptance covers bounded infinite iterators, tombstone charges, domain/descent
+refusals, exact child paths, EOF, zero fuel/depth/count, stale-after-return charges,
+original iterator causes, generation exhaustion, coverage isolation, dependent
+symbol/byte packets, unaffected later root draws, and typed recursive containers.
+The independent compiled library now executes 33 cases without POO.
+Lean proves domain/descent admission, total proposal/event bounds, zero-fuel and
+zero-depth expansion independence, and depth bounds in the finite worklist model.
+It does not certify PRNG distribution, arbitrary callback termination or the host
+iterator implementation. Existing process limits remain the execution guard.
+
+[Rackcheck sample/shrink](https://docs.racket-lang.org/rackcheck/index.html)
+informs the diagnostic separation and explicit depth limits. Unlike its optional
+per-term/unbounded exploration, this interface always has a finite global proposal
+budget, so broad and infinite neighborhoods cannot evade the bound. This continues
+the paper's future-work direction; no separate runner or namespace is added.
