@@ -226,35 +226,38 @@
 ;; compare against the private canonical order and retain only that canonical order.
 ;; Hook errors and changed/improper orders clear the candidate cache before escape.
 (def (compute-object-precedence! self (heads '()))
-  ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
-  ;; as private implementation state at this abstraction boundary.
-  (def active (make-hash-table-eq))
-  (for-each (lambda (head) (hash-put! active head #t)) heads)
-  (let compute ((object self) (heads heads))
-    (cond
-     ((object-%precedence-list object))
-     ((hash-key? active object)
-      (error "Circular precedence graph" (member object heads)))
-     (else
-      (hash-put! active object #t)
-      (parameterize ((active-object-constructions (cons object (active-object-constructions))))
-        (let (precedence-list
-            (first-value
-             (c4-linearize*
-              [object] (list (object-%supers object)) suffix: (lambda (_) #f)
-              get-precedence-list:
-              (lambda (super) (compute super [object . heads]))
-              eq: eq?
-              get-name: invalid-object-summary)))
-        (hash-remove! active object)
-        (set! (object-%precedence-list object) precedence-list)
-        (try
-          (let (chosen (invoke-object-hook object 'compute-precedence-list (lambda () (list-copy precedence-list))))
-            (unless (and (list? chosen) (= (length chosen) (length precedence-list))
-                         (andmap eq? chosen precedence-list))
-              (error "inheritance hook must preserve checked C3 order"))
-            precedence-list)
-          (catch (cause) (clear-object-cache! object) (raise cause)))))))))
+  ;; Default warm queries need neither traversal state nor a second admission.
+  ;; Explicit diagnostic heads retain their original preparation and error order.
+  (or (and (null? heads) (object-%precedence-list self)) (let ()
+      ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
+      ;; as private implementation state at this abstraction boundary.
+      (def active (make-hash-table-eq))
+      (for-each (lambda (head) (hash-put! active head #t)) heads)
+      (let compute ((object self) (heads heads))
+        (cond
+         ((object-%precedence-list object))
+         ((hash-key? active object)
+          (error "Circular precedence graph" (member object heads)))
+         (else
+          (hash-put! active object #t)
+          (parameterize ((active-object-constructions (cons object (active-object-constructions))))
+            (let (precedence-list
+                (first-value
+                 (c4-linearize*
+                  [object] (list (object-%supers object)) suffix: (lambda (_) #f)
+                  get-precedence-list:
+                  (lambda (super) (compute super [object . heads]))
+                  eq: eq?
+                  get-name: invalid-object-summary)))
+            (hash-remove! active object)
+            (set! (object-%precedence-list object) precedence-list)
+            (try
+              (let (chosen (invoke-object-hook object 'compute-precedence-list (lambda () (list-copy precedence-list))))
+                (unless (and (list? chosen) (= (length chosen) (length precedence-list))
+                             (andmap eq? chosen precedence-list))
+                  (error "inheritance hook must preserve checked C3 order"))
+                precedence-list)
+              (catch (cause) (clear-object-cache! object) (raise cause)))))))))))
 
 ;; Resolve/register each finite catalog before running ANY definition hook in C3.
 ;; The one-shot private action retains actual type identities, never a validation

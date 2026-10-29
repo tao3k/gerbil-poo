@@ -1182,3 +1182,25 @@ per regime, including charged GC preparation and complete publication. Unsafe
 aliasing is never used as a faster reference. Snapshot output cells are only one
 component: constructor capture, graph preparation, payload admission and GC stay
 paid. Raw traces and full benchmark data remain outside Git.
+
+#### Warm precedence demand
+
+The existing C3 cache now precedes traversal preparation on default queries.
+A successful warm `compute-precedence-list!` still returns a fresh list; callers
+cannot mutate the retained order. An explicit `heads` argument keeps its original
+finite traversal and diagnostic priority. Cache clearing on
+supported parent, protocol and source revisions still forces the checked engine;
+a previous result never bypasses a new hook refusal. This implements the author's
+observation that even inheritance-order recomputation below application code can
+be expensive, without extending mutation tracking to arbitrary language effects.
+
+`precedence-cache-workflow` in `examples/inherited-services.ss` combines repeated
+C3 queries, a shared declaration diamond, FUN revision and refused topology edits.
+The existing `just benchmark-prototype-traversal` includes `c3-hot` and
+`c3-workflow`, with AB/BA, A/A, B/B, natural, collected and post-GC controls.
+Both sides own public snapshots and run identical result oracles. The reference
+retains a nonempty explicit diagnostic context; its standard active table and one
+insertion remain charged. The candidate uses default queries. Setup and complete
+workflow construction/revision remain measured; this is not a claim that all
+observed time differences come from removing an empty table. Cold C3, snapshot
+copying, hook execution and GC costs are not removed or inferred from hit counts.

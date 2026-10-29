@@ -6,11 +6,12 @@
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/reflection reflect-slots read-slot)
-        (prefix-in :clan/poo/examples/representation-service service.))
+        (prefix-in :clan/poo/examples/representation-service service.)
+        (only-in :clan/poo/examples/inherited-services precedence-cache-workflow))
 
 ;; These controls compare current safe public snapshot composition with direct
 ;; ordered traversal/root sharing, including single-field and complete workflows.
-(def +traversal-phases+ '(map-traverse map-keys map-compose map-compose-single map-compose-workflow))
+(def +traversal-phases+ '(map-traverse map-keys map-compose map-compose-single map-compose-workflow c3-hot c3-workflow))
 ;; Rebuild the same selected policy through public owned snapshots. The fresh
 ;; receiver has the SAME parents/protocol/declarations and no inherited cache.
 (def (snapshot-compose base override)
@@ -28,6 +29,10 @@
   (def expected (map car entries))
   (def single? (eq? scenario 'map-compose-single))
   (def shared-parent (.o parent-marker: #f))
+  ;; A retained explicit diagnostic context uses the original prepared path.
+  ;; Both strategies return owned public snapshots; this is not private borrowing.
+  (def diagnostic-heads (list (.o diagnostic: #t)))
+  (def warm-order (compute-precedence-list! shared-parent))
   (def override (make-object slots: (prototype-map
     (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
       (if single? (list (cons 'target identity)) entries)) policy: 'compact)
@@ -54,6 +59,11 @@
   ;; One standard action factory retains every public boundary on each side.
   (def (action direct?)
     (def combine (if direct? .+ snapshot-compose))
+    ;; Explicit heads keep one standard active-table insertion, charged on baseline.
+    ;; Default cache hits skip traversal preparation; no hook or result is bypassed.
+    (def (inspect owner)
+      (if direct? (compute-precedence-list! owner)
+        (compute-precedence-list! owner diagnostic-heads)))
     ;; Both sides replace warmed topology through the SAME checked setter. The
     ;; reference pays its owned parent snapshot; the engine can borrow privately.
     ;; Parent admission, invalidation and result ownership stay inside timing.
@@ -65,6 +75,11 @@
         result))
     (lambda ()
       (case scenario
+        ((c3-hot)
+          (unless (equal? (inspect shared-parent) warm-order) (error "warm C3 oracle")))
+        ((c3-workflow)
+          (unless (equal? (precedence-cache-workflow inspect) '((10 10 10) (20 20 20)))
+            (error "C3 publication oracle")))
         ((map-traverse) (walk direct?))
         ((map-keys)
           (unless (equal? (if direct? (prototype-map-keys source) (map car (prototype-map-list source))) expected)

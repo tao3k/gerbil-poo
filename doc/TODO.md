@@ -3028,3 +3028,18 @@ service workflow have controls. Lean covers snapshot/frame, admitted publication
 revision rejection and logical spine-copy costs with host copying/finite valid
 input/sequential mutation premises. Raw private graph corruption remains a negative
 control outside the supported source protocol.
+
+### Default warm C3 demand without traversal preparation
+
+Closed repeated preparation on cached C3 demand: the default empty diagnostic
+context now returns the private admitted order before allocating the active
+traversal hash. Public reflection still creates an owned snapshot. Explicit heads
+retain their prior preparation/error order; cold requests, checked C3 hooks,
+failed-build cleanup, source/protocol invalidation and retry keep the existing
+engine. Shared-service FUN revision, cycle refusal and false exceptions have
+regressions. The existing paired traversal study includes hot C3 and full service
+revision workflows, comparing default queries with a retained explicit diagnostic
+context; the reference pays one active-table insertion, so this is a supported
+strategy comparison, not an exact historical speedup. Finite Lean laws separate
+outcome equivalence and traversal-preparation counts from copying, callbacks,
+allocator/GC and wall-clock costs. This adds no cache or loader.
