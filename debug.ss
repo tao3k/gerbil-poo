@@ -2,7 +2,8 @@
 (import
   :std/format
   ./support/base ./support/debug
-  ./object ./mop ./io ./type ./brace)
+  ./object ./mop ./io ./type ./brace
+  (prefix-in ./testing/type property.))
 
 ;; A bit like DBG, but with types
 (defrules DDT ()
@@ -63,3 +64,11 @@
   (for-each (lambda (slot) (.putslot! wrapped slot (trace-inherited-slot name slot)))
             (.all-slots poo))
   wrapped)
+
+;; FUN/Reader owns execution once; DDT owns optional rendering and returns the
+;; original report. Disabling the tag skips rendering, not the requested check.
+;; Use support/testing's assertion when the outcome must admit a test success.
+(def (property-debug-action tag descriptor predicate sampler: (sampler #f) dependencies: (dependencies []))
+  (property.property-action descriptor predicate
+    (lambda (report) (DDT tag property.report-diagnostics report))
+    sampler: sampler dependencies: dependencies))

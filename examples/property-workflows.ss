@@ -34,14 +34,14 @@
   ;; A completed refusal is guard exit 1 or gxtest exit 42, in POSIX wait format.
   ;; Timeout, spawn refusal and signal termination cannot satisfy this control.
   (check (and (memv exit-status '(#x100 #x2a00)) #t) => #t)
-  (unless (= (length (filter (cut string-prefix? "CASE " <>) lines)) 6)
-    (error "PBT refusal fixture did not execute all six cases" lines))
+  (unless (= (length (filter (cut string-prefix? "CASE " <>) lines)) 8)
+    (error "PBT refusal fixture did not execute all eight cases" lines))
   (check-equal? (filter (cut string-prefix? "CASE-OK " <>) lines) [])
   (check-equal? (filter (cut string=? "OK" <>) lines) [])
   (def text (string-join lines "\n"))
   (for (detail '("status . failed" "status . coverage" "status . exhausted" "status . stale"
                 "status . error" "status . unsupported" "left . 4" "right . 5"
-                "left . 1" "right . 2" "minimal? . #t" "seed . 42" "property-refusals.ss\"@"))
+                "left . 1" "right . 2" "minimal? . #t" "seed . 42" "typed-fault" "typed-opaque" "input . 4" "limit . 3" "property-refusals.ss\"@"))
     (check (string-contains text detail) ? integer?)))
 ;; Ordinary suites combine the new assertion path with the existing report API.
 (def property-workflows-test

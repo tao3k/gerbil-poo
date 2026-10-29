@@ -304,3 +304,31 @@ Use `inspection-current?` before treating old diagnostics as current; rebuilding
 sampler after a supported revision is explicit. These are caller-owned diagnostic
 values, not portable counterexample reports. See the dependent packet inspection
 and interruption controls in `examples/property-kernel.ss`.
+
+## Default POO test and debug workflow
+
+PBT is built by default and included in complete acceptance. Import
+`:clan/poo/support/testing` with a local prefix alongside `:std/test` to use
+`(pbt.check-property descriptor predicate seed: 42 cases: 100)` or
+`(pbt.define-property name ((argument descriptor) ...) boolean-body ...)`.
+Named arguments are a fixed Tuple of Types, using the existing typed generator.
+Dependent/refined domains continue to compose explicit generators, including
+Record construction and Function wrapping. The helper executes one standard
+check; all refusal/error statuses become TestError with original diagnostics.
+`testing/type` still owns the report-returning API for inspection and replay.
+
+`PropertyConfiguration` in that Type module is initialized with ordinary
+`make-instance`. Defaults are seed 0, cases 100, size 20, shrink budget 100 and
+the existing recursion limits. A procedural size requires `size-limit:`; a fixed
+size uses its own bound when no explicit limit is supplied. The Record validates
+field Types while the runner enforces trial/quota constraints. Existing Reader
+actions now declare the configuration as a revision source automatically.
+
+Import `property-debug-action` from `:clan/poo/debug`, prepare the action once,
+and call it with a PropertyConfiguration Record. DDT formats report diagnostics
+when the tag is enabled and preserves the returned report. With tag #f the run
+still happens exactly once and no rendering occurs. Failed data remain available
+for the same shrinking and replay protocol. Debugging does not assert a passing
+property. See `examples/generated-batches.ss` for the full Record/FUN workflow.
+The installed CLI exit-status caveat described above still applies; project
+acceptance retains its existing error admission guard.

@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0 implemented; P1-P3 implemented within the finite domains below, under joint acceptance.
+- Status: finite V1 and P0–P7 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -923,3 +923,52 @@ informs the diagnostic separation and explicit depth limits. Unlike its optional
 per-term/unbounded exploration, this interface always has a finite global proposal
 budget, so broad and infinite neighborhoods cannot evade the bound. This continues
 the paper's future-work direction; no separate runner or namespace is added.
+
+### P7: default POO test and debug workflow
+
+Audit finding: PBT was already in the root build and complete standard test
+entry. The missing integration was the existing developer-facing modules:
+`support/testing` required manual typed report/diagnostic composition, `debug`
+had no property action, and Reader configurations were not revision sources.
+This is a concrete integration/admission gap, not a claim that unrestricted
+Function synthesis, arbitrary recursive objects, or exception-as-falsification
+are missing promised features. Strict Boolean bodies remain the finite contract.
+
+Implemented: `support/testing` supplies typed `check-property` and hygienic
+`define-property` with fixed named Type products. Tuple derivation owns the
+argument layout, and the existing generic `require-passed` is reused through
+Gerbil's `do-check!`. No second check context or runner is added. Explicit names
+reach successful and preparation-refused typed reports while existing policy
+coverage is retained. The generic admission function is exported by its owner.
+
+`PropertyConfiguration` is an ordinary Record with natural seed/count/budget
+fields, a fixed/procedural size Type, optional explicit size bound, policy record
+recognition and the existing recursion quotas. Construction owns field Types;
+the runner retains positive-count and finite-range validation. A missing size
+bound is inferred for a fixed size only. Reader actions snapshot the configuration
+as a normal dependency, so a callback returning true after an edit becomes stale.
+
+`property-debug-action` composes the existing property Reader action and DDT.
+It evaluates the property run once and returns its original report. A false tag
+suppresses rendering, not that explicitly requested execution. Rendering does not
+assert a pass; test assertions use the same strict admission boundary. Formatter
+and I/O failure follow DDT's existing behavior rather than becoming falsification.
+No import-time property execution, environment switches or discovery registry is
+introduced. Root build, standard suite discovery and complete resource guards
+remain unchanged. The README documents the default downstream entry.
+
+Acceptance includes typed named/unnamed checks, macro hygiene, policy coverage,
+Record configuration validation, scheduled-size refusal, debug output and disabled
+rendering, callback-count controls, stale Reader configuration, Record fields with
+wrapped Functions, shrinking/replay, and eight intentionally failing standard
+checks (the previous six plus named typed failure/preparation refusal).
+Lean extends the existing check admission model with configuration revision
+admission/preservation, finite size-limit selection, and report-preserving debug
+delivery under a returning renderer premise. It does not verify host I/O or
+Gerbil's compiler. This remains the paper's future-work direction.
+
+[Rackcheck's test integration](https://docs.racket-lang.org/rackcheck/index.html)
+and [Quickcheck's RackUnit check form](https://docs.racket-lang.org/quickcheck/index.html)
+inform the standard-check ownership. The remaining comparison is not a blanket
+parity checklist: optional domain families need explicit application requirements;
+current documented finite/Boolean/termination boundaries are retained as boundaries.
