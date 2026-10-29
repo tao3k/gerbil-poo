@@ -62,15 +62,29 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 24)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 28)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 24 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 28 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "standard scalar data Types share generic generation and shrinking"
+      (for (descriptor (list String Symbol Bytes (BytesN 4)))
+        (def sampler (generator descriptor))
+        (def report (check-property descriptor (lambda (_) #f) sampler: sampler
+          seed: 42 cases: 1 size: 6 shrink-budget: 100))
+        (check-eq? (.get report status) 'failed)
+        (check (element? descriptor (.get report counterexample)) => #t)
+        (check-equal? (.get (replay-property report) counterexample) (.get report counterexample)))
+      (def zero-width (generator (BytesN 0)))
+      (check-equal? (core.sample-value (core.generate (generator-core zero-width) (core.random-at 4) 0)) #u8()))
+    (test-case "nested data containers keep Type admission and fixed-byte widths"
+      (def descriptor (Tuple (List (BytesN 3)) Symbol String))
+      (assertion.check-property (check-property descriptor (cut element? descriptor <>)
+        seed: 19 cases: 20 size: 4) diagnostics: report-diagnostics))
     (test-case "typed reports use the standard assertion and existing source guard"
       (assertion.check-property
         (check-property (Tuple Integer UInt) (lambda (row) (= (vector-length row) 2)) cases: 5)

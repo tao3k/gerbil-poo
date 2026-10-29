@@ -839,11 +839,39 @@ domain soundness and row length. It does not certify operating-system exit statu
 
 ### P5: reusable data generation families
 
-Planned: compose character, byte, string and symbol families from the existing
-algebra and standard representations, then let POO scalar derivation reuse them.
-Current automatic String generation covers lowercase ASCII only. Explicitly name
-character domains and boundary policies; preserve shrinking membership, size and
-replay. Do not turn arbitrary descriptor obligations into Any or hidden retries.
+Implemented: `generator-integer`, `generator-character`, `generator-byte`,
+`generator-list`, `generator-string`, `generator-symbol` and `generator-bytes`
+reuse bind, sized, sequence and map. Unicode scalar ranks exclude surrogates;
+explicit character endpoints are inclusive. The default covers all Unicode
+scalars, unlike Rackcheck's default character domain. Octets cover 0–255.
+Sequences have explicit natural minimum/maximum lengths (default 0/128); size
+bounds the additional suffix, so fixed widths survive size zero. Structural
+length proposals precede coordinate proposals. Domain admission and strict
+measure decrease still belong to the existing property runner.
+
+POO String, Symbol, Bytes and BytesN derive from this algebra, retaining source
+observation and nested container compilation. `character-shrinks` and
+`data-list-shrinks` supply the same value-level policy to typed callers.
+No Char Type is invented; custom character Types can use `from-generator`.
+Symbols mean interned spellings, including empty/reader-sensitive spellings,
+not generated identifiers or gensyms. Mutable data are values within the existing
+caller-owned trial protocol; arbitrary property mutation is not made pure.
+
+Portable replay now copies and budgets u8vectors using Gerbil primitives, just
+as it already does strings. Codec identity is still checked before decode;
+failed encoding/budget admission writes no prefix. Tests cover Unicode endpoints,
+fixed/variable widths, shrink-domain preservation, source invalidation, callback
+errors, nested Type derivation, seed replay and mixed-data concrete replay.
+Lean proves interval membership/descent, scalar validity/order, sequence bounds
+and fixed widths. Carrier membership remains conditional on the representation
+law; PRNG distribution, symbol interning and Gerbil encoders/readers are outside
+the proof. This continues the paper's future-work direction.
+
+References: [Rackcheck](https://docs.racket-lang.org/rackcheck/index.html)
+(character families, list structural/coordinate shrinking, string composition)
+and [Quickcheck](https://docs.racket-lang.org/quickcheck/index.html)
+(character-generator-driven string construction). No separate generation engine
+or implicit filter/retry policy is introduced.
 
 ### P6: bounded generator and shrink diagnostics
 

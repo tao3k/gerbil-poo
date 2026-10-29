@@ -28,6 +28,9 @@
     (cond
       ((pair? datum) (cons (copy (car datum) (1- depth)) (copy (cdr datum) (1- depth))))
       ((vector? datum) (list->vector (map (cut copy <> (1- depth)) (vector->list datum))))
+      ((u8vector? datum)
+       (set! remaining (- remaining (u8vector-length datum)))
+       (when (< remaining 0) (error "replay data budget exceeded")) (u8vector-copy datum))
       ((string? datum)
        (set! remaining (- remaining (string-length datum)))
        (when (< remaining 0) (error "replay data budget exceeded")) (string-copy datum))
