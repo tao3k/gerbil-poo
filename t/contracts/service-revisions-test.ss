@@ -1,8 +1,8 @@
 (export service-revisions-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/feedback-graph :clan/poo/feedback-cache :clan/poo/lens-laws
         (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/strong-components scc.)
-        (prefix-in :clan/poo/dependency-analysis code.) (prefix-in :clan/poo/construction-cache cache.)
-        (prefix-in :clan/poo/generalized-prototype gp.) (prefix-in :clan/poo/examples/service-revisions service.))
+        (prefix-in :clan/poo/dependency-analysis code.) (prefix-in :clan/poo/construction-cache cache.) (prefix-in :clan/poo/examples/service-revisions service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Work accounting comes from the actual existing group materializer.
 (def (evaluated current) (cache.cache-evaluated (graph-cache-values current)))
 ;; Independent sources/groups must not invoke their builders during topology edits.
@@ -115,7 +115,7 @@
       (def policy (.o (allowed #t) (limit 30)))
       (defvalues (old _) (service.publish #f (service.source 3 4) policy (.cc cache.Builder.)))
       (def reached? #f)
-      (def action (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def action (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (feedback-graph-revision-action (lambda (source) (error "preparation refused"))
           service.build-group (service.admit policy))))
       (check-exception (action old) true) (check-equal? reached? #f)

@@ -1,7 +1,8 @@
 (export feedback-closure-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/lens-laws :clan/poo/generalized-declaration
-        :clan/poo/generalized-closure :clan/poo/feedback-closure (prefix-in :clan/poo/generalized-prototype gp.)
-        (prefix-in :clan/poo/examples/feedback-services services.))
+        :clan/poo/generalized-closure :clan/poo/feedback-closure
+        (prefix-in :clan/poo/examples/feedback-services services.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Cyclic global self, component equations, refusal and native FUN composition.
 (def feedback-closure-test
   (test-suite "controlled cyclic component feedback closure"
@@ -17,7 +18,7 @@
       (check-equal? (early 'a) 3) (check-equal? (early 'ready) #f)
       (check-exception ((early 'charge) 2) true))
     (test-case "the concrete capped ring settles from a different original seed"
-      (def action (.call gp.Observation. .map (lambda (closed) (services.report closed 2))
+      (def action (.call fun.Observation. .map (lambda (closed) (services.report closed 2))
         (feedback-closure-action (services.prepare-services) services.base 5)))
       (check-equal? (action (vector (vector 100 0 2) #t 'seed)) '(3 3 3 #t 36 audit))
       (defvalues (zero failure) (publish-feedback #f (services.prepare-services 0) services.base services.base 2))
@@ -47,7 +48,7 @@
       (check-equal? (feedback-equation-failure-name failure) 'plus))
     (test-case "exhaustion and oscillation publish no prefix and skip Reader suffix"
       (def reached? #f)
-      (def action (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def action (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (feedback-closure-action (services.prepare-services) services.base 4)))
       (check-exception (action services.base) true) (check-equal? reached? #f)
       (def focus (lens-of-get-set identity (lambda (value _) value)))

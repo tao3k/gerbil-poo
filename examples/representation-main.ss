@@ -2,9 +2,8 @@
 (export main)
 (import (only-in :gerbil/runtime/loader list-modules)
         (only-in ../io module-action)
-        (runtime: :clan/poo/generalized-prototype)
+        (runtime: :clan/poo/fun)
         (runtime: :clan/poo/object-contract)
-        (runtime: :clan/poo/object-contract-flow)
         (runtime: :std/crypto/digest))
 ;; Link the common observation and value-admission foundation. Business modules remain ordinary compiled
 ;; plugins: the same module and explicit binding can be called by gxi or this exe.
@@ -16,7 +15,7 @@
     (display "MODULE-ENTRY ")
     (write (vector (and (assoc module before) #t)
       (andmap (lambda (id) (let (entry (assoc id before)) (and entry (eq? (cdr entry) 'builtin))))
-        '("clan/poo/object" "clan/poo/mop" "clan/poo/generalized-prototype"))
+        '("clan/poo/object" "clan/poo/mop" "clan/poo/fun"))
       (length before)))
     (newline) (force-output))
   ((module-action module (string->symbol binding)) arguments))

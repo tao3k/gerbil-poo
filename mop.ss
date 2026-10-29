@@ -6,34 +6,33 @@
 (export #t (except-out (import: ./slot-observation) without-observation)
         replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance)
 
-(import
-  ./slot-observation
-  ./value-diagnostics
-  ./function-signature
-  ./class-validation
-  (only-in :std/error deferror-class defraise/context)
-  (only-in :std/list/list-builder with-list-builder)
-  (only-in :std/list/list pop! append-map foldr delete-duplicates/hash)
-  (only-in :std/list/walist walist)
-  (for-syntax (only-in :std/list/plist plist?)
+(import ./slot-observation
+        ./value-diagnostics
+        ./function-signature
+        ./class-validation
+        (only-in :std/error deferror-class defraise/context)
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in :std/list/list pop! append-map foldr delete-duplicates/hash)
+        (only-in :std/list/walist walist)
+        (for-syntax (only-in :std/list/plist plist?)
               (only-in :std/list/alist plist->alist))
-  (only-in :std/values list->values)
-  (only-in :std/func compose)
-  (only-in ./support/base λ nest invalid)
-  (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal
+        (only-in :std/values list->values)
+        (only-in :std/func compose)
+        (only-in ./support/base λ nest invalid)
+        (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal
            marshal<-u8vector<- unmarshal<-<-u8vector
            marshal-sized16-u8vector unmarshal-sized16-u8vector)
-  (only-in ./support/json string<-json json<-string)
-  (only-in ./support/syntax call<-formals)
-  (only-in ./support/repr repr pr)
-  (only-in ./object replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance
-           object object? .def/ctx .cc .mix .ref .@ .get .has? .call
+        (only-in ./support/json string<-json json<-string)
+        (only-in ./support/syntax call<-formals)
+        (only-in ./support/repr repr pr)
+        (only-in ./object replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance
+           make-object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
            .alist object<-alist
            $constant-slot-spec $computed-slot-spec)
-  (prefix-in (only-in :gerbil/core @method) @)
-  (only-in ./brace @method))
+        (prefix-in (only-in :gerbil/core @method) @)
+        (only-in ./brace @method))
 
 ;; * Options
 ;; default: default value when no method is defined, also bottom value for fixed-point
@@ -612,3 +611,12 @@
 
 ;; Explicit .parameters metadata and persistent prefix binding are implemented in
 ;; parameters.ss; validation/effect execution remains a separate checked consumer.
+
+;; Attach an ordinary protocol object to an ordinary object; protocol methods can
+;; themselves use C3 inheritance, before/after behavior and inherited continuations.
+;; compute-precedence-list: (receiver next) -> SAME checked C3 order or refusal.
+;; compute-slot: (receiver next slot) -> effective thunk, without running its body.
+;; A custom slot transformation has its own semantics; equivalence needs its laws.
+(def (with-inheritance-hooks protocol . supers)
+  (unless (object? protocol) (error "inheritance protocol object required"))
+  (make-object supers: supers protocol: protocol))

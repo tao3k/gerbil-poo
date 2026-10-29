@@ -1,8 +1,8 @@
 (export generalized-closure-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/lens-laws :clan/poo/generalized-declaration :clan/poo/generalized-closure
-        (prefix-in :clan/poo/generalized-prototype gp.)
         (prefix-in :clan/poo/examples/closed-declarations service.)
-        (prefix-in :clan/poo/examples/generalized-declarations finite.))
+        (prefix-in :clan/poo/examples/generalized-declarations finite.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Return the precise operational counterexample, retaining unexpected host errors.
 (def (law-result focus states values)
   (try (check-lens-laws focus states values)
@@ -18,7 +18,7 @@
       (check-equal? (service.report closed 2) '(10 13 15 96 audit))
       (check-equal? (closed-raw closed) (step-fragments prepared (closed-raw closed) service.base))
       (check-equal? service.base (vector (vector 0 0 0) 'audit))
-      (def action (.call gp.Observation. .map (lambda (value) (service.report value 2))
+      (def action (.call fun.Observation. .map (lambda (value) (service.report value 2))
         (closure-action prepared service.base 4 checks: (service.checks))))
       (check-equal? (action (vector (vector 99 88 77) 'seed)) '(10 13 15 96 audit)))
     (test-case "zero budget never executes a raw transition and exhaustion returns no prefix"
@@ -80,7 +80,7 @@
       (check-equal? (active-object-constructions) []))
     (test-case "Reader refusal skips downstream observation"
       (def reached? #f)
-      (def action (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def action (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (closure-action (service.prepare-service) service.base 0)))
       (check-exception (action service.base) true)
       (check-equal? reached? #f))))

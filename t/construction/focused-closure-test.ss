@@ -1,8 +1,9 @@
 (export focused-closure-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/lens-laws :clan/poo/focused-closure :clan/poo/generalized-closure
-        :clan/poo/generalized-declaration (prefix-in :clan/poo/generalized-prototype gp.)
+        :clan/poo/generalized-declaration
         (prefix-in :clan/poo/examples/closed-declarations service.)
-        (prefix-in :clan/poo/examples/focused-services family.))
+        (prefix-in :clan/poo/examples/focused-services family.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Actual joint closure, overlapping lawful lenses and whole-chain source guards.
 (def focused-closure-test
   (test-suite "focused recursive component closure and joint publication"
@@ -12,7 +13,7 @@
       (check-equal? (view 2) '(96 176 272 (tenant audit)))
       (check-equal? (view 3) '(116 216 332 (tenant audit)))
       (check-equal? family.base (vector service.base service.base '(tenant audit)))
-      (def action (.call gp.Observation. .map (lambda (view) (view 2))
+      (def action (.call fun.Observation. .map (lambda (view) (view 2))
         (focused-closures-action (family.stages) family.cook)))
       (check-equal? (action family.base) '(96 176 272 (tenant audit))))
     (test-case "a narrow Reader update preserves sibling and shared audit identity"
@@ -49,7 +50,7 @@
       (def second (closure-focus (service.prepare-service 20)
         (lens-check family.right-focus [service.base]) service.base 0))
       (def reached? #f)
-      (def action (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def action (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (focused-closures-action [(car (family.stages)) second] family.cook)))
       (check-exception (action family.base) true)
       (check-equal? reached? #f)

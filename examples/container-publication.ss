@@ -6,10 +6,10 @@
         ../number
         ../object-contract
         (only-in ../type String List Tuple)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; A finite named-field schema uses the existing structural descriptor. Its
 ;; obligation sees the normalized callback; no separate schema DSL is needed.
@@ -51,6 +51,6 @@
 (def (batch-action invocation context-value tasks-value)
   (def publish (publication.publication-action BatchSchema invocation context-value
                  (cut produce context-value <>)))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (text) (.o config: (service.decode-service text) tasks: tasks-value))
     (lambda (candidate) (lambda (_text) (publish candidate)))))

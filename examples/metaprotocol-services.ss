@@ -7,8 +7,8 @@
         ../reflection
         ../meta-prototype
         ../declaration
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) gp.))
+        (runtime: :clan/poo/fun)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; One property expands nonlocally into its public slot/getter and private revision
 ;; annotation. Ordinary metadata carries the current context; no slot body runs here.
 (def (property-declarations context form inherited)
@@ -57,5 +57,5 @@
 ;; A reusable Reader/FUN action reads CURRENT approval/revision on each invocation.
 ;; Source edits still need fresh elaboration; previous approval/catalog is not cached.
 (def (service-action expander amount)
-  (.call gp.Observation. .map (lambda (family) (cons (report family) family))
+  (.call fun.Observation. .map (lambda (family) (cons (report family) family))
     (lambda (context) (build-service expander amount context))))

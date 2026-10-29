@@ -5,8 +5,8 @@
         ../number
         ../brace
         (only-in ../type Symbol)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) gp.))
+        (runtime: :clan/poo/fun)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Typed fields are checked before this construction hook enforces the cross-field law.
 (define-type (Account @ Class.)
   slots: =>.+ {capacity: {type: Integer} used: {type: Integer}}
@@ -33,4 +33,4 @@
     (.@ service tenant) ((.@ service quota) (.@ service tenant))))
 ;; Native Reader/FUN composition stops before report/delegation on any revision error.
 (def (revision-action capacity tenant)
-  (.call gp.Observation. .map report (lambda (service) (revise-service service capacity tenant))))
+  (.call fun.Observation. .map report (lambda (service) (revise-service service capacity tenant))))

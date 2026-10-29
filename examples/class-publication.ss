@@ -6,10 +6,10 @@
         ../number
         ../object-contract
         (only-in ../type Record String Maybe List)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; One existing callable interface is reused by defaults, overrides and containers.
 (def Transform (Fun Integer <- Integer))
@@ -69,7 +69,7 @@
 (def (service-action invocation context-value extras-value)
   (def publish (publication.publication-action EnvelopeContract invocation context-value
                  (cut produce context-value <>)))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (text)
       (def config-value (service.decode-service text))
       (def processor-value (make-instance InitializedRecord

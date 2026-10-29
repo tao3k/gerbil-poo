@@ -7,9 +7,9 @@
         (only-in ../type Record)
         (runtime: :clan/poo/recursive-validation)
         (prefix-in (only-in ../recursive-validation closed-type validation-node) graph.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
-        (prefix-in ./contract-publication publication.))
+        (runtime: :clan/poo/fun)
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Recipes are immutable revision tokens. Shared changes rebuild both readers,
 ;; their SCC and the report; changing one peer retains the shared provider/idle.
@@ -62,7 +62,7 @@
 ;; Reader composition retains exact checked subject/descriptor/context binding.
 ;; Graph revision and effect publication remain separate caller-owned boundaries.
 (def (publish-action graph expected invocation context-value)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_input) (envelope graph expected))
     (lambda (descriptor-value)
       (publication.publication-action descriptor-value invocation context-value

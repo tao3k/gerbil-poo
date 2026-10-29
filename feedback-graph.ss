@@ -6,7 +6,7 @@
         ./object ./mop ./support/option ./feedback-cache ./lens-laws
         (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
         (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
-        (prefix-in ./generalized-prototype gp.))
+        (prefix-in (only-in ./fun Observation.) fun.))
 ;; Keep the frozen node source, admitted partition, builder identity and group DAG.
 (defstruct graph-cache (source partition build values) final: #t)
 ;; Resolve a node through its current SCC; no caller-maintained grouping is needed.
@@ -76,7 +76,7 @@
       (def action (feedback-cache-action candidate-source keys (lambda (_ values)
         (set! candidate (make-graph-cache frozen partition build values))
         (admit old candidate)) builder: builder))
-      ((.call gp.Observation. .map (lambda (_) candidate) action)
+      ((.call fun.Observation. .map (lambda (_) candidate) action)
         (and old (graph-cache-values old)))))))
 ;; Any partition, closure, source or joint-approval failure retains EXACT old state.
 (def (publish-feedback-graph old source build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
@@ -90,7 +90,7 @@
   (lambda (old)
     (unless (graph-cache? old) (error "published feedback graph required for revision"))
     (with-lens-checks guards (lambda ()
-      ((.call gp.Observation. .bind (.call gp.Observation. .ap (graph-cache-source old))
+      ((.call fun.Observation. .bind (.call fun.Observation. .ap (graph-cache-source old))
         (lambda (source) (feedback-graph-action (revise source) build admit guards: guards builder: builder))) old)))))
 ;; Preparation exceptions share the same publication boundary as closure and
 ;; admission: any refusal returns the exact original graph cache and exception.

@@ -1,9 +1,10 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
 (export typed-charge make-dispatch-family typed-charge-action reviewed-summary-action replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
-        (prefix-in ../method-combination combination.) (prefix-in ../generalized-prototype gp.)
+        (prefix-in ../method-combination combination.)
         (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)
-        (prefix-in ../declarative-metadata metadata.) (only-in ../reflection read-slot) (only-in ../proto compose-proto*))
+        (prefix-in ../declarative-metadata metadata.) (only-in ../reflection read-slot) (only-in ../proto compose-proto*)
+        (prefix-in (only-in ../fun Observation.) fun.))
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)
 ;; Two branches refine one shared base through ordinary inherited fragment slots.
@@ -31,7 +32,7 @@
 (def (make-account family current-rate) (.o (.type family) (rate current-rate)))
 ;; FUN Reader composes current context with generic invocation without result caching.
 (def (observation family units)
-  (.call gp.Observation. .map (lambda (account) (charge account units))
+  (.call fun.Observation. .map (lambda (account) (charge account units))
     (lambda (context) (make-account family (.@ context rate)))))
 
 ;; Snapshot the initial rate once, but retain lexical aliases for current receiver
@@ -41,7 +42,7 @@
 (def (prefixed-action account units)
   (with-prefixed-slots (account- rate .type) account
     (def-prefixed-slots (initial- rate) account)
-    (.call gp.Observation. .bind
+    (.call fun.Observation. .bind
       (lambda (context)
         (with-prefixed-slots (approval- approved) context
           (unless approval-approved (error "current approval refused"))
@@ -78,7 +79,7 @@
  ((_ family units generic) (summary-observation family units generic charge))
  ((_ family units generic charging)
   (let ((owner family) (count units))
-    (.call gp.Observation. .map
+    (.call fun.Observation. .map
       (lambda (account)
         (read-slot owner '.summary)
         (read-slot owner '.charge)
@@ -98,7 +99,7 @@
 ;; it never turns completed charging into rollback or caches an earlier approval.
 (def (reviewed-summary-action family units review)
   (def action (typed-summary-action family units))
-  (.call gp.Observation. .map
+  (.call fun.Observation. .map
     (match <> ([amount summary]
       (review amount summary)
       (values amount summary)))
@@ -123,10 +124,10 @@
 ;; are never handed to callbacks. Refusal stops the batch before charging, and a
 ;; retry uses the new context rather than retaining a prior result or admission.
 (def (replayed-summary-action family units requests)
-  (.call gp.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (context) (make-account family (.@ context rate)))
     (lambda (account)
-      (.call gp.Observation. .map
+      (.call fun.Observation. .map
         (lambda (summaries) (values (charge account units) summaries))
         (lambda (_context)
           (map (lambda (request)
@@ -145,7 +146,7 @@
 (def (summary-prototypes policy record)
   (list
     (lambda (family inherited)
-      (.call gp.Observation. .bind
+      (.call fun.Observation. .bind
         (lambda (context)
           (unless (.@ context approved) (error "current approval refused"))
           (read-slot family '.charge)
@@ -156,10 +157,10 @@
         (record 'offset)
         (inherited (.cc context 'rate (+ (.@ context rate) (read-slot policy 'offset))))))
     (lambda (_family inherited)
-      (.call gp.Observation. .map
+      (.call fun.Observation. .map
         (lambda (result) (record 'observed) result) inherited))
     (lambda (_family inherited)
-      (.call gp.Observation. .map
+      (.call fun.Observation. .map
         (lambda (result) (record 'tag) (cons (read-slot policy 'tag) result)) inherited))))
 
 ;; Reuse the existing typed/default/keyword/rest workflow as the terminal action.
@@ -187,7 +188,7 @@
 ;; One FUN observation resolves a fresh account, then returns both actual dispatch
 ;; results. Neither methods nor reflection cache a previous context's observation.
 (def (summary-action family required)
-  (.call gp.Observation. .map
+  (.call fun.Observation. .map
     (lambda (account)
       (values (charge account required)
               (summarize account required #f label: 'review 'audit)))
@@ -199,7 +200,7 @@
 (def (checked-summary-action family required)
   (def checked (validate (Function [Any] [Object Integer] optional: [Any]
                           keywords: (list (cons label: Any)) rest: Any) summarize))
-  (.call gp.Observation. .map
+  (.call fun.Observation. .map
     (lambda (account) (checked account required #f label: 'review #!rest payload: #f))
     (lambda (context) (make-account family (.@ context rate)))))
 
@@ -220,7 +221,7 @@
 ;; FUN creates independent receiver scopes from current contexts and preserves
 ;; all three observations. No method body runs while this action is assembled.
 (def (scoped-action family units)
-  (.call gp.Observation. .map
+  (.call fun.Observation. .map
     (lambda (account) (.call (.@ account nested) run units))
     (lambda (context) (make-scoped-account family (.@ context rate)))))
 
@@ -229,7 +230,7 @@
 ;; before invocation, so visibility/metadata refusal emits no method effects. FUN
 ;; retains code, not an earlier catalog approval or a previous context's result.
 (def (inspected-action family units)
-  (.call gp.Observation. .map
+  (.call fun.Observation. .map
     (lambda (account)
       (read-slot family '.charge)
       (match account
@@ -277,7 +278,7 @@
 (def (batch-action family expander units)
   (def private-forms [(declaration-form 'private 'token (instance Slot constant: 'secret))])
   (def forms (declaration-forms (tenant tenant (.o)) ,@private-forms (charge .charge (.o))))
-  (.call gp.Observation. .bind (declaration-action expander forms)
+  (.call fun.Observation. .bind (declaration-action expander forms)
     (lambda (entries) (lambda (context)
       (def current (object<-expanded-declarations context entries supers: [family]))
       (read-slot current '.charge)
@@ -315,7 +316,7 @@
 ;; A failed approval executes neither methods nor consume; successful calls expose
 ;; the cache owner so the application can retain it without mutating the family.
 (def (typed-charge-action family units consume)
-  (.call gp.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (context)
       (unless (.@ context approved) (error "current approval refused"))
       (.o (.type family) (tier (.@ context tier)) (rate (.@ context rate))))

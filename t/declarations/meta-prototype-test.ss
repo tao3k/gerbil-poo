@@ -1,6 +1,6 @@
 (export meta-prototype-test)
 (import :std/test :std/iter :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/brace :clan/poo/meta-prototype
-        :clan/poo/declaration :clan/poo/reflection :clan/poo/inheritance-hooks
+        :clan/poo/declaration :clan/poo/reflection
         (prefix-in :clan/poo/examples/metaprotocol-services service.))
 ;; Actual self-hosted objects, inherited expanders and nonlocal metadata controls.
 (def meta-prototype-test

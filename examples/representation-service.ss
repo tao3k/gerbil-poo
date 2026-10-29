@@ -5,11 +5,11 @@
         ../mop
         ../number
         ../slot-layout
-        ../object-contract-flow
+        ../object-contract
         (only-in ../io module-action)
         (prefix-in ../object-contract contract.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.))
+        (runtime: :clan/poo/fun)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Shared inherited data remains a live registered dependency of both branches.
 (def base (.o capacity: 10 tariff: 3))
@@ -35,7 +35,7 @@
     (let (site (make-slot-cache name eager?: eager? shapes: shapes)) (cut .ref/inline <> site))
     (cut .ref <> name)))
   (checked-action descriptor
-    (.call observation.Observation. .bind
+    (.call fun.Observation. .bind
       read
       (lambda (amount) (lambda (candidate) (consume candidate amount))))))
 
@@ -292,11 +292,11 @@
     'clan/poo/examples/generalized-checkout#prepare-checkout))
   (def report (module-action "clan/poo/examples/generalized-checkout"
     'clan/poo/examples/generalized-checkout#report))
-  (def checkout (.call observation.Observation. .bind prepare
+  (def checkout (.call fun.Observation. .bind prepare
     (lambda (snapshot) (lambda (_request) (report (list snapshot))))))
-  ((.call observation.Observation. .bind
+  ((.call fun.Observation. .bind
     (lambda (_request) (service (list width layout: layout? reshape?: #t)))
-    (lambda (totals) (.call observation.Observation. .map (cut vector totals <>) checkout))) []))
+    (lambda (totals) (.call fun.Observation. .map (cut vector totals <>) checkout))) []))
 
 ;; The same dynamically selected binding runs through gxi or the shared-core exe.
 ;; Standard time retains complete entry business/GC work; startup is charged by

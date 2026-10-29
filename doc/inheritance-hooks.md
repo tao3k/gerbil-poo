@@ -6,7 +6,7 @@ it does not introduce another evaluator or depend on a Lean checkout.
 
 ## Inherited operations
 
-`inheritance-hooks.ss` exports `with-inheritance-hooks`. A protocol is an ordinary
+`mop.ss` exports `with-inheritance-hooks`. A protocol is an ordinary
 POO object, so its methods compose using the existing `.o` inheritance syntax:
 
 ```scheme

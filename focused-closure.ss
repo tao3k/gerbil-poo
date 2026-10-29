@@ -2,7 +2,7 @@
 (export closure-focus focus-closure-action focused-closures-action publish-focused-closures)
 (import (only-in :std/list/list foldr) ./object ./mop ./lens-laws
         ./generalized-declaration ./generalized-closure
-        (prefix-in ./generalized-prototype gp.))
+        (prefix-in (only-in ./fun Observation.) fun.))
 ;; A stage retains one existing preparation, captured outer lens, immutable local
 ;; base, transition budget and local law checks. Sources are guarded as one family.
 (defstruct focused-program (prepared check base budget checks) final: #t)
@@ -56,10 +56,10 @@
 (def (focused-closures-action stages cook)
   (unless (procedure? cook) (error "focused closure cooking procedure required"))
   (def chain (foldr (lambda (stage rest)
-    (.call gp.Observation. .map rest (focus-closure-action stage))) identity stages))
+    (.call fun.Observation. .map rest (focus-closure-action stage))) identity stages))
   (lambda (whole)
     (with-focused-sources stages (lambda ()
-      ((.call gp.Observation. .map (lambda (raw)
+      ((.call fun.Observation. .map (lambda (raw)
         (for-each (lambda (stage) (validate-focused stage raw)) stages)
         (cook raw)) chain) whole)))))
 ;; Publish only the final cooked family; any stage, validation or cooking failure

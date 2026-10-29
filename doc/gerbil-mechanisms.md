@@ -995,3 +995,31 @@ unsupported trees and quota exhaustion retain their existing refusals.
 
 [Scalar coverage](scalar-coverage.md) reuses the existing ordered flat matcher,
 shared refinement action and keyword encoder for String/Symbol/Keyword publication.
+
+### Protocol ownership audit
+
+A source split must own an independently useful protocol or break a real
+initialization dependency. Small pass-through modules do not justify another
+public package entry. This revision makes the following direct migrations:
+
+| Responsibility | Existing owner | Reason |
+| --- | --- | --- |
+| Ordered diagnostics, effective field wrapping, checked consumer | object-contract | One value-admission boundary, including refine; no separate flow namespace |
+| Reader introduction, bind and map | fun | General functional protocol; contracts need no generalized-prototype dependency |
+| Inherited C3/slot interception constructor | mop | The constructor exposes the existing meta-object protocol |
+| Bounded recursive Type unfolding | types/relation | Private normalization implementation with the same depth/work refusals |
+| Feedback reclosure and joint approval | feedback-closure | One closure/publication boundary, exact old receipt on failure |
+
+This removes six runtime modules and their build entries without compatibility
+re-exports. Existing test modules remain: suite names describe behavioral coverage,
+not additional runtime protocols. Reader operations and callbacks are moved
+unchanged, so refusal ordering, multiple results, field wrappers and source guards
+retain their original implementation.
+
+Keep value-diagnostics and validation-rebinding below MOP: Class bootstrap uses
+them and cannot depend on object-contract. Likewise proto owns the foundational
+prototype algebra; brace owns reader syntax; meta-prototype depends on the
+already bootstrapped generalized protocol. Feedback-cache owns cache reuse rather
+than equation closure. These are dependency or semantic boundaries, not redundant
+forwarders. Merge decisions follow ownership rather than file length; no new
+registry, wrapper, loader or namespace is introduced.

@@ -4,12 +4,12 @@
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
-        (prefix-in ../generalized-prototype observation.)
         (prefix-in :clan/property-testing/property testing.)
         (prefix-in :clan/property-testing/generator core.)
         (prefix-in (only-in :clan/property-testing/generator make-generator) testing.)
         (only-in :clan/property-testing/generator integer-shrinks)
-        (prefix-in :clan/property-testing/model model.))
+        (prefix-in :clan/property-testing/model model.)
+        (prefix-in (only-in ../fun Observation.) fun.))
 ;; Recognition-only callable fields deliberately do not wrap shrink callbacks:
 ;; invalid proposals must reach the existing attempt-budget/domain gate, rather
 ;; than become premature Function output errors. No arity/termination is inferred.
@@ -259,7 +259,7 @@
 ;; Reader/FUN composition makes the test run one observation followed by the
 ;; supplied consumer, which may be an existing IO action or an evidence gate.
 (def (property-action descriptor property consume sampler: (sampler #f) dependencies: (dependencies []))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (configuration) (check-property descriptor property
       sampler: sampler dependencies: dependencies
       policy: (if (.has? configuration policy) (.get configuration policy)

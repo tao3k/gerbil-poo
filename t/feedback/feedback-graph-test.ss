@@ -5,8 +5,9 @@
         :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/feedback-graph :clan/poo/feedback-cache
         :clan/poo/generalized-closure (prefix-in :clan/poo/strong-components scc.)
         (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/construction-cache cache.) (prefix-in :clan/poo/generalized-prototype gp.)
-        (prefix-in :clan/poo/examples/component-services service.))
+        (prefix-in :clan/poo/construction-cache cache.)
+        (prefix-in :clan/poo/examples/component-services service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Inspect physical work at the existing group materializer, not sampled timings.
 (def (evaluated current) (cache.cache-evaluated (graph-cache-values current)))
 ;; Native controls include topology changes, final approval, and independent hits.
@@ -97,7 +98,7 @@
         (.cc cache.Builder. allow: (lambda (_) #f))))
       (check-equal? ok #f) (check-equal? (evaluated next) [])
       (def reached? #f)
-      (def action (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def action (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (feedback-graph-action (graph-cache-source old) service.build-group (lambda (_ __) #f)
           builder: (.cc cache.Builder. allow: (lambda (_) #f)))))
       (check-exception (action old) true) (check-equal? reached? #f))

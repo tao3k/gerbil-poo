@@ -1,7 +1,7 @@
 (export object-contract-flow-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/io
         (only-in :clan/poo/type String Json)
-        :clan/poo/object-contract :clan/poo/object-diagnostics :clan/poo/object-contract-flow
+        :clan/poo/object-contract
         (prefix-in :clan/poo/examples/object-contracts service.))
 ;; Extract ordered public refusal kinds without depending on slot enumeration.
 (def (kinds failures) (map (lambda (failure) (.get failure kind)) failures))

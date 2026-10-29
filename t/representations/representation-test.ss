@@ -6,11 +6,11 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/read-route make-read-issuer)
-        (prefix-in (only-in :clan/poo/generalized-prototype Observation.) gp.)
         (only-in :clan/poo/mop validate TypeError? Fun Slot .new) (only-in :clan/poo/number Integer)
         (only-in :clan/poo/reflection reflect-slots read-slot write-slot!)
         :clan/poo/object :clan/poo/prototype-map :clan/poo/slot-layout :clan/poo/slot-observation :clan/poo/meta-prototype
-        (prefix-in :clan/poo/examples/representation-service service.))
+        (prefix-in :clan/poo/examples/representation-service service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Match protocol refusal rather than accepting unrelated arithmetic exceptions.
 (def (message? text)
@@ -472,7 +472,7 @@
           (check-equal? (module-load-order module) order)
           (check (eq? (with-catch identity (cut action '(deny))) 'entry-business-refusal) => #t)
           (check-equal? (call-with-values (cut action '(ok)) list) '(4 #f))
-          (let (observe (.call gp.Observation. .map (cut + <> 10) action))
+          (let (observe (.call fun.Observation. .map (cut + <> 10) action))
             (check-equal? (observe '(scalar)) 15))
           (write-entry-fixture module binding 100)
           (reload-module! module)
@@ -491,7 +491,7 @@
         'clan/poo/examples/generalized-checkout#prepare-checkout))
       (def report (module-action "clan/poo/examples/generalized-checkout"
         'clan/poo/examples/generalized-checkout#report))
-      (let (action (.call gp.Observation. .bind prepare
+      (let (action (.call fun.Observation. .bind prepare
         (lambda (snapshot) (lambda (_request) (report (list snapshot))))))
         (check-equal? (action []) '(30 33 3)))
       (check-equal? (service.entry-workflow 4 layout: #t) '#(#(30 36 42 12) (30 33 3)))

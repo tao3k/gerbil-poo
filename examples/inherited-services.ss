@@ -5,12 +5,11 @@
         ../number
         ../brace
         ../reflection
-        ../inheritance-hooks
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) gp.)
+        (runtime: :clan/poo/fun)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination compile-simula-context
-                   simula-body) combination.))
+                   simula-body) combination.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Derive an audited protocol using ordinary inherited method continuations.
 ;; Compilation is lazy with respect to slot bodies; the log runs only on demand.
 (def (service-protocol log)
@@ -39,14 +38,14 @@
 ;; Reader/FUN chaining validates one shared revision before all branch observations.
 ;; A refused value or sealed source publishes no edit; arbitrary I/O is not undone.
 (def (revision-action amount)
-  (.call gp.Observation. .map report
+  (.call fun.Observation. .map report
     (lambda (services) (write-slot! (.@ services source) 'amount amount) services)))
 
 ;; Reconfigure the billing branch through the checked mutation boundary, then
 ;; observe all services through FUN. The join selects billing's current complete
 ;; protocol; risk keeps its own protocol. Refusal never reaches report.
 (def (protocol-action protocol)
-  (.call gp.Observation. .map report
+  (.call fun.Observation. .map report
     (lambda (services) (object-protocol-set! (.@ services billing) protocol) services)))
 
 ;; Prepare one Simula program, then reuse it as a FUN action across service
@@ -64,7 +63,7 @@
         (lambda (requested services)
           (emit (list 'settle name requested (read-slot (.ref services name) 'amount))))))
       '(billing risk join))))
-  (.call gp.Observation. .map report
+  (.call fun.Observation. .map report
     (lambda (services) (program services (list units)) services)))
 
 ;; Retained MOP/public snapshots are editable observations, never cached C3 cells.

@@ -4,11 +4,11 @@
         (prefix-in ../recursive-staging staging.)
         (runtime: :clan/poo/recursive-validation)
         (prefix-in (only-in ../recursive-validation closed-ref) graph.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (runtime: :clan/poo/examples/recursive-topology)
         (prefix-in (only-in ./recursive-topology names peer-recipes publish-action) service.)
-        (prefix-in ./recursive-migration migration.))
+        (prefix-in ./recursive-migration migration.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Reuse the existing checked peer/summary recipes for independently staged edits.
 ;; Select only changed peer recipes; declared dependencies perform the reclosure.
@@ -22,7 +22,7 @@
 ;; Four results expose the installed graph separately from the effect result:
 ;; later policy refusal does not roll back an already successful graph revision.
 (def (publication-action request expected targets providers chosen invocation context-value)
-  (.call observation.Observation. .bind request
+  (.call fun.Observation. .bind request
     (lambda (next)
       (lambda (_previous)
         (defvalues (result state refusal)

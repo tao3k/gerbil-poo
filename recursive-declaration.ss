@@ -3,7 +3,7 @@
 (import :std/iter (only-in :std/list/list foldr delete-duplicates/hash)
         ./object ./mop ./declaration
         (prefix-in ./recursive recursive.) (prefix-in ./recursive-cache cached.)
-        (prefix-in ./generalized-prototype gp.))
+        (prefix-in (only-in ./fun Observation.) fun.))
 ;; Ordinary inherited expansion lifts into Interaction. Extensions can request a
 ;; named fragment (including a later one), map its metadata, or bind several reads.
 (define-type (RecursiveDeclaration. @ Declaration.)
@@ -54,9 +54,9 @@
           (unless (list? entries) (error "recursive declaration must return a finite list"))
           (set! memo next) entries)
         (def action (foldr (lambda (name rest)
-          (.call gp.Observation. .bind (lambda (_) (resolve name))
-            (lambda (front) (.call gp.Observation. .map (cut append front <>) rest))))
-          (.call gp.Observation. .ap []) roots))
+          (.call fun.Observation. .bind (lambda (_) (resolve name))
+            (lambda (front) (.call fun.Observation. .map (cut append front <>) rest))))
+          (.call fun.Observation. .ap []) roots))
         (def entries (finalize context (action context)))
         (unless (list? entries) (error "recursive finalizer must return a finite list"))
         entries))))

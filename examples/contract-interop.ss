@@ -1,6 +1,7 @@
 ;;; Gerbil typed consumers composed with recursively checked POO service rows.
 (export make-sink sink-count admit-to-sink publish-from-sink)
-(import (only-in ../support/base require-value) ../object ../mop ../object-contract-flow
+(import (only-in ../support/base require-value) ../object ../mop
+        ../object-contract
         (prefix-in ./row-services rows.))
 
 ;; Ordinary host state uses Gerbil's generated struct/class machinery directly.

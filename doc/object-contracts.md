@@ -168,14 +168,14 @@ automatic provenance capture, runtime Loader or deployment consumer.
 
 ## Diagnostic phases and FUN composition
 
-`object-diagnostics` exports `diagnostic-all` (ordered accumulation) and
+`object-contract` exports `diagnostic-all` (ordered accumulation) and
 `diagnostic-then` (gate the next phase). Both are higher-order procedures prepared
 once for immutable declarations. Ordinary diagnostic lists accumulate; unexpected
 exceptions propagate unchanged, and malformed callback results remain errors.
 `ObjectContract.` prepares its whole-value constraints and obligations through
 these combinators in a receiver-local slot, including for derived descriptors.
 
-`object-contract-flow` exports `checked-action`. It uses the existing `Observation.`
+`object-contract` exports `checked-action`. It uses the existing `Observation.`
 Reader/FUN bind: validate this invocation's candidate, then invoke the consumer on
 that exact validated/normalized value. There is no accepted-value cache. Function
 Types therefore retain their wrapped function at this explicit execution boundary;
@@ -237,7 +237,7 @@ the original Racket API contained these helpers.
 
 ## Nested Function fields, refinement and publication
 
-`object-contract-validation` prepares the effective field validators once per
+`object-contract` prepares the effective field validators once per
 receiver. Validation has three stages:
 
 1. Recursively check object/prototype/inventory and leaf membership, without

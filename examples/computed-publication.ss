@@ -6,10 +6,10 @@
         ../number
         ../object-contract
         (only-in ../type Record List)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts config.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Defaults, computed delegates and nested result Functions share one interface.
 (def Transform (Fun Integer <- Integer))
@@ -74,7 +74,7 @@
 (def (service-action invocation context-value)
   (def publish (publication.publication-action EnvelopeContract invocation context-value
                  (cut produce context-value <>)))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (text)
       (def config-value (config.decode-service text))
       (.o config: config-value processor: (make-instance InitializedRecord)))

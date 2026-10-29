@@ -8,9 +8,9 @@
         (runtime: :clan/poo/recursive-validation)
         (prefix-in (only-in ../recursive-validation closed-ref closed-type
                    validation-node) graph.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
-        (prefix-in ./contract-publication publication.))
+        (runtime: :clan/poo/fun)
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; A provider recipe may be removed and later resubmitted with the SAME identity.
 ;; Reclosure must still allocate a new receiver and Reference capability for it.
@@ -76,7 +76,7 @@
 ;; Existing FUN Reader and publication actions bind actual checked subject,
 ;; descriptor and context. Membership commit precedes this separate effect gate.
 (def (publish-action graph expected target invocation context-value)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_) (envelope graph expected target))
     (lambda (descriptor-value)
       (publication.publication-action descriptor-value invocation context-value

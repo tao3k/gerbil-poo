@@ -1,6 +1,7 @@
 (export generalized-prototype-test)
 (import :std/test :clan/poo/object (only-in :clan/poo/mop Lens lens-of-get-set slot-lens) (prefix-in :clan/poo/generalized-prototype gp.)
-        (prefix-in :clan/poo/examples/generalized-checkout checkout.))
+        (prefix-in :clan/poo/examples/generalized-checkout checkout.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Exercise actual native protocols and failures; no injected compiled snapshots.
 (def generalized-prototype-test
   (test-suite "generalized future-work hooks"
@@ -27,9 +28,9 @@
         (list (lambda (_ parent) 7) (lambda _ (error "must stay delayed")))))
       (check-equal? (gp.step snapshot 0 0) 7)
       (def reached #f)
-      (def action ((.@ gp.Observation. .bind)
+      (def action ((.@ fun.Observation. .bind)
         (lambda (_) (error "source hook failure"))
-        (lambda (_) (set! reached #t) (.@ gp.Observation. .ap))))
+        (lambda (_) (set! reached #t) (.@ fun.Observation. .ap))))
       (check-exception (action 0) true) (check-equal? reached #f))
     (test-case "compatible public self extension preserves finite construction"
       (def protocol (gp.reindex-self checkout.protocol car
@@ -109,12 +110,12 @@
       (check-equal? (.@ (.@ raw billing) service) 'billing))
     (test-case "Reader map evaluates once and propagates failures before projection"
       (def calls 0) (def projected 0)
-      (def mapped ((.@ gp.Observation. .map)
+      (def mapped ((.@ fun.Observation. .map)
         (lambda (value) (set! projected (+ projected 1)) (not value))
         (lambda (value) (set! calls (+ calls 1)) value)))
       (check-equal? (mapped #f) #t) (check-equal? (mapped #t) #f)
       (check-equal? calls 2) (check-equal? projected 2)
-      (def failed ((.@ gp.Observation. .map)
+      (def failed ((.@ fun.Observation. .map)
         (lambda (_) (set! projected (+ projected 1))) (lambda (_) (error "reader failure"))))
       (check-exception (failed 0) true) (check-equal? projected 2))
     (test-case "context binding selects current base and seed independently"

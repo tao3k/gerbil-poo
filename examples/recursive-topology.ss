@@ -10,10 +10,10 @@
         (runtime: :clan/poo/recursive-validation)
         (prefix-in (only-in ../recursive-validation closed-ref closed-type
                    revise-validation validation-node) graph.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./recursive-migration service.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; All service keys remain stable while their peer SCCs and shared providers change.
 (def names '(ingress auth billing ledger index cache notify delivery))
@@ -71,7 +71,7 @@
 ;; FUN Reader refinement composes the existing exact bound-evidence effect gate.
 ;; Graph revision and effect publication remain separate sequential boundaries.
 (def (publish-action current expected targets providers chosen invocation context-value)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_) (envelope current expected targets providers chosen))
     (lambda (descriptor-value)
       (publication.publication-action descriptor-value invocation context-value

@@ -1,6 +1,7 @@
 (export feedback-revision-test)
-(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/generalized-closure :clan/poo/feedback-revision :clan/poo/lens-laws
-        (prefix-in :clan/poo/generalized-prototype gp.) (prefix-in :clan/poo/examples/shared-feedback service.))
+(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/generalized-closure
+        :clan/poo/feedback-closure :clan/poo/lens-laws (prefix-in :clan/poo/examples/shared-feedback service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Shared dependency invalidation, cross-service feedback and exact-candidate approval.
 (def feedback-revision-test
   (test-suite "shared cyclic feedback and cross-service revision"
@@ -94,9 +95,9 @@
     (test-case "Reader composition short-circuits joint refusal and observes accepted candidate"
       (def policy (.o (quota 3) (limit 12))) (def approval (.o (allowed #t)))
       (def prepared (service.prepare-services policy approval)) (def reached? #f)
-      (def denied (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def denied (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (feedback-revision-action prepared service.base 6 (lambda (_ __) #f))))
       (check-exception (denied #f) true) (check-equal? reached? #f)
-      (def allowed (.call gp.Observation. .map (lambda (candidate) (service.report candidate 2))
+      (def allowed (.call fun.Observation. .map (lambda (candidate) (service.report candidate 2))
         (feedback-revision-action prepared service.base 6 (service.admit policy approval))))
       (check-equal? (allowed #f) '(3 24 36 60 #t audit)))) )

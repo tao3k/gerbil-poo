@@ -1,9 +1,8 @@
 ;;; Generalized prototype hooks advance Appendix B's explicitly deferred future work.
 (export Protocol. Prepared? prepare prepare-inheritance prepared-protocol prepared-fragments
         lens-compiler focus-compiler focus-protocol prepare-focused prepare-focused-inheritance sum-compiler reindex-self cook-fields bind-observer bind-context-observer
-        assemble step approximate observe observation-action Observation.)
-(import (only-in :std/func compose) (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type)
-        (prefix-in ./fun fun.))
+        assemble step approximate observe observation-action)
+(import (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type))
 ;; Public immutable-in-practice descriptor: compile returns (delayed self, delayed
 ;; raw parent) -> raw. Cook is the sole raw -> public interface boundary.
 (define-type (Protocol. @ [] cook compile))
@@ -138,16 +137,5 @@
   (check-depth depth)
   ((prepared-cook snapshot)
     (iterate (prepared-program snapshot) (prepared-cook snapshot) base seed depth)))
-;; Reader/FUN introduction keeps one seed shared by all composed observations.
-(def (pure-observation value) (lambda (_) value))
-;; Reader bind runs the next observation with the same seed; host errors stop it.
-(def (bind-observation action next)
-  (lambda (seed) ((next (action seed)) seed)))
-;; Reader map is ordinary composition: capture once and allocate NO per-call
-;; pure Reader. It still invokes action exactly once before transform; errors stop.
-(def (map-observation transform action) (compose transform action))
-;; Native FUN protocol for observations; no invented I/O interpreter or global state.
-(define-type (Observation. @ fun.ParametricFunctor.)
-  .ap: pure-observation .bind: bind-observation .map: map-observation)
 ;; Lift one compiled observation into the native FUN composition chain.
 (def observation-action bind-observer)

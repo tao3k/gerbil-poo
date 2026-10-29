@@ -4,10 +4,10 @@
         ../mop
         ../number
         (prefix-in ../object-contract contract.)
-        ../object-contract-flow
+        ../object-contract
         (prefix-in ../parameters parameters.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.))
+        (runtime: :clan/poo/fun)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Canonical generic formals evaluate defaults at the call boundary exactly once.
 (.defgeneric (quote-service self units (discount 0) currency: (currency 'USD) . notes) slot: quote)
@@ -42,6 +42,6 @@
 ;; gates the exact derived receiver before invoking the result/effect consumer;
 ;; original contexts and any other entry's partially specialized object are retained.
 (def (specialize-action arguments consume)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (template) (apply parameters.specialize template arguments))
     (lambda (candidate) (lambda (_template) ((checked-action ClosedService consume) candidate)))))

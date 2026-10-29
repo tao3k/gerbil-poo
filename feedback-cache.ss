@@ -4,7 +4,7 @@
 (import (only-in :std/list/list foldr delete-duplicates/hash) ./object ./mop ./support/option
         ./generalized-declaration ./generalized-closure ./feedback-closure ./lens-laws
         (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
-        (prefix-in ./generalized-prototype gp.))
+        (prefix-in (only-in ./fun Observation.) fun.))
 ;; Only successful whole-raw closure plus every component residual creates a group.
 ;; Registered sources and immutable receipt data remain part of the reuse premise.
 (defstruct group (prepared closed checks) final: #t)
@@ -45,9 +45,9 @@
       (with-feedback-groups groups (lambda ()
         ;; The same native FUN Reader chain performs final approval. No approval
         ;; result is retained, including when every construction slot was reused.
-        ((.call gp.Observation. .map (lambda (next)
+        ((.call fun.Observation. .map (lambda (next)
           (unless (eq? (admit old next) #t) (error "joint feedback cache approval refused")) next)
-          (.call gp.Observation. .ap candidate)) old)))))))
+          (.call fun.Observation. .ap candidate)) old)))))))
 ;; Construction, required-group checks, source admission and joint approval share
 ;; one publication boundary. Any refusal retains the exact old cache and exception.
 ;; Later publication failure never promotes a speculative cache for subsequent reuse.

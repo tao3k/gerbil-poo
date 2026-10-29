@@ -1,8 +1,9 @@
 (export feedback-cache-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/feedback-cache :clan/poo/generalized-declaration
-        :clan/poo/lens-laws (prefix-in :clan/poo/generalized-prototype gp.)
+        :clan/poo/lens-laws
         (prefix-in :clan/poo/dependency-analysis code.) (prefix-in :clan/poo/construction-cache cache.)
-        (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/examples/cached-feedback service.))
+        (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/examples/cached-feedback service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Closed groups are atomic cache nodes, not partial cyclic reconstruction states.
 (def feedback-cache-test
   (test-suite "selective feedback groups and shared dependency invalidation"
@@ -87,11 +88,11 @@
       (check-equal? ok #f) (check-equal? (cache.cache-evaluated next) '(stable)))
     (test-case "Reader composition observes accepted groups and suppresses suffix after refusal"
       (def policy (.o (allowed #t) (limit 27)))
-      (def action (.call gp.Observation. .map (cut service.report <> 2)
+      (def action (.call fun.Observation. .map (cut service.report <> 2)
         (feedback-cache-action (service.source 3) service.required-keys (service.admit policy))))
       (check-equal? (map (cut list-ref <> 4) (action #f)) '(36 48 24))
       (def reached? #f)
-      (def refused (.call gp.Observation. .map (lambda (_) (set! reached? #t))
+      (def refused (.call fun.Observation. .map (lambda (_) (set! reached? #t))
         (feedback-cache-action (service.source 3) service.required-keys (lambda (_ __) #f))))
       (check-exception (refused #f) true) (check-equal? reached? #f))
     (test-case "approval guards stay active after full reuse and non-Boolean approval refuses"

@@ -6,10 +6,10 @@
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
-        ../object ../mop ../object-contract ../object-contract-flow ../support/option
+        ../object ../mop ../object-contract ../support/option
         (prefix-in ../construction-cache cache.)
         (prefix-in ../dependency-analysis code.)
-        (only-in ../generalized-prototype Observation.))
+        (only-in ../fun Observation.))
 
 ;; Host ownership uses generated class fields; POO retains descriptor semantics.
 (defstruct %services (descriptor rows) final: #t)

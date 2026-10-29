@@ -4,13 +4,11 @@
 (import ../object
         (only-in ../mop define-type Lens lens-of-get-set slot-lens)
         (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation. Protocol.
-                   bind-context-observer cook-fields focus-compiler focus-protocol
-                   lens-compiler observation-action observe prepare-focused-inheritance
-                   prepare-inheritance sum-compiler) gp.)
+        (prefix-in (only-in ../generalized-prototype Protocol. bind-context-observer cook-fields focus-compiler focus-protocol lens-compiler observation-action observe prepare-focused-inheritance prepare-inheritance sum-compiler) gp.)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination item prepare-simple
-                   prepare-simple-items sum) combination.))
+                   prepare-simple-items sum) combination.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Raw fields are price contributions, rebate contributions and an untouched audit.
 (def base (list [] [] 'audit))
 ;; Replace one nested method list while preserving the other list and audit frame.
@@ -62,8 +60,8 @@
 (def (total snapshot depth) ((gp.observe snapshot base base depth) 'price))
 ;; Compose two observations with native FUN bind/map and the exact same raw seed.
 (def (report snapshot)
-  (def action ((.@ gp.Observation. .bind) (gp.observation-action snapshot base 1)
-    (lambda (first) ((.@ gp.Observation. .map)
+  (def action ((.@ fun.Observation. .bind) (gp.observation-action snapshot base 1)
+    (lambda (first) ((.@ fun.Observation. .map)
       (lambda (second) (list (first 'price) (second 'price) (second 'rebate)))
       (gp.observation-action snapshot base 2)))))
   (action base))
@@ -103,7 +101,7 @@
   (gp.prepare-focused-inheritance protocol service-focus identity cook-service nested-root nested-declarations))
 ;; Compose finite observations of the service, retaining both audit frames and metadata.
 (def (nested-report snapshot)
-  (def read ((.@ gp.Observation. .map)
+  (def read ((.@ fun.Observation. .map)
     (lambda (view) (list (view 'price) (view 'rebate) (view 'service)))
     (gp.observation-action snapshot nested-base 2)))
   (read nested-base))
@@ -145,7 +143,7 @@
 ;; Compile the fixed declaration graph once, then use each invocation's CURRENT
 ;; configuration as base and seed. This is code reuse, never cached admission.
 (def (bind-envelope-report (fused? #t))
-  ((.@ gp.Observation. .map) envelope-fields
+  ((.@ fun.Observation. .map) envelope-fields
     (gp.bind-context-observer (prepare-envelope fused?) 2 identity identity)))
 ;; Convenience for a one-off configuration. Repeated revisions should explicitly
 ;; retain bind-envelope-report while the declaration graph/callbacks stay unchanged.
@@ -181,5 +179,5 @@
 ;; Reusable current-context report for that declared homogeneous representation.
 ;; Graph/callback changes need a new factory; current approval is never cached.
 (def (bind-envelope-items-report)
-  ((.@ gp.Observation. .map) envelope-fields
+  ((.@ fun.Observation. .map) envelope-fields
     (gp.bind-context-observer (prepare-envelope-items) 2 identity identity)))

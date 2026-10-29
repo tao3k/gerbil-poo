@@ -33,7 +33,7 @@ further tuning of the corresponding workflow.
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
 | Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream, certified typed declaration groups and `.defgeneric` `combination:` invocation with retained cache successors. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and arbitrary inferred multi-dispatch syntax remain future work; explicit certified typed declarations now use the same method form, inheritance and generic invocation protocol. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
-| General inheritance MOP | Concrete interception implemented: `inheritance-hooks.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/objects/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
+| General inheritance MOP | Concrete interception implemented: `mop.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/objects/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
 | User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
 | Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
 | Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/declarations/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/declarations/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
@@ -528,7 +528,7 @@ budget is not a proof of divergence. Functional closure here precedes optimizati
 
 ### Shared feedback and cross-service revision
 
-`feedback-revision.ss` composes fresh feedback closure with current joint approval
+`feedback-closure.ss` composes fresh feedback closure with current joint approval
 inside one source guard. Old raw is only a seed; no old fixedness or approval is
 reused, even if the raw value is unchanged. Registered preparation/check sources
 stay protected until approval finishes. Strict Boolean approval and exact old
@@ -3052,9 +3052,19 @@ newly registered edges, singleton cycles, complete refusal before clear, shared
 once-only invalidation, Unit returns and non-rollback clear failures. Regressions
 cover these boundaries; finite Lean order/equivalence, revision/frame and logical
 scratch-count laws retain graph/weak-storage/serialized-operation premises.
-The standard compiled foundation also links the two shared value-admission roots;
+The standard compiled foundation links the single value-admission owner;
 common initialization stays charged to bootstrap. The existing startup sampler
-compares immutable prior/current standard programs through the same IO action and
-business plugin, retaining complete wall/readiness/GC data and all paired controls.
+compares dynamic/linked entry through the same IO action and business plugin,
+retaining complete wall/readiness/GC data and all paired controls.
 This does not replace the official test entry or claim to eliminate macOS dynamic
 mapping waits or guarantee arbitrary cold full-suite admission within its guard.
+
+### Consolidated protocol ownership
+
+ObjectContract now owns ordered diagnostics, field validation, refinement and
+checked-action. FUN owns Observation.; MOP owns with-inheritance-hooks;
+types/relation owns guarded unfolding; feedback-closure owns revision admission.
+The six former forwarding-sized runtime modules are removed, including their
+build declarations and caller imports. No aliases or additional wrappers remain.
+All behavioral suites remain registered; see [gerbil-mechanisms.md](gerbil-mechanisms.md)
+for the dependency-based audit and the retained bootstrap boundaries.

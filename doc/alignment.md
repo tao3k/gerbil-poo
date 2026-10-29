@@ -32,8 +32,7 @@ checks the runtime premises at its public boundary.
 
 ## Structural value contracts
 
-`ObjectDiagnostics` and `ObjectContract` correspond to `object-diagnostics.ss`,
-`object-contract.ss` and `object-contract-flow.ss`. They establish ordered
+`ObjectDiagnostics` and `ObjectContract` correspond to `object-contract.ss`. They establish ordered
 accumulation, phase refusal, finite field inventory/existence, explicit checker
 coherence and admission before a FUN consumer. The executable Json/lens scenario
 is `examples/object-contracts.ss`; the finite companion is

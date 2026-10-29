@@ -5,7 +5,6 @@
         ../types/relation
         ../prototype-types
         ../object-contract
-        ../object-contract-flow
         (runtime: :clan/poo/examples/polymorphic-services)
         (prefix-in (only-in ./polymorphic-services publish-service) publication.))
 ;; A finite guarded approximation accepts leaves with no children. Three unfoldings

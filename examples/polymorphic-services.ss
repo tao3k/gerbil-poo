@@ -19,13 +19,11 @@
         ../mop
         ../prototype-types
         ../object-contract
-        ../object-contract-flow
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata bind-evidence contract contribute
                    predicate publish replace truth) metadata.)
         ../method-declaration
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./contract-publication publication.)
         (runtime: :clan/poo/multimethod)
         (prefix-in (only-in ../multimethod prototype) dispatch.)
@@ -33,7 +31,8 @@
         (prefix-in (only-in ../dispatch-extension call shape) extension.)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination after around before
-                   prepare-standard primary standard-contribution?) combination.))
+                   prepare-standard primary standard-contribution?) combination.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Ordinary prototype parameters remain Type descriptors. Computed inherited
 ;; methods bind to the specialized receiver, with no new metaclass or registry.
@@ -118,7 +117,7 @@
 ;; A rejected context or bad argument has no method/consumer effects; successful
 ;; invocation retains the complete cache successor as the second returned value.
 (def (conversion-action instance value consume)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (context)
       (unless (eq? (.get context approved) #t) (error "conversion approval refused"))
       (.get instance prototype))
@@ -136,7 +135,7 @@
 (def (signature-request-action schema prefix candidates requests procedure (record void))
   (using (requests :~ procedure?)
     (def residual (specialize-prototype-type schema prefix))
-    (.call observation.Observation. .bind requests
+    (.call fun.Observation. .bind requests
       (lambda (queries) (lambda (_context)
         (infer-declared residual candidates queries
           (cut signature-service-declarations <> procedure record)))))))
@@ -205,7 +204,7 @@
 ;; FUN supplies current approval; IO consumes both checked user outputs once. A
 ;; rejected call transfers neither partial outputs nor a cache successor to IO.
 (def (signature-service-action instance arguments consume)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (context)
       (unless (eq? (.get context approved) #t) (error "signature service approval refused"))
       (.get instance prototype))
@@ -254,7 +253,7 @@
 ;; Reader/FUN approval precedes both generics; IO observes only their completed
 ;; checked user values. Each evolving cache owner remains an explicit result.
 (def (shared-service-action instance value consume)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (context)
       (unless (eq? (.get context approved) #t) (error "shared service approval refused"))
       (.get instance prototype))
@@ -299,7 +298,7 @@
     (lambda (candidate path)
       (if (positive? (hash-length (car (.get candidate routes)))) []
         [(.o bind-these: #f kind: 'empty-routes path: path)]))))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_)
       (unless (eq? (.get context approved) #t) (error "routing approval refused"))
       (.get instance prototype))
@@ -370,7 +369,7 @@
     (lambda (subject)
       (consume (.get subject processor))
       (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_)
       (unless (eq? (.get context approved) #t) (error "record approval refused"))
       (.get instance prototype))
@@ -478,7 +477,7 @@
     (lambda (subject)
       (consume subject)
       (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_)
       (unless (eq? (.get context approved) #t) (error "catalog approval refused"))
       (.get instance prototype))

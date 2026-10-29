@@ -2,8 +2,6 @@
 (export CapacityContract publication-action evidence-view)
 (import ../object
         ../object-contract
-        ../object-diagnostics
-        ../object-contract-flow
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata bind-evidence publish) metadata.)
         (prefix-in ./object-contracts service.))

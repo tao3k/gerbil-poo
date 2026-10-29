@@ -6,13 +6,13 @@
                    envelope-report nested-base prepare-envelope prepare-nested
                    prepare-nested-unfused) checkout.)
         (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype Observation. approximate bind-observer
-                   observe prepared-protocol step) gp.)
+        (prefix-in (only-in :clan/poo/generalized-prototype approximate bind-observer observe prepared-protocol step) gp.)
         (prefix-in "focused-cases.ss" study.)
-        (only-in "closure-measure.ss" run-child))
+        (only-in "closure-measure.ss" run-child)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Lift the real public result oracle through native FUN map, then bind its seed.
 (def (checked-action action seed fields expected)
-  (def checked ((.@ gp.Observation. .map)
+  (def checked ((.@ fun.Observation. .map)
     (lambda (view) (equal? (map view fields) expected)) action))
   (lambda () (checked seed)))
 ;; Inspect the same raw observations in both controls. This includes the output's

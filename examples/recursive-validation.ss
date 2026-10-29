@@ -17,10 +17,10 @@
         (runtime: :clan/poo/closure)
         (prefix-in (only-in ../closure closure-ref compile-closure either fact literal
                    solve-closure) closure.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts config.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Functions receive explicit recursive session state; no mutable memo is hidden
 ;; in a supposedly pure getter or shared between unrelated program owners.
@@ -101,7 +101,7 @@
 
 ;; Decode → close all graph nodes → root refine → exact bound FUN publication.
 (def (service-action invocation context-value)
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (text)
       (def config-value (config.decode-service text))
       (def graph (close-service config-value))

@@ -5,7 +5,7 @@
           +declaration-phases+ declaration-workload declaration-preparation-workload)
         :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
-        (only-in :clan/poo/object-contract-flow checked-action)
+        (only-in :clan/poo/object-contract checked-action)
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer %slot-read-active?)
         (only-in :gerbil/runtime/loader load-module)

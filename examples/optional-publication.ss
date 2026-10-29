@@ -6,10 +6,10 @@
         ../number
         ../object-contract
         (only-in ../type Maybe OrFalse TypeValuePair Tuple List String)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)
-        (prefix-in ./contract-publication publication.))
+        (prefix-in ./contract-publication publication.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Application-approved callable interface; TypeValuePair remains an open Type
 ;; carrier, while this particular consumer explicitly owns its accepted interface.
@@ -49,6 +49,6 @@
 (def (pipeline-action invocation context-value plugins-value fallback-value)
   (def publish (publication.publication-action PipelineSchema invocation context-value
                  (cut produce context-value <>)))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (text) (.o config: (service.decode-service text) plugins: plugins-value fallback: fallback-value))
     (lambda (candidate) (lambda (_text) (publish candidate)))))

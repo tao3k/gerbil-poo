@@ -3,7 +3,7 @@
         object<-expanded-declarations declaration-forms .declare)
 (import :std/iter 
         (only-in :std/list/list foldr map-in-order) ./object ./mop ./reflection (only-in ./type element?)
-        (prefix-in ./generalized-prototype gp.))
+        (prefix-in (only-in ./fun Observation.) fun.))
 ;; A declaration is ordinary typed-by-convention metadata, not a second AST engine.
 ;; Runtime construction supports computed names; .declare provides static syntax.
 (def (declaration-form kind name descriptor)
@@ -63,10 +63,10 @@
   (def revision (object-revision expander))
   (def actions (map-in-order (lambda (form)
     (lambda (context) (check-fragment (expand context form)))) forms))
-  (def program (.call gp.Observation. .map
+  (def program (.call fun.Observation. .map
     (lambda (chunks) (foldr append [] chunks))
     (lambda (context) (map-in-order (cut <> context) actions))))
-  (def finished (.call gp.Observation. .bind program
+  (def finished (.call fun.Observation. .bind program
     (lambda (entries) (lambda (context) (check-fragment (finalize context entries))))))
   (lambda (context)
     (unless (object? context) (error "declaration context object required"))

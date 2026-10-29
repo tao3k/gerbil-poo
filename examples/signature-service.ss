@@ -17,13 +17,13 @@
         (prefix-in (only-in ../method-combination primary standard-contribution?) combination.)
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata contract predicate replace truth) metadata.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.)
+        (runtime: :clan/poo/fun)
         (prefix-in ./contract-publication publication.)
         (runtime: :clan/poo/examples/polymorphic-services)
         (prefix-in (only-in ./polymorphic-services DescriptorServiceType
                    descriptor-service-action signature-request-action
-                   signature-service-declarations) service.))
+                   signature-service-declarations) service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Function values require explicit semantic generation: arbitrary procedures
 ;; cannot be synthesized from recognition alone. This fixture generates identity.
@@ -81,7 +81,7 @@
     (lambda (subject)
       (consume subject)
       (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_)
       (unless (eq? (.get context approved) #t) (error "service approval refused"))
       (.get instance prototype api))
@@ -97,7 +97,7 @@
 ;; never coerced to a Type or sent to a method/consumer. Source effects before
 ;; refusal are observable; retry uses a fresh request after repairing metadata.
 (def (specialized-action schema prefix candidates requests operation input context consume (allowed? #t))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (service.signature-request-action schema prefix candidates requests operation)
     (lambda (report)
       (unless (eq? (.get report status) 'unique)
@@ -138,7 +138,7 @@
 ;; must remain current until the whole solve/build returns. Reuse Reader/FUN,
 ;; qualified methods and the original refine/evidence/IO service consumer.
 (def (staged-service-action residual candidates queries operation stage input context consume (allowed? #t))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (lambda (_context)
       (infer-declared residual candidates queries
         (lambda (instance)

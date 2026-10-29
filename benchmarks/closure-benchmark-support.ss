@@ -1,6 +1,7 @@
 ;;; Native data/standard process helpers shared by the fixed benchmark driver.
 (export (import: "closure-measure.ss") run-bounded read-one check-sources!)
-(import :std/misc/process "closure-measure.ss")
+(import :std/misc/process
+        "closure-measure.ss")
 (def (read-one port)
   (def datum (read port))
   (when (eof-object? datum) (error "missing benchmark datum"))

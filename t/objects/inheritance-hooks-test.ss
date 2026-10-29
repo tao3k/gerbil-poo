@@ -2,8 +2,7 @@
 (import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/examples/representation-service topology-workflow)
-        :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String)
-        :clan/poo/inheritance-hooks :clan/poo/reflection
+        :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String) :clan/poo/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test

@@ -3,18 +3,18 @@
 (import :std/iter
         :clan/poo/object
         (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype Observation. Prepared? Protocol.
-                   bind-context-observer bind-observer observe prepare) gp.)
+        (prefix-in (only-in :clan/poo/generalized-prototype Prepared? Protocol. bind-context-observer bind-observer observe prepare) gp.)
         (runtime: :clan/poo/examples/generalized-checkout)
         (prefix-in (only-in :clan/poo/examples/generalized-checkout bind-envelope-report
                    envelope-base prepare-envelope) checkout.)
         (prefix-in "binding-cases.ss" study.)
-        (only-in "closure-measure.ss" run-child))
+        (only-in "closure-measure.ss" run-child)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Parent Reader map used bind/pure: allocate a reader around each projected value.
 ;; Keep the actual algorithm available to AOT; do not force artificial allocation.
 (def (reference-map transform action)
-  ((.@ gp.Observation. .bind) action
-    (lambda (value) ((.@ gp.Observation. .ap) (transform value)))))
+  ((.@ fun.Observation. .bind) action
+    (lambda (value) ((.@ fun.Observation. .ap) (transform value)))))
 ;; Observe the real public interface, including lazy price dependencies and policy.
 (def (fields view)
   (list (view 'price) (view 'rebate) (view 'service) (view 'tenant) (view 'approved)))
@@ -36,7 +36,7 @@
       ((map map-allocation)
        (map (lambda (mapper)
          (def action (mapper (lambda (value) (= value 8)) (lambda (value) (+ value 1))))
-         (lambda () (action 7))) (list (.@ gp.Observation. .map) reference-map)))
+         (lambda () (action 7))) (list (.@ fun.Observation. .map) reference-map)))
       ((binding binding-allocation)
        (let* ((empty (gp.prepare (.cc gp.Protocol. cook: identity compile: identity) []))
               (direct (lambda () (= (gp.observe empty 7 8 0) 8)))
@@ -45,7 +45,7 @@
       ((nested nested-history nested-allocation)
        (map (lambda (mapper)
          (def checked (mapper project (gp.bind-observer snapshot base 2)))
-         (lambda () (checked base))) (list (.@ gp.Observation. .map) reference-map)))
+         (lambda () (checked base))) (list (.@ fun.Observation. .map) reference-map)))
       ((revision revision-allocation)
        (map (lambda (reader)
          (lambda () (and (equal? (fields (reader base)) '(45 3 billing eu #t))

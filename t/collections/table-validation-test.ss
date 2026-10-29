@@ -7,7 +7,7 @@
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
         (only-in :clan/poo/fun Wrapper.)
         (only-in :clan/poo/trie SimpleTrie SimpleTrieSet Branch Leaf)
-        (only-in :clan/poo/object-contract-flow checked-action)
+        (only-in :clan/poo/object-contract checked-action)
         (prefix-in :clan/poo/examples/service-collection service.))
 
 ;; Failure payload identity is observable even when a callback raises a non-error.

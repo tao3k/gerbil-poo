@@ -2,7 +2,8 @@
 (export check-function-path capture-type-catalog capture-type-data function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/list/alist plist->alist)
         (only-in :std/hash/misc hash-ensure-ref)
-        (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax ../recursive-types ../object
+        (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax
+        (prefix-in ../recursive recursive.) ../object
         (only-in ../mop Any Bool Function CaseFunction Type. Object Class.)
         (only-in ../object-contract ObjectContract.)
         (only-in ../optional-validation type-value-catalog capture-type-values
@@ -18,6 +19,24 @@
 ;; getters. Tokens remain local to this capture; no global registry is installed.
 (def (capture-type-catalog provider names (budget 8192) sources: (sources []))
   (capture-type-values provider names sources (type-work budget) refuse-type))
+
+;; Mu X n F denotes n applications of F to Never. The self request decreases n;
+;; every copied term spends shared work, so branching expansion cannot evade quota.
+;; No host recursive descriptor knot or active-pair coinductive success is used.
+(def (unfold-type term work)
+  (let* ((name (cadr term)) (depth (caddr term)) (body (cadddr term))
+         (program (.cc recursive.Generator. input: Any output: Any
+           generate: (lambda (level)
+             (work)
+             (if (zero? level) (recursive.value 'Never)
+               (recursive.map-interaction
+                 (lambda (previous) (substitute-type body (list (cons name previous)) work))
+                 (recursive.request (- level 1)))))))
+         (result (recursive.solve program (+ depth 1) depth)))
+    (unless (recursive.value? result) (refuse-type 'exhausted "Recursive Type unfolding did not close"))
+    (let (expanded (recursive.value-result result))
+      (bounded-type-data expanded work)
+      expanded)))
 
 ;; Expand only explicit guarded Mu and splice explicit Object row substitutions.
 ;; Disjointness/kind failures invalidate an assignment; exhaustion always escapes.

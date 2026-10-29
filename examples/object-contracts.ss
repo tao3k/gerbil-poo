@@ -7,10 +7,8 @@
         ../io
         (only-in ../type String Json)
         ../object-contract
-        ../object-diagnostics
-        ../object-contract-flow
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Observation.) observation.))
+        (runtime: :clan/poo/fun)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Reuse the Type recognizer protocol for the finite port domain.
 (define-type (Port @ Type.)
   .element?: (lambda (value) (and (exact-integer? value) (<= 1 value 65535))))
@@ -42,7 +40,7 @@
 ;; The consumer may return multiple values, as checked-action preserves them.
 (def (revise-action additional-use port consume)
   (def admitted (checked-action ServiceContract consume))
-  (.call observation.Observation. .bind
+  (.call fun.Observation. .bind
     (checked-action ServiceShape (lambda (current)
       (.call (.lens port) .set port
         (.call (.lens used) .set (+ (.get current used) additional-use) current))))

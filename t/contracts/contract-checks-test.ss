@@ -1,7 +1,7 @@
 ;;; Real Gerbil using controls plus legacy failure and recursive wrapping parity.
 (export contract-checks-test)
 (import :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/types/relation :clan/poo/types/syntax :clan/poo/prototype-types
-        (only-in :clan/poo/support/base require-value) :clan/poo/object-contract :clan/poo/object-contract-flow :clan/poo/object-diagnostics
+        (only-in :clan/poo/support/base require-value) :clan/poo/object-contract
         (prefix-in :clan/poo/declarative-metadata metadata.)
         (prefix-in :clan/poo/function-signature signatures.)
         (prefix-in :clan/poo/examples/row-services rows.)
