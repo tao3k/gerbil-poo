@@ -352,7 +352,7 @@ remain attached to descendants and stale replay is refused.
 Typed recursive Lists and nullable carriers use the same sample-tree operation;
 Tuple/Pair/Union constructors retain their mandatory arity. Value-only List
 shrinking uses the same deletion policy and refuses before materializing a batch
-larger than the remaining solver search quota. No candidate list is silently
+larger than the existing candidate cap. No candidate list is silently
 truncated. Core lazy proposals still use the ordinary property/inspection budget.
 This is finite operation coverage, not a promise of global minimality. Mapping
 and arbitrary callback execution retain their own cost/purity obligations.

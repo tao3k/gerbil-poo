@@ -35,7 +35,7 @@
         .generator: (lambda () (make-generator GuardedLeaf (lambda (_random _) 1)
           (lambda (_) (set! callbacks (1+ callbacks)) []) abs))))
       (def limited (generator (List GuardedLeaf) search-budget: 6))
-      (check-exception (.call limited shrink '(1 2 3 4)) (limited? 'search))
+      (check-exception (.call limited shrink '(1 2 3 4)) (limited? 'candidates))
       (check-equal? callbacks 0))
     (test-case "Or reuses bounded alternative generation shrinking and replay"
       (def descriptor (Or (List UInt) (Tuple Bool)))
