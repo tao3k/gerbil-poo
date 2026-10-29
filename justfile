@@ -30,26 +30,25 @@ build-shared: build-core
 build-benchmarks group: build-core
     cd "benchmarks/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
-# Standard package commands preserve the original total job/heap budget.
-# Each phase is at most 300 seconds, preserving the 1200-second whole-build bound.
+# Bounded standard compiler packages reuse imports without retaining every test
+# source in one heap. Just owns parallel dependencies; Gerbil owns each make graph.
 build: build-shared
     #!/usr/bin/env bash
     set -euo pipefail
     [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
     cores=$((10#$GERBIL_BUILD_CORES))
-    # Preserve the existing slot/heap envelope with standard backend overlap.
-    # More package VMs also parallelize independent dependency preparation.
-    budget=$(( cores / 2 ))
-    if (( budget < 1 )); then budget=1; fi
-    workers=$(( (budget + 1) / 2 ))
-    backends=$(( 2 * budget / workers - 1 ))
-    # Spend the same declared slots on more isolated frontend VMs when possible.
-    # Keep at least two backends for standard make's asynchronous submission.
-    # CLI+frontend heaps are 1 GiB each; each backend is 2 GiB: 2 GiB per slot.
-    candidates=$(( workers * (backends + 1) / 3 ))
-    if (( candidates > workers )); then workers=$candidates; backends=2; fi
+    workers=2
+    if (( cores < 4 )); then workers=1; fi
+    backends=$((cores / workers - 1))
+    if (( backends < 1 )); then backends=1; fi
     printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
-    printf '%s\0' t/*/gerbil.pkg | /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -P "$workers" -n 1 sh -c 'cd "$(dirname "$1")" && printf "BUILD-PACKAGE %s\n" "$PWD" && exec gerbil {{ test-runtime-options }} build' build
+    /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 300s just --jobs "$workers" _build-test-packages
+
+[parallel]
+_build-test-packages: (_build-test-package "collections") (_build-test-package "prototypes") (_build-test-package "contracts") (_build-test-package "publication")
+
+_build-test-package part:
+    cd "t/build/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:
@@ -92,6 +91,7 @@ check width='2' samples='1' pairs='4' test-seconds='600': build (check-built wid
 
 check-built width='2' samples='1' pairs='4' test-seconds='600': check-layout
     just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+    just _test 90 t/build-test.ss
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2
 
@@ -106,7 +106,7 @@ _run-collections width samples pairs:
     /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"
 
 clean:
-    printf '%s\0' t/*/gerbil.pkg benchmarks/*/gerbil.pkg gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
+    printf '%s\0' t/build/*/gerbil.pkg benchmarks/*/gerbil.pkg gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
 
 benchmark-collections width='64' samples='10' pairs='6': build-shared (_run-collections width samples pairs)
 
