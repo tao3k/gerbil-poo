@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P22 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P23 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1707,3 +1707,61 @@ generator/collection workflows and all existing process/resource bounds remain
 required. Rackcheck's pinned `gen:bind` composes retained trees and a captured child
 random source; we retain that algebra. Epoch-based fixed-product admission is our
 explicit extension, not a missing feature attributed to Racket.
+
+## P23: source-consistent bounded rejection sampling
+
+The filter audit reproduced a hole between retry iterations: a rejected dynamic
+branch's leaves were checked at the next loop entry and retained by a later
+accepted tree, but were not inherited by the next draw's nested graph. That draw
+could invalidate the earlier branch and still invoke a mapper/selector before
+the final filtering boundary refused it. The baseline performed one forbidden
+map in the second attempt; the corrected run performs none and remains stale.
+
+The existing `generator-filter` now enters each retry's `generate` through
+`with-sources observed`. This is the same dynamically scoped, flat, identity-based
+ownership used by ordinary generator composition. No new record, guard chain,
+retry runner, PRNG owner, namespace or registry is added. Old and newly returned
+leaves still merge through the existing boundary before the predicate. A normally
+returning revision suppresses the next stage; exceptions retain their exact cause
+and unwind the dynamic context. Failed or exhausted generation never supplies a
+property witness. This change does not add portable provenance to exceptions that
+occur before a sample tree is returned.
+
+The source scope ends before the tail retry call. The search therefore keeps its
+existing tail recursion rather than growing one dynamic-scope frame per attempt.
+
+The quota remains an exact nonnegative local number of generator entries. Zero
+performs no entry; source refusal still precedes quota exhaustion. Rejection spends
+one token, acceptance stops immediately, and callback errors are never retried.
+The supplied size and random-source schedule are unchanged; there is no hidden
+size growth or fallback domain. Nested filters keep independent quotas: two outer
+entries can each spend three inner entries. Shrink tombstones remain separately
+charged against the property consumer's existing shrink budget.
+
+`examples/property-filters.ss` groups the older quota/shrink controls with the new
+retry matrix under the existing standard suite. Coverage includes draw, map,
+selection and inner-predicate revisions; multiple rejected owners; exact exception
+identity and scope restoration; nested quotas and strict Boolean predicates;
+accepted shrinking, identical seed replay, concrete replay without draws, obsolete
+report refusal and explicit fresh retry. The independent library now runs all 63
+cases without POO. The Record/Function/FUN workflow rejects construction after a
+retry revises an earlier owner, then reprepares, shrinks, retains Function wrapping
+and exercises both replay paths. No existing case is removed.
+
+`PropertyFilters.lean`, in the existing PropertyTesting namespace, composes
+`guardedGeneration`, `mergeSources` and `guardedStages`. Ten laws cover source
+preflight, draw revision and exact causes, rejected/accepted history, zero fuel,
+one-token retry continuation, early acceptance, a local entry-count bound and
+nested-pipeline suppression. The draw explicitly receives its complete source
+directory. Accurate/pure Boolean observers, faithful dynamic scope, faithful
+returned directories and terminating sequential callbacks remain premises.
+Runtime exceptions, wrapping, parameter unwinding and PRNG replay are separately
+tested; they are not host heap, concurrency, GC or wall-clock theorems.
+
+The added checks scale with retained source leaves and nested callback boundaries;
+no constant-time or speedup claim is made. All resource limits and full/paired
+checks remain required. Rackcheck's pinned `gen:filter` likewise composes a bounded
+search with shrink-tree filtering. Its retry size policy differs; byte-for-byte
+Racket behavior is not our contract. Its [documentation](https://docs.racket-lang.org/rackcheck/index.html)
+also recommends direct domain construction when possible. This work repairs the
+already supported finite filter protocol, not unrestricted rejection sampling.

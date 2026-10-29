@@ -294,7 +294,9 @@
     (let search ((fuel attempts) (observed sources))
       (require-sources! observed)
       (when (zero? fuel) (raise (make-generation-exhausted)))
-      (def tree (generate generator random size))
+      ;; Earlier rejected branches remain owners of every later draw/selector,
+      ;; not just its final predicate. The shared scope unwinds on every exit.
+      (def tree (with-sources observed (generate generator random size)))
       (def visited (merge-sources observed (sample-node-sources tree)))
       (def result (filter-sample tree predicate visited))
       (if (sample? result) result (search (1- fuel) visited)))) sources))

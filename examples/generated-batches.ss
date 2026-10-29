@@ -46,6 +46,52 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "rejected Record branches guard later construction through FUN retry shrinking and replay"
+      (def configuration (.o epoch: 0)) (def revise? #t) (def constructions 0) (def draws 0)
+      ;; Each check has a private retry schedule. Only the rejected branch declares
+      ;; the mutable epoch, testing generic provenance rather than a facade guard.
+      (def (prepare)
+        (def stamp (.get configuration epoch))
+        (def generation (core.generator-delay (lambda ()
+          (def trial 0)
+          (core.generator-filter (core.generator-sized (lambda (_size)
+            (set! trial (1+ trial))
+            (if (= trial 1)
+              (core.make-generator (lambda (_random _size)
+                (set! draws (1+ draws))
+                (make-instance Batch count: 0 payload: [] route: 'put handler: abs)) (lambda (_) [])
+                current?: (lambda () (= stamp (.get configuration epoch))))
+              (core.generator-map (core.make-generator (lambda (_random _size)
+                (set! draws (1+ draws)) (when revise? (.set! configuration epoch (1+ stamp))) 4)
+                core.integer-shrinks)
+                (lambda (count) (set! constructions (1+ constructions))
+                  (make-instance Batch count: count payload: [] route: 'put handler: abs))))))
+            (lambda (batch) (> (.get batch count) 0)) attempts: 2))))
+        (from-generator Batch generation (lambda (batch) (.get batch count))))
+      ;; The existing DEBUG/FUN action consumes the normal Record sampler and
+      ;; preserves recursive Function wrapping on every admitted shrink node.
+      (def (run sampler)
+        ((property-debug-action #f Batch (lambda (batch)
+          (check-equal? ((.@ batch handler) -7) 7) (< (.get batch count) 2)) sampler: sampler)
+          (make-instance PropertyConfiguration cases: 1 seed: 17 shrink-budget: 16)))
+      (def old (prepare))
+      (check-eq? (.get (run old) status) 'stale)
+      (check-equal? (list draws constructions) '(2 0))
+      (set! revise? #f)
+      (def fresh (run (prepare)))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (.get (.get fresh counterexample) count) 2)
+      (check-exception ((.@ (.get fresh counterexample) handler) 'wrong) TypeError?)
+      (check-equal? draws 4)
+      (check (replay-counterexample fresh) => #f)
+      (check-equal? draws 4)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-equal? draws 6)
+      (.set! configuration epoch 2)
+      (check-exception (replay-counterexample fresh) Error?)
+      (check-exception (replay-property fresh) Error?)
+      (check-eq? (.get (run old) status) 'stale)
+      (check-equal? draws 6))
     (test-case "Record FUN products refuse stale field sources before drawing and explicitly reprepare"
       (def epoch 0) (def draws 0)
       ;; A generic field owns an application revision even when the Record Type

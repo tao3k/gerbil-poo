@@ -1661,6 +1661,13 @@ dynamic unselected branches and empty result domains remain independent. P22 in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced preflight mismatch,
 59-case independent library controls and six finite source-composition laws.
 
+Bounded filter retries now propagate rejected branch ownership through each later
+draw/selector/map, rather than only checking it around the final predicate. P23 in
+[pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced downstream effect,
+exact quota/exception and nested-filter controls, the 63-case independent library,
+Record/FUN replay and retry, and ten finite rejection-sampling laws. Quotas remain
+local; no unrestricted filter or host timing guarantee is claimed.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
