@@ -46,6 +46,42 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Record FUN products refuse stale field sources before drawing and explicitly reprepare"
+      (def epoch 0) (def draws 0)
+      ;; A generic field owns an application revision even when the Record Type
+      ;; itself is unchanged. Prepare a new captured epoch only for explicit retry.
+      (def (prepare)
+        (def stamp epoch)
+        (def fields (core.generator-sequence
+          (list (core.make-generator (lambda (_random _size) (set! draws (1+ draws)) 3)
+                  core.integer-shrinks)
+            (core.make-generator (lambda (_random _size) abs) (lambda (_) [])
+              current?: (lambda () (= stamp epoch))))))
+        (from-generator Batch (core.generator-map fields (lambda (row)
+          (make-instance Batch count: (car row) payload: [] route: 'put handler: (cadr row))))
+          (lambda (batch) (.get batch count))))
+      ;; DEBUG/FUN consumes the normal typed sampler; no second runner or source
+      ;; registry is involved. A stale preflight charges no trial or shrink attempt.
+      (def (run sampler)
+        ((property-debug-action #f Batch (lambda (batch)
+          (check-equal? ((.@ batch handler) -5) 5) #f) sampler: sampler)
+          (make-instance PropertyConfiguration seed: 19 cases: 1 shrink-budget: 16)))
+      (def old (prepare))
+      (set! epoch 1)
+      (check-eq? (.get (run old) status) 'stale)
+      (check-equal? draws 0)
+      (def fresh (run (prepare)))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (.get (.get fresh counterexample) count) 0)
+      (check-equal? draws 1)
+      (check-exception ((.@ (.get fresh counterexample) handler) 'wrong) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-equal? draws 2)
+      (set! epoch 2)
+      (check-exception (replay-counterexample fresh) Error?)
+      (check-eq? (.get (run old) status) 'stale)
+      (check-equal? draws 2))
     (test-case "Record products share domain measures preserve handlers and reprepare after refusal"
       (def configuration (.o epoch: 0)) (def revise? #t) (def later 0)
       (def handler-type (Function [Integer] [Integer]))

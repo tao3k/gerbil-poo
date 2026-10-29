@@ -1654,6 +1654,13 @@ value-only shrinking and packing retain one source boundary. P21 in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced later-field effect,
 retry/wrapper controls and eight finite product laws.
 
+Fixed products now capture all declared generator leaves before drawing, so a
+stale later field suppresses earlier draw/map effects rather than only refusing
+the final run. Finite Function tables and typed Record/FUN reuse that boundary;
+dynamic unselected branches and empty result domains remain independent. P22 in
+[pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced preflight mismatch,
+59-case independent library controls and six finite source-composition laws.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

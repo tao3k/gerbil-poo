@@ -543,3 +543,11 @@ uses this same domain, captures its child directory once, and shares its guard
 with raw coordinate shrinking and retained-tree packing. Parent/child revision
 stops later callbacks, while fresh construction is the explicit retry boundary.
 See P21 of the RFC and the Record/Function/FUN product workflow in generated-batches.
+
+Fixed `generator-sequence` fields now own their declared source leaves before
+the first draw. A stale later field makes `generator-current?` false and refuses
+generation before randomness or any earlier field effect. Nonempty finite Function
+tables share that product admission; empty result domains and unselected dynamic
+branches remain independent. Draw seeds, retained shrinking and replay do not
+change. Use explicit fresh preparation after a revision; reopening an old sampler
+does not refresh it. See P22 and the Record/FUN retry example in generated-batches.

@@ -37,11 +37,13 @@
       '("property.ss" "property/generator.ss" "property/model.ss" "property/replay.ss" "property/test.ss"))
     (write-program (path-expand "gerbil.pkg" project) '((package: clan/poo/testing)))
     (create-directory* (path-expand "examples" project))
-    (copy-file (path-expand "examples/property-kernel.ss" source-root)
-      (path-expand "examples/property-kernel.ss" project))
+    (for-each (lambda (file)
+      (copy-file (path-expand file source-root) (path-expand file project)))
+      '("examples/property-products.ss" "examples/property-kernel.ss"))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
-        (defbuild-script '("property/generator" "property" "property/model" "property/replay" "property/test" "examples/property-kernel"))))
+        (defbuild-script '("property/generator" "property" "property/model" "property/replay" "property/test"
+                          "examples/property-products" "examples/property-kernel"))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))
@@ -77,20 +79,22 @@
                       (loop)))))))))
       (displayln "PROPERTY-LIBRARY-END " (time->seconds (current-time)) " " arguments) (force-output)
       result)
+    (displayln "PROPERTY-LIBRARY-BUILD stdlib-only empty package") (force-output)
     (run "build")
     (check (file-exists? artifact) => #t)
     ;; The module path does not load parent modules: no POO runtime is installed.
     (for-each (lambda (file)
       (check (file-exists? (path-expand file package)) => #f))
       '("lib/clan/poo/object.ssi" "lib/clan/poo/mop.ssi" "lib/clan/poo/testing/type.ssi"))
+    (displayln "PROPERTY-LIBRARY-RUN compiled independent suite") (force-output)
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 55)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 59)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 55 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 59 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
