@@ -41,7 +41,7 @@
    %slots ;; : persistent ordered direct specifications
    %defaults ;; : persistent ordered defaults
    %reads ;; receiver-local read records; no global receiver retention
-   %layout ;; : optional shared shape and receiver-local value vector
+   %layout ;; : optional inline-access alias to the primary value vector
    %instance ;; : standard HashTable interface over the sole receiver-local value store
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
    %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
@@ -563,17 +563,14 @@
 
 ;; Expose the existing primary vector by identity, without seeding another store.
 ;; The explicit hash qualification stays symbolic and never allocates a second cache.
-;; Creation hints cannot erase values already computed in the authoritative cells.
-(def (object-layout self eager?: (eager? #t) previous: (previous #f))
+(def (object-layout self previous: (previous #f))
   (instantiate-object! self previous: previous)
   (or (object-%layout self)
     (let (layout (slot-values-layout (object-%instance self)))
       (when layout (set! (object-%layout self) layout)) layout)))
-;; Guarded access sites reuse only an index, never another receiver's slot value.
-;; Observation and cold bootstrap anchors use ordinary .ref before preparation.
-;; A live layout already certifies completed instance preparation; supported edits
-;; clear both together. Reuse it directly instead of repeating instantiation.
-;; Failed computations publish no guard; absence never becomes a cached index.
+;; Sites retain offsets, never values. Observed/bootstrap reads use ordinary .ref;
+;; live layouts certify preparation and are discarded by supported edits.
+;; Failures bind no guard; absent names never become certified indices.
 (def (.ref/inline self cache)
   (def slot (slot-cache-name cache))
   (if (%slot-read-active?) (.ref self slot)

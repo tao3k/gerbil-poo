@@ -1,7 +1,7 @@
 ;;; Shared shapes and receiver-local value vectors for guarded access sites.
 (export slot-value-storage make-slot-values slot-values-layout
         make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
-        make-slot-cache slot-cache-name slot-cache-eager? slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
+        make-slot-cache slot-cache-name slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash))
 
@@ -111,24 +111,21 @@
   (let (index (slot-layout-index layout name))
     (when index (slot-layout-set! layout index value))))
 ;; One value guard retains one receiver/version/layout, independent of offset capacity.
-(defstruct access-cache (name owner revision layout shape index eager?))
+(defstruct access-cache (name owner revision layout shape index))
 ;; An explicit two-shape site adds one immutable descriptor/offset, never cells.
 ;; This fixed record guard is not a general LRU or a second name/hash registry.
 (defstruct (two-shape-cache access-cache) (previous-shape previous-index))
 ;; The fixed slot name belongs to the access site, not to the last receiver.
 (defalias slot-cache-name access-cache-name)
-;; A creation preference, never value authority: an existing layout is reused.
-(defalias slot-cache-eager? access-cache-eager?)
 ;; An old receiver layout is a shape hint only; its cells never seed a new owner.
 (defalias slot-cache-layout access-cache-layout)
-;; Capture an explicit seeding choice once, without a per-read policy closure.
-;; Default eager remains qualified; demand filling is opt-in for selected fields.
-;; Capacity is explicitly one or two shapes; the default record stays unchanged.
-(def (make-slot-cache name eager?: (eager? #t) shapes: (count 1))
-  (using ((eager? :~ boolean?) (count :~ (cut memv <> '(1 2))))
+;; Sites retain only access guards and one or two descriptor offsets. Successful
+;; values always belong to the receiver, so sites have no value-seeding policy.
+(def (make-slot-cache name shapes: (count 1))
+  (using (count :~ (cut memv <> '(1 2)))
     (unless (symbol? name) (error "symbolic cache slot required"))
-    (if (= count 1) (make-access-cache name #f #f #f #f #f eager?)
-      (make-two-shape-cache name #f #f #f #f #f eager? #f #f))))
+    (if (= count 1) (make-access-cache name #f #f #f #f #f)
+      (make-two-shape-cache name #f #f #f #f #f #f #f))))
 ;; Guard receiver identity, monotone revision and exact receiver-local layout together.
 (def (slot-cache-hit? cache owner revision layout)
   (using (cache : access-cache)

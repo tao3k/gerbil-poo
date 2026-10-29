@@ -30,9 +30,9 @@
 ;; One action owns one access site. FUN's existing bind threads the same admitted
 ;; receiver into the consumer, preserving normal exception and multiple-value behavior.
 ;; Every invocation still checks its contract; a layout hit is never admission evidence.
-(def (checked-field-action descriptor name consume (layout? #t) (eager? #t) (shapes 1))
+(def (checked-field-action descriptor name consume (layout? #t) (shapes 1))
   (def read (if layout?
-    (let (site (make-slot-cache name eager?: eager? shapes: shapes)) (cut .ref/inline <> site))
+    (let (site (make-slot-cache name shapes: shapes)) (cut .ref/inline <> site))
     (cut .ref <> name)))
   (checked-action descriptor
     (.call fun.Observation. .bind
@@ -40,9 +40,9 @@
       (lambda (amount) (lambda (candidate) (consume candidate amount))))))
 
 ;; The service path retains full refinement before total demand or consumer effects.
-;; Selected-field clients can opt into deferred seeding at this same boundary.
-(def (checked-total-action consume layout: (layout? #t) eager?: (eager? #t) shapes: (shapes 1))
-  (checked-field-action ValidService 'total consume layout? eager? shapes))
+;; Selected fields share the receiver's ordinary lazy value authority.
+(def (checked-total-action consume layout: (layout? #t) shapes: (shapes 1))
+  (checked-field-action ValidService 'total consume layout? shapes))
 ;; Inspect an opaque pinned hook through the same Reader/FUN boundary. This does
 ;; not demand unrelated service metadata or authorize arbitrary recursive fields.
 (def (checked-kernel-action consume) (checked-field-action Object 'compute-slot consume))

@@ -374,7 +374,7 @@ original feature backlog is explicitly grouped as follows:
 
 | Workstream | Concrete remaining acceptance target | Current anchor |
 | --- | --- | --- |
-| Representation optimization | Qualify full-vector/JIT policies after the integrated persistent mapping, guarded shape/index and supported-invalidation protocol | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
+| Representation optimization | Authoritative vector values and shared read/shape guards implemented; qualify automatic PIC/JIT policy separately | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
 | Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
 | Collection protocol | Constructor delegation is closed across derived collections and five styles. Direct Set observation now shares complete admission and guarded delayed pulls; conditional recognition reuse still requires independent refinement/purity evidence. General automatic discovery remains a separate research goal. | [Composition audit](collection-composition-audit.md); Generic Data Structure Library below |
 | General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
@@ -3082,3 +3082,7 @@ actual value backend before dispatch. Finite Lean laws and the existing complete
 paired study keep preparation costs explicit; see [representation.md](representation.md).
 Full hash removal/JIT and arbitrary runtime/concurrent mutation remain distinct
 research boundaries.
+
+Removed the obsolete per-site seeding option and its record field rather than
+retaining a no-op compatibility switch. Examples and all benchmark scenarios use
+the current public read operations; no copied preceding evaluator remains.

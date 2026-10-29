@@ -405,7 +405,7 @@
     (refuses "stale slot dependency" (cut captured-order roots))
     (check-equal? (.get Root port) 5433)
     (set! completed (+ completed 1)))
-  (test-case "changed native constructors take the original uncached path without dispatch"
+  (test-case "changed object constructors take the original uncached path without dispatch"
     (.def Root port: 5432)
     (def read (selected (recorded (cut .get Root port)) 'port))
     (def calls 0)

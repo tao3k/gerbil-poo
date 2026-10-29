@@ -67,7 +67,7 @@
       (def owner (.o (value (begin (set! calls (1+ calls)) #f))
         (retry (if refuse? (raise failure) identity)) (unused (error "unrelated value forced"))))
       (def table (object-instance owner))
-      (def layout (object-layout owner eager?: #f))
+      (def layout (object-layout owner))
       (check-eq? (slot-values-layout table) layout)
       (check-equal? (hash-length table) 0)
       (def site (make-slot-cache 'value shapes: 2))

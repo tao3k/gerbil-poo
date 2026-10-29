@@ -216,7 +216,7 @@
   (values (action 1) (action 2)))
 
 ;; Compare the same current layout constructor with/without an old shape hint.
-;; Full operations use the preceding inline route and the production hint route.
+;; Full operations use explicit preparation or the current site's shape hint.
 ;; Preparation charges complete name capture, duplicate removal and value seeding.
 ;; Full workflows include cached standard loading, fresh inherited owners, checked
 ;; Reader consumers, shared invalidation, refused refinement and successful retry.
@@ -239,7 +239,8 @@
                  (site (make-slot-cache 'total)) (delivered 0)
                  (consume (checked-action service.ValidService
                    (lambda (owner)
-                     (let (total ((if reuse? .ref/inline reference-inline) owner site))
+                     (unless reuse? (object-layout owner))
+                     (let (total (.ref/inline owner site))
                        (set! delivered (1+ delivered)) total)))))
             ;; Exactly one checked boundary owns refinement. Only its admitted
             ;; receiver is prepared/read; original sources get no duplicate layout.
@@ -259,27 +260,9 @@
       #t))
   (values (action #f) (action #t)))
 
-;; Counterfactual for hot/switch: the preceding production read path, with
-;; eager value seeding and the SAME ready-layout shortcut/observation guard.
-;; Benchmark-only; it is not an alternate production evaluator or compatibility API.
-(def (reference-inline receiver cache)
-  (def slot (slot-cache-name cache))
-  (if (%slot-read-active?) (.ref receiver slot)
-    (let (prepared (object-%layout receiver))
-      (if (and (not prepared) (bootstrap-anchor receiver slot)) (.ref receiver slot)
-        (let ((layout (or prepared (object-layout receiver eager?: #t)))
-              (revision (object-revision receiver)))
-          (if (slot-cache-hit? cache receiver revision layout) (slot-cache-read cache)
-            (let* ((index (slot-cache-index cache layout))
-                   (stored (if index (slot-layout-ref layout index) absent-value))
-                   (value (if (eq? stored absent-value)
-                     (let (value (.ref receiver slot))
-                       (when index (slot-layout-set! layout index value)) value) stored)))
-              (slot-cache-bind! cache receiver revision layout index) value)))))))
-
-;; Compare cached-value seeding with demand promotion on identical finite shapes.
-;; Preparation isolates the shared-shape/vector work. Complete workflows charge
-;; construction, warming, selected/all reads and supported revision recovery.
+;; Direct construction compares seeded/demand cells on identical finite shapes.
+;; After removal of the auxiliary store, both complete workflow arms deliberately
+;; use the same current storage: matched controls, not an old seeding algorithm.
 (def (seeding-workload size scenario)
   (def names (for/collect (n (in-range size)) (string->symbol (string-append "field-" (number->string n)))))
   (def entries (map (lambda (name) (cons name 1)) names))
@@ -291,12 +274,12 @@
         (let* ((layout (make-slot-layout names (and (not deferred?) initial) absent-value))
                (stored (slot-layout-ref layout (slot-layout-index layout first))))
           (unless (if deferred? (eq? stored absent-value) (= stored 1)) (error "seeding preparation oracle")))
-        (let ((owner (object<-alist entries)) (site (make-slot-cache first eager?: (not deferred?))))
+        (let ((owner (object<-alist entries)) (site (make-slot-cache first)))
           ;; Warming belongs INSIDE this complete workflow's timing boundary.
           (for-each (cut .ref owner <>) names)
           (if (eq? scenario 'slot-seeding-all)
             (for-each (lambda (name)
-              (unless (= (.ref/inline owner (make-slot-cache name eager?: (not deferred?))) 1) (error "all-cell oracle"))) names)
+              (unless (= (.ref/inline owner (make-slot-cache name)) 1) (error "all-cell oracle"))) names)
             (unless (= (.ref/inline owner site) 1) (error "selected-cell oracle")))
           (.putslot! owner first ($constant-slot-spec #f))
           (unless (eq? (.ref/inline owner site) #f) (error "revised-cell oracle"))))
@@ -354,12 +337,10 @@
   ;; The sum is checked inside every complete measured operation.
   (def (action inline?)
     (def fixture (family))
-    (def reference? (and (not inline?) (memq scenario '(slot-hot slot-switch))))
-    (def site (and (or inline? reference?) (make-slot-cache 'value)))
+    (def site (and inline? (make-slot-cache 'value)))
     ;; Read only this receiver, never the last owner's retained result.
     (def (read receiver)
-      (cond (inline? (.ref/inline receiver site)) (reference? (reference-inline receiver site))
-            (else (.ref receiver 'value))))
+      (if inline? (.ref/inline receiver site) (.ref receiver 'value)))
     ;; The reference/candidate consume the same ordered receiver trace.
     (def (visit owners cycles base)
       (def total (for/fold (sum 0) (_ (in-range cycles))
@@ -798,7 +779,8 @@
   (for (scenario +backend-phases+)
     (representation-work n scenario))
   (displayln "COLLECTION-PAIRED size=" n " count=" repetitions " rounds=" pairs " prefix=2")
-  (displayln "COLLECTION-SLOT-BASELINES hot/switch=prior-untracked-inline other-slots=symbolic-ref module-load=cached")
+  (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
+  (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
   (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))

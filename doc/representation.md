@@ -9,15 +9,15 @@ in the original representation TODO; they are not a new claim of a complete MOP.
 
 ## Current acceptance boundary
 
-This work does not complete every performance idea in TODO.md. Persistent
-prototype maps, explicit compact storage, lazy object values, opt-in vector
-layouts and supported dependency invalidation are implemented. The instance hash
-is still present. Shape-offset reuse across receivers now has a concrete current-
-cell path, tests, a finite model and matched workflow studies. Full-vector-only
-storage, automatic PIC/JIT selection and arbitrary dynamic module-loading qualification remain
-separate optimization/acceptance work, not omitted algorithms of the original
-paper. A cached module result is not evidence that fresh expansion, compilation,
-linking or initialization is cheap.
+Persistent prototype maps, explicit compact storage, lazy primary vector values
+and supported dependency invalidation are implemented. Ordinary HashTable reads,
+inline sites and reflection share those cells; there is no secondary instance
+hash value cache. Source overrides, compiled methods, shape indices and issued
+read provenance retain their separate metadata representations. The explicit hash
+qualification also owns a single value store. Automatic PIC/JIT selection,
+removal of all metadata hashes and arbitrary dynamic module-loading qualification
+remain separate research/acceptance boundaries. A cached module result is not
+evidence that fresh expansion, compilation, linking or initialization is cheap.
 
 Gerbil's installed `runtime/loader.ss:32–69` already implements registry hits,
 `loading` synchronization and retained error states. The POO implementation does
@@ -43,14 +43,16 @@ formulas to the new receiver; it does not retain an evaluated parent instance.
 `slot-layout.ss` weakly interns a sorted unique symbolic shape. Symbol identities,
 including uninterned names, determine its process-local order. No serial number
 is a disk format or cross-process identity. Each live shape shares its name/index
-mapping; each receiver owns its vector cells. Ordinary lookup retains the existing
-hash interface. The vector is prepared only by an explicit `object-layout` or
-`.ref/inline` access, and successful ordinary reads keep it coherent. This is an
-opt-in representation protocol, not a claim that every hash instance was replaced.
+mapping; each receiver owns its vector cells. The standard HashTable interface
+exposes the primary vector to ordinary lookup, IO and reflection. Instance
+preparation allocates uncomputed cells without demanding slot bodies; successful
+ordinary and inline reads publish to that same store. `object-layout` exposes
+that store by identity, and a site keeps only guards/offsets. There is no seeding
+preference or per-site value-policy field.
 
 A caller creates `make-slot-cache 'total`, then uses `.ref/inline receiver site`.
 The site retains one owner, revision, layout and certified index, never a separate
-cached result. Every hit requires exact owner/revision/layout identity. Equal
+cached result. Every hit requires exact owner/revision/layout AND immutable shape identity. Equal
 shapes on distinct receivers cannot share cells. Supported parent, protocol,
 declaration, slot, default, topology and instance edits invalidate existing values,
 compiled methods, ordering, reflection AND layout through the same registered
@@ -78,7 +80,7 @@ The proofs model source-level behavior. They do not verify the RBTree library,
 weak table, collector, compiler or physical vector implementation. Token identity
 must denote a fixed shape and receiver-local cells. All dependencies must be
 registered; supported edits/evaluation are serialized. Raw generated struct setters,
-raw instance-hash mutations and unregistered callback dependencies bypass the
+raw primary-store mutations and unregistered callback dependencies bypass the
 protocol. No host process termination, concurrent atomicity, retained-function
 revocation or speed/allocation improvement is claimed.
 
@@ -422,102 +424,27 @@ and standard-built programs, as described below. Complete service results,
 initialization/refusal/recovery controls and the original resource limits remain.
 
 
-## Explicit demand-filled layout cells
+## Lazy primary cells
 
-`make-slot-cache 'total eager?: #f` captures an explicit creation preference for
-selected-field consumers. The default remains eager; this is not an automatic
-promotion threshold or a blanket rollout based on fewer allocations. On a cold
-layout, `.ref/inline` uses the preference through the existing `object-layout`.
-An already allocated layout is shared by the receiver's sites and is reused;
-preferences do not retroactively reseed or replace it. Supported invalidation
-still discards that receiver layout, and the first subsequent creation selects
-its own preference. `object-layout receiver eager?: #f` also exposes explicit
-preparation without inventing another protocol or evaluator.
+The receiver's primary vector starts with private uncomputed sentinels. False
+and wrapped Function values remain ordinary successful values. Ordinary `.ref`
+and `.ref/inline` demand the same evaluator and retain its exact successful value;
+no second promotion/write is needed. Failure adds no target-cell publication and
+retains the original cause. Already evaluated dependencies and callback effects
+are not rolled back. Delete/clear make the affected cells demandable again.
 
-A demand-filled layout keeps the SAME dense finite vector and canonical shape,
-but initializes cells with the private unpromoted sentinel. It does not enumerate
-ordinary cached values through one `hash-ref` per name or allocate the mapped
-value-list just to populate unused cells. Key inventory, deduplication, sorting,
-shape interning and dense vector allocation/fill remain real work. The ordinary
-instance hash is retained. This is not constant-time construction, a sparse
-storage backend or full hash removal.
+The former per-site eager/demand option and record field have been removed.
+They controlled seeding of an auxiliary value cache, which no longer exists.
+Examples use the same checked Reader/FUN action directly. Direct
+`make-slot-layout` construction can still seed explicitly supplied values; that
+constructor capability is separate from ordinary object-demand policy.
 
-First demand delegates to `.ref`, including a warmed cached false or exact checked
-Function. Only success promotes the value at this receiver's certified index,
-then binds the existing owner/revision/layout guard. A refusal promotes no value
-and retains the site's previous successful guard. Successful ordinary dependency
-computations can still populate their own cells, as before; no evaluator rollback
-is claimed. Explicit index writes and named writes share one narrow vector setter,
-without new per-read closures, approval caches or result wrapper objects. The
-site adds one boolean creation preference; its allocation/guard footprint is not
-proved free by the source lookup ledger.
-
-The ordinary direct `object-layout` creation default still seeds cached values
-for eager consumers. Raw layout cells now represent the promoted subset when
-that layout was created with demand filling. An unpromoted cell is not proof of
-field absence or of a body never having been evaluated: ordinary `.ref` remains
-the value authority. Existing slot presence, type/refine/evidence, observation and
-registered invalidation protocols are unchanged. No result from another owner or
-retired generation becomes authorized through shape identity.
-
-Regressions cover warmed false and Function identity without recooking, index
-promotion, shared-source revisions, retired read refusal, original error identity,
-old-guard retention, retry and rejection of a nonboolean preference. The existing
-service example and complete downstream workflow continue to exercise the same
-Reader/FUN/contract chain. Lean's existing Representation model adds deferred
-views, promotion identity/frame/fidelity, arbitrary finite deferred batches and
-explicit initial value-probe counts. Canonical unique names, faithful current
-cells and supported serialized invalidation remain premises; no compiler,
-collector or module-loader proof is implied.
-
-The complete paired study retains every previous phase and adds preparation,
-selected-field workflow and all-field workflow comparisons. Both workflow sides
-charge object construction, ordinary warming, fresh access sites, first reads,
-source revision/invalidation and recovery. Sites retain the selected preference
-across these generations. The reference is explicit eager seeding in the CURRENT
-runtime; hot/switch reference code keeps the preceding read algorithm, not a
-second production implementation. Preparation measures a predeclared finite key
-catalog and ordinary cached table; setup and complete workflows are separately
-visible. Few-field and all-field results must both be admitted before making any
-automatic policy claim.
-
-### Demand-filled-cell local acceptance
-
-Final explicit-choice source passed all 148 modules and 1,815 cases, including
-its multi-service ObjectContract/refine/FUN action with `eager?: #f`. Every prior
-collection phase and the three new phases passed. A separate quiet
-`just _run-collections 64 3 6` completed in 35.97s. Values below are microseconds
-per complete operation, demand minus eager wall medians on this local macOS Gerbil compiler build:
-
-| Phase | Natural | Collected |
-| --- | ---: | ---: |
-| 64-name shape/vector preparation | -3.70 | -3.70 |
-| construction/warm/select/revise/recover | +253.36 | +79.15 |
-| construction/warm/read-all/revise/recover | +91.99 | +17.84 |
-
-The final preparation's six collected pairs all improved (-4.61 to -0.32us),
-with zero measured GC CPU. A representative GC-free three-operation batch
-allocated 85,328 bytes eager versus 76,112 demand-filled. These are local sampler
-observations, not a formal byte bound or persistent-heap reduction. The same
-64-cell vector and ordinary hash still exist.
-
-Complete-workflow data do NOT establish a stable speedup. Natural selected/all
-pairs retain about +230/+206us median GC CPU differences. Collected selected
-CPU improved about 12.33us but its wall delta ranged -2.60ms to +0.93ms; collected
-all-field CPU increased about 23.67us and wall ranged +2.62us to +4.46ms. A/A and
-B/B controls also retain substantial CPU/wall residuals (including collected
-all-field B/B +0.454ms median). Medians of these components are not additive,
-and the residuals are not attributed to another process or a particular VM cause.
-No tail/throughput improvement is certified by a lower initialization count.
-
-Consequently default eager seeding is RETAINED. Selected-field users can request
-`make-slot-cache 'field eager?: #f`, or opt in through the example's existing
-`checked-total-action ... eager?: #f`; the same shared action builder keeps
-complete admission before delivery. All-field callers can keep eager creation.
-First layout allocation wins within the receiver generation; no automatic policy
-or wrapper chain is introduced. This closes the explicit demand-promotion
-capability and its failure/invalidation laws, not broad performance qualification
-or arbitrary dynamic-loader startup.
+All prior benchmark scenarios remain. Constructor seeding compares supplied
+values with uncomputed cells. Its two complete workflow arms now intentionally
+use the SAME current primary-storage protocol and are matched controls. Slot
+hot/switch compares ordinary lookup with current inline lookup, not a copied
+previous evaluator. Historical auxiliary-cache timings remain in Git history;
+they do not qualify this implementation.
 
 ## Certified prior-shape reuse during construction
 
@@ -530,9 +457,9 @@ retain the original canonical sort and standard weak-value `hash-ensure-ref` pat
 The shape retains its canonical ordered names alongside its identity hash index;
 reuse skips sorting and intern lookup, not inventory or complete-set checking.
 
-Only positions are shared. Fresh cells are seeded from the CURRENT receiver's
-ordinary cache, or initialized to the existing unpromoted sentinel. False and
-checked Function identity, eager/demand preference, observation routing,
+Only positions are shared. Fresh primary cells contain current explicit source
+assignments or the uncomputed sentinel; no old receiver values are copied. False
+and checked Function identity, observation routing,
 owner/revision/layout guards and refusal/retry behavior remain unchanged. No new
 per-read wrapper, registry, loader or evaluator is introduced. Existing live
 layouts still return immediately. Supported revisions discard receiver layouts;
@@ -560,16 +487,19 @@ GC, standard loader behavior and wall-clock time are not proved free.
 The complete paired study adds `slot-shape-prepare`, `slot-shape-workflow` and
 `slot-shape-change`, without dropping any prior phase. Preparation uses the SAME
 current constructor, with/without `previous:`, including duplicate capture and
-eager seeding. Full operations compare the preceding eager inline route with the
-production shape-hint route in the same runtime, including successful promotion
-on both sides. One existing checked-action boundary admits the receiver before
+explicit value seeding. Full operations compare explicit current preparation
+without a hint with the current inline site's automatic shape hint. Both use the
+SAME public read operation and primary value authority. One existing checked-action boundary admits the receiver before
 either route runs; the source gets no redundant layout. Complete operations include standard cached loading,
 four fresh inherited services, checked consumers, shared revisions, original
 refinement refusal and recovery; change also adds/removes a shared field. AB/BA,
 A/A/B/B, natural/collected execution, all prefixes and per-sample wall/CPU/GC
 metrics remain mandatory. A cached module is not a fresh-process loading sample.
 
-### Local whole-operation receipt and design review
+### Historical shape-hint receipt and design review
+
+The following receipt predates primary vector storage. Its auxiliary-cache and
+preceding-read baselines are retired; it is not a current speedup claim.
 
 The unchanged bounded full consumer passed all 148 modules / 1,817 cases and all
 study phases. A separate quiet `just _run-collections 64 3 6` passed the COMPLETE
