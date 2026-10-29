@@ -1680,6 +1680,11 @@ typed Record/FUN generation. P25 in [pbt-design-rfc.md](pbt-design-rfc.md) recor
 71 independent cases, retained shrinking/replay and eight finite size laws.
 Open sized selectors retain their intentional unselected-branch boundary.
 
+Mandatory nonempty List/String/Symbol inputs now participate before size
+selection. P26 in [pbt-design-rfc.md](pbt-design-rfc.md) records the shared sized
+source protocol, 75 independent cases, Record/FUN shrinking and fresh retry,
+and eight additional size/ownership laws. Empty optional results remain independent.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

@@ -566,7 +566,7 @@ To copy the independent worked suite into another standard Gerbil project, inclu
 `examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
-71 cases without installing POO.
+75 cases without installing POO.
 
 Checked property actions now install a run-local `with-generation-check` scope
 from the generator module. A nested draw/map/selector/iterator cannot continue
@@ -582,3 +582,9 @@ Known-input size scaling retains input sources before any scale callback or
 sibling draw. Use the ordinary resize/scale combinators; do not add a second
 currentness wrapper in the typed layer. See P25 for dynamic selection boundaries,
 invalid-size causes and Record/FUN replay controls.
+
+`generator-sized` accepts `sources:` for declared common leaves, just like the
+base constructors. The list family uses this when a positive minimum guarantees
+element participation. String/Symbol reuse it without another validator. A zero
+minimum leaves unused element owners unobserved. P26 records callback/seed,
+shrinking, wrapped Function, replay and explicit revision retry controls.

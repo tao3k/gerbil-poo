@@ -46,6 +46,49 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "nonempty batch payloads share mandatory ownership through FUN shrinking and retry"
+      (def epoch 0) (def draws 0) (def handlers 0)
+      ;; Prepare one finite payload domain at a captured application revision.
+      (def (prepare)
+        (let (captured epoch)
+          (def elements (core.make-generator (lambda (random _size)
+            (set! draws (1+ draws)) (random 5)) core.integer-shrinks
+            current?: (lambda () (= captured epoch))))
+          (def payloads (core.generator-list elements min-length: 2 max-length: 4))
+          (def functions (core.make-generator (lambda (_random _size)
+            (set! handlers (1+ handlers)) abs) (lambda (_) [])))
+          (from-generator Batch
+            (core.generator-map (core.generator-sequence (list functions payloads))
+              (lambda (row) (make-instance Batch count: (length (cadr row))
+                payload: (cadr row) route: 'put handler: (car row))))
+            (lambda (batch) (+ (.get batch count) (apply + (.get batch payload)))))))
+      ;; The ordinary FUN action retains typed Record admission and diagnostics.
+      (def (run sampler)
+        ((property-debug-action #f Batch (lambda (batch)
+          (check-equal? ((.@ batch handler) -7) 7)
+          (check-equal? (.get batch count) (length (.get batch payload)))
+          (zero? (.get batch count))) sampler: sampler)
+          (make-instance PropertyConfiguration seed: 41 cases: 1 size: 8 shrink-budget: 96)))
+      (def sampler (prepare))
+      (def report (run sampler))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get (.get report counterexample) payload) '(0 0))
+      (check-equal? (.get (.get report counterexample) count) 2)
+      (check-equal? draws (.get (.get report original) count))
+      (check-equal? handlers 1)
+      (let (before draws)
+        (check (replay-counterexample report) => #f)
+        (check-equal? draws before)
+        (check-eq? (.get (replay-property report) status) 'failed)
+        (check-equal? draws (* 2 before)))
+      (check-exception ((.@ (.get report counterexample) handler) 'invalid) TypeError?)
+      (set! epoch 1)
+      (let ((before draws) (prepared handlers))
+        (check-eq? (.get (run sampler) status) 'stale)
+        (check-exception (replay-counterexample report) Error?)
+        (check-equal? (list draws handlers) (list before prepared)))
+      (check-eq? (.get (run (prepare)) status) 'failed)
+      (check-eq? (.get (run sampler) status) 'stale))
     (test-case "scaled typed batches reject old owners before sibling preparation"
       (def epoch 0) (def handlers 0) (def scales 0)
       ;; Explicit preparation captures one revision, never reviving old reports.

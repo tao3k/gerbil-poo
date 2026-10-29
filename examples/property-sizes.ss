@@ -1,5 +1,5 @@
 ;;; Size control retains static input ownership and the existing lazy sample tree.
-(export size-test-cases!)
+(export size-test-cases! collection-source-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -101,3 +101,75 @@
     (check-eq? (property.inspection-status inspection) 'stale)
     (check-equal? (property.inspection-draws inspection) 0)
     (check-equal? calls 4)))
+
+
+;; Mapped carriers reuse the same cardinality/ownership policy, not new validators.
+(def (collection-generator kind element minimum)
+  (case kind
+    ((list) (generator.generator-list element min-length: minimum max-length: 3))
+    ((string) (generator.generator-string element min-length: minimum max-length: 3))
+    ((symbol) (generator.generator-symbol element min-length: minimum max-length: 3))
+    (else (error "unknown collection carrier" kind))))
+
+;; Register ordinary std/test cases alongside the existing size controls.
+(def (collection-source-test-cases!)
+  (test-case "mandatory collection sources preflight before prefix and length work"
+    (for (kind '(list string symbol))
+      (def live #t) (def prefixes 0) (def randoms 0) (def draws 0)
+      (def element (generator.make-generator (lambda (_random _size)
+        (set! draws (1+ draws)) #\a) (lambda (_) []) current?: (lambda () live)))
+      (def carrier (collection-generator kind element 1))
+      (def prefix (generator.make-generator (lambda (_random _size)
+        (set! prefixes (1+ prefixes)) 1) (lambda (_) [])))
+      (def product (generator.generator-sequence (list prefix carrier)))
+      (set! live #f)
+      (check (generator.generator-current? carrier) => #f)
+      (check (generator.generator-current? product) => #f)
+      (check-exception (generator.generate product
+        (lambda (_) (set! randoms (1+ randoms)) 0) 3) generator.stale-generation?)
+      (check-equal? (list prefixes draws randoms) '(0 0 0))))
+  (test-case "empty selection does not acquire an unused element source"
+    (for (kind '(list string symbol))
+      (def draws 0)
+      (def element (generator.make-generator (lambda (_random _size)
+        (set! draws (1+ draws)) #\a) (lambda (_) []) current?: (lambda () #f)))
+      (def carrier (collection-generator kind element 0))
+      (check (generator.generator-current? carrier) => #t)
+      (def root (generator.generate carrier (generator.random-at 17) 0))
+      (check-equal? (generator.sample-value root)
+        (case kind ((list) []) ((string) "") ((symbol) (string->symbol ""))))
+      (check-equal? (generator.sample-sources root) [])
+      (check-equal? draws 0)))
+  (test-case "sized common sources are copied deduplicated and checked before selection"
+    (def live #t) (def calls 0)
+    (def owner (lambda () live))
+    (def leaves (list owner owner))
+    (def sized (generator.generator-sized (lambda (size)
+      (set! calls (1+ calls)) (generator.generator-unit size)) sources: leaves))
+    (set-car! leaves (lambda () #t))
+    (def root (generator.generate sized (generator.random-at 3) 4))
+    (check-equal? (generator.sample-value root) 4)
+    (check-equal? (length (generator.sample-sources root)) 1)
+    (set! live #f)
+    (check-exception (generator.generate sized (generator.random-at 3) 4) generator.stale-generation?)
+    (check-equal? calls 1)
+    (check-exception (generator.generator-sized (lambda (_) (generator.generator-unit 0)) sources: '(bad)) Error?)
+    (check-equal? (generator.sample-value
+      (generator.generate (generator.generator-unit 9) (generator.random-at 3) 4)) 9))
+  (test-case "positive minimum retains shapes sources seeds and shrinking without redrawing"
+    (def live #t) (def draws 0)
+    (def element (generator.make-generator (lambda (random _size)
+      (set! draws (1+ draws)) (random 5)) generator.integer-shrinks current?: (lambda () live)))
+    (def carrier (generator.generator-list element min-length: 1 max-length: 3))
+    (def root (generator.generate carrier (generator.random-at 41) 3))
+    (def values (generator.sample-value root))
+    (check (<= 1 (length values) 3) => #t)
+    (check-equal? draws (length values))
+    (check-equal? (generator.sample-value (generator.generate carrier (generator.random-at 41) 3)) values)
+    (let (before draws)
+      (for (child ((generator.sample-children root)))
+        (check (<= 1 (length (generator.sample-value child)) 3) => #t)
+        (check-equal? (length (generator.sample-sources child)) 1))
+      (check-equal? draws before))
+    (set! live #f)
+    (check-exception (for/collect (child ((generator.sample-children root))) child) generator.stale-generation?)))

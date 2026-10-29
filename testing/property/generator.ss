@@ -260,21 +260,21 @@
 ;; Uniform choice reuses the weighted selector and its empty-table refusal.
 (def (generator-choice . generators)
   (generator-frequency (map (lambda (generator) (cons 1 generator)) generators)))
-;; Size selection retains the selected branch's sample provenance.
-(def (generator-sized (select : :procedure) current?: (current immutable-current))
-  (def sources (observer-sources current []))
+;; Size selection retains explicit common leaves before selection, while dynamic
+;; branches add only the leaves of the producer actually chosen.
+(def (generator-sized (select : :procedure) current?: (current immutable-current) sources: (sources []))
+  (def observed (observer-sources current sources))
   (make-generation (lambda (random size)
-    (selected-sample (with-sources sources (select size)) random size sources)) sources))
+    (selected-sample (with-sources observed (select size)) random size observed)) observed))
 ;; Size overrides are explicit natural values, not descriptor-budget overrides.
 (def (generator-resize generator size)
   (unless (and (generator? generator) (exact-integer? size) (>= size 0)) (error "invalid generator size" size))
   (make-generation (lambda (random _) (generate generator random size)) (generation-sources generator)))
-;; Scaling keeps sized/resize's run procedure and the known input's ownership.
-;; Unlike an open sized selector, this producer always delegates to that input.
+;; Scale always uses its known input. Sized owns its leaves directly, avoiding
+;; a replacement descriptor or another callback wrapper around the same run.
 (def (generator-scale generator (scale : :procedure) current?: (current immutable-current))
-  (def scaled (generator-sized (lambda (size) (generator-resize generator (scale size))) current?: current))
-  (make-generation (generation-run scaled)
-    (merge-sources (generation-sources scaled) (generation-sources generator))))
+  (generator-sized (lambda (size) (generator-resize generator (scale size)))
+    current?: current sources: (generation-sources generator)))
 ;; Delay quota is invocation-local and shared by nested delayed constructors.
 (def current-delay-budget (make-parameter #f))
 ;; Each force spends a token before invoking its constructor; callback termination
@@ -418,7 +418,8 @@
     (let (tree (generate generator random size))
       (make-sample-node tree (lambda () []) (sample-node-sources tree)))) (generation-sources generator)))
 ;; Length is chosen once. Structural shrinking deletes retained trees rather
-;; than regenerating payloads under a shorter length's dependent seed.
+;; than regenerating payloads under a shorter length's dependent seed. Positive
+;; minimum makes the element a mandatory participant before any length draw.
 (def (generator-list element min-length: (minimum 0) max-length: (maximum 128))
   (unless (and (generator? element) (exact-integer? minimum) (exact-integer? maximum)
                (<= 0 minimum maximum)) (error "invalid sequence generator bounds"))
@@ -428,7 +429,8 @@
         (def row (sampled-sequence (make-list count element)))
         (make-tree-generator (lambda (random size)
           (let (tree (generate row random size))
-            (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))))
+            (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))
+    sources: (if (positive? minimum) (generation-sources element) [])))
 ;; Finite key domains use the same equality as Gerbil's ordinary HashTable.
 ;; Validate uniqueness once; fixed-key structural/value shrinking cannot collide.
 (def (generator-hash keys value-generator domain-limit: (limit 256) current?: (current immutable-current))
