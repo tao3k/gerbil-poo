@@ -269,9 +269,12 @@
 (def (generator-resize generator size)
   (unless (and (generator? generator) (exact-integer? size) (>= size 0)) (error "invalid generator size" size))
   (make-generation (lambda (random _) (generate generator random size)) (generation-sources generator)))
-;; Scaling is sized/resize composition, preserving their shared boundary.
+;; Scaling keeps sized/resize's run procedure and the known input's ownership.
+;; Unlike an open sized selector, this producer always delegates to that input.
 (def (generator-scale generator (scale : :procedure) current?: (current immutable-current))
-  (generator-sized (lambda (size) (generator-resize generator (scale size))) current?: current))
+  (def scaled (generator-sized (lambda (size) (generator-resize generator (scale size))) current?: current))
+  (make-generation (generation-run scaled)
+    (merge-sources (generation-sources scaled) (generation-sources generator))))
 ;; Delay quota is invocation-local and shared by nested delayed constructors.
 (def current-delay-budget (make-parameter #f))
 ;; Each force spends a token before invoking its constructor; callback termination

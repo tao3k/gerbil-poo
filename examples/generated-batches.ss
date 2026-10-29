@@ -46,6 +46,45 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "scaled typed batches reject old owners before sibling preparation"
+      (def epoch 0) (def handlers 0) (def scales 0)
+      ;; Explicit preparation captures one revision, never reviving old reports.
+      (def (prepare)
+        (let (captured epoch)
+          (def counts (core.make-generator (lambda (_random size) size)
+            core.integer-shrinks current?: (lambda () (= captured epoch))))
+          (def scaled (core.generator-scale counts
+            (lambda (size) (set! scales (1+ scales)) (quotient size 2))))
+          (def functions (core.make-generator (lambda (_random _size)
+            (set! handlers (1+ handlers)) abs) (lambda (_) [])))
+          (def pipeline (core.generator-map (core.generator-sequence (list functions scaled))
+            (lambda (row) (make-instance Batch count: (cadr row) payload: []
+              route: 'put handler: (car row)))))
+          (from-generator Batch pipeline (lambda (batch) (.get batch count)))))
+      (def sampler (prepare))
+      ;; FUN runs the ordinary typed checker; Record owns Function admission.
+      (def (run sampler)
+        ((property-debug-action #f Batch (lambda (batch)
+          (check-equal? ((.@ batch handler) -3) 3)
+          (< (.get batch count) 2)) sampler: sampler)
+         (make-instance PropertyConfiguration seed: 41 cases: 1 size: 8)))
+      (def report (run sampler))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get (.get report original) count) 4)
+      (check-equal? (.get (.get report counterexample) count) 2)
+      (check-equal? (list handlers scales) '(1 1))
+      (check-exception ((.@ (.get report counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-equal? (list handlers scales) '(1 1))
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check-equal? (list handlers scales) '(2 2))
+      (set! epoch 1)
+      (check-eq? (.get (run sampler) status) 'stale)
+      (check-exception (replay-counterexample report) Error?)
+      (check-equal? (list handlers scales) '(2 2))
+      (check-eq? (.get (run (prepare)) status) 'failed)
+      (check-equal? (list handlers scales) '(3 3))
+      (check-eq? (.get (run sampler) status) 'stale))
     (test-case "Record FUN replay checks retired shrink owners before reconstruction"
       (def configuration (.o epoch: 0)) (def advance? #t) (def constructions 0)
       ;; Only the rejected shrink branch owns the epoch. The root has a constant

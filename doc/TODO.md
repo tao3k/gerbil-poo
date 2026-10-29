@@ -1675,6 +1675,11 @@ ownership, nested/paused-iterator controls, 67-case independent library acceptan
 and nine finite scope/publication laws. No replay checker is stored as a sample
 owner; host continuation, heap and concurrency guarantees remain outside the model.
 
+Known-input size scaling now closes source ownership through fixed products and
+typed Record/FUN generation. P25 in [pbt-design-rfc.md](pbt-design-rfc.md) records
+71 independent cases, retained shrinking/replay and eight finite size laws.
+Open sized selectors retain their intentional unselected-branch boundary.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
