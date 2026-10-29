@@ -551,3 +551,19 @@ tables share that product admission; empty result domains and unselected dynamic
 branches remain independent. Draw seeds, retained shrinking and replay do not
 change. Use explicit fresh preparation after a revision; reopening an old sampler
 does not refresh it. See P22 and the Record/FUN retry example in generated-batches.
+
+`generator-filter` carries every previously rejected branch's declared sources
+into later drawing, selection and mapping through the same source scope. A retry
+that revises an earlier owner cannot continue construction after that callback.
+Its exact local attempt count, fixed size, random schedule, shrink tombstones and
+original exceptions are unchanged. Prefer constructing the intended domain when
+possible; filter keeps bounded generation and Type admission. Nested
+filters retain separate local quotas. See P23 and the Record/FUN workflow for
+fresh retry, wrapped Function shrinking and source-consistent replay.
+
+To copy the independent worked suite into another standard Gerbil project, include
+`examples/property-kernel.ss`, `examples/property-products.ss` and
+`examples/property-filters.ss` alongside the generic modules. The two small
+functional groups register cases in the kernel's existing `:std/test` suite;
+the isolated package acceptance builds all three ordinary modules and executes
+63 cases without installing POO.

@@ -4,7 +4,8 @@
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/model model.)
-        (only-in ./property-products product-test-cases!))
+        (only-in ./property-products product-test-cases!)
+        (only-in ./property-filters filter-test-cases!))
 
 ;; A dependent packet exposes its generated count and its matching payload.
 (defstruct packet (count payload) final: #t)
@@ -66,6 +67,7 @@
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
     (product-test-cases!)
+    (filter-test-cases!)
     (test-case "shrink policy revisions stop before the property and retain the last witness"
       (for (allowed '(#t #f))
         (let ((current #t) (calls []) (labels 0))
@@ -520,39 +522,6 @@
       (def value (generator.sample-value (generator.generate scaled (generator.random-at 7) 99)))
       (check-equal? (packet-count value) 5)
       (check-equal? (packet-payload value) '(7 7 7 7 7)))
-    (test-case "filtered shrink rejections are charged and never transformed"
-      (def transformed []) (def evaluated [])
-      (def filtered (generator.generator-filter
-        (generator.make-generator (lambda (_random _size) 9) (lambda (_) '(0 4 2))) positive?))
-      (def mapped (generator.generator-map filtered (lambda (n)
-        (when (zero? n) (error "rejected proposal reached mapping"))
-        (set! transformed (cons n transformed)) n)))
-      (def report (property.check-property mapped (lambda (n) (set! evaluated (cons n evaluated)) #f)
-        (property.make-specification positive? identity) cases: 1 shrink-budget: 1))
-      (check-equal? (list (property.report-status report) (property.report-attempts report)
-        (property.report-counterexample report) (property.report-minimal? report)) '(failed 1 9 #f))
-      (check-equal? transformed '(9)) (check-equal? evaluated '(9)))
-    (test-case "filter draw exhaustion is bounded and retains rejected source observers"
-      (def draws 0)
-      (def zeros (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 0) (lambda (_) [])))
-      (def domain (property.make-specification exact-integer? abs))
-      (for (fuel '(0 3))
-        (set! draws 0)
-        (def result (property.check-property (generator.generator-filter zeros positive? attempts: fuel)
-          (lambda (_) (error "exhausted generator reached property")) domain cases: 1))
-        (check-equal? (property.report-status result) 'exhausted)
-        (check-equal? draws fuel))
-      (def epoch 0) (def selected 0)
-      (def branches (generator.generator-sized (lambda (_size)
-        (def n selected) (set! selected (1+ selected))
-        (def stamp epoch)
-        (generator.make-generator (lambda (_random _size) n) (lambda (_) [])
-          current?: (if (zero? n) (lambda () (= stamp epoch)) (lambda () #t))))))
-      (def report (property.check-property (generator.generator-filter branches positive?)
-        (lambda (_) #f) domain cases: 1))
-      (check-equal? (property.report-status report) 'failed)
-      (set! epoch 1)
-      (check-exception (property.replay-counterexample report) (message? "stale property replay")))
     (test-case "size policies and named properties retain actual failure size and replay"
       (def sizes []) (def epoch 0)
       (def domain (property.make-specification exact-integer? abs))

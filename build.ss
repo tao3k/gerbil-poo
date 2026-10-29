@@ -152,6 +152,7 @@
     "examples/collection-testing"
     "examples/collection-properties"
     "examples/property-products"
+    "examples/property-filters"
     "examples/property-kernel"
     "examples/property-workflows"
     "examples/property-refusals"
