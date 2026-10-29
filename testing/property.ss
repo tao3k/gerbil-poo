@@ -3,7 +3,7 @@
         report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
-        make-policy policy? make-product-specification specification-current? report-current? report-diagnostics
+        make-policy policy? make-product-specification specification-current? specification-weight report-current? report-diagnostics
         inspect-generator inspection? inspection-status inspection-seed inspection-size inspection-count inspection-depth inspection-budget
         inspection-draws inspection-attempts inspection-events inspection-counts
         inspection-truncated? inspection-cause inspection-current?)
@@ -86,15 +86,22 @@
   (begin
     (unless (current) (stop 'stale #f))
     (begin0 (let () body ...) (unless (current) (stop 'stale #f)))))
+;; Domain consumers reuse the same natural measure and source boundary. Do not
+;; expose raw record fields or duplicate the product measure in typed adapters.
+(def (specification-weight specification value)
+  (def (current) (specification-current? specification))
+  (def (stop _status _minimal?) (error "stale property specification"))
+  (with-current current stop (weight specification value)))
 ;; Products share the existing domain/measure/currentness gates; domains are fixed
 ;; for one check while dependent generator branches retain their own provenance.
-(def (make-product-specification specifications)
-  (unless (and (list? specifications) (every specification? specifications))
+(def (make-product-specification specifications current?: (owner (lambda () #t)))
+  (unless (and (procedure? owner) (list? specifications) (every specification? specifications))
     (error "product specifications required"))
   (def domains (map identity specifications))
   ;; All captured domains participate in each stage, including a later field's
   ;; source invalidated by an earlier callback. Refusal skips the next callback.
-  (def (current) (every (lambda (domain) (live? (domain-current domain))) domains))
+  (def (current) (and (live? owner)
+    (every (lambda (domain) (live? (domain-current domain))) domains)))
   (def (stop _status _minimal?) (error "stale product specification"))
   (make-specification
     (lambda (values) (and (list? values) (= (length values) (length domains))

@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P19 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P21 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1531,3 +1531,123 @@ lookup remains linear in the captured finite Type directory.
 inform separating preparation from actual demand. This is a correction in the
 POO Type-driven layer, not an assertion that Racket has our descriptor/revision
 protocol. General inference and arbitrary Type generation remain explicit bounds.
+
+## P20: revision-bound scoped differential trace execution
+
+A direct typed `check-trace` could execute both commands and return `matched? #t`
+after its actual fixture revised the model's observation declaration. No model
+or fixture declaration snapshot owned that execution. Through an outer property
+run some revisions were eventually refused, but later fixture effects and
+comparisons could already have used a different declaration. This is a concrete
+coherence defect, distinct from the documented purity of the reference model or
+from arbitrary hidden callback dependencies.
+
+The typed boundary now captures the original model, normalized owner, TraceModel
+schema and Command/State/Result/Observation Types before execution. On entering a
+fixture it retains the original/normalized fixture, its State Type and its schema,
+without refreshing any previous stamp. Fixture stamps own only the active `use`;
+the model ledger is restored before teardown, so ordinary resource retirement is
+allowed. Model declarations stay checked through factory return. `prepare-model` captures callbacks and
+validation adapters once, and accepts one internal wrapper shared by all stages.
+The existing generic model fold still owns prefix admission, scope, first
+mismatch and step ordering; it is not replaced or given a new namespace.
+
+One local checked-action function brackets reference callbacks, normalization,
+actual steps, actual observations, result/observation validation, equality and
+fixture-factory return. Even an apparently matching comparison or an already
+computed report cannot cross a revised declaration boundary. Source refusal uses
+the existing `GenerationRefusal` stale kind; it never becomes a false witness.
+Exceptions retain their original cause because a failed callback does not execute
+a trailing check that could replace it. Malformed scalar models retain normal
+Type refusal. Stable first-difference phase/index/expected/actual data are unchanged.
+
+Declarations are fixed for one execution; the actual State may evolve normally.
+Backend roots, pending deltas, invalid caches and mutable fixture state are not
+mistaken for immutable declaration metadata. A rejected execution does not undo
+an already performed backend operation. Fresh explicit preparation is the retry
+boundary; an old report cannot acquire fresh source stamps.
+
+Regressions revise declarations before fixture entry, in initial observation,
+equality, a step, and after a completed use but before factory return. They verify
+that later steps/observations stop and user scope cleanup runs once. Further
+controls cover fixture declaration edits, exact exceptions after a revision,
+malformed input, unchanged first-difference diagnostics and normal fixture retirement
+after use. The complex example
+uses the existing real indexed-collection lifecycle plus its state-dependent
+random suffix, wrapping the actual fixture's first step. FUN returns stale after
+one operation, old replay refuses, and a freshly prepared full trace plus seed
+replay passes without altering the original collection model.
+
+`PropertyTraces.lean` keeps this unit separate from generator algebra while
+retaining the existing PropertyTesting namespace. Eight finite laws establish
+preflight refusal, reference/fixture/comparison revision refusal, exact causes at
+each stage and unchanged stable match/mismatch results. Host cleanup is verified
+by executable scope controls, not asserted as a Lean theorem about continuations.
+Faithful owner epochs, sequential observation, callback termination and the
+fixture/model simulation relation remain premises. Hidden heap mutation,
+concurrent linearizability and effect rollback remain outside the proof.
+
+Each checked callback walks the retained finite declaration ledger. This adds
+correctness checks, not a zero-cost or wall-time improvement claim. Wrappers are
+prepared once per trace; no per-command object protocol or source registry is
+created. Existing heap/time/proposal limits and complete checks remain unchanged.
+[Rackcheck's separation of generators and property execution](https://docs.racket-lang.org/rackcheck/index.html)
+informs keeping the oracle/fixture boundary outside the generator algebra. The
+revision-bound model protocol is this project's extension, not a Rackcheck API.
+
+## P21: shared typed-product observation and directory ownership
+
+The audit reproduced a typed/generic mismatch in the explicit `product-generator`
+factory: a first typed field measure
+changed a later field's source, yet that later measure still ran before the whole
+report finally became stale. The generic product specification already stopped
+between field callbacks (P15), but `product-generator` duplicated its measure
+with a plain map/sum. Value-only coordinate shrinking similarly could continue
+to packing and later child callbacks. A caller could also mutate the supplied
+child-list spine after construction, making draw use the old children while
+measure/shrink used a different directory.
+
+Typed products now copy the child spine once and reuse the existing generic
+product specification for natural field measures and joint source checks.
+`specification-weight` is the checked operation on that opaque domain: it shares
+the existing natural-measure helper, checks sources, and never exposes raw record
+fields or redraws values. It expects a domain-appropriate value; recognition
+remains the runner's existing admission stage rather than being repeated by
+measurement. `make-product-specification` accepts an explicit `current?:` common
+owner, following the existing source-observer convention. It protects empty
+products and parent metadata as well as each child domain.
+
+One typed checked-action function brackets unpack, each value-only shrink and
+pack, using the same product-domain currentness. `map-in-order` preserves field
+and packing order. Ordinary retained-tree drawing/packing uses `generator-map`'s
+existing `current?:` boundary. The sampler retains that same `.current?` hook, so
+opening another core view cannot refresh an obsolete product. No new namespace,
+record hierarchy, value cache, property runner or compatibility path is added.
+Children and payloads retain their identities; only the caller-owned directory
+spine is captured, not arbitrary mutable heap contents.
+
+Regressions cover parent and child revisions during measures, unchanged charged
+attempts and last witness, refusal before packing/later shrink callbacks, explicit
+fresh retry, directory mutation across draw/measure/shrink and empty-product
+owner refusal. Generic controls cover common-owner and Boolean/natural admission
+and exact callback causes. The Record/FUN example retains nested Function wrapping,
+refuses the stale run before a later handler measure, prepares fresh ownership,
+shrinks a real failure, replays it and rejects later stale replay. Generic and typed
+layers share the same implementation rather than separate product cost folds.
+
+Eight laws in `PropertyProducts.lean`, under the existing PropertyTesting namespace,
+reuse guardedStages/guardedGeneration: common preflight, early field refusal,
+original field/packing causes, empty ownership, packing revision refusal, stable
+field order and unchanged natural sum. Faithful captured topology and pack/unpack
+representation laws, truthful epochs, sequential callbacks and termination are
+premises. Host list copying is tested, not claimed as a universal Lean heap theorem;
+GC, alias discovery, concurrent mutation and wall-time bounds are not inferred.
+
+The existing generic product checks all field owners around each callback; its
+observer work can be quadratic in product width. The common owner adds one guard
+per check and the factory captures field domains/stamps once. This is a coherence
+fix, not a constant-time or universal speedup claim. All checks and existing
+heap/time/proposal limits remain required.
+[Rackcheck's product/tree composition](https://docs.racket-lang.org/rackcheck/index.html)
+informs keeping generation algebra separate from domain observation. Common
+revision owners and typed sampler evidence are this project's explicit extension.
