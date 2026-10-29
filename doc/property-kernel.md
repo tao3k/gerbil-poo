@@ -566,7 +566,7 @@ To copy the independent worked suite into another standard Gerbil project, inclu
 `examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
-75 cases without installing POO.
+79 cases without installing POO.
 
 Checked property actions now install a run-local `with-generation-check` scope
 from the generator module. A nested draw/map/selector/iterator cannot continue
@@ -588,3 +588,9 @@ base constructors. The list family uses this when a positive minimum guarantees
 element participation. String/Symbol reuse it without another validator. A zero
 minimum leaves unused element owners unobserved. P26 records callback/seed,
 shrinking, wrapped Function, replay and explicit revision retry controls.
+
+Every returned proposal, including a filtered tombstone, admits its newly observed
+sources before terminal-budget publication. A stale node cannot be reported as a
+completed false search. Returned nodes still consume one token; EOF and iterator
+errors consume none. See P27 and the Record/FUN example for identity-sharing delivery, producer-side refusal,
+concrete/seed replay and explicit fresh retry.

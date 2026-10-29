@@ -165,7 +165,9 @@
       (for (_ (in-range fuel))
         (def child (next-proposal children state current finish))
         (when (eq? child #!eof) (finish 'failed #t))
-        (observe child)
+        ;; A returned tombstone also owns sources. Admit them before either
+        ;; candidate classification or terminal-budget publication.
+        (with-current current finish (observe child))
         (when (and (sample? child)
                    (smaller-failure? specification property best (sample-value child) current finish))
           (progress-best-set! state child)

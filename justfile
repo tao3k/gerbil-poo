@@ -45,12 +45,18 @@ build: build-shared
     /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 300s just --jobs "$workers" _build-test-packages
 
 [parallel]
-_build-test-packages: (_build-test-package "collections") (_build-test-package "prototypes") (_build-test-package "contracts") (_build-test-package "publication")
+_build-test-packages: (_build-test-package "contracts") (_build-test-package "types") (_build-test-package "collections") (_build-test-package "prototypes") (_build-test-package "indexes") (_build-test-package "publication")
 
 # The outer 300-second phase owns every child process group; avoid nested
 # timeout groups that can outlive the task runner after a failure.
 _build-test-package part:
-    cd "t/build/$1" && {{ platform-env }} gerbil {{ test-runtime-options }} build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "t/build/$1"
+    printf 'BUILD-PACKAGE-START %s\n' "$1"
+    # Bash's built-in time labels each real completion without another watchdog.
+    TIMEFORMAT="BUILD-PACKAGE-TIME $1 real=%R user=%U sys=%S"
+    time {{ platform-env }} gerbil {{ test-runtime-options }} build
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:

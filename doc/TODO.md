@@ -1685,6 +1685,11 @@ selection. P26 in [pbt-design-rfc.md](pbt-design-rfc.md) records the shared size
 source protocol, 75 independent cases, Record/FUN shrinking and fresh retry,
 and eight additional size/ownership laws. Empty optional results remain independent.
 
+Observed pruned proposals now admit their newly captured sources before
+terminal-budget publication. P27 in [pbt-design-rfc.md](pbt-design-rfc.md) records
+79 independent cases, checking/inspection parity, exact charges and original
+causes, Record/FUN retry and nine finite proposal-admission laws.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
