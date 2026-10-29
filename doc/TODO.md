@@ -1690,6 +1690,11 @@ terminal-budget publication. P27 in [pbt-design-rfc.md](pbt-design-rfc.md) recor
 79 independent cases, checking/inspection parity, exact charges and original
 causes, Record/FUN retry and nine finite proposal-admission laws.
 
+Generic model drawing now rejects non-natural and malformed configuration via
+Gerbil parameter contracts before initialization. P28 in
+[pbt-design-rfc.md](pbt-design-rfc.md) records 83 independent cases, exact min caps,
+early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw laws.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

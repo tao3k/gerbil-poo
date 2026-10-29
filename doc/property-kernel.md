@@ -563,10 +563,10 @@ fresh retry, wrapped Function shrinking and source-consistent replay.
 
 To copy the independent worked suite into another standard Gerbil project, include
 `examples/property-kernel.ss`, `examples/property-products.ss` and
-`examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` alongside the generic modules. The small
+`examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` and `examples/property-traces.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
-79 cases without installing POO.
+83 cases without installing POO.
 
 Checked property actions now install a run-local `with-generation-check` scope
 from the generator module. A nested draw/map/selector/iterator cannot continue
@@ -594,3 +594,9 @@ sources before terminal-budget publication. A stale node cannot be reported as a
 completed false search. Returned nodes still consume one token; EOF and iterator
 errors consume none. See P27 and the Record/FUN example for identity-sharing delivery, producer-side refusal,
 concrete/seed replay and explicit fresh retry.
+
+`model.draw-trace` admits an actual model, draw/random procedures, and exact
+natural steps/size before initialization. It uses the smaller cap and passes the
+original size to each state-dependent draw. Valid zero caps still initialize once
+but draw nothing; invalid limits never enter initialization. See P28 and
+`examples/property-traces.ss` plus the typed Record/FUN integration example.
