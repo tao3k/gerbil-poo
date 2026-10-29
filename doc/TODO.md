@@ -1615,6 +1615,12 @@ Old witnesses and charged attempts survive refusal; FUN retry captures fresh
 rules while old replay refuses. P15 in [pbt-design-rfc.md](pbt-design-rfc.md)
 records the reproduced defect, fixed semantics and observer cost boundary.
 
+Portable counterexample handoff now checks sources between reconfirmation,
+encoding and port delivery, and before consuming stale input. Fresh codec retry
+retains data identity and Record/Function restoration. P16 in
+[pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced failures, admission
+order and nontransactional I/O boundary.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

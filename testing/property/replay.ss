@@ -52,24 +52,31 @@
 (def (write-counterexample report codec port)
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
   (def (current) (report-current? report))
+  ;; Reconfirmation is a separate source-current stage: it can invalidate the
+  ;; codec even when the report's own dependencies remain current.
+  (with-codec codec (lambda ()
+    (when (replay-counterexample report) (error "property witness no longer fails"))) current)
   (let (envelope (with-codec codec (lambda ()
-      (when (replay-counterexample report) (error "property witness no longer fails"))
       (let (datum (copy-data ((replay-codec-encode codec) (report-counterexample report))
           (replay-codec-nodes codec) (replay-codec-depth codec)))
         (copy-data (vector 'property-counterexample 1 (replay-codec-identity codec) datum)
           (replay-codec-nodes codec) (replay-codec-depth codec)))) current))
     (with-codec codec (lambda () (write envelope port) (newline port)) current)))
-;; Identity admission precedes application callbacks. Decoding and execution have
-;; separate source brackets, so a stale decoder cannot open a property fixture.
+;; Source preflight precedes reading. Identity admission precedes decoding or
+;; property callbacks; each later stage retains its own currentness boundary.
 (def (read-counterexample codec port specification property policy: (policy (make-policy)))
   (unless (policy? policy) (error "property policy required"))
-  (def envelope (copy-data (read port) (replay-codec-nodes codec) (replay-codec-depth codec)))
+  ;; Reject stale preparation before consuming a caller-owned input. A read or
+  ;; decoder error still keeps its exact cause; consumed bytes are not rolled back.
+  (def (current) (specification-current? specification))
+  (def envelope (with-codec codec (lambda ()
+    (copy-data (read port) (replay-codec-nodes codec) (replay-codec-depth codec))) current))
   (unless (and (vector? envelope) (= (vector-length envelope) 4)
     (eq? (vector-ref envelope 0) 'property-counterexample)
     (eqv? (vector-ref envelope 1) 1)
     (equal? (vector-ref envelope 2) (replay-codec-identity codec))) (error "replay identity mismatch"))
-  (unless (eof-object? (read port)) (error "trailing replay data"))
-  (def (current) (specification-current? specification))
+  (with-codec codec (lambda ()
+    (unless (eof-object? (read port)) (error "trailing replay data"))) current)
   (let (value (with-codec codec
       (lambda () ((replay-codec-decode codec) (vector-ref envelope 3))) current))
     ;; The shared witness boundary observes codec/domain sources between each
