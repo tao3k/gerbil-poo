@@ -566,7 +566,7 @@ To copy the independent worked suite into another standard Gerbil project, inclu
 `examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` and `examples/property-traces.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
-83 cases without installing POO.
+87 cases without installing POO.
 
 Checked property actions now install a run-local `with-generation-check` scope
 from the generator module. A nested draw/map/selector/iterator cannot continue
@@ -600,3 +600,11 @@ natural steps/size before initialization. It uses the smaller cap and passes the
 original size to each state-dependent draw. Valid zero caps still initialize once
 but draw nothing; invalid limits never enter initialization. See P28 and
 `examples/property-traces.ss` plus the typed Record/FUN integration example.
+
+Finite value policies admit proper outer spines at `list-deletions` and finite
+parameter results at `data-list-shrinks`. Model repair refuses malformed inputs;
+model shrinking delegates to that shared boundary. Each parameter callback keeps
+its source scope, so revision skips the next coordinate. `make-generator` lazy
+shrink Iterators retain their separate bounded consumption protocol. P29 and
+`examples/generated-traces.ss` show typed Record/FUN failure, retry and replay
+without partial packing.

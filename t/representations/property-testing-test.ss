@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export property-testing-test property-kernel-test property-workflows-test generated-batches-test)
+(export property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test)
 (import (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
@@ -9,7 +9,8 @@
         (prefix-in :clan/poo/examples/signature-service service.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
         (only-in :clan/poo/examples/property-workflows property-workflows-test)
-        (only-in :clan/poo/examples/generated-batches generated-batches-test))
+        (only-in :clan/poo/examples/generated-batches generated-batches-test)
+        (only-in :clan/poo/examples/generated-traces generated-traces-test))
 
 ;; Deterministic fixture isolates shrinking from random trial distribution.
 (def (fixed-integer value shrink (measure abs))
@@ -90,11 +91,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 83)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 87)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 83 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 87 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test

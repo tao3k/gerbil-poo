@@ -1,0 +1,107 @@
+;;; Typed finite shrinking composes existing Record contracts and FUN actions.
+(export generated-traces-test)
+(import :std/test :std/error :std/iter
+        ../object ../mop ../type ../number ../testing/type ../support/option
+        (only-in ../debug property-debug-action)
+        (prefix-in :clan/poo/testing/property/generator core.))
+
+;; Both malformed forms are finite graphs, detected by Gerbil's standard list?.
+(def (malformed-spine item cyclic?)
+  (let (head (list item)) (set-cdr! head (if cyclic? head 'malformed)) head))
+
+(def generated-traces-test
+  (test-suite "finite typed trace and data preparation"
+    (test-case "malformed Record parameter lists cannot publish repaired trace prefixes"
+      (for (cyclic? '(#f #t))
+        (def command (Record kind: [(Enum open use)] key: [UInt] handler: [(Function [Integer] [Integer])]))
+        (def state (List UInt))
+        (def draws 0) (def parameters 0) (def opened 0) (def closed 0)
+        ;; Oracle replies are independent of the actual wrapped Function field.
+        (def (advance previous next)
+          (values (if (eq? (.get next kind) 'open) (cons (.get next key) previous) previous)
+            (1+ (.get next key))))
+        ;; Record initialization alone supplies the Function boundary.
+        (def (emit kind)
+          (make-instance command kind: kind key: 1 handler: (lambda (value) (1+ value))))
+        (def subject (make-instance TraceGenerator Command: command State: state Result: Integer Observation: state
+          initial: (lambda () []) enabled?: (lambda (previous next)
+            (if (eq? (.get next kind) 'open) (not (memv (.get next key) previous))
+              (and (memv (.get next key) previous) #t)))
+          advance: advance observe: identity draw: (lambda (previous _random _size)
+            (set! draws (1+ draws)) (some (emit (if (null? previous) 'open 'use))))
+          shrink: (lambda (item) (set! parameters (1+ parameters)) (malformed-spine item cyclic?))
+          measure: (lambda (_) 0)))
+        (def system-type (TraceSystem state))
+        ;; Scope cleanup remains owned by the real differential fixture.
+        (def (fixture use)
+          (set! opened (1+ opened))
+          (try (use (make-instance system-type initial: [] observe: identity step: (lambda (previous next)
+            (values (if (eq? (.get next kind) 'open) (cons (.get next key) previous) previous)
+              (+ ((.@ next handler) (.get next key)) (if (eq? (.get next kind) 'use) 1 0))))))
+            (finally (set! closed (1+ closed)))))
+        ;; Fresh preparation changes the callback explicitly; it never salvages a tail.
+        (def (prepare model)
+          (let (sampler (trace-generator command model steps: 3))
+            (property-debug-action #f (.get sampler descriptor) (trace-property model fixture) sampler: sampler)))
+        (def configuration (make-instance PropertyConfiguration seed: 7 cases: 1 size: 3 shrink-budget: 64))
+        (def report ((prepare subject) configuration))
+        (check-eq? (.get report status) 'error)
+        (check-equal? (list parameters draws opened closed (.get report attempts) (.get report steps)) '(1 3 1 1 0 0))
+        (check-equal? (length (.get report counterexample)) 3)
+        (check-exception (replay-counterexample report) Error?)
+        (check-eq? (.get (replay-property report) status) 'error)
+        (check-equal? (list parameters draws opened closed) '(2 6 2 2))
+        (def fresh ((prepare (.cc subject shrink: (lambda (_) []))) configuration))
+        (check-eq? (.get fresh status) 'failed)
+        (check-equal? (map (cut .get <> kind) (.get fresh counterexample)) '(open use))
+        (check-exception ((.@ (cadr (.get fresh counterexample)) handler) 'invalid) TypeError?)
+        (let (before draws)
+          (check (replay-counterexample fresh) => #f)
+          (check-equal? draws before)
+          (check-eq? (.get (replay-property fresh) status) 'failed)
+          (check-equal? draws (+ 3 before)))
+        (check-equal? opened closed)))
+    (test-case "String Symbol and Bytes share finite preparation and source refusal"
+      ;; One codec-parametric fixture exercises all standard carriers. Every value
+      ;; field keeps its exact descriptor; no unconstrained element fallback exists.
+      (def (exercise descriptor pack unpack items marker)
+        (def payload (Record value: [descriptor] handler: [(Function [Integer] [Integer])]))
+        (def configuration (.o epoch: 0))
+        (def packs 0) (def parameters 0)
+        ;; Mapping and Function wrapping start only after the complete policy returns.
+        (def (packet rows)
+          (set! packs (1+ packs)) (make-instance payload value: (pack rows) handler: abs))
+        ;; The same shared value policy supplies finite proper candidates to every codec.
+        (def (prepare mode)
+          (let (sampler (make-generator payload (lambda (_random _size) (packet items))
+            (lambda (value)
+              (map packet (core.data-list-shrinks (unpack (.get value value)) (lambda (item)
+                (set! parameters (1+ parameters))
+                (case mode
+                  ((improper) (malformed-spine item #f)) ((cycle) (malformed-spine item #t))
+                  ((revise) (.putslot! configuration 'epoch ($constant-slot-spec (1+ (.get configuration epoch)))) [])
+                  ((proper) []) (else (error "unknown preparation mode" mode)))) 0)))
+            (lambda (value) (length (unpack (.get value value)))) dependencies: (list configuration)))
+            (property-debug-action #f payload (lambda (value)
+              (check-equal? ((.@ value handler) -3) 3)
+              (not (member marker (unpack (.get value value))))) sampler: sampler)))
+        (def options (make-instance PropertyConfiguration seed: 11 cases: 1 size: 2 shrink-budget: 32))
+        (for (mode '(improper cycle revise))
+          (set! packs 0) (set! parameters 0)
+          (let (report ((prepare mode) options))
+            (check-eq? (.get report status) (if (eq? mode 'revise) 'stale 'error))
+            (check-equal? (list packs parameters (.get report attempts) (.get report steps)) '(1 1 0 0))
+            (check-equal? (unpack (.get (.get report counterexample) value)) items)
+            (check-exception (replay-counterexample report) Error?)))
+        (let (fresh ((prepare 'proper) options))
+          (check-eq? (.get fresh status) 'failed)
+          (check-equal? (unpack (.get (.get fresh counterexample) value)) (list marker))
+          (check-exception ((.@ (.get fresh counterexample) handler) 'invalid) TypeError?)
+          (let (before packs)
+            (check (replay-counterexample fresh) => #f)
+            (check-equal? packs before))
+          (check-eq? (.get (replay-property fresh) status) 'failed)))
+      (exercise String list->string string->list '(#\b #\b) #\b)
+      (exercise Symbol (lambda (rows) (string->symbol (list->string rows)))
+        (lambda (value) (string->list (symbol->string value))) '(#\b #\b) #\b)
+      (exercise Bytes list->u8vector u8vector->list '(2 2) 2))))
