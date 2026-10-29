@@ -523,3 +523,14 @@ A selected unsupported Type still raises its original cause; it never becomes
 Any or triggers a type-based branch fallback. Unforced Type revisions and forced
 child dependencies still invalidate old reports. See P19 of the RFC and the
 keyword/rest/multiple-return FUN workflow in `examples/generated-batches.ss`.
+
+Typed `check-trace` now binds one execution to captured model and fixture
+**declarations**. Actual State still evolves; replacing a step/observer, editing
+its declared Type or changing model metadata refuses subsequent stages through
+the existing stale-generation signal. A revision after `use` returns also refuses
+publication. Original exceptions and first-difference diagnostics remain intact,
+and the caller's ordinary scope owns cleanup. Retry prepares a fresh execution;
+there is no backend rollback. See P20 in the RFC and the indexed-collection/FUN
+revision example in `examples/generated-batches.ss`.
+Fixture epoch checks end with `use`, so teardown may normally retire its methods;
+model declarations remain checked until the fixture factory returns.

@@ -65,10 +65,10 @@
 ;; through object-revision, including inherited declaration changes.
 (def (generator-sources sampler)
   (cons sampler (.get sampler sources)))
-;; Capture mutable sources once before the first trial.
+;; Capture mutable sources once; non-generator observations supply explicit owners.
 (def (snapshot sampler dependencies)
   (map (lambda (source) (cons source (object-revision source)))
-       (delete-duplicates/hash (append (generator-sources sampler) dependencies))))
+       (delete-duplicates/hash (append (if sampler (generator-sources sampler) []) dependencies))))
 ;; Refuse result admission after any declared source changed, including callbacks.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
@@ -340,19 +340,22 @@
   (testing.replay-counterexample (.get report execution)))
 
 
-;; Normalize each pure reference successor through its declared State descriptor.
-;; Result admission is shared by generation, repair and differential execution.
-(def (advance-trace model state command)
-  (defvalues (next result) (.call model advance state command))
-  (values (validate (.get model State) next) (validate (.get model Result) result)))
-
 ;; Type preparation is a domain layer over the ordinary Gerbil model protocol.
-;; Every normalized reference successor still uses the declared State/Result Types.
-(def (prepare-model model (normalize identity))
+;; Capture declarations once. A scoped observation can bracket each callback with
+;; the same wrapper; pure generation/repair keep identity and the same evaluator.
+(def (prepare-model model (normalize identity) (wrap identity))
+  (def state (wrap (cut validate (.get model State) <>)))
+  (def result (wrap (cut validate (.get model Result) <>)))
+  (def initial (wrap (.@ model initial)))
+  (def advance (wrap (.@ model advance)))
   (model.make-model
-    (lambda () (validate (.get model State) (.call model initial)))
-    (.@ model enabled?) (cut advance-trace model <> <>) (.@ model observe)
-    (cut element? (.get model Command) <>) normalize))
+    (lambda () (state (initial)))
+    (wrap (.@ model enabled?))
+    (lambda (previous command)
+      (defvalues (next reply) (advance previous command))
+      (values (state next) (result reply)))
+    (wrap (.@ model observe))
+    (wrap (cut element? (.get model Command) <>)) (wrap normalize)))
 ;; Prefix admission and dependency repair share the generic fold; neither owns a
 ;; second traversal or invokes an actual backend during model validation.
 (def (valid-trace? model commands) (model.valid-trace? (prepare-model model) commands))
@@ -393,28 +396,59 @@
 
 ;; Validate observed replies and snapshots at ONE comparison boundary. A declared
 ;; equality relation must return Boolean; an exception is an error, never a pass.
-(def (trace-equal? descriptor same? expected actual)
-  (def left (validate descriptor expected)) (def right (validate descriptor actual))
-  (same? left right))
+(def (trace-equal? descriptor same? expected actual call)
+  (def left (call validate descriptor expected)) (def right (call validate descriptor actual))
+  (call same? left right))
 
 ;; Preflight the whole normalized command list before opening a fresh scoped
 ;; fixture. Compare initial state, then each reply/state exactly once; stop on
 ;; first divergence. Reports contain observations, never actual fixture owners.
 (def (check-trace model commands with-system same?: (same? equal?))
-  (set! model (validate TraceModel model))
   (require-value with-system procedure? (lambda () (error "trace fixture must be a procedure")))
   (require-value same? procedure? (lambda () (error "trace equality must be a procedure")))
-  (def normalized (validate (List (.get model Command)) commands))
-  (def execution (model.check-trace (prepare-model model) normalized
+  ;; Invalid scalars retain normal Type errors before object-revision is consulted.
+  (unless (object? model) (validate TraceModel model))
+  (def sources (snapshot #f (list model TraceModel)))
+  ;; Retain old stamps when normalized owners or fixture declarations are added;
+  ;; later capture can never refresh authority for an earlier changed owner.
+  (def (retain! owners) (set! sources (append sources (snapshot #f owners))))
+  ;; One action boundary owns every callback, preserving multiple values and
+  ;; original exceptions. Refusal never rolls back already performed effects.
+  (def (checked action . arguments)
+    (unless (current? sources) (refuse-generation 'stale))
+    (begin0 (apply action arguments)
+      (unless (current? sources) (refuse-generation 'stale))))
+  ;; Prepare each method wrapper once, rather than layering a new object protocol.
+  (def (wrap action) (lambda arguments (apply checked action arguments)))
+  (set! model (checked validate TraceModel model))
+  (retain! (checked (lambda () (list model (.get model Command) (.get model State)
+    (.get model Result) (.get model Observation)))))
+  (def normalized (checked validate (List (.get model Command)) commands))
+  (def reference (checked prepare-model model identity wrap))
+  (def execution (model.check-trace reference normalized
     (lambda (use)
-      (with-system (lambda (system)
-        (set! system (validate (TraceSystem (.get system State)) system))
-        (use (model.make-system (.get system initial)
-          (lambda (state command)
-            (let-values (((next result) (.call system step state command)))
-              (values (validate (.get system State) next) result))) (.@ system observe))))))
-    same?: (lambda (phase left right)
-      (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right))))
+      (checked with-system (lambda (system)
+        (def declarations sources)
+        ;; Fixture declarations belong to use, not to teardown. Restore model
+        ;; ownership before user cleanup; model edits still refuse factory return.
+        (try
+          (retain! (list system))
+          (def state-type (checked (lambda () (.get system State))))
+          (unless (object? state-type) (checked validate Type state-type))
+          (retain! (list state-type))
+          (def schema (checked TraceSystem state-type))
+          (retain! (list schema))
+          (set! system (checked validate schema system))
+          (retain! (list system))
+          (def step (checked (lambda () (.@ system step))))
+          (def observe (checked (lambda () (.@ system observe))))
+          (use (model.make-system (checked (lambda () (.get system initial)))
+            (lambda (state command)
+              (let-values (((next result) (checked step state command)))
+                (values (checked validate state-type next) result))) (wrap observe)))
+          (finally (set! sources declarations))))))
+    same?: (wrap (lambda (phase left right)
+      (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
   (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
     index: (model.trace-report-index execution)
     command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))

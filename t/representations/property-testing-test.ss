@@ -5,6 +5,7 @@
         (prefix-in :clan/poo/testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
+        (only-in :clan/poo/testing/generation-graph generation-refusal?)
         (prefix-in :clan/poo/examples/signature-service service.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
         (only-in :clan/poo/examples/property-workflows property-workflows-test)
@@ -13,6 +14,11 @@
 ;; Deterministic fixture isolates shrinking from random trial distribution.
 (def (fixed-integer value shrink (measure abs))
   (make-generator Integer (lambda (_random _size) value) shrink measure))
+;; Each observation owns fresh declarations; the fixture is the only effectful side.
+(def (integer-trace-model)
+  (make-instance TraceModel Command: Integer State: Integer Result: Integer Observation: Integer
+    initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+    advance: (lambda (state command) (values (+ state command) (+ state command))) observe: values))
 ;; Materialize ordinary Gerbil source forms, keeping paths as data rather than shell text.
 (def (write-program path forms)
   (call-with-output-file path (lambda (port)
@@ -77,6 +83,68 @@
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "trace declaration revisions stop every scoped execution boundary"
+      (for (phase '(open observe compare step type return))
+        (def observation (.cc Integer epoch: 0))
+        (def model (.cc (integer-trace-model) Observation: observation)) (def steps 0) (def closed 0)
+        (def schema (TraceSystem Integer))
+        ;; Reassigning the same callback is still a declaration revision.
+        (def (revise at) (when (eq? phase at)
+          (if (eq? at 'type) (.set! observation epoch 1) (.set! model observe values))))
+        (check-exception
+          (check-trace model '(1 2)
+            (lambda (use)
+              (try
+                (revise 'open)
+                (let (report (use (make-instance schema initial: 0
+                  step: (lambda (state command)
+                    (set! steps (1+ steps)) (revise 'step) (revise 'type)
+                    (values (+ state command) (+ state command)))
+                  observe: (lambda (state) (revise 'observe) state))))
+                  (revise 'return) report)
+                (finally (set! closed (1+ closed)))))
+            same?: (lambda (left right) (revise 'compare) (equal? left right)))
+          generation-refusal?)
+        (check-equal? steps (case phase ((step type) 1) ((return) 2) (else 0)))
+        (check-equal? closed 1)))
+    (test-case "fixture declaration changes reject later observations and preserve cleanup"
+      (def model (integer-trace-model)) (def steps 0) (def observed 0) (def closed 0)
+      (def fixture #f)
+      (set! fixture (make-instance (TraceSystem Integer) initial: 0
+        step: (lambda (state command)
+          (set! steps (1+ steps)) (.set! fixture observe values)
+          (values (+ state command) (+ state command)))
+        observe: (lambda (state) (set! observed (1+ observed)) state)))
+      (check-exception (check-trace model '(1 2) (lambda (use)
+        (try (use fixture) (finally (set! closed (1+ closed)))))) generation-refusal?)
+      (check-equal? (list steps observed closed) '(1 1 1)))
+    (test-case "a step exception after revision retains the original cause"
+      (def model (integer-trace-model)) (def cause (cons 'step 'failure)) (def closed 0)
+      (def found (with-catch identity (lambda ()
+        (check-trace model '(1 2) (lambda (use)
+          (try (use (make-instance (TraceSystem Integer) initial: 0
+            step: (lambda (_state _command) (.set! model observe values) (raise cause))
+            observe: values))
+            (finally (set! closed (1+ closed)))))))))
+      (check-eq? found cause)
+      (check-equal? closed 1))
+    (test-case "unchanged trace declarations retain first-difference diagnostics"
+      (check-exception (check-trace #f [] (lambda (_) (error "fixture must not open"))) TypeError?)
+      (def steps 0) (def closed 0)
+      (def report (check-trace (integer-trace-model) '(1 2) (lambda (use)
+        (try (use (make-instance (TraceSystem Integer) initial: 0
+          step: (lambda (state command) (set! steps (1+ steps)) (values (+ state command) 99))
+          observe: values)) (finally (set! closed (1+ closed)))))))
+      (check-equal? (list (.get report matched?) (.get report phase) (.get report index)
+        (.get report expected) (.get report actual) steps closed) '(#f result 0 1 99 1 1)))
+    (test-case "normal teardown can retire the fixture after scoped use"
+      (def fixture (make-instance (TraceSystem Integer) initial: 0
+        step: (lambda (state command) (values (+ state command) (+ state command))) observe: values))
+      (def report (check-trace (integer-trace-model) '(1 2) (lambda (use)
+        (try (use fixture)
+          (finally (.set! fixture step (lambda (_state _command) (error "closed fixture"))))))))
+      (check (.get report matched?) => #t)
+      (check-equal? (.get report index) 2))
     (test-case "typed inspections share recursive sampler domains and source epochs"
       (def descriptor (Tuple (List (BytesN 3)) Symbol))
       (def sampler (generator descriptor))

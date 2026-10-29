@@ -4,6 +4,7 @@
         (only-in ../debug property-debug-action)
         (prefix-in :clan/poo/testing/property policy.)
         (prefix-in :clan/poo/testing/property/replay corpus.)
+        (prefix-in ./collection-testing collection.)
         :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type ../testing/function ../support/option
         (prefix-in :clan/poo/testing/property/generator core.))
 
@@ -45,6 +46,39 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "indexed collection traces reject revised models then reprepare through FUN"
+      (def subject (collection.collection-model collection.lifecycle))
+      (def revise? #t) (def steps 0) (def closed 0)
+      ;; The actual indexed delta workflow owns real roots and tickets. Only its
+      ;; first step injects a declaration edit; cleanup remains with the fixture.
+      (def (with-system use)
+        (try
+          (collection.with-collection-system (lambda (system)
+            (def step (.@ system step))
+            (use (.cc system step: (lambda (state command)
+              (defvalues (next result) (step state command))
+              (set! steps (1+ steps))
+              (when revise? (.set! subject observe (.@ subject observe)))
+              (values next result))))))
+          (finally (set! closed (1+ closed)))))
+      ;; Fresh preparation is explicit. A refused run cannot refresh old stamps.
+      (def (run)
+        (def sampler (trace-generator collection.Command subject steps: 64))
+        ((property-debug-action #f (.get sampler descriptor)
+          (trace-property subject with-system) sampler: sampler)
+          (make-instance PropertyConfiguration cases: 1 size: 64 shrink-budget: 8)))
+      (def refused (run))
+      (check-eq? (.get refused status) 'stale)
+      (check-equal? (list steps closed) '(1 1))
+      (check-exception (replay-property refused) Error?)
+      (set! revise? #f) (set! steps 0)
+      (def retried (run))
+      (check-eq? (.get retried status) 'passed)
+      (check-equal? steps (length (.get retried original)))
+      (check (>= steps (length collection.lifecycle)) => #t)
+      (check-equal? closed 2)
+      (check-eq? (.get (replay-property retried) status) 'passed)
+      (check-equal? closed 3))
     (test-case "call input promises share derivation across keyword rest shrinking FUN and replay"
       (def configuration (.o maximum: 8)) (def preparations 0)
       (def input (.o self: domain inherit: [Type.] .element?: (cut element? UInt <>)
