@@ -12,6 +12,15 @@
 (defstruct layout (shape cells missing count))
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
+;; Intern distinct symbolic names through the existing weak shape table.
+;; Callers establish uniqueness; standard sorting preserves the canonical order.
+(def (intern-shape names)
+  (def keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) names))
+  (hash-ensure-ref shapes keys
+    (lambda ()
+      (let (indices (make-hash-table-symbolic))
+        (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
+        (make-shape indices keys)))))
 ;; Canonicalize symbolic identity order, independent of parent/declaration order.
 ;; An explicit initial table seeds all cached values. False selects demand-filled
 ;; cells: make-vector allocates the same finite layout without scanning values.
@@ -24,12 +33,7 @@
   (def canonical
     (if (and hint (= (length unique) (length (shape-names hint)))
              (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint
-      (let (keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) unique))
-        (hash-ensure-ref shapes keys
-          (lambda ()
-            (let (indices (make-hash-table-symbolic))
-              (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
-              (make-shape indices keys)))))))
+      (intern-shape unique)))
   (def keys (shape-names canonical))
   ;; Fill the final vector through the same presence boundary as ordinary writes.
   ;; No intermediate value list, list-to-vector copy or second count scan exists.
@@ -72,9 +76,17 @@
   (using (key :~ symbol?)
     (let (index (slot-layout-index self key))
       (if index (slot-layout-set! self index value)
-        (let (next (make-slot-layout (cons key (shape-names (layout-shape self)))
-                      (HashTable self) (layout-missing self)))
-          (slot-layout-set! next (slot-layout-index next key) value)
+        (let* ((canonical (intern-shape (cons key (shape-names (layout-shape self)))))
+               (at (hash-ref (shape-indices canonical) key))
+               (old (layout-cells self))
+               (cells (make-vector (1+ (vector-length old)) (layout-missing self)))
+               (next (make-layout canonical cells (layout-missing self) (layout-count self))))
+          ;; The admitted key is absent. Canonical order inserts exactly one cell;
+          ;; standard bulk copies preserve false, functions and uncomputed cells.
+          ;; Finish the private candidate before replacing the authoritative store.
+          (vector-copy! cells 0 old 0 at)
+          (vector-copy! cells (1+ at) old at (vector-length old))
+          (slot-layout-set! next at value)
           (set! (layout-shape self) (layout-shape next))
           (set! (layout-cells self) (layout-cells next))
           (set! (layout-count self) (layout-count next)))))

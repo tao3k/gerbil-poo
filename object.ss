@@ -586,11 +586,12 @@
                 ;; Cold sites and evicted cells share ordinary cycle-aware demand.
                 ;; Only successful demand publishes the final-shape access guard.
                 (let* ((shape (slot-layout-shape layout))
-                       (value (if (eq? stored absent-value) (.ref self slot) stored)))
-                  (slot-cache-bind! cache self revision layout
-                    (if (eq? shape (slot-layout-shape layout)) index
-                      (slot-layout-index layout slot))) value)))))))))
-
+                       (value (if (eq? stored absent-value) (.ref self slot) stored))
+                       (same-shape? (eq? shape (slot-layout-shape layout))))
+                  ;; Recheck after callbacks: a shared site may have rebound to another owner.
+                  (unless (slot-cache-hit? cache self revision layout)
+                    (slot-cache-bind! cache self revision layout
+                      (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))
   (%slot-read-demand! self slot)
@@ -604,7 +605,6 @@
         (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
-
 ;; Prototype to put at the end of the list, to handle
 ;; undefined-prototype-behavior a bit better.
 ;; Should it send a special message in that case?
