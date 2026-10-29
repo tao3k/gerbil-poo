@@ -55,7 +55,7 @@ observed exhausted immediate neighborhood, not a globally smallest value.
 Seed replay regenerates under the recorded configuration; concrete replay checks
 the retained witness without drawing or shrinking. Mutable callback dependencies
 must be declared through accurate source observers. The isolated regression builds
-the actual generic package and executes twelve cases without any POO modules in
+the actual generic package and executes twenty-eight cases without any POO modules in
 its package directory, under the existing heap and timeout limits.
 
 Model normalization is an explicit boundary: `check-trace` first prepares the
@@ -236,3 +236,35 @@ an entry that preserves those checks until its Gerbil release propagates failure
 status. The ordinary `examples/property-refusals.ss` module verifies all six PBT failure categories
 through the same public entry. It is invoked explicitly by the positive workflow
 suite; no temporary Scheme source, custom runner or fixture lifecycle is generated.
+
+## Characters, bytes and spellings
+
+The generic generator module exports inclusive `generator-integer lower upper`,
+`generator-character lower: char upper: char`, and `generator-byte` (0–255).
+The default character domain is Unicode scalar values, excluding surrogates.
+`generator-string` and `generator-symbol` accept an optional character generator;
+`generator-bytes` produces Gerbil u8vectors. All three accept `min-length:` and
+`max-length:` (defaults 0/128). Size controls extra elements above the minimum;
+`min-length: 4 max-length: 4` always produces four bytes, even at size zero.
+
+```scheme
+;; Application alphabet and spelling bounds are explicit domain choices.
+(def letters (generator.generator-character lower: #\a upper: #\z))
+(def names (generator.generator-symbol letters min-length: 1 max-length: 12))
+(def payloads (generator.generator-bytes min-length: 4 max-length: 4))
+;; Depend on the exact generated spelling without a second source or PRNG.
+(def rows (generator.bind-generators
+  ((name names) (payload payloads)) (vector name payload)))
+```
+
+Use an explicit specification accepting the same alphabet/length domain. A
+natural measure such as length plus the sum of character codes/octet values
+allows both deletion and coordinate shrinking. For fixed widths use the content
+sum. The existing runner rejects nondecreasing proposals and charges them;
+there is no promise that every structural proposal has smaller content weight.
+POO `generator` now derives String, Symbol, Bytes and BytesN from these same
+families, including recursive container leaves. Custom scalar domains use
+`from-generator` with their own descriptor, measure and source dependencies.
+Concrete replay codecs may retain u8vectors directly; byte lengths count toward
+the codec's existing node budget. Symbols are interned spellings rather than
+identifiers; escaped reader spellings are preserved by ordinary write/read.

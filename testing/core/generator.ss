@@ -7,8 +7,10 @@
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
         boolean-result live? random-at
         generator-function function-value? function-domain function-apply function-procedure
-        function-table function-from-table)
-(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash))
+        function-table function-from-table
+        generator-integer generator-character generator-byte generator-list
+        generator-string generator-symbol generator-bytes data-list-shrinks character-shrinks)
+(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash take))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
 ;; Producers and nodes retain flat source leaves, never recursively composed guards.
@@ -255,6 +257,60 @@
       sources: (merge-sources sources (sample-node-sources tree))) random size)) sources))
 ;; Disabling shrinking is the empty policy, using the same source-owned protocol.
 (def (generator-no-shrink generator) (generator-with-shrink generator (lambda (_) [])))
+
+;; Inclusive finite intervals shrink their offset toward the admitted lower bound.
+(def (generator-integer lower upper)
+  (unless (and (exact-integer? lower) (exact-integer? upper) (<= lower upper))
+    (error "ordered exact integer bounds required" lower upper))
+  (make-generator (lambda (random _) (+ lower (random (1+ (- upper lower)))))
+    (lambda (value) (map (cut + lower <>) (integer-shrinks (- value lower))))))
+;; Unicode scalar ranks omit surrogate code points by construction, without retries.
+(def (character-rank char)
+  (unless (char? char) (error "character required" char))
+  (def code (char->integer char))
+  (when (<= #xd800 code #xdfff) (error "surrogate character refused"))
+  (if (> code #xdfff) (- code #x800) code))
+;; Scalar rank decoding is monotone across the one excluded Unicode interval.
+(def (rank-character rank) (integer->char (if (>= rank #xd800) (+ rank #x800) rank)))
+;; Value-only Type callbacks and sample trees share the same scalar shrink policy.
+(def (character-shrinks value (lower #\x00))
+  (def start (character-rank lower))
+  (def offset (- (character-rank value) start))
+  (unless (>= offset 0) (error "character below shrink interval"))
+  (map (lambda (smaller) (rank-character (+ start smaller))) (integer-shrinks offset)))
+;; Explicit inclusive character intervals skip the surrogate gap as well.
+(def (generator-character lower: (lower #\x00) upper: (upper #\x10ffff))
+  (generator-map (generator-integer (character-rank lower) (character-rank upper)) rank-character))
+;; Bytes are exact octets, independent of text encoding and locale.
+(def (generator-byte) (generator-integer 0 255))
+;; One finite value-level policy is shared by typed sequences and custom domains.
+;; Deletions and coordinate proposals retain the caller's explicit minimum length.
+(def (data-list-shrinks values shrink minimum)
+  (def size (length values))
+  (append (if (> size minimum)
+    (delete-duplicates/hash (list (take values minimum) (take values (max minimum (quotient size 2))))) [])
+    (let coordinates ((tail values) (before []))
+      (if (null? tail) []
+        (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) (shrink (car tail)))
+          (coordinates (cdr tail) (cons (car tail) before)))))))
+;; Length shrinking and coordinate shrinking reuse bind/sequence sample provenance.
+;; Size bounds additional elements; fixed required prefixes survive size zero.
+(def (generator-list element min-length: (minimum 0) max-length: (maximum 128))
+  (unless (and (generator? element) (exact-integer? minimum) (exact-integer? maximum)
+               (<= 0 minimum maximum)) (error "invalid sequence generator bounds"))
+  (generator-sized (lambda (size)
+    (generator-bind (generator-integer minimum (+ minimum (min size (- maximum minimum))))
+      (lambda (count) (generator-sequence (make-list count element)))))))
+;; Standard Scheme carriers are mapped once; shrinking keeps the hidden list tree.
+(def (generator-string (character (generator-character)) min-length: (minimum 0) max-length: (maximum 128))
+  (generator-map (generator-list character min-length: minimum max-length: maximum) list->string))
+;; Symbols are interned spellings, including empty and reader-sensitive spellings.
+;; No gensyms, identifier grammar or module-name interpretation is inferred.
+(def (generator-symbol (character (generator-character)) min-length: (minimum 0) max-length: (maximum 128))
+  (generator-map (generator-string character min-length: minimum max-length: maximum) string->symbol))
+;; Mutable byte vectors are freshly packed at each mapped node, never encoded as text.
+(def (generator-bytes min-length: (minimum 0) max-length: (maximum 128))
+  (generator-map (generator-list (generator-byte) min-length: minimum max-length: maximum) list->u8vector))
 
 ;; Finite functions store raw argument rows and result tuples, not opaque closures.
 (defstruct function-value (entries current) final: #t)

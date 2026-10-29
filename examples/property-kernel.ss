@@ -45,6 +45,65 @@
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
+    (test-case "Unicode scalar and byte endpoints never generate surrogate values"
+      (def chars (generator.generator-character))
+      (for (offset '(0 55295 55296 1112063))
+        (def value (generator.sample-value (generator.generate chars (lambda (_) offset) 0)))
+        (check (or (< (char->integer value) #xd800) (> (char->integer value) #xdfff)) => #t))
+      (check-equal? (generator.sample-value (generator.generate chars (lambda (n) (1- n)) 0)) #\x10ffff)
+      (check-equal? (generator.sample-value (generator.generate (generator.generator-byte) (lambda (n) (1- n)) 0)) 255)
+      (check-exception (generator.generator-character lower: #\z upper: #\a) Error?)
+      (check-exception (generator.generator-list chars min-length: 4 max-length: 3) Error?))
+    (test-case "bounded strings and symbols retain alphabet and dependent spelling"
+      (def alphabet (generator.generator-character lower: #\a upper: #\z))
+      (def strings (generator.generator-string alphabet min-length: 2 max-length: 8))
+      (def domain (property.make-specification
+        (lambda (text) (and (string? text) (<= 2 (string-length text) 8)
+          (every (lambda (char) (char<=? #\a char #\z)) (string->list text))))
+        (lambda (text) (+ (string-length text) (apply + (map char->integer (string->list text)))))))
+      (def report (property.check-property strings (lambda (_) #f) domain seed: 42 cases: 1 size: 8 shrink-budget: 80))
+      (check-eq? (property.report-status report) 'failed)
+      (check-equal? (property.report-counterexample report) "aa")
+      (same-failure report (property.replay-property report))
+      (def symbols (generator.generator-symbol alphabet min-length: 2 max-length: 8))
+      ;; A spelling shrink regenerates a matching byte payload from the saved seed.
+      (def packets (generator.generator-bind symbols (lambda (name)
+        (def width (string-length (symbol->string name)))
+        (generator.generator-map (generator.generator-bytes min-length: width max-length: width)
+          (lambda (payload) (vector name payload))))))
+      (def packet-domain (property.make-specification (lambda (row)
+        (and (vector? row) (= (vector-length row) 2) (symbol? (vector-ref row 0))
+          (u8vector? (vector-ref row 1))
+          (= (string-length (symbol->string (vector-ref row 0))) (u8vector-length (vector-ref row 1)))))
+        (lambda (row) (+ (apply + (map char->integer (string->list (symbol->string (vector-ref row 0)))))
+          (apply + (u8vector->list (vector-ref row 1)))))))
+      (def packet-report (property.check-property packets (lambda (_) #f) packet-domain
+        seed: 42 cases: 1 size: 8 shrink-budget: 200))
+      (check-eq? (property.report-status packet-report) 'failed)
+      (same-failure packet-report (property.replay-property packet-report))
+      (for (seed '(0 8 42))
+        (check-equal? (symbol->string (generator.sample-value (generator.generate symbols (generator.random-at seed) 8)))
+          (generator.sample-value (generator.generate strings (generator.random-at seed) 8)))))
+    (test-case "fixed byte payloads shrink coordinates without losing required width"
+      (def bytes (generator.generator-bytes min-length: 4 max-length: 4))
+      (def domain (property.make-specification
+        (lambda (value) (and (u8vector? value) (= (u8vector-length value) 4)))
+        (lambda (value) (apply + (u8vector->list value)))))
+      (def report (property.check-property bytes (lambda (_) #f) domain seed: 42 cases: 1 size: 0 shrink-budget: 80))
+      (check-equal? (property.report-counterexample report) #u8(0 0 0 0))
+      (same-failure report (property.replay-property report))
+      (check-equal? (generator.sample-value (generator.generate (generator.generator-bytes) (generator.random-at 9) 0)) #u8()))
+    (test-case "mapped data generators preserve stale sources and callback errors"
+      (def current #t)
+      (def chars (generator.make-generator (lambda (_random _size) #\a) (lambda (_) [])
+        current?: (lambda () current)))
+      (def tree (generator.generate (generator.generator-string chars min-length: 1) (generator.random-at 3) 0))
+      (set! current #f)
+      (check-exception (for (child ((generator.sample-children tree))) (void)) generator.stale-generation?)
+      (def cause (cons 'character 'callback))
+      (def refused (generator.make-generator (lambda (_random _size) (raise cause)) (lambda (_) [])))
+      (check-eq? (with-catch values (lambda ()
+        (generator.generate (generator.generator-string refused min-length: 1) (generator.random-at 3) 0))) cause))
     (test-case "standard checks evaluate report and formatter exactly once"
       (def reports 0) (def formats 0)
       (assertion.check-property

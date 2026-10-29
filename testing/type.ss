@@ -1,7 +1,7 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
-        ../object ../mop (only-in ../type String Exactly. Enum. List Record OrFalse)
+        ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
         (prefix-in ../generalized-prototype observation.)
@@ -97,6 +97,25 @@
     shrink: (lambda (value) (coordinate-shrinks children (unpack value) pack))
     dependencies: (apply append (map generator-sources children))))
 
+;; Standard data Types reuse the independent algebra, including its lazy shrink tree.
+;; Content weight permits same-length coordinate shrinking; required byte lengths
+;; remain explicit rather than silently falling back to a different Type.
+(def (data-generator descriptor (length #f))
+  (def bytes? (or length (eq? descriptor Bytes)))
+  (def symbol? (eq? descriptor Symbol))
+  (def unpack (cond (bytes? u8vector->list) (symbol? (lambda (value) (string->list (symbol->string value))))
+                    (else string->list)))
+  (def pack (cond (bytes? list->u8vector) (symbol? (lambda (value) (string->symbol (list->string value))))
+                  (else list->string)))
+  (def code (if bytes? identity char->integer))
+  (def lower (or length 0))
+  (def generation (cond (bytes? (core.generator-bytes min-length: lower max-length: (or length 128)))
+                       (symbol? (core.generator-symbol)) (else (core.generator-string))))
+  (from-generator descriptor generation
+    (lambda (value) (foldl (lambda (item total) (+ total 1 (code item))) 0 (unpack value)))
+    shrink: (lambda (value) (map pack (core.data-list-shrinks (unpack value)
+      (if bytes? integer-shrinks core.character-shrinks) lower)))))
+
 ;; Custom scalar callbacks retain explicit obligations; standard exact/enumerated
 ;; Types are finite leaves and never require recursive data predicates.
 (def (scalar-generator descriptor)
@@ -112,14 +131,12 @@
      (make-generator descriptor
        (lambda (random size) (if (eq? descriptor UInt) (random (+ size 1)) (- (random (+ (* 2 size) 1)) size)))
        integer-shrinks abs))
-    ((eq? descriptor String)
-     (make-generator descriptor
-       (lambda (random size) (list->string (map (lambda (_) (integer->char (+ 97 (random 26)))) (iota (random (+ size 1))))))
-       (lambda (x) (if (zero? (string-length x)) [] (list "" (substring x 0 (quotient (string-length x) 2)))))
-       string-length))
+    ((or (eq? descriptor String) (eq? descriptor Symbol) (eq? descriptor Bytes))
+     (data-generator descriptor))
     (else
       (def ancestors (compute-precedence-list! descriptor))
       (cond
+        ((memq BytesN. ancestors) (data-generator descriptor (.get descriptor n)))
         ((memq Exactly. ancestors)
          (make-generator descriptor (lambda (_random _size) (.get descriptor value)) (lambda (_) []) (lambda (_) 0)))
         ((memq Enum. ancestors)
