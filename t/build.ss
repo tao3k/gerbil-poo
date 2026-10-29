@@ -36,7 +36,7 @@
     ;; Test checks stay intact; one unlimited C host need not grow with all cases.
     ("collection-order"
     (gxc: "table-order-test" (extra-inputs: ("table-order/rationaldict.scm"
-      "table-order/cursors.scm" "table-order/queries.scm"
+      "table-order/cursors.scm"
       "table-order/decomposition.scm" "table-order/observations.scm"))
       "-cc-options" "-D___SINGLE_HOST_LIMIT=10000"))
     ("collection-styles" "set-algebra-test"
