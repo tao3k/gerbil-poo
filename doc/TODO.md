@@ -1603,6 +1603,12 @@ replay refusal. The first equal declaration position supplies the scalar rank;
 recursive grammar node costs remain unchanged. See P13 in
 [pbt-design-rfc.md](pbt-design-rfc.md).
 
+Model trace shrinking now composes the existing aligned-block and parameter
+neighborhood with dependency repair in `testing/property/model`. The typed path
+uses that same function. Parity-sensitive producer/consumer controls cover cases
+where single deletions cannot simplify a witness; source/zero-fuel/replay rules
+remain unchanged. See P14 in [pbt-design-rfc.md](pbt-design-rfc.md).
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

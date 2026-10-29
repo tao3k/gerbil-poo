@@ -4,7 +4,7 @@
         (only-in ../debug property-debug-action)
         (prefix-in :clan/poo/testing/property policy.)
         (prefix-in :clan/poo/testing/property/replay corpus.)
-        :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function
+        :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function ../support/option
         (prefix-in :clan/poo/testing/property/generator core.))
 
 ;; Record construction owns nested Function wrapping; the property runner does
@@ -45,6 +45,42 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "typed model block shrinking preserves dependencies through FUN and both replays"
+      (def command (Enum noise open use))
+      (def state (List command))
+      (def commands '(noise noise open use))
+      (def parameter-calls 0) (def opened 0) (def closed 0)
+      ;; Pure state retains processed commands; producer identity is the open tag.
+      (def (enabled state command) (case command
+        ((open) (not (memq 'open state))) ((use) (and (memq 'open state) #t)) (else #t)))
+      (def (step state command) (values (cons command state) #t))
+      (def model (make-instance TraceGenerator Command: command State: state Result: Bool Observation: state
+        initial: (lambda () []) enabled?: enabled advance: step observe: identity
+        draw: (lambda (state _random _size) (some (list-ref commands (length state))))
+        shrink: (lambda (_) (set! parameter-calls (1+ parameter-calls)) []) measure: (lambda (_) 0)))
+      (def sampler (trace-generator command model steps: 4))
+      (def system-type (TraceSystem state))
+      (def (fixture use)
+        (set! opened (1+ opened))
+        (try (use (make-instance system-type initial: [] observe: identity
+          step: (lambda (state command)
+            (values (cons command state)
+              (not (and (eq? command 'use) (even? (length (filter (cut eq? <> 'noise) state)))))))))
+          (finally (set! closed (1+ closed)))))
+      (def action (property-debug-action #f (.get sampler descriptor)
+        (trace-property model fixture) sampler: sampler))
+      (def full (action (make-instance PropertyConfiguration cases: 1 size: 4 shrink-budget: 0)))
+      (check-equal? (.get full counterexample) commands)
+      (check-equal? parameter-calls 0)
+      (def report (action (make-instance PropertyConfiguration seed: 17 cases: 1 size: 4 shrink-budget: 32)))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get report counterexample) '(open use))
+      (check (.get report minimal?) => #t)
+      (check-eq? (replay-counterexample report) #f)
+      (check-equal? (.get (replay-property report) counterexample) '(open use))
+      (check-equal? opened closed)
+      (.putslot! model 'epoch ($constant-slot-spec 1))
+      (check-exception (replay-property report) Error?))
     (test-case "Enum canonical ranks preserve duplicates empty alternatives and value shrinking"
       (def descriptor (Enum read write admin write))
       (def sampler (generator descriptor))

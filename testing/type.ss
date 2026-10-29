@@ -1,6 +1,6 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
-(import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
+(import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
@@ -380,11 +380,8 @@
               (#f (values #f #f)) ((some command) (values #t command))
               (else (error "trace draw requires Option")))) steps random size))
       (lambda (commands)
-        (append
-          (for/collect (index (in-range (length commands)))
-            (repair-trace model (append (take commands index) (drop commands (1+ index)))))
-          (coordinate-shrinks (make-list (length commands) model) commands
-            (cut repair-trace model <>))))
+        (model.shrink-trace (prepare-model model (cut validate (.get model Command) <>))
+          commands (.@ model shrink)))
       (lambda (commands)
         (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
       dependencies: (append (list source TraceGenerator command-type (.get model State)

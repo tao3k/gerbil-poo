@@ -1,8 +1,8 @@
 ;;; Generic finite model traces. Domains supply admission and normalization.
-(export make-model model? make-system system? valid-trace? repair-trace draw-trace check-trace
+(export make-model model? make-system system? valid-trace? repair-trace shrink-trace draw-trace check-trace
         trace-report? trace-report-matched? trace-report-phase trace-report-index
         trace-report-has-command? trace-report-command trace-report-expected trace-report-actual)
-(import :std/error :std/iter)
+(import :std/error :std/iter (only-in ./generator data-list-shrinks))
 ;; Private model records hold ordinary pure callbacks, not POO descriptors.
 (defstruct reference (initial enabled advance observe accept normalize) final: #t)
 ;; Each fixture supplies owned state and its actual transition/observation functions.
@@ -53,6 +53,12 @@
       (let (command ((reference-normalize model) raw))
         (values (judgment ((reference-enabled model) state command) "trace precondition must return a boolean") command))
       (values #f #f)))))))
+;; Share the collection neighborhood: aligned blocks precede parameter shrinks.
+;; Repair each proposal once in model order; no draw, fixture or handle renaming
+;; participates. Raw parameter callbacks retain their finite proper-list contract.
+;; The runner alone decides domain admission, strict descent, falsity and budgets.
+(def (shrink-trace model commands (shrink : :procedure))
+  (map (cut repair-trace model <>) (data-list-shrinks commands shrink 0)))
 ;; A two-value draw callback returns continue?/command. This API requires no
 ;; domain-specific Option class, and the finite step cap bounds all successful draws.
 (def (draw-trace model draw steps random size)

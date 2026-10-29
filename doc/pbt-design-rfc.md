@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P13 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P14 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -37,7 +37,7 @@ is parametric; it is not a fallback to an unconstrained POO `Any` descriptor.
 The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 48 case receipts, an error-free result and
+through `gerbil test`. It requires all 50 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -1235,3 +1235,47 @@ source checks retain the existing lazy tree and budget costs.
 [Rackcheck's finite-choice generator](https://docs.racket-lang.org/rackcheck/index.html)
 also supplies shrinking. Its removal-of-previous-choices policy differs from our
 explicit declaration-order policy; byte-for-byte tree parity is not claimed.
+
+## P14: dependency-repaired block trace shrinking
+
+Audit finding: the typed trace sampler enumerated only single-command deletions
+and separately rebuilt parameter coordinates. A failure requiring zero or two
+independent noise commands can disappear after every single deletion, so that
+neighborhood can stop before a smaller valid witness is reachable. This is a
+concrete missing structural neighborhood, not a promise of global minimality.
+
+`testing/property/model` now exports `shrink-trace model commands shrink`. It
+composes the existing `data-list-shrinks` policy with `repair-trace`: aligned blocks
+halve to single positions, then parameter-coordinate proposals follow; each raw
+candidate is normalized and dependency-repaired once. The typed `trace-generator`
+uses this function with its existing prepared model and raw parameter callback.
+There is no separate block algorithm, identity search, handle renaming or fixture
+execution. Generic downstream code uses the same function. Callback errors retain
+their original cause, and empty proposals remain successful candidate sequences.
+
+The existing runner still owns membership, strict cost descent, retained failure,
+source checks, zero-fuel behavior and replay. Repair can retire more dependents;
+strict descent is guaranteed for nonempty structural deletions with natural
+parameter weights. Parameter replacements still require the runner's cost check.
+The normalizer must be stable and preserve the intended command interpretation;
+Lean's retirement laws model already-normalized commands, not arbitrary decoder
+effects. Parameter callbacks and normalizers remain terminating premises.
+
+Acceptance includes a single-deletion control that cannot cross a parity barrier,
+the block policy reducing to the required producer/consumer pair, dependency
+retirement, parameter normalization errors, balanced scoped fixtures, zero-budget
+no-shrink behavior, FUN execution, seed/concrete replay and old-source refusal.
+The generic isolated suite now executes 50 cases. Existing real collection model
+fault injections and their dependency/replay regressions remain in the full check.
+
+Lean composes existing block and retirement laws to prove valid dependency order,
+retained-sublist identity, at least the deleted block's length decrease, and strict
+complete trace-weight decrease. The concrete parity model matches the executable
+control. No arbitrary callback, runtime scheduler or host-GC theorem is claimed.
+
+The value-only callback boundary still materializes a finite proper candidate
+list. For length N, structural proposals are counted by `list-deletion-count N 0`;
+repairs traverse retained prefixes, and parameter proposal costs are additional.
+We do not claim lazy preparation, linear wall-clock complexity, all possible
+subsequences, or a globally minimal witness. The supplied neighborhood becomes
+stronger without changing fuel accounting or inventing another shrink runner.
