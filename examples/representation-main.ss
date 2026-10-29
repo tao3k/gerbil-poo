@@ -3,8 +3,10 @@
 (import (only-in :gerbil/runtime/loader list-modules)
         (only-in ../io module-action)
         (runtime: :clan/poo/generalized-prototype)
+        (runtime: :clan/poo/object-contract)
+        (runtime: :clan/poo/object-contract-flow)
         (runtime: :std/crypto/digest))
-;; Link only the common foundation. Business modules remain ordinary compiled
+;; Link the common observation and value-admission foundation. Business modules remain ordinary compiled
 ;; plugins: the same module and explicit binding can be called by gxi or this exe.
 ;; No import-time enumeration, custom search path or entry registry is installed.
 ;; Compiled measurement plugins require the standard digest FFI module in the

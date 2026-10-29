@@ -1204,3 +1204,33 @@ insertion remain charged. The candidate uses default queries. Setup and complete
 workflow construction/revision remain measured; this is not a claim that all
 observed time differences come from removing an empty table. Cold C3, snapshot
 copying, hook execution and GC costs are not removed or inferred from hit counts.
+
+#### Leaf edits and the compiled admission foundation
+
+`object-state` checks the root before choosing invalidation storage. A pristine
+post-check leaf advances and clears directly; retained weak tables keep the full
+existing traversal, even when empty. A root check that registers children or a
+self edge therefore cannot bypass their checks. All graph preflight still precedes
+clearing, shared joins clear once, clear results remain Unit and a thrown clear
+error does not roll back its already advanced generation. This removes temporary
+traversal storage from scratch-field construction without caching an approval.
+
+The standard `representation-main` executable now links the common value-admission
+roots `object-contract` and `object-contract-flow`. Business modules remain cold
+standard plugins. This moves their foundation initialization into bootstrap and
+charges it in whole-process wall/CPU/GC/readiness measurements; it does not remove
+that work. It changes neither `module-action` nor Gerbil's loader or registry.
+The ordinary `gerbil test` full-suite path remains unchanged. Its observed macOS
+`dlopen/mapSegments/fcntl` waits are external admission evidence, not a proof of
+repeated Scheme evaluation or GC, and no security/signing workaround is installed.
+
+The existing standard-built startup benchmark also accepts five arguments:
+`BEFORE AFTER WIDTH PAIRS ENTRY`, where ENTRY is `main`, `joint-main` or `all`.
+Both explicit programs must be standard-built shared-foundation entries; they run
+the SAME current business plugin. Save the previously checked executable outside
+Git before rebuilding, retain its source commit and SHA-256, then run the driver
+with its usual 1-GiB/300-second outer and 90-second child guards. The fixed four
+pairs, symbolic/indexed access, AB/BA and A/A/B/B controls remain unchanged.
+No compiler environment variable, alternate loader or benchmark archive is added.
+Fresh process/registry state does not mean the OS filesystem cache was reset.
+`just benchmark-representation-startup` retains the original dynamic/linked matrix.

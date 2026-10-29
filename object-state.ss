@@ -15,20 +15,31 @@
   (unless (object-state-dependents parent)
     (set! (object-state-dependents parent) (HashTable (make-table test: eq? weak-keys: #t))))
   (hash-put! (object-state-dependents parent) child child-state))
-;; Check the ENTIRE affected closure before clearing anything. Diamonds visit once;
-;; source edits clear all cached values, method closures, order and reflection views.
-;; The caller serializes mutation/evaluation; this is not a concurrent transaction.
+;; One admitted owner advances once before its existing cache-clear callback.
+;; Clear failures keep their original effects; this is not effect rollback.
+(def (clear-state! owner state clear)
+  (set! (object-state-revision state) (+ 1 (object-state-revision state)))
+  (clear owner)
+  (void))
+;; Root preflight precedes strategy selection: it may register a dependency.
+;; A still-pristine leaf needs no traversal table or pending-owner spine. Any
+;; retained weak table, including an empty one, keeps the complete graph path.
+;; Graph checks finish before the first clear; diamonds still commit once each.
 (def (invalidate-state! root state check clear)
-  (def seen (make-hash-table-eq))
-  (def affected [])
-  (let visit ((owner root) (state state))
-    (unless (hash-key? seen owner)
-      (hash-put! seen owner #t)
-      (check owner state)
-      (set! affected (cons (cons owner state) affected))
-      (when (object-state-dependents state)
-        (for (([child . child-state] (object-state-dependents state)))
-          (visit child child-state)))))
-  (for-each (lambda (entry)
-    (set! (object-state-revision (cdr entry)) (+ 1 (object-state-revision (cdr entry))))
-    (clear (car entry))) affected))
+  (check root state)
+  (if (not (object-state-dependents state)) (clear-state! root state clear)
+    (let ((seen (make-hash-table-eq)) (affected (list (cons root state))))
+      (hash-put! seen root #t)
+      ;; Root is already checked and marked. Follow the CURRENT dependencies,
+      ;; preserving descendant-first commit order and the original false errors.
+      (def (visit owner state)
+        (unless (hash-key? seen owner)
+          (hash-put! seen owner #t)
+          (check owner state)
+          (set! affected (cons (cons owner state) affected))
+          (when (object-state-dependents state)
+            (for (([child . child-state] (object-state-dependents state)))
+              (visit child child-state)))))
+      (for (([child . child-state] (object-state-dependents state)))
+        (visit child child-state))
+      (for-each (lambda (entry) (clear-state! (car entry) (cdr entry) clear)) affected))))

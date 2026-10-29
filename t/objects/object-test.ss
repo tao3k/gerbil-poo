@@ -5,6 +5,7 @@
 
 (import
   :std/format :std/test
+  (only-in :clan/poo/object-state make-object-state object-state-revision depend-on-state! invalidate-state!)
   :clan/poo/support/base :clan/poo/support/debug :clan/poo/support/testing
   (rename-in (only-in :clan/poo/object with-prefixed-slots def-prefixed-slots)
     (with-prefixed-slots renamed-fields) (def-prefixed-slots renamed-snapshots))
@@ -12,6 +13,52 @@
 
 (def object-test
   (test-suite "test suite for clan/poo/object"
+    (test-case "pristine leaf invalidation retains check clear and refusal semantics"
+      (let ((state (make-object-state)) (events []))
+        (invalidate-state! 'root state
+          (lambda (owner _) (set! events (cons (list 'check owner) events)))
+          (lambda (owner)
+            (check-equal? (object-state-revision state) 1)
+            (set! events (cons (list 'clear owner) events))))
+        (check-equal? (reverse events) '((check root) (clear root)))
+        (check-eq? (invalidate-state! 'root state (lambda (_owner _state) (values #f 7))
+          (lambda (_) (values 8 #f))) (void)))
+      (let ((state (make-object-state)) (clears 0))
+        (check-eq? (with-catch identity (lambda ()
+          (invalidate-state! 'root state (lambda (_owner _state) (raise #f))
+            (lambda (_) (set! clears (1+ clears)))))) #f)
+        (check-equal? (object-state-revision state) 0)
+        (check-equal? clears 0)
+        (check-eq? (with-catch identity (lambda ()
+          (invalidate-state! 'root state (lambda (_owner _state) (void)) (lambda (_) (raise #f))))) #f)
+        (check-equal? (object-state-revision state) 1)
+        (invalidate-state! 'root state (lambda (_owner _state) (void)) (lambda (_) (set! clears (1+ clears))))
+        (check-equal? (object-state-revision state) 2)
+        (check-equal? clears 1)))
+    (test-case "root preflight can register children or self edges before strategy selection"
+      (let ((root (make-object-state)) (child (make-object-state)) (events []))
+        (invalidate-state! 'root root
+          (lambda (owner _)
+            (set! events (cons (list 'check owner) events))
+            (when (eq? owner 'root)
+              (depend-on-state! root 'child child)))
+          (lambda (owner) (set! events (cons (list 'clear owner) events))))
+        (check-equal? (reverse events) '((check root) (check child) (clear child) (clear root)))
+        (check-equal? (map object-state-revision (list root child)) '(1 1)))
+      (let ((root (make-object-state)) (checks 0) (clears 0))
+        (invalidate-state! 'root root
+          (lambda (_ state) (set! checks (1+ checks)) (depend-on-state! state 'root state))
+          (lambda (_) (set! clears (1+ clears))))
+        (check-equal? (list checks clears (object-state-revision root)) '(1 1 1))))
+    (test-case "a dependency registered by root preflight can refuse without any clear"
+      (let ((root (make-object-state)) (child (make-object-state)) (clears 0))
+        (check-eq? (with-catch identity (lambda ()
+          (invalidate-state! 'root root
+            (lambda (owner _)
+              (if (eq? owner 'root) (depend-on-state! root 'child child) (raise #f)))
+            (lambda (_) (set! clears (1+ clears)))))) #f)
+        (check-equal? (map object-state-revision (list root child)) '(0 0))
+        (check-equal? clears 0)))
     (test-case "V19 C4 linearizes composed object prototypes"
       (def root (.o (value 'root) (shared 'root)))
       (def left (.o (:: @ root) (value 'left)))

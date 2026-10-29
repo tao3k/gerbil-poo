@@ -3043,3 +3043,18 @@ context; the reference pays one active-table insertion, so this is a supported
 strategy comparison, not an exact historical speedup. Finite Lean laws separate
 outcome equivalence and traversal-preparation counts from copying, callbacks,
 allocator/GC and wall-clock costs. This adds no cache or loader.
+
+### Pristine-leaf invalidation and compiled admission preparation
+
+Pristine leaves now reuse the existing invalidation protocol without allocating
+its traversal table or pending spine. Selection follows root preflight, preserving
+newly registered edges, singleton cycles, complete refusal before clear, shared
+once-only invalidation, Unit returns and non-rollback clear failures. Regressions
+cover these boundaries; finite Lean order/equivalence, revision/frame and logical
+scratch-count laws retain graph/weak-storage/serialized-operation premises.
+The standard compiled foundation also links the two shared value-admission roots;
+common initialization stays charged to bootstrap. The existing startup sampler
+compares immutable prior/current standard programs through the same IO action and
+business plugin, retaining complete wall/readiness/GC data and all paired controls.
+This does not replace the official test entry or claim to eliminate macOS dynamic
+mapping waits or guarantee arbitrary cold full-suite admission within its guard.
