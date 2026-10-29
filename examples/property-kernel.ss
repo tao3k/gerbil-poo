@@ -52,7 +52,10 @@
         '((b c) (a c) (a b)))
       (check-equal? (generator.list-deletion-count 3 0) 4)
       (check-equal? (for/collect (xs (generator.list-deletions '(a b) 2)) xs) [])
-      (check-exception (generator.list-deletion-count 2 3) Error?))
+      (check-exception (generator.list-deletion-count 2 3) Error?)
+      (let* ((input (list 'a 'b 'c)) (rows (generator.list-deletions input 0)))
+        (set-car! input 'changed)
+        (check-equal? (for/collect (row rows) row) '(() (b c) (a c) (a b)))))
     (test-case "retained list trees shrink without drawing or replacing element identities"
       (def draws 0)
       (def element (generator.make-generator (lambda (_random _size)
@@ -76,10 +79,12 @@
         (generator.make-sample 99 (lambda () []) (lambda () live))
         (generator.make-sample 22 (lambda () []))))
       (def tree (generator.sample-sequence leaves))
-      (def middle (let/cc found
+      (def middle (begin
+        (set-car! leaves (generator.make-sample 77 (lambda () [])))
+        (let/cc found
         (for (child ((generator.sample-children tree)))
           (when (equal? (generator.sample-value child) '(11 22)) (found child)))
-        (error "missing retained middle deletion")))
+        (error "missing retained middle deletion"))))
       (def domain (property.make-specification (lambda (xs) (and (list? xs) (every exact-integer? xs)))
         (lambda (xs) (+ (length xs) (apply + xs)))))
       (def report (property.check-property (generator.make-tree-generator (lambda (_random _size) tree))

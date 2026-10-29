@@ -1,6 +1,6 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
 (export recursive-generation-test)
-(import (only-in :std/list/list take drop any) (prefix-in :clan/property-testing/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
+(import (only-in :std/list/list take drop) (prefix-in :clan/property-testing/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/generation-graph :clan/poo/testing/type
         (prefix-in :clan/poo/examples/recursive-trees trees.))
 
@@ -27,9 +27,8 @@
         (if (>= (length (core.sample-value tree)) 3) tree (find (1+ seed)))))
       (def original (core.sample-value root))
       (def expected (append (take original 1) (drop original 2)))
-      (def found (any (lambda (child)
-        (and (core.sample? child) (equal? (core.sample-value child) expected)))
-        ((core.sample-children root))))
+      (def found (for/fold (found #f) (child ((core.sample-children root)))
+        (or found (and (core.sample? child) (equal? (core.sample-value child) expected)))))
       (check-eq? found #t)
       (def callbacks 0)
       (define-type GuardedLeaf (.cc Type. .element?: exact-integer?

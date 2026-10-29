@@ -338,7 +338,7 @@ acceptance retains its existing error admission guard.
 `generator-list` chooses its length once, then composes retained element sample
 nodes through `sample-sequence`. Structural candidates delete aligned blocks,
 halving block widths down to every single position before coordinate shrinking.
-`min-length:` constrains length, not which prefix must survive. Retained elements
+`min-length:` constrains length, not which prefix must survive. Input list spines are snapshotted; retained elements
 keep their identities/preimages; deletion never draws replacement values. String,
 Symbol and byte-vector families inherit the same tree policy through map.
 

@@ -982,7 +982,7 @@ operation coverage in the finite collection protocol, not a demand for global
 minimality, arbitrary Record derivation or unrestricted recursive values.
 
 `sample-sequence` now owns retained structural and coordinate proposals for both
-families. It preserves retained node identity and scalar preimages, never redraws
+families. It snapshots input list spines, preserves retained node identity and scalar preimages, never redraws
 siblings, and retains all observed source leaves even when their values are
 removed. A rejected coordinate stays a charged tombstone. Structural deletion is
 lazy and uses aligned blocks with halving widths, finishing at every single

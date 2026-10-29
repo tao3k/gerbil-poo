@@ -290,17 +290,19 @@
     (error "invalid deletion bounds"))
   (let sizes ((width (- size minimum)) (count 0))
     (if (zero? width) count (sizes (quotient width 2) (+ count (quotient size width))))))
-;; Produce structural subsequences lazily, keeping every retained element intact.
+;; Snapshot the caller-owned spine, then produce structural subsequences lazily.
+;; Retained elements themselves keep their identities and callback obligations.
 ;; Minimum is a length constraint; it does not privilege any particular prefix.
 (def (list-deletions values minimum)
   (def size (length values))
   (list-deletion-count size minimum)
-  (in-coroutine (lambda (yield)
-    (let sizes ((width (- size minimum)))
-      (unless (zero? width)
-        (for (start (in-range 0 (1+ (- size width)) width))
-          (yield (append (take values start) (drop values (+ start width)))))
-        (sizes (quotient width 2)))))))
+  (let (owned (list-copy values))
+    (in-coroutine (lambda (yield)
+      (let sizes ((width (- size minimum)))
+        (unless (zero? width)
+          (for (start (in-range 0 (1+ (- size width)) width))
+            (yield (append (take owned start) (drop owned (+ start width)))))
+          (sizes (quotient width 2))))))))
 ;; Value-only callbacks share structural deletion with the lazy sample protocol.
 (def (data-list-shrinks values shrink minimum)
   (append (for/collect (candidate (list-deletions values minimum)) candidate)
@@ -329,7 +331,7 @@
               (for (child ((sample-children (car tail))))
                 (yield (sequence (append (reverse before) (cons child (cdr tail))) observed)))
               (coordinates (cdr tail) (cons (car tail) before))))))) observed)))
-  (sequence samples inherited))
+  (sequence (list-copy samples) inherited))
 ;; Capture each root as a value without forcing its descendants. Wrapping does
 ;; not split or consume randomness, so the existing sequence draw schedule survives.
 (def (sampled-generator generator)
