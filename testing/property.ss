@@ -7,7 +7,7 @@
         inspect-generator inspection? inspection-status inspection-seed inspection-size inspection-count inspection-depth inspection-budget
         inspection-draws inspection-attempts inspection-events inspection-counts
         inspection-truncated? inspection-cause inspection-current?)
-(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
+(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
           stale-generation? boolean-result live? random-at))
@@ -80,17 +80,29 @@
 (def (specification-current? specification)
   (unless (specification? specification) (error "property specification required"))
   (live? (domain-current specification)))
+;; Every domain action has the same source boundary. The hygienic form keeps
+;; callback evaluation once, checks EOF too, and leaves exceptions to the owner.
+(defrule (with-current current stop body ...)
+  (begin
+    (unless (current) (stop 'stale #f))
+    (begin0 (let () body ...) (unless (current) (stop 'stale #f)))))
 ;; Products share the existing domain/measure/currentness gates; domains are fixed
 ;; for one check while dependent generator branches retain their own provenance.
 (def (make-product-specification specifications)
   (unless (and (list? specifications) (every specification? specifications))
     (error "product specifications required"))
   (def domains (map identity specifications))
+  ;; All captured domains participate in each stage, including a later field's
+  ;; source invalidated by an earlier callback. Refusal skips the next callback.
+  (def (current) (every (lambda (domain) (live? (domain-current domain))) domains))
+  (def (stop _status _minimal?) (error "stale product specification"))
   (make-specification
     (lambda (values) (and (list? values) (= (length values) (length domains))
-      (andmap (lambda (domain value) (accepts? domain value)) domains values)))
-    (lambda (values) (apply + (map weight domains values)))
-    current?: (lambda () (every (lambda (domain) (live? (domain-current domain))) domains))))
+      (andmap (lambda (domain value)
+        (with-current current stop (accepts? domain value))) domains values)))
+    (lambda (values) (apply + (map-in-order (lambda (domain value)
+      (with-current current stop (weight domain value))) domains values)))
+    current?: current))
 ;; Delayed assertions cannot reuse a formerly passing report after its sources change.
 (def (report-current? report)
   (unless (report? report) (error "property report required"))
@@ -118,12 +130,6 @@
 ;; One invocation owns the latest confirmed witness and consumed proposals.
 ;; A callback error never installs its in-flight candidate as a false witness.
 (defstruct progress (best attempts steps) final: #t)
-;; Every domain action has the same source boundary. The hygienic form keeps
-;; callback evaluation once, checks EOF too, and leaves exceptions to the owner.
-(defrule (with-current current stop body ...)
-  (begin
-    (unless (current) (stop 'stale #f))
-    (begin0 (let () body ...) (unless (current) (stop 'stale #f)))))
 ;; Admission, descent and falsity are short-circuiting judgments. Each callback
 ;; runs inside the same revision boundary; a refused candidate is still charged.
 (def (smaller-failure? specification property best value current stop)
@@ -266,9 +272,6 @@
   (def trial 0) (def original #f) (def state (make-progress #f 0 0)) (def sources [])
   (def trial-size #f)
   (def accepted 0) (def discarded 0) (def counts (make-hash-table-eq))
-  ;; Shrink admission preserves preconditions without recording new coverage.
-  (def (shrink-property value)
-    (or (not (eligible? policy value)) (boolean-result (property value) "property must return a boolean")))
   (def seen (make-hash-table-eq))
   ;; Capture observer callbacks by identity in an invocation-local registry.
   (def (observe tree)
@@ -292,6 +295,11 @@
         ;; The same checked action form serves trials and shrinking; only this
         ;; owner builds reports and classifies failures.
         (def (stop status minimal?) (finish (result status minimal?)))
+        ;; Excluded candidates do not falsify; an invalidated policy stops before
+        ;; the property. The outer candidate boundary still guards property return.
+        (def (shrink-property value)
+          (or (not (with-current current stop (eligible? policy value)))
+            (boolean-result (property value) "property must return a boolean")))
         (let/cc complete
           (for (_ (in-range (+ cases (trial-policy-discard-budget policy))))
             (with-current current stop

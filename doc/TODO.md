@@ -1609,6 +1609,12 @@ uses that same function. Parity-sensitive producer/consumer controls cover cases
 where single deletions cannot simplify a witness; source/zero-fuel/replay rules
 remain unchanged. See P14 in [pbt-design-rfc.md](pbt-design-rfc.md).
 
+Policy and product admission now stop between callbacks when declared sources
+change, including shrink preconditions and multi-field recognition/measurement.
+Old witnesses and charged attempts survive refusal; FUN retry captures fresh
+rules while old replay refuses. P15 in [pbt-design-rfc.md](pbt-design-rfc.md)
+records the reproduced defect, fixed semantics and observer cost boundary.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

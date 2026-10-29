@@ -45,6 +45,31 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "FUN policy revisions stop shrink effects and require fresh preparation"
+      (def rules (.o epoch: 0))
+      (def calls [])
+      (def sampler (make-generator UInt (lambda (_random _size) 9) (lambda (_) '(0)) identity))
+      (def policy (policy.make-policy precondition: (lambda (value)
+        (when (and (zero? value) (zero? (.get rules epoch)))
+          (.putslot! rules 'epoch ($constant-slot-spec 1))) #t)))
+      (def action (property-debug-action #f UInt
+        (lambda (value) (set! calls (cons value calls)) #f) sampler: sampler dependencies: (list rules)))
+      (def configuration (make-instance PropertyConfiguration cases: 1 policy: policy))
+      (def stale (action configuration))
+      (check-eq? (.get stale status) 'stale)
+      (check-equal? calls '(9))
+      (check-equal? (.get stale counterexample) 9)
+      (check-equal? (.get stale attempts) 1)
+      (check-equal? (.get stale steps) 0)
+      (check-eq? (cdr (assq 'status (report-diagnostics stale))) 'stale)
+      (check-exception (replay-property stale) Error?)
+      ;; A new execution captures the revised rules; it does not refresh stale evidence.
+      (def retried (action configuration))
+      (check-eq? (.get retried status) 'failed)
+      (check-equal? (.get retried counterexample) 0)
+      (check-eq? (replay-counterexample retried) #f)
+      (check-equal? (.get (replay-property retried) counterexample) 0)
+      (check-exception (replay-property stale) Error?))
     (test-case "typed model block shrinking preserves dependencies through FUN and both replays"
       (def command (Enum noise open use))
       (def state (List command))
