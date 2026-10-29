@@ -3,7 +3,7 @@
         generator-unit generator-map generator-bind generator-sequence bind-generators
         generator-choice generator-frequency generator-sized generator-resize generator-scale
         generator-delay generator-filter generator-no-shrink generator-with-shrink
-        generate generator-current? sample? sample-value sample-children sample-current sample-sources
+        generate generator-current? sample? sample-value sample-children sample-current sample-sources with-generation-check
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
         boolean-result live? random-at
         generator-function function-value? function-domain function-apply function-procedure
@@ -54,8 +54,21 @@
   (unless (boolean? value) (error message value)) value)
 ;; User source observers remain explicit pure callbacks.
 (def (live? current) (boolean-result (current) "source observer must return a boolean"))
-;; A stale producer cannot invoke its next selector or construct a replacement.
+;; Run-local checks use standard dynamic scope. They are never copied into
+;; sample ownership: a checker may read the runner's mutable observer ledger.
+(def current-generation-checks (make-parameter []))
+;; Install an interrupting check for nested generator/iterator boundaries. The
+;; caller owns admission and refusal control; normal return and exceptions unwind
+;; this parameter without retaining the checker on a generated tree.
+(defrule (with-generation-check checker body ...)
+  (let (check checker)
+    (unless (procedure? check) (error "generation check must be a procedure"))
+    (parameterize ((current-generation-checks (append (current-generation-checks) (list check))))
+      body ...)))
+;; Transient checks precede retained leaves, preserving the outer runner's
+;; existing stale refusal and exact callback exceptions at every boundary.
 (def (require-sources! sources)
+  (for-each (lambda (check) (check)) (current-generation-checks))
   (unless (every live? sources) (raise (make-stale))))
 ;; Standard dynamic scope carries inherited leaves through selected child
 ;; graphs. It is restored on every exit and never owns a registry or PRNG.
@@ -75,9 +88,9 @@
 ;; a paused traversal therefore refuses before resuming stale producer effects.
 (defrule (for-sources (value sequence sources) body ...)
   (let (owned (merge-sources (current-generation-sources) sources))
-    ;; With no owned or inherited leaves there is nothing to recheck. Keep the
-    ;; standard loop directly, avoiding a guarded next! layer on immutable data.
-    (if (null? owned) (for (value sequence) body ...)
+    ;; With neither retained leaves nor a run check there is nothing to recheck.
+    ;; Keep the standard loop for that scope-free immutable-data path.
+    (if (and (null? owned) (null? (current-generation-checks))) (for (value sequence) body ...)
       (using (children (iter (with-sources owned sequence)) :- Iterator)
         (let next ()
           (let (value (with-sources owned (children.next!)))
@@ -247,18 +260,21 @@
 ;; Uniform choice reuses the weighted selector and its empty-table refusal.
 (def (generator-choice . generators)
   (generator-frequency (map (lambda (generator) (cons 1 generator)) generators)))
-;; Size selection retains the selected branch's sample provenance.
-(def (generator-sized (select : :procedure) current?: (current immutable-current))
-  (def sources (observer-sources current []))
+;; Size selection retains explicit common leaves before selection, while dynamic
+;; branches add only the leaves of the producer actually chosen.
+(def (generator-sized (select : :procedure) current?: (current immutable-current) sources: (sources []))
+  (def observed (observer-sources current sources))
   (make-generation (lambda (random size)
-    (selected-sample (with-sources sources (select size)) random size sources)) sources))
+    (selected-sample (with-sources observed (select size)) random size observed)) observed))
 ;; Size overrides are explicit natural values, not descriptor-budget overrides.
 (def (generator-resize generator size)
   (unless (and (generator? generator) (exact-integer? size) (>= size 0)) (error "invalid generator size" size))
   (make-generation (lambda (random _) (generate generator random size)) (generation-sources generator)))
-;; Scaling is sized/resize composition, preserving their shared boundary.
+;; Scale always uses its known input. Sized owns its leaves directly, avoiding
+;; a replacement descriptor or another callback wrapper around the same run.
 (def (generator-scale generator (scale : :procedure) current?: (current immutable-current))
-  (generator-sized (lambda (size) (generator-resize generator (scale size))) current?: current))
+  (generator-sized (lambda (size) (generator-resize generator (scale size)))
+    current?: current sources: (generation-sources generator)))
 ;; Delay quota is invocation-local and shared by nested delayed constructors.
 (def current-delay-budget (make-parameter #f))
 ;; Each force spends a token before invoking its constructor; callback termination
@@ -402,7 +418,8 @@
     (let (tree (generate generator random size))
       (make-sample-node tree (lambda () []) (sample-node-sources tree)))) (generation-sources generator)))
 ;; Length is chosen once. Structural shrinking deletes retained trees rather
-;; than regenerating payloads under a shorter length's dependent seed.
+;; than regenerating payloads under a shorter length's dependent seed. Positive
+;; minimum makes the element a mandatory participant before any length draw.
 (def (generator-list element min-length: (minimum 0) max-length: (maximum 128))
   (unless (and (generator? element) (exact-integer? minimum) (exact-integer? maximum)
                (<= 0 minimum maximum)) (error "invalid sequence generator bounds"))
@@ -412,7 +429,8 @@
         (def row (sampled-sequence (make-list count element)))
         (make-tree-generator (lambda (random size)
           (let (tree (generate row random size))
-            (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))))
+            (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))
+    sources: (if (positive? minimum) (generation-sources element) [])))
 ;; Finite key domains use the same equality as Gerbil's ordinary HashTable.
 ;; Validate uniqueness once; fixed-key structural/value shrinking cannot collide.
 (def (generator-hash keys value-generator domain-limit: (limit 256) current?: (current immutable-current))

@@ -563,7 +563,28 @@ fresh retry, wrapped Function shrinking and source-consistent replay.
 
 To copy the independent worked suite into another standard Gerbil project, include
 `examples/property-kernel.ss`, `examples/property-products.ss` and
-`examples/property-filters.ss` alongside the generic modules. The two small
+`examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
-the isolated package acceptance builds all three ordinary modules and executes
-63 cases without installing POO.
+the isolated package acceptance builds all ordinary helper modules and executes
+75 cases without installing POO.
+
+Checked property actions now install a run-local `with-generation-check` scope
+from the generator module. A nested draw/map/selector/iterator cannot continue
+after retiring a source already observed by an earlier trial or replay. The
+existing action still owns stale status, original causes and proposal accounting.
+Checks are zero-argument assertions that raise or escape on refusal; binding the
+scope alone does not evaluate arbitrary body code as a new property runner.
+They are never added to sample source lists. New replay reports therefore keep
+their own observed ownership, and twelve repeated replays have stable observer
+work in the regression. See P24 for the model/continuation and cost boundaries.
+
+Known-input size scaling retains input sources before any scale callback or
+sibling draw. Use the ordinary resize/scale combinators; do not add a second
+currentness wrapper in the typed layer. See P25 for dynamic selection boundaries,
+invalid-size causes and Record/FUN replay controls.
+
+`generator-sized` accepts `sources:` for declared common leaves, just like the
+base constructors. The list family uses this when a positive minimum guarantees
+element participation. String/Symbol reuse it without another validator. A zero
+minimum leaves unused element owners unobserved. P26 records callback/seed,
+shrinking, wrapped Function, replay and explicit revision retry controls.

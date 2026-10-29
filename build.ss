@@ -153,6 +153,8 @@
     "examples/collection-properties"
     "examples/property-products"
     "examples/property-filters"
+    "examples/property-scopes"
+    "examples/property-sizes"
     "examples/property-kernel"
     "examples/property-workflows"
     "examples/property-refusals"

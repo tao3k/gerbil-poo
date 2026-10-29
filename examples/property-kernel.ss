@@ -5,7 +5,9 @@
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/model model.)
         (only-in ./property-products product-test-cases!)
-        (only-in ./property-filters filter-test-cases!))
+        (only-in ./property-filters filter-test-cases!)
+        (only-in ./property-scopes scope-test-cases!)
+        (only-in ./property-sizes size-test-cases! collection-source-test-cases!))
 
 ;; A dependent packet exposes its generated count and its matching payload.
 (defstruct packet (count payload) final: #t)
@@ -68,6 +70,9 @@
   (test-suite "independent Gerbil property kernel"
     (product-test-cases!)
     (filter-test-cases!)
+    (scope-test-cases!)
+    (size-test-cases!)
+    (collection-source-test-cases!)
     (test-case "shrink policy revisions stop before the property and retain the last witness"
       (for (allowed '(#t #f))
         (let ((current #t) (calls []) (labels 0))
