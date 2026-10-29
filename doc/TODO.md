@@ -3142,4 +3142,3 @@ as cold reads. A reproduced stale-site guard after dynamic dependency insertion
 is fixed without a second value store. FUN recovery/refusal/retry/diamond-source
 revision and false assignment are qualified alongside final-site Lean laws and
 the unchanged complete benchmark matrix plus one bounded redemand phase.
-
