@@ -151,6 +151,7 @@
     "examples/signature-service"
     "examples/collection-testing"
     "examples/collection-properties"
+    "examples/property-products"
     "examples/property-kernel"
     "examples/property-workflows"
     "examples/property-refusals"

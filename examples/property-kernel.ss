@@ -3,7 +3,8 @@
 (import (prefix-in :clan/poo/testing/property/test assertion.) :std/test :std/error :std/iter (only-in :std/list/list take drop)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
-        (prefix-in :clan/poo/testing/property/model model.))
+        (prefix-in :clan/poo/testing/property/model model.)
+        (only-in ./property-products product-test-cases!))
 
 ;; A dependent packet exposes its generated count and its matching payload.
 (defstruct packet (count payload) final: #t)
@@ -64,6 +65,7 @@
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
+    (product-test-cases!)
     (test-case "shrink policy revisions stop before the property and retain the last witness"
       (for (allowed '(#t #f))
         (let ((current #t) (calls []) (labels 0))
@@ -82,33 +84,6 @@
           (check-equal? (property.report-steps report) 0)
           (check (property.report-minimal? report) => #f)
           (check-exception (property.replay-property report) Error?))))
-    (test-case "product recognition stops when an earlier field invalidates a later source"
-      (def current #t) (def visited []) (def calls 0)
-      (def first (property.make-specification (lambda (_)
-        (set! visited (cons 'first visited)) (set! current #f) #t) abs))
-      (def second (property.make-specification (lambda (_)
-        (set! visited (cons 'second visited)) #t) abs current?: (lambda () current)))
-      (def report (property.check-property (generator.generator-unit '(1 2))
-        (lambda (_) (set! calls (1+ calls)) #f) (property.make-product-specification (list first second)) cases: 1))
-      (check-eq? (property.report-status report) 'stale)
-      (check-equal? visited '(first))
-      (check-equal? calls 0)
-      (check-equal? (property.report-attempts report) 0))
-    (test-case "product measurement stops before later fields or pending witness installation"
-      (def current #t) (def visited []) (def calls 0)
-      (def first (property.make-specification exact-integer? (lambda (_)
-        (set! visited (cons 'first visited)) (set! current #f) 1)))
-      (def second (property.make-specification exact-integer? (lambda (_)
-        (set! visited (cons 'second visited)) 2) current?: (lambda () current)))
-      (def report (property.check-property
-        (generator.make-generator (lambda (_random _size) '(2 2)) (lambda (_) '((1 2))))
-        (lambda (_) (set! calls (1+ calls)) #f) (property.make-product-specification (list first second)) cases: 1))
-      (check-eq? (property.report-status report) 'stale)
-      (check-equal? visited '(first))
-      (check-equal? calls 1)
-      (check-equal? (property.report-counterexample report) '(2 2))
-      (check-equal? (property.report-attempts report) 1)
-      (check-equal? (property.report-steps report) 0))
     (test-case "policy callback errors retain their cause after a source revision"
       (def current #t) (def cause (Error "policy interrupted")) (def calls 0)
       (def report (property.check-property

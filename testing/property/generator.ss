@@ -10,7 +10,7 @@
         function-table function-from-table
         generator-integer generator-character generator-byte generator-list
         generator-string generator-symbol generator-bytes generator-elements generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
-(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash take drop))
+(import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
 ;; Producers and nodes retain flat source leaves, never recursively composed guards.
@@ -202,10 +202,15 @@
 ;; Capture independent roots with the existing bind/map seed schedule. Root
 ;; wrappers have no children: later shrinking belongs to the retained product.
 (def (sampled-sequence generators)
-  (foldr (lambda (generator tail)
-    (generator-bind generator (lambda (head)
-      (generator-map tail (lambda (rest) (cons head rest))))))
-    (generator-unit []) (map sampled-generator generators)))
+  (def roots
+    (foldr (lambda (generator tail)
+      (generator-bind generator (lambda (head)
+        (generator-map tail (lambda (rest) (cons head rest))))))
+      (generator-unit []) (map sampled-generator generators)))
+  ;; Fixed fields are all participants before the first draw. Flatten their
+  ;; declared leaves once; retain bind's seed schedule without nested guards.
+  (make-generation (generation-run roots)
+    (observer-sources immutable-current (append-map generation-sources generators))))
 ;; Fixed products share sample-sequence's coordinate policy. Changing one field
 ;; retains every other field's original node, sources and hidden preimage; it
 ;; never redraws a suffix. Only explicit generator-bind rebuilds dependencies.
@@ -214,7 +219,8 @@
   (def width (length generators))
   (make-tree-generator (lambda (random size)
     (let (tree (generate roots random size))
-      (sample-sequence (sample-value tree) min-length: width sources: (sample-sources tree))))))
+      (sample-sequence (sample-value tree) min-length: width sources: (sample-sources tree))))
+    sources: (generation-sources roots)))
 ;; Producer freshness is one flat leaf walk.
 (def (generator-current? generator) (every live? (generation-sources generator)))
 ;; Dependent syntax is only the existing bind/unit algebra, evaluated once.
@@ -491,4 +497,5 @@
   (def domain (function-rows rows limit))
   (def tuples (generator-sequence (map (lambda (_) result-generator) domain)))
   (make-tree-generator (lambda (random size)
-    (function-tree (generate tuples random size) domain current)) current?: current))
+    (function-tree (generate tuples random size) domain current)) current?: current
+    sources: (generation-sources tuples)))

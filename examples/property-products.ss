@@ -1,0 +1,97 @@
+;;; Fixed-product generation, domain observation and source-refusal examples.
+(export product-test-cases!)
+(import :std/test :std/error :std/iter
+        (prefix-in :clan/poo/testing/property/generator generator.)
+        (prefix-in :clan/poo/testing/property property.))
+
+;; Register these ordinary cases in the caller's current :std/test suite.
+;; The standard runner still owns discovery, fixtures, assertions and results.
+(def (product-test-cases!)
+    (test-case "fixed products refuse obsolete later fields before randomness or drawing"
+      (def live #t) (def draws 0) (def randoms 0)
+      (def first (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 8)
+        generator.integer-shrinks))
+      (def last (generator.make-generator (lambda (_random _size) 2) generator.integer-shrinks
+        current?: (lambda () live)))
+      (def product (generator.generator-sequence
+        (list first (generator.generator-sequence (list first last)))))
+      (set! live #f)
+      (check (generator.generator-current? product) => #f)
+      (check-exception (generator.generate product
+        (lambda (_) (set! randoms (1+ randoms)) 0) 5) generator.stale-generation?)
+      (check-equal? (list randoms draws) '(0 0))
+      (def report (property.check-property product (lambda (_) #f)
+        (property.make-specification list? (lambda (_) 0)) cases: 1))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? (list (property.report-trial report) (property.report-attempts report) draws) '(0 0 0)))
+    (test-case "fixed product ownership stops mapping after an earlier draw revises a later field"
+      (def live #t) (def mapped 0) (def later 0)
+      (def first (generator.generator-map
+        (generator.make-generator (lambda (_random _size) (set! live #f) 8) generator.integer-shrinks)
+        (lambda (value) (set! mapped (1+ mapped)) value)))
+      (def last (generator.make-generator (lambda (_random _size) (set! later (1+ later)) 2)
+        generator.integer-shrinks current?: (lambda () live)))
+      (check-exception (generator.generate (generator.generator-sequence (list first last))
+        (generator.random-at 3) 5) generator.stale-generation?)
+      (check-equal? (list mapped later) '(0 0)))
+    (test-case "fixed product observer causes remain exact before any field callback"
+      (def cause (Error "product-source")) (def calls 0)
+      (for (raising? '(#t #f))
+        (def observer (if raising? (lambda () (raise cause)) (lambda () 'not-boolean)))
+        (def field (generator.make-generator (lambda (_random _size) (set! calls (1+ calls)) 1)
+          generator.integer-shrinks current?: observer))
+        (def product (generator.generator-sequence (list (generator.generator-unit 0) field)))
+        (def failure (with-catch identity (lambda () (generator.generate product (generator.random-at 1) 5))))
+        (if raising? (check-eq? failure cause)
+          (check-equal? (Error-message failure) "source observer must return a boolean")))
+      (check-equal? calls 0))
+    (test-case "finite function products share leaves while empty and unselected domains stay independent"
+      (def live #t) (def draws 0) (def guard (lambda () live))
+      (def field (generator.make-generator (lambda (random _size) (set! draws (1+ draws)) (list (random 16)))
+        (lambda (_) []) current?: guard))
+      (def function (generator.generator-function '((a) (b)) field))
+      (def root (generator.generate function (generator.random-at 9) 5))
+      (check-equal? (length (generator.sample-sources root)) 1)
+      (check-equal? draws 2)
+      (check-equal? (generator.function-table (generator.sample-value root))
+        (generator.function-table (generator.sample-value (generator.generate function (generator.random-at 9) 5))))
+      (set! live #f)
+      (check (generator.generator-current? function) => #f)
+      (check-exception (generator.function-apply (generator.sample-value root) '(a)) generator.stale-generation?)
+      (check-exception (generator.generate function (generator.random-at 9) 5) generator.stale-generation?)
+      (check-equal? draws 4)
+      (def empty (generator.generator-function [] field))
+      (check (generator.generator-current? empty) => #t)
+      (check-equal? (generator.function-table (generator.sample-value
+        (generator.generate empty (generator.random-at 9) 5))) [])
+      (def selected (generator.generator-frequency
+        (list (cons 0 field) (cons 1 (generator.generator-unit 7)))))
+      (check-equal? (generator.sample-value (generator.generate selected (generator.random-at 9) 5)) 7))
+    (test-case "product recognition stops when an earlier field invalidates a later source"
+      (def current #t) (def visited []) (def calls 0)
+      (def first (property.make-specification (lambda (_)
+        (set! visited (cons 'first visited)) (set! current #f) #t) abs))
+      (def second (property.make-specification (lambda (_)
+        (set! visited (cons 'second visited)) #t) abs current?: (lambda () current)))
+      (def report (property.check-property (generator.generator-unit '(1 2))
+        (lambda (_) (set! calls (1+ calls)) #f) (property.make-product-specification (list first second)) cases: 1))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? visited '(first))
+      (check-equal? calls 0)
+      (check-equal? (property.report-attempts report) 0))
+    (test-case "product measurement stops before later fields or pending witness installation"
+      (def current #t) (def visited []) (def calls 0)
+      (def first (property.make-specification exact-integer? (lambda (_)
+        (set! visited (cons 'first visited)) (set! current #f) 1)))
+      (def second (property.make-specification exact-integer? (lambda (_)
+        (set! visited (cons 'second visited)) 2) current?: (lambda () current)))
+      (def report (property.check-property
+        (generator.make-generator (lambda (_random _size) '(2 2)) (lambda (_) '((1 2))))
+        (lambda (_) (set! calls (1+ calls)) #f) (property.make-product-specification (list first second)) cases: 1))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? visited '(first))
+      (check-equal? calls 1)
+      (check-equal? (property.report-counterexample report) '(2 2))
+      (check-equal? (property.report-attempts report) 1)
+      (check-equal? (property.report-steps report) 0))
+)

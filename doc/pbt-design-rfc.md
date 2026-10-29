@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P21 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P22 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1651,3 +1651,59 @@ heap/time/proposal limits remain required.
 [Rackcheck's product/tree composition](https://docs.racket-lang.org/rackcheck/index.html)
 informs keeping generation algebra separate from domain observation. Common
 revision owners and typed sampler evidence are this project's explicit extension.
+
+## P22: fixed-product source admission before drawing
+
+The next audit reproduced a producer-level gap distinct from P21's typed domain
+measures. `generator-sequence` already knows every fixed field, but the bind/map
+implementation exposed none of their source leaves at the product boundary. If a
+later field was obsolete before generation, `generator-current?` still returned
+true and an earlier field drew once before the eventual stale refusal. An earlier
+draw could also revise that later source and still enter its own mapping callback.
+Finite Function result products inherited the producer-currentness mismatch.
+
+`sampled-sequence` now assembles the declared fixed-field leaves once with Gerbil's
+`append-map` and the existing identity-deduplicating observer boundary. It shares
+the existing bind/map run procedure unchanged. `generator-sequence` and finite
+Function generation forward those leaves through their existing constructors.
+The existing `generate`/`with-sources` boundary therefore rejects before the first
+random split or draw, and between field callbacks. There is no new guard closure
+tree, source registry, generator representation or special typed execution path.
+Retained child ownership, draw order, seed splitting and coordinate shrinking stay
+with the same implementation. Typed `from-generator`/Record/FUN observes the
+generic admission directly rather than duplicating it.
+
+This rule applies to fields that are statically part of a fixed product. Dynamic
+bind selectors, weighted choice, zero-result-row Functions and absent Map keys do
+not acquire sources from unselected producers. An explicit function/domain owner
+still protects empty domains. Captured lists describe topology; mutable payload
+ownership and hidden callback dependencies remain the existing application laws.
+
+Four independent-library cases cover nested stale preflight without randomness or
+draws, immediate mapper suppression after revision, exact observer causes/strict
+Boolean refusal, shared Function sources, equal-seed replay, empty domains and
+zero-weight branch independence. The Record/Function/FUN example rejects a stale
+generic field before drawing, explicitly reprepares, retains wrapping through
+shrinking and concrete/seed replay, and refuses both old samplers and later stale
+reports. The standalone library check now executes all 59 cases without POO.
+Product cases live in `examples/property-products.ss` and register with the
+existing standard suite; the aggregate kernel stays below 1000 lines. The empty
+independent package copies and builds both ordinary modules, with no new namespace
+or test runner.
+
+Six additional laws in `PropertyProducts.lean` prove flattened field conjunction,
+stale leaf refusal before all draws/packing, nested/shared source equivalence and
+empty-result independence. They reuse `guardedProduct` and stable source identity;
+Boolean observers, truthful epochs, faithful directories, sequential callbacks and
+termination are premises. Runtime observer exceptions are regression-tested, not
+represented as pure Boolean functions in the model. PRNG implementation, arbitrary
+heap aliases, concurrency and GC remain outside these laws.
+
+Preparation adds a linear pass over the field directory and its declared leaves,
+including a copy and an expected-linear identity hash pass over those leaves. Complete known-source checks now occur before and
+after field callbacks, including nested products; repeated observation is not
+claimed constant-time. No wall-clock speedup is claimed. The full checks, paired
+generator/collection workflows and all existing process/resource bounds remain
+required. Rackcheck's pinned `gen:bind` composes retained trees and a captured child
+random source; we retain that algebra. Epoch-based fixed-product admission is our
+explicit extension, not a missing feature attributed to Racket.
