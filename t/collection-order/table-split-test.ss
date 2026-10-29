@@ -1,8 +1,20 @@
+;;; Ordered decomposition shares typed maps, complete admission and owner staging.
+(export table-split-test)
+(import :std/test :std/error :std/iter
+        (only-in :clan/poo/support/base number-comparer) (only-in :clan/poo/brace @@method)
+        :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
+        (only-in :clan/poo/trie SimpleTrie) (only-in :clan/poo/fun Wrapper.)
+        (only-in :clan/poo/t/table-testing box-table) (only-in :clan/poo/t/table-testing alist-table)
+        (prefix-in :clan/poo/examples/service-collection service.))
+
 ;; Compare an existing persistent backend under its own or an explicit numeric order.
 (def (ordered table)
   (table-order table (if (.has? table Comparer) (.@ table Comparer)
     (table-comparer (.@ table Key) number-comparer))))
 
+;; Keep deliberate protocol refusals separate from arbitrary comparator failures.
+(def (message? text)
+  (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
 
 ;; Return lawful original parts, then let recognition recycle the producer's
 ;; list cells. Roots themselves stay persistent and unchanged throughout.

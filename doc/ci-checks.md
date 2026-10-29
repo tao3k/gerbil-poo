@@ -14,14 +14,10 @@ The shared job runs `just build-shared`. The root package builds the shared
 libraries and `representation-main`; complete collection acceptance loads its
 ordinary module through that entry. The startup benchmark has its own small
 standard executable package. It does not relink the complete collection graph.
-The root entry composes the independent property library, the POO library-only
-declaration and `examples/build.ss`, in that order, within the same 300-second
-guard. The examples package declares the existing executable with its existing
-module identity. This separation matters: the released `std/make` requests static
-runtime objects for every library in a declaration containing an `exe:`. Keeping
-the library declaration free of executables lets the executable compiler prepare
-only its actual static dependency closure. Standard freshness and parallel jobs
-remain responsible for those objects; there is no project object cache.
+The root entry keeps its library declarations and the existing foundation
+executable in one standard make graph. The released Darwin compiler owns reuse
+of runtime machine objects for dynamic and static consumers. No project object
+cache or reconstructed dependency graph is installed.
 GitHub's `hashFiles` and cache action
 own exact-source cross-run lookup; `std/make` owns local dependency freshness.
 Cache misses are not accepted as success and tests always execute. No project
@@ -34,16 +30,15 @@ The complete local entry prints standard `/usr/bin/time -p` wall/user/system obs
 for shared preparation, startup preparation, test-package preparation, the whole
 test process and the collection study. Existing commands, progress and failure
 markers remain intact; phase CPU observations do not isolate GC or loader costs.
-The local test-package phase runs the 25 ordinary package declarations using
-the existing `xargs` with `max(1, floor(GERBIL_BUILD_CORES / 2))` concurrent
-`gerbil build` commands and one backend slot per command. Each package prints
-`BUILD-PACKAGE` and its directory before invoking the CLI. Its phase duration
-includes every package's import/expansion and freshness checking, even when no
-backend compilation is needed; it is not the delay to the first log message.
-This policy changes the allocation of compiler work slots, not any heap/deadline
-limit. The shared build and the separate CI package jobs keep their standard
-backend settings. See the paired whole-entry observations in
-[build-summary.org](performance/build-summary.org).
+The local test-package phase uses six compiler-only standard packages, whose
+specifications reuse the 25 public CI package declarations. At 12 physical cores,
+Just's existing parallel dependency queue admits four packages, each using two
+standard Gerbil backend jobs. This bounds retained compiler contexts without
+replacing make's dependency, freshness or backend scheduling. Each real package
+start and completion prints its name and wall/user/system times. The root build
+uses the machine's standard `GERBIL_BUILD_CORES`; no new concurrency variable is
+introduced. See [build-summary.org](performance/build-summary.org) for qualified
+local observations; historical cohorts are not interchangeable.
 The standard upload/download actions transfer artifacts within the current
 workflow run, using commit-specific names and their built-in digest verification.
 The shared library/program artifact uses an uncompressed tar in runner temporary
@@ -67,8 +62,9 @@ CLI/make/runner validation; POO's compiler failure-drain support is imported as
 source during builds, not compiled into the runtime library.
 
 Limits remain 300 seconds per build/group stage, 90 seconds for focused checks,
-and 900 seconds for complete-suite imports plus execution. Package/test heaps
-remain 1 GiB and root/backend heaps 2 GiB. Compiler tracing and module/case/harness
+and 600 seconds for complete-suite imports plus execution. Runtime/test and
+isolated CI-package heaps remain 1 GiB; complete compiler contexts, root and
+backend heaps retain the approved 2 GiB ceiling. Compiler tracing and module/case/harness
 markers remain visible. All POO behavior checks run on cache hits too.
 Failures retain their actual build/test status; a queued job or a local pass is
 never reported as current-commit remote acceptance.
@@ -86,3 +82,37 @@ remain owned by `std/make`, without project file scanners or a second loader.
 See [test execution](test-execution.md) for the public commands. These controls
 validate repository build and test behavior. They do not formally verify the
 Gerbil compiler, operating system, artifact service or lower-level scheduler.
+
+## Exact full-entry observations
+
+The existing standard-built `representation-startup` program also accepts one
+empty output-prefix argument to observe the unchanged `just check 2 1 4 600`
+entry. Build/test ownership remains with Gerbil and Just. Its parent forwards
+real progress and records exact monotonic ticks at test invocation, HARNESS
+start/end, final OK, standard process-time output, EOF and successful child reap.
+A nonzero child exit, missing/nonmonotone boundary or incomplete case delivery
+refuses admission; an OK marker alone is insufficient. Prefixes used for cold
+comparisons must not already exist. The parent executable and compiler remain
+prepared; this is cold project output, not a purged operating-system cache.
+
+Preparation includes wrapper startup, imports, mappings and initialization.
+Execution can include deferred loads and independent consumer builds. The
+post-report window includes teardown, pipes and wrapper reaping, so these
+windows must not be labelled exclusive dyld or GC time. The ordered suite/case
+trace digest excludes module filenames to permit fixture-free suite regrouping,
+while retaining every suite, case and order. Raw logs and samples remain outside
+Git. `check-observation-test` covers missing/reversed boundaries and a real
+standard TestHarness with a failing middle case, original cause identity and
+continued later-case execution.
+
+## Standard module initialization
+
+The released `gxtest` source calls `import-module file #f #t`: reload is false,
+evaluation is requested. Its module evaluator forces the context's existing
+promise. The standard runtime loader returns cached builtin/loaded states,
+waits for an in-progress load, and rethrows a cached original error until an
+explicit reload. This audit found no forced-reload loop in the test entry. It
+supports retaining those standard owners rather than adding a project loader
+or successful-initialization cache. These source mechanisms do not, by
+themselves, assign measured wall time to individual initializers or prove the
+compiler/runtime implementation.

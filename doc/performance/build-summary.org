@@ -1017,3 +1017,110 @@ it is not an empty-cache whole-library comparison or a stable-tail guarantee.
 Concurrent verbose output interleaves some backend lines, so textual job counts
 are not used as exact artifact-inventory proofs. Complete checks admit the
 resulting products. No CPU-reduction claim is made.
+
+* Complete cold-check phase observations
+
+The exact-clock observer lives in the existing representation startup benchmark
+and invokes the unchanged public =just check 2 1 4 600= entry. The parent is
+already built; each child project prefix is initially absent. Compiler and OS
+file caches are retained. This definition does not claim cold OS caches.
+
+Baseline =2e7ffa2= completed naturally in 681.08 seconds, with 149 modules and
+2,065 main cases plus the three source-declaration cases. Library, startup and
+test-package preparation took 127.74, 8.34 and 216.79 seconds. Exact parent ticks
+partition the observed lifetime as follows (seconds):
+
+| build/preparation | test imports/init | cases | report | post-report exit | later checks/studies | reap |
+|-------------------+-------------------+-------+--------+------------------+----------------------+------|
+|            353.71 |            143.14 |145.78 | <0.001 |             7.70 |                30.18 |<0.001|
+
+The standard full-test command reported 296.20 wall, 122.11 user and 9.25 system
+seconds; it is a different wrapper boundary from the parent tick partition.
+The complete outer wall also includes parent process startup and cleanup.
+
+Two short import-window samples predominantly observed =dlopen -> mapSegments ->
+fcntl=. After 115 seconds the main test process had about 5.4 CPU seconds. These
+support mapping-wait attribution within that sampled preparation window, not a
+GC percentage or ownership of all elapsed time. A later sample found actual
+POO/recursive-generator/hash execution. Deferred loading can also occur after
+HARNESS start. The required isolated property-library build and test took about
+28.47 and 6.96 seconds inside case execution; they remain part of acceptance.
+
+The earlier 742.39-second observation is a different source/history cohort and
+is not an optimization ratio against this baseline. Every cold comparison must
+retain all cases, successful process exit, later checks and cleanup. No process splitting,
+manual unloading, interpreted-loader fallback or security-setting bypass is used.
+
+** Reject image coalescing as a standalone speedup
+
+Fixture-free ordered collection suites were coalesced in =23587eb= without
+changing their four export names or 130 ordered cases. All includes are explicit
+standard-make inputs; a shared private error predicate replaces four copies.
+All complete runs retained the identical ordered main suite/case SHA-256
+=dc17eff57302d330f5a39a611da37abb937674e8c08a5e9fd18dd00f45a5bfc0=.
+The 25 CI packages and every case/cleanup remain. Physical test modules were
+149 in A and 146 in B; each completed 2,065 main plus three declaration cases.
+
+The observed ABBA whole-entry walls were 681.08, 621.48, 671.08 and 628.08
+seconds. The first pair favored B by 59.60 seconds; the reverse pair favored A
+by 43.00. Means (654.58 versus 646.28) and observed maxima (681.08 versus 671.08)
+are insufficient to admit a stable speedup. A1/B1 had four two-second diagnostic
+samples each at different execution points; B2/A2 had none. No sample time is
+subtracted from any whole wall. This failed to confirm the intended optimization.
+
+| arm | build/preparation | import/init | cases | post-report exit | later studies | outer wall |
+|-----+-------------------+-------------+-------+------------------+---------------+------------|
+| A1  |            353.71 |      143.14 |145.78 |             7.70 |         30.18 |     681.08 |
+| B1  |            325.53 |      161.03 |106.74 |             7.05 |         21.08 |     621.48 |
+| B2  |            344.04 |      165.27 |125.82 |             7.27 |         28.64 |     671.08 |
+| A2  |            325.94 |      161.92 |110.47 |             7.33 |         22.39 |     628.08 |
+
+These are boundary observations, not exclusive GC/dyld ownership or stable
+population quantiles. During this audit the ordinary Just dependency threads
+also acquired worker slots in different orders; six package start orders must
+not be assumed identical simply because the declaration order is identical.
+No replacement scheduler or artificial import dependency was introduced.
+
+A subsequent diagnostic found that the combined ordered suite was a single C
+host under the released compiler's default unlimited setting. The main table
+already uses Gambit's existing =___SINGLE_HOST_LIMIT=10000= setting. Applying
+that same setting to the combined test target is a separate candidate, not part
+of the failed standalone image-coalescing claim above. Interrupted or incorrectly
+configured preparation is excluded from admission and paired timings.
+
+** Reject the bounded-host candidate too
+
+The separate candidate =9c1e49a= retained the primary query body in its existing
+866-line owner and used only three related standard includes. The prefix helper
+preserved the ordinary GSC flags. The actual compiler command received the
+existing =-cc-options -D___SINGLE_HOST_LIMIT=10000= setting; generated source had
+12,822 labels. After complete exit, the output showed 15 C hosts instead of one.
+Thus the setting was active, not an ineffective flag. Output images were not
+read before cold execution; parameter checks used process arguments and the C
+source header. The interrupted, wrongly configured local preparation was stopped
+through its existing timeout guard and excluded from all accepted observations.
+
+Unprofiled A2/C1/C2/A3 whole-entry walls were 628.08, 597.68, 617.12 and 592.08
+seconds. C won the first pair by 30.40 seconds but lost the reverse pair by
+25.04. Means were 610.08 versus 607.40 seconds; a 2.68-second mean difference
+with opposite pair directions does not establish an improvement. The respective
+observed maxima (628.08 and 617.12) are not stable tail/quantile evidence.
+The indexes-package user CPU observations also increased: 123.25 to 142.86
+seconds in the first pair, and 119.57 versus 155.10 in the reverse pair.
+
+All arms naturally exited, retained all 2,065 main cases plus three declaration
+cases, and had the same ordered case digest. Both coalescing and its additional
+host setting were withdrawn: the final implementation retains the original 149
+physical modules, declarations and compiler policy. Git retains the rejected
+source revisions for reproduction; raw logs, generated products and samples
+remain outside the repository. Only the complete-entry observer, standard
+failure controls and corresponding finite proof laws are retained.
+
+Across these cohorts, import/init windows ranged from 135.27 to 172.06 seconds;
+post-report exit was about 7–8 seconds. The official source audit found no
+forced-reload loop: context evaluation uses its existing promise and the runtime
+loader owns loaded/error states. Samples found OS mapping waits and, separately,
+actual POO evaluation. These results do not establish that all mapping time is
+removable in POO, nor a GC percentage. The original 742-second issue remains
+open; no reliable wall-time fix is claimed and no new loader, cache registry,
+compiler bypass, weakened cleanup or larger resource limit is retained.

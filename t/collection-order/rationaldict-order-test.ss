@@ -1,4 +1,14 @@
-;
+;;; Standard RBTree order participates in existing typed collection workflows.
+(export rationaldict-order-test)
+(import :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table
+        :clan/poo/rationaldict :clan/poo/support/option (only-in :clan/poo/fun Wrapper.)
+        (only-in :clan/poo/support/base number-comparer)
+        (prefix-in :clan/poo/examples/service-collection service.))
+
+;; Compare a precise protocol cause, without treating unrelated errors as refusal.
+(def (message? text)
+  (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
+
 ;; Consume the standard Iterator through its own protocol; no test cursor engine.
 (def (entries cursor) (for/collect (entry cursor) entry))
 
