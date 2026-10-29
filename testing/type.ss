@@ -1,7 +1,7 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
-        ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse)
+        ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
         (prefix-in ../generalized-prototype observation.)
@@ -18,6 +18,16 @@
 (define-type GeneratorRecord
   (Record descriptor: [Type] draw: [Procedure] shrink: [Procedure]
           measure: [Procedure] sources: [(List Object)] generation: [(OrFalse Procedure) default: #f]))
+;; Generic policy recognition stays with the independent library's record type.
+(define-type PropertyPolicy (.cc Type. .element?: testing.policy?))
+;; Standard Record defaults make one bounded configuration usable by FUN actions.
+;; Procedure-valued sizes require an explicit size-limit at the runner boundary.
+(define-type PropertyConfiguration
+  (Record seed: [UInt default: 0] cases: [UInt default: 100]
+    size: [(Or UInt Procedure) default: 20] shrink-budget: [UInt default: 100]
+    size-limit: [(OrFalse UInt) default: #f] policy: [PropertyPolicy default: (testing.make-policy)]
+    depth: [UInt default: 32] node-budget: [UInt default: 256]
+    descriptor-budget: [UInt default: 256] search-budget: [UInt default: 8192]))
 ;; Public samplers retain ordinary Record/Class initialization and validation.
 ;; Additional mutable callback dependencies remain explicit source objects.
 (def (make-generator descriptor draw shrink measure dependencies: (dependencies []) generation: (generation #f))
@@ -191,7 +201,7 @@
 (def (check-property descriptor property seed: (seed 0) cases: (cases 100)
                      size: (size 20) shrink-budget: (shrink-budget 100) sampler: (supplied #f)
                      size-limit: (size-limit (and (not (procedure? size)) size))
-                     policy: (policy (testing.make-policy))
+                     policy: (policy (testing.make-policy)) name: (name #f)
                      dependencies: (dependencies []) depth: (depth 32) node-budget: (nodes 256)
                      descriptor-budget: (descriptors 256) search-budget: (search 8192))
   (unless (and (procedure? property) (every (lambda (n) (and (exact-integer? n) (>= n 0)))
@@ -204,7 +214,7 @@
   (def (report status original counterexample attempts steps minimal? cause execution)
     (.o bind-these: #f status: status descriptor: descriptor property: property sampler: sampler
       seed: seed cases: cases size: size size-limit: size-limit shrink-budget: shrink-budget sources: sources
-      name: (and execution (testing.report-name execution))
+      name: (if execution (testing.report-name execution) name)
       accepted: (if execution (testing.report-accepted execution) 0)
       discarded: (if execution (testing.report-discarded execution) 0)
       labels: (if execution (testing.report-labels execution) [])
@@ -226,7 +236,7 @@
         (generator-core sampler) property
         (property-specification sampler sources) seed: seed cases: cases size: size
         size-limit: size-limit
-        shrink-budget: shrink-budget classify-error: generation-status policy: policy))
+        shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
       (report (testing.report-status execution) (testing.report-original execution)
         (testing.report-counterexample execution) (testing.report-attempts execution)
         (testing.report-steps execution) (testing.report-minimal? execution)
@@ -258,15 +268,16 @@
 
 ;; Reader/FUN composition makes the test run one observation followed by the
 ;; supplied consumer, which may be an existing IO action or an evidence gate.
+;; The configuration is itself a revision source, including callback-driven edits.
 (def (property-action descriptor property consume sampler: (sampler #f) dependencies: (dependencies []))
   (.call observation.Observation. .bind
     (lambda (configuration) (check-property descriptor property
-      sampler: sampler dependencies: dependencies
+      sampler: sampler dependencies: (cons configuration dependencies)
       policy: (if (.has? configuration policy) (.get configuration policy)
         (testing.make-policy))
       seed: (.get configuration seed) cases: (.get configuration cases)
       size: (.get configuration size) shrink-budget: (.get configuration shrink-budget)
-      size-limit: (if (.has? configuration size-limit) (.get configuration size-limit)
+      size-limit: (or (and (.has? configuration size-limit) (.get configuration size-limit))
         (and (not (procedure? (.get configuration size))) (.get configuration size)))
       depth: (if (.has? configuration depth) (.get configuration depth) 32)
       node-budget: (if (.has? configuration node-budget) (.get configuration node-budget) 256)

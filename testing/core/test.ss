@@ -1,5 +1,5 @@
 ;;; Standard TestSuite checks over the existing property-report protocol.
-(export check-property define-property)
+(export check-property define-property require-passed)
 (import (only-in :std/test do-check!) (only-in :std/test/base TestError)
         (prefix-in ./property property.) (prefix-in ./generator generator.))
 ;; Every non-passing outcome is a standard TestError with its distinct status and

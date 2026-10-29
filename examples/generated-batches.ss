@@ -1,6 +1,9 @@
 ;;; Downstream typed batch properties use the ordinary generator and FUN protocols.
 (export make-batch-domain generated-batches-test)
-(import :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function
+(import (prefix-in ../support/testing pbt.)
+        (only-in ../debug property-debug-action)
+        (prefix-in :clan/property-testing/property policy.)
+        :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function
         (prefix-in :clan/property-testing/generator core.))
 
 ;; Record construction owns nested Function wrapping; the property runner does
@@ -41,6 +44,53 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Reader configuration revisions refuse successful-looking callbacks"
+      (def configured (make-instance PropertyConfiguration cases: 2))
+      (def calls 0)
+      (def action (property-debug-action #f UInt (lambda (_)
+        (set! calls (1+ calls)) (.put! configured 'cases 3) #t)))
+      (def report (action configured))
+      (check-eq? (.get report status) 'stale)
+      (check-equal? calls 1)
+      (check-exception (replay-property report) Error?))
+    (test-case "default POO test support derives fixed named Type products"
+      (defvalues (descriptor configuration) (make-batch-domain))
+      (pbt.define-property coherent-batch ((batch descriptor) (row UInt) (options UInt))
+        (and (= (.get batch count) (length (.get batch payload)))
+          (= ((.@ batch handler) -7) 7) (>= (+ row options) row)))
+      (coherent-batch seed: 41 cases: 4 size: 3
+        policy: (policy.make-policy name: 'external labels: (lambda (_) '(batch)) required: '((batch . 4))))
+      (pbt.check-property descriptor (lambda (batch) (= (.get batch count) (length (.get batch payload))))
+        seed: 7 cases: 3 size: 4)
+      (check-exception (make-instance PropertyConfiguration seed: -1) TypeError?))
+    (test-case "Record configuration drives the existing FUN debug and replay workflow"
+      (defvalues (descriptor configuration) (make-batch-domain))
+      (def calls 0)
+      (def output (open-output-string))
+      (def configured (make-instance PropertyConfiguration seed: 41 cases: 3 size: 3))
+      (def action (property-debug-action 'batch-debug descriptor
+        (lambda (batch) (set! calls (1+ calls)) (= (.get batch count) (length (.get batch payload))))))
+      (def report (parameterize ((current-error-port output)) (action configured)))
+      (check-equal? calls 3)
+      (check-eq? (.get report status) 'passed)
+      (check (string-prefix? "batch-debug\n" (get-output-string output)) => #t)
+      (def failed ((property-debug-action #f descriptor batch-correct?) configured))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 2)
+      (check-eq? (replay-counterexample failed) #f)
+      (.putslot! configuration 'maximum ($constant-slot-spec 8))
+      (check-exception (replay-counterexample failed) Error?))
+    (test-case "disabled rendering still executes once and scheduled sizes require bounds"
+      (def calls 0)
+      (def output (open-output-string))
+      (def action (property-debug-action #f UInt (lambda (_) (set! calls (1+ calls)) #t)))
+      (def configured (make-instance PropertyConfiguration cases: 3 size: (lambda (trial) trial) size-limit: 3))
+      (def report (parameterize ((current-error-port output)) (action configured)))
+      (check-equal? calls 3)
+      (check-eq? (.get report status) 'passed)
+      (check-equal? (get-output-string output) "")
+      (check-exception (action (make-instance PropertyConfiguration size: (lambda (trial) trial))) Error?)
+      (check-equal? calls 3))
     (test-case "sized weighted batches shrink through Reader FUN and replay"
       (defvalues (descriptor configuration) (make-batch-domain))
       (def deliveries 0)
