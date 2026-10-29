@@ -154,19 +154,16 @@
       (recursive.value (make-answer (.call (node-sampler node) shrink value) (- remaining 1)))
       (let (structural-count (if (eq? (node-kind node) 'list)
                               (core.list-deletion-count (length value) 0) 0))
-        ;; Candidate preparation and grammar visits retain their distinct limits.
-        ;; Preflight a known oversized structural batch before coordinate callbacks.
-        (when (> structural-count search) (refuse-generation 'candidates))
-        (let loop ((rest children) (before []) (left (- remaining 1)) (out []))
+        ;; Reserve the whole structural batch before invoking coordinate callbacks.
+        (when (> structural-count (- remaining 1)) (refuse-generation 'search))
+        (let loop ((rest children) (before []) (left (- remaining 1 structural-count)) (out []))
         (if (null? rest)
-          (begin
-            (when (> (+ structural-count (length out)) search) (refuse-generation 'candidates))
-            (let* ((structural
+          (let* ((structural
                    (case (node-kind node)
                      ((list) (for/collect (candidate (core.list-deletions value 0)) candidate))
                      ((maybe) (if (void? value) [] (list (void))))
                      ((or-false) (if value [#f] [])) (else []))))
-              (recursive.value (make-answer (append structural out) left))))
+            (recursive.value (make-answer (append structural out) left)))
           (recursive.bind (recursive.request (list 'shrink 0 0 left 0 (car rest)))
             (lambda (candidates)
               (unless (list? (answer-value candidates)) (error "shrinker must return a finite proper list"))

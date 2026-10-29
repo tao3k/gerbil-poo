@@ -988,7 +988,7 @@ removed. A rejected coordinate stays a charged tombstone. Structural deletion is
 lazy and uses aligned blocks with halving widths, finishing at every single
 position. `list-deletions` supplies that same policy to value callbacks;
 `list-deletion-count` allows typed value-only search to refuse oversized candidate
-batches before allocation. Grammar search and candidate preparation retain separate refusal tags. Minimum lengths are preserved; fixed arities have no
+batches before allocation. Structural reservations count as construction work; the completed candidate ceiling retains its distinct refusal tag. Minimum lengths are preserved; fixed arities have no
 deletion proposals. Selected Union branches remain fixed.
 
 List/string/byte/symbol roots use the existing draw algebra. Pack/map callbacks

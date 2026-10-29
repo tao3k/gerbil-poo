@@ -352,7 +352,16 @@ remain attached to descendants and stale replay is refused.
 Typed recursive Lists and nullable carriers use the same sample-tree operation;
 Tuple/Pair/Union constructors retain their mandatory arity. Value-only List
 shrinking uses the same deletion policy and refuses before materializing a batch
-larger than the existing candidate cap. No candidate list is silently
+larger than the remaining construction quota. No candidate list is silently
 truncated. Core lazy proposals still use the ordinary property/inspection budget.
 This is finite operation coverage, not a promise of global minimality. Mapping
 and arbitrary callback execution retain their own cost/purity obligations.
+
+Recursive collection callbacks reserve structural deletion work before walking
+child shrinkers. Exhausting that shared construction quota refuses with `search`;
+a completed batch exceeding the candidate ceiling refuses with `candidates`.
+Both retain the original false witness, refuse a minimality claim and replay the
+exact failure kind. The six-element/15-token regression and a four-element input
+distinguish work exhaustion from cardinality exhaustion without relaxing
+either quota. Lazy sample children are consumed with standard `for` and a lexical
+`let/cc` escape, preserving short-circuiting without materializing the Iterator.
