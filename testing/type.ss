@@ -1,10 +1,11 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash take drop)
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
         (prefix-in :clan/property-testing/property testing.)
+        (prefix-in :clan/property-testing/replay replay.)
         (prefix-in :clan/property-testing/generator core.)
         (prefix-in (only-in :clan/property-testing/generator make-generator) testing.)
         (only-in :clan/property-testing/generator integer-shrinks)
@@ -265,6 +266,18 @@
   (unless (.get report replayable?) (error "property report has no replayable generator"))
   (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
   (replayed-report report (testing.replay-property (.get report execution))))
+
+;; Typed export preserves the existing report and generic source authority.
+;; Only completed executions have a portable core witness to admit.
+(def (write-counterexample report codec port)
+  (unless (.get report replayable?) (error "property report has no replayable generator"))
+  (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
+  (replay.write-counterexample (.get report execution) codec port))
+;; Reuse the sampler's bounded domain without drawing or opening a new runner.
+;; Application codecs reconstruct ordinary validated Record/Function carriers.
+(def (read-counterexample sampler codec port property)
+  (def sources (snapshot sampler []))
+  (replay.read-counterexample codec port (property-specification sampler sources) property))
 
 ;; Reader/FUN composition makes the test run one observation followed by the
 ;; supplied consumer, which may be an existing IO action or an evidence gate.

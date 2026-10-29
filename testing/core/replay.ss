@@ -38,25 +38,29 @@
            (char? datum) (exact-integer? datum)) datum)
       (else (error "nonportable replay datum" datum))))
   (copy datum depth))
-;; Currentness is checked around application callbacks; no closure is serialized.
-(def (with-codec codec action)
-  (unless (eq? ((replay-codec-current codec)) #t) (error "stale replay codec"))
-  (begin0 (action)
-    (unless (eq? ((replay-codec-current codec)) #t) (error "stale replay codec"))))
-;; Construct the complete envelope before writing so codec refusal emits no prefix.
-;; Failed reports must still be current and false before they can become a corpus.
+;; Both codec and application provenance bracket each stage. Guards are the
+;; existing pure Boolean observers; exceptions retain their original identity.
+(def (with-codec codec action (current (lambda () #t)))
+  ;; Preserve the codec refusal before observing the application context.
+  (def (check)
+    (unless (eq? ((replay-codec-current codec)) #t) (error "stale replay codec"))
+    (unless (eq? (current) #t) (error "stale replay context")))
+  (check)
+  (begin0 (action) (check)))
+;; Prepare a complete source-current envelope before entering the port write.
+;; The port boundary is not a transaction: an I/O failure may leave partial bytes.
 (def (write-counterexample report codec port)
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
-  (when (replay-counterexample report) (error "property witness no longer fails"))
-  (def datum (with-codec codec
-    (lambda () (copy-data ((replay-codec-encode codec) (report-counterexample report))
-      (replay-codec-nodes codec) (replay-codec-depth codec)))))
-  (def envelope (copy-data (vector 'property-counterexample 1 (replay-codec-identity codec) datum)
-    (replay-codec-nodes codec) (replay-codec-depth codec)))
-  (write envelope port)
-  (newline port))
-;; Refuse a changed protocol before decoding or opening an application fixture.
-;; The application's decoder reconstructs logical handles, never runtime owners.
+  (def (current) (report-current? report))
+  (let (envelope (with-codec codec (lambda ()
+      (when (replay-counterexample report) (error "property witness no longer fails"))
+      (let (datum (copy-data ((replay-codec-encode codec) (report-counterexample report))
+          (replay-codec-nodes codec) (replay-codec-depth codec)))
+        (copy-data (vector 'property-counterexample 1 (replay-codec-identity codec) datum)
+          (replay-codec-nodes codec) (replay-codec-depth codec)))) current))
+    (with-codec codec (lambda () (write envelope port) (newline port)) current)))
+;; Identity admission precedes application callbacks. Decoding and execution have
+;; separate source brackets, so a stale decoder cannot open a property fixture.
 (def (read-counterexample codec port specification property)
   (def envelope (copy-data (read port) (replay-codec-nodes codec) (replay-codec-depth codec)))
   (unless (and (vector? envelope) (= (vector-length envelope) 4)
@@ -64,14 +68,14 @@
     (eqv? (vector-ref envelope 1) 1)
     (equal? (vector-ref envelope 2) (replay-codec-identity codec))) (error "replay identity mismatch"))
   (unless (eof-object? (read port)) (error "trailing replay data"))
-  (with-codec codec
-    (lambda ()
-      (def value ((replay-codec-decode codec) (vector-ref envelope 3)))
-      ;; Reuse the public property runner's domain/currentness gate with no draws
-      ;; from an external source and zero shrinking. One constant witness only.
-      (def report (check-property
-        (generator-unit value) property specification cases: 1 shrink-budget: 0))
-      (case (report-status report)
-        ((passed) #t) ((failed) #f)
-        ((error) (raise (report-cause report)))
-        (else (error "replay witness refused" report))))))
+  (def (current) (specification-current? specification))
+  (let (value (with-codec codec
+      (lambda () ((replay-codec-decode codec) (vector-ref envelope 3))) current))
+    (with-codec codec (lambda ()
+      ;; The ordinary runner owns domain admission and source checks; no new
+      ;; generation, shrinking, fixture runner or coverage table is introduced.
+      (let (report (check-property (generator-unit value) property specification cases: 1 shrink-budget: 0))
+        (case (report-status report)
+          ((passed) #t) ((failed) #f)
+          ((error) (raise (report-cause report)))
+          (else (error "replay witness refused" report))))) current)))

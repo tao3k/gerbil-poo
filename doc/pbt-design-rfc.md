@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P8 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P9 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1010,3 +1010,41 @@ runtime-wide cost model.
 [Rackcheck's list shrinking](https://docs.racket-lang.org/rackcheck/index.html)
 informs the removal-before-coordinate policy. The implementation reuses the
 existing modules, iterators, sample records, domain gates and check runner.
+
+### P9: source-consistent portable corpus handoff
+
+Audit finding: export checked a failed report before encoding but did not bracket
+encoding with its source observers. Import bracketed decoding and execution as
+one action, allowing a decoder that revised its codec to reach the property.
+These were gaps in the existing explicit source protocol, not a requirement for
+closure serialization or unrestricted codec inference.
+
+The existing replay module now brackets each application stage with codec and
+domain/report observers. Export preflights before rechecking the false witness,
+prepares the entire bounded envelope, and rechecks before entering ordinary port
+writing. A preparation revision or exception writes no prefix. Import retains
+identity/trailing-data admission before callbacks, then separates guarded decoding
+from guarded execution. A decoder revision cannot invoke the property or open
+its fixture. Application exceptions retain their exact cause; they are not masked
+by a post-return stale check. Non-Boolean observers remain errors.
+
+The existing `testing/type` module exposes the same write/read operations for a
+typed report or sampler. It snapshots the sampler's declared sources without
+drawing. Application codecs reconstruct ordinary Record values, so nested Function
+fields use the normal constructor's validation and wrapping. No additional runner,
+source registry, serialization evaluator or namespace is introduced.
+
+Acceptance covers before/during-stage revisions, codec and domain changes,
+zero property calls after decoder refusal, no output prefix on preparation
+failure, exact exceptions and balanced cleanup, plus a downstream Record/FUN
+debug failure exported and replayed through an existing sampler. The same finite
+stage model proves preflight refusal, original-cause priority, post-return
+refusal, exact current values and continuation suppression after failed preparation.
+Observers must accurately describe application revisions; callbacks must terminate.
+Port I/O failures or concurrent mutation during a write may leave partial bytes:
+this protocol does not promise an atomic filesystem transaction or arbitrary
+application codec round-trip laws. Identity must change with semantic revisions.
+
+[Rackcheck's documented generator/property separation](https://docs.racket-lang.org/rackcheck/index.html)
+remains the comparison point. This source-current corpus handoff is our explicit
+protocol obligation, not a claim that Racket requires POO revision observers.

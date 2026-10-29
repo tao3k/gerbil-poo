@@ -3,7 +3,7 @@
         report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
-        make-policy policy? make-product-specification report-current? report-diagnostics
+        make-policy policy? make-product-specification specification-current? report-current? report-diagnostics
         inspect-generator inspection? inspection-status inspection-seed inspection-size inspection-count inspection-depth inspection-budget
         inspection-draws inspection-attempts inspection-events inspection-counts
         inspection-truncated? inspection-cause inspection-current?)
@@ -75,6 +75,11 @@
 ;; Domain rejection is separate from an exception and from a false property.
 (def (accepts? specification value)
   (boolean-result ((domain-accept specification) value) "domain predicate must return a boolean"))
+;; Replay can preflight a domain before invoking an application decoder.
+;; Boolean admission stays with the existing source observer protocol.
+(def (specification-current? specification)
+  (unless (specification? specification) (error "property specification required"))
+  (live? (domain-current specification)))
 ;; Products share the existing domain/measure/currentness gates; domains are fixed
 ;; for one check while dependent generator branches retain their own provenance.
 (def (make-product-specification specifications)

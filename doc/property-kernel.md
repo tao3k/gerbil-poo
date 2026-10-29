@@ -365,3 +365,28 @@ exact failure kind. The six-element/15-token regression and a four-element input
 distinguish work exhaustion from cardinality exhaustion without relaxing
 either quota. Lazy sample children are consumed with standard `for` and a lexical
 `let/cc` escape, preserving short-circuiting without materializing the Iterator.
+
+## Source-current typed corpus handoff
+
+Use the existing modules directly; application codecs carry only logical data:
+
+```scheme
+(import (prefix-in :clan/poo/testing/type typed.)
+        (prefix-in :clan/property-testing/replay corpus.))
+(def codec (corpus.make-codec '(batch 1) encode-batch decode-batch
+  current?: batch-schema-current?))
+(call-with-output-file failure-path
+  (cut typed.write-counterexample failed-typed-report codec <>))
+(call-with-input-file failure-path
+  (lambda (port) (typed.read-counterexample sampler codec port batch-correct?)))
+```
+
+`decode-batch` uses ordinary Record construction to restore validation and Function
+wrapping, not serialized closures. See `examples/generated-batches.ss` for an
+executable downstream FUN/debug-to-corpus workflow. Import returns the property's
+Boolean result, with no sampling or shrinking. A stale sampler/codec refuses before
+decoding; a decoder that invalidates either source refuses before property effects.
+Both stages check sources after a normal return. Callback exceptions keep their
+original cause. Export rejects source changes during preparation before writing
+any bytes. Ordinary port failures remain ordinary I/O failures and may leave a
+partial write; applications own durable file replacement and codec semantic laws.

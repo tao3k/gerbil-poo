@@ -3,6 +3,7 @@
 (import (prefix-in ../support/testing pbt.)
         (only-in ../debug property-debug-action)
         (prefix-in :clan/property-testing/property policy.)
+        (prefix-in :clan/property-testing/replay corpus.)
         :std/test :std/error ../object ../mop ../type ../number ../testing/type ../testing/function
         (prefix-in :clan/property-testing/generator core.))
 
@@ -44,6 +45,27 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "typed Record corpus replay brackets decoding with source revisions"
+      (let*-values (((descriptor configuration) (make-batch-domain)))
+        (def sampler (generator descriptor))
+        (def report ((property-debug-action #f descriptor batch-correct? sampler: sampler)
+          (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3)))
+        ;; Codecs retain logical data; the normal constructor restores Function wrapping.
+        (def (decode payload) (make-instance Batch count: (length payload) payload: payload route: 'put handler: abs))
+        (def codec (corpus.make-codec '(batch 1) (lambda (batch) (.get batch payload)) decode))
+        (def output (open-output-string))
+        (write-counterexample report codec output)
+        (def text (get-output-string output))
+        (check-eq? (read-counterexample sampler codec (open-input-string text) batch-correct?) #f)
+        (def calls 0)
+        (def stale-codec (corpus.make-codec '(batch 1) (lambda (batch) (.get batch payload))
+          (lambda (payload) (.putslot! configuration 'maximum ($constant-slot-spec 8)) (decode payload))))
+        (check-exception (read-counterexample sampler stale-codec (open-input-string text)
+          (lambda (_) (set! calls (1+ calls)) #f)) Error?)
+        (check-equal? calls 0)
+        (def refused (open-output-string))
+        (check-exception (write-counterexample report codec refused) Error?)
+        (check-equal? (get-output-string refused) "")))
     (test-case "Record FUN shrinking removes middle payloads and retains wrapped callbacks"
       (def generation (core.generator-map
         (core.make-tree-generator (lambda (_random _size)
