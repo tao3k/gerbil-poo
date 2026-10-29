@@ -57,6 +57,11 @@
 ;; A stale producer cannot invoke its next selector or construct a replacement.
 (def (require-sources! sources)
   (unless (every live? sources) (raise (make-stale))))
+;; Callback stages share one hygienic source boundary, without retaining a new
+;; guard closure per node. Exceptions bypass post-return checks unchanged.
+(defrule (with-sources sources body ...)
+  (begin (require-sources! sources)
+    (begin0 (let () body ...) (require-sources! sources))))
 ;; Public source lists are copies, so a downstream consumer cannot edit node ownership.
 (def (sample-sources tree) (map identity (sample-node-sources tree)))
 ;; Each node exposes an ordinary callback for consumers outside the core algebra.
@@ -102,8 +107,7 @@
 (def (generate generator random size)
   (unless (generator? generator) (error "generator required"))
   (unless (and (exact-integer? size) (>= size 0)) (error "natural generator size required" size))
-  (require-sources! (generation-sources generator))
-  (def tree ((generation-run generator) random size))
+  (def tree (with-sources (generation-sources generator) ((generation-run generator) random size)))
   (unless (sample? tree) (error "generator must produce a sample"))
   (make-sample-node (sample-value tree) (sample-children tree)
     (merge-sources (generation-sources generator) (sample-node-sources tree))))
@@ -131,14 +135,14 @@
 ;; Node mapping retains preimages and flat ownership; rejected proposals skip mapping.
 (def (map-sample tree transform sources)
   (def observed (merge-sources sources (proposal-owned-sources tree)))
-  (require-sources! observed)
-  (cond ((rejected? tree) (make-rejected observed))
-    ;; Identity can share an internal node only when it adds no source ownership.
-    ((and (eq? transform identity) (eq? observed (sample-node-sources tree))) tree)
-    (else (make-sample-node (transform (sample-value tree))
-      (lambda () (in-coroutine (lambda (yield)
-        (require-sources! observed)
-        (for (child ((sample-children tree))) (yield (map-sample child transform sources)))))) observed))))
+  (with-sources observed
+    (cond ((rejected? tree) (make-rejected observed))
+      ;; Identity can share an internal node only when it adds no source ownership.
+      ((and (eq? transform identity) (eq? observed (sample-node-sources tree))) tree)
+      (else (make-sample-node (transform (sample-value tree))
+        (lambda () (in-coroutine (lambda (yield)
+          (require-sources! observed)
+          (for (child ((sample-children tree))) (yield (map-sample child transform sources)))))) observed)))))
 ;; Mapping is separate from the domain specification and its decreasing measure.
 (def (generator-map generator (transform : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
@@ -149,8 +153,10 @@
   (def observed (merge-sources sources (proposal-owned-sources parent)))
   (require-sources! observed)
   (if (rejected? parent) (make-rejected observed)
-    (let (child (parameterize ((current-random-states states))
-                 (generate (select (sample-value parent)) (random-at seed) size)))
+    (let* ((selected (with-sources observed (select (sample-value parent))))
+           (child (with-sources observed
+             (parameterize ((current-random-states states))
+               (generate selected (random-at seed) size)))))
       (make-sample-node (sample-value child)
         (lambda () (in-coroutine (lambda (yield)
           (require-sources! observed)
@@ -200,7 +206,7 @@
 (def (generator-sized (select : :procedure) current?: (current immutable-current))
   (def sources (observer-sources current []))
   (make-generation (lambda (random size)
-    (require-sources! sources) (selected-sample (select size) random size sources)) sources))
+    (selected-sample (with-sources sources (select size)) random size sources)) sources))
 ;; Size overrides are explicit natural values, not descriptor-budget overrides.
 (def (generator-resize generator size)
   (unless (and (generator? generator) (exact-integer? size) (>= size 0)) (error "invalid generator size" size))
@@ -219,20 +225,19 @@
     (require-sources! sources)
     (def fuel (min depth (or (current-delay-budget) depth)))
     (when (zero? fuel) (raise (make-generation-exhausted)))
-    (parameterize ((current-delay-budget (1- fuel))) (selected-sample (construct) random size sources))) sources))
+    (parameterize ((current-delay-budget (1- fuel))) (selected-sample (with-sources sources (construct)) random size sources))) sources))
 ;; Prune rejected branches, yielding a charged tombstone rather than searching
 ;; descendants invisibly. Predicates never receive already rejected proposals.
 (def (filter-sample tree predicate sources)
   (def observed (merge-sources sources (proposal-owned-sources tree)))
-  (require-sources! observed)
-  (if (rejected? tree) (make-rejected observed)
-    (let (accepted? (boolean-result (predicate (sample-value tree)) "filter must return a boolean"))
-      (require-sources! observed)
-      (if accepted?
-        (make-sample-node (sample-value tree)
-          (lambda () (in-coroutine (lambda (yield)
-            (for (child ((sample-children tree))) (yield (filter-sample child predicate observed)))))) observed)
-        (make-rejected observed)))))
+  (with-sources observed
+    (if (rejected? tree) (make-rejected observed)
+      (let (accepted? (boolean-result (predicate (sample-value tree)) "filter must return a boolean"))
+        (if accepted?
+          (make-sample-node (sample-value tree)
+            (lambda () (in-coroutine (lambda (yield)
+              (for (child ((sample-children tree))) (yield (filter-sample child predicate observed)))))) observed)
+          (make-rejected observed))))))
 ;; Even rejected draws retain their leaves in the accepted root. Their independent
 ;; finite retry quota does not consume or evade the shrink consumer's attempt quota.
 (def (generator-filter generator (predicate : :procedure) attempts: (attempts 100)
@@ -322,7 +327,7 @@
     (def observed (foldl (lambda (tree sources) (merge-sources sources (proposal-owned-sources tree))) inherited trees))
     (require-sources! observed)
     (if (not (every sample? trees)) (make-rejected observed)
-      (make-sample-node (pack (map sample-value trees))
+      (make-sample-node (with-sources observed (pack (map sample-value trees)))
         (lambda () (in-coroutine (lambda (yield)
           (require-sources! observed)
           (for (smaller (list-deletions trees minimum)) (yield (sequence smaller observed)))

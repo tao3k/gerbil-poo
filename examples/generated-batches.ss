@@ -45,6 +45,42 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Record dependency revisions stop construction and require explicit fresh preparation"
+      (let*-values (((descriptor configuration) (make-batch-domain)))
+        (def constructions 0) (def properties 0)
+        ;; Fresh preparation captures current typed sources; an old sampler never
+        ;; silently refreshes a source revision encountered in its selector.
+        (def (prepare revise?)
+          (def pipeline (core.generator-bind (generator-core (generator descriptor))
+            (lambda (batch)
+              (when revise? (.putslot! configuration 'maximum ($constant-slot-spec 8)))
+              (core.make-generator (lambda (_random _size)
+                (set! constructions (1+ constructions))
+                (make-instance Batch count: (.get batch count) payload: (.get batch payload)
+                  route: (.get batch route) handler: (.@ batch handler))) (lambda (_) [])))))
+          (from-generator descriptor pipeline (lambda (batch) (.get batch count)) dependencies: (list configuration)))
+        ;; The requested FUN action returns refusal data without opening the property.
+        (def (run sampler)
+          ((property-debug-action #f descriptor (lambda (batch)
+            (set! properties (1+ properties)) (batch-correct? batch)) sampler: sampler)
+            (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3)))
+        (def stale (run (prepare #t)))
+        (check-eq? (.get stale status) 'stale)
+        (check-equal? (list constructions properties) '(0 0))
+        (check-exception (replay-property stale) Error?)
+        (def fresh (run (prepare #f)))
+        (check-eq? (.get fresh status) 'failed)
+        (check (> (.get fresh steps) 0) => #t)
+        (check-equal? (.get (.get fresh counterexample) count) 2)
+        ;; Parent shrinking regenerates dependent children. Concrete replay draws
+        ;; none; seed replay must repeat the entire same construction schedule.
+        (let ((before constructions) (trials properties))
+          (check-eq? (replay-counterexample fresh) #f)
+          (check-equal? constructions before)
+          (check-equal? properties (1+ trials))
+          (check-eq? (.get (replay-property fresh) status) 'failed)
+          (check-equal? constructions (* 2 before))
+          (check-equal? properties (1+ (* 2 trials))))))
     (test-case "typed corpus policy admits wrapped Record functions without coverage callbacks"
       (let*-values (((descriptor configuration) (make-batch-domain)))
         (def sampler (generator descriptor))

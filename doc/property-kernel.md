@@ -403,3 +403,20 @@ Rejected or non-Boolean preconditions cannot reach recognition or property effec
 Labels, coverage thresholds, PRNG state, size policies and shrinking are untouched.
 Seed replay still owns complete generation/coverage behavior. See
 `examples/generated-batches.ss` for the Record/FUN-to-corpus policy workflow.
+
+## Callback stage admission
+
+Producer, map/filter, dependent-selection/drawing, size/delay construction and
+sequence packing reuse one source bracket in the existing generator module.
+A normally returning callback that revises its declared sources raises the existing
+stale-generation refusal before dependent work. An exception keeps its original
+identity; no post-return observer masks it. Flat leaves, sample trees, child seeds
+and resource budgets are unchanged. Dynamic sample leaves still belong to their
+node/consumer admission; this does not certify undeclared mutable payloads or
+undo effects already performed by a callback. Observers must be pure and accurate.
+
+See the 39-case independent `examples/property-kernel.ss` and the Record/FUN repair
+workflow in `examples/generated-batches.ss`. The latter explicitly rebuilds a sampler
+after revision rather than silently refreshing an old generation closure, performs
+real shrinking and checks that concrete replay draws nothing while seeded replay
+repeats the full dependent construction schedule.

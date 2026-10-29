@@ -41,10 +41,53 @@
    (domain (generator.generator-unit (1+ options)) signed-domain)
    (report (generator.generator-unit (+ options domain)) signed-domain))
   (= report (+ options domain)))
+
+;; One ordinary generator fixture exercises callback stages with the same source
+;; leaf. Child drawing is separate so forbidden downstream effects are observable.
+(def (revision-generator stage mutate guard draw-child)
+  (def source (generator.make-generator (lambda (_random _size)
+    (when (eq? stage 'draw) (mutate)) 1) (lambda (_) []) current?: guard))
+  (def child (generator.make-generator (lambda (random size)
+    (when (eq? stage 'child) (mutate)) (draw-child random size)) (lambda (_) [])))
+  (case stage
+    ((draw) source)
+    ((map) (generator.generator-map source (lambda (value) (mutate) value)))
+    ((bind child) (generator.generator-bind source (lambda (_)
+      (when (eq? stage 'bind) (mutate)) child)))
+    ((sized) (generator.generator-sized (lambda (_) (mutate) child) current?: guard))
+    ((delay) (generator.generator-delay (lambda () (mutate) child) current?: guard))
+    ((pack) (generator.make-tree-generator (lambda (random size)
+      (generator.sample-sequence (list (generator.generate source random size))
+        (lambda (values) (mutate) values)))))
+    (else (error "unknown callback stage" stage))))
 ;; This suite can be copied with testing/core/{generator,property,model,test}.ss into a
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
+    (test-case "callback source revisions refuse before downstream generation effects"
+      (for (stage '(draw map bind sized delay pack child))
+        (let* ((live #t) (draws 0)
+               (generation (revision-generator stage (lambda () (set! live #f)) (lambda () live)
+                 (lambda (_random _size) (set! draws (1+ draws)) 1))))
+          (check-exception (generator.generate generation (generator.random-at 41) 3) generator.stale-generation?)
+          (check-equal? draws (if (eq? stage 'child) 1 0)))))
+    (test-case "callback exceptions keep their identity after source revisions"
+      (for (stage '(draw map bind sized delay pack child))
+        (let* ((live #t) (cause (cons stage 'failure))
+               (generation (revision-generator stage (lambda () (set! live #f) (raise cause))
+                 (lambda () live) (lambda (_random _size) (error "unreachable child draw")))))
+          (check-eq? (with-catch values (lambda ()
+            (generator.generate generation (generator.random-at 41) 3))) cause))))
+    (test-case "source-stable callback stages preserve seeded values and lazy children"
+      (for (stage '(draw map bind sized delay pack child))
+        (let* ((calls 0) (draws 0)
+               (generation (revision-generator stage (lambda () (set! calls (1+ calls))) (lambda () #t)
+                 (lambda (random size) (set! draws (1+ draws)) (random (1+ size))))))
+          (let* ((left (generator.generate generation (generator.random-at 41) 3))
+                 (right (generator.generate generation (generator.random-at 41) 3)))
+            (check-equal? (generator.sample-value left) (generator.sample-value right))
+            (check-equal? calls 2)
+            (check-equal? draws (if (memq stage '(bind sized delay child)) 2 0))))))
     (test-case "block deletion covers middle and tail positions within length bounds"
       (check-equal? (for/collect (xs (generator.list-deletions '(a b c) 0)) xs)
         '(() (b c) (a c) (a b)))

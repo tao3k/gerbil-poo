@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P10 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P11 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1090,3 +1090,41 @@ codec semantics and host resource/I/O behavior remain explicit premises.
 and property execution; this work preserves that ownership while satisfying our
 explicit source-bound replay protocol. It does not claim a universal policy
 serializer or unrestricted higher-order inference.
+
+### P11: source-current generator callback composition
+
+Audit finding: producer draw, mapping and dependent/dynamic selector stages did
+not consistently recheck their sources after a normal callback return. A selector
+could revise its parent source and still run the selected child draw before the
+property runner eventually refused the stale result. This violates compositional
+source admission; it is not a demand for callback termination or effect rollback.
+
+One hygienic `with-sources` form in the existing generator module brackets declared
+flat observer lists without constructing another node guard or source registry.
+Producer draw, map/filter, dependent selection and child drawing, sized/delayed
+construction and retained sequence packing reuse it. Each normally returning stage
+must remain current before its result can reach a subsequent stage. Callback
+exceptions retain their exact cause. Producer admission owns producer leaves;
+returned dynamic sample leaves retain their existing node/consumer admission.
+No new generator, property runner, namespace, PRNG owner or retry policy is added.
+
+The standalone callback matrix covers draw, map, bind, sized, delay, pack and a
+child that revises its inherited parent source. It checks source refusal before
+unstarted child effects, original exceptions after revision, deterministic repeated
+seeded values and lazy child preparation. Independent compilation now runs 39 cases.
+The downstream Record/FUN example refuses construction after a selector revision,
+explicitly prepares fresh typed sources, performs real dependent shrinking, checks
+Function wrapping and tests both replay forms. Seed replay repeats the whole
+construction schedule; concrete replay invokes no generator or selector.
+
+`guardedGeneration` models value plus resulting source/random state. Its finite
+laws prove preflight refusal, post-return revision refusal, cause preservation,
+unchanged admitted result/state and suppression of dependent stages after refusal.
+Source accuracy/purity and callback termination remain premises. Effects already
+performed inside callbacks are not undone, and no concurrent linearizability,
+PRNG-quality or host/GC timing theorem is claimed. Existing resource limits,
+flat source identity, proposal budgets and captured child seed semantics remain.
+
+[Rackcheck's map/bind algebra](https://docs.racket-lang.org/rackcheck/index.html)
+informs composition through the same retained shrink tree. Revision observers are
+our additional explicit protocol, not an assertion that Racket mandates POO sources.
