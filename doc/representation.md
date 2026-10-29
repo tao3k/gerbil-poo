@@ -1245,3 +1245,58 @@ isolated control subsequently passed in 34.74 s. A one-second sample of the firs
 load showed dlopen; it does not attribute the entire interval or prove a cold-load
 bound. Heap/deadline limits and all controls remain unchanged. Raw data stays
 outside Git.
+
+### Direct vector seeding
+
+Seeded construction now allocates its final receiver-local vector once and fills
+it through the existing indexed setter. It no longer allocates a temporary value
+list, copies that list to a vector, then scans the vector for occupancy. Empty
+construction remains lazy and does not perform a seed pass. Sparse object
+initialization still uses the existing entry writes; it is not replaced by an
+eager scan of every declaration. Unknown-field growth uses the same seeded
+constructor before installing its new shape/cells/count.
+
+Ordered explicit entries still override initial values, with the last entry
+winning; false and Function payloads retain identity. Construction refusal does
+not replace the caller's existing store, and independent retry remains possible.
+The FUN observation chain now grows its shape again after callback refusal and
+Function-valued retry, checking the rebound site against the same primary store.
+The paired suite retains all preceding scenarios and controls and adds independent
+sparse-seed construction/copy/clear, including setup and source independence.
+
+`seedPrimaryCells_values` and `seedPrimaryCells_population` prove finite cell and
+occupancy fidelity together; refusal/retry laws assume a private candidate and
+faithful canonical names/lookup. The source work model removes one width-sized
+occupancy pass. It does not prove Gerbil vector allocation, callbacks, GC, compiler
+correctness or a wall-clock improvement.
+
+The direct-seed qualification retained the complete offset/value matrices and
+added one sparse-seed phase (16 declared extra names, two present values). Both
+current representations receive the same source, construct an independent store,
+and clear the result while checking that the source is intact. The complete
+standard entry passed in 123.38 s: library preparation 15.01 s, startup 2.98 s,
+runner 104.26 s. Vector-minus-symbolic-hash natural seed construction averaged
++6.21 us, with observed upper tail +6.38 us and six losses. Natural same-side
+means were -0.034 us (hash) and +0.060 us (vector). This is a representation
+comparison, not a before/after attribution to the fused constructor.
+
+The FUN observation now includes another shape growth after Function-valued
+retry; its workload differs from the preceding receipt. In this cohort its
+natural vector-minus-hash mean was +22.55 us, upper tail +27.45 us (six losses).
+The retained collected full-service comparison averaged +691.07 us, upper tail
++777.26 us (six losses). Hot natural reads averaged -0.032 us, with upper tail
+zero; these samples do not establish a general latency advantage. Explicit setter
+presence checks, shape canonicalization and metadata preparation remain real work.
+The removed temporary list/count pass is not presented as a physical memory or
+wall-clock proof.
+
+After integrating the existing shared model-shrink changes, the unchanged Slot
+sources passed all 149 modules / 1,985 cases in 154.08 s, including the independent
+stdlib-only package's 50-case control. Collection and generator checks passed in
+24.09 s and 7.02 s. A preceding cold complete entry reached its fixed deadline
+(exit 124, 304.32 s including termination grace), following a long initial module
+load; a one-second sample then showed dlopen, not an attribution of the whole
+interval. The initial cold test-package build also hit 300 s; normal standard
+incremental completion and the integrated build later passed. These failed cold
+qualifications remain distinct from the successful current tests. No workload,
+heap, deadline or negative control was reduced. Raw observations remain outside Git.

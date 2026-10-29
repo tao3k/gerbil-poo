@@ -3104,3 +3104,10 @@ and standard HashTable mutations. Named shape growth no longer silently ignores
 new keys. Integrated FUN refusal/retry/invalidation examples, finite occupancy
 laws and paired sparse-count/full-observation phases cover the protocol together;
 preparation and mutation costs remain charged, without a second value cache.
+
+Seed preparation now fills the final vector through the existing cell setter;
+intermediate mapped values and the separate occupancy scan are removed. Empty
+and sparse initialization remain lazy. Canonical seed fidelity, ordered override
+precedence, exact Function/false values, rejected preparation and independent
+retry are covered with the existing complete protocol and paired study. This
+advances implementation preparation rather than claiming new JIT/loader scope.

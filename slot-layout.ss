@@ -31,11 +31,14 @@
               (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
               (make-shape indices keys)))))))
   (def keys (shape-names canonical))
-  (def cells (if initial
-    (list->vector (map (lambda (name) (hash-ref initial name missing)) keys))
-    (make-vector (length keys) missing)))
-  (make-layout canonical cells missing (if initial
-    (for/fold (count 0) ((value cells)) (if (eq? value missing) count (1+ count))) 0)))
+  ;; Fill the final vector through the same presence boundary as ordinary writes.
+  ;; No intermediate value list, list-to-vector copy or second count scan exists.
+  ;; A refused seed leaves this unpublished receiver local to this constructor.
+  (def result (make-layout canonical (make-vector (length keys) missing) missing 0))
+  (when initial
+    (for ((name keys) (index (in-range (length keys))))
+      (slot-layout-set! result index (hash-ref initial name missing))))
+  result)
 ;; Explicit backend qualification uses the same evaluator and resource limits.
 ;; The default owns all computed values in one vector; hash is a measured control.
 (def slot-value-storage (make-parameter 'vector))

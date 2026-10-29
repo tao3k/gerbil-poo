@@ -510,6 +510,11 @@
               (hash-remove! table 'callable) (hash-remove! table 'marker)
               (hash-update! table 'value (lambda (_) identity))
               (unless (eq? (read receiver) identity) (error "retry lost exact function"))
+              ;; Grow again after retry: seeding must carry the exact Function
+              ;; into its new offset without re-evaluating this receiver's body.
+              (hash-put! table 'after-retry #f)
+              (unless (eq? (read receiver) identity) (error "shape seed lost retry function"))
+              (hash-remove! table 'after-retry)
               (let (copied (hash-copy table))
                 (hash-clear! copied)
                 (vector before inserted refused (hash-length table) (hash-length copied)))))))))
