@@ -179,10 +179,15 @@
          (make-generator descriptor (lambda (_random _size) (.get descriptor value)) (lambda (_) []) (lambda (_) 0)))
         ((memq Enum. ancestors)
          (def values (.get descriptor vals))
-         (.cc (make-generator descriptor (lambda (random _size)
-           (when (null? values) (refuse-generation 'empty))
-           (list-ref values (random (length values)))) (lambda (_) []) (lambda (_) 0))
-           .inhabited?: (and (pair? values) #t)))
+         ;; Empty Enum is an uninhabited leaf, so a viable Union can bypass it.
+         ;; Nonempty domains reuse Enum's first-index metadata for strict descent;
+         ;; equal duplicate payloads may be proposed but never falsely decrease.
+         (if (null? values)
+           (.cc (make-generator descriptor (lambda (_random _size) (refuse-generation 'empty))
+             (lambda (_) []) (lambda (_) 0)) .inhabited?: #f)
+           (let ((rank (.@ descriptor .uint<-)) (value (.@ descriptor .<-uint)))
+             (from-generator descriptor (core.generator-elements values) rank
+               shrink: (lambda (item) (map value (integer-shrinks (rank item))))))))
         (else (error "descriptor requires an explicit .generator" descriptor))))))
 
 ;; Recursive carrier graphs share one bounded compiler, including mutually

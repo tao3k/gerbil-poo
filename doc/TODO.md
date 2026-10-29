@@ -1597,6 +1597,12 @@ shrinking budgets, exceptions and descriptor revision refusal. See
 [generated-testing.md](generated-testing.md) for the supported families and
 remaining open scope; the broader inspiration below is retained.
 
+Finite declared Enum alternatives now shrink through the existing index/tree
+algebra, including nested carriers, FUN execution, empty alternatives and stale
+replay refusal. The first equal declaration position supplies the scalar rank;
+recursive grammar node costs remain unchanged. See P13 in
+[pbt-design-rfc.md](pbt-design-rfc.md).
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

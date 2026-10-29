@@ -45,6 +45,31 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Enum canonical ranks preserve duplicates empty alternatives and value shrinking"
+      (def descriptor (Enum read write admin write))
+      (def sampler (generator descriptor))
+      ;; The recursive grammar adds its existing one-node carrier cost.
+      (check-equal? (.call sampler measure 'write) 2)
+      (check-equal? (.call sampler shrink 'admin) '(read write))
+      (check-equal? (.call sampler shrink 'write) '(read))
+      (check-equal? (.call sampler shrink 'read) [])
+      (check-eq? (.get (check-property (Enum) true) status) 'exhausted)
+      (check-eq? (.get (check-property (Union (Enum) (Exactly #f)) not cases: 3) status) 'passed))
+    (test-case "nested Enum collections simplify through FUN and retain stale replay refusal"
+      (def role (Enum read write admin write))
+      (def descriptor (List (Tuple role (Exactly #f))))
+      (def sampler (generator descriptor))
+      (def action (property-debug-action #f descriptor
+        (lambda (rows) (every (lambda (row) (eq? (vector-ref row 0) 'read)) rows)) sampler: sampler))
+      (def report (action (make-instance PropertyConfiguration seed: 42 cases: 30 size: 4 shrink-budget: 100)))
+      (check-eq? (.get report status) 'failed)
+      (check (.get report minimal?) => #t)
+      (check-equal? (.get report counterexample) (list (vector 'write #f)))
+      (check-eq? (replay-counterexample report) #f)
+      (check-equal? (.get (replay-property report) counterexample) (.get report counterexample))
+      (.putslot! role 'epoch ($constant-slot-spec 1))
+      (check-exception (replay-counterexample report) Error?)
+      (check-exception (replay-property report) Error?))
     (test-case "finite Map preparation refuses normalization mismatches and source revisions"
       (def integers (generator UInt))
       (def calls 0)

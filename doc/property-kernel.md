@@ -467,3 +467,10 @@ Records with Functions, an aggregate falsification, structural/value shrinking,
 zero-draw inspection, source revision/refusal, fresh retry and portable logical
 entry encoding. Codecs own logical field/format identity and restore ordinary
 validated Records; they do not serialize hash order or closures.
+
+Finite declared alternatives use `generator-elements`, for example
+`(generator-elements '(read write admin))`. Its lazy index tree simplifies toward
+earlier declarations without redrawing. Use an explicit natural rank in a generic
+specification. POO `Enum` derivation supplies its existing first-occurrence index
+as that rank, including nested collections and replay. Empty Enum is uninhabited;
+an empty generic alternatives list is a constructor error.

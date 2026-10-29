@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P12 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P13 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -37,7 +37,7 @@ is parametric; it is not a fallback to an unconstrained POO `Any` descriptor.
 The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 45 case receipts, an error-free result and
+through `gerbil test`. It requires all 48 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -1199,3 +1199,39 @@ own costs; these counts are not constant-time or wall-clock bounds.
 provide the comparison point. This implementation intentionally declares unique,
 stable key identities rather than silently collapsing generated duplicate keys;
 existing value-generation and shrinking protocols remain the only runner algebra.
+
+## P13: declared finite enumeration simplification
+
+Finite Enum values previously had no shrink candidates and zero measure. A
+nested collection could reduce its shape but could not simplify an Enum field.
+`generator-elements choices` now maps the existing integer shrink tree through a
+captured vector of declared values. It requires a nonempty proper list, draws one
+index regardless of size, and never redraws while shrinking. Equal payloads retain
+their distinct position preimages. Mutable payloads remain caller-owned; only the
+list spine is detached. Existing observer ownership and exact error causes apply.
+
+The POO scalar bridge reuses Enum's existing `.uint<-` and `.<-uint` metadata.
+The first equal declaration position is the natural measure. Value-only shrinking
+maps smaller indices through the same descriptor; generic tree shrinking retains
+its original index preimages. A duplicate proposal with equal canonical rank is
+charged and refused by the existing strict-descent gate. Empty Enum remains an
+uninhabited leaf and does not invalidate an otherwise inhabited Union. Declaration
+order is an explicit simplification policy, not an inferred semantic ordering.
+
+Regression acceptance covers false payloads, equal duplicates, detached spines,
+no redraws, stale retained descendants, original callback causes, minimum failing
+ranks, concrete/seed replay and a nested List/Tuple/Enum FUN workflow. Changes to
+the role descriptor reject old reports. Independent generic acceptance now runs
+48 cases. No equality implementation, RNG, shrink runner or namespace is added.
+
+Lean proves selected values belong to the finite domain, out-of-range selection
+refuses, first-occurrence rank is no larger than the selected index, and earlier
+positions strictly lower canonical rank even with duplicates. Host equality/hash
+agreement, stable payloads, truthful observers and terminating callbacks remain
+premises. Index generation does not prove PRNG distribution or wall-clock costs.
+Preparation copies N positions; each draw selects one index; shrink work and
+source checks retain the existing lazy tree and budget costs.
+
+[Rackcheck's finite-choice generator](https://docs.racket-lang.org/rackcheck/index.html)
+also supplies shrinking. Its removal-of-previous-choices policy differs from our
+explicit declaration-order policy; byte-for-byte tree parity is not claimed.

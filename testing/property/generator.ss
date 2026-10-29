@@ -9,7 +9,7 @@
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-character generator-byte generator-list
-        generator-string generator-symbol generator-bytes generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
+        generator-string generator-symbol generator-bytes generator-elements generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
@@ -281,6 +281,16 @@
     (error "ordered exact integer bounds required" lower upper))
   (make-generator (lambda (random _) (+ lower (random (1+ (- upper lower)))))
     (lambda (value) (map (cut + lower <>) (integer-shrinks (- value lower))))))
+;; A declared finite order supplies simplification ranks. Capture its spine once;
+;; map retains index preimages, including distinct positions with equal payloads.
+;; No equality search, random redraw or application-specific value ordering is added.
+(def (generator-elements choices current?: (current immutable-current))
+  (unless (and (list? choices) (pair? choices)) (error "nonempty finite choices required"))
+  (def domain (list->vector choices))
+  (generator-map
+    (make-generator (lambda (random _size) (random (vector-length domain)))
+      integer-shrinks current?: current)
+    (cut vector-ref domain <>)))
 ;; Unicode scalar ranks omit surrogate code points by construction, without retries.
 (def (character-rank char)
   (unless (char? char) (error "character required" char))

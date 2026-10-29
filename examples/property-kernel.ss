@@ -64,6 +64,48 @@
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
+    (test-case "finite choices capture declared positions including false and equal payloads"
+      (check-exception (generator.generator-elements []) Error?)
+      (check-exception (generator.generator-elements '(a . b)) Error?)
+      (def choices (list #f 'read 'write 'admin))
+      (def generation (generator.generator-elements choices))
+      (set-car! choices 'changed) (set-cdr! choices [])
+      (def draws 0)
+      (def root (generator.generate generation (lambda (bound) (set! draws (1+ draws)) (1- bound)) 0))
+      (check-eq? (generator.sample-value root) 'admin)
+      (check-equal? (for/collect (child ((generator.sample-children root))) (generator.sample-value child))
+        '(#f read write))
+      (check-equal? draws 1)
+      (def first (string-copy "same")) (def second (string-copy "same"))
+      (def duplicate (generator.generate (generator.generator-elements (list first second)) (lambda (_) 1) 0))
+      (check-eq? (generator.sample-value duplicate) second)
+      (check-eq? (car (for/collect (child ((generator.sample-children duplicate))) (generator.sample-value child))) first))
+    (test-case "finite choice source refusal survives retained nodes and exact callback failures"
+      (def current #t)
+      (def generation (generator.generator-elements '(read write admin) current?: (lambda () current)))
+      (def root (generator.generate generation (lambda (_) 2) 0))
+      (def child (car (for/collect (child ((generator.sample-children root))) child)))
+      (set! current #f)
+      (check-exception (generator.generate generation (lambda (_) (error "stale draw ran")) 0) generator.stale-generation?)
+      (check-exception (for/collect (node ((generator.sample-children child))) node) generator.stale-generation?)
+      (def cause (Error "finite draw"))
+      (check-exception (generator.generate (generator.generator-elements '(read write))
+        (lambda (_) (raise cause)) 0) (lambda (found) (eq? cause found))))
+    (test-case "finite choices shrink to a declared failing boundary and replay without draws"
+      (def domain (property.make-specification (lambda (value) (and (memq value '(read write admin)) #t))
+        (lambda (value) (case value ((read) 0) ((write) 1) ((admin) 2)))))
+      (def draws 0)
+      (def generation (generator.generator-map (generator.generator-elements '(read write admin))
+        (lambda (value) (set! draws (1+ draws)) value)))
+      (def report (property.check-property generation (lambda (value) (eq? value 'read)) domain
+        seed: 42 cases: 30 size: 0 shrink-budget: 20))
+      (check-eq? (property.report-status report) 'failed)
+      (check-eq? (property.report-counterexample report) 'write)
+      (check (property.report-minimal? report) => #t)
+      (let (before draws)
+        (check-eq? (property.replay-counterexample report) #f)
+        (check-equal? draws before))
+      (same-failure report (property.replay-property report)))
     (test-case "finite hash domains reject collisions and detach caller key spines"
       (def draws 0)
       (def values (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) #f) (lambda (_) [])))
