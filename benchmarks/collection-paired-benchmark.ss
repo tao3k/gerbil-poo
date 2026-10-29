@@ -32,7 +32,7 @@
 ;; One finite inventory serves complete acceptance and focused timing.
 (def +slot-offset-phases+ '(slot-offset-prepare slot-offset-hot slot-offset-switch
   slot-offset-churn slot-offset-workflow))
-(def +slot-value-phases+ '(slot-values-prepare slot-values-newshape slot-values-cold slot-values-hot slot-values-workflow slot-values-retry slot-values-count slot-values-observation slot-values-seed))
+(def +slot-value-phases+ '(slot-values-prepare slot-values-newshape slot-values-cold slot-values-hot slot-values-workflow slot-values-retry slot-values-count slot-values-observation slot-values-seed slot-values-redemand))
 (def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
     slot-shape-prepare slot-shape-workflow slot-shape-change) +slot-offset-phases+))
@@ -310,6 +310,9 @@
       (lambda ()
         (parameterize ((slot-value-storage storage))
           (case scenario
+            ((slot-values-redemand)
+             (unless (equal? (service.value-store-redemand-workflow storage) '#(6 #t #t))
+               (error "redemand workflow oracle")))
             ((slot-values-seed)
              (let (fresh (if (eq? storage 'vector)
                           (HashTable (make-slot-layout seed-names seed (list 'uncomputed)))
@@ -809,7 +812,7 @@
   (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
   (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-redemand slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))

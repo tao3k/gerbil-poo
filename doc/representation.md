@@ -1300,3 +1300,61 @@ interval. The initial cold test-package build also hit 300 s; normal standard
 incremental completion and the integrated build later passed. These failed cold
 qualifications remain distinct from the successful current tests. No workload,
 heap, deadline or negative control was reduced. Raw observations remain outside Git.
+
+### Evicted inline demand and final-shape publication
+
+A previously warmed site can still point at an uncomputed cell after standard
+HashTable deletion/clear. The preceding hit branch returned ordinary demand
+without rebinding; if demand grew the dynamic shape, the successful read left a
+stale site. A source regression reproduced a correct Function value followed by
+`slot-cache-hit? = #f` instead of the final offset 2.
+
+Cold reads and evicted warm cells now share the existing successful binding path.
+The fast hit reads the current primary vector once; ordinary `.ref` remains the
+evaluator and publisher for demanded values. Recovery captures the shape before demand and
+resolves the final offset when that shape changes. Failure does not publish a new
+guard, successful fallback without an index has no indexed credential, and later source revisions
+still reject old owner/revision/layout/shape credentials. No value cache, loader,
+namespace or new wrapper is introduced.
+
+The FUN Reader example combines two dynamic dependency insertions, deletion,
+exact callback refusal with retained dependencies, Function-valued retry, shared
+diamond revision and explicit false assignment. The finite Lean model proves
+final-site validity/read fidelity, identical cold/warm success publication,
+refusal/unindexed semantics, revision rejection and zero next-read named
+resolution under unchanged guards. Host index fidelity, serialized supported
+mutation, sentinel separation and callback behavior remain premises; these laws
+do not prove GC, allocation, compiler correctness or wall-clock speedup.
+
+The regression was first run against the preceding public implementation: it
+returned the Function but the post-demand guard was false rather than offset 2.
+The corrected implementation passes the same assertion plus the FUN chain on
+both current storage strategies. The redemand qualification checks the current
+primary authority on both sides: a current indexed guard for vector storage and
+field membership in the current HashTable for the symbolic strategy. An earlier
+experimental comparison short-circuited that assertion for hash; those raw
+observations were withdrawn before publication, not used as performance evidence.
+
+The balanced complete standard benchmark entry passed in 100.00 s (library
+preparation 14.52 s, startup 2.73 s, official runner 81.49 s). All preceding offset
+and value-storage phases, workloads, pairs, A/A/B/B, AB/BA, GC controls and tails
+remain; one bounded redemand phase was added. Its natural vector-minus-hash mean
+was +30.62 us, upper observed tail +33.42 us (six losses). Same-side natural means
+were -2.91 us (hash) and -5.63 us (vector). The post-GC redemand mean was +29.89 us,
+upper tail +38.06 us (six losses); its charged 17-call component normalization
+reported +27.96 us non-GC, zero GC delta and +0.17 us residual for the batch.
+These components are diagnostic differences, not a causal construction profile.
+The full-service collected comparison still averaged +717.86 us, upper tail
++819.86 us (six losses). Hot natural reads averaged -0.022 us, upper tail +0.060 us,
+with three wins and three losses. This qualifies correctness and exposes remaining
+cost; it establishes neither universal speedup nor a before/after latency claim.
+
+The balanced frozen-source complete check passed 149 modules / 1,992 cases in
+299.60 s, including the independent stdlib-only package's 55-case control. It
+finished within the unchanged 300 s deadline, with little margin; this is not a
+stable cold-entry bound. Collection and generator checks passed in 15.59 s and
+7.66 s. A prior cohort passed the same inventory in 270.62 s; it is not merged
+with the balanced benchmark history. All heap/deadline/check inventories remain
+unchanged. Local qualification used the Slot change atop 13a3000; later existing
+PBT handoff changes are admitted separately by the merged commit's complete CI.
+Raw observations remain outside Git.

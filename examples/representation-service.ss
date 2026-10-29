@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
-(import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
+(export value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
+(import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
         ../number
@@ -522,3 +522,59 @@
     (.putslot! owner 'value ($thunk-slot-spec (lambda () (set! calls (1+ calls)) #f)))
     (unless (= 0 (hash-length (object-instance owner))) (error "source edit retained memo cells"))
     (vector first (observe owner) calls)))
+
+;; A FUN Reader recovers deleted warm cells across two dynamic shape changes,
+;; refusal/retry and a shared diamond revision. Ordinary demand owns all values;
+;; the inline site must publish only the final successful shape and current owner.
+(def (value-store-redemand-workflow storage)
+  (parameterize ((slot-value-storage storage))
+    (let* ((early (string->uninterned-symbol "redemand-first"))
+           (later (string->uninterned-symbol "redemand-second"))
+           (target (string->uninterned-symbol "redemand-value"))
+           (phase 'base) (calls 0) (cause (list 'redemand-refused))
+           (base (.o stamp: 1)) (left (.o inherit: [base])) (right (.o inherit: [base])))
+      (for-each object->serial-number (list early later target))
+      (let* ((owner (make-object supers: [left right] slots:
+                      (list (cons target ($self-slot-spec (lambda (self)
+                        (set! calls (1+ calls))
+                        (case phase
+                          ((grow refuse) (.ref self early))
+                          ((again) (.ref self later)))
+                        (if (eq? phase 'refuse) (raise cause) identity))))
+                        (cons 'no-applicable-method ($constant-slot-spec
+                          (lambda (_ key) (if (memq key (list early later)) #f
+                                            (error "unexpected redemand key"))))))))
+             (site (and (eq? storage 'vector) (make-slot-cache target shapes: 2)))
+             (read (if site (cut .ref/inline <> site) (cut .ref <> target)))
+             (current? (lambda ()
+               (if site (slot-cache-hit? site owner (object-revision owner) (object-layout owner))
+                 (hash-key? (object-instance owner) target))))
+             (action (.call fun.Observation. .bind read
+               (lambda (callback)
+                 (lambda (receiver)
+                   (unless (eq? callback identity) (error "initial callback changed"))
+                   (let (table (object-instance receiver))
+                     (set! phase 'grow) (hash-remove! table target)
+                     (unless (and (eq? (read receiver) callback) (current?))
+                       (error "evicted site retained an old shape"))
+                     (set! phase 'refuse) (hash-remove! table target)
+                     (unless (and (eq? cause (with-catch identity (cut read receiver)))
+                                  (not (hash-key? table target)) (hash-key? table early))
+                       (error "refusal lost cause or published target"))
+                     (set! phase 'retry)
+                     (unless (and (eq? (read receiver) callback) (current?))
+                       (error "redemand retry did not bind"))
+                     (set! phase 'again) (hash-remove! table target)
+                     (unless (and (eq? (read receiver) callback) (current?))
+                       (error "second redemand retained an old shape"))
+                     table))))))
+        (let ((previous (action owner)) (before (object-revision owner)))
+          (set! phase 'base) (.put! base 'stamp 2)
+          (unless (and (> (object-revision owner) before)
+                       (eq? (read owner) identity) (current?)
+                       (not (eq? previous (object-instance owner))))
+            (error "shared revision retained an old store"))
+          (.put! owner target #f)
+          (unless (and (not (read owner)) (current?) (= calls 6))
+            (error "explicit false assignment lost during redemand"))
+          (vector calls #t #t))))))

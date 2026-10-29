@@ -1,6 +1,6 @@
 ;;; Actual Gerbil interfaces and containers under POO source/validation discipline.
 (export library-reuse-test)
-(import (prefix-in (only-in :clan/poo/examples/representation-service value-storage-workflow value-store-observation-workflow) representation.)
+(import (prefix-in (only-in :clan/poo/examples/representation-service value-storage-workflow value-store-observation-workflow value-store-redemand-workflow) representation.)
         :std/test :std/iter :std/error (only-in :gerbil/runtime/hash HashTable)
         (for-syntax :gerbil/expander)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
@@ -62,6 +62,29 @@
       (check-equal? calls 1)
       (check-equal? (.ref owner early) 17)
       (check (hash-key? (object-instance owner) target) => #t))
+    (test-case "evicted warm inline demand rebinds the final dynamic shape"
+      (def early (string->uninterned-symbol "evicted-dependency"))
+      (def target (string->uninterned-symbol "evicted-target"))
+      (object->serial-number early) (object->serial-number target)
+      (def grow? #f)
+      (def calls 0)
+      (def owner (make-object slots:
+        (list (cons target ($self-slot-spec (lambda (self)
+                (set! calls (1+ calls)) (when grow? (.ref self early)) identity)))
+              (cons 'no-applicable-method ($constant-slot-spec
+                (lambda (_ key) (if (eq? key early) #f (error "unexpected dependency"))))))))
+      (def site (make-slot-cache target shapes: 2))
+      (check-eq? (.ref/inline owner site) identity)
+      (let* ((table (object-instance owner)) (layout (object-layout owner)))
+        (hash-remove! table target)
+        (set! grow? #t)
+        (check-eq? (.ref/inline owner site) identity)
+        (check-equal? calls 2)
+        (check-equal? (slot-cache-hit? site owner (object-revision owner) layout)
+          (slot-layout-index layout target))
+        (check-eq? (slot-cache-read site) identity))
+      (for ((storage '(hash vector)))
+        (check-equal? (representation.value-store-redemand-workflow storage) '#(6 #t #t))))
     (test-case "ordinary inline and HashTable operations share one lazy value store"
       (def calls 0) (def failure (list 'refused)) (def refuse? #t)
       (def owner (.o (value (begin (set! calls (1+ calls)) #f))

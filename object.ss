@@ -578,15 +578,15 @@
       (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
         (let (layout (or prepared (object-layout self previous: (slot-cache-layout cache))))
           (if (not layout) (.ref self slot)
-            (let (revision (object-revision self))
-              (if (slot-cache-hit? cache self revision layout)
-                (let (value (slot-cache-read cache))
-                  (if (eq? value absent-value) (.ref self slot) value))
+            (let* ((revision (object-revision self))
+                   (hit (slot-cache-hit? cache self revision layout))
+                   (index (or hit (slot-cache-index cache layout)))
+                   (stored (if index (slot-layout-ref layout index) absent-value)))
+              (if (and hit (not (eq? stored absent-value))) stored
+                ;; Cold sites and evicted cells share ordinary cycle-aware demand.
+                ;; Only successful demand publishes the final-shape access guard.
                 (let* ((shape (slot-layout-shape layout))
-                       (index (slot-cache-index cache layout))
-                       (stored (if index (slot-layout-ref layout index) absent-value))
                        (value (if (eq? stored absent-value) (.ref self slot) stored)))
-                  ;; Evaluation may memoize a dynamic dependency and reorder cells.
                   (slot-cache-bind! cache self revision layout
                     (if (eq? shape (slot-layout-shape layout)) index
                       (slot-layout-index layout slot))) value)))))))))

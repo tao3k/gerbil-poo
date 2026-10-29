@@ -3123,3 +3123,9 @@ and sparse initialization remain lazy. Canonical seed fidelity, ordered override
 precedence, exact Function/false values, rejected preparation and independent
 retry are covered with the existing complete protocol and paired study. This
 advances implementation preparation rather than claiming new JIT/loader scope.
+
+Evicted warm inline cells now use the same successful final-shape binding path
+as cold reads. A reproduced stale-site guard after dynamic dependency insertion
+is fixed without a second value store. FUN recovery/refusal/retry/diamond-source
+revision and false assignment are qualified alongside final-site Lean laws and
+the unchanged complete benchmark matrix plus one bounded redemand phase.
