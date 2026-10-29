@@ -1501,8 +1501,8 @@ authorized 2-GiB frontend ceiling, that session still overflowed at group 15.
 The standard expander retains module contexts for the session lifetime. Clearing
 its private registry or growing the heap is not the repair.
 
-Four compiler-only standard packages now bound those context lifetimes by
-collections, prototypes, contracts and publication. Their empty `gerbil.pkg`
+Compiler-only standard packages now bound those context lifetimes by collections,
+indexes, prototypes, contracts, types and publication. Their empty `gerbil.pkg`
 descriptors add no installed library namespace. The existing `t/build.ss` owns one
 ordinary make-spec inventory; the original 25 CI packages select it unchanged.
 The four local builders use the same source paths and `clan/poo/t` output prefix.
@@ -1510,7 +1510,8 @@ Gerbil still owns dependency discovery, freshness, code generation and backend
 jobs. Just's standard `[parallel]`/`--jobs` owns concurrent recipes; no custom queue,
 source scanner, loader or persistent cache has been added.
 
-On the 12-core machine, four compiler sessions use two backends each. Compiler
+On the 12-core machine, four active compiler sessions use two backends each;
+Just queues the six functional parts without increasing that capacity. Compiler
 frontends and backends remain capped at 2 GiB; the waiting package CLIs and test
 processes retain their original 1-GiB bounds. The original outer 300-second phase
 owns the complete compiler process tree; redundant nested timeout groups are
@@ -1520,13 +1521,14 @@ RSS snapshots around 1.0–2.1 GiB are observations, not aggregate memory bounds
 Lean's `BuildPreparation.lean` separates configured ceilings from physical RSS,
 bounds active capacities, and counts repeated common preparation requests.
 
-Matched project-artifact-empty cohorts used source base `b6ca3ea` and the same
+Earlier matched project-artifact-empty cohorts used source base `b6ca3ea`, four
+functional parts, and the same
 149 compiled suites / 2,037 cases, plus three source-only build-declaration cases:
 
 | Standard Just / Gerbil policy | Library | Startup program | Test build | Complete `just check 2 1 4 600` |
 | --- | ---: | ---: | ---: | ---: |
-| Two sessions, five backends each | 154.49 s | 10.37 s | 269.75 s | 833.00 s |
-| Four sessions, two backends each | 106.43 s | 7.46 s | 242.15 s | 725.52 s |
+| Two active sessions, five backends each | 154.49 s | 10.37 s | 269.75 s | 833.00 s |
+| Four active sessions, two backends each | 106.43 s | 7.46 s | 242.15 s | 725.52 s |
 
 Both entries naturally exited zero, including normal cleanup and the complete
 collection/generator studies. The four-session build-stage timers sum to 356.04 s;
@@ -1553,3 +1555,44 @@ modules / 2,052 cases and the source-only declaration suite / three cases, plus
 the collection and generator studies. Its test build took 150.70 s and its
 single-process tests took 149.08 s. This source-current acceptance reused standard
 artifacts and is not another cold-performance sample.
+
+A later empty-prefix control at `76ce5e6` failed the same 300-second test-build
+deadline (whole entry 483.87 s). Its root-library phase finished in 170.86 s;
+the final backend was compiling the 261,065-line generated `table.c`. A short GCC
+sample identified dominator/range propagation work. Samples of the remaining test
+frontends showed child/backend waits, not evidence that those intervals were dyld
+unloading. An isolated test host-layout threshold candidate also failed and was
+withdrawn; compiler flags and optimization remain unchanged.
+
+The six-part queue splits the largest collection and contract context inventories
+while retaining four workers, their backend limits, all 25 CI groups and all 149
+test modules. Bash's standard `time` labels each actual package completion; it
+adds no watchdog or configuration interface. This scopes existing standard caches
+instead of replacing them, and makes the late queue visible.
+
+Its empty-prefix complete entry naturally exited zero in 742.39 s: root library
+123.97 s, startup program 7.38 s, test build 211.17 s, full tests 376.02 s,
+declaration tests 1.26 s, collections 16.23 s and generators 4.15 s. All 149
+compiled modules / 2,052 cases and three declaration cases passed. The source
+base was `76ce5e6` with the six-part build-only change; later property-test changes
+require separate source-current acceptance. The compiler-stage timer sum is
+342.52 s, not another measured build-only entry. This closes this control's
+300-second compile refusal, but the full wall time does not qualify an improvement
+over the older 725.52-s cohort. No stable latency/tail claim follows from it.
+
+Two short samples in first test loading showed `dlopen -> mapSegments -> fcntl`;
+they identify waits in those windows, not ownership of the entire 376.02 s.
+Repeated complete `just build` then naturally exited in 45.10 s with zero
+compilation events (root 18.64 s, startup 3.11 s, six-part queue 22.36 s).
+The unchanged 3-second failure escalation also reaps queued dependencies that
+Just may start after TERM: the TERM control needed KILL/137 and all 18 recorded
+descendants disappeared; the resistant control exited 137 with all 12 gone.
+Probe permission errors are failures, not interpreted as absent processes. These
+negative controls are distinct from the successful natural application exits.
+
+After merging the property proposal-admission update through `a915460`, the full
+source-current entry also naturally exited zero: all 149 compiled modules / 2,057
+cases, the three declaration cases and both studies passed. Its standard build
+rebuilt the changed dependency closure (test phase 108.65 s); full tests took
+154.37 s. This reused prefix is functional acceptance, not an empty-prefix
+performance cohort or a claim that the first-load wait is fixed.

@@ -20,6 +20,8 @@
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))
              (all (test-build-spec)))
+        (check (length parts) => 6)
+        (check (length all) => 149)
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
