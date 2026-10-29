@@ -46,6 +46,73 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Record filtered proposals refuse stale evidence and retry through FUN"
+      (def epoch 0) (def draws 0) (def pulls 0) (def properties 0)
+      ;; Record performs Function wrapping before either generic or typed checking.
+      (def (batch count)
+        (make-instance Batch count: count payload: (make-list count 0) route: 'put handler: abs))
+      ;; Only the retained child depends on this epoch. The root has no such
+      ;; dependency until the consumer actually visits that child proposal.
+      (def (prepare retire?)
+        (let (captured epoch)
+          (def current (lambda () (= captured epoch)))
+          (def filtered (core.generator-filter
+            (core.make-tree-generator (lambda (_random _size)
+              (core.make-sample (batch 4) (lambda ()
+                (list (core.make-sample (batch 1) (lambda () []) current))))))
+            (lambda (value) (>= (.get value count) 2))))
+          (def pruned (car (for/collect (child ((core.sample-children
+            (core.generate filtered (core.random-at 7) 4)))) child)))
+          (core.make-tree-generator (lambda (_random _size)
+            (set! draws (1+ draws))
+            (core.make-sample (batch 4) (lambda () (in-coroutine (lambda (yield)
+              (set! pulls (1+ pulls))
+              (when retire? (set! epoch (1+ epoch))) (yield pruned)
+              (set! pulls (1+ pulls))
+              (yield (core.make-sample (batch 2) (lambda () []) current))
+              (error "accepted child did not restart its own neighborhood")))))))))
+      ;; The same predicate observes a real wrapped handler in both entry paths.
+      (def (safe? value)
+        (set! properties (1+ properties))
+        (check-equal? ((.@ value handler) -7) 7)
+        (zero? (.get value count)))
+      (def domain (policy.make-specification (lambda (value) (element? Batch value))
+        (lambda (value) (.get value count))))
+      (def stale (policy.check-property (prepare #t) safe? domain cases: 1 shrink-budget: 1))
+      (check-eq? (policy.report-status stale) 'stale)
+      (check-equal? (policy.report-attempts stale) 1)
+      (check-equal? (.get (policy.report-counterexample stale) count) 4)
+      (check (policy.report-current? stale) => #f)
+      (check-exception (policy.replay-counterexample stale) Error?)
+      (check-equal? (list draws pulls properties) '(1 1 1))
+      (for (mapped? '(#f #t))
+        (def source (prepare #t))
+        ;; Nonidentity Record reconstruction exercises real child mapping;
+        ;; identity sharing retains the original tombstone delivery path.
+        (def generation (if mapped?
+          (core.generator-map source (lambda (value) (batch (.get value count)))) source))
+        (def sampler (from-generator Batch generation (lambda (value) (.get value count))))
+        (def typed ((property-debug-action #f Batch safe? sampler: sampler)
+          (make-instance PropertyConfiguration seed: 7 cases: 1 size: 4 shrink-budget: 1)))
+        (check-eq? (.get typed status) 'stale)
+        (check-equal? (.get typed attempts) (if mapped? 0 1)))
+      (check-equal? (list draws pulls properties) '(3 3 3))
+      (def fresh (policy.check-property (prepare #f) safe? domain cases: 1 shrink-budget: 3))
+      (check-eq? (policy.report-status fresh) 'failed)
+      (check-equal? (policy.report-attempts fresh) 2)
+      (check-equal? (policy.report-steps fresh) 1)
+      (check (policy.report-minimal? fresh) => #t)
+      (check-equal? (.get (policy.report-counterexample fresh) count) 2)
+      (check-exception ((.@ (policy.report-counterexample fresh) handler) 'invalid) TypeError?)
+      (let ((before draws) (visited pulls))
+        (check (policy.replay-counterexample fresh) => #f)
+        (check-equal? (list draws pulls) (list before visited))
+        (check-eq? (policy.report-status (policy.replay-property fresh)) 'failed)
+        (check-equal? (list draws pulls) (list (1+ before) (+ 2 visited))))
+      (set! epoch (1+ epoch))
+      (check-exception (policy.replay-counterexample fresh) Error?)
+      (check-eq? (policy.report-status
+        (policy.check-property (prepare #f) safe? domain cases: 1 shrink-budget: 3)) 'failed))
     (test-case "nonempty batch payloads share mandatory ownership through FUN shrinking and retry"
       (def epoch 0) (def draws 0) (def handlers 0)
       ;; Prepare one finite payload domain at a captured application revision.
