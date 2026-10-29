@@ -160,6 +160,7 @@
     "examples/property-workflows"
     "examples/property-refusals"
     "examples/generated-batches"
+    "examples/generated-traces"
     "examples/recursive-trees"
     "examples/inherited-services"
     "examples/metaprotocol-services"

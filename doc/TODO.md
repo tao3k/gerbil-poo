@@ -1695,6 +1695,12 @@ Gerbil parameter contracts before initialization. P28 in
 [pbt-design-rfc.md](pbt-design-rfc.md) records 83 independent cases, exact min caps,
 early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw laws.
 
+Finite trace/value shrinking now rejects malformed outer spines and parameter
+results instead of salvaging prefixes, and rechecks sources between callbacks.
+P29 in [pbt-design-rfc.md](pbt-design-rfc.md) records 87 independent cases, shared
+Record/FUN data-carrier preparation, exact failures/retry/replay and nine laws.
+The general lazy Iterator protocol retains its original budget and scope.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

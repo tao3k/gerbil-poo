@@ -46,8 +46,9 @@
       (values #t command)))))))
 ;; Boolean admission is only a projection of the same preparation protocol.
 (def (valid-trace? model commands) (and (prepare-trace model commands) #t))
-;; Dependency retirement uses the same fold and never renames logical handles.
-(def (repair-trace model commands)
+;; Finite spine admission precedes initialization. Dependency retirement uses
+;; the same fold and never treats an improper tail as a completed prefix.
+(def (repair-trace (model :~ model?) (commands :~ list?))
   (reverse (cdr (fold-trace model commands (lambda (state raw)
     (if (judgment ((reference-accept model) raw) "command predicate must return a boolean")
       (let (command ((reference-normalize model) raw))
@@ -55,9 +56,10 @@
       (values #f #f)))))))
 ;; Share the collection neighborhood: aligned blocks precede parameter shrinks.
 ;; Repair each proposal once in model order; no draw, fixture or handle renaming
-;; participates. Raw parameter callbacks retain their finite proper-list contract.
+;; participates. The shared sequence policy enforces finite parameter lists
+;; before any candidate is repaired; callback causes keep their identity.
 ;; The runner alone decides domain admission, strict descent, falsity and budgets.
-(def (shrink-trace model commands (shrink : :procedure))
+(def (shrink-trace (model :~ model?) commands (shrink : :procedure))
   (map (cut repair-trace model <>) (data-list-shrinks commands shrink 0)))
 ;; Exact natural limits exclude the iterator's valid reverse/fractional ranges.
 ;; This predicate is a contract on configuration, not on generated commands.

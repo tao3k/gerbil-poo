@@ -373,22 +373,27 @@
 ;; Retained elements themselves keep their identities and callback obligations.
 ;; Minimum is a length constraint; it does not privilege any particular prefix.
 (def (list-deletions values minimum)
-  (def size (length values))
-  (list-deletion-count size minimum)
-  (let (owned (list-copy values))
-    (in-coroutine (lambda (yield)
-      (let sizes ((width (- size minimum)))
-        (unless (zero? width)
-          (for (start (in-range 0 (1+ (- size width)) width))
-            (yield (append (take owned start) (drop owned (+ start width)))))
-          (sizes (quotient width 2))))))))
-;; Value-only callbacks share structural deletion with the lazy sample protocol.
-(def (data-list-shrinks values shrink minimum)
-  (append (for/collect (candidate (list-deletions values minimum)) candidate)
-    (let coordinates ((tail values) (before []))
-      (if (null? tail) []
-        (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) (shrink (car tail)))
-          (coordinates (cdr tail) (cons (car tail) before)))))))
+  (using (values :~ list?)
+    (def size (length values))
+    (list-deletion-count size minimum)
+    (let (owned (list-copy values))
+      (in-coroutine (lambda (yield)
+        (let sizes ((width (- size minimum)))
+          (unless (zero? width)
+            (for (start (in-range 0 (1+ (- size width)) width))
+              (yield (append (take owned start) (drop owned (+ start width)))))
+            (sizes (quotient width 2)))))))))
+;; Value-only policies prepare finite proper lists. Structural admission runs
+;; first; each parameter callback shares the existing source boundary before its
+;; result is admitted. General lazy sample shrinkers keep their Iterator protocol.
+(def (data-list-shrinks values (shrink : :procedure) minimum)
+  (let (structural (for/collect (candidate (list-deletions values minimum)) candidate))
+    (append structural
+      (let coordinates ((tail values) (before []))
+        (if (null? tail) []
+          (using (children (with-sources [] (shrink (car tail))) :~ list?)
+            (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) children)
+              (coordinates (cdr tail) (cons (car tail) before)))))))))
 ;; Compose retained element trees without drawing again. Every descendant keeps
 ;; all previously observed leaves, including sources of structurally removed nodes.
 (def (sample-sequence samples (pack identity) min-length: (minimum 0)
