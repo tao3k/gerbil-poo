@@ -1668,6 +1668,13 @@ exact quota/exception and nested-filter controls, the 63-case independent librar
 Record/FUN replay and retry, and ten finite rejection-sampling laws. Quotas remain
 local; no unrestricted filter or host timing guarantee is claimed.
 
+Run-local source admission now reaches nested generation from the shared checked
+action boundary. P24 in [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced
+late replay mapper, previous-trial/inspection refusal, transient-vs-retained
+ownership, nested/paused-iterator controls, 67-case independent library acceptance
+and nine finite scope/publication laws. No replay checker is stored as a sample
+owner; host continuation, heap and concurrency guarantees remain outside the model.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

@@ -563,7 +563,17 @@ fresh retry, wrapped Function shrinking and source-consistent replay.
 
 To copy the independent worked suite into another standard Gerbil project, include
 `examples/property-kernel.ss`, `examples/property-products.ss` and
-`examples/property-filters.ss` alongside the generic modules. The two small
+`examples/property-filters.ss` and `examples/property-scopes.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all three ordinary modules and executes
-63 cases without installing POO.
+67 cases without installing POO.
+
+Checked property actions now install a run-local `with-generation-check` scope
+from the generator module. A nested draw/map/selector/iterator cannot continue
+after retiring a source already observed by an earlier trial or replay. The
+existing action still owns stale status, original causes and proposal accounting.
+Checks are zero-argument assertions that raise or escape on refusal; binding the
+scope alone does not evaluate arbitrary body code as a new property runner.
+They are never added to sample source lists. New replay reports therefore keep
+their own observed ownership, and twelve repeated replays have stable observer
+work in the regression. See P24 for the model/continuation and cost boundaries.

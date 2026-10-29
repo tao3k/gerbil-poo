@@ -10,7 +10,7 @@
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
-          stale-generation? boolean-result live? random-at))
+          stale-generation? boolean-result live? random-at with-generation-check))
 ;; Domain admission, measure and revision ownership remain explicit callbacks.
 (defstruct domain (accept measure current) final: #t)
 ;; Reports retain exact execution configuration and observed source provenance.
@@ -85,7 +85,10 @@
 (defrule (with-current current stop body ...)
   (begin
     (unless (current) (stop 'stale #f))
-    (begin0 (let () body ...) (unless (current) (stop 'stale #f)))))
+    ;; Nested generator callbacks share this action's check without making its
+    ;; mutable run ledger or replay guard a retained sample source.
+    (with-generation-check (lambda () (unless (current) (stop 'stale #f)))
+      (begin0 (let () body ...) (unless (current) (stop 'stale #f))))))
 ;; Domain consumers reuse the same natural measure and source boundary. Do not
 ;; expose raw record fields or duplicate the product measure in typed adapters.
 (def (specification-weight specification value)

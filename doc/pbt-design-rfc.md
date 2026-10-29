@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P23 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P24 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1765,3 +1765,64 @@ search with shrink-tree filtering. Its retry size policy differs; byte-for-byte
 Racket behavior is not our contract. Its [documentation](https://docs.racket-lang.org/rackcheck/index.html)
 also recommends direct domain construction when possible. This work repairs the
 already supported finite filter protocol, not unrestricted rejection sampling.
+
+## P24: transient admission throughout checked generator actions
+
+The replay audit reproduced an action-boundary gap. A prior report had observed
+a source on a rejected shrink branch. Replaying the root draw retired that source,
+yet a following mapper ran before the outer replay guard finally reported stale.
+The baseline mapper count rose from 2 to 3; the corrected replay remains stale at
+2. The same gap affected a later ordinary trial, discarded-trial ownership and
+multi-root generator inspection. This violates the existing visited-source rule;
+it does not require the new generation to permanently inherit an old report.
+
+The generator module now provides `with-generation-check`, a hygienic form backed
+by Gerbil's standard dynamically scoped parameter. It installs a zero-argument
+**interrupting check**, which raises or escapes on refusal; its return value is
+not a Boolean predicate. The caller still owns action admission and publication.
+Checks run outer-to-inner at the existing generator source boundaries, before
+retained source leaves. They unwind with normal return, exceptions and the
+runner's existing continuation-based refusal.
+
+The property module's existing `with-current` action form installs its own check
+for nested generation. Runs, seed/concrete replay, domain actions, shrinking and
+inspection therefore reuse the same boundary without per-combinator wrappers.
+The iterator fast path remains available when both retained ownership and active
+checks are empty. With an active run check, even a source-empty iterator guards
+factory calls, each pull and EOF. Original exceptions are not replaced by a
+post-check; ordinary stale exits keep their original status/cause accounting.
+
+Transient checks are deliberately separate from sample source ownership. A run's
+checker can inspect its mutable visited-source ledger, so storing it in that
+ledger would create recursive observation. Storing prior replay checkers on new
+trees would instead accumulate old report chains. The implementation does neither:
+producer/node leaves retain their existing flat identity protocol, and a new
+report owns its newly observed leaves. Nested scopes compose while they are
+active; no new record hierarchy, namespace, runner, PRNG or persistent registry
+is introduced. Standard Gerbil continuation/iterator lifetimes remain in force;
+arbitrary user-captured continuations and payload aliases are not certified.
+
+Four generic controls in `examples/property-scopes.ss` cover earlier accepted and
+discarded trials, inspection roots, rejected shrink provenance during replay,
+exact causes, nested outer-refusal priority, empty-source paused iteration,
+ordinary child demand after the scope ends and stable observer work across twelve
+replays. The independent package runs all 67 cases without POO. The Record/FUN
+example refuses late reconstruction after a replay retires an old branch, then
+reprepares, retains Function wrapping and exercises fresh/stale replay. Resumable
+iterator pulls are evaluated outside assertions so the coroutine does not capture
+an assertion's private exception context. All prior cases and budgets remain.
+
+`PropertyScopes.lean` uses the existing PropertyTesting namespace. Nine laws reuse
+`guardedProduct`, `guardedStages` and source unions: empty and nested scope checks,
+preflight/revision refusal, exact stage causes, empty observation, exact new-ledger
+publication, stable value order and agreement of admitted scopes on published
+ownership. Accurate pure observers, faithful source ledgers and host dynamic
+scope, sequential callbacks and termination are premises. Runtime parameter
+unwinding, repeated-replay costs and Function validation are separate regressions;
+these are not proofs of arbitrary continuations, heap retention, GC or wall time.
+
+Active actions add scope/check-list work and source walks at nested boundaries.
+This is a correctness repair with no speedup or O(1) claim. Full and paired checks
+and all process/heap limits remain required. Rackcheck's pinned map/bind and lazy
+shrink-tree algebra remains the composition reference; run-local revision
+admission is this project's explicit extension rather than an asserted Racket gap.

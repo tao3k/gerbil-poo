@@ -3,7 +3,7 @@
         generator-unit generator-map generator-bind generator-sequence bind-generators
         generator-choice generator-frequency generator-sized generator-resize generator-scale
         generator-delay generator-filter generator-no-shrink generator-with-shrink
-        generate generator-current? sample? sample-value sample-children sample-current sample-sources
+        generate generator-current? sample? sample-value sample-children sample-current sample-sources with-generation-check
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
         boolean-result live? random-at
         generator-function function-value? function-domain function-apply function-procedure
@@ -54,8 +54,21 @@
   (unless (boolean? value) (error message value)) value)
 ;; User source observers remain explicit pure callbacks.
 (def (live? current) (boolean-result (current) "source observer must return a boolean"))
-;; A stale producer cannot invoke its next selector or construct a replacement.
+;; Run-local checks use standard dynamic scope. They are never copied into
+;; sample ownership: a checker may read the runner's mutable observer ledger.
+(def current-generation-checks (make-parameter []))
+;; Install an interrupting check for nested generator/iterator boundaries. The
+;; caller owns admission and refusal control; normal return and exceptions unwind
+;; this parameter without retaining the checker on a generated tree.
+(defrule (with-generation-check checker body ...)
+  (let (check checker)
+    (unless (procedure? check) (error "generation check must be a procedure"))
+    (parameterize ((current-generation-checks (append (current-generation-checks) (list check))))
+      body ...)))
+;; Transient checks precede retained leaves, preserving the outer runner's
+;; existing stale refusal and exact callback exceptions at every boundary.
 (def (require-sources! sources)
+  (for-each (lambda (check) (check)) (current-generation-checks))
   (unless (every live? sources) (raise (make-stale))))
 ;; Standard dynamic scope carries inherited leaves through selected child
 ;; graphs. It is restored on every exit and never owns a registry or PRNG.
@@ -75,9 +88,9 @@
 ;; a paused traversal therefore refuses before resuming stale producer effects.
 (defrule (for-sources (value sequence sources) body ...)
   (let (owned (merge-sources (current-generation-sources) sources))
-    ;; With no owned or inherited leaves there is nothing to recheck. Keep the
-    ;; standard loop directly, avoiding a guarded next! layer on immutable data.
-    (if (null? owned) (for (value sequence) body ...)
+    ;; With neither retained leaves nor a run check there is nothing to recheck.
+    ;; Keep the standard loop for that scope-free immutable-data path.
+    (if (and (null? owned) (null? (current-generation-checks))) (for (value sequence) body ...)
       (using (children (iter (with-sources owned sequence)) :- Iterator)
         (let next ()
           (let (value (with-sources owned (children.next!)))

@@ -46,6 +46,43 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Record FUN replay checks retired shrink owners before reconstruction"
+      (def configuration (.o epoch: 0)) (def advance? #t) (def constructions 0)
+      ;; Only the rejected shrink branch owns the epoch. The root has a constant
+      ;; value, but its draw can retire a source observed by an earlier run.
+      (def (prepare)
+        (def raw (core.make-tree-generator (lambda (_random _size)
+          (when advance? (.set! configuration epoch (1+ (.get configuration epoch))))
+          (core.make-sample 9 (lambda ()
+            (def stamp (.get configuration epoch))
+            (list (core.make-sample 0 (lambda () [])
+              (lambda () (= stamp (.get configuration epoch))))))))))
+        (from-generator Batch (core.generator-map raw (lambda (count)
+          (set! constructions (1+ constructions))
+          (make-instance Batch count: count payload: [] route: 'put handler: abs)))
+          (lambda (batch) (.get batch count))))
+      ;; DEBUG/FUN retains the original property runner and Record/Function
+      ;; validation; source checks cannot be refreshed by opening a new core view.
+      (def (run sampler)
+        ((property-debug-action #f Batch (lambda (batch)
+          (check-equal? ((.@ batch handler) -5) 5) (< (.get batch count) 1)) sampler: sampler)
+          (make-instance PropertyConfiguration cases: 1 shrink-budget: 4)))
+      (def original (run (prepare)))
+      (check-eq? (.get original status) 'failed)
+      (check-equal? constructions 2)
+      (check (replay-counterexample original) => #f)
+      (check-eq? (.get (replay-property original) status) 'stale)
+      (check-equal? constructions 2)
+      (check-exception (replay-counterexample original) Error?)
+      (def fresh (run (prepare)))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? constructions 4)
+      (check-exception ((.@ (.get fresh counterexample) handler) 'wrong) TypeError?)
+      (set! advance? #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-equal? constructions 6)
+      (.set! configuration epoch (1+ (.get configuration epoch)))
+      (check-exception (replay-property fresh) Error?))
     (test-case "rejected Record branches guard later construction through FUN retry shrinking and replay"
       (def configuration (.o epoch: 0)) (def revise? #t) (def constructions 0) (def draws 0)
       ;; Each check has a private retry schedule. Only the rejected branch declares
