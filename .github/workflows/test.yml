@@ -152,4 +152,4 @@ jobs:
           path: .ci-library/lib/clan/poo/t
           merge-multiple: true
       - name: Run every compiled suite in one process and the complete paired study
-        run: time -p just check-built 2 1 4
+        run: time -p just check-built 2 1 4 600

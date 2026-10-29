@@ -50,15 +50,27 @@
     (def runtime-options (string-append "GAMBOPT=" options
       (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
     ;; Standard process arguments and std/build-script own this isolated build.
-    ;; Print captured compiler diagnostics on failure, then preserve its cause.
+    ;; Stream prefixed diagnostics while preserving the exact captured text and
+    ;; run-process's original exit/status checks. END requires natural child exit.
     (def (run . arguments)
-      (def output "")
-      (with-catch (lambda (cause) (display output) (force-output) (raise cause))
-        (lambda ()
-          (run-process [timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
-            (string-append "GERBIL_PATH=" package) runtime-options
-            "gerbil" "-:max-heap=1G,debug=q" arguments ...] directory: project stderr-redirection: #t
-            coprocess: (lambda (port) (set! output (read-all-as-string port)) output)))))
+      (displayln "PROPERTY-LIBRARY-START " (time->seconds (current-time)) " " arguments " directory=" project) (force-output)
+      (def result
+        (run-process [timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
+          (string-append "GERBIL_PATH=" package) runtime-options
+          "gerbil" "-:max-heap=1G,debug=q" arguments ...] directory: project stderr-redirection: #t
+          coprocess: (lambda (port)
+            (call-with-output-string
+              (lambda (capture)
+                ;; Match std/misc/ports' line-reading discipline. Keep separators
+                ;; in the captured receipt; prefixes prevent counting child cases twice.
+                (let loop ()
+                  (let (line (read-line port #\newline #t))
+                    (when (string? line)
+                      (display line capture)
+                      (display "PROPERTY-LIBRARY ") (display line) (force-output)
+                      (loop)))))))))
+      (displayln "PROPERTY-LIBRARY-END " (time->seconds (current-time)) " " arguments) (force-output)
+      result)
     (run "build")
     (check (file-exists? artifact) => #t)
     ;; The module path does not load parent modules: no POO runtime is installed.

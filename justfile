@@ -57,7 +57,7 @@ build-group group:
 
 # Complete-suite time includes gxtest's eager import of every declared module.
 # Keep this explicit at the CLI; compilation, focused tests and heaps keep their bounds.
-test test-seconds='900': build
+test test-seconds='600': build
     just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
 
 test-file file:
@@ -88,9 +88,9 @@ _test max-seconds +targets:
 test-source-file file: build-shared
     just _test 90 "$1"
 
-check width='2' samples='1' pairs='4' test-seconds='900': build (check-built width samples pairs test-seconds)
+check width='2' samples='1' pairs='4' test-seconds='600': build (check-built width samples pairs test-seconds)
 
-check-built width='2' samples='1' pairs='4' test-seconds='900': check-layout
+check-built width='2' samples='1' pairs='4' test-seconds='600': check-layout
     just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2

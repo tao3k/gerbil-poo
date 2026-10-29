@@ -1426,3 +1426,47 @@ history variation. Post-GC mean was +751.26 us, max +942.42 us, six losses.
 Its normalized batch difference included +676.38 us non-GC, +25.32 us GC and
 +5.36 us residual. Recovery's smaller operation count must not stand in for
 this broader result or for a full-service latency guarantee.
+
+### macOS loader diagnosis and complete-check deadline
+
+The complete-suite deadline is now explicitly 600 seconds in both `justfile`
+and CI, following the requested budget change. The earlier implicit default was
+900 seconds; previous explicit 300-second local checks and default CI checks were
+therefore different qualifications. Compiler deadlines, 1-GiB test heaps,
+2-GiB backend heaps, all suites, and cleanup remain unchanged.
+
+On the same frozen source, standard `gerbil clean` followed by `just build`
+took 295.44 seconds (library 115.96, startup package 7.17, test packages 171.30).
+An initially empty package prefix took 298.74 seconds. Standard clean removes
+Gerbil interface/static sources but retains Gambit's versioned dynamic objects;
+neither measurement clears the OS page or validation caches. These are separate
+build cohorts, not evidence that deleting objects improves total build time.
+The following first full checks exceeded 300 seconds: harness preparation took
+189, 208, and 276 seconds in separate observations. The last control also ran
+outside the tool sandbox; it did not remove the delay.
+
+Read-only startup stacks locate the dominant sampled wait in
+`dlopen -> mapSegments -> fcntl`. The installed dyld instruction at the sampled
+return address passes command 98 (`F_CHECK_LV`), identifying library validation.
+This does not identify the policy provider or attribute all unsampled wall time.
+The official Gerbil loader already caches successful module identities under its
+load mutex; no second POO loader or initialization registry is introduced.
+Previously observed post-OK stacks instead enter `dlclose`, debugger unload
+notification, and image-atlas maintenance. Those loader allocations are distinct
+from Scheme heap GC. No signature checking, unloading, or cleanup is bypassed.
+
+The isolated standard-library package control now streams prefixed child output
+using `run-process`'s standard coprocess interface and preserves its exact captured
+text, exception, and status checks. START/END timestamps include child cleanup;
+END is emitted only after the standard process API returns successfully. This
+exposes compilation/loading waits without counting child cases as parent cases
+or adding a heartbeat. Its existing 60-second per-command limits remain intact.
+
+A subsequent diagnostic complete entry naturally exited: 149 modules / 2,014
+cases, including the isolated 55-case control; main test 155.93 seconds and the
+whole test/collection/generator entry 180.83 seconds. A ten-second Time Profiler
+attachment observed dyld allocator and atlas serialization work during this run.
+It is a warm, instrumented qualification, not a cold speedup receipt or proof
+that the library-validation delay is fixed. The cold-loader performance issue
+remains open. Existing Lean laws concern source-level caching and preparation;
+they do not prove macOS policy latency or physical cleanup time.
