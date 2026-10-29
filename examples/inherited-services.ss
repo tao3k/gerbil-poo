@@ -87,18 +87,19 @@
 ;; Inspect is a benchmark/example strategy, never a persisted admission verdict.
 ;; The refused cycle leaves warm order intact; a later supported edit rebuilds it.
 (def (precedence-cache-workflow (inspect compute-precedence-list!))
-  (def family (make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
-  (def join (.ref family 'join))
-  (def source (.ref family 'source))
-  (def first (inspect join))
-  (def before (begin
-    (unless (and (eq? (car first) join) (equal? (inspect join) first))
-      (error "warm C3 order oracle"))
-    (report family)))
-  (def refused (with-catch (lambda (_) #t)
-    (lambda () (object-supers-set! source [join]) #f)))
-  (def after (begin
-    (unless (and refused (equal? (inspect join) first)) (error "C3 refusal oracle"))
-    ((revision-action 20) family)))
-  (unless (equal? (inspect join) first) (error "C3 rebuilt identity oracle"))
-  (list before after))
+  ;; let* owns effect order: warm, observe, refuse, revise, then observe again.
+  (let* ((family (make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
+         (join (.ref family 'join))
+         (source (.ref family 'source))
+         (first (inspect join))
+         (before (begin
+           (unless (and (eq? (car first) join) (equal? (inspect join) first))
+             (error "warm C3 order oracle"))
+           (report family)))
+         (refused (with-catch (lambda (_) #t)
+           (lambda () (object-supers-set! source [join]) #f)))
+         (after (begin
+           (unless (and refused (equal? (inspect join) first)) (error "C3 refusal oracle"))
+           ((revision-action 20) family))))
+    (unless (equal? (inspect join) first) (error "C3 rebuilt identity oracle"))
+    (list before after)))
