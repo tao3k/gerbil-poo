@@ -45,6 +45,41 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "call input promises share derivation across keyword rest shrinking FUN and replay"
+      (def configuration (.o maximum: 8)) (def preparations 0)
+      (def input (.o self: domain inherit: [Type.] .element?: (cut element? UInt <>)
+        .generator: (lambda ()
+          (set! preparations (1+ preparations))
+          (make-generator domain
+            (lambda (random _size) (+ 2 (random (.get configuration maximum))))
+            core.integer-shrinks abs dependencies: (list configuration)))))
+      (def signature (Function [Integer Integer] [input] optional: [input] rest: input
+        keywords: (list (cons scale: input)) required-keywords: [scale:]))
+      (def checked (validate signature (lambda (x (y 0) scale: scale . tail)
+        (values (+ x y scale (apply + tail)) (length tail)))))
+      (def arguments (FunctionArguments signature))
+      (def sampler (generator arguments))
+      ;; The Type factory is dormant until a selected call actually supplies it.
+      (check-equal? preparations 0)
+      ;; Observe both checked results without bypassing keyword/default forwarding.
+      (def (property row)
+        (defvalues (total extras) (apply checked row))
+        (and (>= extras 0) (< total 2)))
+      (def report ((property-debug-action #f arguments property sampler: sampler)
+        (make-instance PropertyConfiguration seed: 9 cases: 10 size: 4 shrink-budget: 64)))
+      (check-eq? (.get report status) 'failed)
+      (check (element? arguments (.get report counterexample)) => #t)
+      (check-equal? preparations 1)
+      (check-exception (checked -1 scale: 0) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check-equal? preparations 1)
+      ;; The selected child contributes its own external dependency to the tree.
+      (.set! configuration maximum 12)
+      (check-exception (replay-property report) Error?)
+      (def retry (check-property arguments property cases: 1 seed: 9 size: 4 shrink-budget: 64))
+      (check-eq? (.get retry status) 'failed)
+      (check-equal? preparations 2))
     (test-case "independent Record fields retain wrapped handlers through FUN shrinking and replay"
       (def draws 0)
       (def fields (core.generator-sequence

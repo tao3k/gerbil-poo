@@ -1,6 +1,7 @@
 ;;; Function call generation shares structural selection with runtime wrapping.
 (export FunctionArguments FunctionArguments.)
 (import (only-in :std/list/list map-in-order delete-duplicates/hash)
+        (only-in ../support/base defonce)
         ../object ../mop ../function-signature ./type
         (prefix-in :clan/poo/testing/property/generator core.))
 
@@ -20,18 +21,23 @@
 (def (keyword-mode? signatures)
   (ormap (lambda (signature) (pair? (.get signature keywords))) signatures))
 
-;; Compile child samplers once. Overlapping clauses first select a shape with
-;; placeholders, then draw using the actual first clause's types; no rejection
-;; loop or type-based fallback is needed. Shrinking preserves the chosen shape.
+;; Capture every declared input Type, but derive only actually supplied children.
+;; Overlapping clauses first select a shape with placeholders; promises cannot
+;; force a shadowed clause or an omitted optional/keyword/rest input. Shrinking
+;; preserves the shape and shares successfully prepared children within this sampler.
 (def (argument-generator descriptor function)
   (def signatures (.get function signatures))
   (def keyword-mode (keyword-mode? signatures))
   (def types (delete-duplicates/hash (apply append (map (lambda (signature)
     (append (.get signature inputs) (.get signature optional) (map cdr (.get signature keywords))
             (if (.get signature rest) (list (.get signature rest)) []))) signatures))))
-  (def samplers (map (lambda (type) (cons type (generator type))) types))
-  ;; Resolve a child by descriptor identity, preserving explicit custom samplers.
-  (def (child type) (cdr (assq type samplers)))
+  (def samplers (map (lambda (type)
+    ;; Reuse the project's promise abstraction; no second cache or lazy Type exists.
+    (defonce (sampler) (generator type))
+    (cons type sampler)) types))
+  ;; First successful demand prepares the real Type generator. A selected
+  ;; unsupported Type still fails normally; no alternative Type is substituted.
+  (def (child type) ((cdr (assq type samplers))))
   ;; Recover the selected positional/keyword product without invoking any target.
   (def (product arguments)
     (def selected (select-signature signatures arguments))
@@ -39,7 +45,7 @@
     (def positionals (positional-types selected (length (car row))))
     (def keys (map car (cdr row)))
     (product-generator descriptor
-      (map child (append positionals (map (lambda (key) (cdr (assq key (.get selected keywords)))) keys)))
+      (map-in-order child (append positionals (map (lambda (key) (cdr (assq key (.get selected keywords)))) keys)))
       (lambda (_arguments) (append (car row) (map cdr (cdr row))))
       (lambda (values)
         (defvalues (pos rest) (split-at values (length positionals)))
@@ -59,8 +65,9 @@
     (lambda (arguments) (.call (product arguments) measure arguments))
     shrink:
     (lambda (arguments) (.call (product arguments) shrink arguments))
-    dependencies: (append (cons function signatures)
-      (apply append (map (lambda (entry) (cons (cdr entry) (.get (cdr entry) sources))) samplers)))))
+    ;; Unforced input Types still own the declaration. Forced child samplers add
+    ;; their own transitive stamps through product-generator / generator-core.
+    dependencies: (append (cons function signatures) types)))
 
 ;; This Type recognizes call rows, not arbitrary procedure implementations. It
 ;; composes with normal List/Tuple descriptors and the same finite test runner.

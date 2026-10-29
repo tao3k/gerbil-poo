@@ -513,3 +513,13 @@ replay starts a new run and draws fields again. Use `generator-bind` or
 `bind-generators` when a later field actually depends on an earlier field; those
 selected children must still be rebuilt. Existing guards, budgets and mutable
 payload ownership apply unchanged. See P18 of the RFC for laws and cost limits.
+
+Call-input derivation now follows demand. `generator (FunctionArguments fn)`
+captures declarations without forcing a generator for an omitted input or a
+shadowed clause. Required/supplied optional/keyword/rest values use the actual
+first selected clause. Their Type generators are prepared once on successful
+demand through the existing `defonce`, and draw a fresh value for each occurrence.
+A selected unsupported Type still raises its original cause; it never becomes
+Any or triggers a type-based branch fallback. Unforced Type revisions and forced
+child dependencies still invalidate old reports. See P19 of the RFC and the
+keyword/rest/multiple-return FUN workflow in `examples/generated-batches.ss`.

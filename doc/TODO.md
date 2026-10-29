@@ -1634,6 +1634,14 @@ seed schedules, Record/FUN/replay and eight finite Lean laws close this audit un
 See P18 in [pbt-design-rfc.md](pbt-design-rfc.md); arbitrary mutable payload freezing
 and host PRNG/GC claims remain outside the protocol.
 
+Function call samplers now derive only supplied input Types after first-match
+selection, reusing `defonce` for successful preparation. Shadowed declarations and
+empty rest suffixes cannot force unused generators, while every declared Type
+retains revision ownership and selected failures retain their original cause.
+Keyword/optional/rest, multiple returns, FUN, shrinking and replay compose in the
+worked example. P19 in [pbt-design-rfc.md](pbt-design-rfc.md) records the eight
+finite demand/reuse laws and the unchanged general-Type/promise-runtime boundaries.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),

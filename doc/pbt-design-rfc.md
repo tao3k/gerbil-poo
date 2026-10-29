@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P18 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P19 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1477,3 +1477,57 @@ show fixed heterogeneous products shrinking one coordinate while keeping the
 others; its bind documentation separately prioritizes dependent parent shrinking.
 We preserve that distinction with Gerbil's existing tree algebra and the project's
 additional revision protocol. Random bitstreams need not match Racket.
+
+## P19: demand-driven FunctionArguments child derivation
+
+The audit reproduced a real automatic-derivation refusal: a later case-lambda
+input Type was completely shadowed by the first clause, yet its `.generator`
+constructor ran during call-sampler preparation. An exception there made the
+whole property report `error`, although every reachable call used supported
+Integer inputs. An empty rest suffix had the same unnecessary requirement.
+This differs from an actually supplied unsupported input, which must still fail.
+
+`testing/function.ss` now captures all declared input Type identities immediately,
+then uses the existing `support/base` `defonce` (standard delay/force) to derive a
+child only after structural first-match selection and supplied-field decoding.
+The already imported standard `map-in-order` fixes constructor order and stops
+before later input hooks after an exception; plain mapping owns only pure setup.
+Successful derivations are shared by descriptor identity within that call sampler,
+including repeated required/optional/keyword/rest occurrences, measurement,
+shrinking and seed replay. Omitted fields invoke no constructor. The underlying
+child generator still draws fresh samples per occurrence; no generated-value
+cache, Type substitution, Any fallback, namespace or alternate dispatcher exists.
+Output Types remain outside call-input generation, as before.
+
+All declared input Types remain explicit parent dependencies, even if unforced.
+Once demanded, each child's own descriptor/sampler/transitive dependencies remain
+in the existing product and generic sample-tree source guards. Old reports refuse
+a dormant Type edit or a selected child's external-source edit. Fresh explicit
+preparation can retry. A selected constructor exception is now an execution-time
+preparation error with its exact cause, before the property runs; it is not a
+false witness or an invitation to choose another Type. No promise about caching
+constructor exceptions, callback rollback or concurrent promise forcing is added.
+
+Regressions cover a shadowed required/optional/rest/keyword family, dormant Type
+revision rejection, zero-length rest without a child generator, exact selected
+constructor causes, ordered first-error suppression, reuse of an earlier successful
+promise after a later refusal, and a fresh retry. The downstream example combines optional,
+required keyword and rest calls, multiple return values, real Function contract
+wrapping, Record configuration, FUN execution, shrinking and both replay paths.
+It verifies zero constructors before demand, one successful preparation for a
+reused input Type, retained external-source refusal and explicit fresh retry.
+
+Eight finite Lean laws model demand by descriptor identity, successful cache
+reuse, exact refusal, locality to the demanded Type, empty rows, repeated inputs,
+first-error suppression and retention of previously prepared entries. Structural
+signature selection is justified by the existing signature laws. Faithful
+identity lookup, current source guards and ordinary sequential promise semantics
+are premises; the model does not certify the Gerbil promise runtime or arbitrary
+constructor effects/termination. First demand can still be expensive under the
+existing process limits. Each Type has one small promise, and ordinary identity
+lookup remains linear in the captured finite Type directory.
+
+[Rackcheck's delayed generators and dependent generation](https://docs.racket-lang.org/rackcheck/index.html)
+inform separating preparation from actual demand. This is a correction in the
+POO Type-driven layer, not an assertion that Racket has our descriptor/revision
+protocol. General inference and arbitrary Type generation remain explicit bounds.
