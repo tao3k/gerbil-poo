@@ -83,6 +83,61 @@
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "typed product measures stop before a later field after any owner revision"
+      (for (dimension '(parent child))
+        (def source (.o epoch: 0)) (def descriptor (.cc (Tuple Integer Integer) epoch: 0))
+        (def later 0) (def calls 0)
+        (def first (make-generator Integer (lambda (_random _size) 2) (lambda (_) '(0))
+          (lambda (value) (.set! (if (eq? dimension 'parent) descriptor source) epoch 1) (abs value))))
+        (def last (make-generator Integer (lambda (_random _size) 3) (lambda (_) [])
+          (lambda (value) (set! later (1+ later)) (abs value)) dependencies: (list source)))
+        (def sampler (product-generator descriptor (list first last) vector->list list->vector))
+        (def report (check-property descriptor (lambda (_) (set! calls (1+ calls)) #f)
+          sampler: sampler cases: 1 shrink-budget: 2))
+        (check-eq? (.get report status) 'stale)
+        (check-equal? (list later calls (.get report attempts) (.get report steps)) '(0 1 1 0))
+        (check-equal? (.get report counterexample) '#(2 3))
+        (check-exception (replay-property report) Error?)))
+    (test-case "value-only product shrinking shares refusal before packing and later children"
+      (def source (.o epoch: 0)) (def revise? #t) (def packed 0) (def later 0)
+      (def descriptor (Tuple Integer Integer))
+      (def first (make-generator Integer (lambda (_random _size) 2)
+        (lambda (_) (when revise? (.set! source epoch 1)) '(0)) abs))
+      (def last (make-generator Integer (lambda (_random _size) 3)
+        (lambda (_) (set! later (1+ later)) '(0)) abs dependencies: (list source)))
+      ;; Fresh construction owns fresh epochs; it never repairs the old sampler.
+      (def (prepare)
+        (product-generator descriptor (list first last) vector->list
+          (lambda (row) (set! packed (1+ packed)) (list->vector row))))
+      (def old (prepare))
+      (check-exception (.call old shrink '#(2 3)) generation-refusal?)
+      (check-equal? (list packed later) '(0 0))
+      (set! revise? #f)
+      (def current (prepare))
+      (check-equal? (.call current shrink '#(2 3)) '(#(0 3) #(2 0)))
+      (check-equal? (list packed later) '(2 1))
+      (check (.call old .current?) => #f))
+    (test-case "product child topology is captured consistently across draw measure and shrink"
+      (def replaced 0)
+      (def children (list (fixed-integer 2 (lambda (_) '(0))) (fixed-integer 3 (lambda (_) '(0)))))
+      (def sampler (product-generator (Tuple Integer Integer) children vector->list list->vector))
+      (set-car! children (make-generator Integer
+        (lambda (_random _size) (set! replaced (1+ replaced)) 99) (lambda (_) [])
+        (lambda (_) (set! replaced (1+ replaced)) 99)))
+      (set-cdr! children [])
+      (check-equal? (.call sampler draw (core.random-at 0) 0) '#(2 3))
+      (check-equal? (.call sampler measure '#(2 3)) 5)
+      (check-equal? (.call sampler shrink '#(2 3)) '(#(0 3) #(2 0)))
+      (check-equal? replaced 0))
+    (test-case "empty typed products retain descriptor ownership"
+      (def descriptor (.cc (Tuple) epoch: 0))
+      (def sampler (product-generator descriptor [] vector->list list->vector))
+      (check-equal? (.call sampler measure '#()) 0)
+      (check-equal? (.call sampler shrink '#()) [])
+      (.set! descriptor epoch 1)
+      (check-exception (.call sampler measure '#()) generation-refusal?)
+      (check-exception (.call sampler shrink '#()) generation-refusal?)
+      (check-exception (.call sampler draw (core.random-at 0) 0) core.stale-generation?))
     (test-case "trace declaration revisions stop every scoped execution boundary"
       (for (phase '(open observe compare step type return))
         (def observation (.cc Integer epoch: 0))

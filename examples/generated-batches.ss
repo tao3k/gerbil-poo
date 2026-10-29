@@ -46,6 +46,36 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "Record products share domain measures preserve handlers and reprepare after refusal"
+      (def configuration (.o epoch: 0)) (def revise? #t) (def later 0)
+      (def handler-type (Function [Integer] [Integer]))
+      (def count (make-generator UInt (lambda (_random _size) 3) core.integer-shrinks
+        (lambda (value) (when revise? (.set! configuration epoch 1)) value)))
+      (def handler (make-generator handler-type (lambda (_random _size) abs) (lambda (_) [])
+        (lambda (_) (set! later (1+ later)) 0) dependencies: (list configuration)))
+      ;; The ordinary Record constructor owns Function wrapping, while the shared
+      ;; product specification owns measures and source refusal for every field.
+      (def (prepare)
+        (product-generator Batch (list count handler)
+          (lambda (batch) (list (.get batch count) (.@ batch handler)))
+          (lambda (row) (make-instance Batch count: (car row) payload: (make-list (car row) 0)
+            route: 'put handler: (cadr row)))))
+      ;; Run the same typed property through the existing FUN observation boundary.
+      (def (run sampler)
+        ((property-debug-action #f Batch batch-correct? sampler: sampler)
+          (make-instance PropertyConfiguration cases: 1 shrink-budget: 32)))
+      (def refused (run (prepare)))
+      (check-eq? (.get refused status) 'stale)
+      (check-equal? later 0)
+      (set! revise? #f)
+      (def retry (run (prepare)))
+      (check-eq? (.get retry status) 'failed)
+      (check-equal? (.get (.get retry counterexample) count) 2)
+      (check-exception ((.@ (.get retry counterexample) handler) 'wrong) TypeError?)
+      (check (replay-counterexample retry) => #f)
+      (check-eq? (.get (replay-property retry) status) 'failed)
+      (.set! configuration epoch 2)
+      (check-exception (replay-property retry) Error?))
     (test-case "indexed collection traces reject revised models then reprepare through FUN"
       (def subject (collection.collection-model collection.lifecycle))
       (def revise? #t) (def steps 0) (def closed 0)

@@ -92,21 +92,33 @@
   (def n (.call sampler measure value))
   (unless (and (exact-integer? n) (>= n 0)) (error "invalid shrink measure" n))
   n)
-;; Replace one coordinate through a persistent reconstruction callback.
-(def (coordinate-shrinks children values pack)
+;; Replace one coordinate using the product's shared checked action. A revised
+;; shrink callback cannot reach packing or a later child's shrink callback.
+(def (coordinate-shrinks children values pack call)
   (let loop ((children children) (values values) (before []))
     (if (null? children) []
       (append
-        (map (lambda (smaller) (pack (append (reverse before) (cons smaller (cdr values)))))
-             (.call (car children) shrink (car values)))
+        (map-in-order (lambda (smaller) (call pack (append (reverse before) (cons smaller (cdr values)))))
+             (call (.@ (car children) shrink) (car values)))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Products share draw/shrink/measure composition for tuples, pairs and call rows.
 (def (product-generator descriptor children unpack pack)
-  (from-generator descriptor
-    (core.generator-map (core.generator-sequence (map generator-core children)) pack)
-    (lambda (value) (apply + (map weight children (unpack value))))
-    shrink: (lambda (value) (coordinate-shrinks children (unpack value) pack))
-    dependencies: (apply append (map generator-sources children))))
+  (set! children (list-copy children))
+  (def owners (snapshot #f (list descriptor)))
+  (def domain (testing.make-product-specification
+    (map-in-order (lambda (child) (property-specification child (snapshot child []))) children)
+    current?: (lambda () (current? owners))))
+  ;; The generic product owns all field/owner stamps, including an empty product.
+  ;; One boundary also protects representation callbacks and value-only shrinking.
+  (def (current) (testing.specification-current? domain))
+  (def (checked action . arguments)
+    (unless (current) (refuse-generation 'stale))
+    (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale))))
+  (.cc (from-generator descriptor
+    (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
+    (lambda (value) (testing.specification-weight domain (checked unpack value)))
+    shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
+    dependencies: (apply append (map generator-sources children))) .current?: current))
 
 ;; Finite-key Maps reuse their existing validation/wrapping protocol once per
 ;; materialized node. Key validation must preserve the supplied representation;

@@ -46,6 +46,26 @@
 ;; Ordinary suites combine the new assertion path with the existing report API.
 (def property-workflows-test
   (test-suite "coverage portable replay and finite functions"
+    (test-case "product owners guard shared measures and empty products"
+      (def live #t) (def later 0)
+      (def fields (list (p.make-specification exact-integer?
+        (lambda (value) (set! live #f) (abs value)))
+        (p.make-specification exact-integer? (lambda (value) (set! later (1+ later)) (abs value)))))
+      (def domain (p.make-product-specification fields current?: (lambda () live)))
+      (check-exception (p.specification-weight domain '(2 3)) Error?)
+      (check-equal? later 0)
+      (def empty (p.make-product-specification [] current?: (lambda () live)))
+      (check-exception (p.specification-weight empty []) Error?)
+      (set! live #t)
+      (check-equal? (p.specification-weight empty []) 0)
+      (check-exception (p.make-product-specification [] current?: #t) Error?))
+    (test-case "public specification measures preserve natural admission and original causes"
+      (def cause (cons 'measure 'failure))
+      (check-exception (p.specification-weight (p.make-specification values (lambda (_) -1)) 0) Error?)
+      (check-eq? (with-catch identity (lambda ()
+        (p.specification-weight (p.make-specification exact-integer? (lambda (_) (raise cause))) 0))) cause)
+      (def bad (p.make-product-specification [] current?: (lambda () 'yes)))
+      (check-exception (p.specification-weight bad []) Error?))
     (test-case "independent product shrinking retains suffix draws and preimages"
       (def draws 0)
       (def head (g.make-generator (lambda (_random _size) 2)

@@ -534,3 +534,12 @@ there is no backend rollback. See P20 in the RFC and the indexed-collection/FUN
 revision example in `examples/generated-batches.ss`.
 Fixture epoch checks end with `use`, so teardown may normally retire its methods;
 model declarations remain checked until the fixture factory returns.
+
+`specification-weight` evaluates an already appropriate value with the domain's
+checked natural measure. It shares the runner's measure implementation and source
+checks; it does not repeat recognition or generation. Product specifications can
+name a `current?:` owner, including for zero fields. Typed `product-generator`
+uses this same domain, captures its child directory once, and shares its guard
+with raw coordinate shrinking and retained-tree packing. Parent/child revision
+stops later callbacks, while fresh construction is the explicit retry boundary.
+See P21 of the RFC and the Record/Function/FUN product workflow in generated-batches.

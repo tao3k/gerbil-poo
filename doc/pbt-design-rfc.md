@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P20 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P21 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1594,3 +1594,60 @@ created. Existing heap/time/proposal limits and complete checks remain unchanged
 [Rackcheck's separation of generators and property execution](https://docs.racket-lang.org/rackcheck/index.html)
 informs keeping the oracle/fixture boundary outside the generator algebra. The
 revision-bound model protocol is this project's extension, not a Rackcheck API.
+
+## P21: shared typed-product observation and directory ownership
+
+The audit reproduced a typed/generic mismatch in the explicit `product-generator`
+factory: a first typed field measure
+changed a later field's source, yet that later measure still ran before the whole
+report finally became stale. The generic product specification already stopped
+between field callbacks (P15), but `product-generator` duplicated its measure
+with a plain map/sum. Value-only coordinate shrinking similarly could continue
+to packing and later child callbacks. A caller could also mutate the supplied
+child-list spine after construction, making draw use the old children while
+measure/shrink used a different directory.
+
+Typed products now copy the child spine once and reuse the existing generic
+product specification for natural field measures and joint source checks.
+`specification-weight` is the checked operation on that opaque domain: it shares
+the existing natural-measure helper, checks sources, and never exposes raw record
+fields or redraws values. It expects a domain-appropriate value; recognition
+remains the runner's existing admission stage rather than being repeated by
+measurement. `make-product-specification` accepts an explicit `current?:` common
+owner, following the existing source-observer convention. It protects empty
+products and parent metadata as well as each child domain.
+
+One typed checked-action function brackets unpack, each value-only shrink and
+pack, using the same product-domain currentness. `map-in-order` preserves field
+and packing order. Ordinary retained-tree drawing/packing uses `generator-map`'s
+existing `current?:` boundary. The sampler retains that same `.current?` hook, so
+opening another core view cannot refresh an obsolete product. No new namespace,
+record hierarchy, value cache, property runner or compatibility path is added.
+Children and payloads retain their identities; only the caller-owned directory
+spine is captured, not arbitrary mutable heap contents.
+
+Regressions cover parent and child revisions during measures, unchanged charged
+attempts and last witness, refusal before packing/later shrink callbacks, explicit
+fresh retry, directory mutation across draw/measure/shrink and empty-product
+owner refusal. Generic controls cover common-owner and Boolean/natural admission
+and exact callback causes. The Record/FUN example retains nested Function wrapping,
+refuses the stale run before a later handler measure, prepares fresh ownership,
+shrinks a real failure, replays it and rejects later stale replay. Generic and typed
+layers share the same implementation rather than separate product cost folds.
+
+Eight laws in `PropertyProducts.lean`, under the existing PropertyTesting namespace,
+reuse guardedStages/guardedGeneration: common preflight, early field refusal,
+original field/packing causes, empty ownership, packing revision refusal, stable
+field order and unchanged natural sum. Faithful captured topology and pack/unpack
+representation laws, truthful epochs, sequential callbacks and termination are
+premises. Host list copying is tested, not claimed as a universal Lean heap theorem;
+GC, alias discovery, concurrent mutation and wall-time bounds are not inferred.
+
+The existing generic product checks all field owners around each callback; its
+observer work can be quadratic in product width. The common owner adds one guard
+per check and the factory captures field domains/stamps once. This is a coherence
+fix, not a constant-time or universal speedup claim. All checks and existing
+heap/time/proposal limits remain required.
+[Rackcheck's product/tree composition](https://docs.racket-lang.org/rackcheck/index.html)
+informs keeping generation algebra separate from domain observation. Common
+revision owners and typed sampler evidence are this project's explicit extension.

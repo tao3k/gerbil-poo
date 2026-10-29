@@ -1648,6 +1648,12 @@ P20 in [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced false match
 revision refusal, cleanup/retry controls and eight finite stage laws. Evolving
 actual State and hidden callback dependencies retain their existing boundaries.
 
+Explicit typed product measurement now shares the generic specification instead of
+duplicating map/sum. Captured child topology, common owners including empty rows,
+value-only shrinking and packing retain one source boundary. P21 in
+[pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced later-field effect,
+retry/wrapper controls and eight finite product laws.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
