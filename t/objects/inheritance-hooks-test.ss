@@ -5,7 +5,7 @@
         :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String)
         :clan/poo/inheritance-hooks :clan/poo/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))
-;; Exercise actual native protocol composition, not serialized model constants.
+;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
     (test-case "public parent snapshots cannot edit a warmed source graph"
@@ -64,6 +64,7 @@
       ;; the counter only AFTER the real cold query has invoked its hooks.
       (let* ((first (compute-precedence-list! join)) (admitted calls))
         (check (> admitted 0) => #t)
+        (check-equal? (compute-precedence-list! join) first)
         (for-each (lambda (_) (check-equal? (compute-precedence-list! join) first)) '(1 2 3))
         (check-equal? calls admitted)
         ;; Nonempty diagnostic heads still take the existing path, even on a hit.
