@@ -199,11 +199,22 @@
     (parameterize ((current-random-states states))
       (def parent-seed (split-seed random)) (def child-seed (split-seed random))
       (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states))) sources))
-;; Products lower through bind/map rather than another generation/shrink traversal.
-(def (generator-sequence generators)
+;; Capture independent roots with the existing bind/map seed schedule. Root
+;; wrappers have no children: later shrinking belongs to the retained product.
+(def (sampled-sequence generators)
   (foldr (lambda (generator tail)
     (generator-bind generator (lambda (head)
-      (generator-map tail (lambda (rest) (cons head rest)))))) (generator-unit []) generators))
+      (generator-map tail (lambda (rest) (cons head rest))))))
+    (generator-unit []) (map sampled-generator generators)))
+;; Fixed products share sample-sequence's coordinate policy. Changing one field
+;; retains every other field's original node, sources and hidden preimage; it
+;; never redraws a suffix. Only explicit generator-bind rebuilds dependencies.
+(def (generator-sequence generators)
+  (def roots (sampled-sequence generators))
+  (def width (length generators))
+  (make-tree-generator (lambda (random size)
+    (let (tree (generate roots random size))
+      (sample-sequence (sample-value tree) min-length: width sources: (sample-sources tree))))))
 ;; Producer freshness is one flat leaf walk.
 (def (generator-current? generator) (every live? (generation-sources generator)))
 ;; Dependent syntax is only the existing bind/unit algebra, evaluated once.
@@ -390,7 +401,7 @@
   (generator-sized (lambda (size)
     (generator-bind (generator-no-shrink (generator-integer minimum (+ minimum (min size (- maximum minimum)))))
       (lambda (count)
-        (def row (generator-sequence (make-list count (sampled-generator element))))
+        (def row (sampled-sequence (make-list count element)))
         (make-tree-generator (lambda (random size)
           (let (tree (generate row random size))
             (sample-sequence (sample-value tree) min-length: minimum sources: (sample-sources tree))))))))))
@@ -410,8 +421,8 @@
     (def selected (if (zero? size) []
       (let (active (filter (lambda (_) (zero? (random 2))) domain))
         (take active (min size (length active))))))
-    (def row (generator-sequence (map (lambda (key)
-      (sampled-generator (generator-map value-generator (lambda (value) (cons key value))))) selected)))
+    (def row (sampled-sequence (map (lambda (key)
+      (generator-map value-generator (lambda (value) (cons key value)))) selected)))
     (let (tree (generate row random size))
       (sample-sequence (sample-value tree) (lambda (entries) (list->hash-table entries seed: 0)) sources: (sample-sources tree))))
     (observer-sources current [])))

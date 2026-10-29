@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P17 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P18 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -1434,3 +1434,46 @@ still bound arbitrary callback work.
 [Rackcheck bind](https://docs.racket-lang.org/rackcheck/index.html) provides the
 parent-first lazy tree comparison. Original child seeds and regeneration order
 are unchanged; source ownership is our additional explicit protocol.
+
+## P18: retained independent product shrinking
+
+The concentrated audit reproduced a distinction missing from the composition
+implementation: `generator-sequence` used dependent bind for both drawing and
+shrinking. Shrinking the first coordinate of `(2 1)` produced `(0 2)` when the
+second producer counted its draws. Even with pure callbacks, the suffix was
+constructed again, discarding its original sample identity and doing unnecessary
+work. This is a defect in independent product retention, not a demand to freeze
+arbitrary mutable values or eliminate dependent regeneration.
+
+`sampled-sequence` now captures original nodes through the same bind/map draw
+schedule. Public `generator-sequence` hands these nodes to the existing
+`sample-sequence` at their fixed width. Lists and finite-key hashes share the
+same root capture directly, with their existing structural policies; finite
+Function tables inherit fixed-product retention. No second shrink traversal,
+cache, iterator, namespace or retry policy is introduced. Explicit `generator-bind`
+and named dependent bindings still regenerate selected children when the parent
+changes. A collection's structural shrink never becomes product field deletion.
+
+Acceptance checks stateful sibling draw counts, repeated child traversal, the
+original split-seed schedule and outer random checkpoint for twelve seeds, empty
+products, untouched finite Function rows, original sibling source rejection and
+absence of a redraw exception. A downstream Record example composes independent
+fields, Function contract wrapping, FUN execution, shrinking, concrete replay and
+seed replay: shrinking/concrete replay draw nothing; seed replay draws once per
+field again. The ordinary workflow and typed suites now have 34 and 21 cases;
+the independent generic-library fixture remains 55 cases.
+
+Eight finite Lean laws establish width, chosen-coordinate replacement, exact
+sibling-preimage retention, carrier mapping, commuting distinct updates, unchanged
+external draw state, empty products and strict descent of the existing sum measure.
+The host correspondence assumes faithful retained sample nodes and the declared
+measure; callback purity, termination, mutable payload ownership, PRNG quality,
+allocation and GC are not inferred. Root capture still costs linear work in the
+product width, and a coordinate proposal still packs a full product. This removes
+suffix drawing, not all preparation or source-observer costs.
+
+[Rackcheck's tuple examples](https://docs.racket-lang.org/rackcheck/index.html)
+show fixed heterogeneous products shrinking one coordinate while keeping the
+others; its bind documentation separately prioritizes dependent parent shrinking.
+We preserve that distinction with Gerbil's existing tree algebra and the project's
+additional revision protocol. Random bitstreams need not match Racket.

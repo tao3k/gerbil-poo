@@ -45,6 +45,27 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "independent Record fields retain wrapped handlers through FUN shrinking and replay"
+      (def draws 0)
+      (def fields (core.generator-sequence
+        (list (core.make-generator (lambda (_random _size) 2) core.integer-shrinks)
+          (core.make-generator (lambda (_random _size) (set! draws (1+ draws)) abs)
+            (lambda (_) [])))))
+      (def generation (core.generator-map fields (lambda (row)
+        (make-instance Batch count: (car row) payload: '(7 8) route: 'put handler: (cadr row)))))
+      (def sampler (from-generator Batch generation (lambda (batch) (.get batch count))))
+      (def report ((property-debug-action #f Batch (lambda (batch)
+        (check-equal? ((.@ batch handler) -7) 7) #f) sampler: sampler)
+        (make-instance PropertyConfiguration cases: 1 shrink-budget: 16)))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get (.get report counterexample) count) 0)
+      (check-equal? (.get (.get report counterexample) payload) '(7 8))
+      (check-equal? draws 1)
+      (check-exception ((.@ (.get report counterexample) handler) 'wrong) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-equal? draws 1)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check-equal? draws 2))
     (test-case "retained dependent Record subtrees cannot refresh their original branch epoch"
       (def epoch 0) (def calls 0)
       (def generation (core.generator-bind

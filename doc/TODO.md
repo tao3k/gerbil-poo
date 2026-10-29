@@ -1627,6 +1627,13 @@ Retained Record subtrees cannot refresh them through a new FUN run. P17 in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced failures, shared
 Iterator implementation and source-free fast path.
 
+Independent PBT products now preserve original sibling sample nodes during
+coordinate shrinking. List/hash capture and finite Function tables share this
+protocol; explicit dependent bindings retain regeneration. Stateful draw controls,
+seed schedules, Record/FUN/replay and eight finite Lean laws close this audit unit.
+See P18 in [pbt-design-rfc.md](pbt-design-rfc.md); arbitrary mutable payload freezing
+and host PRNG/GC claims remain outside the protocol.
+
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
@@ -3135,3 +3142,4 @@ as cold reads. A reproduced stale-site guard after dynamic dependency insertion
 is fixed without a second value store. FUN recovery/refusal/retry/diamond-source
 revision and false assignment are qualified alongside final-site Lean laws and
 the unchanged complete benchmark matrix plus one bounded redemand phase.
+

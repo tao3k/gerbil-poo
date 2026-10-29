@@ -503,3 +503,13 @@ sources before producer effects and after normal return, including EOF. A retain
 branch. Lifting it into a new typed sampler cannot refresh those epochs. Generate
 a new root when sources change. The implementation reuses standard Iterator/for
 and the existing source boundary; source-free traversal keeps its direct loop.
+
+Independent `generator-sequence` products now retain every field's original sample
+while shrinking another coordinate. They share `sample-sequence` at a fixed width;
+List/hash roots share the same capture helper and keep their structural policies.
+For example, a stateful second producer is drawn once: `(2 1)` shrinks to `(0 1)`,
+not `(0 2)`. Repeating child traversal or concrete replay draws nothing. Seed
+replay starts a new run and draws fields again. Use `generator-bind` or
+`bind-generators` when a later field actually depends on an earlier field; those
+selected children must still be rebuilt. Existing guards, budgets and mutable
+payload ownership apply unchanged. See P18 of the RFC for laws and cost limits.

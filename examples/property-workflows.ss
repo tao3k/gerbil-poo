@@ -46,6 +46,66 @@
 ;; Ordinary suites combine the new assertion path with the existing report API.
 (def property-workflows-test
   (test-suite "coverage portable replay and finite functions"
+    (test-case "independent product shrinking retains suffix draws and preimages"
+      (def draws 0)
+      (def head (g.make-generator (lambda (_random _size) 2)
+        (lambda (n) (if (zero? n) [] '(0)))))
+      (def tail (g.make-generator (lambda (_random _size) (set! draws (1+ draws)) draws)
+        (lambda (_) [])))
+      (def root (g.generate (g.generator-sequence (list head tail)) (g.random-at 7) 5))
+      (check-equal? (g.sample-value root) '(2 1))
+      (def children (for/collect (child ((g.sample-children root))) child))
+      (check-equal? (map g.sample-value children) '((0 1)))
+      (check-equal? draws 1)
+      ;; Re-observation traverses the retained tree, never another draw.
+      (check-equal? (for/collect (child ((g.sample-children root))) (g.sample-value child)) '((0 1)))
+      (check-equal? draws 1))
+    (test-case "retained products preserve the original split-seed draw schedule"
+      (def fields (list (g.generator-integer 0 1000) (g.generator-integer 0 1000)
+        (g.generator-integer 0 1000)))
+      ;; This draw-only oracle states the existing bind schedule explicitly;
+      ;; its shrink policy is intentionally not used as the product oracle.
+      (def scheduled (foldr (lambda (field tail)
+        (g.generator-bind field (lambda (value)
+          (g.generator-map tail (lambda (rest) (cons value rest)))))) (g.generator-unit []) fields))
+      (for (seed (in-range 12))
+        (def left (g.random-at seed)) (def right (g.random-at seed))
+        (check-equal? (g.sample-value (g.generate (g.generator-sequence fields) left 10))
+          (g.sample-value (g.generate scheduled right 10)))
+        (check-equal? (left 1000) (right 1000)))
+      (def empty (g.generate (g.generator-sequence []) (g.random-at 0) 0))
+      (check-equal? (g.sample-value empty) [])
+      (check-equal? (for/collect (child ((g.sample-children empty))) child) []))
+    (test-case "finite function shrinking keeps untouched rows without redraw"
+      (def draws 0)
+      (def results (g.make-generator (lambda (_random _size)
+        (set! draws (1+ draws)) (list draws))
+        (lambda (tuple) (if (zero? (car tuple)) [] (list '(0))))))
+      (def root (g.generate (g.generator-function '((read) (write) (audit)) results) (g.random-at 3) 5))
+      (def children (for/collect (child ((g.sample-children root))) (g.sample-value child)))
+      (check-equal? draws 3)
+      (check-equal? (map g.function-table children)
+        '((((read) 0) ((write) 2) ((audit) 3))
+          (((read) 1) ((write) 0) ((audit) 3))
+          (((read) 1) ((write) 2) ((audit) 0))))
+      (check-equal? (g.function-apply (car children) '(audit)) '(3)))
+    (test-case "product failure retains sibling sources and skips unneeded redraws"
+      (def live #t) (def draws 0)
+      (def fields (g.generator-sequence
+        (list (g.make-generator (lambda (_random _size) 2) g.integer-shrinks)
+          (g.make-generator (lambda (_random _size)
+            (set! draws (1+ draws))
+            (when (> draws 1) (error "independent suffix was redrawn")) 7)
+            (lambda (_) []) current?: (lambda () live)))))
+      (def domain (p.make-product-specification (list integer-domain integer-domain)))
+      (def report (p.check-property fields (lambda (_) #f) domain cases: 1 shrink-budget: 16))
+      (check-eq? (p.report-status report) 'failed)
+      (check-equal? (p.report-counterexample report) '(0 7))
+      (check-equal? draws 1)
+      (check (p.replay-counterexample report) => #f)
+      (set! live #f)
+      (check-exception (p.replay-counterexample report) Error?)
+      (check-equal? draws 1))
     (test-case "paused value shrink iterators refuse before the next producer effect"
       (def live #t) (def pulls 0) (def first #f)
       (def generation (g.make-generator (lambda (_random _size) 9)
