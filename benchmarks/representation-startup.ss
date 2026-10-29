@@ -205,7 +205,11 @@
 ;; interpreter subprocess. Observe admission BEFORE loading the existing IO
 ;; action, then reuse its current-binding/failure/multiple-values semantics.
 ;; The closed binding inventory is ordinary program code, never a command string.
-(def (main entry width access)
+(def main
+  (case-lambda
+    ;; The existing standard-built executable owns the observation command too.
+    ((prefix) (check-study prefix))
+    ((entry width access)
   (unless (and (member entry '("main" "joint-main"))
                (member access '("symbolic" "indexed")))
     (error "unknown service entry" entry access))
@@ -218,7 +222,7 @@
     (newline) (force-output))
   (load-module "clan/poo/io")
   (((eval 'clan/poo/io#module-action) "clan/poo/examples/representation-service"
-    (make-symbol "clan/poo/examples/representation-service#" entry)) (list width access)))
+    (make-symbol "clan/poo/examples/representation-service#" entry)) (list width access)))))
 
 ;; The official gerbil test harness owns suite discovery and failure reporting.
 ;; Both full bindings retain every AB/BA and A/A/B/B sample. Child programs keep
