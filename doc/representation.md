@@ -1485,10 +1485,11 @@ previous 276-second library-validation episode cannot recur.
 
 ### Bounded standard compiler sessions
 
-The build audit found repeated preparation, not repeated backend compilation:
-within the earlier complete trace, all 494 library and 303 test compile-file jobs
-had distinct output paths. Each of the 25 test packages nevertheless started its
-own package CLI and compiler, imported common compiler/POO contexts, and unloaded
+The build audit found repeated preparation. Concurrent progress fragments can
+interleave, so raw parsed log counts are not used as an exact job inventory.
+The completed source-matched controls each retain 149 test interfaces and 310
+first-version test loader/runtime/meta objects. Each of the 25 original test
+packages started its own package CLI and compiler, imported common compiler/POO contexts, and unloaded
 them at exit. An actually empty project prefix then exceeded the unchanged
 300-second test-build phase: library 118.10 s, startup program 8.55 s, overall
 427.58 s with exit 124. It is a failed baseline, not a completed speed measurement.
@@ -1522,7 +1523,7 @@ bounds active capacities, and counts repeated common preparation requests.
 Matched project-artifact-empty cohorts used source base `b6ca3ea` and the same
 149 compiled suites / 2,037 cases, plus three source-only build-declaration cases:
 
-| Standard Just / Gerbil policy | Library | Startup program | Test compilation | Complete `just check 2 1 4 600` |
+| Standard Just / Gerbil policy | Library | Startup program | Test build | Complete `just check 2 1 4 600` |
 | --- | ---: | ---: | ---: | ---: |
 | Two sessions, five backends each | 154.49 s | 10.37 s | 269.75 s | 833.00 s |
 | Four sessions, two backends each | 106.43 s | 7.46 s | 242.15 s | 725.52 s |
@@ -1541,7 +1542,14 @@ Touching the two existing ordered/mapping include files rebuilt only their two
 registered targets; original timestamps and contents were restored. Their focused
 standard tests passed. Declaration regressions also retain the included-source
 paths, distinct package inventory and refusal on an unknown package. All 149
-installed test interfaces had compiled loader objects; no source fallback was used
-as a replacement for compilation. Build data/traces remain outside Git. These are
+installed test interfaces had compiled loader objects; interface counts alone
+were not accepted as build success. Build data/traces remain outside Git. These are
 infrastructure/cache-cost results, not completion of a paper feature or compiler
 correctness verification; cold dyld admission remains a separate measured limit.
+
+After merging the independent property-test changes through `a724da4`, the full
+unchanged entry naturally exited zero in 391.69 s. It ran all 149 compiled
+modules / 2,052 cases and the source-only declaration suite / three cases, plus
+the collection and generator studies. Its test build took 150.70 s and its
+single-process tests took 149.08 s. This source-current acceptance reused standard
+artifacts and is not another cold-performance sample.
