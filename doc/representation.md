@@ -1207,3 +1207,41 @@ FUN service publication. Both strategies run the same evaluator and contracts;
 complete setup, prefix, AB/BA, A/A/B/B, natural/collected/post-GC and tails remain
 charged. `ValueStorage.lean` proves logical publication/read/reshape laws and a
 preparation-sensitive work bound, not allocator or wall-clock speed.
+
+### Unified cell mutation and computed cardinality
+
+Named insertion, certified indexed writes and standard `HashTable` writes share
+one cell setter. A named key outside the original shape grows that same layout;
+it is never silently dropped. Delete, clear, independent copy and new-table
+operations preserve the same presence invariant. A scalar computed-cell count
+makes cardinality independent of declared width; it stores no values. Uncomputed
+cells contribute zero, while false and Function payloads each contribute one.
+Seeded construction and shape growth still pay their preparation/copy cost.
+
+The existing FUN observation example composes lazy demand, a nested write followed
+by an exact callback refusal, retry with a Function, independent copy/clear and
+source invalidation. Failure retains earlier callback effects without installing
+the failed target. Lean proves overwrite/empty/growth/publication cardinality
+laws assuming faithful current offsets, disjoint sentinels and serialized mutation.
+The paired study adds sparse cardinality and this complete observation chain,
+retaining setup, A/A/B/B, AB/BA, GC controls and the preceding workflows. Neither
+a constant-time count nor fewer writes establishes a whole-workflow speedup.
+
+The occupancy qualification on macOS retained all preceding phases and added
+sparse count and FUN observation phases. The complete standard benchmark entry
+finished in 104.06 s (16.04 s library preparation, 3.11 s startup preparation,
+83.58 s official runner). Against the current single-hash strategy, vector
+observation had a natural paired mean of +13.21 us and upper observed tail of
++14.99 us (six losses); 256 sparse count queries averaged +1.39 us per action.
+The existing collected full-service comparison averaged +723.38 us (six losses).
+These are current-strategy comparisons, not attribution to the occupancy change;
+the hot-read comparison and A/A/B/B controls establish no universal speedup.
+
+The unchanged-source complete check passed 149 modules / 1,981 cases in 75.52 s,
+followed by collection and generator checks in 16.26 s and 4.19 s. Earlier attempts
+remain failed qualifications: a first full-suite entry reached its 300 s deadline after module loading,
+and another attempt hit the independent library's 60 s build guard. That same
+isolated control subsequently passed in 34.74 s. A one-second sample of the first
+load showed dlopen; it does not attribute the entire interval or prove a cold-load
+bound. Heap/deadline limits and all controls remain unchanged. Raw data stays
+outside Git.

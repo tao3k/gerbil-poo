@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
+(export value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -479,3 +479,41 @@
   (parameterize ((slot-value-storage storage))
     (vector (service-workflow width layout: #f reshape?: #t)
             (service-workflow width layout: (eq? storage 'vector) reshape?: #t))))
+
+;; Compose repeated observations through the existing FUN Reader. Raw memo edits
+;; exercise the standard HashTable boundary; supported source edits occur between
+;; runs, so receiver invalidation must replace the store without forcing a body.
+(def (value-store-observation-workflow storage)
+  (parameterize ((slot-value-storage storage))
+    (def calls 0)
+    (def owner (.o (value (begin (set! calls (1+ calls)) #f))
+      (unused (error "unrelated observation forced"))))
+    (def site (and (eq? storage 'vector) (make-slot-cache 'value)))
+    (def read (if site (cut .ref/inline <> site) (cut .ref <> 'value)))
+    (def cause (list 'update-refused))
+    (def observe (.call fun.Observation. .bind read
+      (lambda (value)
+        (lambda (receiver)
+          (def table (object-instance receiver))
+          (def before (hash-length table))
+          (unless (and (not value) (= before 1)) (error "lazy observation oracle"))
+          (hash-put! table 'callable identity)
+          (let (inserted (hash-length table))
+            ;; A failed outer update retains nested callback effects, not its result.
+            (unless (eq? cause (with-catch identity
+              (lambda () (hash-update! table 'value (lambda (_)
+                (hash-put! table 'marker #f) (raise cause))))))
+              (error "update refusal changed"))
+            (let (refused (hash-length table))
+              (unless (and (not (read receiver)) (eq? (.ref receiver 'callable) identity))
+                (error "failed update published a value"))
+              (hash-remove! table 'callable) (hash-remove! table 'marker)
+              (hash-update! table 'value (lambda (_) identity))
+              (unless (eq? (read receiver) identity) (error "retry lost exact function"))
+              (let (copied (hash-copy table))
+                (hash-clear! copied)
+                (vector before inserted refused (hash-length table) (hash-length copied)))))))))
+    (def first (observe owner))
+    (.putslot! owner 'value ($thunk-slot-spec (lambda () (set! calls (1+ calls)) #f)))
+    (unless (= 0 (hash-length (object-instance owner))) (error "source edit retained memo cells"))
+    (vector first (observe owner) calls)))

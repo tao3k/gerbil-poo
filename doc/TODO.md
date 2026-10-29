@@ -3092,3 +3092,9 @@ research boundaries.
 Removed the obsolete per-site seeding option and its record field rather than
 retaining a no-op compatibility switch. Examples and all benchmark scenarios use
 the current public read operations; no copied preceding evaluator remains.
+
+The same boundary now maintains exact computed cardinality for indexed, named
+and standard HashTable mutations. Named shape growth no longer silently ignores
+new keys. Integrated FUN refusal/retry/invalidation examples, finite occupancy
+laws and paired sparse-count/full-observation phases cover the protocol together;
+preparation and mutation costs remain charged, without a second value cache.

@@ -9,7 +9,7 @@
 (def shapes (make-hash-table test: equal? weak-values: #t))
 ;; A shape owns the immutable name-to-index mapping. Cells always belong to one receiver.
 (defstruct shape (indices names))
-(defstruct layout (shape cells missing))
+(defstruct layout (shape cells missing count))
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
 ;; Canonicalize symbolic identity order, independent of parent/declaration order.
@@ -31,9 +31,11 @@
               (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
               (make-shape indices keys)))))))
   (def keys (shape-names canonical))
-  (make-layout canonical (if initial
+  (def cells (if initial
     (list->vector (map (lambda (name) (hash-ref initial name missing)) keys))
-    (make-vector (length keys) missing)) missing))
+    (make-vector (length keys) missing)))
+  (make-layout canonical cells missing (if initial
+    (for/fold (count 0) ((value cells)) (if (eq? value missing) count (1+ count))) 0)))
 ;; Explicit backend qualification uses the same evaluator and resource limits.
 ;; The default owns all computed values in one vector; hash is a measured control.
 (def slot-value-storage (make-parameter 'vector))
@@ -66,12 +68,13 @@
 (def (layout-store! self key value)
   (using (key :~ symbol?)
     (let (index (slot-layout-index self key))
-      (if index (vector-set! (layout-cells self) index value)
+      (if index (slot-layout-set! self index value)
         (let (next (make-slot-layout (cons key (shape-names (layout-shape self)))
                       (HashTable self) (layout-missing self)))
-          (vector-set! (layout-cells next) (slot-layout-index next key) value)
+          (slot-layout-set! next (slot-layout-index next key) value)
           (set! (layout-shape self) (layout-shape next))
-          (set! (layout-cells self) (layout-cells next)))))
+          (set! (layout-cells self) (layout-cells next))
+          (set! (layout-count self) (layout-count next)))))
     (void)))
 ;; Reuse the compiler's HashTable interface for printers, reflection and clients.
 ;; Only computed cells participate; deletion/clear never evaluate a slot body.
@@ -83,33 +86,40 @@
 (bind-method! layout::t 'HashTable::delete!
   (lambda (self key)
     (let (index (slot-layout-index self key))
-      (when index (vector-set! (layout-cells self) index (layout-missing self))))))
+      (when index (slot-layout-set! self index (layout-missing self))))))
 (bind-method! layout::t 'HashTable::for-each
   (lambda (self proc)
     (for ((key (shape-names (layout-shape self))) (value (layout-cells self)))
       (unless (eq? value (layout-missing self)) (proc key value)))))
 (bind-method! layout::t 'HashTable::length
-  (lambda (self)
-    (for/fold (count 0) ((value (layout-cells self)))
-      (if (eq? value (layout-missing self)) count (1+ count)))))
+  (lambda (self) (layout-count self)))
 (bind-method! layout::t 'HashTable::copy
   (lambda (self)
-    (HashTable (make-layout (layout-shape self) (vector-copy (layout-cells self)) (layout-missing self)))))
+    (HashTable (make-layout (layout-shape self) (vector-copy (layout-cells self))
+                 (layout-missing self) (layout-count self)))))
 (bind-method! layout::t 'HashTable::new
   (lambda (self (size-hint #f)) (HashTable (make-slot-layout [] #f (layout-missing self)))))
 (bind-method! layout::t 'HashTable::clear!
-  (lambda (self) (vector-fill! (layout-cells self) (layout-missing self))))
+  (lambda (self)
+    (vector-fill! (layout-cells self) (layout-missing self))
+    (set! (layout-count self) 0)))
 ;; Absence is false; zero is a valid index in Scheme.
 (def (slot-layout-index layout name) (hash-get (shape-indices (slot-layout-shape layout)) name))
 ;; Only the guarded object access path consumes an index obtained from this shape.
 (def (slot-layout-ref layout index) (vector-ref (layout-cells layout) index))
-;; Promote one successfully demanded value at its certified CURRENT layout index.
-;; Callers must resolve the index from this layout; false values are ordinary data.
-(def (slot-layout-set! layout index value) (vector-set! (layout-cells layout) index value))
-;; Keep a prepared vector coherent with ordinary successful object reads/writes.
-(def (slot-layout-put! layout name value)
-  (let (index (slot-layout-index layout name))
-    (when index (slot-layout-set! layout index value))))
+;; All indexed/named writes share this boundary. Check the current cell first;
+;; only an empty/present transition changes occupancy. False and functions count.
+;; The count is metadata, not another value store. Callers certify current indices.
+(def (slot-layout-set! layout index value)
+  (def old (vector-ref (layout-cells layout) index))
+  (def missing (layout-missing layout))
+  (vector-set! (layout-cells layout) index value)
+  (unless (eq? (eq? old missing) (eq? value missing))
+    (set! (layout-count layout)
+      ((if (eq? old missing) 1+ 1-) (layout-count layout)))))
+;; Named writes use the SAME growth, key admission and occupancy protocol as
+;; HashTable::set!, including keys absent from the original static descriptor.
+(defalias slot-layout-put! layout-store!)
 ;; One value guard retains one receiver/version/layout, independent of offset capacity.
 (defstruct access-cache (name owner revision layout shape index))
 ;; An explicit two-shape site adds one immutable descriptor/offset, never cells.
