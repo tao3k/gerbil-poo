@@ -1,8 +1,119 @@
 ;;; Fresh-process downstream entry qualification through standard Gerbil commands.
-(export main representation-startup-test)
+(export main representation-startup-test check-study check-observation-test)
 (import :std/test :std/iter :std/misc/process
         (only-in :gerbil/runtime/loader load-module list-modules)
-        (only-in "closure-measure.ss" measure measure-pair median monotonic-seconds))
+        (only-in :std/error Error?) (only-in :std/number/misc uint?)
+        (only-in :std/test/base test-run! test-result-error? TestResultError? TestResultError
+          TestResultErrors? TestResultErrors TestHarness TestModule TestConfig TestSuite)
+        (only-in :std/list/list drop-right append-map)
+        (only-in :std/crypto/digest sha256) (only-in :std/encoding/hex hex-encode)
+        (only-in "closure-measure.ss" measure measure-pair median monotonic-seconds monotonic-ticks monotonic-frequency))
+
+;; Exact tick intervals partition the complete public command. Readiness and
+;; post-report windows include pipe/shell/reaping costs, not just dyld or GC.
+(def (check-phase-summary started marks finished modules begun passed)
+  (unless (and (> modules 0) (> begun 0) (= begun passed))
+    (error "incomplete check observation" modules begun passed))
+  (def points (append [started]
+    (map (lambda (name)
+      (cond ((assq name marks) => cdr) (else (error "missing check phase" name))))
+      '(test-start harness-start harness-end report test-exit eof)) [finished]))
+  (unless (and (andmap uint? points)
+    (andmap <= (drop-right points 1) (cdr points)))
+    (error "nonmonotone check observation"))
+  (map cons '(build prepare tests report cleanup studies reap)
+    (map - (cdr points) (drop-right points 1))))
+
+;; Observe `just check`, whose existing recipes invoke only gerbil build/test.
+;; Targets, deadlines, failure detection and cleanup remain owned by those tools.
+;; No source discovery, loader or result cache is installed by this observer.
+(def (check-study prefix)
+  (using (prefix :~ string?)
+    (def clock (make-u64vector 1 0))
+    (def marks []) (def suite #f) (def trace [])
+    (def modules 0) (def begun 0) (def passed 0)
+    (def started (monotonic-ticks clock))
+    ;; Keep the first event only; later declaration/study harnesses are separate.
+    (def (mark! name)
+      (unless (assq name marks)
+        (set! marks (cons (cons name (monotonic-ticks clock)) marks))))
+    ;; Standard process coprocessing forwards real progress while retaining only
+    ;; the ordered suite/case trace, not a second escaped copy of all stdout.
+    (def (receive port)
+      (read-all port (lambda (input)
+        (let (line (read-line input))
+          (if (eof-object? line) (begin (mark! 'eof) line)
+            (begin
+              (displayln line) (force-output)
+              (cond
+                ((string-prefix? "just _test " line) (mark! 'test-start))
+                ((string-prefix? "HARNESS " line) (mark! 'harness-start))
+                ((string-prefix? "HARNESS-OK " line) (mark! 'harness-end))
+                ((and (assq 'harness-end marks) (equal? line "OK")) (mark! 'report))
+                ((and (assq 'report marks) (string-prefix? "real " line)) (mark! 'test-exit)))
+              (when (and (assq 'harness-start marks) (not (assq 'harness-end marks)))
+                (cond
+                  ((string-prefix? "SUITE " line) (set! suite (substring line 6 (string-length line))))
+                  ((string-prefix? "CASE " line) (set! begun (+ begun 1)))
+                  ((string-prefix? "CASE-OK " line)
+                   (set! passed (+ passed 1))
+                   (set! trace (cons (list suite (substring line 8 (string-length line))) trace)))
+                  ((string-prefix? "MODULE-OK " line) (set! modules (+ modules 1)))))
+              (void)))))))
+    ;; A nonzero public-command exit propagates through std/process, even when
+    ;; an intermediate harness printed OK. Only a reaped successful child qualifies.
+    (run-process ["env" (string-append "GERBIL_PATH=" (path-expand prefix))
+      "just" "check" "2" "1" "4" "600"] stderr-redirection: #t coprocess: receive)
+    (def finished (monotonic-ticks clock))
+    (def phases (check-phase-summary started marks finished modules begun passed))
+    (def digest (hex-encode (sha256 (string->utf8 (object->string (reverse trace))))))
+    (write (list 'check-observation (cons 'frequency monotonic-frequency)
+      (cons 'phase-ticks phases) (cons 'modules modules) (cons 'cases passed)
+      (cons 'case-trace-sha256 digest) (cons 'total-ticks (- finished started))))
+    (newline) (force-output)))
+
+;; These fast controls use the real standard TestHarness, including a failed
+;; middle case. Regrouping is admitted only for fixture-free module boundaries.
+(def check-observation-test
+  (test-suite "check phase observations"
+    (test-case "exact phase ticks retain preparation execution and exit windows"
+      (check (check-phase-summary 100
+        '((test-start . 110) (harness-start . 130) (harness-end . 190)
+          (report . 200) (test-exit . 210) (eof . 220)) 230 4 8 8) =>
+        '((build . 10) (prepare . 20) (tests . 60) (report . 10)
+          (cleanup . 10) (studies . 10) (reap . 10))))
+    (test-case "missing nonmonotone and incomplete observations refuse"
+      (check-exception (check-phase-summary 0 [] 10 1 1 1) Error?)
+      (check-exception (check-phase-summary 0
+        '((test-start . 2) (harness-start . 1) (harness-end . 3)
+          (report . 4) (test-exit . 5) (eof . 6)) 7 1 1 1) Error?)
+      (check-exception (check-phase-summary 0 [] 10 0 0 0) Error?)
+      (check-exception (check-phase-summary 0 [] 10 1 2 1) Error?))
+    (test-case "standard suite regrouping retains failures identity and later cases"
+      ;; New harness objects retain their own private observation state.
+      (def (observe grouped?)
+        (def seen []) (def cause (gensym 'case-refused))
+        ;; A single standard suite factory keeps case construction identical.
+        (def suites (map (lambda (name)
+          (TestSuite (symbol->string name) (lambda ()
+            (test-case "delivery"
+              (set! seen (cons name seen))
+              (when (eq? name 'middle) (raise cause)))))) '(first middle last)))
+        (def modules (if grouped? [(TestModule "group" suites [] void void)]
+          (map (lambda (suite) (TestModule "unit" [suite] [] void void)) suites)))
+        (def result (test-run! (TestHarness "regrouping"
+          (TestConfig verbosity: 0 capture-output?: #t) modules)))
+        ;; Read causes through the official result hierarchy, not stdout matching.
+        (def (causes result)
+          (cond
+            ((TestResultError? result) (using (item result :- TestResultError) [item.exn]))
+            ((TestResultErrors? result) (using (item result :- TestResultErrors) (append-map causes item.errors)))
+            (else [])))
+        (def failures (causes result))
+        (list (reverse seen) (test-result-error? result)
+          (and (= (length failures) 1) (eq? (car failures) cause))))
+      (check (observe #f) => '((first middle last) #t #t))
+      (check (observe #t) => '((first middle last) #t #t)))))
 
 ;; Standard-built programs demand the SAME business
 ;; module/binding. Each child has a new registry; filesystem caches are NOT reset.

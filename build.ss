@@ -155,6 +155,7 @@
     "examples/property-filters"
     "examples/property-scopes"
     "examples/property-sizes"
+    "examples/property-traces"
     "examples/property-kernel"
     "examples/property-workflows"
     "examples/property-refusals"

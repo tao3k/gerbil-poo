@@ -59,9 +59,14 @@
 ;; The runner alone decides domain admission, strict descent, falsity and budgets.
 (def (shrink-trace model commands (shrink : :procedure))
   (map (cut repair-trace model <>) (data-list-shrinks commands shrink 0)))
-;; A two-value draw callback returns continue?/command. This API requires no
-;; domain-specific Option class, and the finite step cap bounds all successful draws.
-(def (draw-trace model draw steps random size)
+;; Exact natural limits exclude the iterator's valid reverse/fractional ranges.
+;; This predicate is a contract on configuration, not on generated commands.
+(def (trace-limit? value) (and (exact-integer? value) (>= value 0)))
+;; Gerbil contracts admit the entire configuration before model initialization.
+;; Two-value drawing and the existing state fold retain their order and causes;
+;; zero cap still initializes once but invokes no draw/command callback.
+(def (draw-trace (model :~ model?) (draw : :procedure)
+                 (steps :~ trace-limit?) (random : :procedure) (size :~ trace-limit?))
   (let/cc done
     (def progress (for/fold (progress (cons ((reference-initial model)) [])) (_ (in-range (min steps size)))
       (let-values (((continue? raw) (draw (car progress) random size)))

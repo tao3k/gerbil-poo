@@ -46,6 +46,61 @@
 ;; These are ordinary exported suites discovered by Gerbil's standard runner.
 (def generated-batches-test
   (test-suite "composed typed batch generation"
+    (test-case "bounded Record command generation composes FUN differential shrinking and retry"
+      (def command (Record kind: [(Enum open use)] key: [UInt]
+        handler: [(Function [Integer] [Integer])]))
+      (def state (List UInt))
+      (def draws 0) (def initials 0) (def opened 0) (def closed 0)
+      ;; Stateful generation emits only enabled commands; Record owns wrapping.
+      (def (emit kind)
+        (make-instance command kind: kind key: 1 handler: (lambda (value) (1+ value))))
+      ;; The oracle computes replies without invoking the actual Function field.
+      (def (advance previous next)
+        (values (if (eq? (.get next kind) 'open) (cons (.get next key) previous) previous)
+          (1+ (.get next key))))
+      (def subject (make-instance TraceGenerator Command: command State: state Result: Integer Observation: state
+        initial: (lambda () (set! initials (1+ initials)) [])
+        enabled?: (lambda (previous next)
+          (if (eq? (.get next kind) 'open) (not (memv (.get next key) previous))
+            (and (memv (.get next key) previous) #t)))
+        advance: advance observe: identity
+        draw: (lambda (previous _random _size)
+          (set! draws (1+ draws)) (some (emit (if (null? previous) 'open 'use))))
+        shrink: (lambda (_) []) measure: (lambda (_) 0)))
+      (def system-type (TraceSystem state))
+      ;; Each property observation owns cleanup, including the injected mismatch.
+      (def (fixture use)
+        (set! opened (1+ opened))
+        (try (use (make-instance system-type initial: [] observe: identity
+          step: (lambda (previous next)
+            (values (if (eq? (.get next kind) 'open) (cons (.get next key) previous) previous)
+              (+ ((.@ next handler) (.get next key)) (if (eq? (.get next kind) 'use) 1 0))))))
+          (finally (set! closed (1+ closed)))))
+      (def sampler (trace-generator command subject steps: 5))
+      (def action (property-debug-action #f (.get sampler descriptor)
+        (trace-property subject fixture) sampler: sampler))
+      (def invalid (action (make-instance PropertyConfiguration seed: 7 cases: 1
+        size: (lambda (_) 1/2) size-limit: 3 shrink-budget: 64)))
+      (check-eq? (.get invalid status) 'error)
+      (check-equal? (list draws initials opened closed) '(0 0 0 0))
+      (def empty-sampler (trace-generator command subject steps: 0))
+      (def empty-report ((property-debug-action #f (.get empty-sampler descriptor)
+        (trace-property subject fixture) sampler: empty-sampler)
+        (make-instance PropertyConfiguration seed: 7 cases: 1 size: 3)))
+      (check-eq? (.get empty-report status) 'passed)
+      (check-equal? draws 0)
+      (def report (action (make-instance PropertyConfiguration seed: 7 cases: 1 size: 3 shrink-budget: 64)))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (length (.get report original)) 3)
+      (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+      (check-equal? draws 3)
+      (check-exception ((.@ (cadr (.get report counterexample)) handler) 'invalid) TypeError?)
+      (let (before draws)
+        (check (replay-counterexample report) => #f)
+        (check-equal? draws before)
+        (check-eq? (.get (replay-property report) status) 'failed)
+        (check-equal? draws (+ before 3)))
+      (check-equal? opened closed))
     (test-case "Record filtered proposals refuse stale evidence and retry through FUN"
       (def epoch 0) (def draws 0) (def pulls 0) (def properties 0)
       ;; Record performs Function wrapping before either generic or typed checking.

@@ -39,11 +39,11 @@
     (create-directory* (path-expand "examples" project))
     (for-each (lambda (file)
       (copy-file (path-expand file source-root) (path-expand file project)))
-      '("examples/property-products.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-sizes.ss" "examples/property-kernel.ss"))
+      '("examples/property-products.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-sizes.ss" "examples/property-traces.ss" "examples/property-kernel.ss"))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
         (defbuild-script '("property/generator" "property" "property/model" "property/replay" "property/test"
-                          "examples/property-products" "examples/property-filters" "examples/property-scopes" "examples/property-sizes" "examples/property-kernel"))))
+                          "examples/property-products" "examples/property-filters" "examples/property-scopes" "examples/property-sizes" "examples/property-traces" "examples/property-kernel"))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))
@@ -90,11 +90,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 79)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 83)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 79 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 83 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test

@@ -1,5 +1,5 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
-(export run-child measure measure-pair read-datum write-datum source-digests median mean monotonic-seconds)
+(export run-child measure measure-pair read-datum write-datum source-digests median mean monotonic-seconds monotonic-ticks monotonic-frequency)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
 ;; Use the released runtime clock, without replacing process-statistics wall
 ;; time. mach_absolute_time and system time can disagree across suspension or
@@ -11,10 +11,13 @@
       (unless (> frequency 0) (error "unsupported monotonic clock"))
       (exact->inexact frequency))))
 ;; Stream observers reuse one scratch cell and the SAME clock as paired timing.
-;; A timestamp is process-independent elapsed seconds, not child CPU or GC time.
-(def (monotonic-seconds (clock (make-u64vector 1 0)))
+;; Exact hardware ticks are independent of child CPU or GC accounting.
+(def (monotonic-ticks (clock (make-u64vector 1 0)))
   (##get-monotonic-time! clock 0)
-  (/ (u64vector-ref clock 0) monotonic-frequency))
+  (u64vector-ref clock 0))
+;; Convert the same exact clock sample for existing seconds-based studies.
+(def (monotonic-seconds (clock (make-u64vector 1 0)))
+  (/ (monotonic-ticks clock) monotonic-frequency))
 ;; Result columns stay CPU, wall, GC CPU, collections, allocated bytes.
 ;; The optional observer receives raw snapshots and an independent monotonic
 ;; duration after timing. Its scratch storage is prepared before the boundary;
