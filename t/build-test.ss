@@ -42,15 +42,19 @@
       (check (map (cut hash-ref <> "recipe") (hash-ref entry "dependencies")) =>
         '("_build-test-package" "_build-test-package" "_build-test-prototypes" "_build-test-publication"))
       (check (map (cut hash-ref <> "arguments") (take (hash-ref entry "dependencies") 2)) =>
-        '(("contracts") ("types")))
+        '(("contracts" ("variable" "action")) ("types" ("variable" "action"))))
+      ;; Build and failure cleanup share this one standard dependency graph.
+      (check (map (cut hash-ref <> "arguments") (drop (hash-ref entry "dependencies") 2)) =>
+        '((("variable" "action")) (("variable" "action"))))
       (for-each (lambda (entry)
         (def chain (hash-ref recipes (car entry)))
         (check (hash-ref chain "attributes") => [])
         (check (map (cut hash-ref <> "recipe") (hash-ref chain "dependencies")) =>
           '("_build-test-package" "_build-test-package"))
-        (check (map (cut hash-ref <> "arguments") (hash-ref chain "dependencies")) => (cdr entry)))
-        '(("_build-test-prototypes" ("indexes") ("prototypes"))
-          ("_build-test-publication" ("collections") ("publication")))))
+        (check (map (cut hash-ref <> "arguments") (hash-ref chain "dependencies")) =>
+          (map (lambda (part) (list part '("variable" "action"))) (cdr entry))))
+        '(("_build-test-prototypes" "indexes" "prototypes")
+          ("_build-test-publication" "collections" "publication"))))
     (test-case "shared build cleanup retains values failure identity and single evaluation"
       (check (call-with-values (lambda () (call-with-build-jobs (lambda () (values 1 #f)))) list) => '(1 #f))
       (def calls 0) (def cause (with-catch values (lambda () (error "original build refusal"))))
