@@ -1651,3 +1651,73 @@ the unchanged complete entry naturally exited zero in 411.38 seconds: 144 compil
 modules / 2,130 cases, five source-only declaration checks, and both studies passed.
 This reused a prepared prefix and overlapped Lean functional verification; it is
 source-current functional acceptance, not a cold timing sample or a speedup claim.
+
+### Optional helper dependency closure
+
+The standard loader's complete diagnostic inventory contained 796 entries:
+80 built-ins and 716 file-backed Gerbil images. Those files had 716 distinct
+device/inode identities; the inventory does not show duplicate physical aliases.
+413 were project images (330 phase-zero and 83 phase-one), and 303 belonged to
+the compiler/standard library. This is the loader inventory, not an exhaustive
+inventory of macOS system mappings. Minimal source and compiled diagnostic
+controls already included the same 26 compiler images. They cannot all be
+attributed to an accidental POO dependency.
+
+Two unnecessary eager roots were identified: ordinary DDT and ordinary test
+assertions imported the typed property engine through `debug.ss` and
+`support/testing.ss`. Their optional property operations now compose the existing
+IO `module-action` with standard `compose`/`list`. The standard loader still owns
+discovery, initialization, synchronization and retained failures; no binding,
+result or module registry is cached here. Diagnostics and the standard TestError
+admission gate follow the same demand boundary. The declaration test observes
+public expander import descriptors, without a source scanner or recursive resolver.
+The existing recovered-command example exercises wrapped Function fields, named
+assertions, keyword-valued data, replay and cleanup through the unchanged protocol.
+
+Demand changes when an optional initializer runs: a dormant helper does not
+initialize it; an actual request retains its errors. This does not equate arbitrary
+eager/delayed global side effects. A standard logical loader entry can admit extra
+entry-stub images even if a body was already initialized. This is real routing
+work, not evidence that the body was initialized twice. Likewise, the official
+JSON dependency reaches std/io/socket support; no replacement parser is introduced.
+Thirteen test-owned macro images were also identified, including private fqcheck
+helpers; lexical scoping is a separate unqualified candidate, not a claimed fix.
+
+The fixed-source ABBA controls used eager `316b7fc` and deferred `b13b78b`, the
+same canonical source path, Gerbil `1cfb032` / Gambit `ea114fc`, macOS 26.6.1,
+12 cores / four standard package workers / two backends, and the full
+`just check 2 1 4 600` entry. Each project prefix started absent; compiler/OS
+caches were not purged. These are empty-project-prefix controls, not reboot-cold
+measurements. The source-only oracle differs in its expected optional-import bit;
+the six checks, production fixtures and main case order otherwise stay the same.
+
+| Variant / order | Full wall s | Loading preparation s | Preparation CPU s | Preparation GC CPU s |
+| --- | ---: | ---: | ---: | ---: |
+| Eager / forward | 909.27 | 205.01 | 6.48 | 0.144 |
+| Deferred / forward | 727.99 | 200.48 | 6.31 | 0.133 |
+| Deferred / reverse | 753.25 | 272.71 | 7.04 | 0.165 |
+| Eager / reverse | 918.54 | 232.14 | 7.40 | 0.161 |
+
+All four retained 144 main modules / 2,130 cases, six source checks, both studies,
+the same ordered case digest and natural exit plus EOF. An earlier eager run
+failed an incorrect new source-only import oracle; it is excluded from this table,
+not counted as a successful full entry. The corrected oracle passed independently
+for both frozen variants before these controls.
+
+The paired complete entries improve by 19.9% and 18.0%; these are four observed
+samples, not a statistical tail bound. Loading preparation itself has no stable
+improvement and its worse sample remains unresolved. Own-process CPU and GC do
+not account for its wall residual; that residual is not exclusively dyld time.
+The full suite still needs the engine through its property tests. Avoided optional
+preparation in other compiler/client contexts must not be described as deleting
+that required complete-suite dependency.
+
+Lean's `optionalModuleEntry` preserves unchanged rows, current bindings, present
+false and failure causes on demand. `optionalPreparation_partition` charges only
+exclusive unused preparation. `optionalWorkflowWork_le_iff` additionally charges
+closures, argument rows, binding resolution and standard loader-entry admission:
+declared complete work improves exactly when this routing fits the saved work.
+Its negative control rejects routing 127 against savings 126. These are finite
+source-work laws, not compiler, physical allocation, GC or macOS latency proofs.
+They advance implementation preparation inspired by the author's shared delayed
+dictionary construction (`poof.scrbl:980–1008`), which is not a module-loader design.

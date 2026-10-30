@@ -3314,3 +3314,12 @@ candidate is excluded after GC cost acceptance failed. Lists, finite Maps/functi
 isolated generic acceptance now requires 115 cases. A service retry/replay example,
 source/cause controls, five finite Lean laws and the standard paired generation
 entry cover the work unit; see [P41](pbt-design-rfc.md#p41-finite-fixed-product-preparation-and-retained-trees).
+
+Ordinary DDT/assertion helpers no longer eagerly import typed generation or its
+report-admission engine. Optional operations reuse IO and the official loader;
+public expander observations and the recovered-command workflow guard the boundary.
+The 716-image inventory and fixed-source full-entry ABBA controls are documented
+in [representation](representation.md#optional-helper-dependency-closure).
+Both complete pairs improved, but first-loading preparation did not improve
+stably. Its wall residual, private macro-interface candidates and OS admission
+remain open qualification work; fewer direct imports do not close that boundary.
