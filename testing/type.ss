@@ -17,7 +17,7 @@
 (define-type Procedure (.cc Type. .element?: procedure?))
 ;; One existing Record contract owns sampler shape and source-list admission.
 (define-type GeneratorRecord
-  (Record descriptor: [Type] draw: [Procedure] shrink: [Procedure]
+  (Record descriptor: [Type] bound-descriptor: [Type] draw: [Procedure] shrink: [Procedure]
           measure: [Procedure] sources: [(List Object)] generation: [(OrFalse Procedure) default: #f]))
 ;; Generic policy recognition stays with the independent library's record type.
 (define-type PropertyPolicy (.cc Type. .element?: testing.policy?))
@@ -33,7 +33,7 @@
 ;; Additional mutable callback dependencies remain explicit source objects.
 (def (make-generator descriptor draw shrink measure dependencies: (dependencies []) generation: (generation #f))
   (unless (or (not generation) (core.generator? generation)) (error "generic generator required"))
-  (make-instance GeneratorRecord descriptor: descriptor draw: draw shrink: shrink
+  (make-instance GeneratorRecord descriptor: descriptor bound-descriptor: descriptor draw: draw shrink: shrink
     measure: measure sources: (cons descriptor dependencies)
     ;; A derived sampler that replaces a value callback owns a new protocol.
     ;; Do not keep using the inherited sample tree after that override.
@@ -61,10 +61,14 @@
   (Record State: [Type constant: state-type] initial: [state-type]
           step: [Procedure] observe: [Procedure]))
 
-;; Snapshot both descriptor and sampler identities; prototype revisions propagate
-;; through object-revision, including inherited declaration changes.
+;; One preparation boundary owns the constructor's declaration binding. Retarget
+;; through a fresh constructor, never by inheriting a different Type's parser/tree.
+;; Mandatory identities cannot be removed by replacing application dependencies.
 (def (generator-sources sampler)
-  (cons sampler (.get sampler sources)))
+  (def descriptor (.get sampler descriptor))
+  (unless (eq? descriptor (.get sampler bound-descriptor))
+    (error "sampler descriptor binding changed; construct a new sampler"))
+  (cons sampler (cons descriptor (.get sampler sources))))
 ;; Capture mutable sources once; non-generator observations supply explicit owners.
 (def (snapshot sampler dependencies)
   (map (lambda (source) (cons source (object-revision source)))
@@ -409,7 +413,11 @@
         (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
       dependencies: (append (list source TraceGenerator command-type (.get model State)
         (.get model Result) (.get model Observation)) dependencies)))
-    (set! result (.cc sampler .accept?: (lambda (commands)
+    ;; The bounded trace predicate is compiled against this model/declaration.
+    ;; Capture now, outside the lazy slot expression, just as Map/products do;
+    ;; later model or List metadata cannot silently retarget that predicate.
+    (def guard (source-guard (snapshot sampler []) sampler))
+    (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
       (and (list? commands) (<= (length commands) steps) (valid-trace? model commands)))
       limits: (.o bind-these: #f steps: steps)))
     result))

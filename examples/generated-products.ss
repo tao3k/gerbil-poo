@@ -46,6 +46,41 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "service schema migration constructs a fresh sampler and retains required Type ownership"
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def source (.cc schema .element?: (cut element? schema <>) .generator: (lambda ()
+        (make-generator source (lambda (_random _size) (make-instance schema count: 2 handler: abs))
+          (lambda (value) (if (zero? (.get value count)) [] (list (.cc value count: 0)))) (cut .get <> count)))))
+      (def target (Record [schema] region: [(Enum east west)]))
+      (def original (generator source))
+      (def calls 0) (def delivered 0)
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3 shrink-budget: 20))
+      ;; Migration is a declared value transformation, not a relabeling of the
+      ;; source grammar. Record initialization retains checked Function fields.
+      (def projected (core.generator-map (generator-core original) (lambda (value)
+        (make-instance target count: (.get value count) handler: (.@ value handler) region: 'west))))
+      ;; Each explicit constructor binds the target declaration afresh. Replacing
+      ;; optional dependencies cannot remove that mandatory revision owner.
+      (def (prepare) (.cc (from-generator target projected (cut .get <> count)) sources: []))
+      ;; The existing property Reader owns execution; FUN delivers reports once.
+      (def (run sampler)
+        ((property-action target (lambda (value) (set! calls (1+ calls)) (= ((.@ value handler) -1) 0))
+          (lambda (report) (set! delivered (1+ delivered)) report) sampler: sampler) configuration))
+      (def bad (run (.cc original descriptor: target)))
+      (check-eq? (.get bad status) 'error)
+      (check-equal? (list calls delivered) '(0 1))
+      (def fresh (run (prepare)))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (.get (.get fresh counterexample) count) 0)
+      (check-eq? (.get (.get fresh counterexample) region) 'west)
+      (check-exception ((.@ (.get fresh counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (.putslot! target 'epoch ($constant-slot-spec 1))
+      (check-exception (replay-property fresh) Error?)
+      (check-exception (replay-property bad) Error?)
+      (check-eq? (.get (run (prepare)) status) 'failed)
+      (check-equal? delivered 3))
     (test-case "service corpus scopes stop obsolete Record packing and retry through FUN"
       (for (stage '(encode decode))
         (def schema (Record count: [UInt] zone: [(Enum east west)] handler: [(Function [Integer] [Integer])]))

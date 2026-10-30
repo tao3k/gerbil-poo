@@ -46,8 +46,13 @@ exceptions remain errors with their original cause; they cannot produce a pass.
 Zero trials are refused. Every trial and shrink result checks source revisions;
 custom samplers must register additional mutable callback dependencies, or pass
 those sources explicitly through `check-property`'s `dependencies:` argument.
-Descriptors mutated during construction and undeclared ambient state are outside
-the stable callback premise. This is sequential revision admission, not an atomic
+Constructor-produced samplers retain their declaration binding. Changing only
+`descriptor` on an inherited sampler is refused; construct a new sampler (or use
+`from-generator` with an explicit checked value projection). Replacing `sources`
+never erases sampler/actual-Type ownership. Trace model/List metadata are fixed
+at construction; prepare a fresh trace sampler after revising those declarations.
+Already discovered recursive graph owners retain first-observation snapshots.
+Undeclared ambient state remains outside the stable callback premise. This is sequential revision admission, not an atomic
 concurrent publication protocol.
 
 Replay fixes seed, trial count, size, shrink budget and sampler. Repeatability
