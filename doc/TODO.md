@@ -1697,6 +1697,13 @@ early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw law
 
 Finite trace/value shrinking now rejects malformed outer spines and parameter
 results instead of salvaging prefixes, and rechecks sources between callbacks.
+P33 in [pbt-design-rfc.md](pbt-design-rfc.md) fixes FunctionArguments value
+admission: false field judgments are returned rather than discarded, and Gerbil
+andmap short-circuits supplied positional/optional/rest checks. Keyword checks
+inherit the same source boundary. Six call-admission/service FUN regressions and
+eight finite Boolean-fold laws cover this unit; shape selection/default semantics
+and arbitrary Type callback internals remain unchanged.
+
 P32 in [pbt-design-rfc.md](pbt-design-rfc.md) completes inherited admission across
 nested domains, typed product callbacks and portable replay stages. Child report
 publication observes parents after local refusal scopes unwind, without a new

@@ -15,8 +15,14 @@
     (let* ((signatures (.get function signatures)) (selected (select-signature signatures arguments)))
       (and selected
         (let (row (decode-arguments arguments (keyword-mode? signatures)))
-          (and (every identity (map element? (positional-types selected (length (car row))) (car row)))
-               (every (lambda (entry) (element? (cdr (assq (car entry) (.get selected keywords))) (cdr entry))) (cdr row))) #t)))))
+          ;; Gerbil owns the short-circuit traversal. A false field is the result,
+          ;; not a discarded intermediate expression; no later Type is observed.
+          (and (andmap (lambda (type value) (core.with-sources [] (element? type value)))
+                       (positional-types selected (length (car row))) (car row))
+               (every (lambda (entry)
+                 (core.with-sources []
+                   (element? (cdr (assq (car entry) (.get selected keywords))) (cdr entry)))) (cdr row))
+               #t))))))
 ;; One interpretation applies across clauses, exactly as in the checked wrapper.
 (def (keyword-mode? signatures)
   (ormap (lambda (signature) (pair? (.get signature keywords))) signatures))

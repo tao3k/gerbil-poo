@@ -1,5 +1,5 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(export service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
 (import ../object
         ../mop
         ../type
@@ -179,3 +179,13 @@
       (values value (.o handlers: (hash (0 (retired-call-callback value)))
         refresh: retired-call-callback)))
     seed context consume allowed?))
+
+;; Specialize the supplied input domains while retaining the real service's
+;; optional/keyword defaults and nested callback wrapping. FUN passes either the
+;; checked equivalence evidence or a shrinkable target discrepancy to consume.
+(def (service-admission-tests input callbacks coefficient target consume)
+  (def signature (Function [Integer] (list input) optional: (list callbacks)
+    keywords: (list (cons scale: coefficient) (cons offset: Integer))))
+  (def checked (validate signature target))
+  (property-action (FunctionArguments signature)
+    (lambda (arguments) (= (apply checked arguments) (apply service arguments))) consume))

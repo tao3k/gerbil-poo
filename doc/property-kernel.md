@@ -630,3 +630,13 @@ child's guard. Live parents may still receive non-passing child diagnostics.
 refusal, exact exceptions, cleanup, Record/Function wrapping and FUN retry/replay.
 The eight finite scope laws keep accurate observers and host scope fidelity as
 premises. No partial-write rollback or arbitrary callback interruption is claimed.
+
+
+P33 fixes supplied FunctionArguments field recognition. A structurally selected
+row must satisfy every supplied Type; the field conjunction is no longer thrown
+away. Gerbil andmap stops on the first false positional/optional/rest predicate,
+and keyword fields share the same source boundary. Ordered clause selection and
+raw keyword/escape decoding remain the runtime's own protocol. The existing
+signature-service example's service-admission-tests composes explicit input Types,
+callback Lists, defaults and FUN. The representation suite compares refusal with
+real Function wrapping and exercises domain errors, sources, shrinking and replay.
