@@ -1,6 +1,7 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
-(export scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+(export assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
 (import :std/test :std/error :std/iter
+        (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.))
@@ -396,3 +397,77 @@
     (check (replay.read-counterexample codec (open-input-string (get-output-string output)) domain (lambda (_) #f)) => #f)
     (check-exception (replay.write-counterexample old old-codec (open-output-string)) Error?)
     (check-equal? encodes 2)))
+
+
+;; Standard assertion admission uses actual reports; diagnostic callbacks supply
+;; display fields only. The surrounding TestSuite owns all positive controls.
+(def (assertion-test-cases!)
+  (test-case "formatter fields cannot promote a failed report or replace false cause"
+    (def calls 0) (def formats 0)
+    (def report (property.check-property (generator.generator-unit 1)
+      (lambda (_) (set! calls (1+ calls)) #f) (property.make-specification exact-integer? abs)
+      cases: 1 shrink-budget: 0))
+    (def failure (with-catch values (lambda () (assertion.require-passed report
+      diagnostics: (lambda (_) (set! formats (1+ formats))
+        '((status . passed) (cause . invented) (status . passed) (detail . rendered)))))))
+    (check-equal? (Error-message failure) "property check did not pass")
+    (def fields (Error-irritants failure))
+    (check-eq? (cdr (assq 'status fields)) 'failed)
+    (check-eq? (cdr (assq 'cause fields)) #f)
+    (check-equal? (length (filter (lambda (field) (eq? (car field) 'status)) fields)) 1)
+    (check-equal? (list calls formats) '(1 1)))
+  (test-case "passed report authority interrupts obsolete nested rendering work"
+    (def live #t) (def formats 0) (def mapped 0)
+    (def report (property.check-property (generator.make-generator (lambda (_r _s) 1) (lambda (_) [])
+      current?: (lambda () live)) positive? (property.make-specification exact-integer? abs) cases: 1))
+    (def failure (with-catch values (lambda () (assertion.require-passed report
+      diagnostics: (lambda (_)
+        (set! formats (1+ formats)) (set! live #f)
+        (generator.generate (generator.generator-map (generator.generator-unit 1)
+          (lambda (value) (set! mapped (1+ mapped)) value)) (generator.random-at 0) 0)
+        '((status . passed)))))))
+    (check-eq? (cdr (assq 'status (Error-irritants failure))) 'stale)
+    (check-equal? (list formats mapped) '(1 0))
+    (check-equal? (generator.sample-value (generator.generate (generator.generator-unit 7) (generator.random-at 0) 0)) 7))
+  (test-case "already stale passed reports suppress the formatter before any effect"
+    (def live #t) (def formats 0)
+    (def report (property.check-property (generator.make-generator (lambda (_r _s) 1) (lambda (_) [])
+      current?: (lambda () live)) positive? (property.make-specification exact-integer? abs) cases: 1))
+    (set! live #f)
+    (def failure (with-catch values (lambda () (assertion.require-passed report
+      diagnostics: (lambda (_) (set! formats (1+ formats)) '((status . passed)))))))
+    (check-eq? (cdr (assq 'status (Error-irritants failure))) 'stale)
+    (check-equal? formats 0))
+  (test-case "original report failures outrank rendering faults"
+    (def original (cons 'property 'fault)) (def secondary (cons 'render 'fault))
+    (def report (property.check-property (generator.generator-unit 1) (lambda (_) (raise original))
+      (property.make-specification exact-integer? abs) cases: 1))
+    (def failure (with-catch values (lambda ()
+      (assertion.require-passed report diagnostics: (lambda (_) (raise secondary))))))
+    (def fields (Error-irritants failure))
+    (check-eq? (cdr (assq 'status fields)) 'error)
+    (check-eq? (cdr (assq 'cause fields)) original)
+    (check-eq? (cdr (assq 'diagnostic-cause fields)) secondary))
+  (test-case "passing formatter and observer exceptions stay exact and malformed data cannot pass"
+    (def report (property.check-property (generator.generator-unit 1) positive?
+      (property.make-specification exact-integer? abs) cases: 1))
+    (def cause (cons 'render 'fault))
+    (check-eq? (with-catch values (lambda ()
+      (assertion.require-passed report diagnostics: (lambda (_) (raise cause))))) cause)
+    (check-exception (assertion.require-passed report diagnostics: (lambda (_) '(malformed))) Error?)
+    (def armed #f)
+    (def observed (property.check-property (generator.make-generator (lambda (_r _s) 1) (lambda (_) [])
+      current?: (lambda () (if armed (raise cause) #t))) positive?
+      (property.make-specification exact-integer? abs) cases: 1))
+    (set! armed #t)
+    (check-eq? (with-catch values (lambda () (assertion.require-passed observed))) cause))
+  (test-case "diagnostics cannot downgrade a valid report or manufacture missing execution"
+    (def formats 0)
+    (def report (property.check-property (generator.generator-unit 1) positive?
+      (property.make-specification exact-integer? abs) cases: 1))
+    (check (void? (assertion.require-passed report diagnostics: (lambda (_)
+      (set! formats (1+ formats)) '((status . failed) (cause . invented))))) => #t)
+    (check-equal? formats 1)
+    (def absent (with-catch values (lambda () (assertion.require-passed #f
+      diagnostics: (lambda (_) '((status . passed)))))))
+    (check-eq? (cdr (assq 'status (Error-irritants absent))) 'error)))

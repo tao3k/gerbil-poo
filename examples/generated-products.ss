@@ -3,6 +3,7 @@
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
+        (prefix-in (only-in ../support/testing require-property-passed) standard.)
         (only-in ../testing/generation-graph generation-refusal?)
         (prefix-in :clan/poo/testing/property/replay corpus.)
         (prefix-in (only-in ../fun Observation.) fun.))
@@ -47,6 +48,40 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "service FUN reports retain assertion authority across rendering and replay"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def rendered 0) (def mapped 0)
+      ;; Normal Record construction keeps the Function wrapper throughout shrinking.
+      (def (packet count) (make-instance service count: count handler: abs))
+      ;; The same Reader configuration prepares independent reports; the source
+      ;; epoch belongs to each report and cannot be refreshed by its formatter.
+      (def (action failing?)
+        (def sampler (make-generator service (lambda (_r _s) (packet 4))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0))))
+          (cut .get <> count) dependencies: (list owner)))
+        (property-action service (lambda (value)
+          (if failing? (= ((.@ value handler) -1) 0) (>= (.get value count) 0))) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 4 shrink-budget: 16))
+      (def failed ((action #t) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (def refused (with-catch values (lambda () (standard.require-property-passed failed
+        diagnostics: (lambda (_) '((status . passed) (cause . invented) (service . billing)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants refused))) 'failed)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (def passed ((action #f) configuration))
+      (def retired (with-catch values (lambda () (standard.require-property-passed passed
+        diagnostics: (lambda (_)
+          (set! rendered (1+ rendered)) (.set! owner epoch 1)
+          (core.generate (core.generator-map (core.generator-unit 1)
+            (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0)
+          '((status . passed)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants retired))) 'stale)
+      (check-equal? (list rendered mapped) '(1 0))
+      (check (void? (standard.require-property-passed ((action #f) configuration)
+        diagnostics: (lambda (report) (report-diagnostics report)))) => #t))
     (test-case "service products refuse a retired factory then retry shrink and replay through FUN"
       (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       (def descriptor (Tuple service UInt))

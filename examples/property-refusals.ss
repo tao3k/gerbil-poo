@@ -17,7 +17,7 @@
 (typed.define-property typed-fault ((input (Exactly 4)) (limit (Exactly 3))) (< input limit))
 ;; Unsupported preparation remains a named diagnostic error, never an implicit pass.
 (define-type Opaque (.cc Type. .element?: exact-integer?))
-;; All eight outcomes must be standard test failures with distinct PBT statuses.
+;; All eleven outcomes must be standard test failures with distinct PBT statuses.
 (def failing-properties-test
  (test-suite "PBT refusal integration"
   (test-case "typed named failure" (typed-fault seed: 42 cases: 1))
@@ -35,6 +35,21 @@
   (test-case "callback error"
    (pbt.check-property (p.check-property (g.generator-unit 1) (lambda (_) (raise #f))
      domain cases: 1 name: 'false-cause)))
+  (test-case "forged formatter cannot authorize falsification"
+   (pbt.check-property (p.check-property (g.generator-unit 1) (lambda (_) #f) domain cases: 1 shrink-budget: 0)
+     diagnostics: (lambda (_) '((status . passed)))))
+  (test-case "formatting cannot retire passed evidence and still authorize success"
+   (def live #t)
+   (def report (p.check-property (g.make-generator (lambda (_r _s) 1) (lambda (_) [])
+     current?: (lambda () live)) positive? domain cases: 1))
+   (pbt.check-property report diagnostics: (lambda (_) (set! live #f) '((status . passed)))))
+  (test-case "obsolete passed evidence skips formatter expression preparation"
+   (def live #t)
+   (def report (p.check-property (g.make-generator (lambda (_r _s) 1) (lambda (_) [])
+     current?: (lambda () live)) positive? domain cases: 1))
+   (set! live #f)
+   (pbt.check-property report diagnostics:
+     (begin (displayln "FORMAT-FACTORY-RAN") (lambda (_) '((status . passed))))))
   (test-case "unsupported generator"
    (pbt.check-property (p.check-property (g.generator-unit 1) (lambda (_) (error "unsupported fixture"))
      domain cases: 1 name: 'unsupported classify-error: (lambda (_) 'unsupported))))))

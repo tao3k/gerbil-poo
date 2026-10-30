@@ -3314,3 +3314,13 @@ candidate is excluded after GC cost acceptance failed. Lists, finite Maps/functi
 isolated generic acceptance now requires 115 cases. A service retry/replay example,
 source/cause controls, five finite Lean laws and the standard paired generation
 entry cover the work unit; see [P41](pbt-design-rfc.md#p41-finite-fixed-product-preparation-and-retained-trees).
+
+
+P42 fixes false standard-test success through diagnostic formatting. Actual kernel
+reports own status/currentness; formatting cannot promote failure or retire passed
+sources unnoticed. The existing typed standard helper consumes Record execution
+and preserves preparation refusal independently of rendering. Named checks keep
+do-check! ownership and one evaluation. The independent suite now requires 121
+cases; eleven deliberate CLI failures, typed controls, a FUN/Record/Function service
+example and seven finite admission laws cover the complete assertion boundary.
+See [P42](pbt-design-rfc.md#p42-authoritative-standard-assertions-and-checked-diagnostic-rendering).

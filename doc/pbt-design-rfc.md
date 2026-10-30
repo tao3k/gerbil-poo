@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P41 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P42 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 115 case receipts, an error-free result and
+through `gerbil test`. It requires all 121 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2705,3 +2705,58 @@ cover source refusal and skipping later factories. Finite lists, faithful source
 observers, serial terminating callbacks and faithful seed
 splitting remain premises. No Scheme runtime, PRNG-quality or arbitrary callback
 correctness proof is claimed.
+
+## P42: authoritative standard assertions and checked diagnostic rendering
+
+A standard TestSuite reproduction ran a false property, then supplied a custom
+formatter returning `((status . passed))`. The old assertion marked the case OK:
+`require-passed` admitted formatted fields rather than the actual report. A second
+path allowed formatting to retire a previously passed report's sources and still
+return a passing label. These are false-success defects in the standard assertion
+boundary, not a claim to sandbox arbitrary Scheme code.
+
+`testing/property/test` now takes the actual kernel report. The formatter supplies
+finite symbolic diagnostic fields only. Canonical status/cause replace every
+formatter copy of those reserved fields; duplicated labels cannot change truth.
+Passed reports check their sources before and after formatting and install the
+existing inherited checked-action scope, so nested work is interrupted after
+retirement. Already obsolete passed evidence skips rendering. The assertion macro defers
+formatter expression preparation until the owned callback; ordinary eager
+argument evaluation by a direct function caller remains outside that call. Nonpassing historical
+reports remain diagnosable but cannot authorize success. Original report failures
+outrank rendering errors, which are retained separately as `diagnostic-cause`.
+Renderer/observer exceptions on passing evidence retain their original identity.
+No property, draw, shrink or replay is repeated to decide the assertion.
+
+POO's existing `support/testing` consumes the execution retained by its Record
+report. `require-property-passed` also accepts reports delivered through FUN/Reader.
+Missing execution always refuses; its static typed preparation receipt supplies
+the original status/cause independently of a custom renderer. The generic
+`refusal:` option is diagnostic context for missing execution and cannot authorize
+passed. There is no diagnostics-as-authority compatibility path, new namespace,
+report class, test runner or POO dependency in the independent kernel.
+
+The pinned [Rackcheck RackUnit integration](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/rackunit.rkt)
+branches on `result-status` and uses rendering to construct failure messages. We
+follow that separation while retaining this RFC's distinct error, stale, coverage
+and exhaustion outcomes and Gerbil's standard do-check!/TestError ownership.
+The complete-source/parent checks and process/heap/depth/proposal limits remain
+unchanged. Callback termination, truthful source observers and faithful report
+metadata remain premises; private-record forgery is not a security boundary.
+
+Six generic cases cover forged/doubled status and cause, nested interruption,
+stale preflight, secondary formatting faults, exact observer/renderer exceptions,
+malformed fields and missing execution. The isolated stdlib-only suite now requires
+121 cases. Three typed cases preserve execution/preparation failure and inherited
+ownership. The standard refusal fixture grows from eight to eleven cases, explicitly
+requiring all eleven failures and zero CASE-OK markers. A Record/Function service
+example composes FUN reports, shrinking, both replay forms, forged formatting,
+retirement and fresh preparation without another report abstraction.
+
+Seven finite laws in PropertyScopes separate report presence, nominal status and
+source authority from arbitrary rendered payloads. They prove missing/nonpassed
+refusal, stale preflight, post-render retirement, stable admission, precise renderer
+causes and the necessary authority for success. The model concerns admission and
+protected status/cause; arbitrary presentation fields and the host's exception/
+TestResult machinery are not verified. It extends the paper's future-work protocol,
+not the original concrete evaluator or a compiler proof.

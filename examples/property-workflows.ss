@@ -34,10 +34,11 @@
   ;; A completed refusal is guard exit 1 or gxtest exit 42, in POSIX wait format.
   ;; Timeout, spawn refusal and signal termination cannot satisfy this control.
   (check (and (memv exit-status '(#x100 #x2a00)) #t) => #t)
-  (unless (= (length (filter (cut string-prefix? "CASE " <>) lines)) 8)
-    (error "PBT refusal fixture did not execute all eight cases" lines))
+  (unless (= (length (filter (cut string-prefix? "CASE " <>) lines)) 11)
+    (error "PBT refusal fixture did not execute all eleven cases" lines))
   (check-equal? (filter (cut string-prefix? "CASE-OK " <>) lines) [])
   (check-equal? (filter (cut string=? "OK" <>) lines) [])
+  (check-equal? (filter (cut string=? "FORMAT-FACTORY-RAN" <>) lines) [])
   (def text (string-join lines "\n"))
   (for (detail '("status . failed" "status . coverage" "status . exhausted" "status . stale"
                 "status . error" "status . unsupported" "left . 4" "right . 5"
