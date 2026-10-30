@@ -1596,3 +1596,58 @@ cases, the three declaration cases and both studies passed. Its standard build
 rebuilt the changed dependency closure (test phase 108.65 s); full tests took
 154.37 s. This reused prefix is functional acceptance, not an empty-prefix
 performance cohort or a claim that the first-load wait is fixed.
+
+### Fixed-source first-load controls
+
+The standard Just dependency graph now starts contracts, types, indexes and
+collections before the two shorter prototype/publication tails. No worker,
+backend, heap, deadline or test is added or removed. This avoids relying on
+parallel sibling launch order: one earlier control started collections only at
+282.151 seconds and failed the unchanged 300-second preparation deadline.
+The source-only declaration suite checks the actual `just --dump` graph.
+
+A fixed-source ABBA comparison kept the same canonical checkout path, compiler,
+12-core / four-package / two-backend configuration, initially absent package
+prefixes and full `just check 2 1 4 600` entry. The baseline was `6b6027e`,
+before the subsequent independent property-test changes. All controls used
+Gerbil `1cfb032` / Gambit `ea114fc` from the same installed compiler on macOS
+26.6.1. Compiler and OS caches were not purged; these are empty-project-prefix
+controls, not reboot-cold measurements.
+All four successful runs retained the same ordered 2,108-case trace and exited
+naturally, including the source-only checks and both studies.
+
+| Physical test layout | Full wall seconds | Preparation wall seconds |
+| --- | --- | --- |
+| Existing 144 modules, forward | 616.73 | 176.93 |
+| Candidate 131 modules, forward | 702.81 | 177.75 |
+| Candidate 131 modules, reverse | 600.57 | 170.08 |
+| Existing 144 modules, reverse | 620.48 | 177.36 |
+
+The candidate does not establish a stable wall/tail improvement and was withdrawn.
+Its changed module layout is not part of this PR. The successful baseline
+preparation phases took 158.98 and 145.11 seconds, below the unchanged deadline;
+these observations do not prove a deadline on arbitrary machines.
+
+The first/last standard TestModule fixtures report cumulative process CPU, wall,
+GC CPU, GC wall, collection count and raw allocation. The existing complete-entry
+observer checks both boundaries and monotonic GC/non-GC CPU before accepting the
+record. Raw allocation can be signed and is not treated as live bytes or a cost.
+The counters include bootstrap and initialization; they do not isolate either.
+Across these four first-load controls, preparation used only 5.52–7.03 seconds
+of process CPU and 0.114–0.139 seconds of GC CPU against 170.08–177.75 seconds
+of wall time. This rules out own-process CPU/GC as the dominant measured component,
+not external child or system work. A separate two-second diagnostic of the
+standard runner found 168 of 172 loading stack samples in
+`dyld -> mapSegments -> fcntl`; this identifies that sampled wait, not an exclusive
+timer for the whole residual. Profiling runs are not included in the timing table.
+
+Lean's `ProcessCounters.delta_partition` proves the exact abstract CPU split
+under valid cumulative snapshots and monotone GC/non-GC components. It does not
+verify floating-point measurements, the compiler, macOS loading, or a latency
+bound. EOF and successful natural process exit remain separate admission checks.
+
+After normally merging the independent property-testing work through `82232c1`,
+the unchanged complete entry naturally exited zero in 411.38 seconds: 144 compiled
+modules / 2,130 cases, five source-only declaration checks, and both studies passed.
+This reused a prepared prefix and overlapped Lean functional verification; it is
+source-current functional acceptance, not a cold timing sample or a speedup claim.
