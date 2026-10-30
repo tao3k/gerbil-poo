@@ -6,14 +6,6 @@
         (prefix-in :clan/poo/method-declaration methods.)
         (prefix-in :clan/poo/method-combination combination.))
 
-;; Expand real forms in an isolated standard definition body. Contract definitions
-;; emit declaration macros, so probing them as expressions would reject valid
-;; signatures before their own syntax checks. Keep positive controls on this path.
-(defsyntax (rejects? stx)
-  (syntax-case stx ()
-    ((_ form)
-     (try (core-expand #'(let () form (void))) #'#f (catch (_cause) #'#t)))))
-
 ;; Defaults resolve once before instance-method dispatch, including false values.
 (.defgeneric (collect self required (optional #f) tag: (tag 'default) . rest) slot: collect)
 ;; Type-provided methods receive the exact receiver followed by resolved arguments.
@@ -31,6 +23,14 @@
 ;; Exercise complete public APIs, receiver sharing, mutation discipline and effects.
 (def parameters-test
   (test-suite "object syntax and positional specialization"
+    ;; Keep suite-private expansion helpers out of the published interface.
+    ;; Expand real forms in an isolated standard definition body. Contract definitions
+    ;; emit declaration macros, so probing them as expressions would reject valid
+    ;; signatures before their own syntax checks. Keep positive controls on this path.
+    (defsyntax (rejects? stx)
+      (syntax-case stx ()
+        ((_ form)
+         (try (core-expand #'(let () form (void))) #'#f (catch (_cause) #'#t)))))
     (test-case "checked specialization admits exactly the snapshot used by its sole binder"
       (def names (list 'T 'U)) (def source (.o .parameters: names))
       (def seen #f) (def calls 0)

@@ -63,10 +63,10 @@
             (.all-slots T)))
 ;;(traceT)
 
-(def-table-test-accessors T)
-
 (def trie-test
   (test-suite "test suite for clan/poo/trie"
+    ;; Keep suite-private expansion helpers out of the published interface.
+    (def-table-test-accessors T)
     (init-test-random-source!)
     (test-case "set iterator maps native table entries"
       (def set (.call UIntTrieSet .<-list '(1 3 5)))

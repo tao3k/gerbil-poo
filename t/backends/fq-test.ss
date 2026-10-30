@@ -15,25 +15,26 @@
 
 (def (F_q<-F_2^n F)
   {(:: @ [F_q.] .<-n) .p: 2 .n: (.@ F .n) .xn: (.<-n (.@ F .xn))})
-(defrule (fqcheck (F <-n n<- + * inv expt) checks ...)
-  (let ()
-    (def (<-n n) (.call F .<-n n))
-    (def (n<- a) (.call F .n<- a))
-    (def (+ a b) (n<- (.call F .add (<-n a) (<-n b))))
-    (def (* a b) (n<- (.call F .mul (<-n a) (<-n b))))
-    ;;(def (/ a b) (n<- (.call F .div (<-n a) (<-n b))))
-    (def (inv a) (n<- (.call F .inv (<-n a))))
-    (def (expt a b) (n<- (.call F .expt (<-n a) b)))
-    checks ...))
-(defrule (f2check (F <-n n<- + * inv expt) checks ...)
-  (begin
-    (DBG "Testing F_2^n directly" 'n (.@ F .n))
-    (fqcheck (F <-n n<- + * inv expt) checks ...)
-    (DBG "Testing F_2^n via generic F_q" 'n (.@ F .n))
-    (fqcheck ((F_q<-F_2^n F) <-n n<- + * inv expt) checks ...)))
-
 (def fq-test
   (test-suite "test suite for clan/poo/fq"
+    ;; Private expansion helpers belong to this suite, not its module interface.
+    (defrule (fqcheck (F <-n n<- + * inv expt) checks ...)
+      (let ()
+        (def (<-n n) (.call F .<-n n))
+        (def (n<- a) (.call F .n<- a))
+        (def (+ a b) (n<- (.call F .add (<-n a) (<-n b))))
+        (def (* a b) (n<- (.call F .mul (<-n a) (<-n b))))
+        ;;(def (/ a b) (n<- (.call F .div (<-n a) (<-n b))))
+        (def (inv a) (n<- (.call F .inv (<-n a))))
+        (def (expt a b) (n<- (.call F .expt (<-n a) b)))
+        checks ...))
+    ;; Run the same arithmetic controls through direct and generic field representations.
+    (defrule (f2check (F <-n n<- + * inv expt) checks ...)
+      (begin
+        (DBG "Testing F_2^n directly" 'n (.@ F .n))
+        (fqcheck (F <-n n<- + * inv expt) checks ...)
+        (DBG "Testing F_2^n via generic F_q" 'n (.@ F .n))
+        (fqcheck ((F_q<-F_2^n F) <-n n<- + * inv expt) checks ...)))
     (test-case "simple tests for F_2^8"
       (f2check (F_2^8 <-n n<- + * inv expt)
         (check (+ #x57 0) => #x57)

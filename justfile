@@ -42,28 +42,39 @@ build: build-shared
     backends=$((cores / workers - 1))
     if (( backends < 1 )); then backends=1; fi
     printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
-    /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 300s just --jobs "$workers" _build-test-packages
+    if /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 300s just --jobs "$workers" _build-test-packages; then
+        exit 0
+    else
+        build_status=$?
+        # Standard make's interface marker can survive an interrupted backend.
+        # Its clean action invalidates the same declared outputs before retry.
+        printf 'BUILD-CLEANUP failed-preparation status=%s\n' "$build_status" >&2
+        if ! env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 90s just --jobs "$workers" _build-test-packages clean; then
+            printf 'BUILD-CLEANUP failed; standard clean is still required\n' >&2
+        fi
+        exit "$build_status"
+    fi
 
 [parallel]
-_build-test-packages: (_build-test-package "contracts") (_build-test-package "types") _build-test-prototypes _build-test-publication
+_build-test-packages action='build': (_build-test-package "contracts" action) (_build-test-package "types" action) (_build-test-prototypes action) (_build-test-publication action)
 
 # Standard sequential dependencies put all four large contexts in the first wave.
 # Keep the two shorter contexts behind indexes/collections; do not rely on sibling
 # launch order, which can otherwise postpone collections until the deadline.
-_build-test-prototypes: (_build-test-package "indexes") (_build-test-package "prototypes")
+_build-test-prototypes action='build': (_build-test-package "indexes" action) (_build-test-package "prototypes" action)
 
-_build-test-publication: (_build-test-package "collections") (_build-test-package "publication")
+_build-test-publication action='build': (_build-test-package "collections" action) (_build-test-package "publication" action)
 
 # The outer 300-second phase owns every child process group; avoid nested
 # timeout groups that can outlive the task runner after a failure.
-_build-test-package part:
+_build-test-package part action='build':
     #!/usr/bin/env bash
     set -euo pipefail
     cd "t/build/$1"
-    printf 'BUILD-PACKAGE-START %s\n' "$1"
+    printf 'BUILD-PACKAGE-START %s action=%s\n' "$1" "$2"
     # Bash's built-in time labels each real completion without another watchdog.
     TIMEFORMAT="BUILD-PACKAGE-TIME $1 real=%R user=%U sys=%S"
-    time {{ platform-env }} gerbil {{ test-runtime-options }} build
+    time {{ platform-env }} gerbil {{ test-runtime-options }} "$2"
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:

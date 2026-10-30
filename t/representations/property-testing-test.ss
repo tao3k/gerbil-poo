@@ -65,12 +65,13 @@
     (def runtime-options (string-append "GAMBOPT=" options
       (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
     ;; Standard process arguments and std/build-script own this isolated build.
-    ;; Stream prefixed diagnostics while preserving the exact captured text and
-    ;; run-process's original exit/status checks. END requires natural child exit.
+    ;; Inherit machine concurrency, and report CPU/system/wall time even when
+    ;; the unchanged watchdog refuses it. END still requires natural child exit.
     (def (run . arguments)
-      (displayln "PROPERTY-LIBRARY-START " (time->seconds (current-time)) " " arguments " directory=" project) (force-output)
+      (displayln "PROPERTY-LIBRARY-START " (time->seconds (current-time)) " " arguments
+        " cores=" (getenv "GERBIL_BUILD_CORES" "compiler-default") " directory=" project) (force-output)
       (def result
-        (run-process [timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
+        (run-process ["/usr/bin/time" "-p" timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
           (string-append "GERBIL_PATH=" package) runtime-options
           "gerbil" "-:max-heap=1G,debug=q" arguments ...] directory: project stderr-redirection: #t
           coprocess: (lambda (port)

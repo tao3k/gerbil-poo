@@ -15,15 +15,15 @@
   :clan/poo/number
   :clan/poo/type)
 
-(defrule (check-rep parse unparse rep obj)
-  (begin ;;let ((rep rep) (obj obj))
-    (check-equal? (parse rep) obj)
-    (check-equal? (unparse obj) rep)))
-
 (def Bytes2 (BytesN 2))
 
 (def type-test
   (test-suite "test suite for clan/poo/type"
+    ;; Keep suite-private expansion helpers out of the published interface.
+    (defrule (check-rep parse unparse rep obj)
+      (begin ;;let ((rep rep) (obj obj))
+        (check-equal? (parse rep) obj)
+        (check-equal? (unparse obj) rep)))
     (test-case "simple tests"
       (def MyRange (IntegerRange min: 100 max: 200))
       (map (λ-match ([type element] (assert! (element? type element))))

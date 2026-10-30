@@ -1,5 +1,40 @@
 # Persistent prototype maps and guarded slot layouts
 
+## Suite-local syntax and standard preparation recovery
+
+The thirteen test-owned phase-one images were audited against standard
+`test-suite` expansion. Its body already has lexical scope. Private syntax in fq,
+polynomial, trie, parameters, support and type checks now lives directly in that
+body, retaining every case and its order without another wrapper. Shared
+table-testing syntax and the six structure/class metadata owners remain required.
+The standard `list-modules` regression observes six fewer helper images after
+complete imports (711 file-backed entries in the measured candidate); it is not
+a loader, initializer-effect or timing proof.
+
+Failed backend preparation can leave standard make's declared interface/static
+markers with missing runtime objects. A successful retry then need not imply a
+loadable package. The existing package dependency graph now forwards standard
+`clean` after failure, preserving the original refusal. A real malformed-source
+control exercised all six cleanup packages, removed their interface markers and
+retained the root library unchanged. No second output inventory is maintained.
+
+The whole check uses machine-derived `GERBIL_BUILD_CORES`, four concurrent test
+packages on the measured 12-core machine, and two backend slots per package.
+Serial two-core preparation was withdrawn. A full-context independent-library
+build previously exceeded its 60-second watchdog; a standalone run took 22.90 s,
+and a sampled full-context repeat took 26.68 s. During the latter, all 184 frontend
+samples were waiting in `select`, with about 719 MiB footprint and active C
+backends. This does not retrospectively establish why the earlier run timed out.
+The fixture now reports inherited concurrency and standard process CPU/system/
+wall time even on timeout; its limits, isolated sources and cases are unchanged.
+
+The pre-merge complete check naturally exited zero in 307.33 s: preparation
+20.36 + 3.23 + 19.49 s, full suite 209.22 s, source declarations 2.70 s, collection
+study 15.09 s and generation study 31.32 s. All 144 modules, 2,161 main cases,
+six source cases and 121 isolated cases passed. Existing artifacts were reused;
+these figures are not cold-build or paired-speedup evidence. Later source
+additions require a fresh complete acceptance receipt.
+
 This implements the representation protocol acceptance target from TODO.md. The
 Racket paper's “Different instance representation” uses balanced maps and delayed
 sharing; “Same instance representation, different prototype representation” makes

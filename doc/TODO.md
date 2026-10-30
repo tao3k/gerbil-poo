@@ -3362,3 +3362,13 @@ fractional shrinking, pair corpus replay, source retirement and corrected retry.
 Ten finite Rat laws and symbolic examples cover normalization/bounds, canonical
 keys, pair recovery and strict descent. See
 [P45](pbt-design-rfc.md#p45-bounded-exact-ratio-generation-and-canonical-shrinking).
+
+The dependency-closure audit moves six suite-private macro groups into the
+standard TestSuite lexical body, retaining seven required syntax/type-metadata
+owners. Standard module observations reject reintroducing the six unnecessary
+images. Failed package preparation now forwards standard clean through the same
+declarations, preserving failure and preventing stale-marker admission on retry.
+Machine-derived build concurrency and the independent package's original limits
+remain unchanged. Full-context versus isolated build timing is reported separately;
+neither a warm pass nor fewer images establishes cold-loading tail improvement.
+See [the scope and measured receipt](representation.md#suite-local-syntax-and-standard-preparation-recovery).
