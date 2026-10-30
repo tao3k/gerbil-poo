@@ -1,14 +1,31 @@
 (export metadata-report-test test-setup!)
-(import :std/test :std/iter (only-in :std/list/list-builder with-list-builder) :clan/poo/benchmarks/closure-measure
+(import :std/test :std/iter (only-in :std/list/list-builder with-list-builder)
+        (only-in :gerbil/runtime/loader list-modules) :clan/poo/benchmarks/closure-measure
         (prefix-in :clan/poo/benchmarks/metadata-benchmark benchmark.) (only-in :clan/poo/benchmarks/metadata-report check-study))
-;; The official complete harness executes this first module after all imports.
-;; Focused runs report their own startup only; the observer verifies full-run order.
-(def (test-setup!) (report-process-counters 'prepared))
+;; Suite-local helpers expand before import; these six module stages are unused.
+(def private-helper-owners
+  '("clan/poo/t/backends/fq-test" "clan/poo/t/backends/polynomial-test"
+    "clan/poo/t/backends/trie-test" "clan/poo/t/objects/parameters-test"
+    "clan/poo/t/objects/support-test" "clan/poo/t/representations/type-test"))
+;; The complete harness executes this after all imports; focused runs have a
+;; smaller inventory. The existing observer checks complete-run order separately.
+;; Read the official registry without retaining loader state.
+(def (test-setup!)
+  (def modules (list-modules))
+  (displayln "TEST-IMPORT-INVENTORY "
+    (length (filter (lambda (entry) (string? (cdr entry))) modules)) " "
+    (length (filter (lambda (owner) (assoc (string-append owner "~1") modules)) private-helper-owners)))
+  (force-output)
+  (report-process-counters 'prepared))
 (def (study rows)
   `(metadata-benchmarks (status complete) (sources ,@(source-digests benchmark.sources))
      (rounds ,benchmark.rounds) (phases ,@benchmark.phases) (rows ,@rows)))
 (def metadata-report-test
   (test-suite "metadata study admission"
+    (test-case "suite helper image admission matches compiler scope"
+      (def modules (list-modules))
+      (for-each (lambda (owner)
+        (check (and (assoc (string-append owner "~1") modules) #t) => #f)) private-helper-owners))
     (test-case "missing duplicate stale and invalid allocation controls"
       (def rows (with-list-builder (add)
         (for* ((gc '(natural collected)) (round (in-range benchmark.rounds)) (phase benchmark.phases))
