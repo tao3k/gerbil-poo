@@ -3323,3 +3323,12 @@ in [representation](representation.md#optional-helper-dependency-closure).
 Both complete pairs improved, but first-loading preparation did not improve
 stably. Its wall residual, private macro-interface candidates and OS admission
 remain open qualification work; fewer direct imports do not close that boundary.
+
+P42 fixes false standard-test success through diagnostic formatting. Actual kernel
+reports own status/currentness; formatting cannot promote failure or retire passed
+sources unnoticed. The existing typed standard helper consumes Record execution
+and preserves preparation refusal independently of rendering. Named checks keep
+do-check! ownership and one evaluation. The independent suite now requires 121
+cases; eleven deliberate CLI failures, typed controls, a FUN/Record/Function service
+example and seven finite admission laws cover the complete assertion boundary.
+See [P42](pbt-design-rfc.md#p42-authoritative-standard-assertions-and-checked-diagnostic-rendering).

@@ -1,6 +1,6 @@
 ;;; POO acceptance helpers use the standard TestSuite and typed property protocols.
 
-(export (except-out #t check-typed-property report-typed-property require-property-passed))
+(export (except-out #t check-typed-property report-typed-property require-kernel-passed))
 
 (import
   (only-in :std/error check-argument)
@@ -10,6 +10,7 @@
   (only-in :std/func compose)
   (only-in ../io module-action)
   (only-in ../type Tuple)
+  (only-in ../object .get)
   ./io)
 
 ;; Ordinary assertions do not demand the typed generator engine. Standard IO
@@ -23,7 +24,7 @@
 
 ;; Keep the existing standard TestError admission policy at the optional owner;
 ;; ordinary helpers do not import the generic property engine just for this gate.
-(def require-property-passed
+(def require-kernel-passed
   (compose (module-action "clan/poo/testing/property/test"
     'clan/poo/testing/property/test#require-passed) list))
 
@@ -63,12 +64,19 @@
   (random-source-randomize! default-random-source)
   (displayln "GERBIL_TEST_RANDOM_SOURCE=" (0x<-random-source)))
 
+;; Assert the actual execution retained by the existing typed Record. Missing
+;; execution is an unconditional preparation failure; rendering cannot create it.
+;; This also admits reports delivered by ordinary FUN/Reader actions.
+(def (require-property-passed report diagnostics: (formatter report-typed-property))
+  (def execution (.get report execution))
+  (require-kernel-passed execution diagnostics: (lambda (_) (formatter report))
+    refusal: (and (not execution) (report-typed-property report))))
+
 ;; Typed assertions execute one runner and admit its current report through the
 ;; same standard boundary as generic checks. This form never returns report data.
 (defrule (check-property descriptor predicate options ...)
   (do-check! descriptor descriptor
-    (require-property-passed (report-typed-property
-      (check-typed-property descriptor predicate options ...)))))
+    (require-property-passed (check-typed-property descriptor predicate options ...))))
 
 ;; Fixed Type products reuse Tuple derivation; named bindings remain hygienic.
 ;; Dependent/refined domains use their existing explicit .generator composition.
@@ -76,8 +84,7 @@
   (def (name . options)
     (do-check! name name
       (require-property-passed
-        (report-typed-property
-          (apply check-typed-property (Tuple descriptor ...)
-            (lambda (row) (apply (lambda (argument ...) body ...) (vector->list row)))
-            name: 'name options)
-          bindings: '(argument ...))))))
+        (apply check-typed-property (Tuple descriptor ...)
+          (lambda (row) (apply (lambda (argument ...) body ...) (vector->list row)))
+          name: 'name options)
+        diagnostics: (lambda (report) (report-typed-property report bindings: '(argument ...)))))))

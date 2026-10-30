@@ -1,6 +1,7 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
-(import (prefix-in :clan/poo/testing/property/test assertion.)
+(export assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(import (prefix-in (only-in :clan/poo/support/testing require-property-passed) standard.)
+        (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.) :std/test :std/error :std/iter :std/io/tempfile
@@ -96,11 +97,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 115)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 121)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 115 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 121 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
@@ -295,12 +296,11 @@
       (check-equal? (core.sample-value (core.generate (generator-core zero-width) (core.random-at 4) 0)) #u8()))
     (test-case "nested data containers keep Type admission and fixed-byte widths"
       (def descriptor (Tuple (List (BytesN 3)) Symbol String))
-      (assertion.check-property (check-property descriptor (cut element? descriptor <>)
-        seed: 19 cases: 20 size: 4) diagnostics: report-diagnostics))
+      (standard.require-property-passed (check-property descriptor (cut element? descriptor <>)
+        seed: 19 cases: 20 size: 4)))
     (test-case "typed reports use the standard assertion and existing source guard"
-      (assertion.check-property
-        (check-property (Tuple Integer UInt) (lambda (row) (= (vector-length row) 2)) cases: 5)
-        diagnostics: report-diagnostics)
+      (standard.require-property-passed
+        (check-property (Tuple Integer UInt) (lambda (row) (= (vector-length row) 2)) cases: 5))
       (def source (.o epoch: 0))
       (def passed (check-property Integer positive? sampler: (fixed-integer 1 core.integer-shrinks)
         dependencies: (list source) cases: 1))
@@ -924,3 +924,43 @@
         (product-generator (Tuple Integer Integer) (list first last) vector->list list->vector))) cause)
       (check-equal? later 0)
       (check-equal? (core.sample-value (core.generate (core.generator-unit 9) (core.random-at 0) 0)) 9))))
+
+
+;; Typed report assertions delegate execution authority to the generic standard
+;; check; preparation refusals cannot be promoted by a diagnostic projection.
+(def assertion-admission-test
+  (test-suite "typed report assertion admission"
+    (test-case "typed formatters cannot promote falsification or preparation failure"
+      (def report (check-property Integer (lambda (_) #f)
+        sampler: (fixed-integer 1 (lambda (_) [])) cases: 1 shrink-budget: 0))
+      (def rejected (with-catch values (lambda () (standard.require-property-passed report
+        diagnostics: (lambda (_) '((status . passed) (cause . invented)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants rejected))) 'failed)
+      (check-eq? (cdr (assq 'cause (Error-irritants rejected))) #f)
+      (define-type Missing (.cc Type. .element?: exact-integer?))
+      (def refused (check-property Missing (lambda (_) #t) cases: 1))
+      (def absent (with-catch values (lambda () (standard.require-property-passed refused
+        diagnostics: (lambda (_) '((status . passed)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants absent))) 'error))
+    (test-case "typed rendering inherits actual execution source ownership"
+      (def owner (.o epoch: 0)) (def mapped 0)
+      (def report (check-property Integer positive? sampler: (fixed-integer 1 (lambda (_) []))
+        dependencies: (list owner) cases: 1))
+      (def rejected (with-catch values (lambda () (standard.require-property-passed report
+        diagnostics: (lambda (_)
+          (.set! owner epoch 1)
+          (core.generate (core.generator-map (core.generator-unit 1)
+            (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0)
+          '((status . passed)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants rejected))) 'stale)
+      (check-equal? mapped 0))
+    (test-case "typed preparation refusal preserves its exact cause under rendering failure"
+      (def original (cons 'prepare 'fault)) (def secondary (cons 'render 'fault))
+      (define-type Refused (.cc Type. .element?: exact-integer? .generator: (lambda () (raise original))))
+      (def report (check-property Refused (lambda (_) #t) cases: 1))
+      (def rejected (with-catch values (lambda () (standard.require-property-passed report
+        diagnostics: (lambda (_) (raise secondary))))))
+      (check-eq? (cdr (assq 'cause (Error-irritants rejected))) original)
+      (check-eq? (cdr (assq 'diagnostic-cause (Error-irritants rejected))) secondary)
+      (def truthful (with-catch values (lambda () (standard.require-property-passed report))))
+      (check-eq? (cdr (assq 'cause (Error-irritants truthful))) original))))
