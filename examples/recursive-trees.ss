@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export Tree Message Batch tree-tests tree-total)
+(export Tree Message Batch tree-tests tree-total source-tree-tests)
 (import ../object
         ../mop
         ../type
@@ -40,3 +40,22 @@
 ;; bounded service claim before passing the complete report to its IO consumer.
 (def (tree-tests consume)
   (property-action Tree (lambda (tree) (< (abs (tree-total tree 64)) 4)) consume))
+
+;; A shared Record leaf exercises typed carrier derivation and nested Function
+;; wrapping through the ordinary FUN action. trigger owns declared revisions;
+;; the intentionally false service claim supplies a shrinkable replay witness.
+(def (source-tree-tests owner trigger consume)
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema
+    .element?: (lambda (value) (trigger 'admit) (element? schema value))
+    .generator: (lambda ()
+      (make-generator Leaf
+        (lambda (_random size) (trigger 'draw) (make-instance schema key: size handler: abs))
+        (lambda (value) (trigger 'shrink)
+          (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (lambda (value) (trigger 'weight) (.get value key)) dependencies: (list owner)))))
+  (def descriptor (Tuple (List Leaf) (Pair Leaf (Maybe Leaf))))
+  (property-action descriptor (lambda (value)
+    (trigger 'property)
+    (= ((.@ (car (vector-ref value 1)) handler) -1) 0)) consume
+    sampler: (generator descriptor 8 node-budget: 128 search-budget: 20000)))

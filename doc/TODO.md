@@ -1697,6 +1697,13 @@ early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw law
 
 Finite trace/value shrinking now rejects malformed outer spines and parameter
 results instead of salvaging prefixes, and rechecks sources between callbacks.
+P31 in [pbt-design-rfc.md](pbt-design-rfc.md) closes source boundaries between
+recursive scalar admission, natural measurement, shrinking and bridge preparation.
+It reuses the existing run-local checker and Interaction interpreter, preserves
+refusal categories/causes/quotas, and adds four regression cases, a shared
+Record/Function FUN example and eight finite scalar-stage laws. Hidden mutations,
+arbitrary callback termination and host concurrency remain explicit boundaries.
+
 P30 in [pbt-design-rfc.md](pbt-design-rfc.md) closes generic model action source
 boundaries throughout draw, admission/repair and differential fixture execution.
 It reuses the existing callback guard, stops after registered revisions, preserves

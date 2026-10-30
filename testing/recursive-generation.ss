@@ -52,16 +52,24 @@
   (def stamps (append (graph-stamps graph) (capture (graph-sources graph))))
   ;; One graph observer is shared by all constructor nodes and deduplicated by identity.
   (def (graph-current?) (fresh? stamps nodes))
-  ;; Compile scalar bridges once per captured graph, not once per drawn leaf.
-  (def scalar-generators (list->vector (map (lambda (node)
-    (and (node-sampler node) (to-core (node-sampler node)))) (vector->list nodes))))
+  ;; Keep POO's precise refusal category. The existing transient check is scoped
+  ;; to preparation/evaluation and is never retained on a returned sample tree.
+  (def (check-graph!)
+    (unless (graph-current?) (refuse-generation 'stale)))
+  ;; Compile each bridge once. A custom bridge may revise a captured dependency;
+  ;; the following bridge must then remain unevaluated.
+  (def scalar-generators
+    (core.with-generation-check check-graph!
+      (list->vector (map (lambda (node)
+        (and (node-sampler node) (core.with-sources [] (to-core (node-sampler node)))))
+        (vector->list nodes)))))
   ;; Read a saturated minimum; zero depth never has an inhabitant.
   (def (cost index level) (vector-ref (vector-ref (graph-costs graph) level) index))
   ;; Scalar callbacks must supply natural weights; their failures are never false
   ;; property results or reasons to choose a different Union alternative.
   (def (leaf index node value (sample #f))
     (def sampler (node-sampler node))
-    (def weight (.call sampler measure value))
+    (def weight (core.with-sources [] (.call sampler measure value)))
     (unless (and (exact-integer? weight) (>= weight 0)) (error "invalid shrink measure" weight))
     (make-derivation index value [] (+ weight 1) 1 sample))
   ;; Fold independent child requests with explicit residual quota, using the same
@@ -90,7 +98,7 @@
     (if (eq? (node-kind node) 'leaf)
       (let* ((sample (core.generate (vector-ref scalar-generators index) random size))
              (value (core.sample-value sample)))
-        (unless (element? (node-descriptor node) value) (error "scalar generator left its descriptor"))
+        (unless (core.with-sources [] (element? (node-descriptor node) value)) (error "scalar generator left its descriptor"))
         (recursive.value (make-answer (leaf index node value sample) available)))
       (let* ((chosen
           (case (node-kind node)
@@ -117,7 +125,7 @@
     (cond
       ((eq? (node-kind node) 'empty) (recursive.value (make-answer #f available)))
       ((eq? (node-kind node) 'leaf)
-       (recursive.value (make-answer (and (element? (node-descriptor node) value) (leaf index node value)) available)))
+       (recursive.value (make-answer (and (core.with-sources [] (element? (node-descriptor node) value)) (leaf index node value)) available)))
       ((eq? (node-kind node) 'union)
        (let loop ((choices ids) (left available))
          (if (null? choices) (recursive.value (make-answer #f left))
@@ -151,7 +159,7 @@
     (def children (derivation-children witness))
     (def value (derivation-value witness))
     (if (eq? (node-kind node) 'leaf)
-      (recursive.value (make-answer (.call (node-sampler node) shrink value) (- remaining 1)))
+      (recursive.value (make-answer (core.with-sources [] (.call (node-sampler node) shrink value)) (- remaining 1)))
       (let (structural-count (if (eq? (node-kind node) 'list)
                               (core.list-deletion-count (length value) 0) 0))
         ;; Reserve the whole structural batch before invoking coordinate callbacks.
@@ -187,12 +195,12 @@
   ;; One observation is fresh and source-bound. A pending observation is a limit,
   ;; never a source error or proof of divergence. Host exceptions propagate intact.
   (def (run mode value allowance seed)
-    (unless (fresh? stamps nodes) (refuse-generation 'stale))
-    (let (result (recursive.solve program (+ (* 2 depth) 4) (list mode 0 depth allowance seed value)))
-    (when (recursive.pending? result) (refuse-generation 'observation))
-    (when (recursive.source-error? result) (error "unexpected recursive generation source error"))
-    (unless (fresh? stamps nodes) (refuse-generation 'stale))
-    (answer-value (recursive.value-result result))))
+    (core.with-generation-check check-graph!
+      (core.with-sources []
+        (let (result (recursive.solve program (+ (* 2 depth) 4) (list mode 0 depth allowance seed value)))
+          (when (recursive.pending? result) (refuse-generation 'observation))
+          (when (recursive.source-error? result) (error "unexpected recursive generation source error"))
+          (answer-value (recursive.value-result result))))))
   ;; Decode with a finite grammar derivation; a value outside the depth-bounded
   ;; domain is a refusal, not an assertion that its unbounded Type is empty.
   (def (parse value)
