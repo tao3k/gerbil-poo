@@ -138,8 +138,10 @@
           (check-eq? (last calls) target)
           (check-equal? checked 0))
         (set! calls [])
+        ;; Construction already captured the retired declaration/dependency epoch.
+        ;; Reusing this action must refuse before any model callback runs again.
         (check-eq? (.get (old-action configuration) status) 'stale)
-        (check-eq? (last calls) target)
+        (check-equal? calls [])
         (check-equal? checked 0)
         (check-eq? (.get ((prepare #f) configuration) status) 'passed)
         (check-equal? checked 1)))))
