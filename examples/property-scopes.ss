@@ -1,5 +1,5 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
-(export scope-test-cases! nested-scope-test-cases!)
+(export scope-test-cases! nested-scope-test-cases! classification-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
@@ -194,3 +194,93 @@
     (check-equal? (property.specification-weight (property.make-product-specification []) []) 0)
     (check-eq? (property.report-status (nested 0)) 'passed)
     (check-equal? visits 10)))
+
+
+;; Classification shares the execution/inspection source boundary. The original
+;; callback cause and confirmed progress belong to the report, not its classifier.
+(def (classification-test-cases!)
+  (test-case "execution and inspection classify under their own current sources"
+    (def live #t) (def calls 0) (def properties 0) (def cause (cons 'draw 'original))
+    (def domain (property.make-specification exact-integer? abs current?: (lambda () live)))
+    (def generation (generator.make-generator (lambda (_random _size) (raise cause)) (lambda (_) [])))
+    ;; Ending this owner's authority cannot publish the normal classification.
+    (def (classify _) (set! calls (1+ calls)) (set! live #f) 'unsupported)
+    (def report (property.check-property generation (lambda (_) (set! properties (1+ properties)) #t)
+      domain cases: 1 classify-error: classify))
+    (check-eq? (property.report-status report) 'stale)
+    (check-eq? (property.report-cause report) cause)
+    (check-equal? (list calls properties (property.report-attempts report) (property.report-steps report)) '(1 0 0 0))
+    (check-exception (property.replay-counterexample report) Error?)
+    (set! live #t)
+    (def inspection (property.inspect-generator generation domain count: 1 classify-error: classify))
+    (check-eq? (property.inspection-status inspection) 'stale)
+    (check-eq? (property.inspection-cause inspection) cause)
+    (check-equal? (list calls (property.inspection-draws inspection) (property.inspection-attempts inspection)) '(2 1 0)))
+  (test-case "classification suppresses obsolete nested generation and unwinds its scope"
+    (def live #t) (def mapped 0) (def cause (cons 'failed 'root))
+    (def generation (generator.make-generator (lambda (_random _size) (raise cause)) (lambda (_) [])))
+    (def domain (property.make-specification exact-integer? abs current?: (lambda () live)))
+    ;; The shared checker must interrupt before the mapper, not after classification.
+    (def (classify _)
+      (set! live #f)
+      (generator.generate (generator.generator-map (generator.generator-unit 1)
+        (lambda (value) (set! mapped (1+ mapped)) value)) (generator.random-at 3) 0)
+      'unsupported)
+    (def report (property.check-property generation (lambda (_) #t) domain cases: 1 classify-error: classify))
+    (check-eq? (property.report-status report) 'stale)
+    (check-eq? (property.report-cause report) cause)
+    (check-equal? mapped 0)
+    (check-eq? (property.report-status (property.check-property (generator.generator-unit 1)
+      (lambda (_) #t) (property.make-specification exact-integer? abs) cases: 1)) 'passed))
+  (test-case "secondary classifier and observer errors keep the original failure"
+    (for (stage '(classifier observer))
+      (def broken #f) (def calls 0) (def cause (cons stage 'original)) (def secondary (cons stage 'secondary))
+      ;; A failing observer is an error, never a fabricated stale judgment.
+      (def (current) (if broken (raise secondary) #t))
+      (def generation (generator.make-generator (lambda (_random _size)
+        (when (eq? stage 'observer) (set! broken #t)) (raise cause)) (lambda (_) [])))
+      (def report (property.check-property generation (lambda (_) #t)
+        (property.make-specification exact-integer? abs current?: current) cases: 1
+        classify-error: (lambda (_) (set! calls (1+ calls)) (raise secondary))))
+      (check-eq? (property.report-status report) 'error)
+      (check-eq? (property.report-cause report) cause)
+      (check-equal? calls (if (eq? stage 'classifier) 1 0))))
+  (test-case "stale and bounded exhaustion retain precedence without calling a classifier"
+    (def calls 0)
+    ;; Built-in bounded outcomes bypass caller-specific error interpretation.
+    (def (classify _) (set! calls (1+ calls)) 'unsupported)
+    (for (kind '(stale exhausted))
+      (let* ((generation (if (eq? kind 'stale)
+               (generator.make-generator (lambda (_random _size) 1) (lambda (_) []) current?: (lambda () #f))
+               (generator.generator-delay (lambda () (generator.generator-unit 1)) depth: 0)))
+             (report (property.check-property generation (lambda (_) #t)
+               (property.make-specification exact-integer? abs) cases: 1 classify-error: classify)))
+        (check-eq? (property.report-status report) kind)))
+    (check-equal? calls 0))
+  (test-case "classification refusal retains confirmed shrinking progress and exact cause"
+    (def live #t) (def cause (cons 'property 'failure))
+    (def generation (generator.make-generator (lambda (_random _size) 4)
+      (lambda (value) (if (> value 2) (list (1- value)) []))))
+    (def report (property.check-property generation (lambda (value) (if (= value 2) (raise cause) #f))
+      (property.make-specification exact-integer? abs current?: (lambda () live)) cases: 1 shrink-budget: 10
+      classify-error: (lambda (_) (set! live #f) 'unsupported)))
+    (check-eq? (property.report-status report) 'stale)
+    (check-eq? (property.report-cause report) cause)
+    (check-equal? (list (property.report-original report) (property.report-counterexample report)
+      (property.report-attempts report) (property.report-steps report) (property.report-minimal? report)) '(4 3 2 1 #f))
+    (check-exception (property.replay-counterexample report) Error?))
+  (test-case "fresh classifications replay without becoming passing or false evidence"
+    (for (status '(error exhausted unsupported))
+      (def cause (cons status 'original)) (def calls 0)
+      (def generation (generator.make-generator (lambda (_random _size) (raise cause)) (lambda (_) [])))
+      ;; Classification is run once per execution, including an explicit seed replay.
+      (def (classify _) (set! calls (1+ calls)) status)
+      (def report (property.check-property generation (lambda (_) #t)
+        (property.make-specification exact-integer? abs) cases: 1 classify-error: classify))
+      (def replayed (property.replay-property report))
+      (check-eq? (property.report-status report) status)
+      (check-eq? (property.report-status replayed) status)
+      (check-eq? (property.report-cause replayed) cause)
+      (check (property.report-current? report) => #t)
+      (check-equal? calls 2)
+      (check-exception (property.replay-counterexample report) Error?))))

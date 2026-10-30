@@ -188,8 +188,14 @@
 (def (failure-status cause current classify)
   (if (stale-generation? cause) 'stale
     (with-catch (lambda (_) 'error)
-      (lambda () (if (current)
-        (if (generation-exhausted? cause) 'exhausted (classify cause)) 'stale)))))
+      (lambda ()
+        ;; Classification is an owned action too. Its local refusal returns stale
+        ;; without replacing the original failure or leaking its checker into a
+        ;; report. Nested generators must stop before running obsolete effects.
+        (let/cc obsolete
+          (def (stop _status _minimal?) (obsolete 'stale))
+          (with-current current stop
+            (if (generation-exhausted? cause) 'exhausted (classify cause))))))))
 ;; Both execution owners retain the precise visited leaves, including rejected
 ;; proposals. Identity deduplication preserves the existing source-check order.
 (def (observe-sources tree seen sources)

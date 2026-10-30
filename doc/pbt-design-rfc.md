@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P34 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P35 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 97 case receipts, an error-free result and
+through `gerbil test`. It requires all 103 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2311,3 +2311,65 @@ policy; it does not change quotas, Map representation, key uniqueness, hash orde
 shrinker provenance or replay identity. Registered dynamic source boundaries are
 an explicit extension, not a missing Rackcheck guarantee. No performance claim is
 made from callback counts alone.
+
+
+## P35: source-consistent error classification and terminal diagnostics
+
+Audit reproduced a completed `unsupported` report whose `report-current?` was
+already false: the original draw threw, the error classifier revised its own
+specification source, and `failure-status` checked currentness only before calling
+that classifier. Inspection used the same exit. A classifier could also start a
+nested generator after retiring the current run and execute its mapper before
+publication was eventually checked.
+
+`failure-status` now reuses the existing hygienic `with-current` action. A local
+refusal continuation returns `stale`; the standard dynamic checker also protects
+nested generator/domain callbacks. Normal return observes the same currentness
+again. No new report, exception type, wrapper per callback or classification engine
+is added. Run-local scopes unwind normally and are not stored on reports.
+
+The original callback cause always remains the report's cause. A secondary
+classifier or source-observer exception yields `error` with that original cause;
+a classifier's normal return after source revision yields `stale`. Precise stale
+and built-in bounded-generation exhaustion keep their precedence and do not invoke
+the application classifier. Stable lawful classifications remain `error`,
+`exhausted` or `unsupported` (and the existing allowed `stale` outcome). Invalid
+classification symbols remain API errors; they are not accepted as reports.
+Interrupted shrinking retains the last confirmed witness, charged attempts and
+accepted steps, but cannot certify a minimum or authorize concrete replay.
+
+Six generic regression cases in `examples/property-scopes.ss` cover execution and
+inspection, nested effect suppression/unwinding, secondary errors, built-in outcome
+precedence, partial shrink progress and explicit seed replay. They register in the
+existing independent standard TestSuite; the isolated stdlib-only library grows
+from 97 to 103 cases. There is no new module inventory or test runner.
+
+`service-classification-action` in `examples/generated-products.ss` provides the
+complete downstream composition. POO owns a strict service Record with UInt count
+and checked Function, typed sampler sources and validation. The independent runner
+owns the application error classifier and generic report. Reader/FUN bind delivers
+that report once. Negotiation replaces a declared recipe while classifying its
+service failure; the obsolete normal classification is refused, the original
+cause is retained and old seed replay is rejected. Explicit fresh preparation
+then draws validated Records, shrinks the service discrepancy, retains Function
+argument checks and supports both concrete and seed replay. Reusing the old action
+still refuses without another classification. PropertyConfiguration is unchanged.
+
+Six `classifyFailure` laws in `PropertyScopes.lean` reuse `guardedGeneration` and
+the existing CheckStatus vocabulary. They establish stale preflight, revision
+refusal, secondary-error handling, exact stable classification, preservation of
+the original cause and non-passing/non-falsified outcomes under a lawful classifier.
+Top-level examples exercise recipe replacement and explicit fresh epochs. Accurate
+pure total source predicates, faithful host dynamic scope, terminating serial
+callbacks and valid classification outputs are premises. Observer exceptions and
+host continuation cleanup remain executable tests; no Scheme evaluator, arbitrary
+callback termination, GC or wall-clock behavior is proved.
+
+The pinned [Rackcheck property executor](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/prop.rkt)
+separates property execution and shrink-tree descent but intentionally maps property
+exceptions through `pass?` to falsification while retaining the exception. This RFC
+keeps its established stricter failure vocabulary; dynamic source authority is our
+extension, not a missing Rackcheck promise. Lazy tree structure, forcing policy,
+random schedule, domains, quotas, independent library ownership and process/heap
+limits are unchanged. Classification source checks have a cost; no wall-clock
+speedup is inferred from suppressed callbacks.

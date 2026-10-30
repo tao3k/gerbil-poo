@@ -1,11 +1,70 @@
 ;;; Typed products inherit the enclosing run's admission through ordinary modules.
-(export generated-products-test)
+(export generated-products-test service-classification-action)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type
-        (prefix-in :clan/poo/testing/property/generator core.))
+        (prefix-in :clan/poo/testing/property/generator core.)
+        (prefix-in :clan/poo/testing/property property.)
+        (prefix-in (only-in ../fun Observation.) fun.))
+
+;; A downstream error policy is separate from the typed request domain. Capture
+;; recipe authority once, derive/wrap service Records through POO, and deliver the
+;; generic report with the ordinary Reader/FUN bind. Retry explicitly prepares a
+;; new action; neither a classifier nor seed replay renews the old recipe.
+(def (service-classification-action recipe classify consume)
+  (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def stamp (object-revision recipe))
+  (def sampler (make-generator schema
+    (lambda (_random _size)
+      (if (.get recipe blocked?) (raise (.get recipe cause))
+        (make-instance schema count: 2 handler: abs)))
+    (lambda (value) (if (zero? (.get value count)) [] (list (.cc value count: 0))))
+    (cut .get <> count) dependencies: (list recipe)))
+  (def domain (property.make-specification (cut element? schema <>) (.@ sampler measure)
+    current?: (lambda () (= stamp (object-revision recipe)))))
+  (.call fun.Observation. .bind
+    (lambda (configuration)
+      (property.check-property (generator-core sampler)
+        (lambda (value) (= ((.@ value handler) -1) 0)) domain
+        seed: (.get configuration seed) cases: (.get configuration cases)
+        size: (.get configuration size)
+        size-limit: (or (.get configuration size-limit)
+          (and (not (procedure? (.get configuration size))) (.get configuration size)))
+        shrink-budget: (.get configuration shrink-budget) policy: (.get configuration policy)
+        classify-error: classify))
+    (lambda (report) (lambda (_configuration) (consume report)))))
 
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "Record Function service classification retires its recipe then retries through FUN"
+      (def cause (cons 'service 'unavailable))
+      (def recipe (.o bind-these: #f blocked?: #t cause: cause))
+      (def classified 0) (def delivered 0)
+      (def configuration (make-instance PropertyConfiguration seed: 23 cases: 1 size: 3 shrink-budget: 10))
+      ;; Negotiation replaces the declared recipe: its normal unsupported result
+      ;; is obsolete, and the original service failure stays available for diagnosis.
+      (def (classify original)
+        (check-eq? original cause)
+        (set! classified (1+ classified))
+        (.putslot! recipe 'blocked? ($constant-slot-spec #f))
+        'unsupported)
+      ;; Reader composition delivers exactly one completed report per action.
+      (def (consume report) (set! delivered (1+ delivered)) report)
+      (def old-action (service-classification-action recipe classify consume))
+      (def old (old-action configuration))
+      (check-eq? (property.report-status old) 'stale)
+      (check-eq? (property.report-cause old) cause)
+      (check-equal? (list classified delivered) '(1 1))
+      (check-exception (property.replay-property old) Error?)
+      (let (fresh ((service-classification-action recipe classify consume) configuration))
+        (check-eq? (property.report-status fresh) 'failed)
+        (check-equal? (.get (property.report-counterexample fresh) count) 0)
+        (check-exception ((.@ (property.report-counterexample fresh) handler) 'invalid) TypeError?)
+        (check (property.replay-counterexample fresh) => #f)
+        (check-eq? (property.report-status (property.replay-property fresh)) 'failed))
+      (check-equal? (list classified delivered) '(1 2))
+      (check-eq? (property.report-status (old-action configuration)) 'stale)
+      (check-equal? (list classified delivered) '(1 3))
+      (check-exception (property.replay-property old) Error?))
     (test-case "Record Function products refuse ancestor revision before packing and retry through FUN"
       (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       (def descriptor (Tuple schema schema))
