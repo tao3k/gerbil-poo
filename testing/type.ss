@@ -1,5 +1,5 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
@@ -112,24 +112,39 @@
              (call (.@ (car children) shrink) (car values)))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Products share draw/shrink/measure composition for tuples, pairs and call rows.
-(def (product-generator descriptor children unpack pack)
+(def (product-generator descriptor (children :~ list?) (unpack : :procedure) (pack : :procedure))
   (set! children (list-copy children))
-  (def owners (snapshot #f (list descriptor)))
-  (def domain (testing.make-product-specification
-    (map-in-order (lambda (child) (property-specification child (snapshot child []))) children)
-    current?: (lambda () (current? owners))))
-  ;; The generic product owns all field/owner stamps, including an empty product.
-  ;; One boundary also protects representation callbacks and value-only shrinking.
-  (def (current) (testing.specification-current? domain))
-  (def (checked action . arguments)
+  (unless (object? descriptor) (validate Type descriptor))
+  (for (child children) (unless (object? child) (validate GeneratorRecord child)))
+  (def owners (snapshot #f (cons descriptor children)))
+  ;; All known participants precede metadata/factory reads, even if a later child
+  ;; has not yet supplied its additional dependencies. This checker is transient.
+  (def admission (lambda () (current? owners)))
+  (def (check!) (unless (admission) (refuse-generation 'stale)))
+  (core.with-generation-check check!
     (core.with-sources []
-      (unless (current) (refuse-generation 'stale))
-      (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
-  (.cc (from-generator descriptor
-    (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
-    (lambda (value) (testing.specification-weight domain (checked unpack value)))
-    shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
-    dependencies: (apply append (map generator-sources children))) .current?: current))
+      (validate Type descriptor)
+      (def domain (testing.make-product-specification
+        (map-in-order (lambda (child) (core.with-sources []
+          (def captured (snapshot child []))
+          (set! owners (append owners captured))
+          (property-specification child captured))) children)
+        current?: (lambda () (current? owners))))
+      ;; The generic product owns all field/owner stamps, including an empty product.
+      ;; One boundary also protects representation callbacks and value-only shrinking.
+      (def (current) (testing.specification-current? domain))
+      ;; Once all domains exist, their captured Type/dependency/hook judgments
+      ;; join the SAME checker before any factory runs; no new scope is layered.
+      (set! admission current)
+      (def (checked action . arguments)
+        (core.with-sources []
+          (unless (current) (refuse-generation 'stale))
+          (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
+      (.cc (from-generator descriptor
+        (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
+        (lambda (value) (testing.specification-weight domain (checked unpack value)))
+        shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
+        dependencies: (apply append (map generator-sources children))) .current?: current))))
 
 ;; Finite-key Maps reuse their existing validation/wrapping protocol once per
 ;; materialized node. Key validation must preserve the supplied representation;
@@ -364,10 +379,43 @@
   (testing.replay-counterexample (.get report execution)))
 
 
+;; Trace preparation observes each declaration before requesting the next one.
+;; The same private scope serves generation, repair and differential execution;
+;; a later computed field must never refresh an earlier Type's revision stamp.
+(defrule (with-trace-model model contract (sources retain! checked) body ...)
+  (let (schema contract)
+    (unless (object? model) (validate schema model))
+    (def sources (make-parameter (snapshot #f (list model schema))))
+    ;; Append stamps without replacing an earlier observation of the same owner.
+    (def (retain! owners) (sources (append (sources) (snapshot #f owners))))
+    ;; Dynamic admission also reaches nested generator/iterator operations.
+    (def (check!) (unless (current? (sources)) (refuse-generation 'stale)))
+    ;; One existing action boundary preserves values and exact callback causes.
+    (def (checked action . arguments) (core.with-sources [] (apply action arguments)))
+    ;; Record validation can force computed metadata, so capture raw fields first,
+    ;; then retain any normalized owners returned by the ordinary Record protocol.
+    (def (capture! owner)
+      (retain! (list owner))
+      (for (name '(Command State Result Observation))
+        (unless (.slot? owner name) (checked validate schema owner))
+        (let (descriptor (checked .ref owner name))
+          (unless (object? descriptor) (checked validate Type descriptor))
+          (retain! (list descriptor)))))
+    (core.with-generation-check check!
+      (capture! model)
+      (set! model (checked validate schema model))
+      (capture! model)
+      (checked (lambda () body ...)))))
+
+;; Shared callback lifting keeps validation/transition stages separate under the
+;; active declaration scope, including pure admission and dependency repair.
+(def (trace-callback action)
+  (lambda arguments (core.with-sources [] (apply action arguments))))
+
 ;; Type preparation is a domain layer over the ordinary Gerbil model protocol.
 ;; Capture declarations once. A scoped observation can bracket each callback with
 ;; the same wrapper; pure generation/repair keep identity and the same evaluator.
-(def (prepare-model model (normalize identity) (wrap identity))
+(def (prepare-model model (normalize identity) (wrap trace-callback))
   (def state (wrap (cut validate (.get model State) <>)))
   (def result (wrap (cut validate (.get model Result) <>)))
   (def initial (wrap (.@ model initial)))
@@ -382,45 +430,55 @@
     (wrap (cut element? (.get model Command) <>)) (wrap normalize)))
 ;; Prefix admission and dependency repair share the generic fold; neither owns a
 ;; second traversal or invokes an actual backend during model validation.
-(def (valid-trace? model commands) (model.valid-trace? (prepare-model model) commands))
+(def (valid-trace? model commands)
+  (with-trace-model model TraceModel (sources retain! checked)
+    (model.valid-trace? (prepare-model model) commands)))
 ;; The domain normalizer preserves nested Function wrapping while retiring dependents.
-(def (repair-trace model commands) (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands))
+(def (repair-trace model commands)
+  (with-trace-model model TraceModel (sources retain! checked)
+    (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands)))
 
 ;; Build an ordinary List sampler; the existing runner owns random sources,
 ;; report stamps, proposal budgets and strict decrease/falsity admission.
 ;; Only the bounded command spine is specialized, not the generation framework.
 (def (trace-generator command-type model steps: (steps 64) dependencies: (dependencies []))
   (def source model)
-  (set! model (validate TraceGenerator model))
-  (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
-  (using (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))))
-    (def result #f)
-    ;; The Type's existing .generator extension makes this sampler usable by
-    ;; ordinary check-property/property-action without a parallel dispatch path.
-    (def descriptor (.cc (List command-type)
-      .generator: (lambda () (or result (error "trace generator not initialized")))))
-    (def sampler (make-generator descriptor
-      (lambda (random size)
-        (model.draw-trace (prepare-model model (cut validate (.get model Command) <>))
-          (lambda (state random size)
-            (match (.call model draw state random size)
-              (#f (values #f #f)) ((some command) (values #t command))
-              (else (error "trace draw requires Option")))) steps random size))
-      (lambda (commands)
-        (model.shrink-trace (prepare-model model (cut validate (.get model Command) <>))
-          commands (.@ model shrink)))
-      (lambda (commands)
-        (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
-      dependencies: (append (list source TraceGenerator command-type (.get model State)
-        (.get model Result) (.get model Observation)) dependencies)))
-    ;; The bounded trace predicate is compiled against this model/declaration.
-    ;; Capture now, outside the lazy slot expression, just as Map/products do;
-    ;; later model or List metadata cannot silently retarget that predicate.
-    (def guard (source-guard (snapshot sampler []) sampler))
-    (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
-      (and (list? commands) (<= (length commands) steps) (valid-trace? model commands)))
-      limits: (.o bind-these: #f steps: steps)))
-    result))
+  (with-trace-model model TraceGenerator (sources retain! checked)
+    (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
+    (using (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))))
+      ;; Compile the captured callbacks once. Guarded invocations still acquire
+      ;; fresh model state; admission does not revalidate metadata per proposal.
+      (def admission (checked prepare-model model))
+      (def prepared (checked prepare-model model (cut validate command-type <>)))
+      (def result #f)
+      ;; The Type's existing .generator extension makes this sampler usable by
+      ;; ordinary check-property/property-action without a parallel dispatch path.
+      (def descriptor (.cc (List command-type)
+        .generator: (lambda () (or result (error "trace generator not initialized")))))
+      (def sampler (make-generator descriptor
+        (lambda (random size)
+          (model.draw-trace prepared
+            (lambda (state random size)
+              (match (.call model draw state random size)
+                (#f (values #f #f)) ((some command) (values #t command))
+                (else (error "trace draw requires Option")))) steps random size))
+        (lambda (commands)
+          (model.shrink-trace prepared
+            commands (.@ model shrink)))
+        (lambda (commands)
+          (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
+        dependencies: (append (list source TraceGenerator command-type (.get model State)
+          (.get model Result) (.get model Observation)) dependencies)))
+      ;; The bounded trace predicate is compiled against this model/declaration.
+      ;; Capture now, outside the lazy slot expression, just as Map/products do;
+      ;; later model or List metadata cannot silently retarget that predicate.
+      (def own (source-guard (snapshot sampler []) sampler))
+      (def stamps (sources))
+      (def guard (lambda () (and (current? stamps) (own))))
+      (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
+        (and (list? commands) (<= (length commands) steps) (model.valid-trace? admission commands)))
+        limits: (.o bind-these: #f steps: steps)))
+      result)))
 
 ;; Validate observed replies and snapshots at ONE comparison boundary. A declared
 ;; equality relation must return Boolean; an exception is an error, never a pass.
@@ -434,53 +492,37 @@
 (def (check-trace model commands with-system same?: (same? equal?))
   (require-value with-system procedure? (lambda () (error "trace fixture must be a procedure")))
   (require-value same? procedure? (lambda () (error "trace equality must be a procedure")))
-  ;; Invalid scalars retain normal Type errors before object-revision is consulted.
-  (unless (object? model) (validate TraceModel model))
-  (def sources (snapshot #f (list model TraceModel)))
-  ;; Retain old stamps when normalized owners or fixture declarations are added;
-  ;; later capture can never refresh authority for an earlier changed owner.
-  (def (retain! owners) (set! sources (append sources (snapshot #f owners))))
-  ;; One action boundary owns every callback, preserving multiple values and
-  ;; original exceptions. Refusal never rolls back already performed effects.
-  (def (checked action . arguments)
-    (unless (current? sources) (refuse-generation 'stale))
-    (begin0 (apply action arguments)
-      (unless (current? sources) (refuse-generation 'stale))))
-  ;; Prepare each method wrapper once, rather than layering a new object protocol.
-  (def (wrap action) (lambda arguments (apply checked action arguments)))
-  (set! model (checked validate TraceModel model))
-  (retain! (checked (lambda () (list model (.get model Command) (.get model State)
-    (.get model Result) (.get model Observation)))))
-  (def normalized (checked validate (List (.get model Command)) commands))
-  (def reference (checked prepare-model model identity wrap))
-  (def execution (model.check-trace reference normalized
-    (lambda (use)
-      (checked with-system (lambda (system)
-        (def declarations sources)
-        ;; Fixture declarations belong to use, not to teardown. Restore model
-        ;; ownership before user cleanup; model edits still refuse factory return.
-        (try
-          (retain! (list system))
-          (def state-type (checked (lambda () (.get system State))))
-          (unless (object? state-type) (checked validate Type state-type))
-          (retain! (list state-type))
-          (def schema (checked TraceSystem state-type))
-          (retain! (list schema))
-          (set! system (checked validate schema system))
-          (retain! (list system))
-          (def step (checked (lambda () (.@ system step))))
-          (def observe (checked (lambda () (.@ system observe))))
-          (use (model.make-system (checked (lambda () (.get system initial)))
-            (lambda (state command)
-              (let-values (((next result) (checked step state command)))
-                (values (checked validate state-type next) result))) (wrap observe)))
-          (finally (set! sources declarations))))))
-    same?: (wrap (lambda (phase left right)
-      (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
-  (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
-    index: (model.trace-report-index execution)
-    command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))
-    expected: (model.trace-report-expected execution) actual: (model.trace-report-actual execution)))
+  (with-trace-model model TraceModel (sources retain! checked)
+    ;; Prepare method wrappers once; the shared scope owns their declarations.
+    (def (wrap action) (lambda arguments (apply checked action arguments)))
+    (def normalized (checked validate (List (.get model Command)) commands))
+    (def reference (checked prepare-model model identity wrap))
+    (def execution (model.check-trace reference normalized
+      (lambda (use)
+        (checked with-system (lambda (system)
+          ;; Fixture declarations belong to use, not to teardown. Restore model
+          ;; ownership before user cleanup; model edits still refuse factory return.
+          (parameterize ((sources (sources)))
+            (retain! (list system))
+            (def state-type (checked (lambda () (.get system State))))
+            (unless (object? state-type) (checked validate Type state-type))
+            (retain! (list state-type))
+            (def schema (checked TraceSystem state-type))
+            (retain! (list schema))
+            (set! system (checked validate schema system))
+            (retain! (list system))
+            (def step (checked (lambda () (.@ system step))))
+            (def observe (checked (lambda () (.@ system observe))))
+            (use (model.make-system (checked (lambda () (.get system initial)))
+              (lambda (state command)
+                (let-values (((next result) (checked step state command)))
+                  (values (checked validate state-type next) result))) (wrap observe)))))))
+      same?: (wrap (lambda (phase left right)
+        (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
+    (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
+      index: (model.trace-report-index execution)
+      command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))
+      expected: (model.trace-report-expected execution) actual: (model.trace-report-actual execution))))
 
 ;; This is only the Boolean projection expected by check-property. Fresh-fixture
 ;; lifetime and exact step diagnostics remain in the existing callback/IO layer.

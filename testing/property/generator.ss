@@ -212,18 +212,21 @@
     (parameterize ((current-random-states states))
       (def parent-seed (split-seed random)) (def child-seed (split-seed random))
       (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states))) sources))
-;; Capture independent roots with the existing bind/map seed schedule. Root
-;; wrappers have no children: later shrinking belongs to the retained product.
-(def (sampled-sequence generators)
+;; Admit finite topology before mapping or source discovery, then own its spine.
+;; Retain the established bind/map checkpoint owner and split schedule: a direct
+;; iterative draw candidate did not pass the full-workflow GC cost acceptance.
+(def (sampled-sequence (generators :~ list?))
+  (unless (every generator? generators) (error "product generators required"))
+  (def fields (list-copy generators))
   (def roots
     (foldr (lambda (generator tail)
       (generator-bind generator (lambda (head)
         (generator-map tail (lambda (rest) (cons head rest))))))
-      (generator-unit []) (map sampled-generator generators)))
-  ;; Fixed fields are all participants before the first draw. Flatten their
-  ;; declared leaves once; retain bind's seed schedule without nested guards.
+      (generator-unit []) (map sampled-generator fields)))
+  ;; All fixed participants are declared before drawing; no per-field extra
+  ;; validation layer or alternative runtime strategy is retained.
   (make-generation (generation-run roots)
-    (observer-sources immutable-current (append-map generation-sources generators))))
+    (observer-sources immutable-current (append-map generation-sources fields))))
 ;; Fixed products share sample-sequence's coordinate policy. Changing one field
 ;; retains every other field's original node, sources and hidden preimage; it
 ;; never redraws a suffix. Only explicit generator-bind rebuilds dependencies.

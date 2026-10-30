@@ -3283,3 +3283,34 @@ and List metadata are captured at construction through the existing source guard
 Eight new cases, a Record/Function schema-migration FUN example and six finite
 binding/source laws cover preparation, diagnostics, compositions and portable replay.
 No per-value wrapping or extra generator call is introduced; see P38 in the RFC.
+
+
+P39 completes inherited declaration admission for typed differential traces.
+Standalone preparation and active fixture declarations now use the shared dynamic
+checked-action scope, so nested generators cannot run under retired metadata.
+Fixture cleanup restores model ownership without refreshing epochs: fixture-only
+retirement remains legal and model retirement still refuses. Regression controls
+and the generated-traces service retry example cover this full lifetime through
+shrinking and both replay forms. Five restoration laws extend PropertyScopes;
+serial terminating callbacks and accurate observers remain premises. See P39 in
+[pbt-design-rfc.md](pbt-design-rfc.md).
+
+
+P40 closes typed trace declaration preparation across generation, admission,
+repair and differential execution. Computed metadata is captured one field at a
+time before Record normalization; normalized fields never refresh prior stamps.
+The existing typed module exposes valid-trace?/repair-trace without a new runner.
+Gerbil dynamic scope restores fixture ownership, and sampler currentness retains
+constructor stamps. Regression controls, a dependent service retry/replay example
+and five finite declaration-observation laws cover the complete boundary. See
+[P40 in the PBT RFC](pbt-design-rfc.md#p40-first-observation-typed-trace-declaration-preparation).
+
+
+P41 closes fixed-product constructor admission and retained drawing.
+Standard list/procedure contracts reject malformed topology before preparation;
+known child identities are captured before metadata/factories. The shared constructor
+retains field trees and the established bind/checkpoint schedule; the iterative
+candidate is excluded after GC cost acceptance failed. Lists, finite Maps/functions and typed products use the same core. The
+isolated generic acceptance now requires 115 cases. A service retry/replay example,
+source/cause controls, five finite Lean laws and the standard paired generation
+entry cover the work unit; see [P41](pbt-design-rfc.md#p41-finite-fixed-product-preparation-and-retained-trees).
