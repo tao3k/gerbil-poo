@@ -1,8 +1,9 @@
 ;;; Typed products inherit the enclosing run's admission through ordinary modules.
-(export generated-products-test service-classification-action)
+(export generated-products-test service-classification-action service-corpus-action)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
+        (prefix-in :clan/poo/testing/property/replay corpus.)
         (prefix-in (only-in ../fun Observation.) fun.))
 
 ;; A downstream error policy is separate from the typed request domain. Capture
@@ -32,9 +33,68 @@
         classify-error: classify))
     (lambda (report) (lambda (_configuration) (consume report)))))
 
+;; Compose the existing typed property Reader with portable export. Validation,
+;; Function wrapping, generation, shrinking and replay keep their existing owners;
+;; the consumer receives one confirmed report and one complete corpus string.
+(def (service-corpus-action schema sampler codec consume)
+  (property-action schema (lambda (value) (= ((.@ value handler) -1) 0))
+    (lambda (report)
+      (def output (open-output-string))
+      (write-counterexample report codec output)
+      (consume report (get-output-string output))) sampler: sampler))
+
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "service corpus scopes stop obsolete Record packing and retry through FUN"
+      (for (stage '(encode decode))
+        (def schema (Record count: [UInt] zone: [(Enum east west)] handler: [(Function [Integer] [Integer])]))
+        (def bundle (Record report: [Object] wire: [String]))
+        (def settings (.o epoch: 0))
+        (def nested 0) (def delivered 0) (def properties 0) (def decoded #f)
+        (def sampler (make-generator schema
+          (lambda (_random _size) (make-instance schema count: 2 zone: 'east handler: abs))
+          (lambda (value) (if (zero? (.get value count)) [] (list (.cc value count: 0)))) (cut .get <> count)))
+        (def configuration (make-instance PropertyConfiguration seed: 31 cases: 1 size: 3 shrink-budget: 10))
+        ;; Each codec captures its own revision. Nested map owns the ordinary
+        ;; representation transformation, including checked Function construction.
+        (def (prepare fault)
+          (def stamp (object-revision settings))
+          ;; This controlled change is observed before any nested map callback.
+          (def (transform phase value pack)
+            (when (eq? fault phase)
+              (.putslot! settings 'epoch ($constant-slot-spec (1+ (.get settings epoch)))))
+            (core.sample-value (core.generate (core.generator-map (core.generator-unit value)
+              (lambda (value) (set! nested (1+ nested)) (pack value))) (core.random-at 31) 0)))
+          (corpus.make-codec '(service 1)
+            (lambda (value) (transform 'encode value (lambda (value) (list (.get value count) (.get value zone)))))
+            (lambda (value) (transform 'decode value (lambda (row)
+              (set! decoded (make-instance schema count: (car row) zone: (cadr row) handler: abs)) decoded)))
+            current?: (lambda () (= stamp (object-revision settings)))))
+        ;; POO Record bundles retain named outputs instead of positional progress data.
+        (def (consume report wire)
+          (set! delivered (1+ delivered)) (make-instance bundle report: report wire: wire))
+        (def bad (prepare stage))
+        (if (eq? stage 'encode)
+          (begin
+            (check-exception ((service-corpus-action schema sampler bad consume) configuration) Error?)
+            (check-equal? (list nested delivered) '(0 0)))
+          (let (published ((service-corpus-action schema sampler bad consume) configuration))
+            (set! nested 0)
+            (check-exception (read-counterexample sampler bad (open-input-string (.get published wire))
+              (lambda (_) (set! properties (1+ properties)) #f)) Error?)
+            (check-equal? (list nested properties) '(0 0))
+            (check-eq? decoded #f)))
+        (def codec (prepare 'none))
+        (def fresh ((service-corpus-action schema sampler codec consume) configuration))
+        (check-equal? (.get (.get (.get fresh report) counterexample) count) 0)
+        (check (read-counterexample sampler codec (open-input-string (.get fresh wire))
+          (lambda (value) (= ((.@ value handler) -1) 0))) => #f)
+        (check-exception ((.@ decoded handler) 'invalid) TypeError?)
+        (check (replay-counterexample (.get fresh report)) => #f)
+        (check-eq? (.get (replay-property (.get fresh report)) status) 'failed)
+        (check-equal? delivered (if (eq? stage 'encode) 1 2))
+        (check-exception (write-counterexample (.get fresh report) bad (open-output-string)) Error?)))
     (test-case "Record Function service classification retires its recipe then retries through FUN"
       (def cause (cons 'service 'unavailable))
       (def recipe (.o bind-these: #f blocked?: #t cause: cause))

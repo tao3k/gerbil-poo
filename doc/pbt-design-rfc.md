@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P35 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P36 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 103 case receipts, an error-free result and
+through `gerbil test`. It requires all 109 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2373,3 +2373,54 @@ extension, not a missing Rackcheck promise. Lazy tree structure, forcing policy,
 random schedule, domains, quotas, independent library ownership and process/heap
 limits are unchanged. Classification source checks have a cost; no wall-clock
 speedup is inferred from suppressed callbacks.
+
+
+## P36: local portable-handoff authority reaches nested checked actions
+
+A codec encoder could retire its registered source, invoke a nested generator's
+mapper once, and only then refuse export. The application correctly received an
+error and zero output bytes, but obsolete nested work had already occurred. The
+same omission affected decoder/context authority and witness reconfirmation.
+This is a reproduced implementation gap in the registered-source protocol, not a
+request to interrupt arbitrary Scheme statements or inspect hidden closure state.
+
+The existing `with-codec` stage now installs its existing `check` through
+`with-generation-check`, inside the existing inherited `with-sources` scope.
+Nested generator, domain and portable actions observe local codec and application
+sources before effects and after normal returns. The ordered codec/context error
+checks and original thrown causes remain unchanged. Standard dynamic scope owns
+unwinding; the checker is never copied to a decoded value, child tree or report.
+No new scope representation, runner, stream or per-callback wrapper is added.
+
+Six generic cases cover encode/decode under either local owner, witness
+reconfirmation, nested refusal priority and cleanup, exact callback errors,
+non-retention and explicit epoch-bound retry. The isolated standard-library test
+package now requires all 109 cases. `service-corpus-action` in the existing
+generated-products example composes typed property Reader/FUN delivery with
+portable export. Strict Records and existing Function contracts own service
+validation; caller codecs own data-only reconstruction. One complex case covers
+obsolete nested packing on both export and import, no premature consumer/property
+call, fresh preparation, named Record output bundles, both replay modes, Function
+argument refusal and rejection of the old codec. No runtime dependency on Lean
+is introduced.
+
+Two whole-execution laws in `PropertyScopes.lean` prove that merged transient
+scopes require both parents at every finite stage, and that an empty child scope
+cannot remove the parent's authority. Existing `nestedActions`, `scopedStages` and
+`guardedHandoff` refusal/cause laws are reused rather than duplicated. Top-level
+examples instantiate nested decoder suppression, joint scope and exact causes.
+Premises remain finite terminating serial callbacks, accurate pure total observers,
+faithful declared source directories and host dynamic-scope fidelity. These Boolean
+model equalities do not license reordering potentially throwing host observers or
+claim to prove continuation implementation, arbitrary codec laws, GC or timing.
+
+The pinned [Rackcheck property executor](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/prop.rkt)
+uses standard dynamic parameter scope to separate caller and test RNG ownership.
+This unit follows that abstraction style through Gerbil's existing parameter-backed
+checked action protocol. Portable codec source admission remains our explicit
+extension, not a missing Rackcheck guarantee. Encode failure still writes no
+prefix before delivery. A port failure may leave partial bytes, and a failed read
+may consume input: no transactional I/O or rollback is claimed. Explicit format
+identity, data budgets, lazy forcing, random schedules and all existing process,
+heap, proposal and recursion limits remain unchanged. Extra observer checks retain
+their cost; suppressed callbacks alone are not a wall-clock performance proof.
