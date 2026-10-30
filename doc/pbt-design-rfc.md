@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P43 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P44 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 127 case receipts, an error-free result and
+through `gerbil test`. It requires all 132 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2809,3 +2809,61 @@ observers, finite immutable-by-protocol tables, serial terminating actions and
 host dynamic-scope fidelity remain premises. No arbitrary Scheme procedure,
 runtime, PRNG or concurrency proof is claimed. All existing resource/check gates
 remain; this semantic fix makes no wall-clock speedup claim.
+
+## P44: portable vector copy preparation and shared resource credits
+
+The original [Type Descriptors / I/O Validation discussion](https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L1359)
+places encoding/decoding and random generation/compression in the descriptor
+protocol. This unit strengthens that future-work extension; it does not attribute
+our replay format or budget algorithm to the original Racket implementation.
+
+The old bounded copier first converted an entire vector to a list, then visited
+children until its node/depth allowance failed. A wide vector therefore allocated
+an unbounded-by-that-allowance temporary list before rejection. A constructor
+control with a 64-slot vector, eight-node budget and nonportable first element
+reported the element error: impossible width was not checked before inspection.
+This is a copy-stage admission defect. Reader and application-encoder allocation
+were already explicitly outside the copier's guarantee and remain so.
+
+The existing replay module now charges roots, string characters and octets through
+one local allowance operation. A vector's width must fit the remaining credits
+after charging its root; each child necessarily spends at least one node. A
+nonempty vector also requires positive child depth. These necessary checks precede
+destination allocation and child access. Empty vectors remain valid at depth zero.
+No child or container resets the shared allowance. Oversized shape now takes
+resource-refusal priority over contents which cannot possibly be admitted.
+
+The admitted copy uses the official `:std/vector/vector` forward
+`vector-fold/index`, writing directly into one destination vector. No complete
+source list or mapped result list is materialized. Its documented ascending fold
+keeps shared-budget traversal and first-error order explicit; `vector-map/index`
+has unspecified application order and currently traverses backward, so it is not
+used for this stateful budget. Ordinary node/depth failures retain the established
+error category/message; feasible child errors and source/codec exception identity
+remain intact. Encoding and complete envelope admission still precede port writes;
+no I/O rollback is claimed.
+
+The pinned [Rackcheck vector/byte generators](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/base.rkt#L304)
+map the existing finite list generator into standard carriers. We retain that
+generator algebra. Copying externally supplied replay data has a different
+admission responsibility: its shape must fit before a carrier-sized allocation.
+This does not add a parser, resource framework, namespace or POO dependency to the
+generic replay library.
+
+Five generic cases cover width checks using remaining rather than original fuel,
+exact node/depth boundaries, empty/cyclic vectors, forward error precedence,
+whole-envelope accounting, detached mutable payloads, and skipped decoding/property
+effects followed by retry under unchanged limits. Independent acceptance requires
+132 cases. A contracted Record/List/Tuple/Function service shrinks through FUN,
+rejects a fault-injected oversized corpus before output, rejects its retired codec,
+then prepares a fresh codec at the same 16-node cap and replays without new draws.
+
+PropertyReplay reuses the existing property namespace and finite sequence model.
+Its eight laws prove exact shared cost accounting, minimum child cost, necessity
+of width preflight, wide/depth refusal before allocation, empty admission,
+preservation of the admitted action/error and the destination-width bound.
+Top-level controls cover exact-fit/one-short profiles and preserved first errors.
+Costs are logical root/character/octet units; profiles must faithfully describe
+finite copies. This proves neither host allocation bytes nor reader/encoder
+behavior, GC latency, wall-clock speedup or arbitrary I/O correctness. Existing
+heap/time/source/check limits and the unchanged complete paired entry remain.

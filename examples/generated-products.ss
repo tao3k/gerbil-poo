@@ -48,6 +48,52 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "bounded service corpus refuses oversized vectors and retries through fresh FUN metadata"
+      (def service (Record count: [UInt] requests: [(List (Tuple Symbol UInt))]
+        handler: [(Function [Integer] [Integer])]))
+      (def recipe (.o oversized?: #t)) (def draws 0) (def decoded 0)
+      ;; Normal Record initialization validates request tuples and wraps the
+      ;; Function once; the corpus stores logical requests, not procedures.
+      (def (packet count)
+        (make-instance service count: count
+          requests: (make-list (+ count 2) #(request 2)) handler: abs))
+      (def sampler (make-generator service
+        (lambda (_random _size) (set! draws (1+ draws)) (packet 4))
+        (lambda (value) (if (zero? (.get value count)) [] (list (packet 0)))) (cut .get <> count)))
+      (def action (property-action service (lambda (value) (= ((.@ value handler) -1) 0))
+        identity sampler: sampler))
+      (def failed (action (make-instance PropertyConfiguration seed: 7 cases: 1 size: 4 shrink-budget: 8)))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      ;; Fault injection belongs to explicit recipe metadata. Revisions require
+      ;; fresh codec preparation, while both attempts retain the same 16-node cap.
+      (def (prepare-codec)
+        (def stamp (object-revision recipe))
+        (corpus.make-codec #(service 1)
+          (lambda (value) (vector (.get value count)
+            (if (.get recipe oversized?) (make-vector 64 #(request 2))
+              (list->vector (.get value requests)))))
+          (lambda (datum) (set! decoded (1+ decoded))
+            (make-instance service count: (vector-ref datum 0)
+              requests: (vector->list (vector-ref datum 1)) handler: abs))
+          nodes: 16 current?: (lambda () (= stamp (object-revision recipe)))))
+      (def codec (prepare-codec)) (def output (open-output-string))
+      (check-exception (corpus.write-counterexample (.get failed execution) codec output) Error?)
+      (check-equal? (get-output-string output) "")
+      (check-equal? decoded 0)
+      (.set! recipe oversized? #f)
+      (check-exception (corpus.write-counterexample (.get failed execution) codec output) Error?)
+      (def fresh (prepare-codec))
+      (corpus.write-counterexample (.get failed execution) fresh output)
+      (let (before draws)
+        (check (corpus.read-counterexample fresh (open-input-string (get-output-string output))
+          (property.report-specification (.get failed execution))
+          (lambda (value) (check-equal? (length (.get value requests)) 2)
+            (= ((.@ value handler) -1) 0))) => #f)
+        (check-equal? (list decoded draws) (list 1 before))))
     (test-case "finite service calls stop after retirement then retry shrink and portable replay through FUN"
       (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       (def owner (.o epoch: 0)) (def continued 0)

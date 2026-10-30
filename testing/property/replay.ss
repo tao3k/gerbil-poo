@@ -1,6 +1,7 @@
 ;;; Portable counterexamples are data with application-owned codec identity.
 (export make-codec write-counterexample read-counterexample)
-(import :std/error :std/iter ../property (only-in ./generator with-sources with-generation-check))
+(import :std/error :std/iter (only-in :std/vector/vector vector-fold/index)
+        ../property (only-in ./generator with-sources with-generation-check))
 ;; The codec owns format/specification/generator identity and bounded data admission.
 (defstruct replay-codec (identity encode decode current nodes depth) final: #t constructor: :init!)
 ;; Capture codec identity as finite data rather than retaining a mutable caller key.
@@ -21,19 +22,30 @@
 ;; Reader allocation itself stays under the existing process heap/time guard.
 (def (copy-data datum nodes depth)
   (def remaining nodes)
+  ;; Nodes and compact payload units spend the same invocation-owned allowance.
+  (def (charge! amount)
+    (set! remaining (- remaining amount))
+    (when (< remaining 0) (error "replay data budget exceeded")))
   ;; Recursive copying owns one shared node budget, including strings and vectors.
   (def (copy datum depth)
-    (set! remaining (1- remaining))
-    (when (or (< remaining 0) (< depth 0)) (error "replay data budget exceeded"))
+    (charge! 1)
+    (when (< depth 0) (error "replay data budget exceeded"))
     (cond
       ((pair? datum) (cons (copy (car datum) (1- depth)) (copy (cdr datum) (1- depth))))
-      ((vector? datum) (list->vector (map (cut copy <> (1- depth)) (vector->list datum))))
+      ((vector? datum)
+       (def width (vector-length datum))
+       ;; Each child needs at least one node. Reject impossible width/depth before
+       ;; allocating the destination or inspecting children. Empty vectors fit at
+       ;; depth zero. Standard forward fold fixes shared-budget admission order.
+       (when (or (> width remaining) (and (positive? width) (zero? depth)))
+         (error "replay data budget exceeded"))
+       (vector-fold/index (lambda (index output value)
+         (vector-set! output index (copy value (1- depth))) output)
+         (make-vector width) datum))
       ((u8vector? datum)
-       (set! remaining (- remaining (u8vector-length datum)))
-       (when (< remaining 0) (error "replay data budget exceeded")) (u8vector-copy datum))
+       (charge! (u8vector-length datum)) (u8vector-copy datum))
       ((string? datum)
-       (set! remaining (- remaining (string-length datum)))
-       (when (< remaining 0) (error "replay data budget exceeded")) (string-copy datum))
+       (charge! (string-length datum)) (string-copy datum))
       ((or (null? datum) (boolean? datum) (symbol? datum) (keyword? datum)
            (char? datum) (exact-integer? datum)) datum)
       (else (error "nonportable replay datum" datum))))

@@ -6,7 +6,7 @@
         (prefix-in :clan/poo/testing/property/model model.)
         (only-in ./property-products product-test-cases!)
         (only-in ./property-filters filter-test-cases! proposal-test-cases!)
-        (only-in ./property-scopes function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+        (only-in ./property-scopes copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
         (only-in ./property-sizes size-test-cases! collection-source-test-cases!)
         (only-in ./property-traces trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!))
 
@@ -78,6 +78,7 @@
     (codec-scope-test-cases!)
     (assertion-test-cases!)
     (function-test-cases!)
+    (copy-test-cases!)
     (size-test-cases!)
     (collection-source-test-cases!)
     (trace-draw-test-cases!)

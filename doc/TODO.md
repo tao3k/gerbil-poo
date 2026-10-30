@@ -3342,3 +3342,13 @@ Six generic controls raise independent acceptance to 127 cases. A contracted
 Record service combines FUN retry, shrinking and both replay forms plus portable
 table handoff; seven finite Lean action/lookup laws state the admitted scope.
 See [P43](pbt-design-rfc.md#p43-inherited-authority-for-finite-function-observations).
+
+P44 closes portable-copy budget preparation. Root/string/octet charging shares one
+local allowance; vector width and child depth are admitted before allocating or
+inspecting children. Official forward vector-fold/index removes whole-vector list
+conversion without reversing failure order. Five generic controls raise isolated
+acceptance to 132 cases. Record/List/Tuple/Function FUN retry includes oversized
+output refusal, old-codec rejection and unchanged-budget fresh replay. Eight finite
+PropertyReplay laws cover preparation and exact logical-credit accounting; reader,
+application encoder and runtime allocator behavior remain explicit premises.
+See [P44](pbt-design-rfc.md#p44-portable-vector-copy-preparation-and-shared-resource-credits).
