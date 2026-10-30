@@ -40,7 +40,13 @@
 (def (merge-sources left right)
   (cond ((null? left) right)
         ((or (null? right) (eq? left right)) left)
-        (else (delete-duplicates/hash (append left right) table: (make-hash-table-eq)))))
+        ;; Gerbil retains last occurrences. Normalize the right side first with
+        ;; one shared table, then omit those leaves from the left before joining.
+        ;; This avoids copying the entire left spine before duplicate removal.
+        (else
+         (let* ((seen (make-hash-table-eq))
+                (right (delete-duplicates/hash right table: seen)))
+           (append (delete-duplicates/hash left table: seen) right)))))
 ;; Normalize and validate the observer boundary once, not at every sample read.
 (def (observer-sources current sources)
   (unless (and (procedure? current) (list? sources) (every procedure? sources))
@@ -76,13 +82,17 @@
 ;; One hygienic callback boundary checks the merged leaves. Dynamic binding is
 ;; skipped for an already shared context identity, avoiding an extra frame.
 ;; Exceptions bypass post-return checks unchanged, and the callback runs once.
-(defrule (with-sources sources body ...)
+(def (call-with-sources sources action)
   (let* ((inherited (current-generation-sources)) (owned (merge-sources inherited sources)))
     (require-sources! owned)
     (begin0
-      (if (eq? inherited owned) (let () body ...)
-        (parameterize ((current-generation-sources owned)) body ...))
+      (if (eq? inherited owned) (action)
+        (parameterize ((current-generation-sources owned)) (action)))
       (require-sources! owned))))
+;; Keep lexical bodies and nonlocal exits hygienic, while compiling the checked
+;; dynamic-scope implementation once rather than expanding it into every caller.
+(defrule (with-sources sources body ...)
+  (call-with-sources sources (lambda () body ...)))
 ;; One private iteration form uses the standard Iterator protocol. Factory
 ;; evaluation and every next! (including EOF) share the inherited source boundary;
 ;; a paused traversal therefore refuses before resuming stale producer effects.

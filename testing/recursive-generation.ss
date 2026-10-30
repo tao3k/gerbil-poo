@@ -45,12 +45,22 @@
   ;; snapshots here would both duplicate preparation and accept a mixed graph.
   (def stamps (graph-stamps graph))
   (def samplers (filter-map node-sampler (vector->list nodes)))
+  ;; Optional hook absence is fixed only while the captured sampler revisions
+  ;; remain current. Empty hook participants still check every captured stamp.
+  (def hook-samplers samplers)
   ;; One graph observer is shared by all constructor nodes and deduplicated by identity.
-  (def (graph-current?) (graph-sources-current? stamps samplers))
+  (def (graph-current?) (graph-sources-current? stamps hook-samplers))
   ;; Keep POO's precise refusal category. The existing transient check is scoped
   ;; to preparation/evaluation and is never retained on a returned sample tree.
   (def (check-graph!)
     (unless (graph-current?) (refuse-generation 'stale)))
+  ;; Reuse the existing checked preparation scope. Graphs with any hook retain
+  ;; the original path; otherwise repeated .has? queries allocate no read leases.
+  ;; Adding an own/inherited hook revises a stamped owner before this path runs.
+  (core.with-generation-check check-graph!
+    (core.with-sources []
+      (when (every (lambda (sampler) (core.with-sources [] (not (.has? sampler .current?)))) samplers)
+        (set! hook-samplers []))))
   ;; Compile each bridge once. A custom bridge may revise a captured dependency;
   ;; the following bridge must then remain unevaluated.
   (def scalar-generators

@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/number/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 139 case receipts, an error-free result and
+through `gerbil test`. It requires all 140 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2987,3 +2987,66 @@ is not live memory or an exact retained-allocation measurement. Compiler waits,
 child work and scheduling residuals are not mislabeled as GC or removed by
 subtraction. These receipts demonstrate removed repeated preparation, not a
 statistical tail guarantee or verified host/runtime performance.
+
+### Cold admission and shared source-control execution
+
+The source-control forms now lower to private higher-order procedures. Their
+lexical body still executes once; pre/post checks, exception identity, nonlocal
+exits and parameter unwinding are unchanged. Gerbil compiles that control flow
+once rather than expanding it at every use. Generated runtime Scheme for the
+property kernel drops from approximately 801KB to 229KB, and its generator from
+292KB to 221KB. These are compiler-output sizes, not committed build products or
+a proof that arbitrary callbacks execute faster.
+
+Source union reuses Gerbil's `delete-duplicates/hash` and one shared identity table.
+Processing right before left preserves its last-occurrence order without first
+copying the complete concatenation. The new generic case checks an independent
+standard-library union oracle, including repeated observers, and original error
+identity/scope cleanup. Isolated admission therefore requires 140 cases.
+
+Typed products intern captured owner identities once, retaining the earliest
+revision. Repeated coordinates and shared dependencies no longer multiply pure
+revision scans. Per-coordinate domains and user `.current?` hooks remain distinct;
+the shared-dependency preparation fault matrix still refuses before later work.
+
+Finite recursive graphs also prepare negative optional-hook metadata under their
+existing checked scope. Only graphs with **no** current hook use the stamp-only
+path; graphs containing any hook keep the original dynamic path. Every captured
+revision is checked on every boundary, including revisions of samplers whose
+missing hook was observed. An added own/inherited hook invalidates the old graph
+before drawing or invoking that new hook. No hook result, PRNG instance or generated
+value is cached. This relies on the existing revision-controlled metadata contract,
+not on discovering unregistered dependencies of arbitrary readers.
+
+Cold acceptance uses a fresh, initially empty standard `GERBIL_PATH` for each
+implementation and standard `just clean` followed by `just check`. The released
+SDK remains installed, as intended; project `.ssi`, objects and executables are
+not copied between prefixes. Keep the 300s build, 600s complete-test and 60s
+isolated-build/test guards and all existing heap bounds. The old cold entry took
+664.88s: library build 97.96s, executable check 7.43s, test packages 180.49s,
+main CLI 326.41s, declaration checks 2.53s and paired studies 47.64s, plus invocation
+overhead. The main process separated 177.80s startup/preparation from 141.02s after
+preparation; startup used only 6.42s CPU and 0.13s GC wall time. This wait is not
+misreported as property execution or GC. Complete cold wall time and the same
+per-phase counters are required for candidate admission, independently of hot
+call measurements and reduced generated-code volume.
+
+The first cold candidate passed 2,193 cases / 145 modules and the independent
+140-case library. After-preparation test wall fell from 141.02s to 101.37s,
+and independent compilation from 27.02s to 22.93s (68.26s to 58.44s aggregate
+CPU). Its complete entry nevertheless grew to 723.14s: package preparation
+grew from 180.49s to 280.70s with similar aggregate CPU. That run is not a
+whole-entry performance pass. A short startup sample observed dyld `dlopen` /
+`mapSegments` waiting in `fcntl`; it does not identify the syscall command or
+justify attributing all waits to a particular macOS policy.
+
+The standard compiler inventory is therefore grouped into four make graphs,
+removing the two additional frontend launches and sharing their already imported
+dependencies. All 25 canonical test packages / 144 main-module declarations,
+included-source dependencies, output namespaces and runtime test order remain.
+Existing CLI/test 1-GiB and compiler/backend 2-GiB ceilings are unchanged. The
+build-declaration suite checks exact inventory coverage and forwards both build
+and failure-cleanup actions through the same four standard Just dependencies.
+This changes compiler-session lifetime, not test execution coverage. Final cold
+admission still requires all checks and the complete entry's natural successful
+exit; no failed or partially executed run qualifies because CPU use decreased.

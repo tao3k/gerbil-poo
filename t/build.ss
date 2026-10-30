@@ -192,13 +192,12 @@
 ;; These compiler-only partitions reuse the original package declarations. They
 ;; change session lifetime, never the installed test namespaces or test inventory.
 (def (test-build-partitions)
-  '(("collections" "backends" "collection-deltas" "collection-styles" "collections")
-    ("indexes" "collection-order" "collection-updates")
-    ("prototypes" "closure" "construction" "objects" "generalized"
+  '(("collections" "backends" "collection-deltas" "collection-styles" "collections"
+      "coordination" "recovery" "revisions" "publication" "tools")
+    ("prototypes" "collection-order" "collection-updates" "closure" "construction" "objects" "generalized"
       "components" "feedback" "recursion")
     ("contracts" "contracts" "methods")
-    ("types" "declarations" "inference" "representations" "scalars" "signatures")
-    ("publication" "coordination" "recovery" "revisions" "publication" "tools")))
+    ("types" "declarations" "inference" "representations" "scalars" "signatures")))
 
 ;; Public standard build scripts own parsing, freshness, parallel backend jobs
 ;; and cleanup. Bound each source-context lifetime by a declared functional part;

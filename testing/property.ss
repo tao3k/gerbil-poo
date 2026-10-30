@@ -82,13 +82,17 @@
   (live? (domain-current specification)))
 ;; Every domain action has the same source boundary. The hygienic form keeps
 ;; callback evaluation once, checks EOF too, and leaves exceptions to the owner.
-(defrule (with-current current stop body ...)
+(def (call-with-current current stop action)
   (with-sources []
     (unless (current) (stop 'stale #f))
     ;; Ancestors are checked outside this action's own checker. Nested actions
     ;; inherit it, but its refusal never recursively invokes the same checker.
     (with-generation-check (lambda () (unless (current) (stop 'stale #f)))
-      (begin0 (let () body ...) (unless (current) (stop 'stale #f))))))
+      (begin0 (action) (unless (current) (stop 'stale #f))))))
+;; One lexical action is invoked exactly once; its exceptions and nonlocal exits
+;; retain the existing dynamic unwinding, source checks and refusal continuation.
+(defrule (with-current current stop body ...)
+  (call-with-current current stop (lambda () body ...)))
 ;; Domain consumers reuse the same natural measure and source boundary. Do not
 ;; expose raw record fields or duplicate the product measure in typed adapters.
 (def (specification-weight specification value)

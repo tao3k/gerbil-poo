@@ -14,6 +14,20 @@
 ;; make a recursive descriptor pass, and no inconclusive result is a success.
 (def recursive-generation-test
   (test-suite "automatic guarded recursive generators"
+    (test-case "negative hook metadata refuses later own and inherited definitions"
+      (for (target '(self parent))
+        (def raw #f) (def draws 0) (def hooks 0)
+        (def descriptor (.cc Integer .generator: (lambda () raw)))
+        (def parent (make-generator descriptor
+          (lambda (_random _size) (set! draws (1+ draws)) 1) (lambda (_) []) abs))
+        (set! raw (if (eq? target 'self) parent (.o inherit: [parent])))
+        (def generation (generator-core (generator descriptor)))
+        (check-equal? (core.sample-value (core.generate generation (core.random-at 1) 0)) 1)
+        ;; Parent changes must invalidate the sampled child's captured revision.
+        (.set! (if (eq? target 'self) raw parent) .current?
+          (lambda () (set! hooks (1+ hooks)) #f))
+        (check-exception (core.generate generation (core.random-at 2) 0) core.stale-generation?)
+        (check-equal? (list draws hooks) '(1 0))))
     (test-case "typed recursive Lists share complete structural deletion and value callbacks"
       (def descriptor (List UInt))
       (def sampler (generator descriptor))

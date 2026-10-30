@@ -98,11 +98,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 139)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 140)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 139 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 140 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
@@ -925,7 +925,8 @@
         (def last (.cc (make-generator descriptor (lambda (_r _s) 2) (lambda (_) []) abs
           dependencies: (list dependency)) epoch: 0 .current?: (lambda () live)
           generation: (lambda (_) (set! later (1+ later)) (core.generator-unit 2))))
-        (def first (.cc (fixed-integer 1 (lambda (_) []))
+        ;; Both children own this source; sharing may not renew its first epoch.
+        (def first (.cc (fixed-integer 1 (lambda (_) [])) sources: (list dependency)
           generation: (lambda (_)
             (case target ((sampler) (.set! last epoch 1)) ((descriptor) (.set! descriptor epoch 1))
               ((dependency) (.set! dependency epoch 1)) ((hook) (set! live #f)))

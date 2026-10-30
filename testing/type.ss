@@ -116,7 +116,12 @@
   (set! children (list-copy children))
   (unless (object? descriptor) (validate Type descriptor))
   (for (child children) (unless (object? child) (validate GeneratorRecord child)))
-  (def owners (snapshot #f (cons descriptor children)))
+  ;; Keep the earliest epoch for each identity. Repeated coordinates and shared
+  ;; dependencies need one pure revision read, never a refreshed later snapshot.
+  ;; Per-coordinate domain/current hooks remain separate and run as before.
+  (def owner-ledger (make-hash-table-eq))
+  (def owners (delete-duplicates/hash (snapshot #f (cons descriptor children))
+    table: owner-ledger key: car from-end?: #t))
   ;; All known participants precede metadata/factory reads, even if a later child
   ;; has not yet supplied its additional dependencies. This checker is transient.
   (def admission (lambda () (current? owners)))
@@ -127,7 +132,8 @@
       (def domain (testing.make-product-specification
         (map-in-order (lambda (child) (core.with-sources []
           (def captured (snapshot child []))
-          (set! owners (append owners captured))
+          (def added (delete-duplicates/hash captured table: owner-ledger key: car from-end?: #t))
+          (unless (null? added) (set! owners (append owners added)))
           (property-specification child captured))) children)
         current?: (lambda () (current? owners))))
       ;; The generic product owns all field/owner stamps, including an empty product.

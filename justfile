@@ -55,15 +55,10 @@ build: build-shared
         exit "$build_status"
     fi
 
+# Four standard make graphs reuse shared compiler contexts instead of launching
+# two additional frontends. Canonical runtime packages and every source stay fixed.
 [parallel]
-_build-test-packages action='build': (_build-test-package "contracts" action) (_build-test-package "types" action) (_build-test-prototypes action) (_build-test-publication action)
-
-# Standard sequential dependencies put all four large contexts in the first wave.
-# Keep the two shorter contexts behind indexes/collections; do not rely on sibling
-# launch order, which can otherwise postpone collections until the deadline.
-_build-test-prototypes action='build': (_build-test-package "indexes" action) (_build-test-package "prototypes" action)
-
-_build-test-publication action='build': (_build-test-package "collections" action) (_build-test-package "publication" action)
+_build-test-packages action='build': (_build-test-package "contracts" action) (_build-test-package "types" action) (_build-test-package "prototypes" action) (_build-test-package "collections" action)
 
 # The outer 300-second phase owns every child process group; avoid nested
 # timeout groups that can outlive the task runner after a failure.

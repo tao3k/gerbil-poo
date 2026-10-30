@@ -1610,8 +1610,9 @@ authorized 2-GiB frontend ceiling, that session still overflowed at group 15.
 The standard expander retains module contexts for the session lifetime. Clearing
 its private registry or growing the heap is not the repair.
 
-Compiler-only standard packages now bound those context lifetimes by collections,
-indexes, prototypes, contracts, types and publication. Their empty `gerbil.pkg`
+Compiler-only standard packages bound those context lifetimes by collections,
+prototypes, contracts and types. Index checks share the prototype compiler context;
+publication checks share the collection context. Their empty `gerbil.pkg`
 descriptors add no installed library namespace. The existing `t/build.ss` owns one
 ordinary make-spec inventory; the original 25 CI packages select it unchanged.
 The four local builders use the same source paths and `clan/poo/t` output prefix.
@@ -1620,7 +1621,8 @@ jobs. Just's standard `[parallel]`/`--jobs` owns concurrent recipes; no custom q
 source scanner, loader or persistent cache has been added.
 
 On the 12-core machine, four active compiler sessions use two backends each;
-Just queues the six functional parts without increasing that capacity. Compiler
+Just starts these four graphs directly, removing two repeated frontend startups
+and common dependency preparations without increasing that capacity. Compiler
 frontends and backends remain capped at 2 GiB; the waiting package CLIs and test
 processes retain their original 1-GiB bounds. The original outer 300-second phase
 owns the complete compiler process tree; redundant nested timeout groups are
@@ -1673,7 +1675,7 @@ frontends showed child/backend waits, not evidence that those intervals were dyl
 unloading. An isolated test host-layout threshold candidate also failed and was
 withdrawn; compiler flags and optimization remain unchanged.
 
-The six-part queue splits the largest collection and contract context inventories
+The earlier six-part queue split the largest collection and contract context inventories
 while retaining four workers, their backend limits, all 25 CI groups and all 149
 test modules. Bash's standard `time` labels each actual package completion; it
 adds no watchdog or configuration interface. This scopes existing standard caches

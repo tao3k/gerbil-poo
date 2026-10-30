@@ -1,6 +1,6 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
 (export copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
-(import :std/test :std/error :std/iter
+(import :std/test :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
@@ -177,6 +177,24 @@
 
 ;; Ordinary case registration keeps the same standard suite and runner.
 (def (scope-test-cases!)
+  (test-case "source union retains last-observer order and unwinds original errors"
+    (def visits [])
+    ;; Distinct observers expose ordering without changing their Boolean judgment.
+    (def observers (map (lambda (tag)
+      (cons tag (lambda () (set! visits (cons tag visits)) #t))) '(a b c)))
+    (for* ((left '((a b) (b a) (a b c))) (right '((a) (b a) (b c b) ())))
+      (def observed #f)
+      (generator.with-sources (map (lambda (tag) (cdr (assq tag observers))) left)
+        (set! visits [])
+        (generator.with-sources (map (lambda (tag) (cdr (assq tag observers))) right)
+          (set! observed (reverse visits))))
+      (check-equal? observed (delete-duplicates/hash (append left right))))
+    (def live #t) (def cause (cons 'original 'scope-error))
+    (check-eq? (with-catch identity (lambda ()
+      (generator.with-sources (list (lambda () live)) (raise cause)))) cause)
+    (set! live #f)
+    (check-equal? (generator.sample-value (generator.generate
+      (generator.generator-unit 7) (generator.random-at 1) 0)) 7))
   (test-case "earlier trials and inspection roots guard nested later construction"
     (for (kind '(pass discard inspect))
       (def epoch 0) (def mapped 0) (def properties 0)
