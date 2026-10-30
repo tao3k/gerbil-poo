@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P40 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P41 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 109 case receipts, an error-free result and
+through `gerbil test`. It requires all 115 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2644,3 +2644,64 @@ preflight, revision refusal, exact causes, stable capture and resulting ledger
 currentness. Existing captureRevision laws preserve earlier observations. These
 finite laws assume faithful host scope and clocks; they do not prove arbitrary
 callbacks, the evaluator, concurrency, or global shrink minimality.
+
+## P41: finite fixed-product preparation and retained trees
+
+Two bounded reproductions selected this unit. Passing a cyclic constructor spine
+to `generator-sequence` consumed the diagnostic process deadline instead of
+refusing configuration. Separately, a typed product's first factory revised a
+later known child; that child's factory still ran and the constructor returned a
+retired product. These are admission/preparation defects, not unrestricted
+recursive-generator or concurrent-snapshot requirements.
+
+The shared private sequence constructor now uses Gerbil's list contract and
+checks generator membership before copying its finite topology. Typed products
+use ordinary list/procedure contracts before any custom factory and capture all
+known child identities before metadata/factory reads. One transient existing
+checked-action scope refuses a revision before subsequent preparation. No wrapper
+is stored on each resulting field; original callback exceptions remain exact.
+
+The shared sequence constructor retains the established bind/map draw and its
+invocation-local checkpoint ownership. It snapshots the admitted topology once;
+packing and coordinate shrinking still use `sample-sequence`. Lists, hashes,
+finite functions and typed products share the same implementation. Width zero
+consumes no random split. No runtime strategy selector or compatibility layer is
+introduced.
+
+An iterative retained-root candidate matched values, seeds and replay receipts,
+but 64-field paired workflows showed unacceptable GC cost. Removing its extra
+checkpoint cache did not establish a reliable improvement either. It is rejected
+from production rather than justified by its smaller allocation count. The
+remaining benchmark contrasts the checked production constructor with an
+independent public retained-tree composition; it is not a historical-binary A/B.
+
+Rackcheck's pinned [gen:tuple](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/base.rkt#L229)
+uses a standard loop to retain individual trees, then maps their values;
+[shrink-trees](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/shrink-tree.rkt#L82)
+retains untouched coordinates. We reuse that separation, while preserving POO's
+established split/checkpoint schedule rather than adopting Rackcheck's shared RNG.
+There is no new namespace, framework or compatibility path.
+
+Six independent generic controls cover malformed topology, captured spines, exact
+seed/root-remainder parity, coordinate shrinking and both replay receipts,
+new-branch retirement, and a 512-field product. The isolated stdlib-only package
+now requires 115 cases. Typed controls cover invalid representation procedures,
+known-child factory retirement, exact causes and scope restoration. A service
+Record/Function example composes rejected preparation, old-Reader refusal, fresh
+construction, shrinking and both replays through the existing FUN action.
+
+The standard generation paired entry adds prepare/draw/full-workflow comparisons
+at widths 16 and 64, natural/post-GC regimes, reversed pairs and A/A controls.
+Full workflows include construction and both replay forms; receipt equality is
+checked inside the measured action. The public retained-tree algebra is an
+explicit immutable-field strategy control, not an exact historical-binary A/B.
+The entry reports wall, CPU, GC and allocation; complete data remains outside Git.
+
+Five Lean laws in PropertyProducts specify the existing split schedule and
+prove accumulator/reference equivalence, field order/length and exact continuation
+seeds. These are equivalent finite specifications, not admission of the
+rejected Scheme optimization. Existing guarded-product laws
+cover source refusal and skipping later factories. Finite lists, faithful source
+observers, serial terminating callbacks and faithful seed
+splitting remain premises. No Scheme runtime, PRNG-quality or arbitrary callback
+correctness proof is claimed.

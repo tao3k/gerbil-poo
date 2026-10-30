@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
 (import (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
@@ -96,11 +96,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 109)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 115)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 109 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 115 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
@@ -882,4 +882,45 @@
         enabled?: (lambda (_state _command) #t)
         advance: (lambda (state command) (values state command)) observe: identity))
       (check-eq? (with-catch identity (lambda () (valid-trace? subject []))) cause)
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 9) (core.random-at 0) 0)) 9))))
+
+
+;; Product preparation uses standard argument contracts and one transient owner
+;; scope; no child factory may outlive a revision of another known participant.
+(def product-preparation-test
+  (test-suite "typed fixed product preparation"
+    (test-case "typed topology and representation contracts precede custom factories"
+      (def calls 0)
+      (def child (.cc (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs)
+        generation: (lambda (_) (set! calls (1+ calls)) (core.generator-unit 1))))
+      (def cycle (list child)) (set-cdr! cycle cycle)
+      (for (bad (list #f (cons child 'tail) cycle))
+        (check-exception (product-generator (Tuple Integer) bad vector->list list->vector) Error?))
+      (check-exception (product-generator (Tuple Integer) (list child) #f list->vector) Error?)
+      (check-exception (product-generator (Tuple Integer) (list child) vector->list #f) Error?)
+      (check-equal? calls 0))
+    (test-case "a factory revision refuses before preparing another known child"
+      (for (target '(sampler descriptor dependency hook))
+        (def later 0) (def packed 0) (def live #t)
+        (def descriptor (.cc Integer epoch: 0)) (def dependency (.o epoch: 0))
+        (def last (.cc (make-generator descriptor (lambda (_r _s) 2) (lambda (_) []) abs
+          dependencies: (list dependency)) epoch: 0 .current?: (lambda () live)
+          generation: (lambda (_) (set! later (1+ later)) (core.generator-unit 2))))
+        (def first (.cc (fixed-integer 1 (lambda (_) []))
+          generation: (lambda (_)
+            (case target ((sampler) (.set! last epoch 1)) ((descriptor) (.set! descriptor epoch 1))
+              ((dependency) (.set! dependency epoch 1)) ((hook) (set! live #f)))
+            (core.generator-unit 1))))
+        (check-exception (product-generator (Tuple Integer descriptor) (list first last) vector->list
+          (lambda (row) (set! packed (1+ packed)) (list->vector row))) generation-refusal?)
+        (check-equal? (list later packed) '(0 0))))
+    (test-case "a preparation exception retains its exact cause and restores source scope"
+      (def cause (cons 'product 'preparation)) (def later 0)
+      (def last (.cc (fixed-integer 2 (lambda (_) [])) epoch: 0
+        generation: (lambda (_) (set! later (1+ later)) (core.generator-unit 2))))
+      (def first (.cc (fixed-integer 1 (lambda (_) []))
+        generation: (lambda (_) (.set! last epoch 1) (raise cause))))
+      (check-eq? (with-catch identity (lambda ()
+        (product-generator (Tuple Integer Integer) (list first last) vector->list list->vector))) cause)
+      (check-equal? later 0)
       (check-equal? (core.sample-value (core.generate (core.generator-unit 9) (core.random-at 0) 0)) 9))))

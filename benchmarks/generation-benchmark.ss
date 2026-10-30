@@ -2,6 +2,7 @@
 (export main)
 (import :std/iter ../object ../mop ../type ../number ../testing/type
         (prefix-in :clan/poo/testing/property/generator core.)
+        (prefix-in :clan/poo/testing/property property.)
         (only-in ./closure-measure measure measure-pair))
 
 ;; This finite injective product admits both value-only and provenance shrinking.
@@ -67,6 +68,67 @@
         (measure-pair order
           (lambda (strategy) (capture (if (eq? strategy 'reseed) reseed restore) 1 regime))
           (lambda (samples) (displayln "GENERATOR-SEED-PAIR " regime " " order " " samples)))))))
+;; Independent immutable-field algebra control. Keep this local so the linked
+;; benchmark entry imports no TestSuite module. It uses only public generators;
+;; it is neither a production fallback nor an exact historical private binary.
+(def (retained-product-control fields)
+  ;; Capture each full field tree as the hidden value of a nonshrinking root.
+  (def (root field)
+    (core.make-tree-generator (lambda (random size)
+      (let (tree (core.generate field random size))
+        (core.make-sample tree (lambda () []) sources: (core.sample-sources tree))))))
+  (def roots (foldr (lambda (field tail)
+    (core.generator-bind (root field) (lambda (tree)
+      (core.generator-map tail (lambda (trees) (cons tree trees)))))) (core.generator-unit []) fields))
+  (core.make-tree-generator (lambda (random size)
+    (let (tree (core.generate roots random size))
+      (core.sample-sequence (core.sample-value tree) min-length: (length fields)
+        sources: (core.sample-sources tree))))))
+
+;; A public retained-tree algebra is the immutable-field control, not an exact
+;; historical-revision benchmark. Both strategies include their own preparation.
+(def (product-study repetitions pairs)
+  ;; Full receipt equality prevents an apparently faster strategy skipping work.
+  (def (receipt report)
+    (list (property.report-status report) (property.report-original report)
+      (property.report-counterexample report) (property.report-attempts report)
+      (property.report-steps report) (property.report-minimal? report)))
+  (def domain (property.make-specification list? (cut apply + <>)))
+  ;; The same falsity predicate is used by construction, shrink and both replays.
+  (def (property row) (< (apply + row) 3))
+  (for (width '(16 64))
+    ;; Standard integer fields carry no mutable producer metadata. Branch-source
+    ;; admission is covered by the separate negative/retirement regression cases.
+    (def (prepare strategy)
+      ((if (eq? strategy 'checked) core.generator-sequence retained-product-control)
+        (map (lambda (_) (core.generator-integer 0 16)) (iota width))))
+    ;; The complete check retains a fixed seed, domain and proposal quota.
+    (def (check sampler)
+      (property.check-property sampler property domain seed: 41 cases: 1 shrink-budget: 8))
+    (def expected (receipt (check (prepare 'composed))))
+    ;; Admission is symmetric and precedes all reported comparisons.
+    (unless (and (eq? (car expected) 'failed) (equal? expected (receipt (check (prepare 'checked)))))
+      (error "product strategy oracle"))
+    (for* ((phase '(prepare draw workflow)) (regime '(natural post-gc)))
+      ;; Phase boundaries include strategy preparation only where declared.
+      (def (action strategy)
+        (case phase
+          ((prepare) (lambda () (core.generator? (prepare strategy))))
+          ((draw) (let (sampler (prepare strategy)) (lambda ()
+            (equal? (core.sample-value (core.generate sampler (core.random-at 41) 20)) (cadr expected)))))
+          ((workflow) (lambda ()
+            (let (result (check (prepare strategy)))
+              (and (equal? (receipt result) expected)
+                (not (property.replay-counterexample result))
+                (equal? (receipt (property.replay-property result)) expected)))))))
+      (def checked (action 'checked)) (def composed (action 'composed))
+      (for (pair (in-range pairs))
+        (for (order (list (if (even? pair) '(composed checked) '(checked composed))
+                         '(composed composed) '(checked checked)))
+          (measure-pair order
+            (lambda (strategy) (capture (if (eq? strategy 'checked) checked composed) repetitions regime))
+            (lambda (samples) (displayln "GENERATOR-PRODUCT-PAIR " width " " phase " " regime " " order " " samples))))))))
+
 ;; Full entries include library/module startup; the measured actions contain all
 ;; strategy-specific preparation. Reversed and identical pairs expose ordering noise.
 (def (main (repetitions-text "20") (pairs-text "4"))
@@ -83,5 +145,6 @@
         (measure-pair order
           (lambda (strategy) (capture (if (eq? strategy 'callbacks) callbacks tree) repetitions regime))
           (lambda (samples) (report phase regime order samples))))))
+  (product-study repetitions pairs)
   (seed-study repetitions pairs)
   (displayln "GENERATOR-PAIRED-OK"))

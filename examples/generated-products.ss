@@ -3,6 +3,7 @@
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
+        (only-in ../testing/generation-graph generation-refusal?)
         (prefix-in :clan/poo/testing/property/replay corpus.)
         (prefix-in (only-in ../fun Observation.) fun.))
 
@@ -46,6 +47,42 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "service products refuse a retired factory then retry shrink and replay through FUN"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (Tuple service UInt))
+      (def later 0) (def packs 0) (def draws 0)
+      (def last (.cc (make-generator UInt (lambda (_r _s) 5) core.integer-shrinks identity)
+        epoch: 0 generation: (lambda (_)
+          (set! later (1+ later)) (core.make-generator (lambda (_r _s) 5) core.integer-shrinks))))
+      ;; Record initialization supplies the Function contract, including every
+      ;; reduced service value; no product-specific wrapper repeats validation.
+      (def (packet count) (make-instance service count: count handler: abs))
+      ;; A factory revision changes another known participant before it opens.
+      ;; Fresh construction observes the new epoch; the old Reader cannot renew it.
+      (def (prepare retire?)
+        (def first (.cc (make-generator service (lambda (_r _s) (packet 2))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0)))) (cut .get <> count))
+          generation: (lambda (_)
+            (when retire? (.set! last epoch 1))
+            (core.make-generator (lambda (_r _s) (set! draws (1+ draws)) (packet 2))
+              (lambda (value) (if (zero? (.get value count)) [] (list (packet 0))))))))
+        (def sampler (product-generator descriptor (list first last) vector->list
+          (lambda (row) (set! packs (1+ packs)) (list->vector row))))
+        (property-action descriptor (lambda (row)
+          (< (+ (.get (vector-ref row 0) count)
+            ((.@ (vector-ref row 0) handler) (- (vector-ref row 1)))) 3)) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1 size: 2 shrink-budget: 64))
+      (def old (prepare #f))
+      (check-exception (prepare #t) generation-refusal?)
+      (check-equal? (list later packs draws) '(1 0 0))
+      (check-eq? (.get (old configuration) status) 'stale)
+      (def fresh ((prepare #f) configuration))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (.get (vector-ref (.get fresh counterexample) 0) count) 0)
+      (check-equal? (vector-ref (.get fresh counterexample) 1) 3)
+      (check-exception ((.@ (vector-ref (.get fresh counterexample) 0) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed))
     (test-case "service schema migration constructs a fresh sampler and retains required Type ownership"
       (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       (def source (.cc schema .element?: (cut element? schema <>) .generator: (lambda ()

@@ -4,9 +4,77 @@
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
 
+;; Immutable-field seed/tree oracle, independent of the benchmark control; not a runtime
+;; compatibility path. It reconstructs the former retained bind/map algebra.
+(def (retained-product-reference fields)
+  ;; Each field is a hidden preimage; root composition never shrinks or redraws it.
+  (def (sampled field)
+    (generator.make-tree-generator (lambda (random size)
+      (let (tree (generator.generate field random size))
+        (generator.make-sample tree (lambda () []) sources: (generator.sample-sources tree))))))
+  (def roots (foldr (lambda (field tail)
+    (generator.generator-bind (sampled field) (lambda (tree)
+      (generator.generator-map tail (lambda (trees) (cons tree trees))))))
+    (generator.generator-unit []) fields))
+  (generator.make-tree-generator (lambda (random size)
+    (let (root (generator.generate roots random size))
+      (generator.sample-sequence (generator.sample-value root) min-length: (length fields)
+        sources: (generator.sample-sources root))))))
+
 ;; Register these ordinary cases in the caller's current :std/test suite.
 ;; The standard runner still owns discovery, fixtures, assertions and results.
 (def (product-test-cases!)
+    (test-case "product topology contracts reject malformed spines before drawing"
+      (def draws 0)
+      (def field (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 1) (lambda (_) [])))
+      (def cycle (list field)) (set-cdr! cycle cycle)
+      (for (invalid (list #f (cons field 'tail) cycle (list field #f)))
+        (check-exception (generator.generator-sequence invalid) Error?))
+      (check-equal? draws 0))
+    (test-case "captured product topology is independent of caller spine edits"
+      (def fields (list (generator.generator-unit 1) (generator.generator-unit 2)))
+      (def product (generator.generator-sequence fields))
+      (set-car! fields (generator.generator-unit 99)) (set-cdr! fields fields)
+      (check-equal? (generator.sample-value (generator.generate product (generator.random-at 41) 2)) '(1 2)))
+    (test-case "checked products retain the established split schedule and root remainder"
+      (for* ((width '(0 1 3 16)) (seed '(0 1 41 4294967086)) (dependent? '(#f #t)))
+        (def field (if dependent?
+          (generator.generator-bind (generator.generator-integer 0 16)
+            (lambda (lower) (generator.generator-integer lower (+ lower 16))))
+          (generator.generator-integer 0 1024)))
+        (def fields (make-list width field))
+        (def before (generator.random-at seed)) (def after (generator.random-at seed))
+        (check-equal? (generator.sample-value (generator.generate (retained-product-reference fields) before 8))
+          (generator.sample-value (generator.generate (generator.generator-sequence fields) after 8)))
+        (check-equal? (before 4294967087) (after 4294967087))))
+    (test-case "checked retained products preserve coordinate trees and both replay receipts"
+      (def fields (list (generator.generator-integer 0 16) (generator.generator-integer 0 16)))
+      (def domain (property.make-specification list? (cut apply + <>)))
+      ;; Compare receipts as well as values: neither callback counts nor budgets
+      ;; may disappear behind an apparently equal final counterexample.
+      (def (receipt constructor)
+        (let (report (property.check-property (constructor fields) (lambda (row) (< (apply + row) 3))
+          domain seed: 41 cases: 1 shrink-budget: 32))
+          (check-eq? (property.report-status report) 'failed)
+          (check (property.replay-counterexample report) => #f)
+          (def again (property.replay-property report))
+          (check-equal? (property.report-counterexample again) (property.report-counterexample report))
+          (list (property.report-original report) (property.report-counterexample report)
+            (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))))
+      (check-equal? (receipt generator.generator-sequence) (receipt retained-product-reference)))
+    (test-case "newly discovered branch retirement suppresses the next field"
+      (def live #t) (def later 0)
+      (def first (generator.make-tree-generator (lambda (_random _size)
+        (set! live #f) (generator.make-sample 1 (lambda () []) (lambda () live)))))
+      (def last (generator.make-generator (lambda (_random _size) (set! later (1+ later)) 2) (lambda (_) [])))
+      (check-exception (generator.generate (generator.generator-sequence (list first last))
+        (generator.random-at 41) 2) generator.stale-generation?)
+      (check-equal? later 0))
+    (test-case "wide fixed products retain every field and their empty neighborhood"
+      (def fields (map generator.generator-unit (iota 512)))
+      (def root (generator.generate (generator.generator-sequence fields) (generator.random-at 41) 0))
+      (check-equal? (generator.sample-value root) (iota 512))
+      (check-equal? (for/collect (child ((generator.sample-children root))) child) []))
     (test-case "fixed products refuse obsolete later fields before randomness or drawing"
       (def live #t) (def draws 0) (def randoms 0)
       (def first (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 8)

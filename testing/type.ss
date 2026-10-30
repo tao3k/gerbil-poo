@@ -112,24 +112,39 @@
              (call (.@ (car children) shrink) (car values)))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Products share draw/shrink/measure composition for tuples, pairs and call rows.
-(def (product-generator descriptor children unpack pack)
+(def (product-generator descriptor (children :~ list?) (unpack : :procedure) (pack : :procedure))
   (set! children (list-copy children))
-  (def owners (snapshot #f (list descriptor)))
-  (def domain (testing.make-product-specification
-    (map-in-order (lambda (child) (property-specification child (snapshot child []))) children)
-    current?: (lambda () (current? owners))))
-  ;; The generic product owns all field/owner stamps, including an empty product.
-  ;; One boundary also protects representation callbacks and value-only shrinking.
-  (def (current) (testing.specification-current? domain))
-  (def (checked action . arguments)
+  (unless (object? descriptor) (validate Type descriptor))
+  (for (child children) (unless (object? child) (validate GeneratorRecord child)))
+  (def owners (snapshot #f (cons descriptor children)))
+  ;; All known participants precede metadata/factory reads, even if a later child
+  ;; has not yet supplied its additional dependencies. This checker is transient.
+  (def admission (lambda () (current? owners)))
+  (def (check!) (unless (admission) (refuse-generation 'stale)))
+  (core.with-generation-check check!
     (core.with-sources []
-      (unless (current) (refuse-generation 'stale))
-      (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
-  (.cc (from-generator descriptor
-    (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
-    (lambda (value) (testing.specification-weight domain (checked unpack value)))
-    shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
-    dependencies: (apply append (map generator-sources children))) .current?: current))
+      (validate Type descriptor)
+      (def domain (testing.make-product-specification
+        (map-in-order (lambda (child) (core.with-sources []
+          (def captured (snapshot child []))
+          (set! owners (append owners captured))
+          (property-specification child captured))) children)
+        current?: (lambda () (current? owners))))
+      ;; The generic product owns all field/owner stamps, including an empty product.
+      ;; One boundary also protects representation callbacks and value-only shrinking.
+      (def (current) (testing.specification-current? domain))
+      ;; Once all domains exist, their captured Type/dependency/hook judgments
+      ;; join the SAME checker before any factory runs; no new scope is layered.
+      (set! admission current)
+      (def (checked action . arguments)
+        (core.with-sources []
+          (unless (current) (refuse-generation 'stale))
+          (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
+      (.cc (from-generator descriptor
+        (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
+        (lambda (value) (testing.specification-weight domain (checked unpack value)))
+        shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
+        dependencies: (apply append (map generator-sources children))) .current?: current))))
 
 ;; Finite-key Maps reuse their existing validation/wrapping protocol once per
 ;; materialized node. Key validation must preserve the supplied representation;
