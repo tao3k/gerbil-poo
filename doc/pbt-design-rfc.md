@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P42 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P43 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 121 case receipts, an error-free result and
+through `gerbil test`. It requires all 127 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2760,3 +2760,52 @@ causes and the necessary authority for success. The model concerns admission and
 protected status/cause; arbitrary presentation fields and the host's exception/
 TestResult machinery are not verified. It extends the paper's future-work protocol,
 not the original concrete evaluator or a compiler proof.
+
+## P43: inherited authority for finite function observations
+
+A standard TestSuite control retired an enclosing generation check and then
+called a retained finite function. The call returned normally: `function-apply`
+checked only its table's own sources. A property/encoder could therefore execute
+its continuation after a now-unauthorized nested call, before its outer trailing
+check refused. `function-table` had the same omission, while `function-domain`
+did not check table ownership at all. This is a missing integration of the existing
+checked-action protocol, not unrestricted higher-order function inference.
+
+The existing generator module now has one private hygienic `with-function` form
+over `with-sources`. Exact-row lookup, domain observation and portable table export
+share its inherited checks and retained table owner before/after normal return.
+`function-procedure` still delegates to lookup and Gerbil's multiple-value delivery;
+there is no second dispatcher, record, namespace or persistent wrapper chain.
+Unknown rows remain errors, keyword order/escapes remain raw row identity, and
+observer exceptions retain their exact causes. Rows and result spines are still
+copied; mutable payloads still require the application's declared source law.
+
+Call-site authority is transient. A live immutable table can be called in a fresh
+scope after an earlier caller retires; old property reports and replay receipts
+remain retired. Constructing a table/ordinary procedure does not grant authority
+or force it: admission occurs when observing or invoking it. No table constructor
+or existing generator random schedule changes.
+
+The pinned [Rackcheck generator core](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/core.rkt)
+retains tree ownership through map/bind rather than building another call engine;
+its [property executor](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/prop.rkt)
+uses dynamically scoped random/label state. We reuse our existing dynamic
+source protocol at the retained value's observation boundary. Racket's code is
+an abstraction reference, not evidence that it implements mutable POO revisions.
+
+Six generic cases cover transient and retained parent refusal before local
+observers, own-table refusal, original observer errors/strict booleans, keyword
+rows/multiple values, detached spines, scope restoration, and interrupted property
+and codec continuations with zero output. The independent suite requires 127
+cases. A downstream Record/Function service composes retirement, explicit fresh
+FUN preparation, retained shrinking, seed/concrete replay and portable table
+round trips; normal Record initialization owns Function wrapping once.
+
+Seven finite PropertyScopes laws reuse guardedGeneration and lookupFunction:
+parent/owner refusal, stable observation, post-return retirement, exact errors,
+known-row delivery and unknown-row refusal. Top-level examples show an old caller
+rejected while a separately authorized caller uses the same table. Faithful
+observers, finite immutable-by-protocol tables, serial terminating actions and
+host dynamic-scope fidelity remain premises. No arbitrary Scheme procedure,
+runtime, PRNG or concurrency proof is claimed. All existing resource/check gates
+remain; this semantic fix makes no wall-clock speedup claim.

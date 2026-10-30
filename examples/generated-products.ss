@@ -48,6 +48,45 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "finite service calls stop after retirement then retry shrink and portable replay through FUN"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def continued 0)
+      (def finite (core.function-from-table '(((0) 4) ((1) 8))))
+      ;; The Record owns the Function wrapper; its finite table remains an ordinary
+      ;; generated value rather than a second call adapter or dispatcher.
+      (def (packet count function)
+        (make-instance service count: count handler: (core.function-procedure function)))
+      ;; Each fresh Reader action captures the owner's actual revision. Retirement
+      ;; happens before the nested call, so its continuation must never run.
+      (def (prepare retire?)
+        (def sampler (make-generator service (lambda (_r _s) (packet 4 finite))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0 finite))))
+          (cut .get <> count) dependencies: (list owner)))
+        (property-action service (lambda (value)
+          (when retire? (.set! owner epoch (1+ (.get owner epoch))))
+          (def result ((.@ value handler) 0))
+          (set! continued (1+ continued)) (< result 4)) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 12 cases: 1 size: 4 shrink-budget: 8))
+      (def retired ((prepare #t) configuration))
+      (check-eq? (.get retired status) 'stale)
+      (check-equal? continued 0)
+      (check-exception (replay-property retired) Error?)
+      (def failed ((prepare #f) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      ;; A downstream corpus stores data only. Restoration rebuilds the same
+      ;; Record contract once, preserving finite-row refusal and wrapped calls.
+      (def codec (corpus.make-codec '(finite-service 1)
+        (lambda (value) (vector (.get value count) (core.function-table finite)))
+        (lambda (datum) (packet (vector-ref datum 0) (core.function-from-table (vector-ref datum 1))))))
+      (def output (open-output-string))
+      (corpus.write-counterexample (.get failed execution) codec output)
+      (check (corpus.read-counterexample codec (open-input-string (get-output-string output))
+        (property.report-specification (.get failed execution))
+        (property.report-property (.get failed execution))) => #f))
     (test-case "service FUN reports retain assertion authority across rendering and replay"
       (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       (def owner (.o epoch: 0)) (def rendered 0) (def mapped 0)

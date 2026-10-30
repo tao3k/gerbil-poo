@@ -473,16 +473,21 @@
 
 ;; Finite functions store raw argument rows and result tuples, not opaque closures.
 (defstruct function-value (entries current) final: #t)
-;; Domain inspection returns fresh spines; callers own mutable payload dependencies.
-(def (function-domain value) (map (lambda (entry) (map identity (car entry))) (function-value-entries value)))
+;; All finite observations share the existing transient/retained source boundary.
+;; The form adds no stored wrapper or guard chain to the function's table.
+(defrule (with-function value body ...)
+  (with-sources (list (function-value-current value)) body ...))
+;; Domain inspection returns fresh spines only under current call-site and table
+;; authority; callers still own the declared dependencies of mutable payloads.
+(def (function-domain value)
+  (with-function value
+    (map (lambda (entry) (map identity (car entry))) (function-value-entries value))))
 ;; Unknown rows are refused explicitly; repeated equal rows select the same tuple.
 (def (function-apply value arguments)
-  (unless (live? (function-value-current value)) (raise (make-stale)))
-  (def entry (assoc arguments (function-value-entries value)))
-  (unless entry (error "arguments outside finite function domain" arguments))
-  (def result (cdr entry))
-  (unless (live? (function-value-current value)) (raise (make-stale)))
-  (map identity result))
+  (with-function value
+    (def entry (assoc arguments (function-value-entries value)))
+    (unless entry (error "arguments outside finite function domain" arguments))
+    (map identity (cdr entry))))
 ;; Gerbil owns keyword forwarding and multiple-value delivery; Function contracts
 ;; may wrap this ordinary rest procedure without changing its finite table.
 (def (function-procedure value)
@@ -509,9 +514,9 @@
   (map (cut map identity <>) rows))
 ;; Export fresh row/result spines; payload ownership remains the declared source law.
 (def (function-table value)
-  (unless (live? (function-value-current value)) (raise (make-stale)))
-  (map (lambda (entry) (cons (map identity (car entry)) (map identity (cdr entry))))
-    (function-value-entries value)))
+  (with-function value
+    (map (lambda (entry) (cons (map identity (car entry)) (map identity (cdr entry))))
+      (function-value-entries value))))
 ;; A decoder restores finite data directly without drawing or evaluating stored code.
 (def (function-from-table entries domain-limit: (limit 256) current?: (current immutable-current))
   (unless (and (list? entries) (every pair? entries) (every (lambda (entry) (list? (cdr entry))) entries)

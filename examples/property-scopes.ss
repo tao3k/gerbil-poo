@@ -1,10 +1,89 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
-(export assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+(export function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.))
+
+;; Exercise each public observation under the same transient and retained owners.
+;; A procedure delegates invocation to function-apply; no second dispatcher exists.
+(def (function-test-cases!)
+  (def observations
+    (list generator.function-domain generator.function-table
+      (cut generator.function-apply <> '(request))
+      (lambda (value) ((generator.function-procedure value) 'request))))
+  (test-case "finite observations inherit retired run checks before local observers"
+    (for (observe observations)
+      (def active? #t) (def calls 0) (def cause (Error "retired function caller"))
+      (def value (generator.function-from-table '(((request) 7))
+        current?: (lambda () (set! calls (1+ calls)) #t)))
+      (check-exception
+        (generator.with-generation-check (lambda () (unless active? (raise cause)))
+          (set! active? #f) (observe value))
+        (lambda (found) (eq? found cause)))
+      (check-equal? calls 0)))
+  (test-case "finite observations inherit retained leaves and refuse stale own tables"
+    (for (observe observations)
+      (def active? #t) (def calls 0)
+      (def value (generator.function-from-table '(((request) 7))
+        current?: (lambda () (set! calls (1+ calls)) #t)))
+      (check-exception
+        (generator.with-sources (list (lambda () active?))
+          (set! active? #f) (observe value)) generator.stale-generation?)
+      (check-equal? calls 0)
+      (check-exception (observe (generator.function-from-table '(((request) 7))
+        current?: (lambda () #f))) generator.stale-generation?)))
+  (test-case "finite observation errors retain observer identity and strict booleans"
+    (for (observe observations)
+      (def cause (Error "function observer"))
+      (check-exception (observe (generator.function-from-table '(((request) 7))
+        current?: (lambda () (raise cause)))) (lambda (found) (eq? found cause)))
+      (check-exception (observe (generator.function-from-table '(((request) 7))
+        current?: (lambda () 'truthy))) Error?)))
+  (test-case "finite calls preserve raw keyword rows multiple values and detached spines"
+    (def entries '(((request) 7 8) ((request scale: 2) 9 10)))
+    (def value (generator.function-from-table entries))
+    (check-equal? (call-with-values (cut (generator.function-procedure value) 'request scale: 2) list) '(9 10))
+    (check-exception ((generator.function-procedure value) 'request scale: 3) Error?)
+    (def domain (generator.function-domain value))
+    (set-car! (car domain) 'changed)
+    (def table (generator.function-table value))
+    (set-car! (cdar table) 99)
+    (check-equal? (generator.function-domain value) '((request) (request scale: 2)))
+    (check-equal? (generator.function-table value) entries)
+    (check-equal? (generator.function-apply value '(request)) '(7 8)))
+  (test-case "finite call scopes unwind without retaining a caller or its failure"
+    (def active? #t)
+    (def value (generator.function-from-table '(((request) 7))))
+    (generator.with-sources (list (lambda () active?))
+      (check-equal? (generator.function-apply value '(request)) '(7)))
+    (set! active? #f)
+    (check-equal? (generator.function-apply value '(request)) '(7))
+    (check-exception
+      (generator.with-generation-check (lambda () (error "caller refused"))
+        (generator.function-table value)) Error?)
+    (check-equal? (generator.function-table value) '(((request) 7))))
+  (test-case "finite calls interrupt retired properties and codec encoders before continuation"
+    (def active? #t) (def after 0)
+    (def value (generator.function-from-table '(((request) 7))))
+    (def domain (property.make-specification generator.function-value? (lambda (_) 0)
+      current?: (lambda () active?)))
+    (def report (property.check-property (generator.generator-unit value)
+      (lambda (function) (set! active? #f) (generator.function-apply function '(request))
+        (set! after (1+ after)) #f) domain cases: 1 shrink-budget: 0))
+    (check-eq? (property.report-status report) 'stale)
+    (check-equal? after 0)
+    (set! active? #t)
+    (def failed (property.check-property (generator.generator-unit value) (lambda (_) #f)
+      domain cases: 1 shrink-budget: 0))
+    (def codec (replay.make-codec '(finite-call 1)
+      (lambda (function) (set! active? #f) (generator.function-table function)
+        (set! after (1+ after)) []) generator.function-from-table current?: (lambda () active?)))
+    (def output (open-output-string))
+    (check-exception (replay.write-counterexample failed codec output) Error?)
+    (check-equal? after 0)
+    (check-equal? (get-output-string output) "")))
 
 ;; Each root advances an application epoch. Ownership can belong to the root
 ;; or to a subsequently observed child; neither path invents a report owner.

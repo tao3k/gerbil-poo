@@ -3332,3 +3332,13 @@ do-check! ownership and one evaluation. The independent suite now requires 121
 cases; eleven deliberate CLI failures, typed controls, a FUN/Record/Function service
 example and seven finite admission laws cover the complete assertion boundary.
 See [P42](pbt-design-rfc.md#p42-authoritative-standard-assertions-and-checked-diagnostic-rendering).
+
+P43 closes inherited authority for retained finite Function calls and observations.
+One private form in the existing generator module reuses with-sources for exact
+dispatch, domain and table export; no persistent wrapper chain is added. Stale
+outer callers interrupt before local observers or later continuation effects.
+Fresh scopes may reuse a still-current table without renewing old reports.
+Six generic controls raise independent acceptance to 127 cases. A contracted
+Record service combines FUN retry, shrinking and both replay forms plus portable
+table handoff; seven finite Lean action/lookup laws state the admitted scope.
+See [P43](pbt-design-rfc.md#p43-inherited-authority-for-finite-function-observations).
