@@ -3,7 +3,7 @@
         generator-unit generator-map generator-bind generator-sequence bind-generators
         generator-choice generator-frequency generator-sized generator-resize generator-scale
         generator-delay generator-filter generator-no-shrink generator-with-shrink
-        generate generator-current? sample? sample-value sample-children sample-current sample-sources with-generation-check
+        generate generator-current? sample? sample-value sample-children sample-current sample-sources with-generation-check with-sources
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
         boolean-result live? random-at
         generator-function function-value? function-domain function-apply function-procedure

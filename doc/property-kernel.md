@@ -566,7 +566,7 @@ To copy the independent worked suite into another standard Gerbil project, inclu
 `examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` and `examples/property-traces.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
-87 cases without installing POO.
+92 cases without installing POO.
 
 Checked property actions now install a run-local `with-generation-check` scope
 from the generator module. A nested draw/map/selector/iterator cannot continue
@@ -608,3 +608,15 @@ its source scope, so revision skips the next coordinate. `make-generator` lazy
 shrink Iterators retain their separate bounded consumption protocol. P29 and
 `examples/generated-traces.ss` show typed Record/FUN failure, retry and replay
 without partial packing.
+
+
+Generic model actions now share the generator's source boundary, including each
+transition, observer, equality callback and fixture entry/return. A revision stops
+the next action, not merely the eventual report. Initializer invalidation can no
+longer execute an obsolete draw suffix. Expected observation is explicitly
+sequenced before actual observation. Ordinary multi-values, false commands,
+original exceptions and `try`/`finally` cleanup keep their existing meanings.
+`examples/property-traces.ss` and `examples/generated-traces.ss` show generic and
+Record/FUN refusal/retry without a second evaluator. Seven dependent-action laws
+in `PropertyScopes.lean` state the finite source/serial-callback premises; host
+unwinding remains executable evidence. See P30 in the RFC for costs and scope.

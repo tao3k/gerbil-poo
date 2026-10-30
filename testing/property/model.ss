@@ -2,8 +2,10 @@
 (export make-model model? make-system system? valid-trace? repair-trace shrink-trace draw-trace check-trace
         trace-report? trace-report-matched? trace-report-phase trace-report-index
         trace-report-has-command? trace-report-command trace-report-expected trace-report-actual)
-(import :std/error :std/iter (only-in ./generator data-list-shrinks))
-;; Private model records hold ordinary pure callbacks, not POO descriptors.
+(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources))
+;; Private model records hold ordinary callbacks, not POO descriptors. Trace
+;; laws require pure model transitions. The shared source boundary also refuses
+;; declared revisions between actions without retaining wrappers or run checks.
 (defstruct reference (initial enabled advance observe accept normalize) final: #t)
 ;; Each fixture supplies owned state and its actual transition/observation functions.
 (defstruct fixture (initial step observe) final: #t)
@@ -26,23 +28,24 @@
 (def (judgment value message)
   (unless (boolean? value) (error message value)) value)
 ;; One shared fold advances retained commands. Selection returns two values,
-;; separating keep/omit from a command payload which may itself be false.
+;; separating keep/omit from a command payload which may itself be false. Each
+;; caller action shares the active source/check scope; refusal skips the next one.
 (def (fold-trace model commands select)
   (foldl (lambda (raw progress)
     (let-values (((keep? command) (select (car progress) raw)))
       (if keep?
-        (let-values (((next _reply) ((reference-advance model) (car progress) command)))
+        (let-values (((next _reply) (with-sources [] ((reference-advance model) (car progress) command))))
           (cons next (cons command (cdr progress)))) progress)))
-    (cons ((reference-initial model)) []) commands))
+    (cons (with-sources [] ((reference-initial model))) []) commands))
 ;; Retain the exact normalized commands admitted by every model prefix. A false
 ;; result rejects the whole trace; an empty prepared list is a successful trace.
 (def (prepare-trace model commands)
   (let/cc invalid
     (unless (list? commands) (invalid #f))
     (reverse (cdr (fold-trace model commands (lambda (state raw)
-      (unless (judgment ((reference-accept model) raw) "command predicate must return a boolean") (invalid #f))
-      (def command ((reference-normalize model) raw))
-      (unless (judgment ((reference-enabled model) state command) "trace precondition must return a boolean") (invalid #f))
+      (unless (judgment (with-sources [] ((reference-accept model) raw)) "command predicate must return a boolean") (invalid #f))
+      (def command (with-sources [] ((reference-normalize model) raw)))
+      (unless (judgment (with-sources [] ((reference-enabled model) state command)) "trace precondition must return a boolean") (invalid #f))
       (values #t command)))))))
 ;; Boolean admission is only a projection of the same preparation protocol.
 (def (valid-trace? model commands) (and (prepare-trace model commands) #t))
@@ -50,9 +53,9 @@
 ;; the same fold and never treats an improper tail as a completed prefix.
 (def (repair-trace (model :~ model?) (commands :~ list?))
   (reverse (cdr (fold-trace model commands (lambda (state raw)
-    (if (judgment ((reference-accept model) raw) "command predicate must return a boolean")
-      (let (command ((reference-normalize model) raw))
-        (values (judgment ((reference-enabled model) state command) "trace precondition must return a boolean") command))
+    (if (judgment (with-sources [] ((reference-accept model) raw)) "command predicate must return a boolean")
+      (let (command (with-sources [] ((reference-normalize model) raw)))
+        (values (judgment (with-sources [] ((reference-enabled model) state command)) "trace precondition must return a boolean") command))
       (values #f #f)))))))
 ;; Share the collection neighborhood: aligned blocks precede parameter shrinks.
 ;; Repair each proposal once in model order; no draw, fixture or handle renaming
@@ -70,15 +73,15 @@
 (def (draw-trace (model :~ model?) (draw : :procedure)
                  (steps :~ trace-limit?) (random : :procedure) (size :~ trace-limit?))
   (let/cc done
-    (def progress (for/fold (progress (cons ((reference-initial model)) [])) (_ (in-range (min steps size)))
-      (let-values (((continue? raw) (draw (car progress) random size)))
+    (def progress (for/fold (progress (cons (with-sources [] ((reference-initial model))) [])) (_ (in-range (min steps size)))
+      (let-values (((continue? raw) (with-sources [] (draw (car progress) random size))))
         (unless (judgment continue? "draw continuation must return a boolean") (done (reverse (cdr progress))))
-        (unless (judgment ((reference-accept model) raw) "command predicate must return a boolean")
+        (unless (judgment (with-sources [] ((reference-accept model) raw)) "command predicate must return a boolean")
           (error "generated command is outside its domain"))
-        (let (command ((reference-normalize model) raw))
-          (unless (judgment ((reference-enabled model) (car progress) command) "trace precondition must return a boolean")
+        (let (command (with-sources [] ((reference-normalize model) raw)))
+          (unless (judgment (with-sources [] ((reference-enabled model) (car progress) command)) "trace precondition must return a boolean")
             (error "disabled generated command" command))
-          (let-values (((next _reply) ((reference-advance model) (car progress) command)))
+          (let-values (((next _reply) (with-sources [] ((reference-advance model) (car progress) command))))
             (cons next (cons command (cdr progress))))))))
     (reverse (cdr progress))))
 ;; Scope and first-difference execution are generic. The same? callback receives
@@ -88,26 +91,32 @@
   (def prepared (prepare-trace model commands))
   (unless prepared (error "invalid command trace"))
   ;; The comparison fold exits before any later step or unnecessary observation.
+  ;; Source checks surround each observer separately, including argument evaluation;
+  ;; a revised reference cannot trigger the following actual observer or step.
   (def (run actual)
     (unless (system? actual) (error "system required"))
     (let/cc different
       (def (compare phase index present? command expected found)
-        (unless (judgment (same? phase expected found) "trace equality must return a boolean")
+        (unless (judgment (with-sources [] (same? phase expected found)) "trace equality must return a boolean")
           (different (make-trace-report #f phase index present? command expected found))))
-      (def reference ((reference-initial model)))
+      (def reference (with-sources [] ((reference-initial model))))
       (def initial (fixture-initial actual))
-      (compare 'initial 0 #f #f ((reference-observe model) reference) ((fixture-observe actual) initial))
+      (let* ((expected (with-sources [] ((reference-observe model) reference)))
+             (found (with-sources [] ((fixture-observe actual) initial))))
+        (compare 'initial 0 #f #f expected found))
       (for/fold (states (cons reference initial)) ((command prepared) (index (in-range (length prepared))))
-        (let*-values (((next expected) ((reference-advance model) (car states) command))
-                      ((updated found) ((fixture-step actual) (cdr states) command)))
+        (let*-values (((next expected) (with-sources [] ((reference-advance model) (car states) command)))
+                      ((updated found) (with-sources [] ((fixture-step actual) (cdr states) command))))
           (compare 'result index #t command expected found)
-          (compare 'state index #t command ((reference-observe model) next) ((fixture-observe actual) updated))
+          (let* ((expected-state (with-sources [] ((reference-observe model) next)))
+                 (found-state (with-sources [] ((fixture-observe actual) updated))))
+            (compare 'state index #t command expected-state found-state))
           (cons next updated)))
       (make-trace-report #t 'complete (length prepared) #f #f #f #f)))
   (def active? #t) (def entered? #f) (def result #f)
   (try
-    (let (returned (with-system (lambda (actual)
+    (let (returned (with-sources [] (with-system (lambda (actual)
       (unless (and active? (not entered?)) (error "trace fixture callback is not active or was reused"))
-      (set! entered? #t) (set! result (run actual)) result)))
+      (set! entered? #t) (set! result (run actual)) result))))
       (unless (and entered? result (eq? returned result)) (error "trace fixture did not return its observation")) result)
     (finally (set! active? #f))))

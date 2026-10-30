@@ -1697,6 +1697,13 @@ early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw law
 
 Finite trace/value shrinking now rejects malformed outer spines and parameter
 results instead of salvaging prefixes, and rechecks sources between callbacks.
+P30 in [pbt-design-rfc.md](pbt-design-rfc.md) closes generic model action source
+boundaries throughout draw, admission/repair and differential fixture execution.
+It reuses the existing callback guard, stops after registered revisions, preserves
+multi-values/causes/cleanup and adds five independent cases (92 total), one
+Record/FUN retry example and seven finite dependent-action laws. Host unwinding,
+arbitrary callback termination and concurrent execution are explicit boundaries.
+
 P29 in [pbt-design-rfc.md](pbt-design-rfc.md) records 87 independent cases, shared
 Record/FUN data-carrier preparation, exact failures/retry/replay and nine laws.
 The general lazy Iterator protocol retains its original budget and scope.
