@@ -3294,3 +3294,13 @@ and the generated-traces service retry example cover this full lifetime through
 shrinking and both replay forms. Five restoration laws extend PropertyScopes;
 serial terminating callbacks and accurate observers remain premises. See P39 in
 [pbt-design-rfc.md](pbt-design-rfc.md).
+
+
+P40 closes typed trace declaration preparation across generation, admission,
+repair and differential execution. Computed metadata is captured one field at a
+time before Record normalization; normalized fields never refresh prior stamps.
+The existing typed module exposes valid-trace?/repair-trace without a new runner.
+Gerbil dynamic scope restores fixture ownership, and sampler currentness retains
+constructor stamps. Regression controls, a dependent service retry/replay example
+and five finite declaration-observation laws cover the complete boundary. See
+[P40 in the PBT RFC](pbt-design-rfc.md#p40-first-observation-typed-trace-declaration-preparation).

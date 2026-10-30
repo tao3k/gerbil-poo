@@ -2,6 +2,7 @@
 (export generated-traces-test)
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../testing/type ../support/option
+        (only-in ../testing/generation-graph generation-refusal?)
         (only-in ../debug property-debug-action)
         (prefix-in :clan/poo/testing/property/generator core.))
 
@@ -103,6 +104,51 @@
       (check-eq? (.get (replay-property fresh) status) 'failed)
       (check-equal? opened closed)
       (check-equal? mapped 0))
+    (test-case "computed service declarations reject mixed epochs before FUN preparation"
+      (def command (.cc (Record kind: [(Enum open use)] key: [UInt]
+        handler: [(Function [Integer] [Integer])]) epoch: 0))
+      (def draws 0) (def opened 0) (def closed 0)
+      ;; Declared dependencies make a use command meaningful only after open.
+      (def (advance state next)
+        (values (if (eq? (.get next kind) 'open) (cons (.get next key) state) state)
+          (1+ (.get next key))))
+      ;; Computed Type metadata may discover a revision during preparation.
+      ;; Fresh preparation is explicit; it does not renew an older action.
+      (def (subject retire?)
+        (.o bind-these: #f Command: command State: (begin (when retire? (.set! command epoch 1)) (List UInt))
+          Result: Integer Observation: (List UInt) initial: (lambda () []) observe: identity
+          enabled?: (lambda (state next)
+            (if (eq? (.get next kind) 'open) (not (memv (.get next key) state))
+              (and (memv (.get next key) state) #t)))
+          advance: advance draw: (lambda (state _random _size)
+            (set! draws (1+ draws))
+            (some (make-instance command kind: (if (null? state) 'open 'use) key: 1 handler: (lambda (n) (1+ n)))))
+          shrink: (lambda (_) []) measure: (lambda (_) 0)))
+      ;; Actual execution owns one fixture per observation and closes on failure.
+      (def (fixture use)
+        (set! opened (1+ opened))
+        (try (use (make-instance (TraceSystem (List UInt)) initial: [] observe: identity
+          step: (lambda (state next)
+            (let-values (((updated _reply) (advance state next)))
+              (values updated (+ ((.@ next handler) (.get next key))
+                (if (eq? (.get next kind) 'use) 1 0)))))))
+          (finally (set! closed (1+ closed)))))
+      ;; The existing Reader/FUN debug action owns checking, shrinking and replay.
+      (def (prepare retire?)
+        (let* ((model (subject retire?)) (sampler (trace-generator command model steps: 3)))
+          (property-debug-action #f (.get sampler descriptor) (trace-property model fixture) sampler: sampler)))
+      (def options (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3 shrink-budget: 64))
+      (def old (prepare #f))
+      (check-exception (prepare #t) generation-refusal?)
+      (check-equal? (list draws opened closed) '(0 0 0))
+      (check-eq? (.get (old options) status) 'stale)
+      (def fresh ((prepare #f) options))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (map (cut .get <> kind) (.get fresh counterexample)) '(open use))
+      (check-exception ((.@ (car (.get fresh counterexample)) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-equal? opened closed))
     (test-case "String Symbol and Bytes share finite preparation and source refusal"
       ;; One codec-parametric fixture exercises all standard carriers. Every value
       ;; field keeps its exact descriptor; no unconstrained element fallback exists.

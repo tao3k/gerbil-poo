@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
 (import (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
@@ -832,3 +832,54 @@
       (check (replay-counterexample report) => #f)
       (check-eq? (.get (replay-property report) status) 'failed)
       (check-equal? (list old-draws new-draws) '(0 2)))))
+
+
+;; Preparation is one protocol across all typed model entrypoints. These controls
+;; isolate metadata reads from draws, fixtures and later Type validators.
+(def trace-preparation-test
+  (test-suite "typed trace declaration preparation"
+    (test-case "all typed trace entrypoints capture computed metadata before later fields"
+      (for (operation '(valid repair check generator))
+        (for (retire-at '(1 2))
+          (def command-type (.cc Integer epoch: 0)) (def reads 0) (def later 0) (def opened 0)
+          (def subject (.o Command: command-type
+            State: (begin (set! reads (1+ reads))
+              (when (= reads retire-at) (.set! command-type epoch 1)) Integer)
+            Result: Integer Observation: (begin (set! later (1+ later)) Integer)
+            initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+            advance: (lambda (state command) (values (+ state command) command)) observe: identity
+            draw: (lambda (_state _random _size) (some 1)) shrink: (lambda (_) []) measure: abs))
+          (check-exception (case operation
+            ((valid) (valid-trace? subject '(1))) ((repair) (repair-trace subject '(1)))
+            ((check) (check-trace subject '(1) (lambda (_) (set! opened (1+ opened)))))
+            ((generator) (trace-generator command-type subject steps: 1))) generation-refusal?)
+          (check-equal? reads retire-at)
+          ;; First-read refusal cannot enter the next metadata getter or fixture.
+          (when (= retire-at 1) (check-equal? later 0))
+          (check-equal? opened 0))))
+    (test-case "trace preparation retains Type errors and restores nested scope on failure"
+      (for (bad (list #f (.o) (.cc (integer-trace-model) Command: #f)))
+        (check-exception (valid-trace? bad []) TypeError?)
+        (check-exception (repair-trace bad []) TypeError?)
+        (check-exception (check-trace bad [] (lambda (_) (error "fixture must not open"))) TypeError?))
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 0) 0)) 7))
+    (test-case "pure admission and repair stop between state and reply validation"
+      (for (operation '(valid repair))
+        (def result-type (.cc Integer epoch: 0)) (def later 0) (def initial? #t)
+        (def state-type (.cc Integer .validate: (lambda (value)
+          (unless initial? (.set! reply-type epoch 1)) value)))
+        (def reply-type (.cc result-type .validate: (lambda (value) (set! later (1+ later)) value)))
+        (def subject (make-instance TraceModel Command: Integer State: state-type Result: reply-type Observation: Integer
+          initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+          advance: (lambda (state command) (set! initial? #f) (values (+ state command) command)) observe: identity))
+        (check-exception (if (eq? operation 'valid) (valid-trace? subject '(1)) (repair-trace subject '(1)))
+          generation-refusal?)
+        (check-equal? later 0)))
+    (test-case "computed metadata exceptions remain exact after earlier declaration retirement"
+      (def command-type (.cc Integer epoch: 0)) (def cause (cons 'metadata 'fault))
+      (def subject (.o Command: command-type State: (begin (.set! command-type epoch 1) (raise cause))
+        Result: Integer Observation: Integer initial: (lambda () 0)
+        enabled?: (lambda (_state _command) #t)
+        advance: (lambda (state command) (values state command)) observe: identity))
+      (check-eq? (with-catch identity (lambda () (valid-trace? subject []))) cause)
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 9) (core.random-at 0) 0)) 9))))

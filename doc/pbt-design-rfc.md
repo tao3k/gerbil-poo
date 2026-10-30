@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P39 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P40 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -2595,3 +2595,52 @@ state preservation, idempotence, exact currentness, model-stale rejection and
 fixture-only retirement. Existing nested-action admission proves suppression of
 unstarted callbacks; restoration is not transaction rollback or a concurrent
 snapshot/host evaluator correctness proof.
+
+## P40: first-observation typed trace declaration preparation
+
+A raw model with computed Command and State fields reproduced a false admission:
+Command was read, State revised that Type, then batched snapshotting captured the
+new epoch. `check-trace` still returned matched. Capturing only the model object
+cannot detect revisions of a distinct Type object discovered through its fields.
+This affects construction as well as runtime callback admission.
+
+One private `with-trace-model` syntax now prepares generation, Boolean admission,
+dependency repair and differential execution. It observes Command, State, Result
+and Observation in explicit protocol order, capturing each identity immediately
+before asking for the next field. It then reuses ordinary Record validation and
+retains normalized owners without discarding earlier stamps. Nonobjects and
+missing/invalid fields keep Type errors. Shared callback lifting separates state
+and reply validation so retirement cannot reach the next validation callback.
+`valid-trace?` and `repair-trace` are exposed from the existing typed module as
+projections of the generic model protocol, without another module or evaluator.
+
+The same dynamic checker protects preparation and nested actions. Gerbil's
+`parameterize` restores fixture-only ownership before cleanup; model stamps remain
+active. The constructor compiles its ordinary generic admission and normalization models
+once; later draws, repairs and predicate checks reuse those callbacks while each
+traversal still initializes fresh model state. Preparation is not repeated for
+every shrink candidate. The compiled trace sampler keeps its preparation stamps in its existing
+currentness hook, so a later revision cannot be renewed at first draw. Callback
+causes, multiple values, source precedence, finite budgets and random scheduling
+remain unchanged. No extra sampling or descendant forcing is used to prepare a
+model. The fixed four-field preflight adds metadata reads/stamps; it is a safety
+repair, not a claim of runtime acceleration.
+
+Rackcheck's pinned `prop.rkt` separates the prepared property/argument generator
+from its dynamic execution context. This unit follows that separation and uses
+Gerbil's hygienic syntax and dynamic parameters rather than another framework.
+Mutable prototype Type declarations are a POO extension and explicit future work
+beyond the author's concrete construction, not an omitted Rackcheck capability.
+Observers must be accurate and callbacks serial and terminating; hidden mutation
+before a source is first returned is not observed retrospectively.
+
+Regression cases exercise all four entrypoints, raw and normalized computed
+fields, refusal before later getters/fixture setup, Type errors, exact exceptions,
+validation-stage suppression and restored scope. A downstream Record/Function
+service example combines rejected preparation, old-action refusal, explicit fresh
+preparation, dependent trace reduction and both replay forms through FUN.
+Five Lean laws extend PropertyScopes with one observed declaration step: stale
+preflight, revision refusal, exact causes, stable capture and resulting ledger
+currentness. Existing captureRevision laws preserve earlier observations. These
+finite laws assume faithful host scope and clocks; they do not prove arbitrary
+callbacks, the evaluator, concurrency, or global shrink minimality.

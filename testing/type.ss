@@ -1,5 +1,5 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
         ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
@@ -364,10 +364,43 @@
   (testing.replay-counterexample (.get report execution)))
 
 
+;; Trace preparation observes each declaration before requesting the next one.
+;; The same private scope serves generation, repair and differential execution;
+;; a later computed field must never refresh an earlier Type's revision stamp.
+(defrule (with-trace-model model contract (sources retain! checked) body ...)
+  (let (schema contract)
+    (unless (object? model) (validate schema model))
+    (def sources (make-parameter (snapshot #f (list model schema))))
+    ;; Append stamps without replacing an earlier observation of the same owner.
+    (def (retain! owners) (sources (append (sources) (snapshot #f owners))))
+    ;; Dynamic admission also reaches nested generator/iterator operations.
+    (def (check!) (unless (current? (sources)) (refuse-generation 'stale)))
+    ;; One existing action boundary preserves values and exact callback causes.
+    (def (checked action . arguments) (core.with-sources [] (apply action arguments)))
+    ;; Record validation can force computed metadata, so capture raw fields first,
+    ;; then retain any normalized owners returned by the ordinary Record protocol.
+    (def (capture! owner)
+      (retain! (list owner))
+      (for (name '(Command State Result Observation))
+        (unless (.slot? owner name) (checked validate schema owner))
+        (let (descriptor (checked .ref owner name))
+          (unless (object? descriptor) (checked validate Type descriptor))
+          (retain! (list descriptor)))))
+    (core.with-generation-check check!
+      (capture! model)
+      (set! model (checked validate schema model))
+      (capture! model)
+      (checked (lambda () body ...)))))
+
+;; Shared callback lifting keeps validation/transition stages separate under the
+;; active declaration scope, including pure admission and dependency repair.
+(def (trace-callback action)
+  (lambda arguments (core.with-sources [] (apply action arguments))))
+
 ;; Type preparation is a domain layer over the ordinary Gerbil model protocol.
 ;; Capture declarations once. A scoped observation can bracket each callback with
 ;; the same wrapper; pure generation/repair keep identity and the same evaluator.
-(def (prepare-model model (normalize identity) (wrap identity))
+(def (prepare-model model (normalize identity) (wrap trace-callback))
   (def state (wrap (cut validate (.get model State) <>)))
   (def result (wrap (cut validate (.get model Result) <>)))
   (def initial (wrap (.@ model initial)))
@@ -382,45 +415,55 @@
     (wrap (cut element? (.get model Command) <>)) (wrap normalize)))
 ;; Prefix admission and dependency repair share the generic fold; neither owns a
 ;; second traversal or invokes an actual backend during model validation.
-(def (valid-trace? model commands) (model.valid-trace? (prepare-model model) commands))
+(def (valid-trace? model commands)
+  (with-trace-model model TraceModel (sources retain! checked)
+    (model.valid-trace? (prepare-model model) commands)))
 ;; The domain normalizer preserves nested Function wrapping while retiring dependents.
-(def (repair-trace model commands) (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands))
+(def (repair-trace model commands)
+  (with-trace-model model TraceModel (sources retain! checked)
+    (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands)))
 
 ;; Build an ordinary List sampler; the existing runner owns random sources,
 ;; report stamps, proposal budgets and strict decrease/falsity admission.
 ;; Only the bounded command spine is specialized, not the generation framework.
 (def (trace-generator command-type model steps: (steps 64) dependencies: (dependencies []))
   (def source model)
-  (set! model (validate TraceGenerator model))
-  (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
-  (using (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))))
-    (def result #f)
-    ;; The Type's existing .generator extension makes this sampler usable by
-    ;; ordinary check-property/property-action without a parallel dispatch path.
-    (def descriptor (.cc (List command-type)
-      .generator: (lambda () (or result (error "trace generator not initialized")))))
-    (def sampler (make-generator descriptor
-      (lambda (random size)
-        (model.draw-trace (prepare-model model (cut validate (.get model Command) <>))
-          (lambda (state random size)
-            (match (.call model draw state random size)
-              (#f (values #f #f)) ((some command) (values #t command))
-              (else (error "trace draw requires Option")))) steps random size))
-      (lambda (commands)
-        (model.shrink-trace (prepare-model model (cut validate (.get model Command) <>))
-          commands (.@ model shrink)))
-      (lambda (commands)
-        (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
-      dependencies: (append (list source TraceGenerator command-type (.get model State)
-        (.get model Result) (.get model Observation)) dependencies)))
-    ;; The bounded trace predicate is compiled against this model/declaration.
-    ;; Capture now, outside the lazy slot expression, just as Map/products do;
-    ;; later model or List metadata cannot silently retarget that predicate.
-    (def guard (source-guard (snapshot sampler []) sampler))
-    (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
-      (and (list? commands) (<= (length commands) steps) (valid-trace? model commands)))
-      limits: (.o bind-these: #f steps: steps)))
-    result))
+  (with-trace-model model TraceGenerator (sources retain! checked)
+    (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
+    (using (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))))
+      ;; Compile the captured callbacks once. Guarded invocations still acquire
+      ;; fresh model state; admission does not revalidate metadata per proposal.
+      (def admission (checked prepare-model model))
+      (def prepared (checked prepare-model model (cut validate command-type <>)))
+      (def result #f)
+      ;; The Type's existing .generator extension makes this sampler usable by
+      ;; ordinary check-property/property-action without a parallel dispatch path.
+      (def descriptor (.cc (List command-type)
+        .generator: (lambda () (or result (error "trace generator not initialized")))))
+      (def sampler (make-generator descriptor
+        (lambda (random size)
+          (model.draw-trace prepared
+            (lambda (state random size)
+              (match (.call model draw state random size)
+                (#f (values #f #f)) ((some command) (values #t command))
+                (else (error "trace draw requires Option")))) steps random size))
+        (lambda (commands)
+          (model.shrink-trace prepared
+            commands (.@ model shrink)))
+        (lambda (commands)
+          (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
+        dependencies: (append (list source TraceGenerator command-type (.get model State)
+          (.get model Result) (.get model Observation)) dependencies)))
+      ;; The bounded trace predicate is compiled against this model/declaration.
+      ;; Capture now, outside the lazy slot expression, just as Map/products do;
+      ;; later model or List metadata cannot silently retarget that predicate.
+      (def own (source-guard (snapshot sampler []) sampler))
+      (def stamps (sources))
+      (def guard (lambda () (and (current? stamps) (own))))
+      (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
+        (and (list? commands) (<= (length commands) steps) (model.valid-trace? admission commands)))
+        limits: (.o bind-these: #f steps: steps)))
+      result)))
 
 ;; Validate observed replies and snapshots at ONE comparison boundary. A declared
 ;; equality relation must return Boolean; an exception is an error, never a pass.
@@ -434,33 +477,17 @@
 (def (check-trace model commands with-system same?: (same? equal?))
   (require-value with-system procedure? (lambda () (error "trace fixture must be a procedure")))
   (require-value same? procedure? (lambda () (error "trace equality must be a procedure")))
-  ;; Invalid scalars retain normal Type errors before object-revision is consulted.
-  (unless (object? model) (validate TraceModel model))
-  (def sources (snapshot #f (list model TraceModel)))
-  ;; Retain old stamps when normalized owners or fixture declarations are added;
-  ;; later capture can never refresh authority for an earlier changed owner.
-  (def (retain! owners) (set! sources (append sources (snapshot #f owners))))
-  ;; The mutable ledger belongs to this dynamic invocation. Nested generation
-  ;; inherits it; restoring fixture ownership never refreshes model stamps.
-  (def (check!) (unless (current? sources) (refuse-generation 'stale)))
-  ;; Reuse the shared boundary for inherited checks, values and exact exceptions.
-  (def (checked action . arguments)
-    (core.with-sources [] (apply action arguments)))
-  ;; Prepare each method wrapper once, rather than layering a new object protocol.
-  (def (wrap action) (lambda arguments (apply checked action arguments)))
-  (core.with-generation-check check!
-    (set! model (checked validate TraceModel model))
-    (retain! (checked (lambda () (list model (.get model Command) (.get model State)
-      (.get model Result) (.get model Observation)))))
+  (with-trace-model model TraceModel (sources retain! checked)
+    ;; Prepare method wrappers once; the shared scope owns their declarations.
+    (def (wrap action) (lambda arguments (apply checked action arguments)))
     (def normalized (checked validate (List (.get model Command)) commands))
     (def reference (checked prepare-model model identity wrap))
     (def execution (model.check-trace reference normalized
       (lambda (use)
         (checked with-system (lambda (system)
-          (def declarations sources)
           ;; Fixture declarations belong to use, not to teardown. Restore model
           ;; ownership before user cleanup; model edits still refuse factory return.
-          (try
+          (parameterize ((sources (sources)))
             (retain! (list system))
             (def state-type (checked (lambda () (.get system State))))
             (unless (object? state-type) (checked validate Type state-type))
@@ -474,8 +501,7 @@
             (use (model.make-system (checked (lambda () (.get system initial)))
               (lambda (state command)
                 (let-values (((next result) (checked step state command)))
-                  (values (checked validate state-type next) result))) (wrap observe)))
-            (finally (set! sources declarations))))))
+                  (values (checked validate state-type next) result))) (wrap observe)))))))
       same?: (wrap (lambda (phase left right)
         (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
     (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
