@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
+(export shape-growth-workflow value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -10,6 +10,33 @@
         (prefix-in ../object-contract contract.)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
+
+;; One delegated receiver grows around a retained Function cell, retries an exact
+;; refusal and rejects old provenance after a supported edit. The final service
+;; trace also crosses the existing module/refinement/FUN publication boundary.
+(def (shape-growth-workflow)
+  (def attempts 0) (def delegations 0) (def refused? #t) (def cause (list 'growth-refused))
+  (def delegate (.o callback: identity disabled: #f
+    (retry (begin (set! attempts (1+ attempts)) (if refused? (raise cause) #f)))))
+  (def owner (fallback-to (lambda () (set! delegations (1+ delegations)) delegate)))
+  (def site (make-slot-cache 'callback))
+  (def read (checked-field-action Object 'callback (lambda (_ value) value)))
+  (unless (eq? (read owner) identity) (error "delegated callback changed"))
+  (unless (eq? (.ref/inline owner site) identity) (error "cold callback site changed"))
+  (defvalues (_ roots) (%call-with-recorded-slot-reads (cut .ref owner 'callback)))
+  (unless (not (.ref owner 'disabled)) (error "false delegated value changed"))
+  (unless (eq? (.ref/inline owner site) identity) (error "growth moved the callback"))
+  (unless (eq? (with-catch values (cut .ref owner 'retry)) cause) (error "growth refusal changed"))
+  (set! refused? #f)
+  (unless (not (.ref/inline owner (make-slot-cache 'retry))) (error "growth retry lost false"))
+  (replay-slot-reads! roots (lambda (_owner _name) (void)))
+  (.put! owner 'callback 1+)
+  (def stale (with-catch values (lambda () (replay-slot-reads! roots (lambda (_owner _name) (void))) #f)))
+  (unless (and (Error? stale) (equal? (error-message stale) "stale slot dependency"))
+    (error "growth accepted old provenance" stale))
+  (unless (and (= attempts 2) (= delegations 1) (eq? (read owner) 1+))
+    (error "growth rebind/retry oracle"))
+  (vector attempts delegations #t (service-workflow 3 layout: #t reshape?: #t)))
 
 ;; Shared inherited data remains a live registered dependency of both branches.
 (def base (.o capacity: 10 tariff: 3))

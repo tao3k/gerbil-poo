@@ -1,0 +1,25 @@
+;;; Standard suite lexical scope; included-source dependency belongs to std/make.
+(test-case "delegated shape growth composes exact retry provenance and service publication"
+  (check-equal? (service.shape-growth-workflow) '#(2 1 #t #(18 21 24 9))))
+(test-case "strict shape extensions agree with complete canonical construction"
+  (def keys (map (lambda (_) (string->uninterned-symbol "same")) '(0 1 2 3 4)))
+  (for (added keys)
+    (def old (filter (lambda (key) (not (eq? key added))) keys))
+    (def seed (list->hash-table (map (lambda (key) (cons key (if (eq? key (car old)) identity #f))) old)))
+    (def previous (make-slot-layout old seed absent-value))
+    (def hinted (make-slot-layout (append (reverse keys) keys) seed absent-value previous: previous))
+    (def sorted (make-slot-layout keys seed absent-value))
+    (check-eq? (slot-layout-shape hinted) (slot-layout-shape sorted))
+    (for (key keys)
+      (check-equal? (slot-layout-index hinted key) (slot-layout-index sorted key))
+      (check-eq? (slot-layout-ref hinted (slot-layout-index hinted key))
+        (slot-layout-ref sorted (slot-layout-index sorted key))))
+    (slot-layout-put! previous added #f)
+    (check-eq? (slot-layout-shape previous) (slot-layout-shape sorted))
+    (check-eq? (slot-layout-ref previous (slot-layout-index previous added)) #f)))
+(test-case "hint admission rejects replacement disguised by growth cardinality"
+  (def previous (make-slot-layout '(a b c) #f absent-value))
+  (def names '(a b x y))
+  (def hinted (make-slot-layout names #f absent-value previous: previous))
+  (check-eq? (slot-layout-shape hinted) (slot-layout-shape (make-slot-layout names #f absent-value)))
+  (check (slot-layout-index hinted 'c) => #f))

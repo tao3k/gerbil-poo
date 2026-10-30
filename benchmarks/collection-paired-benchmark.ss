@@ -1,5 +1,5 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-values-study run-offset-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study)
+(export main run-values-study run-offset-study run-shape-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) (only-in :clan/poo/benchmarks/prototype-map-benchmark
           +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
           +declaration-phases+ declaration-workload declaration-preparation-workload)
@@ -34,7 +34,7 @@
   slot-offset-churn slot-offset-workflow))
 (def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
-    slot-shape-prepare slot-shape-workflow slot-shape-change) +slot-offset-phases+))
+    slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change) +slot-offset-phases+))
 
 ;; Compare indexed deletion against the supported complete-specification rebuild.
 ;; Construction and snapshot observation are charged in the cold/full paths.
@@ -225,12 +225,18 @@
   (def entries (map (lambda (name) (cons name #f)) names))
   (def initial (list->hash-table entries))
   (def old (make-slot-layout names initial absent-value))
+  (def added (string->uninterned-symbol "extra-growth"))
   (def (action reuse?)
     (lambda ()
-      (if (eq? scenario 'slot-shape-prepare)
-        (let (layout (make-slot-layout (append (reverse names) names) initial absent-value previous: (and reuse? old)))
+      (if (memq scenario '(slot-shape-prepare slot-shape-grow))
+        (let (layout (make-slot-layout
+          (append (reverse names) (if (eq? scenario 'slot-shape-grow) (list added) []) names)
+          initial absent-value previous: (and reuse? old)))
           (unless (eq? (slot-layout-ref layout (slot-layout-index layout (car names))) #f)
-            (error "shape preparation oracle")))
+            (error "shape preparation oracle"))
+          (when (eq? scenario 'slot-shape-grow)
+            (unless (eq? (slot-layout-ref layout (slot-layout-index layout added)) absent-value)
+              (error "shape extension forced an uncomputed cell"))))
         (begin
           (load-module "clan/poo/examples/representation-service")
           (let* ((recipe (.o inherit: [service.Service (object<-alist entries)] tariff: 3))
@@ -743,7 +749,7 @@
   (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
   (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -773,7 +779,7 @@
              (cut traversal-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
-            ((memq scenario '(slot-shape-prepare slot-shape-workflow slot-shape-change))
+            ((memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change))
              (cut shape-workload n scenario))
             ((memq scenario +slot-value-phases+) (cut slot-values-workload n scenario))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
@@ -925,4 +931,11 @@
 ;; Fixed full-workflow pairs retain AB/BA, A/A/B/B, charged GC and tail reports.
 (def (run-values-study)
   (report-study (cut run-collection-study "16" "16" "6" +slot-value-phases+) "SLOT-VALUES")
+  #t)
+
+;; Hinted one-key preparation and complete revision/refusal/recovery workflows
+;; share the existing AB/BA, A/A/B/B, GC accounting and tail-reporting engine.
+(def (run-shape-study)
+  (report-study (cut run-collection-study "64" "32" "6"
+    '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change)) "SHAPE")
   #t)

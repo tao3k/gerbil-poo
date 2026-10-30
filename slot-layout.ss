@@ -3,7 +3,7 @@
         make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
         make-slot-cache slot-cache-name slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
-        (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash))
+        (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
@@ -12,15 +12,29 @@
 (defstruct layout (shape cells missing count))
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
-;; Intern distinct symbolic names through the existing weak shape table.
-;; Callers establish uniqueness; standard sorting preserves the canonical order.
-(def (intern-shape names)
-  (def keys (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) names))
+;; Intern an already canonical identity order through the one existing weak table.
+;; Callers establish distinct symbolic names; this routine never edits their spine.
+(def (intern-ordered-shape keys)
   (hash-ensure-ref shapes keys
     (lambda ()
       (let (indices (make-hash-table-symbolic))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices keys)))))
+;; Fresh unrelated name sets still use the standard complete sort.
+(def (intern-shape names)
+  (intern-ordered-shape
+    (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) names)))
+;; One absent key extends an immutable sorted directory without sorting it again.
+;; Standard prefix/copy operations share the untouched suffix; no second index or
+;; cached transition is retained. The caller has already certified key absence.
+(def (extend-shape previous key)
+  (def keys (shape-names previous))
+  (def serial (object->serial-number key))
+  ;; Standard find stops at the successor; its already-existing index supplies
+  ;; the cut. False is not a symbolic key, and zero remains a valid offset.
+  (def successor (find (lambda (name) (>= (object->serial-number name) serial)) keys))
+  (def at (if successor (hash-ref (shape-indices previous) successor) (length keys)))
+  (intern-ordered-shape (append (take keys at) (cons key (drop keys at)))))
 ;; Canonicalize symbolic identity order, independent of parent/declaration order.
 ;; An explicit initial table seeds all cached values. False selects demand-filled
 ;; cells: make-vector allocates the same finite layout without scanning values.
@@ -30,10 +44,20 @@
 (def (make-slot-layout names initial missing previous: (previous #f))
   (def unique (delete-duplicates/hash names table: (make-hash-table-eq)))
   (def hint (and previous (slot-layout-shape previous)))
+  ;; Count each hinted directory once; unhinted construction pays neither scan.
+  (def width (and hint (length unique)))
+  (def prior-width (and hint (length (shape-names hint))))
   (def canonical
-    (if (and hint (= (length unique) (length (shape-names hint)))
-             (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint
-      (intern-shape unique)))
+    (cond
+      ((and hint (= width prior-width)
+            (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint)
+      ;; Cardinality plus exactly one unknown certifies a strict extension.
+      ;; Replacements/removals retain complete canonicalization, not this hint.
+      ((and hint (= width (1+ prior-width)))
+        (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
+          (if (and (pair? added) (null? (cdr added))) (extend-shape hint (car added))
+            (intern-shape unique))))
+      (else (intern-shape unique))))
   (def keys (shape-names canonical))
   ;; Fill the final vector through the same presence boundary as ordinary writes.
   ;; No intermediate value list, list-to-vector copy or second count scan exists.
@@ -76,7 +100,7 @@
   (using (key :~ symbol?)
     (let (index (slot-layout-index self key))
       (if index (slot-layout-set! self index value)
-        (let* ((canonical (intern-shape (cons key (shape-names (layout-shape self)))))
+        (let* ((canonical (extend-shape (layout-shape self) key))
                (at (hash-ref (shape-indices canonical) key))
                (old (layout-cells self))
                (cells (make-vector (1+ (vector-length old)) (layout-missing self)))

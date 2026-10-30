@@ -142,7 +142,7 @@
     "property-testing-test"
     "prototype-types-test"
     "recursive-generation-test"
-    "representation-test"
+    (gxc: "representation-test" (extra-inputs: ("representation/growth.scm")))
     "row-types-test"
     "tuple-json-performance-test"
     "tuple-unmarshal-performance-test"

@@ -4,6 +4,15 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+One-key shape extension now reuses the immutable ordered directory through
+standard `find` and the existing symbolic index. Constructor hints authenticate
+the entire identity set before admitting growth; dynamic delegation uses the same
+insertion boundary and sole value vector. Position/alias/replacement controls,
+the shared FUN service example, finite Lean admission/order/recovery laws and
+the standard paired shape study cover this concrete unit. This does not close
+automatic layout policy or arbitrary cold-loading performance; see
+[representation.md](representation.md#incremental-canonical-shape-extension).
+
 This design TODO is not a declaration that the whole paper or every Lean model
 has been implemented. `alignment.md` maps executable native counterparts separately
 from proofs. Multiple inheritance and the listed method combinations are available,

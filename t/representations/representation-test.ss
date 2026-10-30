@@ -959,6 +959,7 @@
         (check-equal? (prototype-map-list old) (object-slots source))
         (check-exception (action (.cc source capacity: -1)) error?)
         (check-equal? calls 3)))
+    (include "representation/growth.scm")
     (test-case "cycle refusal leaves no successful value and permits a corrected retry"
       (let* ((obj (.o self: self (x (.get self x)))) (site (make-slot-cache 'x)))
         (check-exception (.ref/inline obj site) CyclicSlot?)

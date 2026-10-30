@@ -1,5 +1,79 @@
 # Persistent prototype maps and guarded slot layouts
 
+## Incremental canonical shape extension
+
+The author's mutable prototype construction stores effective lazy methods by
+symbol identity (`poof.scrbl:1496–1522`); the following cache discussion retains
+purity-by-default with explicit invalidation (`1537–1554`). This work advances the
+concrete representation TODO, rather than claiming the paper prescribes vector
+layout or verifies a compiler/loader.
+
+Previously, one successful delegated field sorted the entire already ordered
+shape again. `extend-shape` now uses standard `find`, the existing successor's
+index and standard `take/drop/append`. Both dynamic value-store growth and a
+constructor's one-key extension hint reuse that boundary and the original weak
+shape interner. There is no transition cache, second value store or new registry.
+Index construction, weak-table lookup, vector allocation/copying and seeding stay
+charged; repeated growth is not claimed to become constant time.
+
+An old constructor hint is admissible only when the unique request has one more
+name and exactly one unknown identity. A same-size replacement, removal, or
+removal combined with two additions still takes complete canonicalization.
+Hints supply names only: the current seed owns all false/Function values and
+uncomputed cells. Successful dynamic growth publishes the new directory/cells
+together; source revision and read-provenance rules are unchanged.
+
+The included `representation/growth.scm` controls do not create another runtime
+module. They compare hinted/full canonical shapes at every insertion position,
+including distinct uninterned symbols with the same spelling, and reject the
+cardinality-only shortcut. `shape-growth-workflow` combines lazy delegation,
+Function-cell movement, exact refusal/retry, read replay, old-credential rejection
+and the existing module/refinement/FUN shared-service publication workflow.
+
+The first candidate failed these position controls: this compiler's standard
+`take-while` returned void at a stopping predicate. That candidate was withdrawn;
+the final implementation uses the already supported standard `find` instead.
+No standard-library/compiler patch or compensating wrapper is installed.
+
+Lean's `RepresentationIndex` proves complete extension admission, rank order, distinct
+membership, one-position growth, segment recovery and a linear bound on rank
+comparisons, including equivalence to first-success index location. Existing
+primary-cell, population and revision laws remain applicable. Injective stable
+host symbol ranks, faithful standard operations and serialized edits are premises;
+physical bytes, GC, initialization effects and wall-clock speed are not theorems.
+
+The selectable standard `shape-growth-test` suite in `benchmarks/slot-offset-test.ss`
+uses the existing paired engine: 64 names, 32 repetitions, six AB/BA pairs, four
+A/A and four B/B controls, natural/collected GC and charged post-GC preparation.
+Both constructor arms capture the same request and seeds; complete revision,
+refinement/refusal/retry and standard cached module workflows remain measured.
+Loading in these workflows is a standard cache hit, not fresh-module admission.
+
+The fixed final-source confirmation naturally passed in 50.05 s (the paired
+entry itself was 28.68 s). Candidate-minus-control wall differences per operation:
+
+| Current strategy pair | Mean, us | p90/max, us | Candidate wins / six |
+| --- | ---: | ---: | ---: |
+| One-key prepare, natural | -4.49 | -1.88 | 6 |
+| One-key prepare, collected | -4.71 | -3.63 | 6 |
+| One-key prepare, post-GC | -4.73 | -3.47 | 6 |
+| Shared workflow, natural | +83.14 | +535.59 | 4 |
+| Shared workflow, collected | -15.42 | +26.50 | 4 |
+| Add/remove workflow, natural | -21.44 | +56.50 | 5 |
+| Add/remove workflow, collected | -8.48 | +62.79 | 4 |
+| Add/remove workflow, post-GC | +7.33 | +53.78 | 2 |
+| Add/remove workflow, charged inclusive | +4.90 | +44.01 | 1 |
+
+The six-sample p90 is the observed maximum, not a statistical tail bound. The
+natural shared-workflow A/A and B/B means were +57.19/+77.65 us; its adverse AB
+mean and tail remain recorded, not subtracted away. One-key preparation improves
+in every final pair, but complete-workflow tail improvement is not established.
+These compare current no-hint/checked-hint strategies, not old versus new binaries.
+Initial exploratory timing was concurrent with a semantic regression and is not
+the final timing receipt. A subsequent isolated run exposed repeated hinted
+directory counting; the final code counts each hinted directory only once and
+does not count unhinted input unnecessarily. Complete data remains temporary.
+
 ## Suite-local syntax and standard preparation recovery
 
 The thirteen test-owned phase-one images were audited against standard
