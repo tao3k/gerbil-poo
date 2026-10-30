@@ -1721,3 +1721,10 @@ Its negative control rejects routing 127 against savings 126. These are finite
 source-work laws, not compiler, physical allocation, GC or macOS latency proofs.
 They advance implementation preparation inspired by the author's shared delayed
 dictionary construction (`poof.scrbl:980–1008`), which is not a module-loader design.
+
+Subsequent integration retains the standard assertion owner's actual-report
+authority: typed `require-property-passed` extracts the existing Record execution
+and delegates it, plus lazy diagnostics, through the same optional IO entry.
+Formatting cannot manufacture a successful execution. This newer assertion
+implementation is covered by the source-current full checks; the frozen cold
+table above is not a cold-performance qualification of that subsequent change.
