@@ -1,5 +1,5 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
-(export run-child measure measure-pair read-datum write-datum source-digests median mean monotonic-seconds monotonic-ticks monotonic-frequency)
+(export report-process-counters run-child measure measure-pair read-datum write-datum source-digests median mean monotonic-seconds monotonic-ticks monotonic-frequency)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
 ;; Use the released runtime clock, without replacing process-statistics wall
 ;; time. mach_absolute_time and system time can disagree across suspension or
@@ -37,6 +37,20 @@
         (when observe (observe before after
           (/ (- (u64vector-ref clock 1) (u64vector-ref clock 0)) monotonic-frequency)))
         (values result metrics)))))
+
+;; Standard TestModule fixtures mark completed preparation and case execution.
+;; These cumulative Gambit counters include VM bootstrap and loading; they are
+;; not an exclusive dyld timer. Raw allocation may be signed and is not a cost.
+(def (report-process-counters phase)
+  (unless (memq phase '(prepared executed)) (error "unknown process counter phase" phase))
+  (let (stats (##process-statistics))
+    (unless (= (f64vector-length stats) 20) (error "unsupported process statistics layout"))
+    (display "CHECK-PROCESS ")
+    (write (list phase (vector
+      (+ (f64vector-ref stats 0) (f64vector-ref stats 1)) (f64vector-ref stats 2)
+      (+ (f64vector-ref stats 3) (f64vector-ref stats 4)) (f64vector-ref stats 5)
+      (f64vector-ref stats 6) (f64vector-ref stats 7))))
+    (newline) (force-output)))
 
 ;; Complete the ordered pair before reporting, keeping formatting/flush allocation
 ;; outside the gap between samples. On refusal report every completed sample once

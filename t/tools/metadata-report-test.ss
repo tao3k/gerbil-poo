@@ -1,6 +1,9 @@
-(export metadata-report-test)
+(export metadata-report-test test-setup!)
 (import :std/test :std/iter (only-in :std/list/list-builder with-list-builder) :clan/poo/benchmarks/closure-measure
         (prefix-in :clan/poo/benchmarks/metadata-benchmark benchmark.) (only-in :clan/poo/benchmarks/metadata-report check-study))
+;; The official complete harness executes this first module after all imports.
+;; Focused runs report their own startup only; the observer verifies full-run order.
+(def (test-setup!) (report-process-counters 'prepared))
 (def (study rows)
   `(metadata-benchmarks (status complete) (sources ,@(source-digests benchmark.sources))
      (rounds ,benchmark.rounds) (phases ,@benchmark.phases) (rows ,@rows)))

@@ -45,7 +45,14 @@ build: build-shared
     /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 300s just --jobs "$workers" _build-test-packages
 
 [parallel]
-_build-test-packages: (_build-test-package "contracts") (_build-test-package "types") (_build-test-package "collections") (_build-test-package "prototypes") (_build-test-package "indexes") (_build-test-package "publication")
+_build-test-packages: (_build-test-package "contracts") (_build-test-package "types") _build-test-prototypes _build-test-publication
+
+# Standard sequential dependencies put all four large contexts in the first wave.
+# Keep the two shorter contexts behind indexes/collections; do not rely on sibling
+# launch order, which can otherwise postpone collections until the deadline.
+_build-test-prototypes: (_build-test-package "indexes") (_build-test-package "prototypes")
+
+_build-test-publication: (_build-test-package "collections") (_build-test-package "publication")
 
 # The outer 300-second phase owns every child process group; avoid nested
 # timeout groups that can outlive the task runner after a failure.

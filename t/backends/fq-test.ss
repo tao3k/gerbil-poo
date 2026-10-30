@@ -1,9 +1,10 @@
-(export fq-test)
+(export fq-test test-cleanup!)
 
 (import
   :std/assert :std/format
   :std/iter
   :std/test
+  (only-in :clan/poo/benchmarks/closure-measure report-process-counters)
   :std/debug/DBG
   :clan/poo/support/base :clan/poo/support/debug :clan/poo/support/testing
   :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/brace :clan/poo/fq)
@@ -98,3 +99,7 @@
         (check (* #x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0
                   #x0FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA987654321)
                => #x9F6499CE926995CB976C91C69A619DC39F6499CE926995CB976C91C69A6191AF)))))
+
+;; The official complete harness executes this final module's ordinary cleanup.
+;; Report before normal process shutdown; EOF and natural exit remain mandatory.
+(def (test-cleanup!) (report-process-counters 'executed))

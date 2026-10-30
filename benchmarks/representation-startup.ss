@@ -24,6 +24,30 @@
   (map cons '(build prepare tests report cleanup studies reap)
     (map - (cdr points) (drop-right points 1))))
 
+;; Admit cumulative VM statistics only at the actual first/last case boundaries.
+;; CPU includes GC; allocation is raw/signed. Counter differences never stand for
+;; an exclusive dyld, dependency discovery or initializer attribution.
+(def (check-process-summary snapshots cases)
+  (unless (= (length snapshots) 2) (error "incomplete process counter boundaries"))
+  (def (snapshot phase expected)
+    (let (items (filter (lambda (entry) (eq? (car entry) phase)) snapshots))
+      (unless (= (length items) 1) (error "missing or duplicate process counters" phase))
+      (let ((counts (cadar items)) (stats (caddar items)))
+        (unless (and (equal? counts expected) (vector? stats) (= (vector-length stats) 6)
+          (andmap real? (vector->list stats))
+          (<= 0 (vector-ref stats 2) (vector-ref stats 0))
+          (<= 0 (vector-ref stats 3) (vector-ref stats 1))
+          (<= 0 (vector-ref stats 4)))
+          (error "misordered or invalid process counters" phase counts stats)) stats)))
+  (def prepared (snapshot 'prepared '(0 0)))
+  (def executed (snapshot 'executed (list cases cases)))
+  (unless (and (> cases 0)
+    (andmap (lambda (index) (<= (vector-ref prepared index) (vector-ref executed index))) '(0 1 2 3 4))
+    (<= (- (vector-ref prepared 0) (vector-ref prepared 2))
+        (- (vector-ref executed 0) (vector-ref executed 2))))
+    (error "nonmonotone process counters"))
+  (list (cons 'prepared prepared) (cons 'executed executed)))
+
 ;; Observe `just check`, whose existing recipes invoke only gerbil build/test.
 ;; Targets, deadlines, failure detection and cleanup remain owned by those tools.
 ;; No source discovery, loader or result cache is installed by this observer.
@@ -35,7 +59,7 @@
       (error "unknown complete check entry" entry))
     (def clock (make-u64vector 1 0))
     (def marks []) (def suite #f) (def trace [])
-    (def modules 0) (def begun 0) (def passed 0)
+    (def modules 0) (def begun 0) (def passed 0) (def counters [])
     (def started (monotonic-ticks clock))
     ;; Keep the first event only; later declaration/study harnesses are separate.
     (def (mark! name)
@@ -55,6 +79,11 @@
                 ((string-prefix? "HARNESS-OK " line) (mark! 'harness-end))
                 ((and (assq 'harness-end marks) (equal? line "OK")) (mark! 'report))
                 ((and (assq 'report marks) (string-prefix? "real " line)) (mark! 'test-exit)))
+              (when (string-prefix? "CHECK-PROCESS " line)
+                (let (datum (call-with-input-string (substring line 14 (string-length line)) read))
+                  (match datum
+                    ([phase stats]
+                     (set! counters (cons (list phase (list begun passed) stats) counters))))))
               (when (and (assq 'harness-start marks) (not (assq 'harness-end marks)))
                 (cond
                   ((string-prefix? "SUITE " line) (set! suite (substring line 6 (string-length line))))
@@ -72,6 +101,7 @@
     (def phases (check-phase-summary started marks finished modules begun passed))
     (def digest (hex-encode (sha256 (string->utf8 (object->string (reverse trace))))))
     (write (list 'check-observation (cons 'entry entry) (cons 'frequency monotonic-frequency)
+      (cons 'process-counters (check-process-summary counters passed))
       (cons 'phase-ticks phases) (cons 'modules modules) (cons 'cases passed)
       (cons 'case-trace-sha256 digest) (cons 'total-ticks (- finished started))))
     (newline) (force-output)))
@@ -86,6 +116,17 @@
           (report . 200) (test-exit . 210) (eof . 220)) 230 4 8 8) =>
         '((build . 10) (prepare . 20) (tests . 60) (report . 10)
           (cleanup . 10) (studies . 10) (reap . 10))))
+    (test-case "cumulative VM counters retain case boundaries and signed allocation"
+      (check (check-process-summary
+        '((prepared (0 0) #(2 40 1 1 3 -9)) (executed (8 8) #(6 50 2 2 5 -20))) 8) =>
+        '((prepared . #(2 40 1 1 3 -9)) (executed . #(6 50 2 2 5 -20))))
+      (for (bad '(((prepared (1 1) #(2 40 1 1 3 0)) (executed (8 8) #(6 50 2 2 5 0)))
+                  ((prepared (0 0) #(2 40 3 1 3 0)) (executed (8 8) #(6 50 2 2 5 0)))
+                  ((prepared (0 0) #(2 40 1 1 3 0)) (executed (7 7) #(6 50 2 2 5 0)))
+                  ((prepared (0 0) #(2 40 1 1 3 0)) (executed (8 8) #(1 50 2 2 5 0)))
+                  ((prepared (0 0) #(2 40 1 1 3 0)) (executed (8 8) #(3 50 3 2 5 0)))
+                  ((prepared (0 0) #(2 40 1 1 3 0)))))
+        (check-exception (check-process-summary bad 8) Error?)))
     (test-case "missing nonmonotone and incomplete observations refuse"
       (check-exception (check-study "unused" "unknown") Error?)
       (check-exception (check-phase-summary 0 [] 10 1 1 1) Error?)

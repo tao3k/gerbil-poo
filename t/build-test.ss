@@ -1,6 +1,7 @@
 ;;; Source-only checks for compiler-owned build declarations; no POO runtime dependency.
 (export build-test)
-(import :std/test :std/error (only-in :std/list/list delete-duplicates/hash) (only-in "build.ss" test-build-spec test-build-partitions))
+(import :std/test :std/error (only-in :std/misc/process run-process)
+        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 (def build-test
   (test-suite "standard test package declarations"
@@ -29,5 +30,30 @@
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
+    (test-case "standard Just dependencies start large contexts before both short tails"
+      (def graph (string->json (run-process ["just" "--dump" "--dump-format" "json"])
+        (JSONReadOptions key-as-symbol: #f array-as-vector: #f object-as-hash: #t)))
+      (def recipes (hash-ref graph "recipes"))
+      (def entry (hash-ref recipes "_build-test-packages"))
+      (check (hash-ref entry "attributes") => '("parallel"))
+      (check (map (cut hash-ref <> "recipe") (hash-ref entry "dependencies")) =>
+        '("_build-test-package" "_build-test-package" "_build-test-prototypes" "_build-test-publication"))
+      (check (map (cut hash-ref <> "arguments") (take (hash-ref entry "dependencies") 2)) =>
+        '(("contracts") ("types")))
+      (for-each (lambda (entry)
+        (def chain (hash-ref recipes (car entry)))
+        (check (hash-ref chain "attributes") => [])
+        (check (map (cut hash-ref <> "recipe") (hash-ref chain "dependencies")) =>
+          '("_build-test-package" "_build-test-package"))
+        (check (map (cut hash-ref <> "arguments") (hash-ref chain "dependencies")) => (cdr entry)))
+        '(("_build-test-prototypes" ("indexes") ("prototypes"))
+          ("_build-test-publication" ("collections") ("publication")))))
+    (test-case "shared build cleanup retains values failure identity and single evaluation"
+      (check (call-with-values (lambda () (call-with-build-jobs (lambda () (values 1 #f)))) list) => '(1 #f))
+      (def calls 0) (def cause (with-catch values (lambda () (error "original build refusal"))))
+      (def caught (with-catch values (lambda ()
+        (call-with-build-jobs (lambda () (set! calls (+ calls 1)) (raise cause))))))
+      (check-eq? caught cause)
+      (check calls => 1))
     (test-case "unknown package refuses instead of silently dropping checks"
       (check-exception (test-build-spec "not-a-declared-package") Error?))))
