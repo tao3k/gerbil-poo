@@ -1,6 +1,7 @@
 ;;; Function call generation shares structural selection with runtime wrapping.
 (export FunctionArguments FunctionArguments.)
 (import (only-in :std/list/list map-in-order delete-duplicates/hash)
+        :std/struct/lru
         (only-in ../support/base defonce)
         ../object ../mop ../function-signature ./type
         (prefix-in :clan/poo/testing/property/generator core.))
@@ -44,18 +45,36 @@
   ;; First successful demand prepares the real Type generator. A selected
   ;; unsupported Type still fails normally; no alternative Type is substituted.
   (def (child type) ((cdr (assq type samplers))))
+  ;; Bounded standard LRU owns prepared layouts, never argument values or random
+  ;; state. Reuse also preserves observer identity across trials: the run ledger
+  ;; need not retain a fresh equivalent source graph for every generated call.
+  (def products (make-LRUCache 128))
   ;; Recover the selected positional/keyword product without invoking any target.
-  (def (product arguments)
-    (def selected (select-signature signatures arguments))
-    (def row (decode-arguments arguments keyword-mode))
-    (def positionals (positional-types selected (length (car row))))
-    (def keys (map car (cdr row)))
+  ;; Decode the current value when unpacking; a layout must not retain its first
+  ;; row. Successful preparation alone enters the cache; failed factories retry.
+  (def (prepare-product selected count keys)
+    (def positionals (positional-types selected count))
     (product-generator descriptor
       (map-in-order child (append positionals (map (lambda (key) (cdr (assq key (.get selected keywords)))) keys)))
-      (lambda (_arguments) (append (car row) (map cdr (cdr row))))
+      (lambda (arguments)
+        (def actual (decode-arguments arguments keyword-mode))
+        (append (car actual) (map cdr (cdr actual))))
       (lambda (values)
         (defvalues (pos rest) (split-at values (length positionals)))
         (encode-arguments pos (map cons keys rest) keyword-mode))))
+  ;; Clause identity, positional count and ordered keyword names determine the
+  ;; layout. Retained product/core guards keep their original epochs; a hit cannot
+  ;; refresh an invalidated dependency or admit a revised child sampler.
+  (def (product arguments)
+    (def selected (select-signature signatures arguments))
+    (def row (decode-arguments arguments keyword-mode))
+    (def count (length (car row)))
+    (def keys (map car (cdr row)))
+    (def key (list selected count keys))
+    (or (lru-cache-get products key)
+      (let* ((sampler (prepare-product selected count keys)) (core (generator-core sampler))
+             (entry (cons sampler core)))
+        (lru-cache-put! products key entry) entry)))
   (def shapes (core.make-generator
     (lambda (random size)
       (def proposed (list-ref signatures (random (length signatures))))
@@ -67,10 +86,10 @@
       shape)
     (lambda (_) [])))
   (from-generator descriptor
-    (core.generator-bind shapes (lambda (shape) (generator-core (product shape))))
-    (lambda (arguments) (.call (product arguments) measure arguments))
+    (core.generator-bind shapes (lambda (shape) (cdr (product shape))))
+    (lambda (arguments) (.call (car (product arguments)) measure arguments))
     shrink:
-    (lambda (arguments) (.call (product arguments) shrink arguments))
+    (lambda (arguments) (.call (car (product arguments)) shrink arguments))
     ;; Unforced input Types still own the declaration. Forced child samplers add
     ;; their own transitive stamps through product-generator / generator-core.
     dependencies: (append (cons function signatures) types)))

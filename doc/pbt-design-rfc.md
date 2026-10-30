@@ -2931,3 +2931,59 @@ Faithful host exact arithmetic/exactification, primitive random ranges, finite
 proposal lists, codec laws and serial source scopes remain premises. Rank counts
 mathematical structure, not bignum bits, allocations, GC or wall time. The unit
 advances the paper's future-work protocol, not compiler/runtime verification.
+
+### Runtime acceptance: retained FunctionArguments layouts
+
+`FunctionArguments` previously rebuilt a typed product and its source observers
+for every draw, measure and value-only shrink. The report must retain visited
+sources, so equivalent new observer identities also increased later trial checks.
+The argument sampler now uses Gerbil's `:std/struct/lru`, bounded to 128 entries,
+to retain a successfully prepared product and its generic core by selected clause,
+positional count and ordered keyword names. This is sampler-owned metadata, not a
+global registry. Eviction permits normal preparation again; failures never enter
+the cache. No random state or argument values enter its keys or factories.
+
+Unpacking decodes the actual current row, rather than closing over the first
+row's values. Cached guards retain their original epochs: hits cannot renew stale
+authority. The regression checks distinct value weights, valid strict shrinks,
+and refusal of both old samples after a declaration revision. Existing tests
+retain ordered-clause selection, omission, escaping, preparation retry, wrapping,
+FUN, source interruption and seed/concrete replay coverage.
+
+The 2026-10-31 macOS diagnostic used the unchanged `just check` entry, standard
+Gerbil build/test, 12 configured cores and every existing heap/deadline. External
+timestamps only observed its output; no runner, scheduling knob or build cache was
+added. One successful old implementation run and one successful candidate
+verification, both with 145 modules / 2,190 cases, measured:
+
+| Phase, seconds | Old | Candidate verification |
+| --- | ---: | ---: |
+| Library / executable preparation | 35.22 / 3.33 | 30.13 / 9.37 |
+| Test-package preparation | 78.73 | 56.48 |
+| Main test CLI, including loading | 186.41 | 180.76 |
+| Build-declaration acceptance | 7.77 | 2.67 |
+| Collection / generator paired studies | 25.16 / 45.00 | 14.72 / 30.07 |
+| Complete entry, including invocation overhead | 384.85 | 328.76 |
+
+These complete-entry observations are not a cold-build speedup claim: the old
+source transition rebuilt dependent callers, while the final verification reused
+standard compiler products. An intervening candidate transition took 508.98s and
+failed the unchanged isolated-library 60s build deadline, so it is **not** a pass
+or a successful performance sample. Its test-package preparation spent 171.87s
+wall / 77.16s user CPU, compared with 77.47s / 74.59s before. The independent
+library inputs were unchanged. The failure and wall residual remain evidence;
+neither a larger deadline nor an omitted check explains the successful rerun.
+
+Within the successful complete runs, the same required-keyword/rest 100-trial
+case fell from 51.63s to 7.01s. A separate unchanged 100-trial reproduction,
+including sampler construction, measured 44.06s to 6.93s wall, 42.94s to 6.91s
+CPU, 9.29s to 1.56s GC CPU, and 47.78GB to 8.28GB allocation. Full-process
+prepared/executed counters additionally separated initial loading (10.08s versus
+20.74s, not exclusive dyld time) from the case phase: CPU 103.63s to 54.93s,
+GC CPU 19.13s to 9.46s, GC wall 22.21s to 11.72s and 490 to 230 collections.
+The case phase includes independent child builds in wall time but not parent CPU.
+Its raw cumulative allocation-counter delta fell from 146.09GB to 97.40GB; that
+is not live memory or an exact retained-allocation measurement. Compiler waits,
+child work and scheduling residuals are not mislabeled as GC or removed by
+subtraction. These receipts demonstrate removed repeated preparation, not a
+statistical tail guarantee or verified host/runtime performance.

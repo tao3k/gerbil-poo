@@ -537,6 +537,24 @@
 ;; package acceptance still discovers it alongside every pre-existing suite.
 (def call-admission-test
   (test-suite "call-row admission"
+    (test-case "prepared call layouts retain sources but never retain argument values"
+      (def signature (Function [Integer] [Integer] keywords: (list (cons scale: Integer))
+        required-keywords: [scale:]))
+      (def sampler (generator (FunctionArguments signature)))
+      (def generation (generator-core sampler))
+      (def first (core.generate generation (core.random-at 1) 0))
+      (def second (core.generate generation (core.random-at 2) 0))
+      (check ((core.sample-current first)) => #t)
+      (check ((core.sample-current second)) => #t)
+      (check (< (.call sampler measure '(1 scale: 2)) (.call sampler measure '(7 scale: 9))) => #t)
+      (for (proposal (.call sampler shrink '(7 scale: 9)))
+        (check (element? (FunctionArguments signature) proposal) => #t)
+        (check (< (.call sampler measure proposal) (.call sampler measure '(7 scale: 9))) => #t))
+      (.set! signature epoch 1)
+      (check-exception (core.generate generation (core.random-at 3) 0) true)
+      (check ((core.sample-current first)) => #f)
+      (check ((core.sample-current second)) => #f)
+      (check (core.generator-current? generation) => #f))
     (test-case "positional optional and rest refusal skips later predicates and agrees with wrapping"
       (for (kind '(fixed optional rest))
         (def rejected 0) (def later 0) (def targets 0)
