@@ -1124,3 +1124,55 @@ actual POO evaluation. These results do not establish that all mapping time is
 removable in POO, nor a GC percentage. The original 742-second issue remains
 open; no reliable wall-time fix is claimed and no new loader, cache registry,
 compiler bypass, weakened cleanup or larger resource limit is retained.
+
+** Functional ownership of collection deltas and coordinator recovery
+
+The next candidate keeps all seven exported TestSuites and their original case
+bodies, but uses two existing functional owners. Collection delta capture,
+origin admission and transport are explicit standard includes of
+=collection-deltas/table-batch-test.ss=. Coordinator preparation and retry live
+in =recovery/coordinator-interleaving-test.ss=. Neither group has module setup
+or cleanup hooks. Identical private error/termination predicates are shared;
+the two distinct rendezvous refusal messages remain distinct. No runner, loader,
+compiler setting, package, deadline or heap allowance is added or removed.
+
+The physical module count is 149 -> 144; the 25 atomic CI packages and six
+compiler contexts remain. Focused standard checks naturally exited with 54 and
+9 cases. The corresponding completed cold outputs contain 16 -> 5 loadable
+=.o1= files in these two groups, totaling 1,944,896 -> 1,603,688 bytes. These are
+artifact observations, not a proof of which images every consumer maps.
+
+All admitted complete observations below retain 2,071 main cases plus three
+source-declaration cases and the identical ordered Suite/Case digest
+=1674c9abcbf586f150ff5f3f2aacd0adf8056777d805dda5977df8554ff213c2=.
+A is the fixed =6500bce= source; B is only this functional grouping and its
+source-declaration checks. Every output prefix was initially absent. The
+compiler and OS caches were retained. The parent executable was already built;
+its child invokes the unchanged full public =just check 2 1 4 600= entry.
+
+| arm | build/preparation | import/init | cases | post-report exit | later studies | outer wall |
+|-----+-------------------+-------------+-------+------------------+---------------+------------|
+| A1  |            392.62 |      212.64 |123.81 |             6.97 |         32.20 |     769.37 |
+| B1  |            381.05 |      174.87 |127.90 |            15.76 |         41.95 |     741.54 |
+| B2  |            344.88 |      258.58 |113.94 |             7.37 |         23.74 |     748.59 |
+| A2  | library 146.05; startup 8.90; test preparation timed out at 300.01 | not reached | not reached | not reached | not reached | failed at 456.88 |
+
+A1/B1 favors B by 27.83 seconds. The reverse B2/A2 pair is censored by A2's
+unchanged preparation deadline (child exit 124, observer refusal/exit 70), so it
+cannot yield a complete-wall mean or a reverse speedup. Its private-prefix
+processes were confirmed absent after exit. Failed partial products are not
+reused for acceptance. B's own import windows differ by 83.71 seconds and its
+post-report exit regresses in B1. Neither stable improvement nor a tail quantile
+is established. Retain the functional ownership and reduced artifact inventory;
+do not mark the overall cold-load/performance problem resolved.
+
+An earlier 783.30-second shared-checkout run completed the same cases, but other
+PBT source edits appeared during the run. It is excluded from the fixed-source
+comparison above. The final integration preserves later PBT commits; their CI
+receipts must be tied to that integrated head, not presented as the performance
+cohort above. Raw transcripts, prefixes and samples remain outside Git.
+
+The Lean =observeSuiteCases_regroup_between= law extends the existing finite
+fixture-free stateful case model to a selected adjacent group between untouched
+neighbors. It retains ordered results and state after refusal. It does not prove
+arbitrary module initialization, host cleanup behavior or elapsed-time bounds.

@@ -10,6 +10,13 @@ with the shared build, representation-entry and full single-process jobs, this
 retains 53 checks. Job enumeration lists package declarations; the project does
 not parse Scheme imports or reconstruct a dependency graph.
 
+Collection-delta and coordinator-recovery suites share their existing functional
+owners through standard multiple TestSuite exports. There are 144 physical test
+modules; the Suite names, cases and observed execution order are retained. The
+three collection include bodies are explicit `extra-inputs`, so standard make
+tracks their freshness. Package and compiler-partition boundaries are unchanged.
+This reduces loadable products; it is not a claim of stable wall-clock speedup.
+
 The shared job runs `just build-shared`. The root package builds the shared
 libraries and `representation-main`; complete collection acceptance loads its
 ordinary module through that entry. The startup benchmark has its own small

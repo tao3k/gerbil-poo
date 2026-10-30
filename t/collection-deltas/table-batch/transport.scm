@@ -1,9 +1,3 @@
-;;; Key ownership in representation transport follows both declared backends.
-(export table-transport-test)
-(import :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table
-        :clan/poo/rationaldict :clan/poo/support/option (only-in :clan/poo/fun Wrapper.)
-        (prefix-in :clan/poo/examples/service-collection service.))
-
 ;; Keep one admitted callback through Tuple/Pair conversion and revision history.
 (def (fixture)
   (service.make-rational-capacity-ledger

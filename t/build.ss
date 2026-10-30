@@ -28,10 +28,9 @@
     ("closure" "closure-alignment-test"
     "closure-test"
     "component-closure-test")
-    ("collection-deltas" "table-batch-test"
-    "table-capture-test"
-    "table-origins-test"
-    "table-transport-test")
+    ("collection-deltas"
+    (gxc: "table-batch-test" (extra-inputs: ("table-batch/capture.scm"
+      "table-batch/origins.scm" "table-batch/transport.scm"))))
     ("collection-order" "rationaldict-order-test"
     "table-cursor-test"
     (gxc: "table-order-test" (extra-inputs: ("table-order/observations.scm")))
@@ -134,9 +133,7 @@
     "joint-installation-test"
     "joint-publication-test"
     "joint-receipts-test")
-    ("recovery" "coordinator-interleaving-test"
-    "coordinator-prepared-test"
-    "coordinator-retry-test")
+    ("recovery" "coordinator-interleaving-test")
     ("recursion" "recursive-benchmark-test"
     "recursive-test")
     ("representations" "collection-testing-test"

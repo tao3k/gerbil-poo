@@ -20,8 +20,12 @@
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))
              (all (test-build-spec)))
+        (check (test-build-spec "collection-deltas") =>
+          '((gxc: "table-batch-test" (extra-inputs: ("table-batch/capture.scm"
+            "table-batch/origins.scm" "table-batch/transport.scm")))))
+        (check (test-build-spec "recovery") => '("coordinator-interleaving-test"))
         (check (length parts) => 6)
-        (check (length all) => 149)
+        (check (length all) => 144)
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))

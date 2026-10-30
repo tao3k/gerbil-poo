@@ -1,15 +1,3 @@
-;;; Collection factories own finite origin declarations before metadata discovery.
-(export table-origins-test)
-(import :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table
-        :clan/poo/rationaldict :clan/poo/support/option (only-in :clan/poo/fun Wrapper.)
-        (only-in :clan/poo/t/table-testing alist-table)
-        (only-in :clan/poo/support/base number-comparer)
-        (prefix-in :clan/poo/examples/service-collection service.))
-
-;; Distinguish stale admission from a failing user callback or a backend error.
-(def (message? text)
-  (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
-
 ;; The descriptor getter deliberately recycles the caller's origin buffer. Each
 ;; family still has to retain its original declared dependency and typed roots.
 (def (factory-fixture kind origins replacement)

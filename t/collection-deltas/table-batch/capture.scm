@@ -1,13 +1,3 @@
-;;; Delta capture owns borrowed Option shells, while retaining admitted leaves.
-(export table-capture-test)
-(import :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table
-        :clan/poo/rationaldict :clan/poo/support/option (only-in :clan/poo/t/table-testing alist-table borrowing-table)
-        (prefix-in :clan/poo/examples/service-collection service.))
-
-;; Match protocol errors without accepting an unrelated callback exception.
-(def (message? text)
-  (lambda (cause) (and (Error? cause) (equal? (Error-message cause) text))))
-
 ;; Cover producer reuse, validation interference and downstream publication.
 (def table-capture-test
   (test-suite "owned table change capture"
