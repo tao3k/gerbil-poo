@@ -3256,3 +3256,30 @@ Six generic cases (103 independent cases total), the Record/Function recipe-retr
 FUN example and six `classifyFailure` laws cover classification, inspection,
 confirmed shrink progress and replay. See P35 in the PBT RFC for precise premises;
 this does not extend the domains, budgets or termination guarantees.
+
+
+P36 makes the portable codec's own check an inherited checked-action scope.
+Nested generation/domain/handoff work cannot continue after codec or application
+source retirement. Six generic regressions (109 isolated cases total), the typed
+service corpus Reader/FUN example, and two whole-execution scope laws cover refusal,
+original causes, cleanup, non-retention, fresh retry and replay. The existing codec
+and port boundaries remain: no arbitrary callback interruption or I/O rollback.
+See P36 in the PBT RFC for proof premises and costs.
+
+
+P37 captures recursive graph revisions at first discovery, including already
+known siblings and returned sampler dependencies. Shared source admission now
+serves discovery and runtime; late re-snapshotting and repeated sampler-spine
+construction are removed. Seven regressions, the shared Record/Function FUN
+preparation/retry example and six finite ledger laws cover refusal, identity,
+shrinking and replay. Undiscovered dependencies, concurrent global snapshots and
+callback termination remain explicit boundaries. See P37 in the PBT RFC for costs.
+
+
+P38 binds constructor-produced samplers to their Type declaration and makes sampler
++ actual descriptor mandatory revision owners. Relabeling an inherited bounded
+parser is refused; use a fresh constructor and explicit projection. Trace model
+and List metadata are captured at construction through the existing source guard.
+Eight new cases, a Record/Function schema-migration FUN example and six finite
+binding/source laws cover preparation, diagnostics, compositions and portable replay.
+No per-value wrapping or extra generator call is introduced; see P38 in the RFC.

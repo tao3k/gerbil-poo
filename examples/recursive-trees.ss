@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export Tree Message Batch tree-tests tree-total source-tree-tests)
+(export Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests)
 (import ../object
         ../mop
         ../type
@@ -59,3 +59,27 @@
     (trigger 'property)
     (= ((.@ (car (vector-ref value 1)) handler) -1) 0)) consume
     sampler: (generator descriptor 8 node-budget: 128 search-budget: 20000)))
+
+
+;; Automatic preparation is part of the property action, so a mixed declaration
+;; snapshot is a non-replayable stale report. Shared Record leaves reuse the same
+;; factory, Function contracts and dependency ledger across all carrier edges.
+(def (preparation-tree-tests owner trigger consume)
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Left (.cc schema .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'left Right)
+      (make-generator Left (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: (list owner)))))
+  (def Right (.cc schema epoch: 0 .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'right owner)
+      (make-generator Right (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: (list owner)))))
+  (def Tail (.cc UInt .generator: (lambda ()
+    (trigger 'tail owner)
+    (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
+  (property-action (Tuple Left Right (Pair Left Tail))
+    (lambda (value) (trigger 'property owner) (= ((.@ (vector-ref value 1) handler) -1) 0)) consume))

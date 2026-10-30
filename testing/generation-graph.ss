@@ -1,7 +1,8 @@
 ;;; Finite recursive Type graphs; scalar samplers are supplied by the caller.
-(export compile-graph graph-nodes graph-sources graph-costs graph-stamps node-descriptor node-kind node-children node-sampler
+(export compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ../support/base require-value) :std/iter :std/error ../object
+        (only-in :clan/poo/testing/property/generator with-sources with-generation-check)
         (only-in ../mop Type validate)
         (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse.))
 
@@ -15,6 +16,13 @@
 (defstruct node (descriptor kind children sampler) final: #t)
 ;; Graph discovery captures every descriptor and explicit sampler dependency.
 (defstruct graph (nodes sources costs stamps) final: #t)
+
+;; Discovery and evaluation share the same epoch and opaque-sampler admission.
+;; Callers prepare the sampler spine once; checking never rebuilds a node list.
+(def (graph-sources-current? stamps samplers)
+  (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) stamps)
+    (every (lambda (sampler)
+      (or (not (.has? sampler .current?)) (.call sampler .current?))) samplers)))
 
 ;; Validate bounded configuration before allocating a graph or dynamic-program table.
 ;; These caps bound protocol bookkeeping, not arbitrary callback execution or bytes.
@@ -99,6 +107,20 @@
   (def remaining descriptor-budget)
   (def sources [])
   (def stamps [])
+  (def samplers [])
+  (def observed (make-hash-table-eq))
+  ;; One ledger captures each discovered identity once. A later edge or factory
+  ;; cannot refresh an epoch already owned by this preparation.
+  (def (capture! source)
+    (unless (hash-key? observed source)
+      (hash-put! observed source #t)
+      (set! sources (cons source sources))
+      (set! stamps (cons (cons source (object-revision source)) stamps))))
+  ;; Reuse the same immutable stamps at runtime. The temporary checker protects
+  ;; nested checked work inside a factory, but is never retained on the graph.
+  (def (check!)
+    (unless (graph-sources-current? stamps samplers)
+      (refuse-generation 'stale)))
   ;; Reserve an identity before reading children, closing shared edges without
   ;; unfolding their Types recursively or invoking recursive .element? methods.
   (def (intern descriptor)
@@ -106,21 +128,25 @@
     (set! remaining (- remaining 1))
     (if (hash-key? indices descriptor) (hash-ref indices descriptor)
       (let (index count)
+        (capture! descriptor)
         (set! count (+ count 1))
         (vector-set! types index descriptor)
         (hash-put! indices descriptor index)
         index)))
   (intern root)
+  (with-generation-check check!
   (let loop ((index 0))
     (when (< index count)
-      (let* ((type (vector-ref types index)) (stamp (cons type (object-revision type))))
-        (set! stamps (cons stamp stamps))
-        (let-values (((kind children sampler) (describe type scalar)))
+      (let (type (vector-ref types index))
+        (let-values (((kind children sampler) (with-sources [] (describe type scalar))))
           (unless (list? children) (error "proper descriptor child list required"))
           (let (edges (map intern children))
             (vector-set! rows index (make-node type kind edges sampler)))
-          (set! sources (cons type (append (if sampler (cons sampler (.get sampler sources)) []) sources)))))
+          (when sampler
+            (for-each capture! (cons sampler (.get sampler sources)))
+            (set! samplers (cons sampler samplers)))
+          (check!)))
       (loop (+ index 1))))
   (let (nodes (subvector rows 0 count))
     (check-guarded nodes)
-    (make-graph nodes sources (cost-table nodes depth budget) stamps))))
+    (make-graph nodes sources (cost-table nodes depth budget) stamps)))))

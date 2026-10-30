@@ -1,12 +1,14 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
 (import (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
-        (prefix-in :clan/poo/testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
+        (prefix-in :clan/poo/testing/property property.)
+        (prefix-in :clan/poo/testing/property/replay replay.) :std/test :std/error :std/iter :std/io/tempfile
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
         (only-in :clan/poo/function-signature encode-arguments)
         (only-in :clan/poo/testing/generation-graph generation-refusal?)
+        (only-in :clan/poo/support/option some)
         (prefix-in :clan/poo/examples/signature-service service.)
         (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests) collection.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
@@ -94,11 +96,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 103)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 109)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 103 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 109 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
@@ -672,3 +674,110 @@
         (check (replay-counterexample fresh) => #f)
         (check-eq? (.get (replay-property fresh) status) 'failed))
       (check-exception (replay-property old) Error?))))
+
+
+;; Constructor declaration bindings and required sources are checked once at
+;; preparation, before draw/diagnostic/portable consumers can use inherited hooks.
+(def sampler-binding-test
+  (test-suite "typed sampler declaration bindings"
+    (test-case "raw recursive and trace samplers reject inherited descriptor retargeting"
+      (for (kind '(raw recursive trace))
+        (def calls 0)
+        (def original (case kind
+          ((raw) (make-generator Integer (lambda (_random _size) 0) (lambda (_) []) abs))
+          ((recursive) (generator Integer))
+          ((trace) (trace-generator Integer (make-instance TraceGenerator Command: Integer State: Integer
+            Result: Integer Observation: Integer initial: (lambda () 0)
+            enabled?: (lambda (_state _command) #t) advance: (lambda (state _command) (values state 0))
+            observe: identity draw: (lambda (_state _random _size) #f) shrink: (lambda (_) []) measure: abs)))))
+        (def target (Exactly 999))
+        (def changed (.cc original descriptor: target sources: []))
+        (def report (check-property target (lambda (_) (set! calls (1+ calls)) #t) sampler: changed cases: 1 size: 0))
+        (check-eq? (.get report status) 'error)
+        (check (.get report replayable?) => #f)
+        (check-equal? calls 0)
+        (check-exception (generator-core changed) Error?)
+        (check-exception (inspect-generator changed count: 1) Error?)
+        (check-exception (replay-property report) Error?)))
+    (test-case "declared dependency replacement cannot erase the actual descriptor source"
+      (for (stage '(draw property measure shrink))
+        (def descriptor (.cc Integer epoch: 0))
+        ;; Change one real source at the selected checked action boundary.
+        (def (revise phase) (when (eq? stage phase) (.putslot! descriptor 'epoch ($constant-slot-spec 1))))
+        (def sampler (.cc (make-generator descriptor
+          (lambda (_random _size) (revise 'draw) 2)
+          (lambda (_) (revise 'shrink) [0])
+          (lambda (value) (revise 'measure) (abs value))) sources: []))
+        (def report (check-property descriptor (lambda (_) (revise 'property) (eq? stage 'property))
+          sampler: sampler cases: 1 shrink-budget: 10))
+        (check-eq? (.get report status) 'stale)
+        (check (and (assq descriptor (.get report sources)) #t) => #t)
+        (check-exception (replay-property report) Error?)))
+    (test-case "diagnostic labels retain mandatory Type ownership with empty dependencies"
+      (def descriptor (.cc Integer epoch: 0)) (def draws 0)
+      (def sampler (.cc (make-generator descriptor (lambda (_random _size) (set! draws (1+ draws)) 1)
+        (lambda (_) []) abs) sources: []))
+      (def result (inspect-generator sampler count: 2 labels: (lambda (_)
+        (.putslot! descriptor 'epoch ($constant-slot-spec 1)) [])))
+      (check-eq? (property.inspection-status result) 'stale)
+      (check-equal? draws 1)
+      (check (property.inspection-current? result) => #f))
+    (test-case "portable binding refusal consumes no input and invokes no generator factory"
+      (def decodes 0) (def properties 0) (def bindings 0)
+      (def target (Exactly 999))
+      (def changed (.cc (generator Integer) descriptor: target))
+      (def codec (replay.make-codec 'strict identity (lambda (value) (set! decodes (1+ decodes)) value)))
+      (def input (open-input-string "#(property-counterexample 1 strict 999)"))
+      (check-exception (read-counterexample changed codec input (lambda (_) (set! properties (1+ properties)) #f)) Error?)
+      (check-eq? (peek-char input) #\#)
+      (check-equal? (list decodes properties) '(0 0))
+      (def fresh (.cc (from-generator target (core.generator-unit 999) (lambda (_) 0))
+        generation: (lambda (_owner) (set! bindings (1+ bindings)) (core.generator-unit 999))))
+      (check (read-counterexample fresh codec input (lambda (_) (set! properties (1+ properties)) #f)) => #f)
+      (check-equal? (list decodes properties bindings) '(1 1 0)))
+    (test-case "products Maps and Function inputs reject mismatched child declarations"
+      (def supplied #f) (def properties 0)
+      (def target (.cc (Exactly 999) .generator: (lambda () supplied)))
+      (set! supplied (.cc (generator Integer) descriptor: target))
+      (check-exception (product-generator (Tuple target) (list supplied) vector->list list->vector) Error?)
+      (check-exception (map-generator (Map Symbol -> target) [] supplied) Error?)
+      (def report (check-property (FunctionArguments (Function [Integer] (list target)))
+        (lambda (_) (set! properties (1+ properties)) #t) cases: 1 size: 0))
+      (check-eq? (.get report status) 'error)
+      (check-equal? properties 0))
+    (test-case "trace model and List declaration changes retire the compiled acceptance protocol"
+      (for (owner '(model descriptor))
+        (def draws 0) (def properties 0)
+        (def model (make-instance TraceGenerator Command: Integer State: Integer Result: Integer Observation: Integer
+          initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+          advance: (lambda (state _command) (values state 0)) observe: identity
+          draw: (lambda (_state _random _size) (set! draws (1+ draws))
+            (some (if (eq? (.get model Command) String) "changed" 1)))
+          shrink: (lambda (_) []) measure: (lambda (_) 1)))
+        (def sampler (trace-generator Integer model steps: 1))
+        (def descriptor (.get sampler descriptor))
+        (if (eq? owner 'model)
+          (.putslot! model 'Command ($constant-slot-spec String))
+          (.putslot! descriptor 'type ($constant-slot-spec String)))
+        (def old (check-property descriptor (lambda (_) (set! properties (1+ properties)) #t)
+          sampler: (.cc sampler sources: []) cases: 1 size: 1))
+        (check-eq? (.get old status) 'stale)
+        (check-equal? (list draws properties) '(0 0))
+        (check-exception (replay-property old) Error?)
+        (def fresh (trace-generator (.get model Command) model steps: 1))
+        (def report (check-property (.get fresh descriptor) (lambda (_) (set! properties (1+ properties)) #t)
+          sampler: (.cc fresh sources: []) cases: 1 size: 1))
+        (check-eq? (.get report status) 'passed)
+        (check-equal? (list draws properties) '(1 1))))
+    (test-case "same-descriptor draw and shrink overrides use the declared replacement protocol"
+      (def old-draws 0) (def new-draws 0)
+      (def original (from-generator Integer (core.make-generator
+        (lambda (_random _size) (set! old-draws (1+ old-draws)) 2) (lambda (_) (error "old tree forced"))) abs))
+      (def changed (.cc original sources: [] draw: (lambda (_random _size) (set! new-draws (1+ new-draws)) 4)
+        shrink: (lambda (value) (if (zero? value) [] [0]))))
+      (def report (check-property Integer (lambda (_) #f) sampler: changed cases: 1 shrink-budget: 10))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (list (.get report original) (.get report counterexample) old-draws new-draws) '(4 0 0 1))
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check-equal? (list old-draws new-draws) '(0 2)))))

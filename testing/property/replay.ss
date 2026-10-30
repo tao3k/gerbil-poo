@@ -1,6 +1,6 @@
 ;;; Portable counterexamples are data with application-owned codec identity.
 (export make-codec write-counterexample read-counterexample)
-(import :std/error :std/iter ../property (only-in ./generator with-sources))
+(import :std/error :std/iter ../property (only-in ./generator with-sources with-generation-check))
 ;; The codec owns format/specification/generator identity and bounded data admission.
 (defstruct replay-codec (identity encode decode current nodes depth) final: #t constructor: :init!)
 ;; Capture codec identity as finite data rather than retaining a mutable caller key.
@@ -49,7 +49,11 @@
   ;; in the codec. Ordinary callback exceptions bypass trailing checks unchanged.
   (with-sources []
     (check)
-    (begin0 (action) (check))))
+    ;; Local codec/context authority also belongs to nested checked actions.
+    ;; The standard dynamic scope unwinds on every exit and is not retained by
+    ;; a decoded value, generated tree or nested report.
+    (with-generation-check check
+      (begin0 (action) (check)))))
 ;; Prepare a complete source-current envelope before entering the port write.
 ;; The port boundary is not a transaction: an I/O failure may leave partial bytes.
 (def (write-counterexample report codec port)

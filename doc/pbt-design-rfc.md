@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P35 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P38 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 103 case receipts, an error-free result and
+through `gerbil test`. It requires all 109 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2373,3 +2373,183 @@ extension, not a missing Rackcheck promise. Lazy tree structure, forcing policy,
 random schedule, domains, quotas, independent library ownership and process/heap
 limits are unchanged. Classification source checks have a cost; no wall-clock
 speedup is inferred from suppressed callbacks.
+
+
+## P36: local portable-handoff authority reaches nested checked actions
+
+A codec encoder could retire its registered source, invoke a nested generator's
+mapper once, and only then refuse export. The application correctly received an
+error and zero output bytes, but obsolete nested work had already occurred. The
+same omission affected decoder/context authority and witness reconfirmation.
+This is a reproduced implementation gap in the registered-source protocol, not a
+request to interrupt arbitrary Scheme statements or inspect hidden closure state.
+
+The existing `with-codec` stage now installs its existing `check` through
+`with-generation-check`, inside the existing inherited `with-sources` scope.
+Nested generator, domain and portable actions observe local codec and application
+sources before effects and after normal returns. The ordered codec/context error
+checks and original thrown causes remain unchanged. Standard dynamic scope owns
+unwinding; the checker is never copied to a decoded value, child tree or report.
+No new scope representation, runner, stream or per-callback wrapper is added.
+
+Six generic cases cover encode/decode under either local owner, witness
+reconfirmation, nested refusal priority and cleanup, exact callback errors,
+non-retention and explicit epoch-bound retry. The isolated standard-library test
+package now requires all 109 cases. `service-corpus-action` in the existing
+generated-products example composes typed property Reader/FUN delivery with
+portable export. Strict Records and existing Function contracts own service
+validation; caller codecs own data-only reconstruction. One complex case covers
+obsolete nested packing on both export and import, no premature consumer/property
+call, fresh preparation, named Record output bundles, both replay modes, Function
+argument refusal and rejection of the old codec. No runtime dependency on Lean
+is introduced.
+
+Two whole-execution laws in `PropertyScopes.lean` prove that merged transient
+scopes require both parents at every finite stage, and that an empty child scope
+cannot remove the parent's authority. Existing `nestedActions`, `scopedStages` and
+`guardedHandoff` refusal/cause laws are reused rather than duplicated. Top-level
+examples instantiate nested decoder suppression, joint scope and exact causes.
+Premises remain finite terminating serial callbacks, accurate pure total observers,
+faithful declared source directories and host dynamic-scope fidelity. These Boolean
+model equalities do not license reordering potentially throwing host observers or
+claim to prove continuation implementation, arbitrary codec laws, GC or timing.
+
+The pinned [Rackcheck property executor](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/prop.rkt)
+uses standard dynamic parameter scope to separate caller and test RNG ownership.
+This unit follows that abstraction style through Gerbil's existing parameter-backed
+checked action protocol. Portable codec source admission remains our explicit
+extension, not a missing Rackcheck guarantee. Encode failure still writes no
+prefix before delivery. A port failure may leave partial bytes, and a failed read
+may consume input: no transactional I/O or rollback is claimed. Explicit format
+identity, data budgets, lazy forcing, random schedules and all existing process,
+heap, proposal and recursion limits remain unchanged. Extra observer checks retain
+their cost; suppressed callbacks alone are not a wall-clock performance proof.
+
+
+## P37: first-observation snapshots during recursive descriptor discovery
+
+The audit reproduced an accepted mixed preparation: the first custom `.generator`
+changed an already discovered, unvisited sibling descriptor; the sibling's epoch
+was then captured only when visited. Both factories ran and the property returned
+`passed`. Previously declared sampler dependencies had the same late-snapshot
+hole. Runtime bridge checks could refuse changes to earlier Types but could not
+recover the earlier epochs that discovery never retained.
+
+Graph discovery now owns one identity-deduplicated ledger. `intern` captures each
+Type at its first discovered edge; each returned sampler and explicit dependency
+is registered once before another factory runs. Rediscovery never updates an
+owned epoch. The shared `graph-sources-current?` predicate checks both revisions
+and opaque sampler hooks during discovery and evaluation. A temporary standard
+`with-generation-check` scope and the existing `with-sources` action protect custom
+factories and their nested checked work; the checker is not stored on the graph.
+Original callback causes escape unchanged. A stale preparation publishes no sampler
+or replayable witness; factory side effects are not rolled back.
+
+The evaluator reuses the original graph stamps instead of taking a second late
+snapshot. Its scalar sampler list is prepared once using Gerbil's `filter-map`,
+removing the per-observation vector-to-list/map work of the previous hook scan.
+The official runtime utility is reused, not reimplemented. Existing graph,
+carrier, fixed-point, source and FUN protocols retain their ownership.
+
+Seven standard `discovery-test` cases cover known sibling changes, earlier declared
+dependencies, opaque refusal/errors, original factory causes, inherited producer
+sources, deduplicated shared identities and runtime refusal. The complex
+`preparation-tree-tests` example composes shared Record leaves, Function fields,
+Tuple/Pair carriers and automatic property Reader/FUN preparation. Both a sibling
+revision and a shared dependency revision refuse before later work. Explicit retry
+then shrinks a real typed witness, preserves Function wrapping, supports both replay
+modes, rejects old reports and can reprepare after another owner revision. The
+generic stdlib-only kernel is unchanged and still requires all 109 cases.
+
+Six `captureRevision` laws in PropertyScopes establish first-capture preservation,
+new-source registration, the one-entry growth bound, identity uniqueness, the
+impossibility of refreshing a stale ledger and preservation of fresh ledgers.
+Existing guarded-stage laws supply callback refusal/exception semantics. Top-level
+examples show an early revision suppressing the later factory. The finite model
+assumes truthful identity/revision observations, serial terminating factories and
+faithful host scope/ledger implementation; host hash equality, callbacks, GC and
+wall-clock behavior remain executable or explicit premises.
+
+This is a first-observation discipline, not an eager scan of hidden dependencies.
+A Type below an undiscovered edge, or a dependency first declared by a returning
+factory, is captured when discovered. Hidden closure state, concurrent atomic
+snapshots and arbitrary factory termination are not inferred. Descriptor/edge,
+depth, node and search caps remain unchanged. Registration uses the standard
+identity table; each controlled action checks the growing unique-source ledger
+and captured sampler hooks. For D descriptor actions and final A owners/S samplers,
+those checks can cost O(D*(A+S)), excluding nested actions and callback costs. The
+ledger growth law is not a constant-time hashing, allocation or timing theorem.
+
+Rackcheck's pinned generator/property sources retain compositional generation and
+use standard dynamic parameter lifetime for callback ownership. This unit applies
+that abstraction style through existing Gerbil checked actions to the POO-specific
+Type discovery extension. It does not assert missing recursive Type metadata
+features in Rackcheck, add a second runner, change draw/seed order or force omitted
+Function inputs. No speedup is claimed from metadata deduplication alone.
+
+
+## P38: constructor-bound typed sampler declarations and mandatory owners
+
+Two soundness reproductions selected this unit. Relabeling an automatic Integer
+sampler as `(Exactly 999)` preserved its old bounded acceptance hook: the property
+ran once and returned `passed` for a value outside that declaration. Separately,
+replacing `sources` with an empty list hid a real descriptor revision and permitted
+a pass. The trace variant was also reproduced: changing a model's Command after
+construction let a List-of-Integer sampler publish string commands and pass while
+membership in its declared Type was false.
+
+The existing private GeneratorRecord now stores the constructor's `bound-descriptor`
+as Type metadata. The shared `generator-sources` preparation boundary checks its
+identity against the actual descriptor and always contributes sampler + actual
+Type before additional dependencies. Producer bridging, products, Map preparation,
+inspection and portable import already use that boundary. No per-value predicate,
+extra generation-factory call, new namespace or wrapper per consumer is added.
+Bounded recursive acceptance remains intact: blindly adding a universal Type
+predicate would reintroduce unsafe/unbounded membership checking.
+
+A different descriptor requires a fresh `make-generator`, `from-generator` or
+controlled `generator` construction. The example uses an explicit value projection
+and normal Record initialization, rather than relabeling an inherited parser/tree.
+Same-descriptor draw/shrink overrides retain their existing fallback semantics.
+The binding is constructor-owned protocol metadata, not a new user tuning field;
+this is not a security proof against forging private metadata or untruthful custom
+acceptance hooks. Hidden callback dependencies remain the application's obligation.
+
+Trace's compiled model/List acceptance now captures its existing declaration
+sources through `snapshot`/`source-guard` at construction, outside lazy slot
+initialization. This matches products, Maps and recursive graph ownership. Model,
+List or captured metadata revisions retire the old sampler even before its first
+run and even if optional dependencies are replaced. Fresh `trace-generator`
+construction establishes the new protocol. Source precedence and ordinary callback
+exception behavior remain unchanged; a fresh declaration mismatch is a preparation
+error, while an already retired protocol retains normal stale refusal.
+
+Seven `sampler-binding-test` cases cover raw/recursive/trace retargeting, mandatory
+revision observations during draw/property/measure/shrink/labels, pre-read refusal,
+no generator invocation during concrete import, products/Maps/Function inputs,
+trace declaration changes, and lawful callback overrides with both replay modes.
+The existing generated-products example adds a complete service schema migration:
+strict Record inheritance, a projected region field, retained Function wrapping,
+Reader/FUN report delivery, shrinking, both replay forms, target revision rejection
+and explicit retry. There are eight new standard cases overall. The independent
+stdlib-only kernel remains unchanged at 109 cases.
+
+Six laws in PropertyScopes use the existing source union:
+mandatory owner membership/currentness, descriptor refusal independent of optional
+dependencies, equal-binding admission, unequal-binding rejection, and preservation
+of binding/required identities after successful preparation. Top-level negative and
+fresh-construction controls accompany them. These finite identity/observer laws
+assume faithful constructor metadata, truthful bounded acceptance hooks, accurate
+source clocks and serial terminating callbacks. They do not prove arbitrary user
+predicates, host heap immutability, universal subtyping or concurrent snapshots.
+
+Rackcheck's pinned property executor consumes a generator together with the
+property's argument bindings; its retained shrink-tree algebra does not
+implicitly convert one application declaration into another. This unit preserves
+that compositional separation in the POO Type extension, rather than introducing
+a second validator or assuming Racket has this mutable descriptor protocol.
+The metadata field and preparation identity/source reads have costs; no timing or
+allocation speedup is claimed. Existing random schedules, lazy trees, generator
+factories, source failure priorities and all process/heap/depth/proposal caps remain
+unchanged. Concrete import still reads no input before failed preparation and
+performs no draws or child forcing. Port failures still have no rollback guarantee.

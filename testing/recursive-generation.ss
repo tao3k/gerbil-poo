@@ -10,14 +10,6 @@
 ;; Remaining visit quota flows through every sibling and failed alternative.
 (defstruct answer (value remaining) final: #t)
 
-;; Capture source revisions at compilation, not only at the start of testing.
-(def (capture sources) (map (lambda (source) (cons source (object-revision source))) sources))
-;; Opaque custom samplers retain their own compiled-source admission hooks.
-(def (fresh? stamps nodes)
-  (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) stamps)
-    (every (lambda (node)
-      (let (sampler (node-sampler node))
-        (or (not sampler) (not (.has? sampler .current?)) (.call sampler .current?)))) (vector->list nodes))))
 ;; A local deterministic source makes each request replayable from its explicit
 ;; seed. Choices/seeds are fully consumed before a continuation is returned.
 ;; Reuse existing carrier representations; transparent descriptors retain values.
@@ -49,9 +41,12 @@
 (def (recursive-generator descriptor depth budget descriptor-budget search make-generator scalar to-core)
   (def graph (compile-graph descriptor depth budget descriptor-budget search scalar))
   (def nodes (graph-nodes graph))
-  (def stamps (append (graph-stamps graph) (capture (graph-sources graph))))
+  ;; Discovery already owns every descriptor/sampler/dependency epoch. Retaking
+  ;; snapshots here would both duplicate preparation and accept a mixed graph.
+  (def stamps (graph-stamps graph))
+  (def samplers (filter-map node-sampler (vector->list nodes)))
   ;; One graph observer is shared by all constructor nodes and deduplicated by identity.
-  (def (graph-current?) (fresh? stamps nodes))
+  (def (graph-current?) (graph-sources-current? stamps samplers))
   ;; Keep POO's precise refusal category. The existing transient check is scoped
   ;; to preparation/evaluation and is never retained on a returned sample tree.
   (def (check-graph!)
