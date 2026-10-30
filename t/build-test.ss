@@ -1,6 +1,9 @@
-;;; Source-only checks for compiler-owned build declarations; no POO runtime dependency.
+;;; Standard build declarations and resolved imports; no requested runtime evaluation.
 (export build-test)
-(import :std/test :std/error (only-in :std/misc/process run-process)
+(import (only-in :gerbil/expander import-module expander-context-id module-context-import
+          module-context? module-import? module-import-source module-export-context
+          import-set? import-set-source)
+        :std/test :std/error (only-in :std/misc/process run-process)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 (def build-test
@@ -55,5 +58,20 @@
         (call-with-build-jobs (lambda () (set! calls (+ calls 1)) (raise cause))))))
       (check-eq? caught cause)
       (check calls => 1))
+    (test-case "compiler observations identify shared IO and typed property imports"
+      ;; Observe already-resolved public descriptors only. There is no source
+      ;; scan, recursive resolver, loader substitution or private compiler entry.
+      (def (source entry)
+        (cond ((module-context? entry) entry)
+              ((import-set? entry) (import-set-source entry))
+              ((module-import? entry) (module-export-context (module-import-source entry)))
+              (else (error "unexpected resolved import descriptor" entry))))
+      (for-each (lambda (owner)
+        (def dependencies (map (lambda (entry) (expander-context-id (source entry)))
+          (module-context-import (import-module (car owner) #f #f))))
+        (check (and (memq (cdr owner) dependencies) #t) => #t)
+        (check (and (memq 'clan/poo/testing/type dependencies) #t) => #f))
+        '((:clan/poo/debug . clan/poo/io)
+          (:clan/poo/support/testing . clan/poo/support/io))))
     (test-case "unknown package refuses instead of silently dropping checks"
       (check-exception (test-build-spec "not-a-declared-package") Error?))))

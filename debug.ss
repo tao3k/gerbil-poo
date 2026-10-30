@@ -1,9 +1,9 @@
-(export #t)
+(export (except-out #t typed-property-action typed-property-diagnostics))
 (import
   :std/format
+  (only-in :std/func compose)
   ./support/base ./support/debug
-  ./object ./mop ./io ./type ./brace
-  (prefix-in ./testing/type property.))
+  ./object ./mop ./io ./type ./brace)
 
 ;; A bit like DBG, but with types
 (defrules DDT ()
@@ -65,10 +65,18 @@
             (.all-slots poo))
   wrapped)
 
+;; DDT itself does not need typed generators. Reuse the existing IO entry and
+;; standard variadic composition; no procedure or initialization cache is added.
+(def typed-property-action
+  (compose (module-action "clan/poo/testing/type" 'clan/poo/testing/type#property-action) list))
+;; Resolve diagnostics only when rendering is selected, preserving a disabled tag.
+(def typed-property-diagnostics
+  (compose (module-action "clan/poo/testing/type" 'clan/poo/testing/type#report-diagnostics) list))
+
 ;; FUN/Reader owns execution once; DDT owns optional rendering and returns the
 ;; original report. Disabling the tag skips rendering, not the requested check.
 ;; Use support/testing's assertion when the outcome must admit a test success.
 (def (property-debug-action tag descriptor predicate sampler: (sampler #f) dependencies: (dependencies []))
-  (property.property-action descriptor predicate
-    (lambda (report) (DDT tag property.report-diagnostics report))
+  (typed-property-action descriptor predicate
+    (lambda (report) (DDT tag typed-property-diagnostics report))
     sampler: sampler dependencies: dependencies))

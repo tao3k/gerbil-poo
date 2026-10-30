@@ -1,16 +1,31 @@
 ;;; POO acceptance helpers use the standard TestSuite and typed property protocols.
 
-(export #t)
+(export (except-out #t check-typed-property report-typed-property require-property-passed))
 
 (import
   (only-in :std/error check-argument)
   (only-in :std/encoding/hex hex-encode)
   (only-in :std/iter for/collect in-range)
   (only-in :std/test do-check!)
+  (only-in :std/func compose)
+  (only-in ../io module-action)
   (only-in ../type Tuple)
-  (prefix-in ../testing/type property.)
-  (only-in :clan/poo/testing/property/test require-passed)
   ./io)
+
+;; Ordinary assertions do not demand the typed generator engine. Standard IO
+;; resolves its current binding on each actual check; compose/list forwards the
+;; exact argument row, including keyword escapes, without a second dispatcher.
+(def check-typed-property
+  (compose (module-action "clan/poo/testing/type" 'clan/poo/testing/type#check-property) list))
+;; Formatting remains demand-driven too; standard loading owns readiness/errors.
+(def report-typed-property
+  (compose (module-action "clan/poo/testing/type" 'clan/poo/testing/type#report-diagnostics) list))
+
+;; Keep the existing standard TestError admission policy at the optional owner;
+;; ordinary helpers do not import the generic property engine just for this gate.
+(def require-property-passed
+  (compose (module-action "clan/poo/testing/property/test"
+    'clan/poo/testing/property/test#require-passed) list))
 
 (defrule (assert-equal! actual expected)
   (let ((actual-value actual) (expected-value expected))
@@ -52,17 +67,17 @@
 ;; same standard boundary as generic checks. This form never returns report data.
 (defrule (check-property descriptor predicate options ...)
   (do-check! descriptor descriptor
-    (require-passed (property.report-diagnostics
-      (property.check-property descriptor predicate options ...)))))
+    (require-property-passed (report-typed-property
+      (check-typed-property descriptor predicate options ...)))))
 
 ;; Fixed Type products reuse Tuple derivation; named bindings remain hygienic.
 ;; Dependent/refined domains use their existing explicit .generator composition.
 (defrule (define-property name ((argument descriptor) ...) body ...)
   (def (name . options)
     (do-check! name name
-      (require-passed
-        (property.report-diagnostics
-          (apply property.check-property (Tuple descriptor ...)
+      (require-property-passed
+        (report-typed-property
+          (apply check-typed-property (Tuple descriptor ...)
             (lambda (row) (apply (lambda (argument ...) body ...) (vector->list row)))
             name: 'name options)
           bindings: '(argument ...))))))

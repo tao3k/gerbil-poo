@@ -100,7 +100,14 @@
         (check-equal? draws before)
         (check-eq? (.get (replay-property report) status) 'failed)
         (check-equal? draws (+ before 3)))
-      (check-equal? opened closed))
+      (check-equal? opened closed)
+      ;; The recovered command retains its wrapped Function. Named assertions
+      ;; forward configuration options while a keyword remains ordinary data.
+      (pbt.define-property recovered-command
+        ((entry (Exactly (car (.get report counterexample)))) (phase (Exactly ready:)))
+        (and (eq? phase ready:) (element? command entry)
+          (= ((.@ entry handler) (.get entry key)) (1+ (.get entry key)))))
+      (recovered-command seed: 7 cases: 1 size: 0))
     (test-case "Record filtered proposals refuse stale evidence and retry through FUN"
       (def epoch 0) (def draws 0) (def pulls 0) (def properties 0)
       ;; Record performs Function wrapping before either generic or typed checking.
