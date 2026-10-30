@@ -1,7 +1,7 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
-        ../object ../mop (only-in ../type String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
+        ../object ../mop (only-in ../type Rational String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt)
         (prefix-in :clan/poo/testing/property testing.)
@@ -208,6 +208,12 @@
      (make-generator descriptor
        (lambda (random size) (if (eq? descriptor UInt) (random (+ size 1)) (- (random (+ (* 2 size) 1)) size)))
        integer-shrinks abs))
+    ;; Rational's default drawing profile is exact and bounded. Value-only
+    ;; policies also admit finite inexact rationals by their exact numeric value;
+    ;; Float/Real representation coverage still requires an explicit sampler.
+    ((eq? descriptor Rational)
+     (from-generator descriptor (core.generator-rational) core.rational-weight
+       shrink: core.rational-shrinks))
     ((or (eq? descriptor String) (eq? descriptor Symbol) (eq? descriptor Bytes))
      (data-generator descriptor))
     (else

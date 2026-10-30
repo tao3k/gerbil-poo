@@ -8,7 +8,7 @@
         boolean-result live? random-at
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
-        generator-integer generator-character generator-byte generator-list
+        generator-integer generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
         generator-string generator-symbol generator-bytes generator-elements generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
 (import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
@@ -336,6 +336,37 @@
     (error "ordered exact integer bounds required" lower upper))
   (make-generator (lambda (random _) (+ lower (random (1+ (- upper lower)))))
     (lambda (value) (map (cut + lower <>) (integer-shrinks (- value lower))))))
+;; Scheme's finite inexact rationals also have an exact numeric value. This
+;; canonical rank is natural, symmetric in sign, and independent of input spelling.
+;; It does not measure floating-point representation, rounding error or byte cost.
+(def (rational-weight (value :~ rational?))
+  (def exact (inexact->exact value))
+  (+ (abs (numerator exact)) (denominator exact) -1))
+;; Shrink canonical numerator and positive denominator independently, normalize
+;; with standard division, then retain only strict canonical-rank reductions.
+;; The same value policy serves typed callbacks and the generic lazy tree.
+(def (rational-shrinks (value :~ rational?))
+  (def exact (inexact->exact value))
+  (def n (numerator exact)) (def d (denominator exact))
+  (def weight (rational-weight exact))
+  (filter (lambda (candidate) (< (rational-weight candidate) weight))
+    (delete-duplicates/hash
+      (append (map (lambda (smaller) (/ smaller d)) (integer-shrinks n))
+        (map (lambda (smaller) (/ n (1+ smaller))) (integer-shrinks (1- d)))))))
+;; Generate exact ratios through the existing product/size algebra. Size bounds
+;; numerator magnitude and denominator growth; the explicit positive cap remains
+;; in force under resize. Zero size is exactly zero, and no denominator can be zero.
+(def (generator-rational max-denominator: (limit 128))
+  (unless (and (exact-integer? limit) (> limit 0)) (error "positive rational denominator limit required"))
+  ;; Immutable sign metadata is shared; invocation-owned randomness is not cached.
+  (def sign (generator-elements '(-1 1)))
+  (generator-with-shrink
+    (generator-sized (lambda (size)
+      (generator-map (generator-sequence
+        (list (generator-integer 0 size) sign
+          (generator-integer 1 (min limit (1+ size)))))
+        (lambda (parts) (/ (* (car parts) (cadr parts)) (caddr parts))))))
+    rational-shrinks))
 ;; A declared finite order supplies simplification ranks. Capture its spine once;
 ;; map retains index preimages, including distinct positions with equal payloads.
 ;; No equality search, random redraw or application-specific value ordering is added.

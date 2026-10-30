@@ -48,6 +48,63 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "Rational derives through recursive containers while Float remains explicit"
+      (def sampler (generator Rational))
+      (for (value '(0 1/2 -2/3 0.5))
+        (for (smaller (.call sampler shrink value))
+          (check (element? Rational smaller) => #t)
+          (check (< (.call sampler measure smaller) (.call sampler measure value)) => #t)))
+      (def descriptor (Tuple Rational (List Rational) (Pair Rational UInt) (Maybe Rational)))
+      (check-eq? (.get (check-property descriptor (cut element? descriptor <>)
+        seed: 19 cases: 20 size: 5) status) 'passed)
+      (check-exception (generator Float) Error?))
+    (test-case "Rational custom declarations retain precedence over the automatic profile"
+      (def custom (.cc Rational .generator: (lambda ()
+        (make-generator custom (lambda (_random _size) 7/11) (lambda (_) []) core.rational-weight))))
+      (check-eq? (.get (check-property custom (cut = <> 7/11) cases: 3) status) 'passed))
+    (test-case "exact rate services compose FUN shrinking corpus replay and fresh source preparation"
+      (def service (Record rate: [Rational] series: [(List Rational)]
+        handler: [(Function [Rational] [Rational Rational])]))
+      ;; The injected defect loses fractions without leaving the declared result
+      ;; Type. Ordinary Function wrapping still rejects invalid call arguments.
+      (def (truncated-rate rate amount) (truncate (* rate amount)))
+      ;; Product owns the two existing typed samplers. Record construction alone
+      ;; validates the payload and wraps the chosen application procedure.
+      (def (prepare correct?)
+        (def rate (generator Rational))
+        (def sampler (product-generator service (list rate (generator (List Rational)))
+          (lambda (value) (list (.get value rate) (.get value series)))
+          (lambda (parts) (make-instance service rate: (car parts) series: (cadr parts)
+            handler: (if correct? * truncated-rate)))))
+        (values (property-action service
+          (lambda (value) (= ((.@ value handler) (.get value rate) 1) (.get value rate)))
+          identity sampler: sampler) rate))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 60 size: 8 shrink-budget: 128))
+      (let-values (((action owner) (prepare #f)))
+        (def failed (action configuration))
+        (check-eq? (.get failed status) 'failed)
+        (check-equal? (abs (.get (.get failed counterexample) rate)) 1/2)
+        (check-equal? (.get (.get failed counterexample) series) [])
+        (check-exception ((.@ (.get failed counterexample) handler) 'invalid 1) TypeError?)
+        (check (replay-counterexample failed) => #f)
+        (check-eq? (.get (replay-property failed) status) 'failed)
+        ;; Integer pairs reuse Rational's declared conversion. The replay envelope
+        ;; stays unchanged; no rational atom or serialized procedure is introduced.
+        (def codec (corpus.make-codec '(exact-rate-service 1)
+          (lambda (value) (vector (.call Rational .pair<- (.get value rate))
+            (map (.@ Rational .pair<-) (.get value series))))
+          (lambda (datum) (make-instance service rate: (.call Rational .<-pair (vector-ref datum 0))
+            series: (map (.@ Rational .<-pair) (vector-ref datum 1)) handler: truncated-rate))))
+        (def output (open-output-string))
+        (corpus.write-counterexample (.get failed execution) codec output)
+        (check (corpus.read-counterexample codec (open-input-string (get-output-string output))
+          (property.report-specification (.get failed execution))
+          (property.report-property (.get failed execution))) => #f)
+        (.putslot! owner 'revision ($constant-slot-spec 1))
+        (check-exception (replay-property failed) Error?)
+        (check-exception (replay-counterexample failed) Error?))
+      (let-values (((action _owner) (prepare #t)))
+        (standard.require-property-passed (action configuration))))
     (test-case "bounded service corpus refuses oversized vectors and retries through fresh FUN metadata"
       (def service (Record count: [UInt] requests: [(List (Tuple Symbol UInt))]
         handler: [(Function [Integer] [Integer])]))

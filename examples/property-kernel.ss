@@ -5,6 +5,7 @@
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/model model.)
         (only-in ./property-products product-test-cases!)
+        (only-in ./property-numbers rational-test-cases!)
         (only-in ./property-filters filter-test-cases! proposal-test-cases!)
         (only-in ./property-scopes copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
         (only-in ./property-sizes size-test-cases! collection-source-test-cases!)
@@ -70,6 +71,7 @@
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
     (product-test-cases!)
+    (rational-test-cases!)
     (filter-test-cases!)
     (proposal-test-cases!)
     (scope-test-cases!)

@@ -3352,3 +3352,13 @@ output refusal, old-codec rejection and unchanged-budget fresh replay. Eight fin
 PropertyReplay laws cover preparation and exact logical-credit accounting; reader,
 application encoder and runtime allocator behavior remain explicit premises.
 See [P44](pbt-design-rfc.md#p44-portable-vector-copy-preparation-and-shared-resource-credits).
+
+P45 adds the missing bounded exact-ratio Rational PBT profile. Existing sized
+products, map and with-shrink share one canonical rank/policy with the typed
+from-generator bridge; explicit overrides and wider Float/Real boundaries remain.
+Seven generic controls raise independent acceptance to 139 cases. Three typed
+controls include recursive carriers and a Record/List/Function FUN service with
+fractional shrinking, pair corpus replay, source retirement and corrected retry.
+Ten finite Rat laws and symbolic examples cover normalization/bounds, canonical
+keys, pair recovery and strict descent. See
+[P45](pbt-design-rfc.md#p45-bounded-exact-ratio-generation-and-canonical-shrinking).
