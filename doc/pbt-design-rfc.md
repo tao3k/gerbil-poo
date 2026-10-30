@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P29 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P31 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 87 case receipts, an error-free result and
+through `gerbil test`. It requires all 92 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2066,3 +2066,99 @@ Rackcheck's pinned [shrink-tree contract](https://github.com/Bogdanp/rackcheck/b
 requires stream-shaped general shrink results. We preserve that lazy-protocol
 separation using Gerbil Iterators while enforcing the narrower proper-list
 contract of this project's finite value policy. Revision checks remain our extension.
+
+## P30: source-consistent generic model actions
+
+The audit reproduced a missed action boundary, rather than expanding the model's
+research scope: an ordinary source-owned generator called `draw-trace`, whose
+initializer revised its declared owner. The outer generator eventually refused
+stale, but three draws and three advances had already run. The same generic
+model pipeline could continue through normalization, observations and actual
+steps after a registered source or a run-local specification became obsolete.
+The fixed control refuses with zero draws and advances after that initializer.
+
+`testing/property/model.ss` now uses the existing `with-sources` form at caller
+actions: model initialization/admission/normalization/preconditions/transitions,
+draw callbacks, expected and actual observations, actual steps, equality, and
+fixture entry/normal return. The generator module exports that existing hygienic
+form for ordinary module reuse. No extra callback objects, source directory,
+model evaluator, scheduler or POO-dependent kernel is introduced. Explicit
+`let*` sequences expected observation before actual observation, so refusal can
+suppress the latter during argument evaluation. Exceptions keep their original
+cause and multi-value transitions are unchanged. Standard `try`/`finally` still
+owns cleanup; refusing a source does not roll back earlier effects. General lazy
+Iterator consumption, finite trace caps and shrink delivery accounting stay.
+
+Five independent cases exercise all six drawing stages, shared admission and
+retirement, reference/actual/equality/setup/teardown revisions, original causes,
+false data and multi-values, and transient specification refusal with balanced
+cleanup and a fresh retry. The independent standard-library package now runs 92
+cases. `examples/generated-traces.ss` adds one Record/FUN scenario across initial,
+draw, precondition and advance revisions: no property is entered after refusal,
+repeat runs retain the same stage boundary, and a fresh preparation successfully
+checks commands whose nested Function fields still reject invalid arguments.
+A new run may capture a new snapshot; this does not renew an old report's replay
+authority or require permanent invalidation of a sampler object.
+
+Seven additional laws in `PropertyScopes.lean` compose the existing
+`guardedGeneration` for two dependent actions: stale preflight, first-action
+revision, original cause, exact continuation, final revision refusal, unchanged
+fresh results/state, and suppression of all later continuations. Repeated finite
+composition gives the action-chain interpretation. Accurate pure observers,
+faithful stage/state encoding, serial terminating actions and pure model
+transitions remain premises. The laws do not verify Gerbil contracts, host
+unwinding, hidden mutations, arbitrary callback termination, concurrency, GC or
+wall-clock performance. Executable cleanup controls are separate evidence.
+
+The design retains Rackcheck's [stream-based shrink-tree composition](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/shrink-tree.rkt)
+and callback-oriented mapping rather than replacing it with an eager runner.
+Registered revision checks are this project's extension, not a claimed missing
+Rackcheck feature. Every newly protected action walks its active observer ledger;
+no timing or zero-cost improvement is claimed. Existing resource limits and the
+complete local/remote checks remain the acceptance gate for this revision.
+
+## P31: source-consistent scalar stages in recursive derivation
+
+The recursive carrier audit reproduced late refusal in the existing interpreter:
+while admitting a two-field Tuple, the first custom leaf predicate revised its
+registered owner. The parser still called both leaf predicates and both measures
+before `run` finally refused stale. After the fix the same control calls one
+predicate and zero measures. This concerns declared graph dependencies, not
+inference of hidden mutation or a new recursive Type semantics.
+
+`testing/recursive-generation.ss` now scopes its existing graph check with
+`with-generation-check` during bridge preparation and each recursive observation.
+Primitive membership, weight, scalar shrink and bridge construction reuse
+`with-sources`. A revision therefore stops before measurement, a sibling request
+or a later bridge. The checker retains POO's `GenerationRefusal(stale)` category
+for direct callers; outer property scopes retain their own nonlocal refusal.
+Original exceptions bypass trailing checks unchanged. The transient checker is
+not retained in sample nodes; existing graph observers still own returned trees.
+The Interaction program, solver, source stamps, natural quota accounting,
+carrier packing and retained-tree shrinking are unchanged. No second evaluator,
+source registry, compatibility path or namespace is introduced.
+
+Four regression cases cover direct admission/measurement/shrink, measure revision,
+exact measure/shrink exceptions, and distinct scalar bridges sharing one owner.
+The Record/FUN example `source-tree-tests` in `examples/recursive-trees.ss` shares
+one strict Record leaf across List, Pair, Maybe and Tuple carriers. Its Function
+field keeps call validation. Declared predicate/measure revisions prevent the
+property from running; a fresh action shrinks an intentionally false service claim
+and exercises seed and concrete replay. Old reports keep their captured authority.
+The independent generic package remains 92 cases; no POO dependency is added.
+
+Eight `checkLeaf` laws in `RecursiveGeneration.lean` reuse `guardedThen` rather
+than modeling another interpreter: stale preflight, predicate revision, ordinary
+membership refusal, original predicate/measure causes, measure revision, exact
+fresh weight/state publication, and suppression of later continuations. Existing
+finite grammar/depth/node laws remain unchanged. Faithful host stage encoding,
+accurate pure graph observers, natural measure admission and serial terminating
+callbacks are premises. Guards operate between callbacks, not inside arbitrary
+caller code or Type contract evaluation. Host GC, unwinding, arbitrary termination,
+concurrent mutation and wall-clock behavior are outside these laws.
+
+The implementation retains Rackcheck's [predicate-before-subtree and lazy mapping structure](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/shrink-tree.rkt),
+using Gerbil's existing scoped checks for this project's registered revisions.
+Source checking adds active-ledger/graph walks at primitive boundaries; no
+zero-cost or timing improvement is claimed. No process, search, observation,
+depth, node or proposal limit is widened, and complete local/CI gates remain.

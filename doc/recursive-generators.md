@@ -83,3 +83,13 @@ combines mutually recursive Message/Batch descriptors, shared children, safe
 service evaluation, Reader/FUN testing, counterexample shrinking and replay.
 General recursive carrier laws, arbitrary closure synthesis and type inference
 remain open. This closes the supported automatic finite-data protocol.
+
+
+Scalar bridge preparation and scalar callbacks share the existing run-local
+source boundary. Registered invalidation in membership stops before measure;
+invalidation in measure/shrink stops the next sibling request. Direct operations
+retain `GenerationRefusal(stale)` and original callback exceptions. The transient
+checker is scoped to one preparation/observation, while returned samples retain
+their existing graph observer. `source-tree-tests` in `examples/recursive-trees.ss`
+shows strict Record/Function leaves shared across carriers, FUN refusal/retry and
+both replays. P31 in the PBT RFC records the finite proof and cost boundaries.

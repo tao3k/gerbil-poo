@@ -1,6 +1,6 @@
 ;;; Bounded model drawing uses the generic protocol and standard Gerbil contracts.
-(export trace-draw-test-cases! trace-sequence-test-cases!)
-(import :std/test :std/error :std/iter
+(export trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!)
+(import :std/test :std/error :std/iter (only-in :std/list/list take drop-right)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property/model model.))
@@ -148,3 +148,104 @@
     (check-equal? (property.report-steps report) 1)
     (check-equal? (property.report-counterexample report) 0)
     (check (property.report-minimal? report) => #f)))
+
+;; Execute one model action under ordinary producer ownership. No private model
+;; access or second source ledger participates in these source-boundary controls.
+(def (trace-owned-result action current)
+  (with-catch identity (lambda ()
+    (generator.generate (generator.make-generator (lambda (_random _size) (action))
+      (lambda (_) []) current?: current) (generator.random-at 17) 3))))
+
+;; Register source-sensitive trace checks in the standard independent TestSuite.
+(def (trace-action-test-cases!)
+  (test-case "draw revision stops at each model action rather than the outer return"
+    (for-each (lambda (target)
+      (def live #t) (def calls [])
+      ;; Record callback order independently of the model's state and false payloads.
+      (def (touch phase value)
+        (set! calls (append calls (list phase)))
+        (when (eq? phase target) (set! live #f)) value)
+      (def reference (model.make-model (lambda () (touch 'initial 0))
+        (lambda (_state _command) (touch 'enabled #t))
+        (lambda (state _command) (touch 'advance #f) (values (1+ state) #f))
+        identity (lambda (_) (touch 'accept #t)) (lambda (value) (touch 'normalize value))))
+      (def result (trace-owned-result (lambda ()
+        (model.draw-trace reference (lambda (_state _random _size)
+          (touch 'draw #f) (values #t #f)) 3 (generator.random-at 1) 3)) (lambda () live)))
+      (check (generator.stale-generation? result) => #t)
+      (let (order '(initial draw accept normalize enabled advance))
+        (check-equal? calls (take order (1+ (- (length order) (length (memq target order))))))))
+      '(initial draw accept normalize enabled advance)))
+  (test-case "admission and dependency repair stop before advancing revised commands"
+    (for-each (lambda (run)
+      (def live #t) (def advances 0) (def normalizes 0)
+      (def reference (model.make-model (lambda () 0) (lambda (_state _command) #t)
+        (lambda (state _command) (set! advances (1+ advances)) (values state #f))
+        identity (lambda (_) (set! live #f) #t)
+        (lambda (value) (set! normalizes (1+ normalizes)) value)))
+      (check (generator.stale-generation? (trace-owned-result (lambda () (run reference '(#f #t)))
+        (lambda () live))) => #t)
+      (check-equal? (list advances normalizes) '(0 0)))
+      (list model.valid-trace? model.repair-trace
+        (lambda (reference commands) (model.shrink-trace reference commands (lambda (_) []))))))
+  (test-case "reference fixture equality and teardown revisions suppress later effects"
+    (for-each (lambda (target)
+      (def live #t) (def active #f) (def effects []) (def closed 0)
+      ;; Only differential execution participates; preparation remains pure here.
+      (def (touch phase)
+        (when active
+          (set! effects (append effects (list phase)))
+          (when (eq? phase target) (set! live #f))))
+      (def reference (model.make-model (lambda () (touch 'initial) 0) (lambda (_state _command) #t)
+        (lambda (state _command) (touch 'advance) (values (1+ state) #f))
+        (lambda (state) (touch 'expected) state) (lambda (_) #t) identity))
+      ;; Standard dynamic unwinding owns cleanup even when an inner source refuses.
+      (def (fixture use)
+        (set! active #t)
+        (try (touch 'setup)
+          (use (model.make-system 0 (lambda (state _command) (touch 'step) (values (1+ state) #f))
+            (lambda (state) (touch 'actual) state)))
+          (finally (set! closed (1+ closed)) (touch 'cleanup))))
+      (def result (trace-owned-result (lambda ()
+        (model.check-trace reference '(#f #t) fixture same?: (lambda (_phase left right)
+          (touch 'equal) (equal? left right)))) (lambda () live)))
+      (check (generator.stale-generation? result) => #t)
+      (check-equal? closed 1)
+      (check-eq? (last effects) 'cleanup)
+      (unless (eq? target 'cleanup)
+        (check-eq? (last (drop-right effects 1)) target)))
+      '(setup initial expected actual equal advance step cleanup)))
+  (test-case "model actions retain multiple values exact causes and ordinary false data"
+    (def cause (cons 'model 'cause)) (def live #t) (def actual 0)
+    (def reference (model.make-model (lambda () 0) (lambda (_state _command) #t)
+      (lambda (state _command) (values (1+ state) #f)) identity (lambda (_) #t) identity))
+    (check-equal? (model.draw-trace reference (lambda (_state _random _size) (values #t #f))
+      2 (generator.random-at 4) 2) '(#f #f))
+    (let (report (model.check-trace reference '(#f #t)
+      (lambda (use) (use (model.make-system 0
+        (lambda (state _command) (set! actual (1+ actual)) (values (1+ state) #f)) identity)))))
+      (check (model.trace-report-matched? report) => #t)
+      (check-equal? actual 2))
+    (def broken (model.make-model (lambda () (set! live #f) (raise cause))
+      (lambda (_state _command) #t) (lambda (state _command) (values state #f)) identity (lambda (_) #t) identity))
+    (check-eq? (trace-owned-result (lambda () (model.repair-trace broken [])) (lambda () live)) cause))
+  (test-case "run-local specification revision interrupts fixture steps and permits a fresh retry"
+    (def live #t) (def steps 0) (def closed 0)
+    (def reference (model.make-model (lambda () 0) (lambda (_state _command) #t)
+      (lambda (state _command) (values (1+ state) #f)) identity (lambda (_) #t) identity))
+    (def specification (property.make-specification list? length current?: (lambda () live)))
+    ;; The generator is immutable; only the active property's domain changes.
+    (def (execute revise?)
+      (property.check-property (generator.generator-unit '(#f #t))
+        (lambda (commands) (model.trace-report-matched? (model.check-trace reference commands
+          (lambda (use) (try
+            (use (model.make-system 0 (lambda (state _command)
+              (set! steps (1+ steps)) (when revise? (set! live #f)) (values (1+ state) #f)) identity))
+            (finally (set! closed (1+ closed)))))))) specification cases: 1))
+    (let (report (execute #t))
+      (check-eq? (property.report-status report) 'stale)
+      (check-eq? (property.report-cause report) #f)
+      (check-equal? (list steps closed) '(1 1)))
+    (set! live #t)
+    (check-eq? (property.report-status (execute #f)) 'passed)
+    (check-equal? (list steps closed) '(3 2))))
