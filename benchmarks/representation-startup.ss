@@ -27,8 +27,12 @@
 ;; Observe `just check`, whose existing recipes invoke only gerbil build/test.
 ;; Targets, deadlines, failure detection and cleanup remain owned by those tools.
 ;; No source discovery, loader or result cache is installed by this observer.
-(def (check-study prefix)
-  (using (prefix :~ string?)
+(def (check-study prefix (entry "check"))
+  (using ((prefix :~ string?) (entry :~ string?))
+    ;; Prepared-artifact diagnostics use the existing complete check-built recipe.
+    ;; Whitelist public entries; this observer cannot become an arbitrary runner.
+    (unless (member entry '("check" "check-built"))
+      (error "unknown complete check entry" entry))
     (def clock (make-u64vector 1 0))
     (def marks []) (def suite #f) (def trace [])
     (def modules 0) (def begun 0) (def passed 0)
@@ -63,11 +67,11 @@
     ;; A nonzero public-command exit propagates through std/process, even when
     ;; an intermediate harness printed OK. Only a reaped successful child qualifies.
     (run-process ["env" (string-append "GERBIL_PATH=" (path-expand prefix))
-      "just" "check" "2" "1" "4" "600"] stderr-redirection: #t coprocess: receive)
+      "just" entry "2" "1" "4" "600"] stderr-redirection: #t coprocess: receive)
     (def finished (monotonic-ticks clock))
     (def phases (check-phase-summary started marks finished modules begun passed))
     (def digest (hex-encode (sha256 (string->utf8 (object->string (reverse trace))))))
-    (write (list 'check-observation (cons 'frequency monotonic-frequency)
+    (write (list 'check-observation (cons 'entry entry) (cons 'frequency monotonic-frequency)
       (cons 'phase-ticks phases) (cons 'modules modules) (cons 'cases passed)
       (cons 'case-trace-sha256 digest) (cons 'total-ticks (- finished started))))
     (newline) (force-output)))
@@ -83,6 +87,7 @@
         '((build . 10) (prepare . 20) (tests . 60) (report . 10)
           (cleanup . 10) (studies . 10) (reap . 10))))
     (test-case "missing nonmonotone and incomplete observations refuse"
+      (check-exception (check-study "unused" "unknown") Error?)
       (check-exception (check-phase-summary 0 [] 10 1 1 1) Error?)
       (check-exception (check-phase-summary 0
         '((test-start . 2) (harness-start . 1) (harness-end . 3)
@@ -209,6 +214,7 @@
   (case-lambda
     ;; The existing standard-built executable owns the observation command too.
     ((prefix) (check-study prefix))
+    ((prefix entry) (check-study prefix entry))
     ((entry width access)
   (unless (and (member entry '("main" "joint-main"))
                (member access '("symbolic" "indexed")))

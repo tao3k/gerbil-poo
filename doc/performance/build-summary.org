@@ -1,5 +1,71 @@
 #+title: macOS Scheme build preparation and bounded reuse
 
+* Dependency scope and rejected context sharing, 2026-10-30
+
+The shared CI library key now uses only GitHub's standard =hashFiles= footprint.
+Nested =t/= packages (including their =.scm= test bodies) are excluded, then
+=t/*.ss= is restored except =t/build-test.ss=. The root build imports =t/build.ss=
+and compiles the top-level test fixtures, so excluding the entire test directory
+would admit stale production/build inputs. Public compile/test jobs, deadlines,
+heaps and natural-exit admission are unchanged. This removes a confirmed source
+of redundant CI preparation; it is not a fix for first-image macOS validation.
+
+A temporary diagnostic using the official =@actions/glob= package checked the
+actual workflow patterns: 310 shared files were selected; root build helpers,
+shared fixtures, production includes and benchmark package inputs remained.
+Changing a nested test include or the source-only declaration test preserved
+the fixture key; changing the root-imported =t/build.ss= changed it. No scanner,
+secondary manifest, loader or Node dependency is added to the project. Lean's
+=sameBuildInputs_private_revision= and =sameBuildInputs_required_revision= state
+these conditional dependency laws, not artifact authentication or OS latency.
+
+The frozen =32a63ae= cohort retained 144 modules, 2081 cases and identical ordered
+case trace =b8a652d7d7dcf257fa4be45f31979ad90926737b599b974dcd6dd3ad800811f8=.
+Replacing six private compiler contexts with four reduced package preparation
+from 225.54 to 195.71 seconds, but the complete empty-project-prefix check
+regressed from 652.93 to 697.14 seconds. Root preparation and runtime execution
+also varied. The four-context change is withdrawn, including its special-case
+proofs: source-request reduction alone does not establish a wall-clock gain.
+A standard nested-module probe emitted five images for two submodules, so that
+route is rejected as well. Neither experiment changes the public loader.
+
+Identical-artifact copies were then exercised through =just check-built=, retaining
+all tests, declaration checks and both studies but excluding construction. The
+existing observer now explicitly labels =check= versus =check-built=; unknown
+entries refuse before starting a process. These diagnostic copies do not count
+as empty-project-prefix cold builds or an implementation speedup.
+
+| Execution control | Complete wall (s) | Preparation (s) | Post-report exit (s) |
+|-------------------+-------------------+-----------------+----------------------|
+| host, first order |            336.73 |          189.23 |                 7.57 |
+| host, reverse     |            374.00 |          218.87 |                 6.87 |
+| restricted, reverse |          356.73 |          205.13 |                 6.72 |
+
+Every row exited naturally with the same 144-module/2081-case trace. A separate
+restricted diagnostic reached successful inner completion but its outer =time -l=
+failed with EPERM; it is excluded from admitted complete wall comparisons. It
+also had a profiler attached. The reverse comparison reverses the host advantage,
+so changing execution permissions is not a demonstrated performance repair.
+The first host copy also had a brief concurrent file-copy interval and is not a
+high-precision treatment measurement. No global OS cache purge is claimed.
+
+A two-second loading sample contained 1719 observations in
+=dyld -> mapSegments -> fcntl=. That identifies the sampled waiting region;
+it does not identify the exact syscall command, total GC time or all 175--259
+seconds of loading. Fresh processes reusing identical artifact bytes still vary.
+The measured post-report window includes shell/pipe/reaping work; it is not an
+exclusive =dlclose= timer. No security policy, cleanup step or resource limit is
+weakened. The first-load variability remains open rather than being declared
+closed on the strength of successful case markers or a lower median.
+
+After integrating =4ca89f6=, the unchanged complete =just check= naturally passed
+in 340.22 seconds: 144 modules, 2107 cases, three source declaration checks,
+collection and generator studies. The observed build/prepare/cases/post-report/
+studies windows were 131.89/37.99/146.15/7.16/16.96 seconds. This reused the
+existing prefix while rebuilding changed inputs; it is neither a cold-build
+receipt nor a speedup comparison with the earlier 2081-case cohort. The current
+ordered case trace is =650127d387c7bf6e0e41917114fa2b20989c73ed1c8f5d088497aa3e673cbc60=.
+
 * System validation and standard make backend overlap
 The next controlled study froze source =3ba1b34= on a host reporting 12 physical
 and 12 logical cores. Root and startup compilation still receive the standard

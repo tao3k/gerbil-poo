@@ -29,13 +29,16 @@ jobs:
         run: |
           printf '%s\n' t/*/gerbil.pkg | jq -Rsc 'split("\n") | map(select(length > 0) | split("/")[1]) | {group: .}' > "$RUNNER_TEMP/groups.json"
           echo "matrix=$(cat "$RUNNER_TEMP/groups.json")" >> "$GITHUB_OUTPUT"
+      # Root make imports t/build.ss and compiles the top-level t/*.ss fixtures.
+      # Nested test packages/includes belong to compile-tests, not this artifact.
+      # Keep every root/production/benchmark input; a test edit must still run all jobs.
       - uses: actions/cache@v4
         id: shared-cache
         with:
           path: |
             .ci-library/lib
             .ci-library/bin
-          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/*-test.ss') }}
+          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/**', 't/*.ss', '!t/build-test.ss') }}
       - name: Check public module packaging
         run: just check-layout
       - name: Prepare the declared libraries and benchmark programs
