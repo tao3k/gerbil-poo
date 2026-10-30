@@ -1697,6 +1697,13 @@ early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw law
 
 Finite trace/value shrinking now rejects malformed outer spines and parameter
 results instead of salvaging prefixes, and rechecks sources between callbacks.
+P32 in [pbt-design-rfc.md](pbt-design-rfc.md) completes inherited admission across
+nested domains, typed product callbacks and portable replay stages. Child report
+publication observes parents after local refusal scopes unwind, without a new
+context layer or checker recursion. Five generic cases (97 total), two typed
+Record/Function FUN cases and eight finite scope laws cover this unit. Host
+continuations and transactional I/O remain explicit boundaries.
+
 P31 in [pbt-design-rfc.md](pbt-design-rfc.md) closes source boundaries between
 recursive scalar admission, natural measurement, shrinking and bridge preparation.
 It reuses the existing run-local checker and Interaction interpreter, preserves

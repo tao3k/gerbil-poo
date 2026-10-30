@@ -566,7 +566,7 @@ To copy the independent worked suite into another standard Gerbil project, inclu
 `examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` and `examples/property-traces.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
-92 cases without installing POO.
+97 cases without installing POO.
 
 Checked property actions now install a run-local `with-generation-check` scope
 from the generator module. A nested draw/map/selector/iterator cannot continue
@@ -620,3 +620,13 @@ original exceptions and `try`/`finally` cleanup keep their existing meanings.
 Record/FUN refusal/retry without a second evaluator. Seven dependent-action laws
 in `PropertyScopes.lean` state the finite source/serial-callback premises; host
 unwinding remains executable evidence. See P30 in the RFC for costs and scope.
+
+
+P32 makes domain, typed product and codec actions inherit active producer and
+run-local ancestor checks. Normal child report publication is checked after its
+local catch/finish scopes unwind; it does not recursively invoke a terminated
+child's guard. Live parents may still receive non-passing child diagnostics.
+`examples/property-scopes.ss` and `examples/generated-products.ss` cover early
+refusal, exact exceptions, cleanup, Record/Function wrapping and FUN retry/replay.
+The eight finite scope laws keep accurate observers and host scope fidelity as
+premises. No partial-write rollback or arbitrary callback interruption is claimed.

@@ -112,8 +112,9 @@
   ;; One boundary also protects representation callbacks and value-only shrinking.
   (def (current) (testing.specification-current? domain))
   (def (checked action . arguments)
-    (unless (current) (refuse-generation 'stale))
-    (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale))))
+    (core.with-sources []
+      (unless (current) (refuse-generation 'stale))
+      (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
   (.cc (from-generator descriptor
     (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
     (lambda (value) (testing.specification-weight domain (checked unpack value)))

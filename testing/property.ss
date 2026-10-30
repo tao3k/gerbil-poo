@@ -10,7 +10,7 @@
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
-          stale-generation? boolean-result live? random-at with-generation-check))
+          stale-generation? boolean-result live? random-at with-generation-check with-sources))
 ;; Domain admission, measure and revision ownership remain explicit callbacks.
 (defstruct domain (accept measure current) final: #t)
 ;; Reports retain exact execution configuration and observed source provenance.
@@ -83,10 +83,10 @@
 ;; Every domain action has the same source boundary. The hygienic form keeps
 ;; callback evaluation once, checks EOF too, and leaves exceptions to the owner.
 (defrule (with-current current stop body ...)
-  (begin
+  (with-sources []
     (unless (current) (stop 'stale #f))
-    ;; Nested generator callbacks share this action's check without making its
-    ;; mutable run ledger or replay guard a retained sample source.
+    ;; Ancestors are checked outside this action's own checker. Nested actions
+    ;; inherit it, but its refusal never recursively invokes the same checker.
     (with-generation-check (lambda () (unless (current) (stop 'stale #f)))
       (begin0 (let () body ...) (unless (current) (stop 'stale #f))))))
 ;; Domain consumers reuse the same natural measure and source boundary. Do not
@@ -227,56 +227,58 @@
     (set! events (cons (vector path kind value) events)))
   ;; Observation is shared with property execution, rather than a second registry.
   (def (observe tree) (set! sources (observe-sources tree seen sources)))
-  (with-catch (lambda (cause)
-      (def status (failure-status cause current classify))
-      (unless (memq status '(error exhausted unsupported stale)) (error "invalid error classification" status))
-      (result status cause))
-    (lambda ()
-      (let/cc finish
-        ;; The same source boundary also owns post-callback and EOF checks.
-        (def (stop status _minimal?) (finish (result status)))
-        ;; Admission is a finite classification, independent of traversal policy.
-        ;; Refused nodes never invoke measures or descendant factories.
-        (def (node-diagnosis tree root? parent-weight)
-          (cond
-            ((rejected? tree) (values 'pruned #f #f))
-            (else
-              (def value (sample-value tree))
-              (if (not (with-current current stop (accepts? specification value)))
-                (values 'outside-domain value #f)
-                (let (cost (with-current current stop (weight specification value)))
-                  (values (cond (root? 'root) ((< cost parent-weight) 'value) (else 'nondecreasing)) value cost))))))
-        ;; Child pulls share next-proposal with the real shrinker: returned
-        ;; tombstones count, EOF/throws do not, and unused tails remain untouched.
-        (def (children! tree path remaining cost)
-          (using (children (iter (with-current current stop ((sample-children tree)))) :- Iterator)
-            (let next ((index 0))
-              (if (= (progress-attempts state) budget) (set! truncated? #t)
-                (let (child (next-proposal children state current stop))
-                  (unless (eq? child #!eof)
-                    (visit child (append path (list index)) (1- remaining) cost #f)
-                    (next (1+ index))))))))
-        ;; Record the edge before exploring descendants; only decreasing admitted
-        ;; values authorize expansion. No search hides behind a refused node.
-        (def (visit tree path remaining parent-weight root?)
-          (with-current current stop
-            (observe tree)
-            (unless (current) (stop 'stale #f))
-            (let-values (((kind value cost) (node-diagnosis tree root? parent-weight)))
-              (record! path kind value)
-              (when (eq? kind 'root) (with-current current stop (classify-labels! labels value counts)))
-              (when (memq kind '(root value))
-                (if (or (zero? remaining) (= (progress-attempts state) budget))
-                  (set! truncated? #t)
-                  (children! tree path remaining cost))))))
-        (def random (random-at seed))
-        (for (index (in-range count))
-          (with-current current stop
-            (set! draws (1+ draws))
-            (def tree (generate generator random size))
-            (observe tree)
-            (visit tree (list index) depth #f #t)))
-        (with-current current stop (result 'complete))))))
+  ;; Admit terminal child reports only after local catch/finish scopes unwind.
+  (with-sources []
+    (with-catch (lambda (cause)
+        (def status (failure-status cause current classify))
+        (unless (memq status '(error exhausted unsupported stale)) (error "invalid error classification" status))
+        (result status cause))
+      (lambda ()
+        (let/cc finish
+          ;; The same source boundary also owns post-callback and EOF checks.
+          (def (stop status _minimal?) (finish (result status)))
+          ;; Admission is a finite classification, independent of traversal policy.
+          ;; Refused nodes never invoke measures or descendant factories.
+          (def (node-diagnosis tree root? parent-weight)
+            (cond
+              ((rejected? tree) (values 'pruned #f #f))
+              (else
+                (def value (sample-value tree))
+                (if (not (with-current current stop (accepts? specification value)))
+                  (values 'outside-domain value #f)
+                  (let (cost (with-current current stop (weight specification value)))
+                    (values (cond (root? 'root) ((< cost parent-weight) 'value) (else 'nondecreasing)) value cost))))))
+          ;; Child pulls share next-proposal with the real shrinker: returned
+          ;; tombstones count, EOF/throws do not, and unused tails remain untouched.
+          (def (children! tree path remaining cost)
+            (using (children (iter (with-current current stop ((sample-children tree)))) :- Iterator)
+              (let next ((index 0))
+                (if (= (progress-attempts state) budget) (set! truncated? #t)
+                  (let (child (next-proposal children state current stop))
+                    (unless (eq? child #!eof)
+                      (visit child (append path (list index)) (1- remaining) cost #f)
+                      (next (1+ index))))))))
+          ;; Record the edge before exploring descendants; only decreasing admitted
+          ;; values authorize expansion. No search hides behind a refused node.
+          (def (visit tree path remaining parent-weight root?)
+            (with-current current stop
+              (observe tree)
+              (unless (current) (stop 'stale #f))
+              (let-values (((kind value cost) (node-diagnosis tree root? parent-weight)))
+                (record! path kind value)
+                (when (eq? kind 'root) (with-current current stop (classify-labels! labels value counts)))
+                (when (memq kind '(root value))
+                  (if (or (zero? remaining) (= (progress-attempts state) budget))
+                    (set! truncated? #t)
+                    (children! tree path remaining cost))))))
+          (def random (random-at seed))
+          (for (index (in-range count))
+            (with-current current stop
+              (set! draws (1+ draws))
+              (def tree (generate generator random size))
+              (observe tree)
+              (visit tree (list index) depth #f #t)))
+          (with-current current stop (result 'complete)))))))
 
 ;; One execution owns its observers. A replay guard is transient: old stamps
 ;; stay checked throughout rerun but are not accumulated into a closure chain.
@@ -296,52 +298,55 @@
     (make-report status generator property specification seed cases size trial-size size-limit size-current budget trial original
       (and witness (sample-value witness)) (progress-attempts state) (progress-steps state)
       minimal? cause witness sources classify policy accepted discarded (hash->list counts)))
-  (with-catch
-    (lambda (cause)
-      (def status (failure-status cause current classify))
-      (unless (memq status '(error exhausted unsupported stale)) (error "invalid error classification" status))
-      (result status #f cause))
-    (lambda ()
-      (def random (random-at seed))
-      (let/cc finish
-        ;; The same checked action form serves trials and shrinking; only this
-        ;; owner builds reports and classifies failures.
-        (def (stop status minimal?) (finish (result status minimal?)))
-        ;; Excluded candidates do not falsify; an invalidated policy stops before
-        ;; the property. The outer candidate boundary still guards property return.
-        (def (shrink-property value)
-          (or (not (with-current current stop (eligible? policy value)))
-            (boolean-result (property value) "property must return a boolean")))
-        (let/cc complete
-          (for (_ (in-range (+ cases (trial-policy-discard-budget policy))))
-            (with-current current stop
-              (set! trial (1+ trial)) (set! original #f) (progress-best-set! state #f)
-              (set! trial-size #f)
-              (set! trial-size (if (procedure? size) (size trial) size))
-              (unless (and (exact-integer? trial-size) (>= trial-size 0))
-                (error "size policy must return a natural number" trial-size))
-              (when (> trial-size size-limit) (error "size policy exceeded its declared limit" trial-size size-limit))
-              (unless (current) (stop 'stale #f))
-              (progress-best-set! state (generate generator random trial-size))
-              (observe (progress-best state))
-              (set! original (sample-value (progress-best state))))
-            (unless (with-current current stop (accepts? specification original))
-              (error "generator produced a value outside its descriptor" original))
-            (cond
-              ((not (with-current current stop (eligible? policy original)))
-               (set! discarded (1+ discarded))
-               (when (> discarded (trial-policy-discard-budget policy)) (stop 'exhausted #f)))
-              (else
-               (set! accepted (1+ accepted))
-               (with-current current stop (classify-trial! policy original counts))
-               (unless (with-current current stop
-                         (boolean-result (property original) "property must return a boolean"))
-                 (shrink-failure specification shrink-property state budget stop current observe))))
-            (progress-best-set! state #f)
-            (when (= accepted cases) (complete #t))))
-        (unless (= accepted cases) (stop 'exhausted #f))
-        (unless (covered? policy counts) (stop 'coverage #f))
-        (result 'passed #f)))))
+  ;; Admit terminal child reports only after local catch/finish scopes unwind.
+  (with-sources []
+    (with-catch
+      (lambda (cause)
+        (def status (failure-status cause current classify))
+        (unless (memq status '(error exhausted unsupported stale)) (error "invalid error classification" status))
+        (result status #f cause))
+      (lambda ()
+        (def random (random-at seed))
+        (let/cc finish
+          ;; The same checked action form serves trials and shrinking; only this
+          ;; owner builds reports and classifies failures.
+          (def (stop status minimal?) (finish (result status minimal?)))
+          ;; Excluded candidates do not falsify; an invalidated policy stops before
+          ;; the property. The outer candidate boundary still guards property return.
+          (def (shrink-property value)
+            (or (not (with-current current stop (eligible? policy value)))
+              (boolean-result (property value) "property must return a boolean")))
+          (let/cc complete
+            (for (_ (in-range (+ cases (trial-policy-discard-budget policy))))
+              (with-current current stop
+                (set! trial (1+ trial)) (set! original #f) (progress-best-set! state #f)
+                (set! trial-size #f)
+                (set! trial-size (if (procedure? size) (size trial) size))
+                (unless (and (exact-integer? trial-size) (>= trial-size 0))
+                  (error "size policy must return a natural number" trial-size))
+                (when (> trial-size size-limit) (error "size policy exceeded its declared limit" trial-size size-limit))
+                (unless (current) (stop 'stale #f))
+                (progress-best-set! state (generate generator random trial-size))
+                (observe (progress-best state))
+                (set! original (sample-value (progress-best state))))
+              (unless (with-current current stop (accepts? specification original))
+                (error "generator produced a value outside its descriptor" original))
+              (cond
+                ((not (with-current current stop (eligible? policy original)))
+                 (set! discarded (1+ discarded))
+                 (when (> discarded (trial-policy-discard-budget policy)) (stop 'exhausted #f)))
+                (else
+                 (set! accepted (1+ accepted))
+                 (with-current current stop (classify-trial! policy original counts))
+                 (unless (with-current current stop
+                           (boolean-result (property original) "property must return a boolean"))
+                   (shrink-failure specification shrink-property state budget stop current observe))))
+              (progress-best-set! state #f)
+              (when (= accepted cases) (complete #t))))
+          (unless (= accepted cases) (stop 'exhausted #f))
+          (unless (covered? policy counts) (stop 'coverage #f))
+          (result 'passed #f))))))
+
 ;; Public checks require an explicit domain and finite trial/attempt budgets.
 ;; Error classification may describe a caller's own bounded-generation refusals.
 (def (check-property generator (property : :procedure) specification seed: (seed 0)

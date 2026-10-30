@@ -161,6 +161,7 @@
     "examples/property-refusals"
     "examples/generated-batches"
     "examples/generated-traces"
+    "examples/generated-products"
     "examples/recursive-trees"
     "examples/inherited-services"
     "examples/metaprotocol-services"
