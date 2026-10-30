@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P33 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P34 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -2265,3 +2265,49 @@ The 1G source-interpreter aggregate-module load failed before suite execution an
 is not counted as acceptance. The focused compiled suite runs through the standard
 CLI with the same 1G/90-second gate; complete checks run without its focused filter.
 Process, depth, search, node and proposal limits remain unchanged.
+
+
+## P34: inherited typed preparation and aggregate measurement
+
+A registered ancestor can become obsolete during a typed sampler factory, a Map
+key validator or a scalar measure. Refusing only after the whole aggregate is too
+late: a two-entry Map reproduced `stale` with **two** weight callbacks before this
+change, and with **one** afterwards. Preparation could likewise bind another field
+after its first factory had ended the active parent's authority.
+
+The existing `generator-core` and `weight` boundaries now use the generic
+`with-sources` action. Map key validation inherits that same active scope while
+retaining its own captured guard and representation-identity check. This protects
+Map folds, trace command measures and product preparation through shared helpers;
+there is no second fold, context registry or per-container wrapping protocol.
+Normal totals, natural-number rejection, key-identity rejection and original thrown
+causes retain their meanings. No authority is invented for a raw callback invoked
+outside an owned action; an arbitrary custom factory still owns its internal
+callbacks until it returns.
+
+`examples/collection-properties.ss` exports `map-service-tests`: a fixed-key batch
+of two service Records with nested Function fields. The existing product trees
+supply value shrinking; the Map descriptor owns validation and its cardinality-plus-
+sum measure. An obsolete first measure refuses before a second callback or shrink
+step. Explicit re-preparation captures the revised owner, shrinks both values,
+delivers through FUN, preserves Function checks and supports concrete and seed
+replay. The old report remains refused. The six `sampler-scope-test` cases also
+cover trace costs, later factory suppression, Map key suppression, exact exception
+identity, fresh/empty totals and malformed measures. Map iteration order is not an
+observable assertion.
+
+`PropertyProducts.lean` adds `guardedMeasure`, a specialization of the existing
+`guardedProduct`, and six laws: stale preflight, first-revision suppression,
+original cause, empty total, exact stable cardinality-plus-sum, and refusal before
+continuation. Existing product laws cover bridge/key preparation. The premises
+are finite terminating serial callbacks, natural weights, fixed structural weight,
+truthful source observations and a faithful host scope encoding. This logical
+shrink measure is **not** a time/allocation cost proof. Host unwinding and Function
+wrapping remain executable regressions, not verified Scheme evaluation.
+
+Rackcheck's pinned shrink-tree map/filter implementation remains the reference for
+composable lazy value trees. This unit preserves those trees and their force
+policy; it does not change quotas, Map representation, key uniqueness, hash order,
+shrinker provenance or replay identity. Registered dynamic source boundaries are
+an explicit extension, not a missing Rackcheck guarantee. No performance claim is
+made from callback counts alone.

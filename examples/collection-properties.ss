@@ -1,6 +1,6 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
-(export handoff rolling-upgrade optimistic-aba collection-properties-test)
-(import :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
+(export map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
+(import (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.)
         ../object ../mop ../type ../number ../testing/type ../support/option
@@ -115,3 +115,22 @@
     (test-case "interleaved ownership transfer and inverse index conflicts" (check-scenario handoff))
     (test-case "multi-round upgrades with retained stale receipts" (check-scenario rolling-upgrade))
     (test-case "ABA retry differs from cross-epoch receipt reuse" (check-scenario optimistic-aba))))
+
+;; A fixed two-service batch retains both keys and nested Function wrappers. Its
+;; value trees use the shared product algebra; Map owns only the declared measure.
+;; weigh observes caller-owned revisions, and FUN delivers the complete report.
+(def (map-service-tests owner weigh consume)
+  (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def descriptor (Map (Enum left right) -> cell))
+  (def values (make-generator cell
+    (lambda (_random _size) (make-instance cell amount: 2 handler: abs))
+    (lambda (value) (if (zero? (.get value amount)) [] (list (.cc value amount: 0))))
+    (lambda (value) (weigh value) (.get value amount)) dependencies: (list owner)))
+  (def maps (map-generator descriptor '(left right) values))
+  (def generation (core.generator-map
+    (core.generator-sequence (list (generator-core values) (generator-core values)))
+    (lambda (row) (list->hash-table (map cons '(left right) row) seed: 0))))
+  (def sampler (from-generator descriptor generation (cut .call maps measure <>)
+    dependencies: (list owner)))
+  (property-action descriptor (lambda (table) (= ((.@ (hash-ref table 'left) handler) -1) 0))
+    consume sampler: sampler))

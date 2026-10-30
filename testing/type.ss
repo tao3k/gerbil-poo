@@ -82,16 +82,22 @@
 ;; Capture one typed boundary without dismantling the generator's lazy tree.
 ;; Raw callback samplers are lifted once here; sample-tree compositions stay intact.
 (def (generator-core sampler)
-  (def sources (snapshot sampler []))
-  (def owned (.get sampler generation))
-  (core.generator-map (or (and owned (owned sampler))
-    (core.make-generator (.@ sampler draw) (cut sampler-children sampler <>))) identity
-    current?: (source-guard sources sampler)))
+  ;; Preparation is one inherited action: custom factories cannot end their
+  ;; parent's authority and then let a caller bind the next field.
+  (core.with-sources []
+    (def sources (snapshot sampler []))
+    (def owned (.get sampler generation))
+    (core.generator-map (or (and owned (owned sampler))
+      (core.make-generator (.@ sampler draw) (cut sampler-children sampler <>))) identity
+      current?: (source-guard sources sampler))))
 ;; Measures are natural numbers; malformed callbacks cannot admit shrink steps.
 (def (weight sampler value)
-  (def n (.call sampler measure value))
-  (unless (and (exact-integer? n) (>= n 0)) (error "invalid shrink measure" n))
-  n)
+  ;; The shared primitive also protects Map folds and trace command costs. A
+  ;; whole-aggregate check alone is too late to suppress later user callbacks.
+  (core.with-sources []
+    (def n (.call sampler measure value))
+    (unless (and (exact-integer? n) (>= n 0)) (error "invalid shrink measure" n))
+    n))
 ;; Replace one coordinate using the product's shared checked action. A revised
 ;; shrink callback cannot reach packing or a later child's shrink callback.
 (def (coordinate-shrinks children values pack call)
@@ -139,9 +145,10 @@
   ;; guard also prevents silently refreshing a sampler between preparation/run.
   (def generation (core.generator-hash domain (generator-core value-sampler) domain-limit: limit current?: guard))
   (for (key domain)
-    (unless (core.live? guard) (error "stale Map generator preparation"))
-    (def checked (begin0 (validate key-type key)
-      (unless (core.live? guard) (error "stale Map generator preparation"))))
+    (def checked (core.with-sources []
+      (unless (core.live? guard) (error "stale Map generator preparation"))
+      (begin0 (validate key-type key)
+        (unless (core.live? guard) (error "stale Map generator preparation")))))
     (unless (eq? checked key) (error "finite Map key validation must preserve representation" key)))
   (unless (core.live? guard) (error "stale Map generator preparation"))
   (.cc (from-generator descriptor (core.generator-map generation (cut validate descriptor <>))

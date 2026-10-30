@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
 (import (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.) :std/test :std/error :std/iter :std/io/tempfile
@@ -8,6 +8,7 @@
         (only-in :clan/poo/function-signature encode-arguments)
         (only-in :clan/poo/testing/generation-graph generation-refusal?)
         (prefix-in :clan/poo/examples/signature-service service.)
+        (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests) collection.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
         (only-in :clan/poo/examples/property-workflows property-workflows-test)
         (only-in :clan/poo/examples/generated-batches generated-batches-test)
@@ -574,3 +575,100 @@
       (check-eq? (.get (replay-property failed) status) 'failed)
       (check (> input-checks 0) => #t)
       (check (> callback-checks 0) => #t))))
+
+;; Shared typed helpers must honor the caller's active scope at every primitive
+;; observation. The standard CLI can focus this suite; full discovery is unchanged.
+(def sampler-scope-test
+  (test-suite "typed sampler preparation and aggregate scopes"
+    (test-case "Map and trace aggregates stop after the first obsolete weight"
+      (for (kind '(map trace))
+        (def live #t) (def weights 0)
+        ;; The caller's authority is independent of the measured scalar descriptor.
+        (def (weigh value) (set! weights (1+ weights)) (set! live #f) (abs value))
+        (def action (case kind
+          ((map)
+           (let* ((values (make-generator Integer (lambda (_random _size) 2) (lambda (_) []) weigh))
+                  (maps (map-generator (Map Symbol -> Integer) '(left right) values)))
+             (lambda () (.call maps measure (list->hash-table '((left . 2) (right . 3)))))))
+          ((trace)
+           (let* ((model (make-instance TraceGenerator Command: Integer State: UInt Result: Integer Observation: UInt
+                     initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+                     advance: (lambda (state _command) (values state 0)) observe: identity
+                     draw: (lambda (_state _random _size) #f) shrink: (lambda (_) []) measure: weigh))
+                  (sampler (trace-generator Integer model)))
+             (lambda () (.call sampler measure '(1 2 3)))))))
+        (def parent (core.make-generator (lambda (_random _size) (action)) (lambda (_) []) current?: (lambda () live)))
+        (check-exception (core.generate parent (core.random-at 1) 0) core.stale-generation?)
+        (check-equal? weights 1)))
+    (test-case "typed bridge factories stop before later field binding"
+      (def live #t) (def first 0) (def later 0)
+      (def left (.cc (make-generator Integer (lambda (_random _size) 1) (lambda (_) []) abs)
+        generation: (lambda (_self) (set! first (1+ first)) (set! live #f) (core.generator-unit 1))))
+      (def right (.cc (make-generator Integer (lambda (_random _size) 2) (lambda (_) []) abs)
+        generation: (lambda (_self) (set! later (1+ later)) (core.generator-unit 2))))
+      (def parent (core.make-generator (lambda (_random _size)
+        (product-generator (Tuple Integer Integer) (list left right) vector->list list->vector))
+        (lambda (_) []) current?: (lambda () live)))
+      (check-exception (core.generate parent (core.random-at 1) 0) core.stale-generation?)
+      (check-equal? (list first later) '(1 0)))
+    (test-case "Map key validation inherits parent scope before the next key"
+      (def live #t) (def keys 0)
+      (def Key (.cc Symbol .validate: (lambda (key) (set! keys (1+ keys)) (set! live #f) key)))
+      (def parent (core.make-generator (lambda (_random _size)
+        (map-generator (Map Key -> Integer) '(left right) (generator Integer)))
+        (lambda (_) []) current?: (lambda () live)))
+      (check-exception (core.generate parent (core.random-at 1) 0) core.stale-generation?)
+      (check-equal? keys 1))
+    (test-case "bridge weight and key callback exceptions retain their exact cause"
+      (for (stage '(bridge weight key))
+        (def live #t) (def cause (cons 'typed stage))
+        ;; A thrown exception is not replaced by a trailing stale check.
+        (def (fail) (set! live #f) (raise cause))
+        (def values (make-generator Integer (lambda (_random _size) 2) (lambda (_) [])
+          (lambda (_) (if (eq? stage 'weight) (fail) 1))))
+        (def Key (.cc Symbol .validate: (lambda (key) (if (eq? stage 'key) (fail) key))))
+        (def parent (core.make-generator (lambda (_random _size)
+          (case stage
+            ((bridge) (generator-core (.cc values generation: (lambda (_) (fail)))))
+            ((key) (map-generator (Map Key -> Integer) '(left right) values))
+            ((weight) (.call (map-generator (Map Symbol -> Integer) '(left right) values)
+              measure (list->hash-table '((left . 1) (right . 2)))))))
+          (lambda (_) []) current?: (lambda () live)))
+        (check-eq? (with-catch identity (lambda () (core.generate parent (core.random-at 1) 0))) cause)))
+    (test-case "fresh totals malformed measures and key identity keep their existing semantics"
+      (def calls 0)
+      (def values (make-generator Integer (lambda (_random _size) 1) (lambda (_) [])
+        (lambda (value) (set! calls (1+ calls)) (abs value))))
+      (def maps (map-generator (Map Symbol -> Integer) '(left right) values))
+      (check-equal? (.call maps measure (list->hash-table '((left . 2) (right . 3)))) 7)
+      (check-equal? calls 2)
+      (check-equal? (.call maps measure (make-hash-table)) 0)
+      (check-equal? calls 2)
+      (for (bad '(-1 1/2))
+        (let* ((invalid (make-generator Integer (lambda (_random _size) 1) (lambda (_) []) (lambda (_) bad)))
+               (sampler (map-generator (Map Symbol -> Integer) '(left) invalid)))
+          (check-exception (.call sampler measure (list->hash-table '((left . 1)))) Error?)))
+      (def Key (.cc Symbol .validate: (lambda (_) 'changed)))
+      (check-exception (map-generator (Map Key -> Integer) '(left) values) Error?))
+    (test-case "two-service Record Map batches refuse obsolete costs then shrink and replay through FUN"
+      (def owner (.o epoch: 0)) (def costs 0)
+      (def configuration (make-instance PropertyConfiguration seed: 17 cases: 1 size: 3 shrink-budget: 30))
+      ;; A fresh action explicitly captures the revised owner rather than renewing
+      ;; authority in the old report. Map iteration order is deliberately unobserved.
+      (def (run revise?)
+        ((collection.map-service-tests owner (lambda (_value)
+          (set! costs (1+ costs))
+          (when revise? (.putslot! owner 'epoch ($constant-slot-spec (1+ (.get owner epoch)))))) identity) configuration))
+      (def old (run #t))
+      (check-eq? (.get old status) 'stale)
+      (check-equal? (list costs (.get old attempts) (.get old steps)) '(1 1 0))
+      (check-exception (replay-property old) Error?)
+      (let (fresh (run #f))
+        (check-eq? (.get fresh status) 'failed)
+        (check-equal? (hash-length (.get fresh counterexample)) 2)
+        (for (key '(left right)) (check (hash-key? (.get fresh counterexample) key) => #t))
+        (check-equal? (map (lambda (key) (.get (hash-ref (.get fresh counterexample) key) amount)) '(left right)) '(0 0))
+        (check-exception ((.@ (hash-ref (.get fresh counterexample) 'left) handler) 'invalid) TypeError?)
+        (check (replay-counterexample fresh) => #f)
+        (check-eq? (.get (replay-property fresh) status) 'failed))
+      (check-exception (replay-property old) Error?))))

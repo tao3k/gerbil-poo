@@ -640,3 +640,13 @@ raw keyword/escape decoding remain the runtime's own protocol. The existing
 signature-service example's service-admission-tests composes explicit input Types,
 callback Lists, defaults and FUN. The representation suite compares refusal with
 real Function wrapping and exercises domain errors, sources, shrinking and replay.
+
+
+P34 protects typed sampler factory preparation and aggregate component measures
+through the existing shared source boundary. Map key validation also inherits its
+active ancestor. A revised first value cannot trigger another Map/trace weight or
+later product binding. `map-service-tests` in the collection-properties example
+combines two fixed-key service Records, nested Function wrapping, shrink refusal,
+FUN delivery, fresh retry and both replay modes. Six regression cases and six
+`guardedMeasure` laws cover exact totals, early refusal and original causes;
+logical weights do not prove runtime costs. See P34 in the PBT RFC for premises.
