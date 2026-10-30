@@ -152,6 +152,7 @@
     "examples/collection-testing"
     "examples/collection-properties"
     "examples/property-products"
+    "examples/property-numbers"
     "examples/property-filters"
     "examples/property-scopes"
     "examples/property-sizes"

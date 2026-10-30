@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P42 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P45 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -35,10 +35,10 @@ admission, normalization and source-current callbacks at the boundary. Generalit
 is parametric; it is not a fallback to an unconstrained POO `Any` descriptor.
 
 The independent-library acceptance copies these five generic source modules and
-`examples/property-kernel.ss` and its ordinary product/filter/scope/size/trace helpers
+`examples/property-kernel.ss` and its ordinary product/number/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 121 case receipts, an error-free result and
+through `gerbil test`. It requires all 139 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -2760,3 +2760,174 @@ causes and the necessary authority for success. The model concerns admission and
 protected status/cause; arbitrary presentation fields and the host's exception/
 TestResult machinery are not verified. It extends the paper's future-work protocol,
 not the original concrete evaluator or a compiler proof.
+
+## P43: inherited authority for finite function observations
+
+A standard TestSuite control retired an enclosing generation check and then
+called a retained finite function. The call returned normally: `function-apply`
+checked only its table's own sources. A property/encoder could therefore execute
+its continuation after a now-unauthorized nested call, before its outer trailing
+check refused. `function-table` had the same omission, while `function-domain`
+did not check table ownership at all. This is a missing integration of the existing
+checked-action protocol, not unrestricted higher-order function inference.
+
+The existing generator module now has one private hygienic `with-function` form
+over `with-sources`. Exact-row lookup, domain observation and portable table export
+share its inherited checks and retained table owner before/after normal return.
+`function-procedure` still delegates to lookup and Gerbil's multiple-value delivery;
+there is no second dispatcher, record, namespace or persistent wrapper chain.
+Unknown rows remain errors, keyword order/escapes remain raw row identity, and
+observer exceptions retain their exact causes. Rows and result spines are still
+copied; mutable payloads still require the application's declared source law.
+
+Call-site authority is transient. A live immutable table can be called in a fresh
+scope after an earlier caller retires; old property reports and replay receipts
+remain retired. Constructing a table/ordinary procedure does not grant authority
+or force it: admission occurs when observing or invoking it. No table constructor
+or existing generator random schedule changes.
+
+The pinned [Rackcheck generator core](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/core.rkt)
+retains tree ownership through map/bind rather than building another call engine;
+its [property executor](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/prop.rkt)
+uses dynamically scoped random/label state. We reuse our existing dynamic
+source protocol at the retained value's observation boundary. Racket's code is
+an abstraction reference, not evidence that it implements mutable POO revisions.
+
+Six generic cases cover transient and retained parent refusal before local
+observers, own-table refusal, original observer errors/strict booleans, keyword
+rows/multiple values, detached spines, scope restoration, and interrupted property
+and codec continuations with zero output. The independent suite requires 127
+cases. A downstream Record/Function service composes retirement, explicit fresh
+FUN preparation, retained shrinking, seed/concrete replay and portable table
+round trips; normal Record initialization owns Function wrapping once.
+
+Seven finite PropertyScopes laws reuse guardedGeneration and lookupFunction:
+parent/owner refusal, stable observation, post-return retirement, exact errors,
+known-row delivery and unknown-row refusal. Top-level examples show an old caller
+rejected while a separately authorized caller uses the same table. Faithful
+observers, finite immutable-by-protocol tables, serial terminating actions and
+host dynamic-scope fidelity remain premises. No arbitrary Scheme procedure,
+runtime, PRNG or concurrency proof is claimed. All existing resource/check gates
+remain; this semantic fix makes no wall-clock speedup claim.
+
+## P44: portable vector copy preparation and shared resource credits
+
+The original [Type Descriptors / I/O Validation discussion](https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L1359)
+places encoding/decoding and random generation/compression in the descriptor
+protocol. This unit strengthens that future-work extension; it does not attribute
+our replay format or budget algorithm to the original Racket implementation.
+
+The old bounded copier first converted an entire vector to a list, then visited
+children until its node/depth allowance failed. A wide vector therefore allocated
+an unbounded-by-that-allowance temporary list before rejection. A constructor
+control with a 64-slot vector, eight-node budget and nonportable first element
+reported the element error: impossible width was not checked before inspection.
+This is a copy-stage admission defect. Reader and application-encoder allocation
+were already explicitly outside the copier's guarantee and remain so.
+
+The existing replay module now charges roots, string characters and octets through
+one local allowance operation. A vector's width must fit the remaining credits
+after charging its root; each child necessarily spends at least one node. A
+nonempty vector also requires positive child depth. These necessary checks precede
+destination allocation and child access. Empty vectors remain valid at depth zero.
+No child or container resets the shared allowance. Oversized shape now takes
+resource-refusal priority over contents which cannot possibly be admitted.
+
+The admitted copy uses the official `:std/vector/vector` forward
+`vector-fold/index`, writing directly into one destination vector. No complete
+source list or mapped result list is materialized. Its documented ascending fold
+keeps shared-budget traversal and first-error order explicit; `vector-map/index`
+has unspecified application order and currently traverses backward, so it is not
+used for this stateful budget. Ordinary node/depth failures retain the established
+error category/message; feasible child errors and source/codec exception identity
+remain intact. Encoding and complete envelope admission still precede port writes;
+no I/O rollback is claimed.
+
+The pinned [Rackcheck vector/byte generators](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/base.rkt#L304)
+map the existing finite list generator into standard carriers. We retain that
+generator algebra. Copying externally supplied replay data has a different
+admission responsibility: its shape must fit before a carrier-sized allocation.
+This does not add a parser, resource framework, namespace or POO dependency to the
+generic replay library.
+
+Five generic cases cover width checks using remaining rather than original fuel,
+exact node/depth boundaries, empty/cyclic vectors, forward error precedence,
+whole-envelope accounting, detached mutable payloads, and skipped decoding/property
+effects followed by retry under unchanged limits. Independent acceptance requires
+132 cases. A contracted Record/List/Tuple/Function service shrinks through FUN,
+rejects a fault-injected oversized corpus before output, rejects its retired codec,
+then prepares a fresh codec at the same 16-node cap and replays without new draws.
+
+PropertyReplay reuses the existing property namespace and finite sequence model.
+Its eight laws prove exact shared cost accounting, minimum child cost, necessity
+of width preflight, wide/depth refusal before allocation, empty admission,
+preservation of the admitted action/error and the destination-width bound.
+Top-level controls cover exact-fit/one-short profiles and preserved first errors.
+Costs are logical root/character/octet units; profiles must faithfully describe
+finite copies. This proves neither host allocation bytes nor reader/encoder
+behavior, GC latency, wall-clock speedup or arbitrary I/O correctness. Existing
+heap/time/source/check limits and the unchanged complete paired entry remain.
+
+## P45: bounded exact-ratio generation and canonical shrinking
+
+The existing Rational descriptor recognizes Scheme rationals and exposes pair
+conversion, but automatic PBT derivation refused it with the explicit-generator
+error. This was a missing finite numeric profile, not a request for unrestricted
+Number/Real/Float generation. The original descriptor/PBT future-work direction
+and [Rackcheck's integer construction](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/gen/base.rkt#L95)
+guide the implementation: compose bounded primitive draws, map to the carrier,
+then supply one lawful value-shrink policy. Rackcheck's `gen:real` draws inexact
+values; this exact-ratio profile does not claim the same numeric coverage.
+
+The existing generic generator module exports `generator-rational`,
+`rational-weight` and `rational-shrinks`. Sized products draw a nonnegative
+numerator magnitude, sign and positive denominator. Size bounds magnitude and
+denominator growth; `max-denominator:` defaults to 128 and must be a positive
+exact integer. Normalization uses Scheme division. Zero size gives zero; a cap of
+one gives integers; resizing cannot bypass the cap. No new random owner is added.
+
+One canonical rank, `abs(numerator) + denominator - 1`, controls shrinking. The
+policy proposes numerator reductions and positive denominator-offset reductions,
+normalizes, deduplicates and retains only strictly smaller canonical ranks.
+Equivalent spellings cannot fake progress. The existing with-shrink operation
+retains root provenance and installs this same policy in generic and typed paths.
+Source checks, strict Boolean falsity, proposal budgets and both replays stay with
+their current owners.
+
+| Boundary | Accepted/profiled behavior |
+| --- | --- |
+| Default Rational drawing | Exact ratios; magnitude at most size and denominator at most min(size+1, cap) |
+| Rational membership | Existing Scheme `rational?`, including finite inexact rationals |
+| Value measure/shrink | Finite inexact inputs use their exact numeric value; proposals are exact ratios |
+| Float, Real, Number | Still require explicit samplers; no implicit integer/ratio/Any fallback |
+
+The value policy may change exactness, so representation-sensitive floating-point
+properties need their own sampler. There is no uniform-over-rationals, NaN,
+infinity, signed-zero representation or IEEE rounding claim. Rational's typed
+bridge is a single from-generator call. Explicit `.generator` overrides retain
+precedence; existing recursive List/Tuple/Pair/Maybe compilation handles the leaf.
+
+Seven generic cases raise isolated acceptance to 139 cases. They cover bounds,
+zero/cap-one profiles, invalid declarations, canonical descent/order, inexact
+value policy, both replay forms, pair-codec recovery, original divide-by-zero
+refusal before properties, and old-source rejection after fresh preparation.
+Three typed cases cover nested carriers, explicit override precedence and an
+exact-rate Record/List/Function service. FUN delivery shrinks a truncation defect
+to a fractional witness, preserves Function wrapping through integer-pair corpus
+replay, refuses retired sampler ownership and validates a freshly corrected action.
+No rational atom or procedure is added to the portable envelope.
+
+PropertyNumbers reuses the existing namespace and standard normalized Rat carrier.
+Ten kernel laws prove canonical-key injectivity, zero-denominator refusal, pair
+round trips, normalization bounds, signed size/cap bounds, zero/integral profiles,
+strict candidate descent and rejection of value-equal aliases. Keys use the
+canonical pair, avoiding dependent record comparisons in executable candidate
+deduplication. Symbolic top-level examples reuse normalization identities; numeric
+fixtures execute in Scheme. Existing source inventory and atom coverage include
+the new files. No proof-producing literal-rational decision computations or
+resource-limit changes are needed.
+
+Faithful host exact arithmetic/exactification, primitive random ranges, finite
+proposal lists, codec laws and serial source scopes remain premises. Rank counts
+mathematical structure, not bignum bits, allocations, GC or wall time. The unit
+advances the paper's future-work protocol, not compiler/runtime verification.

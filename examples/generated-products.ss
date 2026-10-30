@@ -48,6 +48,148 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "Rational derives through recursive containers while Float remains explicit"
+      (def sampler (generator Rational))
+      (for (value '(0 1/2 -2/3 0.5))
+        (for (smaller (.call sampler shrink value))
+          (check (element? Rational smaller) => #t)
+          (check (< (.call sampler measure smaller) (.call sampler measure value)) => #t)))
+      (def descriptor (Tuple Rational (List Rational) (Pair Rational UInt) (Maybe Rational)))
+      (check-eq? (.get (check-property descriptor (cut element? descriptor <>)
+        seed: 19 cases: 20 size: 5) status) 'passed)
+      (check-exception (generator Float) Error?))
+    (test-case "Rational custom declarations retain precedence over the automatic profile"
+      (def custom (.cc Rational .generator: (lambda ()
+        (make-generator custom (lambda (_random _size) 7/11) (lambda (_) []) core.rational-weight))))
+      (check-eq? (.get (check-property custom (cut = <> 7/11) cases: 3) status) 'passed))
+    (test-case "exact rate services compose FUN shrinking corpus replay and fresh source preparation"
+      (def service (Record rate: [Rational] series: [(List Rational)]
+        handler: [(Function [Rational] [Rational Rational])]))
+      ;; The injected defect loses fractions without leaving the declared result
+      ;; Type. Ordinary Function wrapping still rejects invalid call arguments.
+      (def (truncated-rate rate amount) (truncate (* rate amount)))
+      ;; Product owns the two existing typed samplers. Record construction alone
+      ;; validates the payload and wraps the chosen application procedure.
+      (def (prepare correct?)
+        (def rate (generator Rational))
+        (def sampler (product-generator service (list rate (generator (List Rational)))
+          (lambda (value) (list (.get value rate) (.get value series)))
+          (lambda (parts) (make-instance service rate: (car parts) series: (cadr parts)
+            handler: (if correct? * truncated-rate)))))
+        (values (property-action service
+          (lambda (value) (= ((.@ value handler) (.get value rate) 1) (.get value rate)))
+          identity sampler: sampler) rate))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 60 size: 8 shrink-budget: 128))
+      (let-values (((action owner) (prepare #f)))
+        (def failed (action configuration))
+        (check-eq? (.get failed status) 'failed)
+        (check-equal? (abs (.get (.get failed counterexample) rate)) 1/2)
+        (check-equal? (.get (.get failed counterexample) series) [])
+        (check-exception ((.@ (.get failed counterexample) handler) 'invalid 1) TypeError?)
+        (check (replay-counterexample failed) => #f)
+        (check-eq? (.get (replay-property failed) status) 'failed)
+        ;; Integer pairs reuse Rational's declared conversion. The replay envelope
+        ;; stays unchanged; no rational atom or serialized procedure is introduced.
+        (def codec (corpus.make-codec '(exact-rate-service 1)
+          (lambda (value) (vector (.call Rational .pair<- (.get value rate))
+            (map (.@ Rational .pair<-) (.get value series))))
+          (lambda (datum) (make-instance service rate: (.call Rational .<-pair (vector-ref datum 0))
+            series: (map (.@ Rational .<-pair) (vector-ref datum 1)) handler: truncated-rate))))
+        (def output (open-output-string))
+        (corpus.write-counterexample (.get failed execution) codec output)
+        (check (corpus.read-counterexample codec (open-input-string (get-output-string output))
+          (property.report-specification (.get failed execution))
+          (property.report-property (.get failed execution))) => #f)
+        (.putslot! owner 'revision ($constant-slot-spec 1))
+        (check-exception (replay-property failed) Error?)
+        (check-exception (replay-counterexample failed) Error?))
+      (let-values (((action _owner) (prepare #t)))
+        (standard.require-property-passed (action configuration))))
+    (test-case "bounded service corpus refuses oversized vectors and retries through fresh FUN metadata"
+      (def service (Record count: [UInt] requests: [(List (Tuple Symbol UInt))]
+        handler: [(Function [Integer] [Integer])]))
+      (def recipe (.o oversized?: #t)) (def draws 0) (def decoded 0)
+      ;; Normal Record initialization validates request tuples and wraps the
+      ;; Function once; the corpus stores logical requests, not procedures.
+      (def (packet count)
+        (make-instance service count: count
+          requests: (make-list (+ count 2) #(request 2)) handler: abs))
+      (def sampler (make-generator service
+        (lambda (_random _size) (set! draws (1+ draws)) (packet 4))
+        (lambda (value) (if (zero? (.get value count)) [] (list (packet 0)))) (cut .get <> count)))
+      (def action (property-action service (lambda (value) (= ((.@ value handler) -1) 0))
+        identity sampler: sampler))
+      (def failed (action (make-instance PropertyConfiguration seed: 7 cases: 1 size: 4 shrink-budget: 8)))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      ;; Fault injection belongs to explicit recipe metadata. Revisions require
+      ;; fresh codec preparation, while both attempts retain the same 16-node cap.
+      (def (prepare-codec)
+        (def stamp (object-revision recipe))
+        (corpus.make-codec #(service 1)
+          (lambda (value) (vector (.get value count)
+            (if (.get recipe oversized?) (make-vector 64 #(request 2))
+              (list->vector (.get value requests)))))
+          (lambda (datum) (set! decoded (1+ decoded))
+            (make-instance service count: (vector-ref datum 0)
+              requests: (vector->list (vector-ref datum 1)) handler: abs))
+          nodes: 16 current?: (lambda () (= stamp (object-revision recipe)))))
+      (def codec (prepare-codec)) (def output (open-output-string))
+      (check-exception (corpus.write-counterexample (.get failed execution) codec output) Error?)
+      (check-equal? (get-output-string output) "")
+      (check-equal? decoded 0)
+      (.set! recipe oversized? #f)
+      (check-exception (corpus.write-counterexample (.get failed execution) codec output) Error?)
+      (def fresh (prepare-codec))
+      (corpus.write-counterexample (.get failed execution) fresh output)
+      (let (before draws)
+        (check (corpus.read-counterexample fresh (open-input-string (get-output-string output))
+          (property.report-specification (.get failed execution))
+          (lambda (value) (check-equal? (length (.get value requests)) 2)
+            (= ((.@ value handler) -1) 0))) => #f)
+        (check-equal? (list decoded draws) (list 1 before))))
+    (test-case "finite service calls stop after retirement then retry shrink and portable replay through FUN"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def continued 0)
+      (def finite (core.function-from-table '(((0) 4) ((1) 8))))
+      ;; The Record owns the Function wrapper; its finite table remains an ordinary
+      ;; generated value rather than a second call adapter or dispatcher.
+      (def (packet count function)
+        (make-instance service count: count handler: (core.function-procedure function)))
+      ;; Each fresh Reader action captures the owner's actual revision. Retirement
+      ;; happens before the nested call, so its continuation must never run.
+      (def (prepare retire?)
+        (def sampler (make-generator service (lambda (_r _s) (packet 4 finite))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0 finite))))
+          (cut .get <> count) dependencies: (list owner)))
+        (property-action service (lambda (value)
+          (when retire? (.set! owner epoch (1+ (.get owner epoch))))
+          (def result ((.@ value handler) 0))
+          (set! continued (1+ continued)) (< result 4)) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 12 cases: 1 size: 4 shrink-budget: 8))
+      (def retired ((prepare #t) configuration))
+      (check-eq? (.get retired status) 'stale)
+      (check-equal? continued 0)
+      (check-exception (replay-property retired) Error?)
+      (def failed ((prepare #f) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      ;; A downstream corpus stores data only. Restoration rebuilds the same
+      ;; Record contract once, preserving finite-row refusal and wrapped calls.
+      (def codec (corpus.make-codec '(finite-service 1)
+        (lambda (value) (vector (.get value count) (core.function-table finite)))
+        (lambda (datum) (packet (vector-ref datum 0) (core.function-from-table (vector-ref datum 1))))))
+      (def output (open-output-string))
+      (corpus.write-counterexample (.get failed execution) codec output)
+      (check (corpus.read-counterexample codec (open-input-string (get-output-string output))
+        (property.report-specification (.get failed execution))
+        (property.report-property (.get failed execution))) => #f))
     (test-case "service FUN reports retain assertion authority across rendering and replay"
       (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       (def owner (.o epoch: 0)) (def rendered 0) (def mapped 0)
