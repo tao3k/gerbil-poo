@@ -440,47 +440,48 @@
   ;; Retain old stamps when normalized owners or fixture declarations are added;
   ;; later capture can never refresh authority for an earlier changed owner.
   (def (retain! owners) (set! sources (append sources (snapshot #f owners))))
-  ;; One action boundary owns every callback, preserving multiple values and
-  ;; original exceptions. Refusal never rolls back already performed effects.
+  ;; The mutable ledger belongs to this dynamic invocation. Nested generation
+  ;; inherits it; restoring fixture ownership never refreshes model stamps.
+  (def (check!) (unless (current? sources) (refuse-generation 'stale)))
+  ;; Reuse the shared boundary for inherited checks, values and exact exceptions.
   (def (checked action . arguments)
-    (unless (current? sources) (refuse-generation 'stale))
-    (begin0 (apply action arguments)
-      (unless (current? sources) (refuse-generation 'stale))))
+    (core.with-sources [] (apply action arguments)))
   ;; Prepare each method wrapper once, rather than layering a new object protocol.
   (def (wrap action) (lambda arguments (apply checked action arguments)))
-  (set! model (checked validate TraceModel model))
-  (retain! (checked (lambda () (list model (.get model Command) (.get model State)
-    (.get model Result) (.get model Observation)))))
-  (def normalized (checked validate (List (.get model Command)) commands))
-  (def reference (checked prepare-model model identity wrap))
-  (def execution (model.check-trace reference normalized
-    (lambda (use)
-      (checked with-system (lambda (system)
-        (def declarations sources)
-        ;; Fixture declarations belong to use, not to teardown. Restore model
-        ;; ownership before user cleanup; model edits still refuse factory return.
-        (try
-          (retain! (list system))
-          (def state-type (checked (lambda () (.get system State))))
-          (unless (object? state-type) (checked validate Type state-type))
-          (retain! (list state-type))
-          (def schema (checked TraceSystem state-type))
-          (retain! (list schema))
-          (set! system (checked validate schema system))
-          (retain! (list system))
-          (def step (checked (lambda () (.@ system step))))
-          (def observe (checked (lambda () (.@ system observe))))
-          (use (model.make-system (checked (lambda () (.get system initial)))
-            (lambda (state command)
-              (let-values (((next result) (checked step state command)))
-                (values (checked validate state-type next) result))) (wrap observe)))
-          (finally (set! sources declarations))))))
-    same?: (wrap (lambda (phase left right)
-      (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
-  (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
-    index: (model.trace-report-index execution)
-    command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))
-    expected: (model.trace-report-expected execution) actual: (model.trace-report-actual execution)))
+  (core.with-generation-check check!
+    (set! model (checked validate TraceModel model))
+    (retain! (checked (lambda () (list model (.get model Command) (.get model State)
+      (.get model Result) (.get model Observation)))))
+    (def normalized (checked validate (List (.get model Command)) commands))
+    (def reference (checked prepare-model model identity wrap))
+    (def execution (model.check-trace reference normalized
+      (lambda (use)
+        (checked with-system (lambda (system)
+          (def declarations sources)
+          ;; Fixture declarations belong to use, not to teardown. Restore model
+          ;; ownership before user cleanup; model edits still refuse factory return.
+          (try
+            (retain! (list system))
+            (def state-type (checked (lambda () (.get system State))))
+            (unless (object? state-type) (checked validate Type state-type))
+            (retain! (list state-type))
+            (def schema (checked TraceSystem state-type))
+            (retain! (list schema))
+            (set! system (checked validate schema system))
+            (retain! (list system))
+            (def step (checked (lambda () (.@ system step))))
+            (def observe (checked (lambda () (.@ system observe))))
+            (use (model.make-system (checked (lambda () (.get system initial)))
+              (lambda (state command)
+                (let-values (((next result) (checked step state command)))
+                  (values (checked validate state-type next) result))) (wrap observe)))
+            (finally (set! sources declarations))))))
+      same?: (wrap (lambda (phase left right)
+        (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
+    (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
+      index: (model.trace-report-index execution)
+      command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))
+      expected: (model.trace-report-expected execution) actual: (model.trace-report-actual execution))))
 
 ;; This is only the Boolean projection expected by check-property. Fresh-fixture
 ;; lifetime and exact step diagnostics remain in the existing callback/IO layer.

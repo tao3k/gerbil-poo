@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P38 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P39 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -2553,3 +2553,45 @@ allocation speedup is claimed. Existing random schedules, lazy trees, generator
 factories, source failure priorities and all process/heap/depth/proposal caps remain
 unchanged. Concrete import still reads no input before failed preparation and
 performs no draws or child forcing. Port failures still have no rollback guarantee.
+
+## P39: inherited declaration scope for typed differential fixtures
+
+A direct `check-trace` reproduction changed its model during preparation, then
+entered a mapped generator before returning. The eventual stale refusal was too
+late: the nested mapper had already run once. Active fixture-only State Types
+have the same gap even inside PBT, because they are discovered when the fixture
+opens rather than captured in the outer trace sampler.
+
+`check-trace` now installs its existing local declaration ledger once through
+`with-generation-check`. Its action boundary delegates to `with-sources`, so
+nested generation, inspection and other checked actions inherit model and active
+fixture authority without another per-operation wrapper. The existing `finally`
+restores the enclosing declaration ledger before user teardown: retiring the
+fixture's State Type during cleanup is legal; retiring a model declaration still
+refuses the factory return and nested cleanup work. Restoration retains original
+stamps, not fresh snapshots. Exact thrown causes and multiple values are preserved.
+No checking closure is retained on the report, random source or generated tree. The
+scope is installed once per trace check. Each existing checked nested boundary
+adds one ledger-currentness observation, linear in retained source stamps; no
+new tree traversal or random draw is introduced. This is a soundness repair,
+not a wall-clock performance claim.
+
+Rackcheck's pinned [prop.rkt](https://github.com/Bogdanp/rackcheck/blob/ffbddb7a9edef6ce1d9e0930adae1bd7033f1db7/rackcheck-lib/prop.rkt) uses `parameterize` to delimit the RNG and label
+context. Gerbil's existing parameter-based checked-action scope supplies this same
+ownership pattern; no separate tracing engine is introduced. Declaration revision
+admission is POO-specific future work, not a claim about a missing Rackcheck feature.
+Uninstrumented user side effects cannot be interrupted or rolled back. Source
+observers, serial terminating callbacks and faithful dynamic scope remain premises.
+
+Regression controls cover standalone preparation, nested work in actual step,
+observation and comparison, fixture-only cleanup, retained model authority,
+exception identity, scope unwinding and unchanged first-difference diagnostics.
+The generated-traces service example composes strict Record commands, wrapped
+Function fields, fresh fixture State declarations, refusal, retry, shrinking and
+both replay forms. The independent stdlib-only kernel remains unchanged.
+
+Lean extends the existing `PropertyScopes` owner with declaration restoration:
+state preservation, idempotence, exact currentness, model-stale rejection and
+fixture-only retirement. Existing nested-action admission proves suppression of
+unstarted callbacks; restoration is not transaction rollback or a concurrent
+snapshot/host evaluator correctness proof.

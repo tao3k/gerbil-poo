@@ -3283,3 +3283,14 @@ and List metadata are captured at construction through the existing source guard
 Eight new cases, a Record/Function schema-migration FUN example and six finite
 binding/source laws cover preparation, diagnostics, compositions and portable replay.
 No per-value wrapping or extra generator call is introduced; see P38 in the RFC.
+
+
+P39 completes inherited declaration admission for typed differential traces.
+Standalone preparation and active fixture declarations now use the shared dynamic
+checked-action scope, so nested generators cannot run under retired metadata.
+Fixture cleanup restores model ownership without refreshing epochs: fixture-only
+retirement remains legal and model retirement still refuses. Regression controls
+and the generated-traces service retry example cover this full lifetime through
+shrinking and both replay forms. Five restoration laws extend PropertyScopes;
+serial terminating callbacks and accurate observers remain premises. See P39 in
+[pbt-design-rfc.md](pbt-design-rfc.md).

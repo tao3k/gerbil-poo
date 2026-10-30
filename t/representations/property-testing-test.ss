@@ -184,6 +184,57 @@
           generation-refusal?)
         (check-equal? steps (case phase ((step type) 1) ((return) 2) (else 0)))
         (check-equal? closed 1)))
+    (test-case "nested generation inherits direct trace preparation declarations"
+      (def model (integer-trace-model)) (def mapped 0) (def opened 0)
+      (.set! model advance (lambda (state command)
+        (.set! model observe values)
+        (core.generate (core.generator-map (core.generator-unit command)
+          (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0)
+        (values (+ state command) (+ state command))))
+      (check-exception (check-trace model '(1) (lambda (_) (set! opened (1+ opened))))
+        generation-refusal?)
+      (check-equal? (list mapped opened) '(0 0))
+      ;; An unrelated action after unwinding has no retired local checker.
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 0) 0)) 7))
+    (test-case "active fixture Type revisions suppress nested work before callback return"
+      (for (phase '(step observe compare))
+        (def state-type (.cc Integer epoch: 0)) (def mapped 0) (def closed 0) (def steps 0)
+        ;; The actual State declaration is distinct from the reference declaration.
+        (def (nested at)
+          (when (eq? at phase)
+            (.set! state-type epoch 1)
+            (core.generate (core.generator-map (core.generator-unit 1)
+              (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0)))
+        (check-exception (check-trace (integer-trace-model) '(1 2) (lambda (use)
+          (try (use (make-instance (TraceSystem state-type) initial: 0
+            step: (lambda (state command) (set! steps (1+ steps)) (nested 'step)
+              (values (+ state command) (+ state command)))
+            observe: (lambda (state) (nested 'observe) state)))
+            (finally (set! closed (1+ closed)))))
+          same?: (lambda (left right) (nested 'compare) (equal? left right))) generation-refusal?)
+        (check-equal? (list mapped closed steps) (list 0 1 (if (eq? phase 'step) 1 0)))))
+    (test-case "fixture teardown drops only fixture declarations from inherited scope"
+      (def state-type (.cc Integer epoch: 0)) (def mapped 0)
+      (def report (check-trace (integer-trace-model) '(1) (lambda (use)
+        (try (use (make-instance (TraceSystem state-type) initial: 0
+          step: (lambda (state command) (values (+ state command) (+ state command))) observe: values))
+          (finally
+            (.set! state-type epoch 1)
+            (core.generate (core.generator-map (core.generator-unit 1)
+              (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0))))))
+      (check (.get report matched?) => #t)
+      (check-equal? mapped 1))
+    (test-case "teardown cannot drop model authority before nested work"
+      (def model (integer-trace-model)) (def mapped 0)
+      (check-exception (check-trace model [] (lambda (use)
+        (try (use (make-instance (TraceSystem Integer) initial: 0
+          step: (lambda (state command) (values state command)) observe: values))
+          (finally
+            (.set! model observe values)
+            (core.generate (core.generator-map (core.generator-unit 1)
+              (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0)))))
+        generation-refusal?)
+      (check-equal? mapped 0))
     (test-case "fixture declaration changes reject later observations and preserve cleanup"
       (def model (integer-trace-model)) (def steps 0) (def observed 0) (def closed 0)
       (def fixture #f)

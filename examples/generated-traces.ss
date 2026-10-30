@@ -61,6 +61,48 @@
           (check-eq? (.get (replay-property fresh) status) 'failed)
           (check-equal? draws (+ 3 before)))
         (check-equal? opened closed)))
+    (test-case "service retry owns fixture declarations through shrinking and both replays"
+      (def command (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def opened 0) (def closed 0) (def mapped 0)
+      ;; The oracle never invokes the implementation's Function-valued field.
+      (def subject (make-instance TraceGenerator Command: command State: Integer Result: Integer Observation: Integer
+        initial: (lambda () 0) observe: identity
+        enabled?: (lambda (state next) (= state (.get next key)))
+        advance: (lambda (state next) (values (1+ state) (1+ (.get next key))))
+        draw: (lambda (state _random _size)
+          (some (make-instance command key: state handler: (lambda (value) (1+ value)))))
+        shrink: (lambda (_) []) measure: (lambda (_) 0)))
+      ;; A fresh actual State declaration is acquired per fixture, independently
+      ;; of the model. Cleanup retires it only after use has restored its scope.
+      (def (fixture retire? use)
+        (def state-type (.cc Integer epoch: 0))
+        (set! opened (1+ opened))
+        (try (use (make-instance (TraceSystem state-type) initial: 0 observe: identity
+          step: (lambda (state next)
+            (when retire?
+              (.set! state-type epoch 1)
+              (core.generate (core.generator-map (core.generator-unit 0)
+                (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0))
+            (values (1+ state) (+ ((.@ next handler) (.get next key))
+              (if (= (.get next key) 1) 1 0))))))
+          (finally (.set! state-type epoch 2) (set! closed (1+ closed)))))
+      ;; The debug action is the existing FUN report boundary, not a new runner.
+      (def (prepare retire?)
+        (let (sampler (trace-generator command subject steps: 3))
+          (property-debug-action #f (.get sampler descriptor)
+            (trace-property subject (cut fixture retire? <>)) sampler: sampler)))
+      (def options (make-instance PropertyConfiguration seed: 31 cases: 1 size: 3 shrink-budget: 64))
+      (def refused ((prepare #t) options))
+      (check-eq? (.get refused status) 'stale)
+      (check-equal? (list mapped opened closed) '(0 1 1))
+      (def fresh ((prepare #f) options))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (map (cut .get <> key) (.get fresh counterexample)) '(0 1))
+      (check-exception ((.@ (car (.get fresh counterexample)) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-equal? opened closed)
+      (check-equal? mapped 0))
     (test-case "String Symbol and Bytes share finite preparation and source refusal"
       ;; One codec-parametric fixture exercises all standard carriers. Every value
       ;; field keeps its exact descriptor; no unconstrained element fallback exists.
