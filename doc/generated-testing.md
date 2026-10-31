@@ -121,3 +121,16 @@ owners. Configuration size is read once through standard dynamic slot access.
 Configuration exceptions precede report/consumer creation; incomplete automatic
 generation retains existing non-replayable typed reports. Consumer IO and direct
 caller argument evaluation stay outside preparation. See P52 in the design RFC.
+
+Named properties now share ordered fixed specification preparation. Use the
+existing `testing/property` report-form `define-property` or
+`testing/property/test` multiargument assertion form: each fixed specification is
+prepared once before generator construction. Later generator expressions can
+still depend on earlier generated arguments through the original bind tree.
+`call-with-specifications` also exposes the same construction scope to explicit
+compositions, using constructor thunks and one callback over the admitted domains.
+A failed construction has no run report; standard assertions retain Gerbil's
+TestResult behavior. Ordinary invocation options are caller-evaluated arguments.
+The named service case in `examples/collection-properties.ss` shows typed Record/
+Function generators, FUN delivery, three replay forms and fresh correction without
+retaining a transient construction checker. See P53 of the RFC for the boundary.

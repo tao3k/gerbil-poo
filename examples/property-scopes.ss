@@ -1,6 +1,8 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
-(export copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
-(import :std/test :std/error :std/iter (only-in :std/list/list delete-duplicates/hash)
+(export declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+(import :std/test :std/error :std/iter
+        (prefix-in (only-in :std/test/base TestConfig TestCase TestResultError
+          test-case! test-result-error? current-test-config current-test-exit) test.) (only-in :std/list/list delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
@@ -648,3 +650,167 @@
     (def absent (with-catch values (lambda () (assertion.require-passed #f
       diagnostics: (lambda (_) '((status . passed)))))))
     (check-eq? (cdr (assq 'status (Error-irritants absent))) 'error)))
+
+;; Gerbil assertions exit with a TestResult, not an ordinary raised exception.
+;; A standard owned TestCase keeps expected refusal separate from outer results;
+;; callers must inspect that result and its original cause, never discard it.
+(def (assertion-result thunk)
+  (let/cc done
+    (parameterize ((test.current-test-config (test.TestConfig verbosity: 0 capture-output?: #t))
+                   (test.current-test-exit done))
+      (test.test-case! (test.TestCase "expected declaration refusal" thunk)))))
+
+;; Named property declarations share ordered domain admission and one existing
+;; generator-construction scope. Ordinary caller argument evaluation is separate.
+(def (declaration-test-cases!)
+  (test-case "declarations admit proper builders and live domains before later effects"
+    (let ((calls 0) (later 0))
+      (def stale (property.make-specification integer? abs current?: (lambda () #f)))
+      (check-exception (property.call-with-specifications
+        (list (lambda () (set! calls (1+ calls)) stale)
+              (lambda () (set! later (1+ later)) stale))
+        (lambda (_) (set! later (1+ later)))) Error?)
+      (check-equal? (list calls later) '(1 0))
+      (check-exception (property.call-with-specifications
+        (list (lambda () (set! calls (1+ calls)) stale) #f) void) Error?)
+      (check-equal? calls 1)
+      (check-exception (property.call-with-specifications
+        (list (lambda () #f) (lambda () (set! later 1) stale)) void) Error?)
+      (check-equal? later 0)))
+  (test-case "later specifications cannot retire earlier domains and run nested producers"
+    (for (probe? '(#f #t))
+      (let ((alive #t) (calls 0) (produced 0))
+        (def first (property.make-specification integer? abs current?: (lambda () alive)))
+        (check-exception (property.call-with-specifications
+          (list (lambda () first) (lambda ()
+            (set! alive #f)
+            (when probe? (generator.generate
+              (generator.generator-map (generator.generator-unit 1)
+                (lambda (value) (set! produced (1+ produced)) value)) (generator.random-at 0) 0))
+            (property.make-specification integer? abs))
+            (lambda () (set! calls 1) first))
+          (lambda (_) (set! calls 1))) Error?)
+        (check-equal? (list produced calls) '(0 0)))))
+  (test-case "generator construction refuses retired declarations before nested pulls"
+    (for (probe? '(#f #t))
+      (let ((alive #t) (produced 0))
+        (def domain (property.make-specification integer? abs current?: (lambda () alive)))
+        (check-exception (property.call-with-specifications (list (lambda () domain))
+          (lambda (_)
+            (set! alive #f)
+            (when probe? (generator.generate
+              (generator.generator-map (generator.generator-unit 1)
+                (lambda (value) (set! produced (1+ produced)) value)) (generator.random-at 0) 0))
+            (generator.generator-unit 1))) Error?)
+        (check-equal? produced 0))))
+  (test-case "declaration and construction causes remain exact after retirement"
+    (for* ((stage '(specification generator)) (cause (list #f (cons 'construction 'cause))))
+      (let ((alive #t) (later 0))
+        (def domain (property.make-specification integer? abs current?: (lambda () alive)))
+        (def failure (with-catch values (lambda ()
+          (property.call-with-specifications
+            (list (lambda () domain) (lambda ()
+              (when (eq? stage 'specification) (set! alive #f) (raise cause)) domain))
+            (lambda (_) (set! alive #f) (raise cause)))
+          (set! later 1))))
+        (check-eq? failure cause)
+        (check-equal? later 0)
+        (check-equal? (generator.sample-value (generator.generate
+          (generator.generator-unit 42) (generator.random-at 0) 0)) 42))))
+  (test-case "domains and multiple construction values retain order identity and one evaluation"
+    (let ((events []) (first (property.make-specification integer? abs))
+          (second (property.make-specification boolean? (lambda (_) 0))))
+      (let-values (((present domains)
+                    (property.call-with-specifications
+                      (list (lambda () (set! events (cons 'first events)) first)
+                            (lambda () (set! events (cons 'second events)) second))
+                      (lambda (domains) (set! events (cons 'build events)) (values #f domains)))))
+        (check present => #f)
+        (check-eq? (car domains) first)
+        (check-eq? (cadr domains) second)
+        (check-equal? (reverse events) '(first second build)))))
+  (test-case "constructor spines are owned before any declaration callback"
+    (let* ((domain (property.make-specification integer? abs)) (later 0)
+           (builders (list (lambda () domain) (lambda () (set! later (1+ later)) domain))))
+      (set-car! builders (lambda ()
+        (set-car! (cdr builders) (lambda () (error "replacement must not run"))) domain))
+      (check-equal? (property.call-with-specifications builders length) 2)
+      (check-equal? later 1)))
+  (test-case "single named declarations stop obsolete construction then shrink and replay fresh runs"
+    (let ((epoch 0) (retire? #t) (produced 0))
+      ;; The fixed specification captures each invocation's actual epoch.
+      (property.define-property (named value)
+        (begin
+          (when retire? (set! epoch (1+ epoch)))
+          (generator.generate (generator.generator-map (generator.generator-unit 1)
+            (lambda (value) (set! produced (1+ produced)) value)) (generator.random-at 0) 0)
+          (generator.make-generator (lambda (_r _s) 3) generator.integer-shrinks))
+        (let (captured epoch)
+          (property.make-specification exact-integer? abs current?: (lambda () (= epoch captured))))
+        (< value 0))
+      (check-exception (named cases: 1) Error?)
+      (check-equal? produced 0)
+      (set! retire? #f)
+      (let (report (named seed: 17 cases: 1 shrink-budget: 20))
+        (check-eq? (property.report-status report) 'failed)
+        (check-eq? (property.report-name report) 'named)
+        (check-equal? (property.report-counterexample report) 0)
+        (check (property.replay-counterexample report) => #f)
+        (check-equal? (property.report-counterexample (property.replay-property report)) 0)
+        (let ((codec (replay.make-codec '(named 1) values values)) (output (open-output-string)))
+          (replay.write-counterexample report codec output)
+          (check (replay.read-counterexample codec (open-input-string (get-output-string output))
+            (property.report-specification report) (property.report-property report)) => #f))
+        (set! epoch (1+ epoch))
+        (check-exception (property.replay-property report) Error?))
+      (check-eq? (property.report-status (named cases: 1)) 'failed)))
+  (test-case "multiargument declarations prepare once and retain ordinary dependent generation"
+    (let ((epoch 0) (retire? #t) (specifications 0) (factories 0) (dependent 0) (produced 0) (trials 0))
+      ;; Domain factories run during declaration, not once for every trial.
+      (def (domain)
+        (set! specifications (1+ specifications))
+        (let (captured epoch)
+          (property.make-specification exact-integer? abs current?: (lambda () (= epoch captured)))))
+      ;; The assertion macro keeps Gerbil's standard location/error machinery.
+      (assertion.define-property balanced
+        ((left (begin
+                 (set! factories (1+ factories))
+                 (when retire? (set! epoch (1+ epoch)))
+                 (generator.generate (generator.generator-map (generator.generator-unit 1)
+                   (lambda (value) (set! produced (1+ produced)) value)) (generator.random-at 0) 0)
+                 (generator.generator-integer 0 3)) (domain))
+         (right (begin (set! dependent (1+ dependent)) (generator.generator-unit (- left))) (domain)))
+        (set! trials (1+ trials)) (= (+ left right) 0))
+      (let (result (assertion-result (lambda () (balanced cases: 3))))
+        (check (test.test-result-error? result) => #t)
+        (using (refusal result :- test.TestResultError)
+          (check-equal? (Error-message refusal.exn) "stale property preparation")))
+      (check-equal? (list specifications factories dependent produced trials) '(2 1 0 0 0))
+      (set! retire? #f)
+      (balanced cases: 3)
+      (check-equal? (list specifications factories dependent produced trials) '(4 2 3 1 3))))
+  (test-case "a later named domain refuses before any generator construction"
+    (let ((alive #t) (factories 0))
+      (def first (property.make-specification integer? abs current?: (lambda () alive)))
+      ;; The second declaration cannot refresh first's existing observer.
+      (assertion.define-property named
+        ((left (begin (set! factories 1) (generator.generator-unit 1)) first)
+         (right (generator.generator-unit left)
+           (begin (set! alive #f) (property.make-specification integer? abs))))
+        (= left right))
+      (let (result (assertion-result (lambda () (named cases: 1))))
+        (check (test.test-result-error? result) => #t)
+        (using (refusal result :- test.TestResultError)
+          (check-equal? (Error-message refusal.exn) "stale property preparation")))
+      (check-equal? factories 0)))
+  (test-case "zero argument declarations and preparation scope release use standard execution"
+    (let ((alive #t) (constructed 0))
+      (def domain (property.make-specification integer? abs current?: (lambda () alive)))
+      (def generation (property.call-with-specifications (list (lambda () domain))
+        (lambda (_) (set! constructed (1+ constructed)) (generator.generator-unit 7))))
+      (set! alive #f)
+      (check-equal? (generator.sample-value (generator.generate generation (generator.random-at 0) 0)) 7)
+      (check-equal? constructed 1)
+      ;; Empty product declarations still enter the ordinary runner and assertion.
+      (assertion.define-property empty () #t)
+      (empty cases: 2))))

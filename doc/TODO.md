@@ -4,6 +4,14 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P53 closes ordered named-property declaration preparation across the report and
+standard assertion forms. Fixed specifications precede generator construction;
+retirement stops later declarations and nested producers, while dependent draws,
+shrinking and replay keep the existing bind owner. Standard TestResult controls
+and Record/Function/FUN examples cover failure and explicit fresh repair. Direct
+caller arguments and arbitrary effects remain boundaries. See
+[P53 in the PBT RFC](pbt-design-rfc.md#p53-ordered-named-property-declaration-preparation).
+
 P52 closes Reader configuration and initial automatic-generator request admission.
 Known owners precede getters and generator construction; dependency identity
 spines cannot erase authority, and size is read once through standard reflection.
