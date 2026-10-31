@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P61 closes FunctionArguments preparation authority: computed signature getters
+cannot renew Function, clause or previously discovered input Type epochs. Existing
+source scopes, lazy child derivation and the standard LRU carry the same authority
+through caching, shrinking and replay; exceptions retain their original causes.
+See [P61](pbt-design-rfc.md#p61-first-observed-function-input-declarations).
+
+
 
 P60 captures typed trace ingress before computed metadata and registers explicit
 owners in the existing first-observation ledger. Validation, repair, checking and

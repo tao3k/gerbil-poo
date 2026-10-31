@@ -1,5 +1,5 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(export snapshot with-source-stamps source-guard retain-source-stamps! write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash length=n?)
         ../object ../mop (only-in ../type Rational String Symbol Keyword Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
@@ -78,6 +78,8 @@
   (def captured (list-copy dependencies))
   (for-each retain! captured)
   (cons sampler (cons descriptor captured)))
+;; Shared typed-source operations are module exports for domain extensions;
+;; they retain the same first-observation protocol, not a second preparation API.
 ;; Bind a stamp variable, not an effectful expression. Snapshot discovery may
 ;; extend it; preparation uses the closed list. The checker reads epochs only,
 ;; unwinds through the standard dynamic scope and is never retained on values.
@@ -108,8 +110,8 @@
        (or (not sampler) (not (.has? sampler .current?)) (.call sampler .current?))))
 ;; Prepare the optional hook once. Source revisions are still checked before
 ;; every call, so a replaced/inherited hook cannot acquire fresh authority.
-(def (source-guard sources sampler)
-  (def hook (and (.has? sampler .current?) (.@ sampler .current?)))
+(def (source-guard sources (sampler #f))
+  (def hook (and sampler (.has? sampler .current?) (.@ sampler .current?)))
   (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
     (or (not hook) (hook)))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned

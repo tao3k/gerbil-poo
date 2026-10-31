@@ -1,6 +1,9 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
-(import ../object
+(export signature-preparation-test service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(import :std/test :std/error :std/iter
+        (only-in ../testing/generation-graph generation-refusal?)
+        (prefix-in :clan/poo/testing/property/generator core.)
+        ../object
         ../mop
         ../type
         ../number
@@ -189,3 +192,95 @@
   (def checked (validate signature target))
   (property-action (FunctionArguments signature)
     (lambda (arguments) (= (apply checked arguments) (apply service arguments))) consume))
+
+;; These controls use delayed declaration fields: constructing the public
+;; FunctionArguments Type has no effects; preparation owns the first observation.
+(def signature-preparation-test
+  (test-suite "Function call declaration preparation"
+    (test-case "nested keyword discovery cannot renew the Function or clause"
+      (for (owner '(function clause))
+        (def armed #f) (def reads 0) (def later 0)
+        (def base (Function [Integer] [Integer]))
+        (def clause (.o bind-these: #f inherit: [base]
+          keywords: (begin (set! reads (1+ reads))
+            (when armed (.set! (if (eq? owner 'function) subject clause) epoch 1)) [])
+          inputs: (begin (set! later (1+ later)) [Integer])))
+        (def subject (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'service-inputs))
+        (def request (FunctionArguments subject))
+        (check-equal? (list reads later) '(0 0))
+        (set! armed #t)
+        (check-exception (generator request)
+          (lambda (cause) (if (eq? owner 'function) (generation-refusal? cause)
+            (and (Error? cause) (equal? (Error-message cause) "object mutation during computation")))))
+        (check-equal? (list reads later) '(1 0))))
+    (test-case "later positional metadata cannot retire an already observed input Type"
+      (def input (.cc Integer epoch: 0)) (def later 0)
+      (def base (Function [Integer] [Integer]))
+      (def clause (.o bind-these: #f inherit: [base] inputs: [input]
+        optional: (begin (.set! input epoch 1) [])
+        rest: (begin (set! later (1+ later)) #f)))
+      (def request (FunctionArguments (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'inputs)))
+      (check-equal? (object-revision input) 0)
+      (check-exception (generator request) generation-refusal?)
+      (check-equal? later 0))
+    (test-case "early keyword Types remain owned before positional discovery"
+      (def input (.cc Integer epoch: 0)) (def later 0)
+      (def base (Function [Integer] [Integer]))
+      (def clause (.o bind-these: #f inherit: [base] keywords: (list (cons scale: input))
+        inputs: (begin (.set! input epoch 1) [Integer])
+        optional: (begin (set! later (1+ later)) [])))
+      (def request (FunctionArguments (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'keys)))
+      (check-equal? (object-revision input) 0)
+      (check-exception (generator request) generation-refusal?)
+      (check-equal? later 0))
+    (test-case "metadata exceptions including false survive retirement exactly"
+      (for (cause (list #f (cons 'metadata 'fault)))
+        (def base (Function [Integer] [Integer]))
+        (def clause (.o bind-these: #f inherit: [base]
+          keywords: (begin (.set! subject epoch 1) (raise cause))))
+        (def subject (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'throwing))
+        (def request (FunctionArguments subject))
+        (def outcome (with-catch (lambda (value) (cons 'caught value))
+          (lambda () (generator request) 'unexpected)))
+        (check-eq? (car outcome) 'caught)
+        (check-eq? (cdr outcome) cause))
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 0) 0)) 7))
+
+    (test-case "cached layouts retain dormant Types and cannot erase their source guard"
+      (def factories 0)
+      (def dormant (.cc Integer epoch: 0 .generator: (lambda ()
+        (set! factories (1+ factories)) (generator Integer))))
+      (def first (Function [Integer] [Integer]))
+      (def shadowed (Function [Integer] [dormant]))
+      (def subject (.o inherit: [first] signatures: [first shadowed] sexp: 'ordered))
+      (def request (FunctionArguments subject))
+      (def sampler (generator request))
+      (def generation (generator-core (.cc sampler sources: [])))
+      ;; Both proposals select the first clause; no shadowed generator is forced.
+      (core.generate generation (core.random-at 1) 0)
+      (core.generate generation (core.random-at 2) 0)
+      (check-equal? factories 0)
+      (.set! dormant epoch 1)
+      (check-exception (core.generate generation (core.random-at 3) 0) core.stale-generation?)
+      (check-equal? factories 0)
+      ;; Explicit renewed construction succeeds; the obsolete cached graph stays stale.
+      (def fresh (generator request))
+      (core.generate (generator-core fresh) (core.random-at 4) 0)
+      (check-exception (core.generate generation (core.random-at 5) 0) core.stale-generation?)
+      (check-equal? factories 0))
+    (test-case "nested callback services keep FUN failure shrinking replay and explicit retry"
+      (def configuration (make-instance PropertyConfiguration seed: 43 cases: 20 size: 5 shrink-budget: 60))
+      (def signature (.cc ServiceSignature epoch: 0))
+      (def request (FunctionArguments signature))
+      (def sampler (generator request))
+      (def action (property-action request (lambda (arguments) (not (service-property arguments)))
+        identity sampler: sampler))
+      (def failed (action configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (.set! signature epoch 1)
+      (check-exception (replay-property failed) Error?)
+      (def stale (action configuration))
+      (check-eq? (.get stale status) 'stale)
+      (check-eq? (.get ((property-action request service-property identity) configuration) status) 'passed))))
