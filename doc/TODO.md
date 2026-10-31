@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P48 closes standard Keyword derivation and unifies text carrier generation and
+shrinking through one spelling protocol. FunctionArguments, Record/Function/FUN,
+portable replay and explicit fresh repair compose without another parser or
+validator chain. Opaque/refined inference and runtime interning costs remain
+explicit boundaries. See [P48 in the PBT RFC](pbt-design-rfc.md#p48-one-spelling-protocol-for-text-carriers-and-keyword-call-values).
+
 P47 closes automatic exact integer interval generation and shrinking for
 IntegerRange, UIntN, IntN and Z/, including empty-domain exhaustion, source-owned
 metadata and bounded draw windows. The Record/Function/FUN example covers replay

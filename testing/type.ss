@@ -1,7 +1,7 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
-(import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
-        ../object ../mop (only-in ../type Rational String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
+(import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
+        ../object ../mop (only-in ../type Rational String Symbol Keyword Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt IntegerRange. Z/.)
         (prefix-in :clan/poo/testing/property testing.)
@@ -185,15 +185,20 @@
 ;; remain explicit rather than silently falling back to a different Type.
 (def (data-generator descriptor (length #f))
   (def bytes? (or length (eq? descriptor Bytes)))
-  (def symbol? (eq? descriptor Symbol))
-  (def unpack (cond (bytes? u8vector->list) (symbol? (lambda (value) (string->list (symbol->string value))))
-                    (else string->list)))
-  (def pack (cond (bytes? list->u8vector) (symbol? (lambda (value) (string->symbol (list->string value))))
-                  (else list->string)))
+  ;; One standard representation pair serves every text carrier. Mapping the
+  ;; character-list tree once retains provenance without a second wrapper chain.
+  (defvalues (pack unpack)
+    (cond (bytes? (values list->u8vector u8vector->list))
+      ((eq? descriptor Symbol)
+       (values (compose string->symbol list->string) (compose string->list symbol->string)))
+      ((eq? descriptor Keyword)
+       (values (compose string->keyword list->string) (compose string->list keyword->string)))
+      (else (values list->string string->list))))
   (def code (if bytes? identity char->integer))
   (def lower (or length 0))
-  (def generation (cond (bytes? (core.generator-bytes min-length: lower max-length: (or length 128)))
-                       (symbol? (core.generator-symbol)) (else (core.generator-string))))
+  (def generation (core.generator-map
+    (core.generator-list (if bytes? (core.generator-byte) (core.generator-character))
+      min-length: lower max-length: (or length 128)) pack))
   (from-generator descriptor generation
     (lambda (value) (foldl (lambda (item total) (+ total 1 (code item))) 0 (unpack value)))
     shrink: (lambda (value) (map pack (core.data-list-shrinks (unpack value)
@@ -241,7 +246,7 @@
     ((eq? descriptor Rational)
      (from-generator descriptor (core.generator-rational) core.rational-weight
        shrink: core.rational-shrinks))
-    ((or (eq? descriptor String) (eq? descriptor Symbol) (eq? descriptor Bytes))
+    ((or (eq? descriptor String) (eq? descriptor Symbol) (eq? descriptor Keyword) (eq? descriptor Bytes))
      (data-generator descriptor))
     (else
       (def ancestors (compute-precedence-list! descriptor))

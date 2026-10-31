@@ -1,6 +1,6 @@
 ;;; Typed products inherit the enclosing run's admission through ordinary modules.
-(export generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action)
-(import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type
+(export generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action keyword-routing-action)
+(import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type ../testing/function
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in (only-in ../support/testing require-property-passed) standard.)
@@ -69,9 +69,56 @@
          (bounded-credit-result (.get value amount) (.get value delta) #f))))
     consume sampler: sampler))
 
+;; Preserve the empty keyword as data. A faulty service confuses its empty
+;; spelling with omission, while both implementations still satisfy String.
+(def (keyword-routing-result value faulty?)
+  (def spelling (keyword->string value))
+  (if (and faulty? (string=? spelling "")) "missing" spelling))
+;; One product constructor supplies the Function wrapper. Keyword call values
+;; then cross the ordinary Function signature and FUN report boundary unchanged.
+(def (keyword-routing-action descriptor faulty? consume)
+  (def sampler (product-generator descriptor
+    (list (generator Keyword) (generator (List Keyword)))
+    (lambda (value) (list (.get value selector) (.get value aliases)))
+    (lambda (parts) (make-instance descriptor selector: (car parts) aliases: (cadr parts)
+      handler: (cut keyword-routing-result <> faulty?)))))
+  (def signature (Function [String] [descriptor] keywords: (list (cons label: Keyword))))
+  (def checked (validate signature (lambda (row label: (label (string->keyword "")))
+    ((.@ row handler) label))))
+  (property-action descriptor (lambda (value)
+    (string=? (apply checked (list value label: (.get value selector)))
+      (keyword->string (.get value selector)))) consume sampler: sampler))
+
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "keyword routing preserves empty values wrappers corpus and fresh FUN repair"
+      (def descriptor (Record selector: [Keyword] aliases: [(List Keyword)]
+        handler: [(Function [String] [Keyword])]))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 12 size: 8 shrink-budget: 128))
+      (def report ((keyword-routing-action descriptor #t identity) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (keyword->string (.get (.get report counterexample) selector)) "")
+      (check-exception ((.@ (.get report counterexample) handler) 'ordinary-symbol) TypeError?)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check (replay-counterexample report) => #f)
+      (def codec (corpus.make-codec '(keyword-routing 1)
+        (lambda (value) (list (.get value selector) (.get value aliases)))
+        (lambda (data) (make-instance descriptor selector: (car data) aliases: (cadr data)
+          handler: (cut keyword-routing-result <> #t)))))
+      (def output (open-output-string))
+      (write-counterexample report codec output)
+      (check (read-counterexample (.get report sampler) codec (open-input-string (get-output-string output))
+        (property.report-property (.get report execution))) => #f)
+      (.set! descriptor sexp 'revised-keyword-routing)
+      (check-exception (replay-property report) Error?)
+      (standard.require-property-passed ((keyword-routing-action descriptor #f identity) configuration)))
+    (test-case "automatic keyword call rows retain optional keyword and rest interpretations"
+      (def signature (Function [Keyword] [Keyword] optional: [Keyword]
+        keywords: (list (cons label: Keyword)) rest: Keyword))
+      (def descriptor (FunctionArguments signature))
+      (standard.require-property-passed (check-property descriptor (cut element? descriptor <>)
+        seed: 42 cases: 25 size: 8 shrink-budget: 80)))
     (test-case "bounded credit services retain Function contracts through FUN corpus and fresh repair"
       (def port (IntegerRange min: 8000 max: 8007)) (def deliveries 0)
       (def configuration (make-instance PropertyConfiguration seed: 42 cases: 40 size: 8 shrink-budget: 128))

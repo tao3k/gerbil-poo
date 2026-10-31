@@ -15,6 +15,23 @@
 ;; make a recursive descriptor pass, and no inconclusive result is a success.
 (def recursive-generation-test
   (test-suite "automatic guarded recursive generators"
+    (test-case "keyword spelling shrink preserves exact carrier and strict content rank"
+      (def sampler (generator Keyword))
+      (for (text (list "" "a:" " spaced " (string #\x00 #\x10ffff)))
+        (def value (string->keyword text))
+        (check (element? Keyword value) => #t)
+        (for (smaller (.call sampler shrink value))
+          (check (keyword? smaller) => #t)
+          (check (< (.call sampler measure smaller) (.call sampler measure value)) => #t)))
+      (check-equal? (.call sampler shrink (string->keyword "")) [])
+      (check (element? Keyword 'name) => #f)
+      (check (element? Keyword "name") => #f))
+    (test-case "keyword leaves compose in recursive shared and tagged carriers"
+      (def descriptor (Tuple Keyword (List Keyword) (Pair Keyword (OrFalse Keyword))
+        (Sum key: Keyword text: String)))
+      (def report (check-property descriptor (cut element? descriptor <>)
+        seed: 42 cases: 15 size: 8 shrink-budget: 80))
+      (check-eq? (.get report status) 'passed))
     (test-case "standard integer carrier families derive within bounds and size windows"
       (for (descriptor (list (IntegerRange min: 8000 max: 8007) (IntegerRange max: -10)
                             (UIntN 8) (IntN 8) (UIntN 0) (UIntN 256) (Z/ 7)))

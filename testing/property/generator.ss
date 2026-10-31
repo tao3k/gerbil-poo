@@ -9,7 +9,7 @@
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-integer-range integer-range-anchor integer-range-shrinks generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
-        generator-string generator-symbol generator-bytes generator-elements generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
+        generator-string generator-symbol generator-keyword generator-bytes generator-elements generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
 (import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
@@ -532,6 +532,10 @@
 ;; No gensyms, identifier grammar or module-name interpretation is inferred.
 (def (generator-symbol (character (generator-character)) min-length: (minimum 0) max-length: (maximum 128))
   (generator-map (generator-string character min-length: minimum max-length: maximum) string->symbol))
+;; Keywords reuse exactly the same spelling tree as strings and symbols. The
+;; standard intern operation gives data, not an instruction to parse a call row.
+(def (generator-keyword (character (generator-character)) min-length: (minimum 0) max-length: (maximum 128))
+  (generator-map (generator-string character min-length: minimum max-length: maximum) string->keyword))
 ;; Mutable byte vectors are freshly packed at each mapped node, never encoded as text.
 (def (generator-bytes min-length: (minimum 0) max-length: (maximum 128))
   (generator-map (generator-list (generator-byte) min-length: minimum max-length: maximum) list->u8vector))

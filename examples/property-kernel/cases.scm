@@ -409,6 +409,35 @@
       (for (seed '(0 8 42))
         (check-equal? (symbol->string (generator.sample-value (generator.generate symbols (generator.random-at seed) 8)))
           (generator.sample-value (generator.generate strings (generator.random-at seed) 8)))))
+    (test-case "keyword generators preserve the string spelling tree and explicit alphabet"
+      (def alphabet (generator.generator-character lower: #\a upper: #\z))
+      (def words (generator.generator-keyword alphabet min-length: 2 max-length: 5))
+      (def text (generator.generator-string alphabet min-length: 2 max-length: 5))
+      (for (seed '(0 1 8 42))
+        (def tree (generator.generate words (generator.random-at seed) 8))
+        (check-equal? (keyword->string (generator.sample-value tree))
+          (generator.sample-value (generator.generate text (generator.random-at seed) 8)))
+        (for (child ((generator.sample-children tree)))
+          (check (keyword? (generator.sample-value child)) => #t)
+          (check (<= 2 (string-length (keyword->string (generator.sample-value child))) 5) => #t)))
+      (check-exception (generator.generator-keyword min-length: 3 max-length: 2) Error?))
+    (test-case "empty and reader-sensitive keyword spellings remain ordinary data"
+      (for (char '(#\x00 #\space #\: #\x10ffff))
+        (def tree (generator.generate
+          (generator.generator-keyword (generator.generator-unit char) min-length: 1 max-length: 1)
+          (generator.random-at 42) 1))
+        (check-equal? (keyword->string (generator.sample-value tree)) (string char)))
+      (check-equal? (keyword->string (generator.sample-value
+        (generator.generate (generator.generator-keyword) (generator.random-at 0) 0))) ""))
+    (test-case "keyword failures shrink and replay without changing carrier"
+      (def domain (property.make-specification keyword?
+        (lambda (value) (string-length (keyword->string value)))))
+      (def report (property.check-property (generator.generator-keyword)
+        (lambda (_) #f) domain seed: 42 cases: 1 size: 8 shrink-budget: 128))
+      (check-eq? (property.report-status report) 'failed)
+      (check-equal? (keyword->string (property.report-counterexample report)) "")
+      (same-failure report (property.replay-property report))
+      (check (property.replay-counterexample report) => #f))
     (test-case "fixed byte payloads shrink coordinates without losing required width"
       (def bytes (generator.generator-bytes min-length: 4 max-length: 4))
       (def domain (property.make-specification

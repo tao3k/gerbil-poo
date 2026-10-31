@@ -107,11 +107,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 145)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 148)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 145 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 148 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
@@ -295,7 +295,7 @@
       (.put! sampler 'diagnostic-epoch 1)
       (check-eq? (property.inspection-current? result) #f))
     (test-case "standard scalar data Types share generic generation and shrinking"
-      (for (descriptor (list String Symbol Bytes (BytesN 4)))
+      (for (descriptor (list String Symbol Keyword Bytes (BytesN 4)))
         (def sampler (generator descriptor))
         (def report (check-property descriptor (lambda (_) #f) sampler: sampler
           seed: 42 cases: 1 size: 6 shrink-budget: 100))

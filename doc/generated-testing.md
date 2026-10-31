@@ -33,7 +33,7 @@ and Reader/FUN consumption. Both repositories retain their complete checks and
 resource limits. No Scheme runtime or test imports a Lean checkout.
 
 Generators derive Bool, Integer, UInt, IntegerRange, UIntN, IntN, Z/, Rational,
-String, Symbol, Bytes, BytesN, Exactly/Enum and bounded recursive
+String, Symbol, Keyword, Bytes, BytesN, Exactly/Enum and bounded recursive
 List, Tuple, Pair, Union, Maybe and OrFalse graphs. Other opaque Types,
 refined Types and Function *values* supply an explicit `.generator`; the example
 supplies a semantically chosen identity callback. Arbitrary closure synthesis,
@@ -77,3 +77,11 @@ has at most twice size plus one choices; arithmetic cost still depends on endpoi
 bit widths. Capture invalidation retires old samplers and reports; prepare a fresh
 sampler to observe changed bounds. See the numeric cases and Record/Function/FUN
 service in `examples/property-numbers.ss` and `examples/generated-products.ss`.
+
+Keyword spelling generation uses the same Unicode scalar list tree as String and
+Symbol. Empty keywords are values, not missing parameters. Use the ordinary
+FunctionArguments descriptor for positional/optional/keyword/rest rows; it owns
+the escape boundary. The keyword-routing action in `examples/generated-products.ss`
+shows Record/Function/FUN composition, corpus replay and fresh repair. Content
+shrinking preserves exact carriers; symbolic refinement still requires an explicit
+sampler. No string is evaluated or treated as module syntax.
