@@ -437,27 +437,32 @@
     (error "invalid deletion bounds"))
   (let sizes ((width (- size minimum)) (count 0))
     (if (zero? width) count (sizes (quotient width 2) (+ count (quotient size width))))))
-;; Snapshot the caller-owned spine, then produce structural subsequences lazily.
-;; Retained elements themselves keep their identities and callback obligations.
-;; Minimum is a length constraint; it does not privilege any particular prefix.
+;; The private deletion policy traverses an already owned finite spine. Sharing
+;; this algorithm lets both public policies copy once before any callback runs.
+;; Retained payloads keep their identities and declared source obligations.
+(def (sequence-deletions owned minimum)
+  (def size (length owned))
+  (list-deletion-count size minimum)
+  (in-coroutine (lambda (yield)
+    (let sizes ((width (- size minimum)))
+      (unless (zero? width)
+        (for (start (in-range 0 (1+ (- size width)) width))
+          (yield (append (take owned start) (drop owned (+ start width)))))
+        (sizes (quotient width 2)))))))
+;; Snapshot the caller-owned spine before exposing the lazy iterator. Minimum
+;; constrains length rather than privileging any particular retained prefix.
 (def (list-deletions values minimum)
-  (using (values :~ list?)
-    (def size (length values))
-    (list-deletion-count size minimum)
-    (let (owned (list-copy values))
-      (in-coroutine (lambda (yield)
-        (let sizes ((width (- size minimum)))
-          (unless (zero? width)
-            (for (start (in-range 0 (1+ (- size width)) width))
-              (yield (append (take owned start) (drop owned (+ start width)))))
-            (sizes (quotient width 2)))))))))
-;; Value-only policies prepare finite proper lists. Structural admission runs
-;; first; each parameter callback shares the existing source boundary before its
-;; result is admitted. General lazy sample shrinkers keep their Iterator protocol.
+  (using (values :~ list?) (sequence-deletions (list-copy values) minimum)))
+;; The whole finite policy owns ONE input spine before any parameter callback.
+;; Both structural and coordinate phases read that snapshot, even if a callback
+;; edits the caller's list. Parameter lists still require whole-spine admission;
+;; no partial batch escapes on refusal, and arbitrary payloads are not copied.
 (def (data-list-shrinks values (shrink : :procedure) minimum)
-  (let (structural (for/collect (candidate (list-deletions values minimum)) candidate))
+  (using (values :~ list?)
+    (def owned (list-copy values))
+    (def structural (for/collect (candidate (sequence-deletions owned minimum)) candidate))
     (append structural
-      (let coordinates ((tail values) (before []))
+      (let coordinates ((tail owned) (before []))
         (if (null? tail) []
           (using (children (with-sources [] (shrink (car tail))) :~ list?)
             (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) children)

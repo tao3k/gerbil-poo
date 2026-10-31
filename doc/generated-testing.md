@@ -147,3 +147,10 @@ previously charged work are retained on interruption; budget cutoff is not EOF.
 `collection-request-action` in `examples/collection-properties.ss` composes this
 with an indexed backend, a Record/Function product, FUN, replay and fresh repair.
 See P54 in the RFC for the finite proof and work-count boundaries.
+
+Finite value neighborhoods and model preflight snapshot their input pair spine
+before callbacks. A callback may edit its caller's outer list without changing
+the already captured coordinates. This is shallow preparation: command payloads
+remain shared, and callbacks must obey declared source and payload ownership.
+Neither deep copying nor rollback of callback effects is provided. See P55 in
+[pbt-design-rfc.md](pbt-design-rfc.md#p55-owned-finite-sequence-preparation).
