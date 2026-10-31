@@ -3601,3 +3601,10 @@ Faithful standard iteration, accurate sources, pure/terminating model transition
 normalization and fixture simulation remain premises. This advances the paper's
 future work; it is not compiler/runtime verification or a universal callback-cost
 bound. No upstream source, scheduler, namespace or resource limit is changed.
+
+The existing generated-traces malformed Record control now exercises both
+contracts explicitly. Its finite-view zero-attempt/no-prefix/one-fixture checks
+are retained, including seeded refusal. The default owned view separately confirms
+six charged structural returns, one valid reduction and seven balanced fixtures
+before the malformed parameter list refuses. No element of that malformed list
+is returned or charged; an error report still cannot authorize concrete replay.

@@ -12,7 +12,7 @@
 
 (def generated-traces-test
   (test-suite "finite typed trace and data preparation"
-    (test-case "malformed Record parameter lists cannot publish repaired trace prefixes"
+    (test-case "malformed Record parameter lists keep finite admission and lazy progress"
       (for (cyclic? '(#f #t))
         (def command (Record kind: [(Enum open use)] key: [UInt] handler: [(Function [Integer] [Integer])]))
         (def state (List UInt))
@@ -40,27 +40,43 @@
             (values (if (eq? (.get next kind) 'open) (cons (.get next key) previous) previous)
               (+ ((.@ next handler) (.get next key)) (if (eq? (.get next kind) 'use) 1 0))))))
             (finally (set! closed (1+ closed)))))
-        ;; Fresh preparation changes the callback explicitly; it never salvages a tail.
-        (def (prepare model)
-          (let (sampler (trace-generator command model steps: 3))
-            (property-debug-action #f (.get sampler descriptor) (trace-property model fixture) sampler: sampler)))
+        ;; The explicit finite view retains whole-batch admission; the default
+        ;; owned view may confirm earlier structural proposals before a later
+        ;; malformed parameter list is demanded. Neither salvages that list.
+        (def (prepare model sampler)
+          (property-debug-action #f (.get sampler descriptor) (trace-property model fixture) sampler: sampler))
+        (def sampler (trace-generator command subject steps: 3))
         (def configuration (make-instance PropertyConfiguration seed: 7 cases: 1 size: 3 shrink-budget: 64))
-        (def report ((prepare subject) configuration))
-        (check-eq? (.get report status) 'error)
-        (check-equal? (list parameters draws opened closed (.get report attempts) (.get report steps)) '(1 3 1 1 0 0))
-        (check-equal? (length (.get report counterexample)) 3)
-        (check-exception (replay-counterexample report) Error?)
-        (check-eq? (.get (replay-property report) status) 'error)
-        (check-equal? (list parameters draws opened closed) '(2 6 2 2))
-        (def fresh ((prepare (.cc subject shrink: (lambda (_) []))) configuration))
-        (check-eq? (.get fresh status) 'failed)
-        (check-equal? (map (cut .get <> kind) (.get fresh counterexample)) '(open use))
-        (check-exception ((.@ (cadr (.get fresh counterexample)) handler) 'invalid) TypeError?)
-        (let (before draws)
-          (check (replay-counterexample fresh) => #f)
-          (check-equal? draws before)
-          (check-eq? (.get (replay-property fresh) status) 'failed)
-          (check-equal? draws (+ 3 before)))
+        (let (finite ((prepare subject (.cc sampler generation: #f)) configuration))
+          (check-eq? (.get finite status) 'error)
+          (check-equal? (list parameters draws opened closed (.get finite attempts) (.get finite steps)) '(1 3 1 1 0 0))
+          (check-equal? (length (.get finite counterexample)) 3)
+          (check-exception (replay-counterexample finite) Error?)
+          (check-eq? (.get (replay-property finite) status) 'error)
+          (check-equal? (list parameters draws opened closed) '(2 6 2 2)))
+        (set! parameters 0) (set! draws 0) (set! opened 0) (set! closed 0)
+        (let (report ((prepare subject sampler) configuration))
+          (check-eq? (.get report status) 'error)
+          ;; Six valid structural returns open six fresh fixtures after the root;
+          ;; one reduction is confirmed before the parameter factory refuses.
+          (check-equal? (list parameters draws opened closed (.get report attempts) (.get report steps)) '(1 3 7 7 6 1))
+          (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+          (check (valid-trace? subject (.get report counterexample)) => #t)
+          (check-exception (replay-counterexample report) Error?)
+          (let (replayed (replay-property report))
+            (check-eq? (.get replayed status) 'error)
+            (check-equal? (list (.get replayed attempts) (.get replayed steps)) '(6 1)))
+          (check-equal? (list parameters draws opened closed) '(2 6 14 14)))
+        (let* ((model (.cc subject shrink: (lambda (_) [])))
+               (fresh ((prepare model (trace-generator command model steps: 3)) configuration)))
+          (check-eq? (.get fresh status) 'failed)
+          (check-equal? (map (cut .get <> kind) (.get fresh counterexample)) '(open use))
+          (check-exception ((.@ (cadr (.get fresh counterexample)) handler) 'invalid) TypeError?)
+          (let (before draws)
+            (check (replay-counterexample fresh) => #f)
+            (check-equal? draws before)
+            (check-eq? (.get (replay-property fresh) status) 'failed)
+            (check-equal? draws (+ 3 before))))
         (check-equal? opened closed)))
     (test-case "service retry owns fixture declarations through shrinking and both replays"
       (def command (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
