@@ -65,7 +65,21 @@
         (core.with-sources [] #t))))
       (map-generator (Map Symbol -> Integer) '(left) supplied)
       (check (> calls 0) => #t)
-      (check (<= calls 100) => #t))
+      (check (<= calls 100) => #t)
+      ;; A true observer result cannot authorize metadata after retiring a root.
+      (def later 0) (def descriptor (Map Symbol -> Integer))
+      (def retiring (.cc (generator Integer) .current?: (lambda ()
+        (.putslot! descriptor 'epoch ($constant-slot-spec 1)) #t)))
+      (.putslot! descriptor 'Key ($self-slot-spec (lambda (_self) (set! later (1+ later)) Symbol)))
+      (check-exception (map-generator descriptor '(left) retiring) generation-refusal?)
+      (check-equal? later 0)
+      ;; Post-checking must not coerce a non-Boolean observer result to true.
+      (def invalid-descriptor (Map Symbol -> Integer))
+      (.putslot! invalid-descriptor 'Key ($self-slot-spec (lambda (_self) (set! later (1+ later)) Symbol)))
+      (def invalid (.cc (generator Integer) .current?: (lambda () 'truthy)))
+      (check-exception (map-generator invalid-descriptor '(left) invalid)
+        (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "source observer must return a boolean"))))
+      (check-equal? later 0))
     (test-case "service directory preparation and retained FUN reports share Map authority"
       (def owner (.o epoch: 0)) (def costs 0)
       (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))

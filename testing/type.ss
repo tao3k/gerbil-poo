@@ -183,7 +183,10 @@
       (def hook (and (.has? value-sampler .current?) (.@ value-sampler .current?)))
       ;; This one retained guard sees the growing ledger during preparation and
       ;; the closed ledger afterwards. No factory callback can mutate it later.
-      (def (guard) (and (current? owners) (or (not hook) (hook))))
+      (def (guard)
+        (and (current? owners) (or (not hook) (and (core.live? hook) (current? owners)))))
+      ;; Admit each preparation action once; original exceptions bypass normal
+      ;; post-return admission, while successful actions must retain authority.
       (def (checked action . arguments)
         (core.with-sources []
           (unless (core.live? guard) (refuse-generation 'stale))
