@@ -5,6 +5,7 @@
         :std/build-script (only-in :std/source this-source-file)
         (only-in :std/make include-gambit-sharp)
         (only-in "t/build.ss" call-with-build-jobs))
+(include "testing/property/build.scm")
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
@@ -157,7 +158,7 @@
     "examples/property-scopes"
     "examples/property-sizes"
     "examples/property-traces"
-    "examples/property-kernel"
+    ,property-kernel-build-spec
     "examples/property-workflows"
     "examples/property-refusals"
     "examples/generated-batches"

@@ -43,14 +43,23 @@
         (path-expand file project)))
       '("property.ss" "property/generator.ss" "property/model.ss" "property/replay.ss" "property/test.ss"))
     (write-program (path-expand "gerbil.pkg" project) '((package: clan/poo/testing)))
+    ;; Use the same source-only standard compiler declaration as the root build.
+    ;; No POO module, compiler checkout or runtime registry enters the package.
+    (create-directory* (path-expand "testing/property" project))
+    (copy-file (path-expand "testing/property/build.scm" source-root)
+      (path-expand "testing/property/build.scm" project))
     (create-directory* (path-expand "examples" project))
     (for-each (lambda (file)
       (copy-file (path-expand file source-root) (path-expand file project)))
       '("examples/property-products.ss" "examples/property-numbers.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-sizes.ss" "examples/property-traces.ss" "examples/property-kernel.ss"))
+    (create-directory* (path-expand "examples/property-kernel" project))
+    (copy-file (path-expand "examples/property-kernel/cases.scm" source-root)
+      (path-expand "examples/property-kernel/cases.scm" project))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
-        (defbuild-script '("property/generator" "property" "property/model" "property/replay" "property/test"
-                          "examples/property-products" "examples/property-numbers" "examples/property-filters" "examples/property-scopes" "examples/property-sizes" "examples/property-traces" "examples/property-kernel"))))
+        (include "testing/property/build.scm")
+        (defbuild-script `("property/generator" "property" "property/model" "property/replay" "property/test"
+                          "examples/property-products" "examples/property-numbers" "examples/property-filters" "examples/property-scopes" "examples/property-sizes" "examples/property-traces" ,property-kernel-build-spec))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))

@@ -4,10 +4,52 @@
           module-context? module-import? module-import-source module-export-context
           import-set? import-set-source)
         :std/test :std/error (only-in :std/misc/process run-process)
+        (only-in :std/io/tempfile call-with-temporary-directory)
+        (only-in :std/misc/ports read-all-as-string)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 (def build-test
   (test-suite "standard test package declarations"
+    (test-case "kernel host policy is a tracked standard compiler input"
+      (def policy (path-expand "testing/property/build.scm"))
+      (def policy-source (call-with-input-file policy read-all-as-string))
+      (call-with-temporary-directory "kernel-input-" (lambda (project)
+        (create-directory* (path-expand "examples/property-kernel" project))
+        (create-directory* (path-expand "testing/property" project))
+        (copy-file policy (path-expand "testing/property/build.scm" project))
+        (call-with-output-file (path-expand "gerbil.pkg" project)
+          (lambda (port) (write '(package: clan/poo/testing) port)))
+        (call-with-output-file (path-expand "examples/property-kernel.ss" project)
+          (lambda (port) (write '(export value) port) (newline port)
+            (write '(include "property-kernel/cases.scm") port) (newline port)))
+        (call-with-output-file (path-expand "examples/property-kernel/cases.scm" project)
+          (lambda (port) (write '(def value 7) port) (newline port)))
+        (call-with-output-file (path-expand "build.ss" project)
+          (lambda (port)
+            (display "#!/usr/bin/env -S gxi -:max-heap=1G,debug=q\n" port)
+            (for-each (lambda (form) (write form port) (newline port))
+              '((import :std/build-script) (include "testing/property/build.scm")
+                (defbuild-script (list property-kernel-build-spec))))))
+        (run-process ["chmod" "755" (path-expand "build.ss" project)])
+        (def options (getenv "GAMBOPT" ""))
+        (def bounded (string-append "GAMBOPT=" options
+          (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
+        ;; Standard fresh build processes own expansion and pending-job cleanup.
+        ;; Existing worker settings and the outer source-test watchdog apply.
+        (def (build)
+          (run-process ["env" (string-append "GERBIL_PATH=" (path-expand "package" project)) bounded
+                        "gerbil" "-:max-heap=1G,debug=q" "build"]
+            directory: project stdout-redirection: #f stderr-redirection: #f))
+        (def target (path-expand "package/lib/clan/poo/testing/examples/property-kernel.ssi" project))
+        (build)
+        (def before (file-info-last-modification-time (file-info target)))
+        (build)
+        (check (time->seconds (file-info-last-modification-time (file-info target))) => (time->seconds before))
+        (call-with-output-file (path-expand "testing/property/build.scm" project)
+          (lambda (port) (display policy-source port) (display "\n;; changed compiler-policy source\n" port)))
+        (build)
+        (check (> (time->seconds (file-info-last-modification-time (file-info target)))
+                   (time->seconds before)) => #t))))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (test-build-spec))
         (check (and (member "collection-order/table-cursor-test" complete) #t) => #t)
