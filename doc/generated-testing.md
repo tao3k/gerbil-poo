@@ -172,3 +172,13 @@ are admitted and copied before packing or iterator publication. Arbitrary payloa
 remain shared under their Type/source contracts; no inverse law is inferred for a
 custom pack/unpack pair. See
 [P57](pbt-design-rfc.md#p57-fixed-product-row-and-finite-expansion-ownership).
+
+
+P58 closes portable handoff configuration and physical framing admission.
+Gerbil parameter contracts run before observers/computed metadata; standard
+reader EOF and a separately guarded physical EOF probe precede decoding. Invalid
+requests leave caller ports untouched; malformed input may be consumed and needs
+explicit fresh input. Revision/exception behavior and nested Function wrapping
+remain with their existing owners. Eleven finite Lean laws model request/source/
+framing order, assuming faithful host port operations rather than proving the
+reader or I/O rollback. See [P58](pbt-design-rfc.md#p58-portable-handoff-request-admission-and-physical-framing).

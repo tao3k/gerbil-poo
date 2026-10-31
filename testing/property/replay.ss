@@ -1,5 +1,5 @@
 ;;; Portable counterexamples are data with application-owned codec identity.
-(export make-codec write-counterexample read-counterexample)
+(export make-codec codec? write-counterexample read-counterexample)
 (import :std/error :std/iter (only-in :std/vector/vector vector-fold/index)
         ../property (only-in ./generator with-sources with-generation-check))
 ;; The codec owns format/specification/generator identity and bounded data admission.
@@ -14,6 +14,8 @@
     (set! (replay-codec-identity self) (copy-data identity nodes depth))
     (set! (replay-codec-encode self) encode) (set! (replay-codec-decode self) decode)
     (set! (replay-codec-current self) current)))
+;; Recognize codec records without inspecting callbacks or mutable sources.
+(def codec? replay-codec?)
 ;; Application identities should include format, specification and generator revisions.
 (def (make-codec identity (encode : :procedure) (decode : :procedure)
                  current?: (current (lambda () #t)) nodes: (nodes 4096) depth: (depth 64))
@@ -67,8 +69,9 @@
     (with-generation-check check
       (begin0 (action) (check)))))
 ;; Prepare a complete source-current envelope before entering the port write.
+;; Standard request contracts precede reconfirmation, encoding or port actions.
 ;; The port boundary is not a transaction: an I/O failure may leave partial bytes.
-(def (write-counterexample report codec port)
+(def (write-counterexample (report :~ report?) (codec :~ codec?) (port :~ output-port?))
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
   (def (current) (report-current? report))
   ;; Reconfirmation is a separate source-current stage: it can invalidate the
@@ -83,8 +86,10 @@
     (with-codec codec (lambda () (write envelope port) (newline port)) current)))
 ;; Source preflight precedes reading. Identity admission precedes decoding or
 ;; property callbacks; each later stage retains its own currentness boundary.
-(def (read-counterexample codec port specification property policy: (policy (make-policy)))
-  (unless (policy? policy) (error "property policy required"))
+;; Argument contracts reject malformed requests before reading or decoding.
+(def (read-counterexample (codec :~ codec?) (port :~ input-port?)
+                          (specification :~ specification?) (property : :procedure)
+                          policy: (policy :~ policy? := (make-policy)))
   ;; Reject stale preparation before consuming a caller-owned input. A read or
   ;; decoder error still keeps its exact cause; consumed bytes are not rolled back.
   (def (current) (specification-current? specification))
@@ -94,8 +99,13 @@
     (eq? (vector-ref envelope 0) 'property-counterexample)
     (eqv? (vector-ref envelope 1) 1)
     (equal? (vector-ref envelope 2) (replay-codec-identity codec))) (error "replay identity mismatch"))
-  (with-codec codec (lambda ()
-    (unless (eof-object? (read port)) (error "trailing replay data"))) current)
+  ;; Reader EOF values can also come from an explicit #!eof marker. A separate
+  ;; physical probe refuses any bytes hidden after that terminator. Each port
+  ;; action has its OWN source boundary; retirement during read skips peek.
+  (unless (eof-object? (with-codec codec (lambda () (read port)) current))
+    (error "trailing replay data"))
+  (unless (eof-object? (with-codec codec (lambda () (peek-char port)) current))
+    (error "trailing replay data"))
   (let (value (with-codec codec
       (lambda () ((replay-codec-decode codec) (vector-ref envelope 3))) current))
     ;; The shared witness boundary observes codec/domain sources between each

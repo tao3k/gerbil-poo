@@ -1,5 +1,5 @@
 ;;; Typed products inherit the enclosing run's admission through ordinary modules.
-(export product-row-test consuming-product-sampler generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action keyword-routing-action)
+(export handoff-test product-row-test consuming-product-sampler generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action keyword-routing-action)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type ../testing/function
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
@@ -690,3 +690,74 @@
         (check-exception (replay-counterexample report) Error?)
         (def fresh (consuming-product-sampler schema owner #f))
         (check-eq? (.get ((property-action schema valid-service? identity sampler: fresh) configuration) status) 'passed)))))
+
+
+;; Portable handoff validates static requests before forcing POO metadata and
+;; composes the same typed Reader action with explicitly refreshed recipe owners.
+(def handoff-test
+  (test-suite "typed portable handoff admission"
+    (test-case "invalid import and export configurations do not force computed fields"
+      (def metadata 0) (def decoded 0)
+      (def sampler (.o descriptor: (begin (set! metadata (1+ metadata)) UInt)))
+      (def report (.o replayable?: (begin (set! metadata (1+ metadata)) #t)))
+      (def codec (corpus.make-codec 'frame identity
+        (lambda (data) (set! decoded (1+ decoded)) data)))
+      (for (kind '(codec port property policy))
+        (def input (open-input-string "#(property-counterexample 1 frame 2)"))
+        (def output (open-output-string))
+        (check-exception (read-counterexample sampler
+          (if (eq? kind 'codec) #f codec) (if (eq? kind 'port) output input)
+          (if (eq? kind 'property) #f values)
+          policy: (if (eq? kind 'policy) #f (property.make-policy))) Error?)
+        (check-equal? (input-port-char-position input) 0)
+        (check-equal? (get-output-string output) ""))
+      (check-exception (write-counterexample report #f (open-output-string)) Error?)
+      (check-exception (write-counterexample report codec (open-input-string "")) Error?)
+      (check-equal? (list metadata decoded) '(0 0)))
+    (test-case "Record Function and FUN corpus retries retain ownership and framing"
+      (def schema (Record x: [UInt] y: [Integer] enabled: [Bool]
+        handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def decoded 0) (def restored #f)
+      ;; Each revision captures a distinct format identity; importing never
+      ;; silently renews the caller's old codec or generator authority.
+      (def (prepare-codec)
+        (def stamp (object-revision owner))
+        (corpus.make-codec (list 'handoff-service 1 stamp)
+          (lambda (value) (vector (.get value x) (.get value y) (.get value enabled)))
+          (lambda (data)
+            (set! decoded (1+ decoded))
+            (let ((x (vector-ref data 0)) (y (vector-ref data 1)) (enabled (vector-ref data 2)))
+              (set! restored (make-instance schema x: x y: y enabled: enabled
+                handler: (lambda (_) (if (and enabled (positive? x) (positive? y)) 1 0))))
+              restored))
+          current?: (lambda () (= stamp (object-revision owner)))))
+      ;; The domain property exercises a checked nested Function after decoding.
+      (def (valid-service? value) (= ((.@ value handler) -1) 0))
+      (def codec (prepare-codec))
+      (def sampler (consuming-product-sampler schema owner #t))
+      (def configuration (make-instance PropertyConfiguration seed: 43 cases: 1 size: 6 shrink-budget: 128))
+      (def delivered ((service-corpus-action schema sampler codec cons) configuration))
+      (def report (car delivered)) (def text (cdr delivered))
+      (def input (open-input-string text))
+      (check-exception (read-counterexample sampler codec input #f) Error?)
+      (check-equal? (input-port-char-position input) 0)
+      (check-equal? decoded 0)
+      (check (read-counterexample sampler codec input valid-service?) => #f)
+      (check-equal? decoded 1)
+      (check-equal? (list (.get restored x) (.get restored y) (.get restored enabled)) '(1 1 #t))
+      (check-exception ((.@ restored handler) 'invalid) TypeError?)
+      (check-exception (read-counterexample sampler codec
+        (open-input-string (string-append text " #!eof 99")) valid-service?) Error?)
+      (check-equal? decoded 1)
+      (check (replay-counterexample report) => #f)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample report) Error?)
+      (def stale-input (open-input-string text))
+      (check-exception (read-counterexample sampler codec stale-input valid-service?) Error?)
+      (check-equal? (input-port-char-position stale-input) 0)
+      (def fresh (consuming-product-sampler schema owner #f))
+      (check-exception (read-counterexample fresh (prepare-codec)
+        (open-input-string text) valid-service?) Error?)
+      (check-equal? decoded 1)
+      (standard.require-property-passed
+        ((property-action schema valid-service? identity sampler: fresh) configuration)))))

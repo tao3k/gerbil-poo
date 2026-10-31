@@ -4,6 +4,17 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+
+P58 closes portable handoff configuration and physical framing admission.
+Gerbil parameter contracts run before observers/computed metadata; standard
+reader EOF and a separately guarded physical EOF probe precede decoding. Invalid
+requests leave caller ports untouched; malformed input may be consumed and needs
+explicit fresh input. Revision/exception behavior and nested Function wrapping
+remain with their existing owners. Eleven finite Lean laws model request/source/
+framing order, assuming faithful host port operations rather than proving the
+reader or I/O rollback. See [P58](pbt-design-rfc.md#p58-portable-handoff-request-admission-and-physical-framing).
+
+
 P57 closes fixed-product decomposition and finite expansion ownership. Whole
 rows must match field width before callbacks; finite child lists and temporary
 pack rows are owned at their existing boundaries. Heterogeneous Record/Function

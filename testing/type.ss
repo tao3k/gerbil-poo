@@ -486,14 +486,16 @@
   (replayed-report report (testing.replay-property (.get report execution))))
 
 ;; Typed export preserves the existing report and generic source authority.
-;; Only completed executions have a portable core witness to admit.
-(def (write-counterexample report codec port)
+;; Only completed executions have a portable core witness to admit. Pure request
+;; contracts also precede any computed POO report/sampler metadata.
+(def (write-counterexample (report :~ object?) (codec :~ replay.codec?) (port :~ output-port?))
   (unless (.get report replayable?) (error "property report has no replayable generator"))
   (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
   (replay.write-counterexample (.get report execution) codec port))
 ;; Reuse the sampler's bounded domain without drawing or opening a new runner.
 ;; Application codecs reconstruct ordinary validated Record/Function carriers.
-(def (read-counterexample sampler codec port property policy: (policy (testing.make-policy)))
+(def (read-counterexample (sampler :~ object?) (codec :~ replay.codec?) (port :~ input-port?)
+                          (property : :procedure) policy: (policy :~ testing.policy? := (testing.make-policy)))
   (def sources (snapshot sampler []))
   (replay.read-counterexample codec port (property-specification sampler sources) property policy: policy))
 
