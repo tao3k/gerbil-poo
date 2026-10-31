@@ -1,0 +1,268 @@
+;;; Guarded finite data generation through the existing recursive Interaction.
+(export recursive-generator)
+(import :std/iter :std/error (only-in :std/list/list map-in-order)
+        ../object (only-in ../mop Any element?) ./generation-graph
+        (prefix-in ../recursive recursive.) (only-in :clan/poo/testing/property/generator random-at)
+        (prefix-in :clan/poo/testing/property/generator core.))
+;; Immutable finite derivations retain the selected Union branch and normalized
+;; scalar weight. They are private evidence, not user-injected source receipts.
+(defstruct derivation (node value children weight count sample tag) final: #t)
+;; Remaining visit quota flows through every sibling and failed alternative.
+(defstruct answer (value remaining) final: #t)
+
+;; A local deterministic source makes each request replayable from its explicit
+;; seed. Choices/seeds are fully consumed before a continuation is returned.
+;; Reuse existing carrier representations; transparent descriptors retain values.
+(def (pack node children (tag #f))
+  (case (node-kind node)
+    ((list) children) ((tuple) (list->vector children))
+    ((pair) (cons (car children) (cadr children)))
+    ((union) (car children))
+    ((sum)
+     ;; Preserve the selected label and exact payload at the existing constructor
+     ;; boundary. A custom maker cannot substitute a different branch or value.
+     (core.with-sources []
+       (def payload (car children))
+       (def value (core.with-sources [] (.call (node-descriptor node) make tag payload)))
+       (unless (and (object? value) (.has? value tag)
+         (eq? (core.with-sources [] (.get value tag)) tag)
+         (.has? value value) (eq? (core.with-sources [] (.get value value)) payload))
+         (error "Sum constructor must preserve tag and payload"))
+       value))
+    ((maybe) (if (null? children) (void) (car children)))
+    ((or-false) (and (pair? children) (car children)))))
+;; Combine one concrete constructor with already finite child derivations.
+(def (constructed index node children (tag #f) (original #f))
+  (make-derivation index (or original (pack node (map derivation-value children) tag)) children
+    (+ 1 (apply + (map derivation-weight children)))
+    (+ 1 (apply + (map derivation-count children))) #f tag))
+;; Proper-list admission is bounded and detects cycles by pair identity before
+;; invoking any recursive Type predicate or computing length on an unknown tail.
+(def (list-carrier value budget)
+  (def seen (make-hash-table-eq))
+  (let loop ((tail value) (left budget) (out []))
+    (cond ((null? tail) (reverse out))
+          ((not (pair? tail)) #f)
+          ((hash-key? seen tail) #f)
+          ((zero? left) (refuse-generation 'search))
+          (else (hash-put! seen tail #t) (loop (cdr tail) (- left 1) (cons (car tail) out))))))
+
+;; Compile only a finite descriptor graph. Bounds apply to grammar visits and
+;; emitted grammar nodes; primitive callbacks retain their own cost obligations.
+(def (recursive-generator descriptor depth budget descriptor-budget search make-generator scalar to-core)
+  (def graph (compile-graph descriptor depth budget descriptor-budget search scalar))
+  (def nodes (graph-nodes graph))
+  ;; Discovery already owns every descriptor/sampler/dependency epoch. Retaking
+  ;; snapshots here would both duplicate preparation and accept a mixed graph.
+  (def stamps (graph-stamps graph))
+  (def samplers (filter-map node-sampler (vector->list nodes)))
+  ;; Optional hook absence is fixed only while the captured sampler revisions
+  ;; remain current. Empty hook participants still check every captured stamp.
+  (def hook-samplers samplers)
+  ;; One graph observer is shared by all constructor nodes and deduplicated by identity.
+  (def (graph-current?) (graph-sources-current? stamps hook-samplers))
+  ;; Keep POO's precise refusal category. The existing transient check is scoped
+  ;; to preparation/evaluation and is never retained on a returned sample tree.
+  (def (check-graph!)
+    (unless (graph-current?) (refuse-generation 'stale)))
+  ;; Reuse the existing checked preparation scope. Graphs with any hook retain
+  ;; the original path; otherwise repeated .has? queries allocate no read leases.
+  ;; Adding an own/inherited hook revises a stamped owner before this path runs.
+  (core.with-generation-check check-graph!
+    (core.with-sources []
+      (when (every (lambda (sampler) (core.with-sources [] (not (.has? sampler .current?)))) samplers)
+        (set! hook-samplers []))))
+  ;; Compile each bridge once. A custom bridge may revise a captured dependency;
+  ;; the following bridge must then remain unevaluated.
+  (def scalar-generators
+    (core.with-generation-check check-graph!
+      (list->vector (map (lambda (node)
+        (and (node-sampler node) (core.with-sources [] (to-core (node-sampler node)))))
+        (vector->list nodes)))))
+  ;; Read a saturated minimum; zero depth never has an inhabitant.
+  (def (cost index level) (vector-ref (vector-ref (graph-costs graph) level) index))
+  ;; Scalar callbacks must supply natural weights; their failures are never false
+  ;; property results or reasons to choose a different Union alternative.
+  (def (leaf index node value (sample #f))
+    (def sampler (node-sampler node))
+    (def weight (core.with-sources [] (.call sampler measure value)))
+    (unless (and (exact-integer? weight) (>= weight 0)) (error "invalid shrink measure" weight))
+    (make-derivation index value [] (+ weight 1) 1 sample #f))
+  ;; Fold independent child requests with explicit residual quota, using the same
+  ;; Interaction bind that source-language recursive programs already use.
+  (def (children-action mode ids level remaining values seeds reserve?)
+    (def minimum (if reserve? (apply + (map (cut cost <> level) ids)) 0))
+    (let loop ((ids ids) (values values) (seeds seeds) (remaining remaining) (minimum minimum) (out []))
+      (if (null? ids) (recursive.value (make-answer (reverse out) remaining))
+        (let* ((reserve (if reserve? (- minimum (cost (car ids) level)) 0))
+               (request (list mode (car ids) level (- remaining reserve) (car seeds) (car values))))
+          (recursive.bind (recursive.request request)
+            (lambda (head)
+              (if (and (eq? mode 'inspect) (not (answer-value head)))
+                (recursive.value (make-answer #f (+ reserve (answer-remaining head))))
+                (loop (cdr ids) (cdr values) (cdr seeds) (+ reserve (answer-remaining head))
+                  reserve (cons (answer-value head) out)))))))))
+  ;; Choose only alternatives with a finite witness within this call's allowance.
+  ;; No rejection sampling or retry-on-exception is hidden in the draw operation.
+  (def (draw index node level remaining seed size)
+    (def random (random-at seed))
+    (def available (- remaining 1))
+    (def lower (- level 1))
+    (def ids (node-children node))
+    (def tag #f)
+    (unless (cost index level) (refuse-generation 'depth))
+    (when (> (cost index level) remaining) (refuse-generation 'nodes))
+    (if (eq? (node-kind node) 'leaf)
+      (let* ((sample (core.generate (vector-ref scalar-generators index) random size))
+             (value (core.sample-value sample)))
+        (unless (core.with-sources [] (element? (node-descriptor node) value)) (error "scalar generator left its descriptor"))
+        (recursive.value (make-answer (leaf index node value sample) available)))
+      (let* ((chosen
+          (case (node-kind node)
+            ((list)
+             (let* ((minimum (cost (car ids) lower))
+                    (width (if minimum (min size (quotient available minimum)) 0)))
+               (make-list (random (+ width 1)) (car ids))))
+            ((union sum)
+             (let* ((choices (filter (lambda (branch)
+                       (let (n (cost (cdr branch) lower)) (and n (<= n available)))) (node-branches node)))
+                    (selected (list-ref choices (random (length choices)))))
+               (set! tag (car selected)) (list (cdr selected))))
+            ((maybe or-false)
+             (if (and (cost (car ids) lower) (<= (cost (car ids) lower) available) (= (random 2) 1)) ids []))
+            (else ids)))
+             (seeds (map (lambda (_) (random 268435456)) chosen)))
+        (recursive.map-interaction
+          (lambda (children) (make-answer (constructed index node (answer-value children) tag) (answer-remaining children)))
+          (children-action 'draw chosen lower available (make-list (length chosen) size) seeds #t)))))
+  ;; Ordered bounded membership never invokes a container's recursively defined
+  ;; .element?. Failed alternatives spend quota; malformed/cyclic carriers refuse.
+  (def (inspect index node level remaining value)
+    (def available (- remaining 1))
+    (def lower (- level 1))
+    (def ids (node-children node))
+    (cond
+      ((eq? (node-kind node) 'empty) (recursive.value (make-answer #f available)))
+      ((eq? (node-kind node) 'leaf)
+       (recursive.value (make-answer (and (core.with-sources [] (element? (node-descriptor node) value)) (leaf index node value)) available)))
+      ((eq? (node-kind node) 'union)
+       (let loop ((choices ids) (left available))
+         (if (null? choices) (recursive.value (make-answer #f left))
+           (recursive.bind (recursive.request (list 'inspect (car choices) lower left 0 value))
+             (lambda (child)
+               (if (answer-value child)
+                 (recursive.value (make-answer (constructed index node (list (answer-value child))) (answer-remaining child)))
+                 (loop (cdr choices) (answer-remaining child))))))))
+      ((eq? (node-kind node) 'sum)
+       ;; Label admission precedes the payload getter. Only its captured branch
+       ;; is inspected, spending the same residual quota as any concrete carrier.
+       (def branch (and (object? value) (.has? value tag)
+         (assq (core.with-sources [] (.get value tag)) (node-branches node))))
+       (if (and branch (.has? value value))
+         (recursive.map-interaction (lambda (child)
+           (make-answer (and (answer-value child)
+             (constructed index node (list (answer-value child)) (car branch) value)) (answer-remaining child)))
+           (recursive.request (list 'inspect (cdr branch) lower available 0
+             (core.with-sources [] (.get value value)))))
+         (recursive.value (make-answer #f available))))
+      (else
+        (def values
+          (case (node-kind node)
+            ((list) (list-carrier value available))
+            ((tuple) (and (vector? value) (= (vector-length value) (length ids)) (vector->list value)))
+            ((pair) (and (pair? value) (list (car value) (cdr value))))
+            ((maybe) (if (void? value) [] (list value)))
+            ((or-false) (if value (list value) []))))
+        (if (not values) (recursive.value (make-answer #f available))
+          (let ()
+            (when (eq? (node-kind node) 'list) (set! ids (make-list (length values) (car ids))))
+            (when (null? values) (set! ids []))
+            (recursive.map-interaction
+              (lambda (children) (make-answer (and (answer-value children)
+                (constructed index node (answer-value children))) (answer-remaining children)))
+              (children-action 'inspect ids lower available values (make-list (length ids) 0) #f)))))))
+  ;; Value candidates preserve the selected Union branch. Lists may drop their
+  ;; contents; nullable constructors may become absent. Domain checks/strict measure
+  ;; descent and property failures are rechecked by the existing test runner.
+  (def (shrink witness remaining)
+    (def index (derivation-node witness))
+    (def node (vector-ref nodes index))
+    (def children (derivation-children witness))
+    (def value (derivation-value witness))
+    (if (eq? (node-kind node) 'leaf)
+      (recursive.value (make-answer (core.with-sources [] (.call (node-sampler node) shrink value)) (- remaining 1)))
+      (let (structural-count (if (eq? (node-kind node) 'list)
+                              (core.list-deletion-count (length value) 0) 0))
+        ;; Reserve the whole structural batch before invoking coordinate callbacks.
+        (when (> structural-count (- remaining 1)) (refuse-generation 'search))
+        (let loop ((rest children) (before []) (left (- remaining 1 structural-count)) (out []))
+        (if (null? rest)
+          (let* ((structural
+                   (case (node-kind node)
+                     ((list) (for/collect (candidate (core.list-deletions value 0)) candidate))
+                     ((maybe) (if (void? value) [] (list (void))))
+                     ((or-false) (if value [#f] [])) (else []))))
+            (recursive.value (make-answer (append structural out) left)))
+          (recursive.bind (recursive.request (list 'shrink 0 0 left 0 (car rest)))
+            (lambda (candidates)
+              (unless (list? (answer-value candidates)) (error "shrinker must return a finite proper list"))
+              (loop (cdr rest) (cons (derivation-value (car rest)) before) (answer-remaining candidates)
+                (append out (map (lambda (smaller)
+                  (pack node (append (reverse before) (cons smaller (map derivation-value (cdr rest)))) (derivation-tag witness)))
+                  (answer-value candidates)))))))))))
+  ;; The program's requests carry all quotas and seeds. No cross-run memo is reused
+  ;; for random/stateful callbacks; source observation depth remains independent.
+  (def (generate request)
+    (match request
+      ([mode index level remaining seed value]
+       (when (<= remaining 0) (refuse-generation (if (eq? mode 'draw) 'nodes 'search)))
+       (cond ((eq? mode 'shrink) (shrink value remaining))
+             ((= level 0) (if (eq? mode 'draw) (refuse-generation 'depth)
+                              (recursive.value (make-answer #f (- remaining 1)))))
+             (else (let (node (vector-ref nodes index))
+               (if (eq? mode 'draw) (draw index node level remaining seed value)
+                 (inspect index node level remaining value))))))))
+  (def program (.cc recursive.Generator. input: Any output: Any generate: generate))
+  ;; One observation is fresh and source-bound. A pending observation is a limit,
+  ;; never a source error or proof of divergence. Host exceptions propagate intact.
+  (def (run mode value allowance seed)
+    (core.with-generation-check check-graph!
+      (core.with-sources []
+        (let (result (recursive.solve program (+ (* 2 depth) 4) (list mode 0 depth allowance seed value)))
+          (when (recursive.pending? result) (refuse-generation 'observation))
+          (when (recursive.source-error? result) (error "unexpected recursive generation source error"))
+          (answer-value (recursive.value-result result))))))
+  ;; Decode with a finite grammar derivation; a value outside the depth-bounded
+  ;; domain is a refusal, not an assertion that its unbounded Type is empty.
+  (def (parse value)
+    (def witness (run 'inspect value search 0))
+    (and witness (<= (derivation-count witness) budget) witness))
+  ;; Finite constructor trees use the generic retained-sequence protocol. Scalar
+  ;; leaves keep their preimages; only nullable/list carriers permit deletion.
+  (def (sample-tree witness)
+    (def node (vector-ref nodes (derivation-node witness)))
+    (if (eq? (node-kind node) 'leaf) (derivation-sample witness)
+      (let (children (map sample-tree (derivation-children witness)))
+        (core.sample-sequence children (lambda (values) (pack node values (derivation-tag witness)))
+          min-length: (if (memq (node-kind node) '(list maybe or-false)) 0 (length children))
+          current?: graph-current?))))
+  (def sampler (make-generator descriptor
+    (lambda (random size)
+      (derivation-value (run 'draw size budget (random 268435456))))
+    (lambda (value)
+      (def witness (parse value))
+      (unless witness (error "value outside bounded recursive grammar"))
+      (def candidates (run 'shrink witness search 0))
+      (when (> (length candidates) search) (refuse-generation 'candidates))
+      candidates)
+    (lambda (value)
+      (def witness (parse value))
+      (unless witness (error "value outside bounded recursive grammar"))
+      (derivation-weight witness))
+    dependencies: (graph-sources graph)
+    generation: (core.make-tree-generator
+      (lambda (random size) (sample-tree (run 'draw size budget (random 268435456))))
+      current?: graph-current?)))
+  (.cc sampler .accept?: (lambda (value) (and (parse value) #t))
+      .current?: graph-current?
+      limits: (.o bind-these: #f depth: depth nodes: budget descriptors: descriptor-budget search: search)))

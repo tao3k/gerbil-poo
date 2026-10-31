@@ -1,0 +1,132 @@
+#+TITLE: Shared generic expansion and publication-stage controls
+
+* Construction and scope
+This advances generalized prototype/MOP future work. The opt-in
+~generic-family.methods.instantiate<-shared-expansion~ reconstructs one closed,
+immutable policy/cooked environment for a changed generic's seed and methods.
+It removes their duplicate expansion and two adapter closures. The extra
+registration-provenance callback remains charged separately. The default
+~Projection.~ keeps separate reconstruction for constructors that observe fresh
+identity or mutate reconstructed values. No new module namespace is introduced.
+
+~examples/shared-contracts.expanded-model / expanded-workflow-model~ compose this
+method with captured dynamic contract selection, existing constructors/wrappers,
+cooked interfaces, negative watches and joint approval. Actual call-count controls
+show cold reconstruction 6 -> 3 for three generics; invoice-only revision expands
+once, retains reserve's warm certificate and invokes against the current invoice.
+Registration and negative failures retain their service/phase, while warm-budget
+refusal retains the exact old publication. All 27 native test modules passed.
+
+Lean ~GenericFamily.SharedExpansion.shared_eq / patch_eq / negative_eq~ preserve
+constructor inputs, registration results and the negative decision on the same
+patched generic. Existing empty-seed/source/cache proofs remain required.
+~PreparationCosts.ExpansionCosts~ charges reconstruction, adapters and the extra
+guard; the publication bound requires the guard to fit the saving. The collection
+bound additionally requires an explicit budget for GC excess. No compiler,
+collector, mutable-pointer semantics or unrestricted Scheme equivalence is proved.
+
+* Fair native protocol
+Run ~just benchmark-metadata-paired~ in the package's normal Gerbil environment.
+This needs no Lean checkout or Python timing driver. There are 640 admitted fresh
+native children / 320 adjacent pairs: ten scenarios, natural/collected regimes,
+four ABBA rounds and four rotated comparison pairs among five controls.
+
+The controls are independent, uncaptured, captured dynamic, selection cache and
+shared generic expansion. The last uses exactly the dynamic contract source;
+selector/input/contract-only comparisons between those sides are A/A controls.
+Each child constructs and warms ALL controls in fixed order before measuring ONE
+side. Collected explicitly runs GC before sampling; natural does not reset it.
+Selector batches use 4096 repetitions, other stages 128. Child limit is 20s/1GiB,
+compile and aggregate limits are separately 90s. No local builds/tests overlapped
+timing. All records, binaries and full diagnostics remain ignored under .build.
+
+The driver admits complete source/binary-bound receipts only and reports pair
+ranges, direction, GC excess, allocation availability and prefix counters. Tests
+reject missing/duplicate/reordered/wrong-side/stale/incomplete/nonfinite data and
+incorrect allocation admission. Full prefix counter vectors and GC counts match
+in all 320 pairs; this still does not establish identical heaps or remove arbitrary
+temporal drift. Four pairs per row are finite local evidence, not significance.
+
+* Actual isolated stage observations
+Default captured-dynamic side from the directly matched shared-expansion pair;
+all times are microseconds per operation. CPU-GC is calculated within each sample
+before taking its median. Independent median columns must NOT be added. These
+callbacks have different semantic oracles, so isolated times must NOT be summed
+as a decomposition of full publication. Collections are per 128-operation batch.
+
+| Stage | Regime | CPU | GC CPU | CPU-GC | Collections/batch |
+|-------+--------+-----+--------+--------+-------------------|
+| selector | natural | 0.241 | 0.000 | 0.241 | 0 |
+| inputs | natural | 0.566 | 0.000 | 0.566 | 0 |
+| construct two descriptors | natural | 27.191 | 16.891 | 10.113 | 7 |
+| construct two descriptors | collected | 25.172 | 14.844 | 10.328 | 6 |
+| bind two descriptors | natural | 3.176 | 2.773 | 0.406 | 1 |
+| bind two descriptors | collected | 0.379 | 0.000 | 0.379 | 0 |
+| executor-only family rebind | natural | 6.113 | 2.570 | 3.547 | 1 |
+| executor-only family rebind | collected | 6.090 | 2.566 | 3.539 | 1 |
+| construct three generics | natural | 138.750 | 61.426 | 77.195 | 21 |
+| construct three generics | collected | 133.813 | 58.488 | 75.324 | 21 |
+| joint approval | natural | 16.805 | 5.688 | 11.117 | 2 |
+| joint approval | collected | 16.410 | 5.551 | 10.859 | 2 |
+
+The bind-only natural/collected difference is largely GC CPU in these batches;
+its residual remains about 0.4us. Executor-only rebinding avoids descriptor
+construction but still pays family guards/tables/traces and wrapper binding.
+The generic-construction stage is much larger than the selector stage here,
+motivating shared reconstruction rather than assuming selector micro-savings
+explain the full pipeline.
+
+Raw signed allocation counters are preserved. Admitted no-GC input batches report
+256.25 bytes/op, collected bind batches 512.25 bytes/op; these include measurement
+counter overhead. Full generic/joint batches collect and allocation is unavailable.
+Fewer reconstruction/adapter calls are established by instrumentation/modeling;
+exact full-publication allocated bytes or a GC bound are not inferred from them.
+
+* Shared expansion: direct paired comparison
+Negative delta means shared expansion is faster. Each row has four direct pairs;
+range is the minimum/maximum actual per-pair CPU delta. CPU/GC/residual columns
+are independent medians and need not add. Constructor/wrapper/admission semantics
+and dynamic contract selection are held fixed; this compares current strategies,
+not a historical-binary before/after claim.
+
+| Operation | Regime | CPU delta | GC delta | CPU-GC delta | CPU delta range | Faster pairs |
+|-----------+--------+-----------+----------+--------------+-----------------+--------------|
+| generics | natural | -24.102 | -11.223 | -12.879 | -29.164 .. -21.031 | 4/4 |
+| generics | collected | -20.484 | -9.281 | -11.203 | -24.492 .. -18.445 | 4/4 |
+| full joint | natural | -20.867 | -8.590 | -13.047 | -27.727 .. -18.086 | 4/4 |
+| full joint | collected | -16.012 | -6.793 | -9.316 | -25.344 .. -12.867 | 4/4 |
+| full workflow | natural | -21.449 | -11.727 | -11.680 | -33.250 .. -15.188 | 4/4 |
+| full workflow | collected | -16.414 | -7.945 | -8.469 | -25.055 .. -8.383 | 4/4 |
+
+Both observed GC CPU and residual CPU improve; it is not a selector-only saving.
+This does not establish how every allocation or collector cycle caused each
+microsecond. Keep sharing opt-in under the pure/immutable constructor contract.
+
+* Variability and remaining adverse results
+Selection-cache-only savings still do not predict end-to-end gains. Actual paired
+CPU deltas dynamic -> cached, including the negative samples:
+
+| Operation | Regime | Median delta | Actual range | Faster pairs |
+|-----------+--------+--------------+--------------+--------------|
+| joint | natural | -5.242 | -12.328 .. +4.070 | 3/4 |
+| joint | collected | +0.801 | -13.320 .. +5.266 | 2/4 |
+| workflow | natural | +4.953 | -8.922 .. +9.578 | 1/4 |
+| workflow | collected | +3.883 | -8.648 .. +13.344 | 2/4 |
+
+Captured selection itself saves about 0.059us natural / 0.050us collected, and
+selection-cache lookup another 0.183/0.185us in selector-only controls. The shared
+expansion selector A/A pair spans -0.005..+0.005us natural. Identical constructor
+pairs span roughly -0.98..+3.58us natural; identical approval pairs
+-1.55..+0.09us. These are observed noise references, not calibrated confidence
+intervals or permission to discard bad results. Previous regressions remain in
+[[file:paired-summary.org][historical paired controls]]. Selection caching remains optional.
+
+* Local source identities
+Gerbil 1cfb032, Gambit ea114fc. SHA-256:
+- generic-family.ss: =6ba75192ba2034e03d1842a2dc235ff5f2edaae7ab18946abf3c9efc5b8ba4cf=
+- native child source: =05816d884140f578755c7b7cadd7f0f32493668a513291ac2ab5a12244d24216=
+- native suite source: =9b3b9bfb1f88f7e78d01c9ff4f69a6d50140a7a941e64a775955c78ee023c0a1=
+- native binary: =93f265e3834666fa71937c59fabd919fe58bc86c550ca64e6bd779ae2bf81878=
+- complete local study: =796db1d01421207852cebd4456a839c3568fccc845ca95fb538d8d8d1b09db06=
+The native header binds all remaining runtime/example/driver digests. Only this
+concise summary is versioned; raw matrices, diagnostics and archives are not.

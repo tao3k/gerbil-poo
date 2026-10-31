@@ -1,0 +1,75 @@
+#+TITLE: Historical native joint revision cost observations
+
+These values qualify the recorded pre-paired source, not later selector changes.
+Reproduce that source with just benchmark-metadata. This run uses binary/output basenames joint-final/joint-final.scm.
+Historical matrix at Scheme commit af0fcbb: 600 rows, 75 phases, four rotating rounds,
+natural and pre-collected controls. Toolchain Gerbil/Gambit: (1cfb032 ea114fc).
+Native compile <=90s; measurement <=20s, 1-GiB heap; no simultaneous local Lean build/test.
+New stage/control pairs all use 128 operations equally on both sides.
+
+CPU medians per operation (us), finite local observations:
+| Phase | natural | collected |
+|-------+---------+-----------|
+| joint-input-shared | .645 | .645 |
+| joint-input-independent | 1.043 | 1.051 |
+| joint-input-direct | .328 | .305 |
+| joint-selection | .316 | .344 |
+| joint-unfactored-construct | 105.441 | 95.922 |
+| joint-construct | 17.223 | 19.402 |
+| joint-bind | .395 | .402 |
+| joint-family-shared | 21.539 | 23.793 |
+| joint-family-selected | 25.836 | 24.16 |
+| joint-generics | 100.895 | 115.707 |
+| joint-approval | 13.754 | 15.926 |
+| joint-cook | 9.516 | 9.562 |
+| unfactored-joint | 368.566 | 334.359 |
+| shared-joint | 231.098 | 249.199 |
+| independent-joint | 222.422 | 248.648 |
+| selected-joint | 255.75 | 249.598 |
+| unfactored-price | 139.074 | 130.211 |
+| shared-price | 120.312 | 128.711 |
+| selected-price | 116.902 | 129.027 |
+| workflow-unfactored-joint | 380.461 | 358.344 |
+| workflow-selected-joint | 290.941 | 272.215 |
+
+Unfactored constructors reconstruct the original input/output Types and Formula on each call;
+prototype specialization shares these invariants and supplies a fresh dependent meaning.
+Controls check the same positive calls and input refusals before constructor-only timing.
+Complete joint controls build three generics, two descriptors and two bound wrappers, run real
+joint approval, and make identical checked reserve/cancel calls. No changed approval is skipped.
+Binding isolation includes the real key/current-state executor adapter and metadata.wrap.
+Stage batches have independent GC histories; their medians cannot be summed as a request decomposition.
+Workflow controls also refresh the 15-node DAG: 3 evaluated, 12 reused, then the same joint publication.
+
+Selector weights are explicit operation prices; selection is charged, ties keep shared. Direct/shared
+semantics must agree for every closed input. Lean proves that equality and conditional cost bounds,
+including once-only template validation and amortization; it does not prove these CPU timings or cold process startup.
+The dynamic selector is optional and is not promoted to the default strategy. Final selected-vs-independent
+raw natural CPU regressed about 15 percent (255.750 vs 222.422 us); collected differs about 0.4 percent.
+Natural per-round collection counts differ sharply: selected/independent = 1/0, 21/0, 31/31, 24/32.
+Those histories prevent attributing the full total-CPU gap to selector arithmetic. Full GC receipts stay ignored.
+Invariant metadata reuse is the primary measured gain, not a universal selector speed guarantee.
+
+Collected input-only bytes/op (admitted only when every sample has zero GC and nonnegative delta):
+- joint-input-shared: 12033/4
+- joint-input-independent: 23297/4
+- joint-input-direct: 1153/4
+- joint-selection: 1/4
+- joint-bind: 2177/4
+Unavailable allocation is never counted as a gain. Full rows and signed counter diagnostics stay ignored.
+
+Earlier observations retained, not replaced by the new matched controls:
+- Prior 8-op natural-GC price retention regressed: 139.063 vs cold 122.312 us. A prior follow-up changed batch size only.
+- Prior shared/independent joint regression: 348.684 vs 338.934 us (~2.9%).
+- Pre-change 520-row stage study: shared 328.293 vs independent 327.398 us (~0.3%); construct 95.332, wrap-only 0.156 us.
+- Initial optimized 584-row study: unfactored 264.828, shared 203.301, independent 197.895, selected 198.926 us.
+The final study adds the shared settlement workflow and complete binding-adapter isolation; all bounds stay unchanged.
+Raw historical matrices, failures and source/binary snapshots remain under ignored .build/. No raw data or archives are committed.
+
+Study digest: 422f6fa7bb84951df878841412861c1b1af9d3d64b1ddff30aa8353aa88f40ba
+Binary digest: 6188126bf2a8867ce0f1f39ae1f8a784975f4f4bc9b47f267d777936ca758209
+Selected source identities (the raw header records every source):
+- contract-family.ss 43807fb3bb38acdc82f9d31cbe4b36c62aa5b09ca7ab578d29db616d8252e639
+- examples/service-metadata.ss a2f1aebe6a57f14b5146f5533dfda924ea4c99e0801c4f7f7943eb9e0c2e70c0
+- examples/shared-contracts.ss d2fc3966b0b4fd889198898cecabcdbc18bde92e5a3cd8b9f4fc67a1a630b1f4
+- benchmarks/metadata-benchmark.ss 4eb35b5c8d1e06734d543bd25985e821ad4fdc27b90a85bc448858a696a6df32

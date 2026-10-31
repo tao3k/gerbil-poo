@@ -1,7 +1,8 @@
 ;;; Prototypes, in the most universal sense.
 (export #t)
 
-(import (only-in ./support/base undefined))
+(import (only-in ./support/base undefined)
+        (only-in :std/list/list reduce-right))
 
 ;; If we could define types with constraints, it would be:
 ;; (deftype (Proto A B) (A ← A B) st: (<: A B))
@@ -16,12 +17,18 @@
 (def (compose-proto p q) (lambda (a b) (p a (q a b))))
 
 ;; compose-proto* : (Proto (A_ 0) (A_ (Card I))) ← (IndexedList I i: Proto (A_ i) (A_ (i+1)))
+;; Keep the small-chain identities and capture boundary: a long chain captures
+;; its head now, but reads its retained suffix at each application. Standard
+;; reduce-right owns that complete finite-list reduction, using its last layer
+;; directly rather than adding an identity wrapper. All layers are selected before
+;; any body runs; callback edits affect the next call. The standard list contract
+;; rejects an improper/cyclic revised suffix before invoking a prototype body.
 (def (compose-proto* l)
   (match l
     ([] identity-proto)
     ([p] p)
     ([p q] (compose-proto p q))
-    ([p . r] (lambda (a b) (p a ((compose-proto* r) a b))))))
+    ([p . r] (lambda (a b) (p a ((reduce-right compose-proto identity-proto r) a b))))))
 
 ;; We can define a bottom / zero element as a universal base function
 ;; that is member of all function types:

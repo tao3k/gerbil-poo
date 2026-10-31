@@ -1,0 +1,1369 @@
+#+title: macOS Scheme build preparation and bounded reuse
+
+* Dependency scope and rejected context sharing, 2026-10-30
+
+The shared CI library key now uses only GitHub's standard =hashFiles= footprint.
+Nested =t/= packages (including their =.scm= test bodies) are excluded, then
+=t/*.ss= is restored except =t/build-test.ss=. The root build imports =t/build.ss=
+and compiles the top-level test fixtures, so excluding the entire test directory
+would admit stale production/build inputs. Public compile/test jobs, deadlines,
+heaps and natural-exit admission are unchanged. This removes a confirmed source
+of redundant CI preparation; it is not a fix for first-image macOS validation.
+
+A temporary diagnostic using the official =@actions/glob= package checked the
+actual workflow patterns: 310 shared files were selected; root build helpers,
+shared fixtures, production includes and benchmark package inputs remained.
+Changing a nested test include or the source-only declaration test preserved
+the fixture key; changing the root-imported =t/build.ss= changed it. No scanner,
+secondary manifest, loader or Node dependency is added to the project. Lean's
+=sameBuildInputs_private_revision= and =sameBuildInputs_required_revision= state
+these conditional dependency laws, not artifact authentication or OS latency.
+
+The frozen =32a63ae= cohort retained 144 modules, 2081 cases and identical ordered
+case trace =b8a652d7d7dcf257fa4be45f31979ad90926737b599b974dcd6dd3ad800811f8=.
+Replacing six private compiler contexts with four reduced package preparation
+from 225.54 to 195.71 seconds, but the complete empty-project-prefix check
+regressed from 652.93 to 697.14 seconds. Root preparation and runtime execution
+also varied. The four-context change is withdrawn, including its special-case
+proofs: source-request reduction alone does not establish a wall-clock gain.
+A standard nested-module probe emitted five images for two submodules, so that
+route is rejected as well. Neither experiment changes the public loader.
+
+Identical-artifact copies were then exercised through =just check-built=, retaining
+all tests, declaration checks and both studies but excluding construction. The
+existing observer now explicitly labels =check= versus =check-built=; unknown
+entries refuse before starting a process. These diagnostic copies do not count
+as empty-project-prefix cold builds or an implementation speedup.
+
+| Execution control | Complete wall (s) | Preparation (s) | Post-report exit (s) |
+|-------------------+-------------------+-----------------+----------------------|
+| host, first order |            336.73 |          189.23 |                 7.57 |
+| host, reverse     |            374.00 |          218.87 |                 6.87 |
+| restricted, reverse |          356.73 |          205.13 |                 6.72 |
+
+Every row exited naturally with the same 144-module/2081-case trace. A separate
+restricted diagnostic reached successful inner completion but its outer =time -l=
+failed with EPERM; it is excluded from admitted complete wall comparisons. It
+also had a profiler attached. The reverse comparison reverses the host advantage,
+so changing execution permissions is not a demonstrated performance repair.
+The first host copy also had a brief concurrent file-copy interval and is not a
+high-precision treatment measurement. No global OS cache purge is claimed.
+
+A two-second loading sample contained 1719 observations in
+=dyld -> mapSegments -> fcntl=. That identifies the sampled waiting region;
+it does not identify the exact syscall command, total GC time or all 175--259
+seconds of loading. Fresh processes reusing identical artifact bytes still vary.
+The measured post-report window includes shell/pipe/reaping work; it is not an
+exclusive =dlclose= timer. No security policy, cleanup step or resource limit is
+weakened. The first-load variability remains open rather than being declared
+closed on the strength of successful case markers or a lower median.
+
+After integrating =4ca89f6=, the unchanged complete =just check= naturally passed
+in 340.22 seconds: 144 modules, 2107 cases, three source declaration checks,
+collection and generator studies. The observed build/prepare/cases/post-report/
+studies windows were 131.89/37.99/146.15/7.16/16.96 seconds. This reused the
+existing prefix while rebuilding changed inputs; it is neither a cold-build
+receipt nor a speedup comparison with the earlier 2081-case cohort. The current
+ordered case trace is =650127d387c7bf6e0e41917114fa2b20989c73ed1c8f5d088497aa3e673cbc60=.
+
+* System validation and standard make backend overlap
+The next controlled study froze source =3ba1b34= on a host reporting 12 physical
+and 12 logical cores. Root and startup compilation still receive the standard
+=GERBIL_BUILD_CORES=12=. Test packages previously used six official build CLIs,
+each with =GERBIL_BUILD_CORES=1=. This was a deliberate earlier allocation, not
+an absence of concurrency. A live process snapshot confirmed six package CLIs;
+a completed warm build took 41.35 seconds, including 23.33 for package checks.
+It did not establish that the allocation was optimal for cold compilation.
+
+In the installed =std/make=, =gerbil-build-cores= reads this standard variable;
+=settings-parallelize > 1= enables asynchronous GSC compilation. Setting each
+package to 1 therefore removes that overlap. The standard make also serializes
+imports with its import mutex and waits for dependencies: configuring 12 does
+not imply 12 independent backend jobs are ready immediately. No build script,
+compiler, importer, module registry or =module-action= is replaced in this change.
+
+** Separating validation, mapping and repeated loading
+A temporary =std/ffi= probe used valid copies of the actual compiled generator
+image. It registered the signature, called =F_CHECK_LV= and separately timed
+=dlopen=, retaining handles without invoking the Gambit module linker or Scheme
+initializers. Every admitted call returned success; malformed-image refusal is
+not counted as a zero-cost load. The probe is diagnostic code outside Git.
+
+| Operation on a real generated image             | Wall time |
+|------------------------------------------------+-----------|
+| First validation of a new copy                  | 438.562 ms |
+| Immediate validation of that same file          |   0.007 ms |
+| Same file, fresh Gerbil process                 |   0.010 ms |
+| New hard-link name for an already checked inode |   8.564 ms |
+| Byte-identical copy with a new inode            | 301.444 ms |
+| Separate sample: validate, then first dlopen    | 425.094 ms + 1.247 ms |
+| Separate unchecked copy: first dlopen           | 244.501 ms |
+| Immediate repeated dlopen                       |   0.058 ms |
+
+The unchecked =dlopen= used 1.366 ms of client process CPU; the prevalidated
+mapping used 1.240 ms. Validation after the unchecked load took 0.005 ms.
+This separates a first-file policy wait from mapping and repeated calls in this
+small image experiment. It neither measures Scheme initialization nor implies
+that every full-run image has the same cost or that every wait has one cause.
+The alias/copy control is consistent with file-identity-sensitive system reuse;
+it does not prove an undocumented cache's complete key or eviction discipline.
+
+The matching system log now identifies the service path. At 14:30:57.980 local
+time the kernel's AMFI records the probe copy's missing CMS blob; at
+14:30:58.418 =syspolicyd= records its =GK evaluateScanResult= and provenance
+processing. That interval matches the measured 438 ms. The linked image is
+valid ad-hoc/linker-signed code: =codesign --verify --strict= succeeds and the
+sample has no =com.apple.quarantine= attribute. The CMS diagnostic is not a
+final load refusal. XNU's [[https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_descrip.c][F_CHECK_LV implementation]] forwards the request to
+=mac_file_check_library_validation=. The host evidence thus identifies AMFI /
+Gatekeeper assessment through =syspolicyd=; it does not partition that daemon's
+internal scan, queue and IPC time. No signing, security policy or attributes are
+changed. Reusing existing standard artifacts preserves the demonstrated system
+cache benefit; another POO cache cannot remove first validation of a new file.
+
+** Complete cold AB and warm BA controls
+Each cold arm used a newly created empty standard =GERBIL_PATH=. Both ran the
+ordinary =just check 2 1 4= with the same source, installed release and guards.
+Warm trials reversed the order, B then A, against the same completed B prefix.
+Initial library/package preparation emitted zero compile jobs in both warm
+trials; the unchanged suite still runs its ordinary fixtures. All four complete
+entries exited 0, with 150 modules, 1867 cases, =OK= and =COLLECTION-PAIRED-OK=.
+
+| Wall seconds          | Cold A: 6 x 1 | Cold B: 3 x 3 | Warm B | Warm A |
+|-----------------------+---------------+---------------+--------+--------|
+| Root build            |        114.98 |        108.06 |  13.90 |  33.30 |
+| Startup build         |         16.55 |          7.26 |   2.93 |   5.16 |
+| Test-package build    |        294.08 |        201.28 |  40.96 |  60.62 |
+| Single-process tests  |        280.51 |        248.43 |  53.28 |  69.73 |
+| Collection study      |         16.72 |         20.07 |   9.03 |  11.80 |
+| Complete entry        |        724.32 |        586.67 | 121.58 | 182.09 |
+
+Cold complete wall improves by 137.65 seconds (19.0%); package wall by 92.80
+seconds. Aggregate cold user/system seconds are 1224.56/201.26 versus
+1121.50/166.72. B's cold package phase sampled up to seven simultaneous actual
+GSC processes; the configured package backend capacity is nine. The observer
+only reads process listings, avoiding dyld debugger attachment. Even unchanged
+root/startup phases vary, especially in the warm pair. Neither one cold pair
+nor one warm pair establishes stable tail bounds or attributes every difference
+to scheduling. The older 550.53-second cohort is not this control; a single
+current-source cold arm must not be described as a measured win against it.
+The single-process first-load cost remains substantial and is not declared closed.
+
+** Same allocation envelope, standard executor
+Let M=max(1,floor(cores/2)), the former package count. Use G=ceil(M/2) package
+CLIs and K=floor(2*M/G)-1 standard backends per package. G*(1+K)<=2*M, and the
+declared CLI/frontend/backend Gambit heap envelope G*(2+2*K)<=4*M GiB. At 12
+cores both package policies admit 12 modeled work slots and 24 GiB of declared heaps:
+6*(1+1+2) versus 3*(1+1+3*2). This is not an aggregate RSS or OS-thread bound,
+including C compiler children. The arithmetic was checked for core values 0
+through 256. Existing 1 GiB frontends, 2 GiB backends, focused/full deadlines
+and all POO acceptance remain. No new environment variable or scheduler is
+introduced: the existing xargs and official build CLI receive the redistribution.
+Root and package settings are printed explicitly as =BUILD-CONCURRENCY= progress.
+
+These paired receipts precede =2dead20=. That subsequent declaration-cache
+update is retained; integrated acceptance is separate from this timing cohort.
+Raw logs, system trace data and diagnostic build products remain outside Git.
+
+** Integrated admission and explicit clean recovery
+After retaining =2dead20=, an incremental build in B's former prefix failed in
+a root =std/make= worker with =Stack overflow= (exit 70, 71.93 seconds), before
+the revised test-package allocation ran. The failed prefix was not accepted or
+used to report a successful incremental check. No compiler processes remained.
+A new empty prefix, with the same 12-core root and unchanged guards, passed the
+root in 117.20 seconds and then the complete entry at =cbcfa9a= in 689.06
+seconds (1207.82 user, 183.48 system): 150 modules, 1871 cases, =OK= and the
+paired study. Startup/package/tests/study walls were 7.33/267.55/280.46/14.98.
+This integrated cold receipt includes the later functional update and is not
+the B arm of the earlier frozen-source comparison. Its CI passed all 53 checks.
+
+In the formerly failed prefix, the ordinary =gerbil clean= succeeded in 2.44
+seconds. The unchanged 12-core =just build-shared= then passed in 135.20 seconds
+(root 126.87, startup 8.26), without another overflow. This qualifies the targeted
+root recovery, not a full suite rerun in that prefix or a definitive cause of
+the original overflow. There is no automatic retry/clean fallback. Use the
+standard clean/build lifecycle for inconsistent artifacts; do not turn a failed
+prefix, successful recovery stage or one clean run into a claim of universal
+incremental correctness. All raw failure/recovery logs remain outside Git.
+
+* First-image validation: measured boundary and rejected representation policy
+A macOS follow-up separated two =fcntl= operations used by dyld. A temporary
+=std/ffi= probe in the actual released Gerbil process, against three fresh
+project images, measured successful signature registration
+(=F_ADDFILESIGS_RETURN=) at 0.109--0.179 milliseconds and successful library
+validation (=F_CHECK_LV=) at 0.421--0.475 seconds per image. A fresh-image probe
+outside the tool sandbox still spent 0.626 seconds in validation. This locates
+an operating-system validation boundary; it does not identify its underlying
+policy service or attribute the entire entry's residual wall time to that call.
+No security policy, signing, extended-attribute or compiler changes are retained.
+Apple's [[https://github.com/apple-oss-distributions/dyld/blob/main/dyld/Loader.cpp][dyld Loader source]] distinguishes these operations in image mapping;
+the host measurements, rather than that upstream source, establish these times.
+
+Gerbil already caches canonical module identities, initialization failures and
+load order. =module-action= retains that loader and resolves current bindings
+at execution. In a three-module trace, six distinct phase/runtime images were
+mapped once each. First import of freshly built images took 5.50 seconds, versus
+0.32 in a fresh process reusing the same files. This is not evidence of repeated
+initialization of the same identity, nor a measurement of every full-run load.
+Another one-second sample during the final candidate run contained 379/837
+main-thread samples under =dlopen=, including 348 under =notifyDebuggerLoad=.
+Sampling can itself affect image notification; this observation is not assigned
+as the cause of the preceding unobserved wait or the whole run.
+
+A candidate selected Gerbil's existing Scheme fallback for generated canonical
+forwarders containing only literal =load-module= calls. Runtime/macro phase
+bodies, interfaces and static objects stayed compiled. Its small independent
+import experiment improved from 1.52 to 0.25 seconds, but the complete entry
+failed to reproduce a consistent benefit. It is rejected: no generated-source
+rewriter, new loader/cache, extra build callback or test-package wrapper is
+retained. Standard =defbuild-script= and =gerbil clean/build/test= still own the
+entire compilation, freshness and execution lifecycle.
+
+An initial paired empty-prefix experiment on base =81732d5= took 503.24 seconds
+with compiled forwarders and 486.70 with the candidate. Both arms temporarily
+included a heavy IO dependency in the build helper; it was removed before the
+final experiment. A subsequent candidate warm run took 196.83 seconds, including
+69.17 seconds of test-package checking with no compile jobs. These observations
+did not qualify the later code or establish a stable complete-entry improvement.
+
+The final comparison on base =6701463= kept source, released SDK, six package
+builds, workload and guards fixed. Each arm used a different newly created,
+empty standard =GERBIL_PATH=, then the ordinary =just check 2 1 4= entry. Only
+automatic forwarding selection differed. Both passed 149 modules, 1861 cases
+(including the temporary policy regressions), and =COLLECTION-PAIRED-OK=.
+
+| Wall seconds           | Candidate | Compiled-forwarder control |
+|------------------------+-----------+----------------------------|
+| Root build             |    173.65 |                     105.76 |
+| Startup program build  |      7.53 |                       7.39 |
+| Test-package build     |    194.59 |                     169.89 |
+| Single-process tests   |    244.57 |                     251.62 |
+| Collection study       |      9.83 |                      14.70 |
+| Complete entry         |    632.25 |                     550.53 |
+
+Candidate/control aggregate user seconds were 1181.93/1124.39 and system seconds
+186.36/167.83. The candidate saved 7.05 seconds in the test phase but lost 81.72
+seconds over the complete entry. The candidate run includes the one-second
+sample above. One pair cannot allocate every difference causally, but the local
+import win clearly does not justify automatically changing all build outputs.
+The historical 570.35-second receipt belongs to another source cohort; 550.53
+is not claimed as a measured code-change speedup over it. The overall first-load
+performance problem remains open. No deadline, heap limit or POO acceptance is
+removed or relaxed; full raw data and experimental code remain outside Git.
+
+One independent publication defect is fixed: =testing/core/build.ss= was not
+executable, so its standalone official =gerbil build= failed before compilation.
+It now has executable permissions and the existing 1 GiB script guard. A direct
+regression checks the published file's execute bits and guarded interpreter,
+without nesting another compiler or runner. This correctness fix is not offered
+as an explanation or remedy for the hundreds of seconds of first-image latency.
+The temporary rejected-policy fixtures are removed with that policy; all prior
+POO acceptance remains, plus the publication regression.
+The standard final-design follow-up on base =6701463= passed all 149 modules,
+1860 cases and the paired study in 128.84 seconds wall (207.55 user, 31.09
+system). Its phase walls were 16.00, 2.99, 50.41, 49.89 and 8.17 seconds. The
+normal build refreshed changed test/helper sources first; this is incremental
+acceptance, not a third cold run. These timing receipts precede =8e2fad9=;
+that later declaration-index update is retained and verified separately.
+
+* CI progress volume and a real compiler-worker refusal
+After retaining =8e2fad9=, the complete local standard entry at =688555b= passed
+150 modules, 1867 cases and the paired study in 489.21 seconds (1032.79 user,
+146.60 system). Root/startup/test preparation took 85.78/2.97/153.71 seconds;
+tests and the study took 232.67/12.88. This refreshed dependencies after the
+integrated declaration update in the existing prefix; it is not an empty-prefix
+comparison with the earlier receipts.
+
+The first CI run of =688555b= failed in actual library preparation, not release
+download, queueing or artifact upload. The log records a worker =Stack overflow=
+at 05:38:35 UTC, followed by propagation of that refusal and exit 70 at 05:40:27;
+the root step took 206.76 seconds, below its unchanged 300-second deadline.
+It produced 110,903,069 bytes and 562,713 lines of output. Two archived-log reads
+failed with HTTP/2 cancellation/EOF; the official single-job log endpoint
+returned the complete log. Transport errors are distinct from the compiler error.
+
+CI had enabled =GERBIL_BUILD_VERBOSE=9=. In the installed =std/make= source,
+=settings-verbose>=? 9= forwards the compiler's per-call verbosity flag; it is
+separate from optimization, debug and compilation settings. CI now uses the
+same standard level 3 as the complete local entry. Module/job preparation,
+errors and the level-5 test runner's module/case markers remain. No check,
+compiler optimization, job bound, heap ceiling or deadline is disabled or
+increased. Removing this debug-output workload does not by itself establish
+the cause or absence of the worker stack failure; exact-head CI admission is
+required separately. The large raw log remains outside Git.
+
+* Incremental checks and package concurrency
+The 593.93-second receipt below includes source/dependency recompilation and first
+mapping of newly generated libraries. It is not the cost of an unchanged-source
+invocation. A 2026-10-28 follow-up held source =73cc87e=, the precompiled SDK,
+12-core setting, output prefix, full workload and guards fixed. Four complete
+=just check 2 1 4= runs used AB/BA order: A is three package builds with three
+backend slots each; B is six package builds with one backend slot each.
+
+| Order | Shared build | Startup build | Test-package builds | Complete tests | Collection study | Complete wall |
+|-------+--------------+---------------+---------------------+----------------+------------------+---------------|
+| A1    |        17.26 |          2.97 |               41.86 |          56.71 |             8.06 |        128.10 |
+| B1    |        14.56 |          3.13 |               27.59 |          52.52 |             8.13 |        107.27 |
+| B2    |        14.67 |          3.00 |               26.58 |          66.92 |             8.31 |        121.17 |
+| A2    |        13.76 |          2.95 |               42.53 |          54.31 |             7.72 |        122.34 |
+
+Every run passed 149 modules, 1850 cases and =COLLECTION-PAIRED-OK=, with zero
+actual compiler jobs. The test-package column measures all 25 standard
+=gerbil build= commands from launch through completion, not time to first log.
+The phase still imports/expands sources and checks dependency freshness.
+=std/make= imports each source to identify its module before deciding whether to
+build it; its expander registry reuses that context within the invocation. The
+same SDK and library contexts must be initialized in separate build processes.
+Its timestamp observations remain current, including dependencies rebuilt during
+the invocation. A retained POO value or a runtime module-cache hit cannot replace
+these checks.
+
+Package checking improves in both orders. Complete-wall savings are 20.83 seconds
+for A1/B1 and 1.17 for B2/A2: the test-process variation remains material. The
+observed B maximum is 121.17 versus A's 128.10, but two observations per policy do
+not establish a tail distribution. Whole user/system seconds are 173.68/24.79
+and 174.07/25.42 for A, versus 191.61/31.58 and 194.19/31.58 for B. Lower wall
+time therefore does not establish less CPU work or elimination of all repeated
+preparation. B2 also prints the new per-package progress labels.
+
+The local recipe retains its existing =xargs= and standard CLI, choosing
+=max(1, floor(GERBIL_BUILD_CORES / 2))= package builds with one backend each.
+There is no compiler limit of three packages. Six actual compiler frontends were
+observed during the empty-prefix run. On this host both policies admit at most
+12 compiler work slots. Waiting CLI parents are additional processes: counting
+their 1 GiB heaps, the 1 GiB script frontends and 2 GiB backend ceilings gives
+24 GiB in either policy: =3*(1+1+3*2)= versus =6*(1+1+1*2)=. These are declared
+Gambit heap ceilings, not an aggregate RSS bound including the C compiler. All
+original phase deadlines and focused/full checks remain. Shared-library builds
+and independent CI package jobs retain their own standard backend concurrency.
+
+A further empty-prefix B run passed the full workload in 570.35 seconds wall
+(1099.61 user, 169.70 system). Shared build took 129.00, startup build 7.63,
+test-package builds 159.85 and the test process 260.69 seconds. That test process
+used 48.74 user and 5.29 system seconds. Two separated one-second pre-case samples
+placed 861/885 and 873/891 main-thread samples in the macOS =dlopen= mapping
+=fcntl= path. They diagnose those windows, not the entire remaining wall time.
+The loader continued and all tests completed inside the original 300-second
+test gate. This run validates cold construction under the new policy; the older
+source-updated receipt is not an identical empty-prefix control, so no paired
+cold speedup is claimed. First-image latency remains unresolved.
+
+One shell timing field for the cold collection study was malformed (=11.:0=);
+it is not interpreted as a duration. The complete external =/usr/bin/time=
+receipt remains valid. The final recipe uses that standard command for each
+actual build/test/study, placing package timing after the input producer rather
+than relying on the shell's pipeline timer. No substitute test runner is added.
+With that final observer and per-package labels, a complete rerun against the
+completed cold prefix passed all 149 modules, 1850 cases and the paired oracle in
+103.15 seconds (185.84 user, 30.90 system). Phase walls were 13.77 shared build,
+2.99 startup build, 27.60 test-package checking, 49.40 full tests and 7.89 study.
+This is final-recipe verification with a completed prefix, not another cold run
+or a replacement for the AB/BA observations.
+These local measurements predate =9dd67df=. Integrating that later prototype
+update preserves these as =73cc87e= receipts; it does not turn them into timing
+qualification of the later source. Exact-head CI acceptance is recorded separately.
+
+* Library-only compilation and existing runtime cache use
+The 2026-10-28 follow-up inspected the installed release's =std/make.make-build=.
+An =exe:= anywhere in a build declaration enables static runtime object
+compilation for every library in that declaration. The former root declaration
+mixed the full library/example/study inventory with =representation-main=.
+Most of that inventory is dynamically loaded rather than statically linked into
+the shared foundation.
+
+The standard root build now composes a library-only declaration followed by the
+existing executable's =examples/build.ss= declaration. The independent property
+library remains first. These are ordinary =defbuild-script= components inside
+the same top-level =gerbil build= and original 300-second guard. No compiler
+options, worker/heap limits, POO acceptance or test packages are removed. The
+executable compiler owns its actual closure and object freshness. The root
+=gerbil clean= reaches the same components through their ordinary =main= entries.
+
+An empty-prefix complete =just check 2 1 4= on base =f42e8c6= plus this separation
+passed 149 modules, 1839 cases and =COLLECTION-PAIRED-OK= in 564.23 seconds wall
+(1099.92 user, 160.55 system). Its final static-object inventory contains 27
+objects, compared with 207 in the original completed prefix. Both the ordinary
+compiled libraries and the two real programs were built; the reduction does not
+omit their dynamic modules or any POO tests. The older 609.11-second receipt was
+a broad rebuild, not an identical empty-prefix control: these observations do
+not establish a paired wall-clock speedup or close the remaining latency issue.
+
+Before this change, an unchanged-source complete entry took 165.49 seconds:
+23.26 shared preparation, 4.69 startup preparation, 73.54 test-package
+preparation, 55.44 complete tests and 7.47 collection study. No frontend compile
+jobs ran. These are measured phase walls, not additive causal estimates of
+startup, dependency traversal or GC. The current recipe retains standard
+=time -p= phase output to make subsequent complete measurements reviewable.
+
+The empty-prefix test process spent a long interval before its first case. A
+one-second sample placed 853 of 888 main-thread samples inside the macOS
+=dlopen= image-mapping =fcntl= path. This identifies that window only; it neither
+attributes the complete run nor establishes a general loader defect. No signing
+changes, preloading stage or alternative loader were introduced.
+
+Self-application already has two distinct owners. The shared executable calls
+=io.module-action=; Gerbil caches successful initialization and initialization
+errors, while every invocation resolves the current explicit binding before
+calling it. The service's =checked-field-action= uses the existing indexed
+access-site cache and retains refinement before each consumer effect. Revision,
+reload, false/Function payload, refusal and retry tests remain active. Neither
+cache is a compiler-output cache. Sharing mutable access sites or retaining old
+callable bindings globally would change these semantics, so neither is used as
+a shortcut around preparation or first image mapping.
+
+After integrating =91ae012=, the same prefix was rebuilt and the complete entry
+passed 149 modules, 1850 cases and the collection paired oracle in 593.93 seconds
+(1098.99 user, 156.65 system). Phase walls were 121.89 shared build, 2.90 startup
+preparation, 201.22 test-package compilation, 255.18 full test process and 10.69
+collection study. The test process used 51.45 user and 5.75 system seconds; the
+remaining wall time is not labelled GC. Its static-object inventory contains 28
+objects. Source/dependency changes caused recompilation and first mappings, so
+this receipt is neither an unchanged-source warm control nor a second empty-prefix
+control. It validates the newer implementation with the original limits; it
+does not establish a complete-wall performance improvement.
+
+An attempted single =std/make= declaration for all 149 test sources exhausted
+the original 1 GiB frontend heap during eager import preparation. It was
+withdrawn completely; the existing 25 standard test packages and their existing
+parallel/resource policy remain. That failed experiment is not an accepted
+optimization or a reason to enlarge the heap.
+
+* Measurement boundary
+These receipts use the macOS ARM64 precompiled Gerbil release 1cfb032 / Gambit
+ea114fc, Homebrew package patch618d76f9eb72, GCC 16.2.0 and macOS 26.6.1.
+They are Scheme build measurements. Other hosts and proof-checker timings are not
+controls for them. The package does not build Gerbil or introduce Bazel.
+
+GERBIL_BUILD_CORES=12 was observed as twelve concurrent GSC descendants, rather
+than inferred from an environment variable. This limits backend workers; it does
+not parallelize every import or macro-expansion operation in one interpreter.
+
+The released std/make first imports root modules to prepare its completion table,
+then starts dependency coordinators and workers. Its import mutex serializes
+imports. Library interfaces can avoid repeated source expansion, but a complete
+source build still has mandatory expansion and generated-code costs.
+
+* Retained refusals and diagnostic receipts
+| Operation | Wall seconds | Result / boundary |
+|-----------+--------------+-------------------|
+| Complete monolithic source build, 1 GiB interpreter | 82.112 | Heap overflow before first backend; exit 70 |
+| All 121 test roots in one interpreter, shared interfaces | 141.06 | Heap overflow before first backend; exit 70 |
+| Twenty local functional compiler groups, two processes | 1203.02 | Whole deadline; twelve groups finished, incomplete |
+| Four disjoint test batches against completed shared bytes | 347.96 | All 121 roots compiled; exit 0 |
+
+The four-batch receipt is not a cold full build. Its batch durations were 125.741,
+125.407, 89.492 and 207.525 seconds; two batches run concurrently. Corresponding
+interpreter GC CPU seconds were 3.538, 3.290, 2.089 and 7.461. GC CPU is neither
+whole-process-tree CPU nor GC wall time. The whole duration includes startup,
+termination and the parent. Independent component durations must not be added
+and reported as a measured complete build.
+
+The original bare build entry did not explicitly cap the compiler interpreter's
+heap. The monolithic 1 GiB refusals diagnose behavior under the explicit guard;
+they do not establish the cause of an older unbounded seven-minute run. Tests
+retain their existing 1 GiB/default heap and 90/300-second bounds. Compiler stages
+now receive that configured interpreter bound, a 300-second stage deadline and
+an owned process group. The complete build retains the 20-minute ceiling.
+These are interpreter bounds, not a claimed aggregate RSS cap for GCC/GSC children.
+
+* Current build protocol
+The build entry uses the standard defbuild-script compile/clean/spec/meta
+protocol. std/make owns dependency and incremental decisions; explicit library,
+tests and batch arguments select only the project inventory and output location.
+GERBIL_PATH, GERBIL_BUILD_CORES and GERBIL_BUILD_VERBOSE are standard Gerbil
+settings. The extra project build-selection and observation environment switches
+have been removed.
+
+The outer resource boundary retains heap/deadline/process-group cleanup and a
+short-lived SSI-first test view. No local byte-generation cache, compiler
+fingerprint, source-generation receipt, producer lock or custom cleanup remains.
+CI source admission stays separate, using the existing Actions artifacts and
+complete semantic checks.
+
+* Historical measurement boundary
+The remaining receipts describe the source revisions and diagnostics named in
+each section. Their local cache and command/import observers were experimental
+and have been removed in favor of the standard build protocol. Historical warm
+cache results do not describe the current standard incremental path. No complete
+cold-build speedup is established by those receipts.
+
+* Reproduction and attribution
+Use an empty GERBIL_PATH outside the checkout for a cold run; repeat the exact
+command with the same path for a warm run. Keep the release and worker count
+fixed and retain /usr/bin/time -l output, standard make progress and exit status.
+The driver emits actual stage starts/ends and source-admitted cache hits. Full
+logs, traces, compiler artifacts and archives remain outside Git.
+
+The historical t/build-benchmark.ss collector recorded macOS process parentage and
+timestamped output in Scheme data. Sampling runs diagnose worker overlap;
+unwrapped runs qualify wall time. Sampling cannot identify very short processes
+or prove continuous worker occupancy. A GSC interval includes its C compiler and
+linker descendants. GCC -pipe permits C compilation and assembly to overlap;
+clang -cc1as is assembly, not a linker. Inclusive intervals must be unioned rather
+than blindly added. Import spans combine resolution, interface reading and
+expansion; they must not be relabeled pure macro-expansion time.
+
+The bounded-batch completion receipt establishes feasibility, not an end-to-end
+speedup ratio. Complete cold/warm measurements and exact-revision CI are required
+before publishing a complete-workflow performance claim.
+
+* First complete guarded candidate
+The first complete candidate used the uninstrumented build entry and empty output:
+759.99 seconds wall (576.08 user, 116.14 system), exit 0, all 304 source roots.
+Shared cleanup took 16.356 seconds, shared compilation 237.398 seconds, and the
+four test batches 276.905, 280.216, 104.793 and 207.213 seconds. This is not a
+qualified cold-build speedup. The earlier 347.96-second test-only diagnostic used
+a package directory containing previously compiled test products; it is not a
+matched isolated-shared-library control for the complete candidate.
+
+Repeating the exact candidate with its admitted complete byte generation took
+11.33 seconds wall (2.46 user, 0.79 system), exit 0, with no compiler stage started.
+The first complete single-process test run hit its unchanged 300-second deadline
+(305.54 seconds including forced termination), after 57 module completions. Its
+separate warm-loading control passed all 121 modules in 170.38 seconds (25.24 user,
+2.70 system). The cold refusal remains an open gate, not a warm pass.
+
+A two-second sample of the cold test startup contained 183/189 observations in
+dlopen -> Loader::mapSegments -> fcntl. This is a sampled loader wait, not a claim
+that 96.8% of the entire test duration has that cause. Generated bundles had
+linker-generated ad-hoc signatures and a provenance attribute. Apple dyld's
+[[https://github.com/apple-oss-distributions/dyld/blob/main/dyld/Loader.cpp][Loader implementation]] registers signatures and checks library validity in this
+path. The sample alone does not identify which fcntl operation or policy caused
+the delay. Source expansion, code generation and GC must not absorb that residual
+under an invented phase label.
+
+* Inventory dependency reduction
+The inventory module now contains only enumeration and batching. Source hashing
+stays in the existing artifact protocol; the matrix command uses standard JSON
+serialization in t/test-matrix.ss. The checked twenty groups and 121 test roots
+are unchanged. No handwritten JSON serializer or alternate inventory was added.
+
+A before/after/after/before metadata control on this macOS release, using empty
+package paths, measured 19.52 / 4.99 / 6.68 / 20.41 seconds. DYLD_PRINT_LIBRARIES
+reported 283 bundle loads before and 100 after. This qualifies metadata startup
+only; it is not a complete-build speedup ratio.
+
+A separate startup sample contained 817/819 observations under dlopen, including
+778 under dyld notifyDebuggerLoad. Unlike the earlier fcntl sample, this window
+shows image-registration work. Neither sample establishes whole-run attribution.
+Mapping all 431 generated project bundles with twelve bounded helper processes
+took 168.81 seconds. This standalone preflight was rejected: moving that work to
+another stage does not establish a shorter workflow. Signing changes were also
+not adopted.
+
+* Phase observation
+The former POO_BUILD_IMPORT_TRACE selected the public expander-import observer. Its Scheme
+records include wall intervals, interpreter CPU and interpreter GC CPU. The
+separate t/build-command.ss diagnostic executable records GSC, GCC and GCC
+-wrapper subprocess intervals using /usr/bin/time -p. Standard process ports
+inherit stdin/stdout, retaining GCC -pipe. Compiler diagnostics stream once;
+only three stderr lines are delayed to parse the time footer. Missing or invalid
+timing fields refuse metric admission, not the underlying command's exit status.
+
+The command observer is macOS-only; its pure timing parser has regression
+controls on every CI platform. Raw traces, diagnostic executables and generated
+products remain outside Git. Instrumented runs are diagnostic observations, not
+unwrapped wall-time controls. Nested command intervals and pipelined C/assembly
+must be unioned; import resolution/expansion and unobserved scheduler/parent work
+must remain explicitly distinguished rather than assigning the residual to GC.
+
+* Latest complete-build gate
+The unwrapped empty-output build at e40de6a96d0ff73880cfbb7a631d4c9939e2f218
+took 401.15 seconds and refused at the unchanged 300-second shared-library
+deadline, exit 70. All 42 CI jobs passed for that revision; that integrity result
+is separate from macOS cold-build acceptance. Compiler identity preparation took
+2.447 seconds, and the library stage began at interpreter uptime 76.912 seconds.
+No backend job started before refusal. This run does not qualify a cold speedup.
+
+A worker snapshot at 195 seconds elapsed showed 16.70 seconds CPU and about
+750 MiB RSS. A one-second stack sample then showed GC scanning. This does not
+make the remaining wall time GC cost: CPU, off-CPU waiting, loader registration
+and retained expansion state must stay distinct. Interpreter heap limits are not
+aggregate process-tree RSS limits, and the outer time command is not a complete
+per-descendant resource ledger.
+
+A temporary four-part library trial preserved root order and used standard
+std/make with completed SSI overlays, unchanged worker/heap/deadline budgets and
+the complete intended inventory. Its first part also missed the stage deadline.
+It is rejected and is not a shipped strategy. Earlier source grouping and
+signing/preload experiments likewise do not replace the failed cold acceptance.
+Full diagnostic data, source copies and binaries remain outside Git.
+
+* Successful library diagnostic: observed phase boundaries
+An earlier sampled library-only diagnostic completed 182 roots and 427 backend
+jobs in 283.139 seconds with twelve observed GSC descendants. Its first compile
+message occurred at 62.260 seconds. These are diagnostic boundaries for that
+source snapshot, not measurements for the complete e40de6a build.
+
+| Observed process | First observation (s) | Last observation (s) | Peak count |
+|------------------+-----------------------+----------------------+------------|
+| GSC | 69.405 | 276.227 | 12 |
+| C frontend cc1 | 69.405 | 273.373 | 12 |
+| Assembler as | 114.950 | 114.950 | 1 |
+| Link driver collect2 | 69.783 | 253.999 | 3 |
+| Linker ld | 69.783 | 253.999 | 3 |
+
+The 250 ms sampler misses short-lived commands; a single assembler observation
+does not mean one assembly job or zero assembly time. These first/last windows
+are not additive durations. Import/completion-table preparation precedes backend
+workers; parent expansion/code generation and dependency scheduling can overlap
+later jobs. Exact macro-only and scheduler-only wall totals, and a successful
+complete current-revision macOS cold build, remain open acceptance items. The
+command observer provides finer boundaries only on runs that actually reach
+those commands; an interrupted prepass cannot produce valid backend totals.
+
+* Admitted CI consumer entry
+The single-process CI job previously called =just build test-program=, ran the
+complete suite, and then called the standalone =just benchmark-collections=.
+That standalone recipe correctly owns library and executable preparation for an
+ordinary checkout. Re-entering it after artifact admission repeated both stages.
+In run 39889131748 the benchmark step recompiled shared modules for 88.37 seconds,
+then rebuilt/relinked the executable for 88.90 seconds; the workload compilation
+was 5.93 seconds and the actual study 1.51 seconds. These are Linux CI receipts,
+not macOS or proof-checker measurements.
+
+Gerbil's released =std/make= tests source/output/dependency timestamps, including
+SSI and static Scheme outputs. CI Actions cache admission instead checks complete
+source keys, compiler-output identity, group membership and the current revision.
+An admitted artifact is not a warm producer filesystem with its original freshness
+relationships. In this run the second library entry issued 141 shared compilation
+commands, followed by the executable and workload compilation. It was real work,
+not merely the time taken to enumerate dependencies.
+
+The job now retains the existing current-revision and complete disjoint-group
+admission, then times one =just _check-collections 2 1 4= entry. Standard
+=defbuild-script= constructs the consumer once. The entry runs the entire bounded
+single-process suite, compiles the collection workload through the existing
+standard consumer target, and executes every original phase/control. Public
+=benchmark-collections= still owns normal library/executable preparation; both
+routes share the identical =_run-collections= command. No new build-selection
+environment variable, timestamp rewriting, dependency resolver or cache format
+is introduced. Existing Actions caches remain the owners of cross-job reuse.
+
+The recipe-graph regression asks Just itself to resolve both routes. It checks
+one executable preparation in the admitted entry, library plus executable in
+the standalone entry, one workload compilation and one full study in each, and
+the original bounded whole-suite invocation. Existing stale/missing/extra-group
+and revision controls remain active. The interpreter heap is still 1 GiB;
+compiler/test stages retain their original 300/90-second deadlines, process-group
+cleanup and complete test inventory. The job still has its ten-minute limit.
+
+** Matched complete-entry warm control
+On the same macOS checkout and admitted compiled test/library bytes, the old
+three-command sequence and the new single entry were run in AB/BA order. Both
+execute 128 modules, 1,250 cases (including the new graph regression), and all
+111 study summaries with =COLLECTION-PAIRED-OK=. Standard Bash =time -p= wraps
+the complete entry, including Just/compiler startup, dependency preparation,
+whole-suite execution and the study; inner workload time is not substituted.
+
+| Order | Entry | Complete wall seconds |
+|-------+-------+-----------------------|
+| A0 | old three commands | 41.84 |
+| B1 | admitted single entry | 25.27 |
+| B2 | admitted single entry | 25.97 |
+| A3 | old three commands | 38.21 |
+
+Paired savings are 16.57 and 12.24 seconds. This is a two-pair warm local control,
+not a cold Linux CI speedup or a statistical tail-latency guarantee. It retains
+all outcomes and does not infer GC effects from wall time. The historical Linux
+CI preparation regression is verified separately from its completed job logs.
+Raw full logs remain outside Git; no full datasets or archives are committed.
+
+* Reusing the checked test executable
+Run 39891329319 measured 148.65 seconds for the complete admitted entry, including
+117.19 seconds in =test-program=. The executable backend was entered about four
+seconds after construction began. The remaining backend interval includes Gambit
+C generation, per-module static-object compilation and final linkage; the old
+verbosity does not isolate each subinterval. The installed separate-compilation
+driver's Linux branch queues this executable phase as one task and walks its
+object jobs serially. A larger make worker budget alone does not split that task.
+Cold-run standard =GERBIL_BUILD_VERBOSE=9 now exposes the actual backend commands.
+
+The existing Actions cache covered library and disjoint test-group outputs but
+excluded =bin/test-program=. The single-process job now caches that standard
+Gerbil executable after successful full acceptance. Its immutable key binds the
+existing shared source key, exact compiled library bytes, and ordered test-file
+inventory. The source key already binds release identity, OS/architecture and
+host compiler identity. The existing =setup-gerbil= action now computes that host
+identity once per job, including compiler, linker, libc and pkg-config OpenSSL
+version/flags. Producer, test compilers and executable consumer use that same
+output instead of separate implementations or selection environment switches.
+
+Test bodies remain bound by each group's existing complete source digest and
+current-run revision admission. A body-only edit preserves the executable's file
+inventory key while invalidating its group source key. Adding a test changes the
+inventory key; a missing declared test refuses before cache lookup. Regressions
+exercise these cases on a temporary complete source inventory, and ask Just to
+resolve miss, hit and standalone recipe graphs. A hit still runs the original
+whole-suite harness and every collection study phase with the same limits.
+
+A cold miss still constructs and checks the executable through =defbuild-script=.
+A hit checks executable permissions and uses =_check-linked-collections= after
+all source/compiler/group admission. The executable also retains its runtime
+inventory and linked-library checks. Standard Actions cache owns transfer and
+reuse; no second object scheduler or custom on-disk cache protocol is introduced.
+A genuinely new compiled library requires a new executable. Cache restoration,
+miss construction, full execution and cache save are distinct measured intervals.
+
+** Warm local entry control
+The same macOS compiled inputs were run in AB/BA order with full-entry Bash wall
+timing. A calls =_check-collections=; B reuses the same executable through
+=_check-linked-collections=. Every observation passes 128 modules, 1,251 cases,
+111 study summaries and =COLLECTION-PAIRED-OK=.
+
+| Order | Entry | Complete wall seconds |
+|-------+-------+-----------------------|
+| A0 | standard construction check | 42.77 |
+| B1 | checked linked consumer | 38.01 |
+| B2 | checked linked consumer | 31.15 |
+| A3 | standard construction check | 32.72 |
+
+The paired reductions are 4.76 and 1.57 seconds. These already-warm macOS objects
+are not a Linux first-construction control, and this local route comparison does
+not include Actions cache transfer. Linux miss/hit runs are qualified separately
+on the same source head, with cache lookup/restore included in their entry window.
+Cold compilation and tail-latency improvements are not inferred from a cache hit.
+
+* Cold executable construction and compiled module reuse
+The Linux release's separate executable compiler submits one task which walks
+all static object jobs serially. Its =GERBIL_BUILD_CORES= setting parallelizes
+ordinary module compilation, but cannot subdivide that task. Run 39900967167,
+attempt 1, exposed 93 object invocations: the interval from the first object
+command to final GCC linkage was 109.94 seconds. Gambit link/C preparation took
+another 11.50 seconds. The consumer construction took 130.35 seconds and the
+complete admitted entry 174.17 seconds. These are command timestamp intervals,
+not CPU profiles. The executable cache hit does not resolve this cold cost.
+
+Linux now builds a small standard =defbuild-script= executable and initializes
+the same complete runtime-root inventory with Gerbil's =load-module=. The loader
+reuses the library producer's numbered compiled bundles and owns dependency
+initialization, single evaluation, and failed-load propagation. No project object
+scheduler, compiler patch, additional environment switch, or object prewarming
+is introduced. Darwin retains static roots because its earlier cold bundle
+loading controls failed the unchanged whole-suite deadline.
+
+Both paths embed and check the same source inventory before invoking the
+unchanged released test harness. Linux additionally requires each loaded root
+at its exact managed library path and a numbered object extension: interpreted
+source, a different package path, a different module, and invalid bundle names
+refuse. Regression controls exercise these refusals and check an actual loaded
+library module on Linux. Existing compiler/source/group/revision admission,
+all test cases, all collection study phases, heap limits and deadlines remain.
+The reported initialization progress corresponds to actual loader calls.
+
+Cold qualification must show misses for library, test-group and executable
+caches, not merely delete the final executable while retaining static objects.
+Measure the complete admitted consumer entry, including runtime library loading
+in both the test and benchmark processes. Also report the whole workflow's
+critical-path wall time so ordinary library compilation and disjoint test
+compilation are not silently moved outside the claim. A changed artifact graph
+is not itself evidence of end-to-end speedup; cold CI acceptance supplies that
+separate measurement. Historical timings above retain their original boundaries.
+
+* Shared library cold-cost audit
+The cache-miss producer of run 39902961928 at a55bf38 took 135.78 seconds
+with the standard four-core budget. It compiled 187 module roots and submitted
+436 distinct backend filenames: no repeated backend filename appears in that
+invocation. The first module compilation message followed the entry by about
+15.83 seconds; the last frontend submission was at 33.72 seconds, and the first
+backend job message at 38.01 seconds. The remaining backend window was about
+97.78 seconds. These are log boundaries, not exclusive profiler spans.
+
+Standard make first imports the declared graph, reusing expander contexts, then
+coordinates dependencies and generates runtime/loader/macro output. Source
+reading, macro expansion and dependency discovery share that first interval;
+the following frontend interval also includes scheduling and code generation.
+Neither interval can honestly be reported as pure macro expansion. The released
+Linux compiler drains its standard pending backend queue after frontend work;
+the project's worker setting does not enable streaming overlap in that release.
+
+Gambit's process counters measured 46.41 parent CPU seconds and 6.96 GC wall
+seconds. Shell timing, including compiler descendants, measured 410.84 CPU
+seconds. Their approximate difference is 364.43 child CPU seconds across the
+97.78-second backend window, consistent with substantial four-core utilization.
+GC is already included in elapsed time; the counters and log windows must not be
+added together as independent phases. This evidence supports neither a disabled
+parallel build diagnosis nor a per-macro cost attribution.
+
+The current build graph, generated runtime/loader/macro outputs and source-key
+admission are retained. Standard compiler verbosity 9 on the producer now records
+actual backend commands alongside the consumer's existing trace. No project
+scheduler, extra environment switch, skipped output, source fallback or relaxed
+limit is introduced. Further overlapping of this compiler's frontend and backend
+belongs to a qualified compiler release. With no demonstrated project-level
+repeated compile left in this observation, work returns to the concrete collection
+TODO instead of expanding the build machinery. A new cold CI run must retain all
+producer/group/consumer cache misses and report the whole workflow separately
+from the admitted consumer entry.
+
+* Bounded failure recovery and current macOS cold controls
+The standard make implementation admits a gxc target from its SSI and static
+Scheme outputs. These precede completion of its deferred backend object. A killed
+backend can therefore leave metadata which makes the next make appear current
+although its runtime object is old. A zero exit from that metadata-only warm
+control is not runtime acceptance.
+
+All =just build= targets now use the existing bounded stage boundary. After a
+failed compiler process group is reaped, that boundary invokes the selected
+standard =clean= request, retaining its target/output and discarding compiler
+options, then rethrows the original failure. There is no new scheduler, worker
+budget, environment variable, artifact journal or hand-written file invalidation.
+=defbuild-script= and =std/make= continue to own cleanup, dependencies and reuse.
+A failed cleanup stops later compiler admission and retains both causes. A kill
+of the supervisor itself is outside this recovery guarantee; use =gerbil clean=
+before rebuilding after such an interruption.
+
+The regression fixture writes both early metadata outputs, is genuinely killed
+by a short fixture timeout, checks standard cleanup removed both, and then builds
+the same module successfully with the standard macro. Production compilation
+still receives 300 seconds / 1 GiB, and the complete build retains 1200 seconds.
+The eight compiler batches, two local batch workers and single-process semantic
+suite are unchanged. All normal make progress is inherited live.
+
+Current controls use the same installed release and standard 12-worker budget.
+Both initial runs first used standard clean and observed zero of 92 library SSI
+outputs. Generated runtime objects were rebuilt, but standard clean retains old
+numbered dynamic bundles. These rows are metadata/static-output clean controls,
+not empty-prefix or cold operating-system page-cache claims. Compiler
+optimization flags are unchanged.
+
+| Complete library entry | Wall seconds | User seconds | System seconds |
+|------------------------+--------------+--------------+----------------|
+| Standard clean, verbose timing diagnostic | 56.18 | 167.31 | 35.43 |
+| Standard clean, default progress | 61.72 | 166.27 | 36.04 |
+| Immediate standard warm build | 9.74 | 8.73 | 0.89 |
+| Entirely empty standard GERBIL_PATH | 60.42 | 163.06 | 34.68 |
+
+The empty-prefix follow-up first observed zero files under a fresh standard
+GERBIL_PATH, including zero numbered objects, static code and interfaces. Its
+table runtime was produced as table~0.o1. It retained the same compiler flags,
+standard worker budget and deadline, so its success cannot be an old-object hit.
+
+The default warm run emitted no compile jobs. In the diagnostic cold run, table
+frontend compilation started at 17.03 seconds, its backend job at 21.35 seconds,
+and the library stage completed at 53.79 seconds. Aggregate CPU exceeding wall
+confirms actual overlap; it does not prove continuous occupancy of every worker.
+
+A separate same-C control measured 61.75 seconds wall / 26.90 user seconds;
+GCC's standard phase-report repeat measured 24.14 / 23.73. The generated table
+contains 16248 labels and already exceeds the existing single-host threshold.
+An experimental standard optimized-module threshold measured 37.96 / 25.33 with
+higher peak RSS. This does not establish a stable benefit, so it was not adopted.
+The GCC report attributes 88 percent of its reported phase time to optimization
+and generation, including 70 percent in function expansion (an inclusive group).
+These phase groups must not be added as independent costs.
+
+The earlier 302.68-second cold refusal remains a failed observation. Its final
+outstanding backend and un-timestamped progress do not establish missing
+parallelism, a GC cause, or 300 seconds of table CPU. The current successful cold
+controls are not a causal speedup ratio against that older run. They establish
+completion within the unchanged bounds, while the independently reproduced
+partial-output bug has an explicit recovery regression. Full raw compiler logs,
+objects and timing data remain outside Git.
+
+The linked executable control also exposed why ~~bin/gxi is unsuitable as a tool
+locator: it resolved to the compiler release producer's directory, not this installation.
+The boundary now invokes the same public gxi launcher as just. The Gerbil launcher
+owns relocation and runtime activation; no compiler-installation absolute path or extra project
+environment variable is introduced. The temporary build-script fixture uses an
+ordinary quoted build-spec list so compiled datum writing preserves its syntax.
+Consumer construction tests inspect the actual bounded target invocations,
+retaining the original one-consumer and complete-harness assertions.
+
+A second entirely empty standard GERBIL_PATH completed in 51.22 seconds wall,
+162.10 user and 34.44 system seconds (library stage 48.97). Its preflight also
+observed zero files. Both empty-prefix runs retained the 300-second compiler
+bound, natural GC, original optimization flags and automatic 12-worker budget.
+A standard consumer-clean follow-up removed all 92 library interfaces as well as
+its consumer outputs, verifying cleanup reaches owned prerequisites.
+
+The benchmark compiler wrapper shares this recovery boundary while forwarding
+its original 90-second bound, or its existing explicit 300-second override.
+The ordinary compiler stage remains 300 seconds. The supervisor's existing
+1200-second ceiling never extends a compiler stage. No failed compilation is
+retried automatically or reported successful after cleanup.
+
+* Empty-prefix macOS executable construction
+The 2026-10-28 investigation used the installed Gerbil 1cfb032 release, Gambit
+ea114fc and its Homebrew patch618d76f9eb72 build, GCC 16.2.0, unchanged compiler
+flags and the standard automatic 12-core budget. These are macOS observations;
+they are not Linux CI timings or cold operating-system page-cache measurements.
+
+The earlier =benchmarks/checks= configuration disabled =std/make= parallelism for
+both consumers together. In the installed implementation that also passes
+=parallel: #f= to executable compilation, disabling concurrent backend objects.
+The empty-prefix reference reached the unchanged 90-second executable gate while
+compiling dependency C, before the first consumer's final compiler/link command.
+A sampled table object compilation used about 40 seconds; its generated C was
+about 13 MB. That observation identifies real C compilation, not 90 seconds of
+linker work or a proved GC cause. The reference's complete shared-build command
+failed with exit 124 after 233.08 seconds, including its successful root build.
+
+A diagnostic repair retained both consumers but let standard makes finish in
+sequence while preserving their backend workers. Their internal elapsed times
+were 50.62 and 3.42 seconds under the original shared 90-second gate. This is
+localization evidence for the former design, not current complete acceptance:
+its later verbose single-process test stage was killed before completion.
+
+The current design instead removes the duplicate collection executable. Complete
+collection acceptance uses the root package's existing =representation-main=
+entry and ordinary module loading. The small startup reference remains a normal
+=defbuild-script= package with backend parallelism and its original 90-second
+bound. No scheduler, new environment control, compiler option or alternate
+loader is added. The startup-package regression executes its actual declaration
+against a shared fixture, checks metadata and program results with two standard
+backend workers, verifies unchanged executable timestamps on a warm build, and
+checks that standard clean removes the executable.
+
+The old default output directory additionally contained a new helper interface
+beside older higher-numbered runtime bodies. The installed runtime chooses the
+last contiguous numbered body; standard make clean does not remove all such
+bodies. Reusing that directory produced a segmentation fault in the helper's
+multiple-values case, whereas its empty-prefix control returned both values.
+A metadata-only no-op is therefore not evidence of a coherent interrupted cache.
+Current acceptance starts with an entirely empty standard =GERBIL_PATH= and
+uses the ordinary =just check 2 1 4= entry, including every compiled test module
+and the complete collection paired study. Raw compiler logs and outputs remain
+outside Git.
+
+The final current-design empty-prefix =just check 2 1 4= exited 0 in 584.52
+seconds wall (1180.02 user, 183.87 system). All 150 compiled modules and 1856
+cases passed in the single process, followed by =COLLECTION-PAIRED-OK=. This is
+the entire build/test/study entry, not the 90-second startup-build phase. Root
+and test-package compilation and single-process execution kept their separate
+300-second gates; startup construction kept 90 seconds. All phases passed.
+
+The immediate same-prefix =just build-shared= took 16.26 seconds wall (14.61
+user, 1.47 system), emitted zero compile jobs, and preserved the timestamps of
+both programs and the table object. This establishes standard warm reuse for
+this cohort, not zero-cost dependency traversal or a cold/warm speedup estimate.
+
+A one-second macOS sample during test preparation found 761 of 797 samples in
+=dyld= segment mapping through =fcntl=. At an earlier process observation,
+95 seconds elapsed corresponded to about four seconds CPU. These observations
+identify dynamic-image loading/validation in that interval; they do not charge
+the entire run to GC, linker CPU, or a particular operating-system service.
+The public test harness and its module/case progress remain unchanged.
+
+* POO build-boundary ownership and the focused 90-second gate
+This section records the earlier experiment. The subsequent ownership audit
+removed the infrastructure-only =t/tools/build-test.ss= suite: packaging checks
+now live in =just check-layout=, recipe-text and generic forwarding self-tests
+are retired, and compiler failure draining remains source-only build support.
+All POO behavior assertions remain; lifecycle coverage moved to =t/objects=.
+The timings below are historical and do not measure this refactor.
+
+The 2026-10-28 follow-up reproduced =just test-atomic build= reaching its original
+90-second deadline. Its outer observer reported 91.20 seconds including process
+termination. The module repeatedly nested package builds and test runners inside
+a standard test run. A complete 300-second acceptance pass did not close this
+focused gate.
+
+Diagnostic commands on one synthetic package measured 0.13 seconds for the
+released CLI's version request, 4.48 for an empty-prefix package build, 2.33 for
+an unchanged package build and 1.84 for one compiled test invocation. These are
+whole child-command boundaries, including startup/preparation. They do not
+isolate fork, module loading, C compilation or GC as independent additive costs.
+The observed parent runner reached its first case at about 1.73 seconds.
+
+The user confirmed the ownership boundary: preserve all POO acceptance and
+remove duplicated Gerbil CLI self-tests. The build module now contains five
+POO-owned cases. Its multiple-value, false-exception and exception-identity
+assertions are unchanged; the public-path assertions formerly embedded in a
+cold dummy build have their own case. The resource-recipe assertions remain.
+Generic make freshness, argument parsing, source/discovery and test-runner
+failure replicas are removed from POO. The dummy startup package, fixture
+factory, command dispatcher and fixture timestamp helper are removed too.
+Gerbil's own validation owns those tool contracts. This change makes no new
+claim about acceptance of the compiler itself.
+
+The actual library, startup executable, examples and paired study retain their
+standard top-level Gerbil build/test commands. All domain checks and resource
+bounds remain. Before changing the test declarations, the old tools package was
+cleaned through =gerbil clean=. The rebuilt output inventory has 149 test
+interfaces; the retired dummy startup interface is absent. The previous
+150-module / 1856-case receipt remains historical: this ownership correction
+replaces 24 mixed build cases with five POO cases and removes one dummy case.
+
+The complete compiled POO build-boundary module then passed in 2.24 seconds wall
+(1.09 user, 0.25 system), and the source-file entry passed in 1.62 seconds
+(1.09 user, 0.23 system). Both executed all five cases under the original
+90-second gate with module/case/harness markers. These figures describe the
+corrected POO acceptance scope, rather than a speedup ratio for the withdrawn
+CLI self-test workload. CI now enforces the focused gate as a tools-job step,
+before the existing complete tools-package and single-process checks.
+
+The complete pre-integration =just check-built 2 1 4= also passed: 149 modules,
+1836 cases and =COLLECTION-PAIRED-OK= in 92.84 seconds wall (64.99 user, 7.13
+system). This reused already compiled, source-consistent project artifacts;
+it is not an empty-prefix build or a substitute for the focused gate.
+
+* Root compiler heap and concurrency admission
+
+See [[file:compiler-admission.org][root compiler admission]] for the historical worker refusal,
+GC controls and the current 2 GiB environment-controlled build policy.
+
+* Finite-carrier update: complete rebuild versus repeated preparation
+The 2026-10-28 finite-carrier admission change kept all package declarations,
+checks, compiler flags and limits. Its complete local build took 328.69 seconds:
+84.22 seconds root, 2.87 startup and 241.60 test packages. An earlier 89.61-second
+root build was duplicated after an edit to its source comment during the build.
+That repeated source invalidation is workflow overhead, not a POO query cost or
+an accepted compiler optimization. Finish source edits before the standard build;
+do not forge timestamps or introduce alternate freshness checks.
+
+Two unchanged-source repeated full builds emitted zero frontend compilations and
+zero backend jobs. Their root/startup/package walls were 15.13/3.10/85.24 seconds
+and 14.34/2.96/54.28 seconds; inclusive walls were 104.23 and 72.07 seconds. User
+CPU was 140.68 and 133.20 seconds, respectively. The latter was instrumented and
+is not an optimized arm or a causal speedup. The existing standard cache reused
+products; repeated module preparation and process boundaries remain real costs.
+
+A one-second sample of an active contracts-package compiler contained expander
+syntax/core and collector scanning frames. It does not establish whole-entry
+percentages, a GC-only explanation or the cause of wall residuals. The installed
+gxpkg multiple-package entry itself invokes each package build script in a child
+process; it does not supply a shared compiler VM across their standard makes.
+
+A bounded temporary experiment exported the existing package mains, imported the
+standard source-location macro, and invoked their unchanged make declarations in
+one compiler process. It reached the fifth package before the existing 1GiB heap
+bound refused it (exit 70, 30.93 seconds). That experiment was rejected; all
+experimental exports/imports were removed. No larger heap, grouped scheduler,
+secondary cache, source scanner, new namespace or replacement package entry is
+retained. The large complete rebuild and repeated preparation are not declared
+solved. A further standard-make improvement must preserve dependency/extra-input
+currentness and the existing memory bound rather than hide failed preparation.
+
+These local controls preceded the separately user-authorized 2GiB root-heap
+update; they are historical 1GiB-root receipts, not measurements of the integrated
+2GiB policy. Integration preserves that authorized policy, standard environment
+concurrency, 1GiB independent test processes and all existing time gates. The
+finite-carrier runtime/test sources are unchanged by this build-policy merge.
+
+* Parallel standard package preparation within the existing budget
+The package stage still uses the same ordinary =gerbil build= commands and all
+25 package declarations. At 12 configured cores its allocation changes from
+three independent packages with three standard-make workers/backends each to
+four packages with two each. The existing =xargs= entry is retained; no scheduler,
+manifest, cache, environment variable or compiler modification is added. The
+repartition is selected only when it increases independent package capacity and
+keeps asynchronous backend submission. Small allocations retain their existing
+policy. Root standard concurrency and its separately authorized 2 GiB heap are
+unchanged; package CLI/GXC heaps remain 1 GiB and GSC heaps 2 GiB.
+
+Both configurations declare 12 process/executor slots and a 24 GiB aggregate
+Scheme heap envelope; aggregate GXC workers/GSC capacity falls from nine to
+eight. These quantities exclude C compiler RSS, mappings and C stacks. The
+companion Lean model proves the general capacity/heap inequalities and selected
+asynchronous-backend count, not a physical-memory or wall-time guarantee.
+
+An unchanged-source, same-prefix ABBA preparation control executed all 25 packages
+in every arm, with zero frontend or backend compilations. Walls (seconds) were
+A1 42.28, B1 37.55, B2 32.45, A2 40.90. Both ordered pairs favored B by 4.73 and
+8.45 seconds; means were 41.59 versus 35.00. User CPU was respectively 103.32,
+112.94, 106.96 and 101.49 seconds: this is better preparation overlap, not less
+computation or a GC-only explanation. Two pairs do not establish a stable p99.
+
+A complete rebuild with the new allocation took 251.81 seconds: root 82.75,
+startup 2.94, test packages 165.63. It used an existing prefix and recompiled 147
+test modules, so it is neither an empty-cache receipt nor a matched causal ratio
+against the earlier 328.69-second/1-GiB-root run. Its full check passed all 150
+modules and 1,876 cases plus the complete paired benchmark; inclusive check wall
+was 233.96 seconds. Existing deadlines, checks, negative controls and resource
+limits are retained. Raw logs stay outside the repository.
+
+To separate that partial rebuild from cold package preparation, both allocations
+were then run after the same standard =gerbil clean= on the 25 test packages,
+retaining the same root/library products and unchanged test sources. The old
+3-by-3 allocation took 155.53 seconds (user 709.69, sys 76.99); the new 4-by-2
+allocation took 143.48 (user 718.73, sys 76.71). Both recompiled all 150 test
+modules. This single ordered cold pair favors the new allocation by 12.05 seconds;
+it is not an empty-cache whole-library comparison or a stable-tail guarantee.
+Concurrent verbose output interleaves some backend lines, so textual job counts
+are not used as exact artifact-inventory proofs. Complete checks admit the
+resulting products. No CPU-reduction claim is made.
+
+* Complete cold-check phase observations
+
+The exact-clock observer lives in the existing representation startup benchmark
+and invokes the unchanged public =just check 2 1 4 600= entry. The parent is
+already built; each child project prefix is initially absent. Compiler and OS
+file caches are retained. This definition does not claim cold OS caches.
+
+Baseline =2e7ffa2= completed naturally in 681.08 seconds, with 149 modules and
+2,065 main cases plus the three source-declaration cases. Library, startup and
+test-package preparation took 127.74, 8.34 and 216.79 seconds. Exact parent ticks
+partition the observed lifetime as follows (seconds):
+
+| build/preparation | test imports/init | cases | report | post-report exit | later checks/studies | reap |
+|-------------------+-------------------+-------+--------+------------------+----------------------+------|
+|            353.71 |            143.14 |145.78 | <0.001 |             7.70 |                30.18 |<0.001|
+
+The standard full-test command reported 296.20 wall, 122.11 user and 9.25 system
+seconds; it is a different wrapper boundary from the parent tick partition.
+The complete outer wall also includes parent process startup and cleanup.
+
+Two short import-window samples predominantly observed =dlopen -> mapSegments ->
+fcntl=. After 115 seconds the main test process had about 5.4 CPU seconds. These
+support mapping-wait attribution within that sampled preparation window, not a
+GC percentage or ownership of all elapsed time. A later sample found actual
+POO/recursive-generator/hash execution. Deferred loading can also occur after
+HARNESS start. The required isolated property-library build and test took about
+28.47 and 6.96 seconds inside case execution; they remain part of acceptance.
+
+The earlier 742.39-second observation is a different source/history cohort and
+is not an optimization ratio against this baseline. Every cold comparison must
+retain all cases, successful process exit, later checks and cleanup. No process splitting,
+manual unloading, interpreted-loader fallback or security-setting bypass is used.
+
+** Reject image coalescing as a standalone speedup
+
+Fixture-free ordered collection suites were coalesced in =23587eb= without
+changing their four export names or 130 ordered cases. All includes are explicit
+standard-make inputs; a shared private error predicate replaces four copies.
+All complete runs retained the identical ordered main suite/case SHA-256
+=dc17eff57302d330f5a39a611da37abb937674e8c08a5e9fd18dd00f45a5bfc0=.
+The 25 CI packages and every case/cleanup remain. Physical test modules were
+149 in A and 146 in B; each completed 2,065 main plus three declaration cases.
+
+The observed ABBA whole-entry walls were 681.08, 621.48, 671.08 and 628.08
+seconds. The first pair favored B by 59.60 seconds; the reverse pair favored A
+by 43.00. Means (654.58 versus 646.28) and observed maxima (681.08 versus 671.08)
+are insufficient to admit a stable speedup. A1/B1 had four two-second diagnostic
+samples each at different execution points; B2/A2 had none. No sample time is
+subtracted from any whole wall. This failed to confirm the intended optimization.
+
+| arm | build/preparation | import/init | cases | post-report exit | later studies | outer wall |
+|-----+-------------------+-------------+-------+------------------+---------------+------------|
+| A1  |            353.71 |      143.14 |145.78 |             7.70 |         30.18 |     681.08 |
+| B1  |            325.53 |      161.03 |106.74 |             7.05 |         21.08 |     621.48 |
+| B2  |            344.04 |      165.27 |125.82 |             7.27 |         28.64 |     671.08 |
+| A2  |            325.94 |      161.92 |110.47 |             7.33 |         22.39 |     628.08 |
+
+These are boundary observations, not exclusive GC/dyld ownership or stable
+population quantiles. During this audit the ordinary Just dependency threads
+also acquired worker slots in different orders; six package start orders must
+not be assumed identical simply because the declaration order is identical.
+No replacement scheduler or artificial import dependency was introduced.
+
+A subsequent diagnostic found that the combined ordered suite was a single C
+host under the released compiler's default unlimited setting. The main table
+already uses Gambit's existing =___SINGLE_HOST_LIMIT=10000= setting. Applying
+that same setting to the combined test target is a separate candidate, not part
+of the failed standalone image-coalescing claim above. Interrupted or incorrectly
+configured preparation is excluded from admission and paired timings.
+
+** Reject the bounded-host candidate too
+
+The separate candidate =9c1e49a= retained the primary query body in its existing
+866-line owner and used only three related standard includes. The prefix helper
+preserved the ordinary GSC flags. The actual compiler command received the
+existing =-cc-options -D___SINGLE_HOST_LIMIT=10000= setting; generated source had
+12,822 labels. After complete exit, the output showed 15 C hosts instead of one.
+Thus the setting was active, not an ineffective flag. Output images were not
+read before cold execution; parameter checks used process arguments and the C
+source header. The interrupted, wrongly configured local preparation was stopped
+through its existing timeout guard and excluded from all accepted observations.
+
+Unprofiled A2/C1/C2/A3 whole-entry walls were 628.08, 597.68, 617.12 and 592.08
+seconds. C won the first pair by 30.40 seconds but lost the reverse pair by
+25.04. Means were 610.08 versus 607.40 seconds; a 2.68-second mean difference
+with opposite pair directions does not establish an improvement. The respective
+observed maxima (628.08 and 617.12) are not stable tail/quantile evidence.
+The indexes-package user CPU observations also increased: 123.25 to 142.86
+seconds in the first pair, and 119.57 versus 155.10 in the reverse pair.
+
+All arms naturally exited, retained all 2,065 main cases plus three declaration
+cases, and had the same ordered case digest. Both coalescing and its additional
+host setting were withdrawn: the final implementation retains the original 149
+physical modules, declarations and compiler policy. Git retains the rejected
+source revisions for reproduction; raw logs, generated products and samples
+remain outside the repository. Only the complete-entry observer, standard
+failure controls and corresponding finite proof laws are retained.
+
+Across these cohorts, import/init windows ranged from 135.27 to 172.06 seconds;
+post-report exit was about 7–8 seconds. The official source audit found no
+forced-reload loop: context evaluation uses its existing promise and the runtime
+loader owns loaded/error states. Samples found OS mapping waits and, separately,
+actual POO evaluation. These results do not establish that all mapping time is
+removable in POO, nor a GC percentage. The original 742-second issue remains
+open; no reliable wall-time fix is claimed and no new loader, cache registry,
+compiler bypass, weakened cleanup or larger resource limit is retained.
+
+** Functional ownership of collection deltas and coordinator recovery
+
+The next candidate keeps all seven exported TestSuites and their original case
+bodies, but uses two existing functional owners. Collection delta capture,
+origin admission and transport are explicit standard includes of
+=collection-deltas/table-batch-test.ss=. Coordinator preparation and retry live
+in =recovery/coordinator-interleaving-test.ss=. Neither group has module setup
+or cleanup hooks. Identical private error/termination predicates are shared;
+the two distinct rendezvous refusal messages remain distinct. No runner, loader,
+compiler setting, package, deadline or heap allowance is added or removed.
+
+The physical module count is 149 -> 144; the 25 atomic CI packages and six
+compiler contexts remain. Focused standard checks naturally exited with 54 and
+9 cases. The corresponding completed cold outputs contain 16 -> 5 loadable
+=.o1= files in these two groups, totaling 1,944,896 -> 1,603,688 bytes. These are
+artifact observations, not a proof of which images every consumer maps.
+
+All admitted complete observations below retain 2,071 main cases plus three
+source-declaration cases and the identical ordered Suite/Case digest
+=1674c9abcbf586f150ff5f3f2aacd0adf8056777d805dda5977df8554ff213c2=.
+A is the fixed =6500bce= source; B is only this functional grouping and its
+source-declaration checks. Every output prefix was initially absent. The
+compiler and OS caches were retained. The parent executable was already built;
+its child invokes the unchanged full public =just check 2 1 4 600= entry.
+
+| arm | build/preparation | import/init | cases | post-report exit | later studies | outer wall |
+|-----+-------------------+-------------+-------+------------------+---------------+------------|
+| A1  |            392.62 |      212.64 |123.81 |             6.97 |         32.20 |     769.37 |
+| B1  |            381.05 |      174.87 |127.90 |            15.76 |         41.95 |     741.54 |
+| B2  |            344.88 |      258.58 |113.94 |             7.37 |         23.74 |     748.59 |
+| A2  | library 146.05; startup 8.90; test preparation timed out at 300.01 | not reached | not reached | not reached | not reached | failed at 456.88 |
+
+A1/B1 favors B by 27.83 seconds. The reverse B2/A2 pair is censored by A2's
+unchanged preparation deadline (child exit 124, observer refusal/exit 70), so it
+cannot yield a complete-wall mean or a reverse speedup. Its private-prefix
+processes were confirmed absent after exit. Failed partial products are not
+reused for acceptance. B's own import windows differ by 83.71 seconds and its
+post-report exit regresses in B1. Neither stable improvement nor a tail quantile
+is established. Retain the functional ownership and reduced artifact inventory;
+do not mark the overall cold-load/performance problem resolved.
+
+An earlier 783.30-second shared-checkout run completed the same cases, but other
+PBT source edits appeared during the run. It is excluded from the fixed-source
+comparison above. The final integration preserves later PBT commits; their CI
+receipts must be tied to that integrated head, not presented as the performance
+cohort above. Raw transcripts, prefixes and samples remain outside Git.
+
+The Lean =observeSuiteCases_regroup_between= law extends the existing finite
+fixture-free stateful case model to a selected adjacent group between untouched
+neighbors. It retains ordered results and state after refusal. It does not prove
+arbitrary module initialization, host cleanup behavior or elapsed-time bounds.
+
+* Full-entry regression audit, 2026-10-31
+
+The historical full cold entries below 700 seconds are real: 681.08, 621.48,
+671.08 and 628.08 seconds. They are not the separate warm-prefix 75.61-second
+observation. Their workload was 2,065 main cases plus three source regressions.
+The following cohort uses =f2090e5= plus the shared-policy freshness regression
+in =85f9695=: 2,232 main cases, eight source regressions, 148 independently
+compiled library cases and both paired studies. Compiler/GSC/GCC executable
+checksums were checked around the runs. This is an empty project-output-prefix
+protocol; compiler and OS caches are retained, not claimed cold.
+
+All completed main cohorts below retained the ordered suite/case digest
+=f256621dffe9c6f249e214ee41ff8f1ffcfefd82c36f4f72221cab9131437e7c=.
+The public child was =just check 2 1 4 600= and all tests used =gerbil test=.
+The twelve-core machine retained four concurrent package frontends and two
+standard backends per package. No deadline or heap ceiling was increased.
+
+| cohort | root | startup | test preparation | main command | source | collections | generators | full wall / outcome |
+|--------+------+---------+------------------+--------------+--------+-------------+------------+---------------------|
+| A1, original 144 modules | 123.11 | 17.01 | 208.81 | 315.82 | 20.62 | 19.74 | 45.72 | 753.61, natural success |
+| A2, original 144 modules | 148.71 | 11.94 | 252.21 | 295.86 | 40.65 | 17.95 | 28.80 | 798.30, natural success |
+| B1, grouped 62 modules | 187.72 | 9.62 | 189.66 | 260.89 | 22.10 | 18.30 | 28.22 | 718.49, natural success |
+| B2, grouped 62 modules | 262.00 | 35.24 | 300.06, refused | not run | not run | not run | not run | 602.08 until failure |
+| C1, separated executable closure | 144.75 | 19.76 | 279.63 | 322.14 | 21.41, refused | not run | not run | 789.81 until failure |
+| Integrated 6486159, original layout | 118.01 | 13.80 | 216.04 | 342.35, refused | not run | not run | not run | 691.66 until failure |
+| Fixed b0cffe8, original layout | 135.13 | 15.08 | 295.36 | 439.48 | 23.72 | 19.41 | 39.20 | 969.22, natural success |
+
+These are command-wrapper observations; they are not an exact additive partition
+of the parent's clock. A1/A2 used the same source snapshot and B1/B2 the same
+=e6fc57a= candidate. The C diagnostic intervened before B2 and used direct file
+capture rather than the other cohorts' external tee; it is not silently pooled
+as an identically instrumented paired success. Failed rows are censored entries,
+not faster complete checks. No stable-tail or population-quantile claim follows
+from this small cohort.
+
+** Additional checks are not duplicate work
+
+Compared with the historical source, the generator entry adds the product
+preparation/draw/shrink/replay study at widths 16 and 64. Its recorded action
+walls sum to 42.15 seconds in A1 and 25.37 in A2; the existing actions sum to
+1.36 and 1.33 seconds. Total generator commands are 45.72 and 28.80 seconds.
+This accounts for substantive additional work, rather than describing the whole
+increase as repeated module loading. Source regressions also grew from three
+to eight. None is removed to recover an older time.
+
+The compilation transcript's repeated property-kernel and coordinator builds
+belong to independent-package admission and deliberate input-change freshness
+controls. They must not be deduplicated into a weaker test. A1's parent clock
+reports approximately 350.53 seconds of build preparation, 203.51 of import/init,
+105.83 of main cases, 7.03 after reporting and 86.64 of later checks/studies.
+Thus the later checks and build preparation must remain in any full-entry claim.
+
+** Reject both structural candidates
+
+B grouped fixture-free suites using ordinary lexical includes and private
+initializers. Its first complete result reduced preparation, but its reverse
+run could not finish preparation under the unchanged 300-second deadline.
+Standard clean completed after that refusal. All grouping, extra compiler flags
+and initializer wrappers are withdrawn; the original 144-module layout remains.
+
+C separated the library and executable declarations. Although static objects
+fell from 218 to 27, the installed Darwin compiler already compiles the static
+object once and links the dynamic bundle from that same object. Artifact count
+was therefore not a duplicate-C-compilation count. Separation additionally needs
+the executable's closure preparation. C's source regression incorrectly looked
+for the =gxc:= table declaration as a string and refused; the corrected nine-case
+source regression subsequently exited naturally in 21.18 seconds. The failed
+whole run remains failed. The entire separation and its extra regression are
+withdrawn, not promoted from a partial timing.
+
+** Bounded frontend observations
+
+After the refusal, an original-layout diagnostic reused the already built
+production prefix and compiled the cleaned test outputs. Root freshness checking
+took 30.56 seconds, startup checking 7.98 and test compilation 172.86. These are
+not another full cold-entry success. One-second frontend samples distinguished
+early type-expansion GC marking/scanning from contracts macro compilation; a
+later types window was entirely =__select= waiting. A local sample cannot assign
+the complete phase to GC, dyld or backend compilation. The diagnostic did not
+change compiler policy, limits or concurrency.
+
+** Retained correctness fix
+
+The common =t/build.ss= compiler policy is now an explicit standard-make
+=extra-inputs:= dependency of each declared test output. Previously, editing an
+imported compiler-option declaration could leave apparently fresh leaf outputs.
+The regression runs ordinary =gerbil build=, verifies unchanged-build reuse, edits
+only that policy and requires an output refresh. No project freshness cache,
+source scanner or alternate loader is added. The existing Lean
+=sameBuildInputs_required_revision= law models why changing a required input
+cannot retain its old witness; this does not verify the compiler or predict wall
+time. The final integration preserves newer remote PBT work, whose acceptance
+must be attached to its own head rather than to the older timing cohort above.
+
+** Current-head trace regression
+
+The integrated cohort contains 2,277 main cases and 168 independent library
+cases. One main assertion failed, also failing both representations and complete
+CI jobs at =51e73dc=. The example still expected eager parameter admission,
+whereas the declared demand-driven protocol charges returned structural proposals
+and retains their confirmed failing prefix before a later iterator refusal.
+The failed 691.66-second entry is not a complete success or a speedup.
+
+The example now checks six charged proposals, one confirmed reduction, seven
+balanced fixture entries, the untouched original trace, retained valid Function
+wrapping, refusal of direct replay for an error report and a complete repeatable
+retry. The representations package passed naturally in 79.70 seconds, including
+all 168 independent cases. The companion Lean PropertyTraces example computes
+the same repaired-prefix audit using =auditShrinks= and =shrink=; the existing
+=interrupted_shrink_preserves= law supplies the general validity/descent bound.
+Host fixture cleanup and physical latency remain separately executed obligations.
+
+The fixed =b0cffe8= empty-prefix complete entry naturally passed all 144 modules,
+2,277 main cases, eight source regressions, 168 independent cases and both paired
+studies. Its ordered main digest is
+=a1474fcfbca61105660c78cd33ea9deb92b2c44b55e1b1da3f05f6b3ed704fc2=.
+The compiler's 6,875 program/library/header checksums were unchanged across the
+integrated and fixed runs. The parent's intervals were 446.20 seconds of build
+preparation, 281.91 of import/init, 150.29 of cases, 7.91 after reporting and
+82.72 of later checks/studies. Preparation counters record 6.32 CPU seconds and
+0.12 GC-wall seconds; they do not assign every remaining wait to one subsystem.
+This is functional/resource acceptance, not an admitted speedup: 969.22 seconds
+remains worse than the historical complete entries. No regrouping, compiler-policy
+separation, new loader or relaxed limit is retained to manufacture a faster row.

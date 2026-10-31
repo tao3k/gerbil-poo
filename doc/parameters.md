@@ -1,0 +1,166 @@
+# Object syntax and positional specialization
+
+## Construction grammar
+
+The leading option prefix of `.o` is now:
+
+```scheme
+(.o self: receiver super: inherited inherit: (list parent ...)
+    bind: (imported-slot ...) bind-these: #f
+    (slot expression) ...)
+```
+
+All options are optional. `self:` names final self; `super:` names the ZERO-ARGUMENT
+inherited computation for the current slot. It is the paper's `$slot-gen` inherit
+thunk (Racket essay lines 419–434), not a reified super-instance or an arbitrary
+parent slot lookup. `inherit:` is the ordinary C3 parent-list expression, evaluated
+by the existing constructor. `bind:` imports explicit slot identifiers.
+`bind-these:` is a literal Boolean (default `#t`) controlling automatic lexical
+binding of this construction's declared/default slot names independently of those
+imports. Unselected lexical names retain their surrounding Scheme bindings.
+
+The prefix ends at the first ordinary slot form. Reserved option names can still
+be declared as parenthesized slots, e.g. `(self 'data)`. Existing `(:: self parents
+slots ...)`, ordinary keyword slots, shorthand capture, defaults, inherited next
+names and `.o` match patterns retain their existing semantics. Repeated options,
+invalid identifiers/import lists, nonliteral flags and self/super binding conflicts
+refuse at expansion. Explicit per-slot next names and `super:` alias the same
+existing delayed computation. All forms lower through one normalizer and existing
+`object/init`; no alternate object representation, cache or inheritance engine is
+introduced. Parent/slot Type errors remain the ordinary engine's errors.
+
+## Persistent positional prefixes
+
+Import `parameters` with a prefix and declare `.parameters` as an ordered proper
+list of unique symbols, excluding `.parameters` itself. `(parameters.specialize
+prototype argument ...)` binds a prefix using `.cc`, returning a receiver with the
+remaining suffix in `.parameters`. Repeating partial specialization has the same final bindings as a single
+concatenated specialization for extensional formulas; fresh receiver identities
+and allocation traces are not equated. A closed receiver has an empty list; zero
+arguments preserve receiver identity, after metadata validation. Malformed names
+or excess values refuse before cloning; false/empty/procedure values remain data.
+Remaining list spines are copied. Direct computed formulas use the NEW final self;
+previous prototypes/partial receivers retain their own fields and caches.
+
+Specialization does not invoke instantiation hooks, validate arbitrary values or
+perform consumer effects. Complete receivers pass through the existing Type or
+ObjectContract boundary before consumption. Parent/callback metadata must obey
+ordinary supported mutation and invalidation discipline; this is not deep freezing
+of source objects or arbitrary values, automatic dependency discovery, or a new
+subtyping/type-inference system.
+
+## Generic formals and complete chain
+
+`.defgeneric` already delegated optional positional/keyword/default/rest handling
+to Gerbil and `support/syntax.call<-formals`; its old TODO was stale. The acceptance
+suite now exercises omitted and explicit-false values, dependent defaults evaluated
+once/in lexical order, supplied defaults not evaluated, keyword/rest forwarding,
+from:type exact receiver forwarding, method combination and missing-slot defaults.
+Genuine method-body errors propagate. This does not add optional/keyword signatures
+to the separate `Fun` Type descriptor language or arbitrary case-lambda overloads;
+those remain in the type-system workstream.
+
+`examples/parameter-service.ss` combines a C3 diamond with one shared base fee,
+lexical region imports, explicit self/super names, partial/full `.parameters`
+binding, default/keyword/rest generic calls, final-self recomputation and a checked
+Reader/FUN action. Shape/type checks gate arithmetic/refinement and effects;
+refusal never reaches the consumer, while successful multiple values are retained.
+A capacity/tariff prefix 10/3 gives fee 11, total 41 and two-unit quote 82; independent
+partial contexts and later clones retain the correct receiver semantics.
+
+Lean `Functional.Parameters` proves thirteen pure laws: empty identity, excess
+refusal, remaining suffix, prefix composition, incremental specialization equality,
+unwritten-field preservation, invalid declaration refusal, valid suffix admission,
+checked incremental equality, exact lexical binding membership, inherited-alias
+lowering and supplied/absent optional selection. The actual fixture uses the
+existing `Prototype.Method` delayed/final-self model. These are semantic laws for
+normalized constructs, not a proof of the Gerbil macro expander, Scheme callback
+termination, GC, compiler or runtime. Expansion/hygiene, exceptions, keyword syntax,
+multiple values and effect/default ordering are separate executable controls.
+
+This closes the declared syntax/positional-specialization TODO workstream. The
+keyword surface and positional API develop the paper's extensible-prototype future
+work; they are not claimed as literal APIs in its Racket implementation. General
+polymorphism/inference, typed optional `Fun` signatures, layout/cache protocols,
+collections and interpreter projects remain open. Scheme has no Lean dependency.
+
+### Escaped keyword data
+
+For keyword-bearing generics, `call<-formals` forwards the already resolved
+bindings in Gerbil's canonical application format: the standard `alist->plist`
+keyword prefix, `#!rest`, then the receiver/positional bindings and rest data.
+Consequently `#!key` and `#!rest` at the public call boundary can safely protect
+keyword-valued data through type methods and method combinations. Defaults still
+run once in the enclosing core lambda. A custom `combination:` interpreter
+receives an application row for `apply`, not a positional-only list. Without
+keyword formals the generic keeps its existing plain positional call format.
+
+## Prefixed lexical reads and snapshots
+
+`with-prefixed-slots (account- rate .type) account ...` creates lazy lexical
+aliases. Each use reads the current receiver field; a callable field keeps the
+normal argument and result conventions. `def-prefixed-slots (initial- rate)
+account` instead defines an initial snapshot at that point. Neither form adds
+public-reflection admission to raw field access. Use the existing `read-slot`
+boundary before public method invocation when current metadata is required.
+
+The existing `examples/declared-methods.ss` `prefixed-action` demonstrates that
+whole chain with FUN approval, shared inheritance, method qualifiers, metadata
+refusal and retry. The implementation lowers whole groups through Gerbil core
+binding/definition forms; repeated lexical aliases retain nested shadowing,
+receiver expressions are not silently cached, and empty groups do not read.
+
+## Core contract binders and generic forwarding
+
+Generic forwarding now delegates the whole formal projection and keyword split to
+Gerbil's public core signature/dispatch mechanisms at expansion time. For example:
+
+```scheme
+(.defgeneric (checked-summarize account (required :~ fixnum?)
+    (optional required :~ fixnum?) label: (label #f) . rest)
+  from: type slot: .summary combination: (simple-combination combination.collect))
+```
+
+Core `def` owns predicate checks and the dependent default. The forwarding body
+uses only resolved bindings and retains the standard keyword/`#!rest` escape.
+The existing `typed-summary-action` example combines this call with current
+reflection, both combination policies and FUN. Public-call `#!key`/`#!rest` data
+escapes remain supported; a formal `#!key` collector is still outside the generic
+protocol and refuses instead of being silently omitted. Unsupported projection
+and duplicate/bad binders refuse during actual expansion. This is Gerbil syntax,
+not an additional formal grammar attributed to the article's Racket implementation.
+
+## Coherent Type parameter binding
+
+A source `.parameters` list could change order after schema admission but before
+ordinary positional specialization read it again. Pure instantiation then returned
+`(Pair UInt Bool)` with actual fields T=Bool and U=UInt. Prefix and inferred
+assembly now share `bind-type-parameters`, which compares the original variable
+order with the SAME name snapshot consumed by the existing positional binder.
+Reordered/added/removed valid names refuse `bounds` before cloning. No second
+getter follows admission; generic `specialize` also uses this single implementation.
+Gerbil's multi-binding `using` handles the new continuation's ordinary contracts;
+standard take/drop and existing persistent `.cc` still own construction.
+
+Eight typed entry paths and three metadata changes exercise the complete boundary.
+A generic control edits the source after snapshot admission and proves construction
+still uses that snapshot. Original getter/admission failures retain their cause.
+Repair through the supported slot protocol permits an independent request; the
+shared signature-service action then composes prefix specialization, inference,
+qualified declarations, recursive Function wrapping, refine and exact evidence/FUN/IO
+publication. Nonunique reports remain explicit application errors, not guessed Types.
+
+Lean's existing Parameters namespace proves original order, exact residual suffix,
+field mapping, excessive-argument refusal and incremental composition. The generic
+positional model's `declaration` refusal represents the typed host's `bounds` gate;
+source errors are transported separately. Host snapshot/admission/descriptor
+interpretation are premises, not compiler/heap/concurrent-mutation proofs. This
+advances the finite type future work without extending its research boundary.
+
+`Parameters.specializeExpected` and its six laws model the shared gate;
+`Examples/Parameters.lean` contrasts swapped old fields with rejected order changes
+and exact direct/staged bindings. The executable acceptance is in parameters-test
+and candidate-inference-test, including the full specialized-action example.
+Admission callbacks must preserve the copied names they receive. Arbitrary
+callback purity, rollback, transitive source stability and unbounded inference
+remain outside this protocol. Existing resource limits and full checks remain required.

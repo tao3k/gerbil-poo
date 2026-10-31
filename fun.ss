@@ -1,9 +1,10 @@
 ;;; Typeclasses for Functional Programming
 
-(export #t)
+(export (except-out #t pure-observation bind-observation map-observation))
 
 (import
   :std/error :std/iter
+  (only-in :std/func compose)
   (only-in :std/list/list acons)
   ./support/option
   ./object ./mop ./brace ./number ./type ./io)
@@ -78,3 +79,15 @@
        Wrapper^) ;; : Functor^.
   .wrap: (cut .call Wrapper^ .ap^ T <>) ;; : @ <- T
   .unwrap: (cut .call Wrapper^ .unap^ T <>)) ;; : T <- @
+
+;; Reader/FUN introduction keeps one seed shared by all composed observations.
+(def (pure-observation value) (lambda (_) value))
+;; Reader bind runs the next observation with the same seed; host errors stop it.
+(def (bind-observation action next)
+  (lambda (seed) ((next (action seed)) seed)))
+;; Reader map is ordinary composition: capture once and allocate NO per-call
+;; pure Reader. It still invokes action exactly once before transform; errors stop.
+(def (map-observation transform action) (compose transform action))
+;; FUN protocol for observations; no invented I/O interpreter or global state.
+(define-type (Observation. @ ParametricFunctor.)
+  .ap: pure-observation .bind: bind-observation .map: map-observation)

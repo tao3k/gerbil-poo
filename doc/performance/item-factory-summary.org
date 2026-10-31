@@ -1,0 +1,196 @@
+#+title: Homogeneous items, cold slot caches and complete factories
+
+* Scope and reference
+Explicit Appendix B generalized-prototype FUTURE WORK. Racket source:
+fare/poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl,
+=generalized_prototype_combination= / =$lens-gen=. It permits raw-production,
+cooked-consumption and method-wrapper representations. Lean =SimpleMethods.items=
+already holds ordered functions. Scheme now has =prepare-simple-items= and an
+explicit =prepare-envelope-items= / =bind-envelope-items-report= strategy.
+No Lean checkout, generated proof data or measured price is required by Scheme.
+
+The general qualifier path and compact path share the SAME policy reducer and
+higher-order field/service/envelope cooking adapters. C3/lenses/FUN, current
+approval checks, body order, both audits and tenant observations are retained.
+Only statically item-only declarations and empty/function-list local raw states
+are admitted by this explicit strategy. Mixed/around contributions retain the
+general factory. No automatic qualifier/Type/guard bypass or identity equivalence.
+
+* What the historical 60.563us does and does not establish
+The previous source's +84.156us CPU / +23.594us GC / +60.563us residual remains
+in context-binding-summary.org with its original receipt/source identity. Both
+old Reader strategies there used qualified carriers. Descriptor/cache work was
+COMMON to both: it cannot by itself explain that particular paired difference.
+Residual CPU includes allocator/cache/memory effects and is not pure method CPU.
+The precise historical difference is not retroactively assigned to slot caches,
+GC or any single cause. Current phase controls locate a large removable COMMON
+cost and test a representation intervention on fresh matched processes.
+
+At the source level each raw method was a full POO Contribution. First qualifier
+or body selection prepares its object/slot caches; even item-only cooking scanned
+the same list for around and item groups. Compact storage retains only the
+method closure. Both strategies still create fresh closures/current observations.
+Warm item lookup and warm dependency cooking are separate controls: they cannot
+stand in for a cold complete factory.
+
+* Fixed native design
+Before measurement: THREE complete final-source runs, each 624 children:
+13 phases, two regimes, four rounds, three pairs, two sides. Existing shared
+native paired I/O, ABBA, exact SAME-procedure A/A, fresh child per side, common
+setup/warmups of all four controls. No build/test overlap. Fixed limits remain
+90s AOT, 90s per study, 20s per child, 1GiB heap. No selected best run or pooling.
+
+Both complete factory sides use current public report binders, the SAME fixed
+field-list projection and output oracle. Each call includes preparation, binding,
+raw finite construction, demanded cooking and public selection. The declaration
+graph is warm common setup, not first module load or cold C3-node generation.
+=preparation= constructs a fresh snapshot and inspects provenance; =binding=
+constructs the same context reader without executing it. =construction= executes
+two raw stages and real shape/audit/current metadata selectors, not method bodies.
+=cooking= prepares a new final interface over an untimed precomputed raw value:
+dependent self promises AND item caches are warmed before timing. This excludes
+cold dependency construction, explicitly. Phase timings must NOT be summed.
+
+=item-construct= compares qualified carrier construction/provenance with the
+already available method function. =item-cold= constructs a descriptor and makes
+its FIRST body lookup/invocation; =item-warm= uses a preconstructed warmed body
+cache. These are API work comparisons, not artificial forced allocation. They
+do not separately identify C3 versus slot-table subcosts. =factory-history= runs
+64 real qualified observations before common warmups; natural never forces GC.
+Collected only requests premeasurement GC; neither regime equalizes heap shape,
+addresses, page residency or complete GC history. Matching prefix counters are
+not matching histories. Bytes are admitted only on BOTH GC-free nonnegative sides.
+
+* All final direct CPU medians
+Optimized minus qualified, us PER ACTION. Each entry is the median of four
+within-pair differences; N/C denotes natural/collected. Revision observes eu AND
+us per action; the other full scenarios observe one configuration.
+
+| Phase | Run one N/C | Run two N/C | Run three N/C |
+|-------+-------------+-------------+---------------|
+| factory | -77.031 / -88.875 | -77.562 / -77.500 | -86.875 / -76.687 |
+| factory-history | -50.719 / -81.438 | -55.906 / -76.437 | -52.344 / -79.813 |
+| preparation | +0.000 / +0.000 | -0.062 / -0.094 | -0.000 / +0.000 |
+| binding | +0.000 / +0.000 | +0.000 / -0.000 | +0.000 / +0.000 |
+| construction | -24.016 / -23.078 | -22.906 / -22.047 | -23.313 / -23.836 |
+| cooking | -0.984 / -1.047 | -0.922 / -0.977 | -1.008 / -1.031 |
+| item-construct | -1.203 / -1.164 | -1.238 / -1.191 | -1.219 / -1.145 |
+| item-cold | -7.496 / -7.430 | -7.395 / -7.348 | -7.254 / -7.613 |
+| item-warm | -0.058 / -0.058 | -0.056 / -0.059 | -0.057 / -0.057 |
+| revision | -135.664 / -135.570 | -135.805 / -134.508 | -136.727 / -172.641 |
+| factory-allocation | -426.000 / -28.500 | -413.000 / -30.500 | -764.500 / -29.000 |
+| construction-allocation | +4.000 / -12.000 | -11.500 / -11.000 | -3.000 / -11.000 |
+| cooking-allocation | -1.000 / -2.500 | -1.000 / -0.500 | -1.500 / -0.500 |
+
+* Absolute phases and non-GC decomposition
+Reference / compact CPU side medians, natural us. These are marginal medians,
+not the paired delta above; their subtraction need not equal that delta.
+
+| Phase | Run one Q/I | Run two Q/I | Run three Q/I |
+|-------+-------------+-------------+---------------|
+| factory | 130.781 / 45.781 | 123.000 / 45.344 | 132.750 / 45.531 |
+| preparation | 2.031 / 2.000 | 2.031 / 1.938 | 2.031 / 2.031 |
+| binding | 0.013 / 0.013 | 0.013 / 0.013 | 0.012 / 0.013 |
+| construction | 55.594 / 31.578 | 54.297 / 31.133 | 54.859 / 31.273 |
+| cooking | 2.492 / 1.508 | 2.477 / 1.539 | 2.523 / 1.516 |
+| item-construct | 1.215 / 0.012 | 1.246 / 0.012 | 1.234 / 0.012 |
+| item-cold | 7.508 / 0.012 | 7.406 / 0.012 | 7.266 / 0.016 |
+| item-warm | 0.063 / 0.005 | 0.061 / 0.005 | 0.062 / 0.005 |
+
+Matched natural CPU / measured GC CPU / residual deltas, us. Independently
+computed medians need not add. Residual still includes native allocation effects.
+
+| Phase | Run one | Run two | Run three |
+|-------+---------+---------+-----------|
+| factory | -77.031 / -46.750 / -30.281 | -77.562 / -48.094 / -28.813 | -86.875 / -55.437 / -31.438 |
+| factory-history | -50.719 / -21.656 / -29.063 | -55.906 / -25.313 / -30.500 | -52.344 / -24.156 / -28.625 |
+| construction | -24.016 / -12.414 / -11.602 | -22.906 / -11.188 / -11.648 | -23.313 / -11.492 / -12.109 |
+| cooking | -0.984 / +0.000 / -0.984 | -0.922 / +0.000 / -0.922 | -1.008 / +0.000 / -1.008 |
+| item-cold | -7.496 / -3.012 / -4.391 | -7.395 / -3.062 / -4.391 | -7.254 / -2.969 / -4.316 |
+
+Preparation remains about 2us; binder construction is about 0.013us. Removing
+only those cannot account for the large full cost. Raw construction eliminates
+redundant descriptor creation; first body-cache preparation is much larger than
+warmed lookup. The warm cooking reduction is small and cannot be substituted
+for the complete cold result. The intervention removes a substantial residual
+component as well as GC work; it does not prove the exact old +60.563us cause.
+
+* Admitted allocation and remaining adverse controls
+Collected per-action allocated-byte deltas (not live heap), each with four
+GC-free paired admissions in every run:
+
+| Phase | Run one | Run two | Run three |
+|-------+---------+---------+-----------|
+| preparation | 0 (4 pairs) | 0 (4 pairs) | 0 (4 pairs) |
+| binding | 0 (4 pairs) | 0 (4 pairs) | 0 (4 pairs) |
+| item-construct | -5632 (4 pairs) | -5632 (4 pairs) | -5632 (4 pairs) |
+| item-warm | 0 (4 pairs) | 0 (4 pairs) | 0 (4 pairs) |
+| factory-allocation | -143392 (4 pairs) | -143392 (4 pairs) | -143392 (4 pairs) |
+| construction-allocation | -56320 (4 pairs) | -56320 (4 pairs) | -56320 (4 pairs) |
+| cooking-allocation | -432 (4 pairs) | -432 (4 pairs) | -432 (4 pairs) |
+
+The three single-operation factory controls also reduce GC-free CPU by roughly
+28.5/30.5/29us. This independently tests useful work without a collection in the
+interval; it is still a local measurement, not an allocator correctness theorem.
+
+Natural A/A median range, across BOTH exact duplicate pairs and all three runs:
+
+- factory: -5.125 to +8.687us.
+- factory-history: -3.875 to +9.281us.
+- preparation: -0.094 to +0.000us.
+- binding: -0.000 to +0.000us.
+- construction: -1.828 to +1.617us.
+- cooking: -0.078 to +0.047us.
+- item-cold: -0.094 to +0.133us.
+- revision: -2.922 to +3.617us.
+
+The first natural factory run retains one slower pair (+3.125us), despite its
+improved median. The remaining eleven natural direct factory pairs and all twelve
+collected pairs improve. This is not a universal no-regression guarantee. Both
+signs in preparation/binding and adverse A/A/warm-cooking samples remain visible.
+No claim that compact storage automatically wins for mixed/general MOP programs.
+
+* Proofs, tests and source identity
+=SimpleMethods.ofItems_eq= and =simpleEffective_ofItems= preserve homogeneous
+item grouping and policy semantics for every Monad; empty, failure and suffix
+short-circuit laws reuse the existing semantics. =Protocol.observe_related=
+reuses =FiniteFix.iterate_relation=; actual related-step and cooked-view premises
+remain obligations, not automatically established for arbitrary Scheme callbacks.
+=itemWork_le= separates supplied descriptor/cache/grouping prices from common
+closures/body/lens work. It proves neither machine bytes nor elapsed/GC bounds.
+
+35 native test modules pass, including the new phase controls, lazy empty result,
+ordered effects, first error, skipped suffix, compact raw shape and both audits,
+tenant changes, malformed approval and recovery. Compact split-context tests
+also refuse a stale approved seed and accept current recovery over a refused seed.
+Lean library/examples/local frozen audit and mandatory full commit checks pass;
+exact-head remote CI is recorded separately on PR #13. No new axioms or cost
+constants tied to these measurements. The native repository has no remote CI.
+
+Runtime/source SHA256 and executable identity (the complete dependency manifest
+is checked by the native reader in each local receipt):
+- =method-combination.ss=: =b6209e9fe71f81687d3b211f5abc3a80b0ce795e69eaa0810380a09c686e1c26=
+- =examples/generalized-checkout.ss=: =ce7d92ab66e9c8d253c1358f3aed230e3e0d6d2fbe556305bffe2fbdc53433a9=
+- =generalized-prototype.ss=: =2e6cdb62a50789de6506e1e48e8db6f5ebee19530be59321794f3686737dd778=
+- =benchmarks/factory-cases.ss=: =505086151a7960165d8851eb4798041996fbf2e599472b92b347303f5353726e=
+- =benchmarks/factory-benchmark.ss=: =4fa5bc62a63f596ddd12654d01c7ee22cac16c2d87e470ce87279e9e11cc47b9=
+- =benchmarks/factory-suite.ss=: =874ad380d9f3fffac81e09df4add2ee270038f72901cb8cb8dc782c7e29bdda6=
+- executable: =55343fb37192132ff4f517a25a12f3c3240d48c1d828a96e1e4d307a25a7c624=
+- receipt one: =b0ad87011b75567d620defcd5f0c09dde9a6ac02389d813d72e5fc960071740a=
+- receipt two: =ce0ace94f2477da59aa4d66a9f7b917fff9bfeece2505d4a7fb607b5f58c1f49=
+- receipt three: =1adb3c1a1b325ab2f399492a3ce487b9838c1f6983db7a0f20ac760d6a0caf62=
+
+Source parent: Gerbil 55ad880, Lean 57d7fa5. Earlier binding/focused studies remain
+historical and are not re-admitted against this source. Full native records and
+binaries remain ignored under .build; no JSON, full data or archives are committed.
+
+* Standalone native reproduction
+From this Gerbil checkout, with native Gerbil/Gambit, GNU timeout and OpenSSL 3:
+
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
+
+Re-admit complete records with =factory-suite.read-study= after committing source.
+Automatic mutable-source invalidation, arbitrary representation law discovery,
+reflection and whole-program compiler/runtime verification remain open.

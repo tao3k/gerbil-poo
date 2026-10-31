@@ -1,0 +1,41 @@
+(def (caught thunk) (try (thunk) #f (catch (cause) cause)))
+(def service-metadata-test
+  (test-suite "ServiceMetadata cooked contracts and atomic family publication"
+    (test-case "declarations types and logic form one invocation chain"
+      (defvalues (old issue) (service-metadata.service.start (access.config) #t 10 3 "invoice:1" 10))
+      (check-equal? issue #f)
+      (def quote-service (service-metadata.publication.version-service old 'quote))
+      (defvalues (result warm) (service-metadata.publication.invoke old 'reserve 2))
+      (check-equal? result '(ok 8 #t))
+      (check (eq? quote-service (service-metadata.publication.version-service warm 'quote)) => #t)
+      (check-equal? (multimethod.cache-size (dispatch.snapshot (service-metadata.publication.version-service old 'reserve))) 0)
+      (check-equal? (multimethod.cache-size (dispatch.snapshot (service-metadata.publication.version-service warm 'reserve))) 1)
+      (check-equal? (first-value (service-metadata.publication.invoke warm 'quote 2)) 6)
+      (check-equal? (first-value (service-metadata.publication.invoke warm 'cancel "customer" #t)) '("customer" "invoice:1"))
+      (check-equal? (first-value (service-metadata.publication.invoke warm 'cancel "customer" #f)) '(error consent))
+      (for ((units '(0 11 wrong)) (phase '(input output input)))
+        (def issue (caught (cut service-metadata.publication.invoke old 'reserve units)))
+        (check-equal? (metadata.failure-phase issue) phase))
+      (check-equal? (multimethod.cache-size (dispatch.snapshot (service-metadata.publication.version-service old 'reserve))) 0)
+      (defvalues (next accepted) (service-metadata.service.revise warm (access.config) #t 20 4 "invoice:2" 10))
+      (check-equal? accepted #f)
+      ;; An old capture would reject the new remaining quantity or permission.
+      (check-equal? (first-value (service-metadata.publication.invoke next 'reserve 12)) '(ok 8 #t))
+      (check-equal? (first-value (service-metadata.publication.invoke warm 'reserve 2)) '(ok 8 #t))
+      (check-equal? (first-value (service-metadata.publication.invoke next 'cancel "customer" #t)) '("customer" "invoice:2"))
+      (for ((available '(1 20 20)) (price '(3 8 3)) (enabled '(#t #t #f)))
+        (defvalues (retained refused) (service-metadata.service.revise next (access.config) enabled available price "refused" 10))
+        (check (eq? retained next) => #t)
+        (check-equal? (service-metadata.publication.failure-stage refused) 'admission)))
+    (test-case "metadata builder failures retain the published identity"
+      (defvalues (old issue) (service-metadata.service.start (access.config) #t 10 3 "invoice:1" 10))
+      (for (builder (list (lambda (_) (list (cons 'missing (service-metadata.service.reservation 10))))
+                         (lambda (_) (list (cons 'reserve (service-metadata.service.reservation 10)) (cons 'reserve (service-metadata.service.reservation 10))))))
+        (defvalues (retained refused)
+          (service-metadata.publication.publish old (access.equations (access.config) #t)
+            (cut service-metadata.service.cook 20 3 "invoice:2" <>) service-metadata.service.services (lambda (_) #t) #t builder))
+        (check (eq? retained old) => #t)
+        (check-equal? (service-metadata.publication.failure-stage refused) 'metadata)))))
+
+;; Return the original suites from this lexical scope.
+(values service-metadata-test)

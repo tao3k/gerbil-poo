@@ -6,10 +6,12 @@
         list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr rationaldict=?
         rationaldict-min-key rationaldict-max-key rationaldict-iter)
 
-(import :std/iter :std/struct/rbtree)
+(import :std/iter :std/struct/rbtree (only-in ./base number-comparer))
 
 (defstruct rationaldict (tree) transparent: #t)
-(def empty-rationaldict (rationaldict (RBTree -)))
+;; Standard RBTree requires a fixnum comparison result, even for rational/bignum
+;; keys. Reuse the existing three-way numeric comparer instead of subtraction.
+(def empty-rationaldict (rationaldict (RBTree number-comparer)))
 (def absent (gensym 'absent))
 
 (def (rationaldict-empty? dict) (rbtree-empty? (rationaldict-tree dict)))
@@ -29,7 +31,7 @@
   (for/collect ((value (in-rbtree-values (rationaldict-tree dict)))) value))
 (def (list->rationaldict entries)
   ;; V19 owns the transient construction path; only the completed tree escapes.
-  (rationaldict (list->rbtree - entries)))
+  (rationaldict (list->rbtree number-comparer entries)))
 (def (rationaldict->list dict) (rbtree->list (rationaldict-tree dict)))
 (def (rationaldict-iter dict (from #f))
   (def entries (iter (rationaldict-tree dict)))

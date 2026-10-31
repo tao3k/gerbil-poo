@@ -43,10 +43,16 @@
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 (def ($Path-key path) ($Costep-key ($Path-costep path))) ;; key used in a path
 
-(define-type (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
+(include "trie/changes.scm")
+
+;; Collection IO has precedence over the raw-node Wrapper codec, as in table-wrapper.
+(define-type (Trie. @ [methods.table Wrap.] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
        .unwrap) ;; : t <- (Wrap t)
+
+  ;; Node payloads are parametric; the same key path/equality backs private registries.
+  .key-table: (cut table-key-space @ <>)
 
   Wrapper: Identity ;; : Functor
 
@@ -260,7 +266,7 @@
 
   ;; Is this trie empty, i.e. having no mapping from key to value?
   ;; : Bool <- @
-  .empty?: (lambda (x) (equal? (.unwrap x) (Empty)))
+  .empty/key?: (lambda (x) (equal? (.unwrap x) (Empty)))
 
   ;; : (Or Height '#f '-1) <- T
   .trie-height:
@@ -287,19 +293,23 @@
                      (.ensure-height (.trie-height ta) tb)))
 
 
-  ;; : Bool <- Any
-  .validate:
+  ;; Table membership owns recursive key/value checks; Wrap recognition alone
+  ;; cannot certify a tree or its normalized children. Use the common protocol.
+  .element?: (lambda (source) (table-element? @ source))
+
+  ;; Check representation/height before enumerating keys; no child normalization.
+  .validate-shape:
   (lambda (t)
     (def (err reason) (raise-type-error @ reason t))
     (match (.unwrap t)
       ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
       ;; Otherwise, a Branch with an Empty child is normalized to a Skip
-      ((Leaf value) (validate Value value) t)
+      ((Leaf _) t)
       ((Branch height left right)
        (validate Height height)
-       (.validate left)
+       (.validate-shape left)
        (unless (= (1- height) (.trie-height left)) (err wrong-left-height:))
-       (.validate right)
+       (.validate-shape right)
        (unless (= (1- height) (.trie-height right)) (err wrong-right-height:))
        t)
       ((Skip height bits-height bits child)
@@ -308,9 +318,10 @@
        (unless (<= bits-height height) (err bad-bits-height:))
        (unless (<= 0 bits) (err negative-bits:))
        (unless (<= (integer-length bits) (1+ bits-height)) (err bits-too-big:))
-       (.validate child)
+       (.validate-shape child)
        (unless (= (- height bits-height 1) (.trie-height child)) (err child-height-mismatch:))
-       t)))
+       t)
+      (_ (err invalid-node:))))
 
   ;; : (Fun Value <- @ Key (Fun Value <-))
   .ref:
@@ -363,8 +374,8 @@
   ;; : (Fun @ <- @ @ Height)
   .make-branch: (lambda (height left right)
                   (cond
-                   ((.empty? right) (.make-skip height 0 0 left))
-                   ((.empty? left) (.make-skip height 0 1 right))
+                   ((.empty/key? right) (.make-skip height 0 0 left))
+                   ((.empty/key? left) (.make-skip height 0 1 right))
                    (else (.branch height left right))))
 
   ;; : (Fun @ <- Height Height Key @) ;; height of the tree -1, height of the bits skipped - 1.
@@ -395,7 +406,7 @@
       (_ trie)))
 
   ;; : (Fun @ <- Key Value)
-  .singleton: (lambda (key value) (.make-leaf (1- (integer-length key)) key value))
+  .singleton/key: (lambda (key value) (.make-leaf (1- (integer-length key)) key value))
 
   ;; (Zipper Trunk Branch) = (Pair Trunk Branch)
   ;; : (Zipper @) <- Key Value (Zipper @)
@@ -403,6 +414,10 @@
   (lambda (key value zipper)
     (match (.refocus ($Costep -1 key) zipper)
       ((cons t path) (cons (.leaf value) path))))
+
+  ;; Share admitted subtrees during ordered delta discovery; generic admission
+  ;; and opaque payload retention remain owned by the table protocol.
+  .for-each-change: (cut trie-for-each-change @ <> <> <>)
 
   ;; : @ <- Key Value @
   .acons:
@@ -495,8 +510,9 @@
         ((Skip height bits-height bits child)
          (rec (.skip-key height bits-height bits k) child a)))))
 
-  ;; : @ <- (Fun Bool <- Key Value) @
-  .filter:
+  ;; Structural capability: public selection owns admission and Bool checks.
+  ;; Retain unchanged subtrees instead of rebuilding the selected bindings.
+  .filter/key:
   (lambda (pred t)
     (first-value
      (let r ((k 0) (t t))
@@ -523,66 +539,12 @@
                 ((Branch _ left right) (+ (count left) (count right)))
                 ((Skip _1 _2 _3 child) (count child)))))
 
-  ;; Binary search given a monotonic predicate f that is #f then #t.
-  ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,
-  ;; so we could balance the search.
-  ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-  .find-first/opt:
-  (lambda (pred trie)
-    (letrec ((divide ;; (Option (Cons Key Value)) <- Key (Option (Cons Key Value)) (List (Cons Key @)) (List (Cons Key @)) @
-              (lambda (k default leftward rightward t)
-                (match (.unwrap t)
-                  ((Empty) default)
-                  ((Leaf value) (conquer k value default leftward rightward))
-                  ((Branch height left right)
-                   (match leftward
-                     ([] (divide (.right-key height k) default
-                                 [[k . left]] rightward right))
-                     (_ (divide k default
-                                leftward [[(.right-key height k) . right] . rightward] left))))
-                  ((Skip height bits-height bits child)
-                   (divide (.skip-key height bits-height bits k) default leftward rightward child)))))
-             (conquer
-              (lambda (k value default leftward rightward)
-                (let-values (((new-default tries)
-                              (if (pred k)
-                                (values (some [k . value]) leftward)
-                                (values default (reverse rightward)))))
-                  (match tries
-                    ([] new-default)
-                    ([[k . trie] . leftward] (divide k default leftward [] trie)))))))
-      (divide 0 #f [] [] trie)))
+  ;; General predicate observations inherit the checked two-argument traversal
+  ;; protocol. Ordered positioning remains the explicit seek capability; an
+  ;; arbitrary predicate does not justify binary-search pruning.
 
-  ;; Binary search given a monotonic predicate f that is #t then #f.
-  ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,
-  ;; so we could balance the search.
-  ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-  .find-last/opt:
-  (lambda (pred trie)
-    (letrec ((divide ;; (Option (Cons Key Value)) <- Key (Option (Cons Key Value)) (List (Cons Key @)) (List (Cons Key @)) @
-              (lambda (k default leftward rightward t)
-                (match (.unwrap t)
-                  ((Empty) default)
-                  ((Leaf value) (conquer k value default leftward rightward))
-                  ((Branch height left right)
-                   (match rightward
-                     ([] (divide k default leftward [[(.right-key height k) . right]] left))
-                     (_ (divide k default [[k . left] . leftward] rightward right))))
-                  ((Skip height bits-height bits child)
-                   (divide (.skip-key height bits-height bits k) default leftward rightward child)))))
-             (conquer
-              (lambda (k value default leftward rightward)
-                (let-values (((new-default tries)
-                              (if (pred k)
-                                (values (some [k . value]) rightward)
-                                (values default (reverse leftward)))))
-                  (match tries
-                    ([] new-default)
-                    ([[k . trie] . rightward] (divide k default [] rightward trie)))))))
-      (divide 0 #f [] [] trie)))
-
-  ;; : @ @ <- (Fun Bool <- Key Value) @
-  .partition:
+  ;; Structural paired capability; the shared boundary validates both roots.
+  .partition/key:
   (lambda (p t)
     (let prec ((k 0) (t t))
       (match (.unwrap t)
@@ -597,36 +559,8 @@
            (def (f child) (.make-skip height bits-height bits child))
            (values (f y) (f n)))))))
 
-  ;; The (.split k t) operation returns a triple (l data r), where
-  ;; l is the map with all the bindings of t whose key is strictly less than k;
-  ;; r is the map with all the bindings of t whose key is strictly greater than k;
-  ;; data is #f if t contains no binding for k,
-  ;; or (some v) if t binds v to k
-  ;; : @ (Option Value) @ <- Key @
-  .split:
-  (lambda (k t)
-    (let/cc return
-      (when (< k 0) (return (values .empty #f t)))
-      (def h (.trie-height t))
-      (unless (and h (>= h (integer-length k))) (return (values t #f .empty)))
-      (let srec ((k 0) (t t))
-        (match (.unwrap t)
-          ((Empty) (values .empty #f .empty))
-          ((Leaf v) (values .empty (some v) .empty))
-          ((Branch height left right)
-           (if (bit-set? (1- height) k)
-             (let-values (((l x r) (srec (.right-key height k) right)))
-               (values (.make-branch height left l)
-                       x
-                       (.make-skip height 0 1 r)))
-             (let-values (((_ x r) (srec k left)))
-               (values (.make-skip height 0 0 left)
-                       x
-                       (.make-branch height r right)))))
-          ((Skip height bits-height bits child)
-           (let-values (((l x r) (srec (.skip-key height bits-height bits k) child)))
-             (def (f child) (.make-skip height bits-height bits child))
-             (values (f l) x (f r))))))))
+  ;; Ordered split is inherited from methods.table. Its checked traversal keeps
+  ;; the pivot distinct from the Trie traversal prefix and admits both outputs.
 
   .Zipper: {(:: @Z [])
     A: @
@@ -678,7 +612,7 @@
 
   .make-branch-step:
   (lambda (branch steps)
-    (if (.empty? branch) (.make-skip-step 0 steps) [(BranchStep branch) . steps]))
+    (if (.empty/key? branch) (.make-skip-step 0 steps) [(BranchStep branch) . steps]))
 
   .make-skip-step:
   (lambda (bits-height steps)
@@ -716,7 +650,7 @@
      ;; here, common >= h >= h2 and we must descend toward the sought focus from a higher prefix node
      (nest
       (def (descend t h s))
-      (if (.empty? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
+      (if (.empty/key? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
       (let d ((t t) (h h) (s s)))
       (if (= h h2) (cons t ($Path costep s))) ;; reached the goal with a non-empty sub-trie!
       (match (.unwrap t) ;; cannot be Leaf, or else we would have had (= h h2), nor Empty, handled above
@@ -768,11 +702,9 @@
   .leaf<-opt: (match <> ((some v) (.leaf v)) (_ .empty))
   .opt<-leaf: (lambda (t) (match (.unwrap t) ((Leaf v) (some v)) (_ #f)))
 
-  ;; : @ <- Key (Fun (Option Value) <- (Option Value)) @
-  .update/opt:
-  (lambda (key f trie)
-    (match (.refocus ($Costep -1 key) (.zipper<- trie))
-      ((cons t path) (.<-zipper (cons (.leaf<-opt (f (.opt<-leaf t))) path)))))
+  ;; Public optional updates inherit methods.table's complete checked delta path.
+  ;; Raw zipper reconstruction must not bypass key/value/root admission or turn
+  ;; an unchanged request into a fresh root. Persistent writes retain .acons/.remove.
 
   ;; Given (the data of) a skip node, and a height at which to cut it (at least 0,
   ;; and no more than the skip node's bits-height), return the two notionally
@@ -844,7 +776,8 @@
                                 ((bleft bright) (.skip-choice h bbits-height bbits bchild bdiffheight)))
                      (left-to-right
                       branch ksame sameheight
-                      (recurse r k aleft bleft)
+                      ;; Both cut children start after the shared high prefix.
+                      (recurse r ksame aleft bleft)
                       (recurse r (.right-key sameheight ksame) aright bright))))))
            (if (zero? samelength)
              same-result
@@ -852,8 +785,9 @@
         (_ (invalid '.recurse/trie-pair: k a b recurse: recurse empty: empty leaf: leaf branch: branch skip: skip onlya: onlya onlyb: onlyb)))))
 
 
-  ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @ ?Key
-  .merge:
+  ;; Declared paired traversal is reused beneath methods.table's checked merge.
+  ;; The optional prefix belongs only to this structural backend capability.
+  .merge/key/opt:
   (lambda (f a b (k 0))
     (.recurse/trie-pair
      k a b
@@ -868,9 +802,10 @@
      onlya: (lambda (k a) (.map/key/opt (lambda (k v) (f k (some v) #f)) a k))
      onlyb: (lambda (k b) (.map/key/opt (lambda (k v) (f k #f (some v))) b k))))
 
-  ;; Compare two trees lexicographically. TODO: should we always be using the Value's .comparer function?
+  ;; Structural union-key comparison; the shared public boundary admits both
+  ;; roots, protects order metadata and checks the explicit value comparator.
   ;; : Integer <- (Integer <- a b) @[a/Value] @[b/Value]
-  .compare:
+  .compare/key:
   (lambda (cmp a b)
     (let/cc return
       (.recurse/trie-pair
@@ -884,26 +819,25 @@
        onlyb: (lambda (_1 _2) (return -1)))
       0))
 
-  ;; Are two trees equal?
-  ;; : Bool <- @ @
-  .=?:
-  (lambda (a b)
+  ;; Shared-subtree equality is a structural capability. The public table
+  ;; boundary admits both complete roots and supplies checked value decisions.
+  .=?/key:
+  (lambda (same? a b)
     (let/cc return
       (when (eq? a b) (return #t))
       (.recurse/trie-pair
        0 a b
        recurse: (lambda (r k a b) (or (eq? a b) (r k a b)))
        empty: true
-       leaf: (lambda (_ va vb) (or (.call Value .=? va vb) (return #f)))
+       leaf: (lambda (_ va vb) (or (same? va vb) (return #f)))
        branch: true
        skip: true
        onlya: (lambda (_1 _2) (return #f))
        onlyb: (lambda (_1 _2) (return #f)))))
 
-  ;; Split a tree in two strictly smaller trees, if possible, in a somewhat balanced way, if possible.
-  ;; NB: We assume that #f, if a valid wrapped trie, is the empty trie.
-  ;; : (OrFalse @) (OrFalse @) <- @
-  .divide:
+  ;; Structural partition capability; methods.table owns whole-root admission,
+  ;; nonempty/progress checks and the public two-value/list result protocols.
+  .divide/key:
   (lambda (t)
     (match (.unwrap t)
       ((Empty) (values #f #f))
@@ -917,10 +851,17 @@
          ((Leaf _) (values t #f))
          (_ (invalid '.divide t))))))
 
-  ;; : (Iterator (Pair Key Value)) <- @ ?Key
-  .iter<-:
+  ;; Advertise the existing unsigned key order; the descriptor captures Key revisions.
+  ;; For persistent roots, admitted UInt keys and successful point updates preserve
+  ;; carrier shape. Direct host mutation of shared nodes violates this backend law.
+  .shape-preserving?: #t
+  Comparer: (table-comparer Key number-comparer)
+
+  ;; Standard ordered iterator with prefix pruning. Only the lower-bound spine
+  ;; is descended before the first hit; complete subtrees below it are skipped.
+  ;; Reuse the original traversal, replacing the old split-and-rebuild preparation.
+  .iter/key:
   (lambda (t (from 0))
-    (when (positive? from) (let-values (((_1 _2 r) (.split (1- from) t))) (set! t r)))
     (in-coroutine
      (lambda (yield)
        (let loop ((entries [[0 . t]]))
@@ -929,14 +870,29 @@
            ([[k . t] . rest]
             (match (.unwrap t)
               ((Empty) (loop rest))
-              ((Leaf v) (yield [k . v]) (loop rest))
-              ((Branch h l r) (loop [[k . l] [(.right-key h k) . r] . rest]))
-              ((Skip h l b c) (loop [[(.skip-key h l b k) . c] . rest]))))))))))
+              ((Leaf v) (when (>= k from) (yield [k . v])) (loop rest))
+              ((Branch h l r)
+               (def right-key (.right-key h k))
+               (loop (if (>= from right-key) [[right-key . r] . rest]
+                       [[k . l] [right-key . r] . rest])))
+              ((Skip h l b c)
+               (if (>= from (+ k (arithmetic-shift 1 (1+ h)))) (loop rest)
+                 (loop [[(.skip-key h l b k) . c] . rest]))))))))))
+
+  ;; A table-order capability accepts Option bounds; UInt successors implement
+  ;; exclusive bounds exactly without overflow or an unrelated comparison mode.
+  .seek<-: (lambda (t lower inclusive?)
+    (.call @ .iter/key t (if (some? lower) (+ (some-value lower) (if inclusive? 0 1)) 0))))
 
 (define-type (TrieSet. @ Set<-Table.)
-  Table: {(:: @ Trie.) Value: Unit}
+  ;; Match RationalSet's binding: one element descriptor owns the backing key
+  ;; contract. The UInt default breaks the inherited Elt/Table.Key alias cycle.
+  Elt: UInt
+  Table: {(:: @T Trie.) Key: Elt Value: Unit}
   .subset?: ;; is a a subset of b
   (lambda (a b)
+    ;; Keep the existing shared-subtree shortcut inside complete set admission.
+    (with-set-tables @ a b (lambda ()
     (let/cc return
       (when (eq? a b) (return #t))
       (.call Table .recurse/trie-pair
@@ -947,12 +903,14 @@
              branch: true
              skip: true
              onlya: (lambda (_1 _2) (return #f))
-             onlyb: true))))
+             onlyb: true))))))
 
 (def (SimpleTrie Key Value)
   {(:: @ [Trie. IdWrap]) (Key) (Value)
    sexp: `(SimpleTrie ,(.@ Key sexp) ,(.@ Value sexp))})
 
+;; Specialize the same UInt-compatible element/key contract throughout the Set
+;; family; the backing declaration and standard style factories retain identity.
 (def (SimpleTrieSet Elt)
   {(:: @ [TrieSet.]) (Elt)
    sexp: `(SimpleTrieSet ,(.@ Elt sexp))

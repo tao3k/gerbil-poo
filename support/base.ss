@@ -3,7 +3,7 @@
 (export #t)
 
 (import
-  (only-in :std/error deferror-class defraise/context)
+  (only-in :std/error deferror-class defraise/context contract-violation-error?)
   (only-in :std/func rcompose))
 
 (defalias λ lambda)
@@ -60,3 +60,13 @@
   ((_ x) (void)))
 
 (def (number-comparer x y) (if (= x y) 0 (if (< x y) -1 1)))
+
+;; Preserve the caller's POO refusal policy while using Gerbil's core guard.
+;; The predicate runs once outside translation; only the local using failure is
+;; translated. User predicate/body errors retain their original exception object.
+(def (require-value value predicate refuse)
+  (let (accepted (predicate value))
+    (try
+      (using (value :~ (lambda (_) accepted)) value)
+      (catch (cause)
+        (if (contract-violation-error? cause) (refuse) (raise cause))))))

@@ -1,0 +1,160 @@
+name: Scheme
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: scheme-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  GERBIL_PATH: ${{ github.workspace }}/.ci-library
+  # Standard compile/job progress; level 9 additionally traces each optimizer call.
+  GERBIL_BUILD_VERBOSE: 3
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.groups.outputs.matrix }}
+      compiler-key: ${{ steps.gerbil.outputs.compiler-key }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+        id: gerbil
+      - name: Enumerate declared test packages
+        id: groups
+        run: |
+          printf '%s\n' t/*/gerbil.pkg | jq -Rsc 'split("\n") | map(select(length > 0) | split("/")[1]) | {group: .}' > "$RUNNER_TEMP/groups.json"
+          echo "matrix=$(cat "$RUNNER_TEMP/groups.json")" >> "$GITHUB_OUTPUT"
+      # Root make imports t/build.ss and compiles the top-level t/*.ss fixtures.
+      # Nested test packages/includes belong to compile-tests, not this artifact.
+      # Keep every root/production/benchmark input; a test edit must still run all jobs.
+      - uses: actions/cache@v4
+        id: shared-cache
+        with:
+          path: |
+            .ci-library/lib
+            .ci-library/bin
+          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/**', 't/*.ss', '!t/build-test.ss') }}
+      - name: Check public module packaging
+        run: just check-layout
+      - name: Prepare the declared libraries and benchmark programs
+        if: steps.shared-cache.outputs.cache-hit != 'true'
+        run: time -p just build-shared
+      - name: Check shared and isolated build declarations
+        run: just test-file t/build-test.ss
+      - name: Preserve standard executable permissions for artifact transfer
+        run: tar -cf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library lib bin
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: ${{ runner.temp }}/scheme-shared.tar
+          include-hidden-files: true
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+  compile-tests:
+    name: compile ${{ matrix.group }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+        id: gerbil
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - name: Compile the standard test package
+        run: just build-group '${{ matrix.group }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scheme-tests-${{ github.sha }}-${{ matrix.group }}
+          # The first wildcard preserves the package directory in the artifact.
+          path: .ci-library/lib/clan/poo/t/*/**
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+  test:
+    name: ${{ matrix.group }}
+    needs: [build, compile-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+        id: gerbil
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: scheme-tests-${{ github.sha }}-${{ matrix.group }}
+          path: .ci-library/lib/clan/poo/t
+      - name: Discover and run this package with the official test runner
+        run: just test-group '${{ matrix.group }}'
+  representation-entry:
+    name: representation entry
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+        id: gerbil
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - name: Exercise linked and runtime-loaded entries, including refusals
+        run: just _test 300 benchmarks/representation-startup.ss
+  single-process:
+    needs: [build, compile-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: taiki-e/install-action@just
+      - uses: ./.github/actions/setup-gerbil
+        id: gerbil
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: scheme-library-${{ github.sha }}
+          path: ${{ runner.temp }}
+      - name: Restore standard executable permissions
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+      - name: Require the shared compiler and host dependencies
+        run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: scheme-tests-${{ github.sha }}-*
+          path: .ci-library/lib/clan/poo/t
+          merge-multiple: true
+      - name: Run every compiled suite in one process and the complete paired study
+        run: time -p just check-built 2 1 4 600

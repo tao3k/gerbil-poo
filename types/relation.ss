@@ -1,0 +1,909 @@
+;;; Finite structural Type expressions; no nominal-inheritance implication.
+(export check-function-path capture-type-catalog capture-type-data function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
+(import (only-in :std/list/alist plist->alist)
+        (only-in :std/hash/misc hash-ensure-ref)
+        (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax
+        (prefix-in ../recursive recursive.) ../object
+        (only-in ../mop Any Bool Function CaseFunction Type. Object Class.)
+        (only-in ../object-contract ObjectContract.)
+        (only-in ../optional-validation type-value-catalog capture-type-values
+                 catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)
+        (only-in ../number Number Real Float Z/ Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
+        (only-in ../type Rational TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))
+
+;; Bottom has no inhabitants. Crossing a finite recursive approximation boundary
+;; is ordinary type refusal, not work exhaustion or evidence of global emptiness.
+(def Never (.cc Type. sexp: 'Never .element?: (lambda (_) #f)))
+
+;; Snapshot explicitly named computed Class/Schema Types through ordinary POO
+;; getters. Tokens remain local to this capture; no global registry is installed.
+(def (capture-type-catalog provider names (budget 8192) sources: (sources []))
+  (capture-type-values provider names sources (type-work budget) refuse-type))
+
+;; Mu X n F denotes n applications of F to Never. The self request decreases n;
+;; every copied term spends shared work, so branching expansion cannot evade quota.
+;; No host recursive descriptor knot or active-pair coinductive success is used.
+(def (unfold-type term work)
+  (let* ((name (cadr term)) (depth (caddr term)) (body (cadddr term))
+         (program (.cc recursive.Generator. input: Any output: Any
+           generate: (lambda (level)
+             (work)
+             (if (zero? level) (recursive.value 'Never)
+               (recursive.map-interaction
+                 (lambda (previous) (substitute-type body (list (cons name previous)) work))
+                 (recursive.request (- level 1)))))))
+         (result (recursive.solve program (+ depth 1) depth)))
+    (unless (recursive.value? result) (refuse-type 'exhausted "Recursive Type unfolding did not close"))
+    (let (expanded (recursive.value-result result))
+      (bounded-type-data expanded work)
+      expanded)))
+
+;; Expand only explicit guarded Mu and splice explicit Object row substitutions.
+;; Disjointness/kind failures invalidate an assignment; exhaustion always escapes.
+(def (normalize-type term work)
+  (work)
+  (cond ((not (pair? term)) term)
+        ((eq? (car term) 'Mu) (normalize-type (unfold-type term work) work))
+        ((eq? (car term) 'Object)
+         (let* ((fields (map (lambda (field) (list (car field) (normalize-type (cadr field) work))) (cadr term)))
+                (tail (caddr term)))
+           (if (memq tail '(open closed)) (list 'Object fields tail)
+             (let (row (normalize-type (cadr tail) work))
+               (unless (and (pair? row) (eq? (car row) 'Object))
+                 (refuse-type 'bounds "Row substitution requires an Object Type"))
+               (when (ormap (lambda (field) (assq (car field) fields)) (cadr row))
+                 (refuse-type 'bounds "Row substitution overlaps explicit fields"))
+               (list 'Object (append fields (cadr row)) (caddr row))))))
+        (else (map-type-children term (cut normalize-type <> work) #t))))
+
+;; Admit a finite symbolic method path under the request's existing quota.
+;; The caller decides ownership; this shared check executes no source getter.
+(def (check-function-path path work)
+  (bounded-type-data path work)
+  (unless (and (list? path) (andmap symbol? path))
+    (refuse-type 'malformed "Signature path must contain field names" path))
+  path)
+
+;; Select a declared Function through explicit Object fields. An unresolved row
+;; tail or Type variable cannot invent a named signature before substitution.
+;; Callers validate syntax with their own variable set before this shared walk.
+(def (function-expression expression path work (missing 'unsupported))
+  (check-function-path path work)
+  (let walk ((term expression) (path path))
+    (work)
+    (def current (if (and (pair? term) (eq? (car term) 'Mu)) (normalize-type term work) term))
+    (if (null? path)
+      (begin
+        (unless (and (pair? current) (memq (car current) '(Function CaseFunction)))
+          (refuse-type missing "Signature path does not name a concrete Function" path))
+        current)
+      (let (field (and (pair? current) (eq? (car current) 'Object) (assq (car path) (cadr current))))
+        (unless field (refuse-type missing "Signature path needs explicit Object fields" path))
+        (walk (cadr field) (cdr path))))))
+
+;; Return a known signature template, or #f when substitution can decide the
+;; path's kind/layout. Literal names are not variables: capture-free substitution
+;; detects only actual Type positions. Fixed absent paths still refuse up front.
+;; Candidate projection later uses function-expression with bounds refusal.
+(def (function-template expression path variables work)
+  (check-function-path path work)
+  ;; A private false marker detects free Type parameters without unfolding Mu.
+  (def (dependent? term)
+    (not (equal? term (substitute-type term (map (lambda (name) (cons name #f)) variables) work))))
+  (let walk ((term expression) (remaining path))
+    (work)
+    (cond
+      ((memq term variables) #f)
+      ((and (pair? term) (eq? (car term) 'Mu))
+       (if (dependent? term) #f (walk (normalize-type term work) remaining)))
+      ((null? remaining) (function-expression term [] work))
+      ((and (pair? term) (eq? (car term) 'Object))
+       (let (field (assq (car remaining) (cadr term)))
+         (cond (field (walk (cadr field) (cdr remaining)))
+               ((pair? (caddr term))
+                (if (dependent? (cadr (caddr term))) #f
+                  (walk (normalize-type term work) remaining)))
+               (else (refuse-type 'unsupported "Signature path needs a declared field" remaining)))))
+      (else (refuse-type 'unsupported "Signature path needs Object fields" remaining)))))
+
+;; Decide derivability in the closed algebra: UInt <: Integer <: Any; Bool <: Any;
+;; covariant List/Tuple observations; covered Function inputs contravariant,
+;; outputs covariant, with exact multiple-value counts. False means no rule here,
+;; not a counterexample to arbitrary predicate inclusion or mutable-slot writes.
+(def (subtype-expression? source target (budget 8192))
+  (def work (type-work budget))
+  (call-with-type-inputs [source target] work (cut subtype/checked? <> <> work)))
+
+;; Own EVERY public operand before live catalog admission can call observers.
+;; Gerbil's ordered map and apply compose the existing bounded copier with the
+;; original checker/compiler. Leaf identities, original errors and one quota stay
+;; intact; internal inference already owns its syntax and avoids another copy.
+(def (call-with-type-inputs inputs work consume)
+  (def captured (map-in-order (cut capture-type-data <> work) inputs))
+  (call-with-current-catalogs work (lambda () (apply consume captured)) #t))
+
+;; Recursive comparisons share their caller's quota, including inference search.
+;; This is exported only through the main judgment above; no active-pair success
+;; shortcut admits recursive types, CaseFunction shadowing or opaque predicates.
+(def (subtype/checked? source target work)
+  ;; Substitution can introduce new Mu nesting: recheck the complete ground terms.
+  (type-expression source [] work) (type-expression target [] work)
+  (compare-types (normalize-type source work) (normalize-type target work) work))
+
+;; Numeric families reuse literal bounds, independent of mutable Type methods.
+;; A false result means nonnumeric; a pair of false bounds means all integers.
+(def (numeric-bounds term)
+  (case term ((Integer) (cons #f #f)) ((UInt) (cons 0 #f))
+    (else (let (term (or (descriptor-alias term) term)) (and (pair? term)
+      (case (car term) ((IntegerRange) (range-bounds term))
+        ((UIntN IntN) (fixed-integer-bounds term))
+        ((Z/) (cons 0 (1- (cadr term)))) (else #f)))))))
+;; Empty ranges are numeric bottom, not work failure or a universal fallback.
+(def (empty-range? bounds)
+  (and (car bounds) (cdr bounds) (> (car bounds) (cdr bounds))))
+;; Intrinsic number?/real?/rational?/flonum? inclusion shares the existing integer view.
+;; No ancestry is inspected, no values are coerced, and neither rational nor
+;; floating values become exact integers. Interval inclusion checks endpoints.
+(def (numeric-subtype? source target)
+  (def left (numeric-bounds source)) (def right (numeric-bounds target))
+  (cond ((eq? target 'Number) (and (or left (memq source '(Number Real Rational Float))) #t))
+        ((eq? target 'Real) (and (or left (memq source '(Real Rational Float))) #t))
+        ((eq? target 'Rational) (and (or left (eq? source 'Rational)) #t))
+        (else
+          (and left right
+            (or (empty-range? left)
+                (and (or (not (car right)) (and (car left) (<= (car right) (car left))))
+                     (or (not (cdr right)) (and (cdr left) (<= (cdr left) (cdr right))))))))))
+;; A finite literal target covers a range only when every integer is present.
+;; Reject unbounded/oversized intervals before reusing Enum's first-index table;
+;; duplicate and noninteger literals cannot fill holes. Charge preparation and
+;; every visited integer to the existing shared quota, never to endpoint size.
+(def (range-literals-subtype? source values work)
+  (def bounds (numeric-bounds source))
+  (and bounds
+    (or (empty-range? bounds)
+      (and (car bounds) (cdr bounds)
+        (<= (1+ (- (cdr bounds) (car bounds))) (length values))
+        (begin
+          (for-each (lambda (_) (work)) values)
+          (let (index (first-index-hash<-vector (list->vector values)))
+            (let loop ((value (car bounds)))
+              (work)
+              (or (> value (cdr bounds))
+                  (and (hash-key? index value) (loop (1+ value)))))))))))
+;; Intrinsic flat validators preserve values. Source admission stays separate
+;; from token transport; public Union-to-Union descriptor identity is invariant.
+(def (flat-type? term)
+  (if (pair? term)
+    (case (car term) ((Exactly Enum IntegerRange Z/ UIntN IntN BytesN) #t) ((Union) (andmap flat-type? (cdr term))) (else #f))
+    (and (scalar-recognizer term) #t)))
+;; Numeric families share their symbolic interval view; Bool has exactly two
+;; intrinsic values. String/Symbol/Keyword require a same-family flat branch;
+;; finite literals cannot cover their infinite domains. Other finite literal
+;; sources still require keyword stability.
+;; No descriptor kind is collapsed.
+;; Keyword/escape transport, ordered Union identity and wrapper admission retain
+;; their existing judgments; coverage does not execute user recognizers.
+(def (flat-union-source? source work)
+  (or (and (memq source '(Number Real Rational Float Bool String Symbol Keyword Null Unit Bytes Bytes32 Bytes64)) #t) (and (numeric-bounds source) #t)
+      (and (pair? source) (eq? (car source) 'BytesN))
+      (and (pair? source) (memq (car source) '(Exactly Enum))
+           (keyword-stable-type? source work))))
+;; Project numeric coverage without altering the ordered descriptor tree.
+;; Preserve unbounded endpoints; literal integers become singleton pieces.
+;; Other admitted flat scalars contain no integers. No user recognizer executes.
+(def (union-range-pieces term work)
+  (work)
+  (cond ((numeric-bounds term) => (lambda (bounds)
+          (list bounds)))
+        ((pair? term)
+         (case (car term)
+           ((Union) (append-map (cut union-range-pieces <> work) (cdr term)))
+           ((Exactly Enum) (append-map (lambda (value) (work)
+             (if (exact-integer? value) (list (cons value value)) [])) (cdr term)))
+           (else [])))
+        (else [])))
+;; Subtract one closed integer interval, retaining at most two ordered residuals.
+;; False lower/upper endpoints mean negative/positive infinity. Only finite
+;; endpoints are shifted; empty/disjoint covers change nothing.
+(def (subtract-range source covered)
+  (def lower (car source)) (def upper (cdr source))
+  (def left (car covered)) (def right (cdr covered))
+  (if (or (empty-range? covered) (and upper left (< upper left))
+          (and right lower (< right lower))) (list source)
+    (append (if (and left (or (not lower) (< lower left)))
+              (list (cons lower (1- left))) [])
+            (if (and right (or (not upper) (< right upper)))
+              (list (cons (1+ right) upper)) []))))
+;; Accumulate uncovered pieces using Gerbil's ordered fold/append-map protocol.
+;; Work depends on descriptor pieces, never the number of integers in a range.
+;; Preparation and every residual visit share the original quota; exhaustion
+;; escapes as a refusal and cannot be mistaken for a gap or complete coverage.
+(def (range-union-subtype? source branches work)
+  (def bounds (numeric-bounds source))
+  (and bounds
+    (or (empty-range? bounds)
+      (null? (foldl (lambda (covered remaining)
+        (append-map (lambda (piece) (work) (subtract-range piece covered)) remaining))
+        (list bounds)
+        (append-map (cut union-range-pieces <> work) branches))))))
+;; Decide singleton inclusion without executing a user predicate or constructor.
+(def (literal-in-type? value term work)
+  (work)
+  (cond ((scalar-recognizer term) => (lambda (recognize) (recognize value)))
+        (else (and (pair? term)
+          (case (car term)
+            ((IntegerRange Z/ UIntN IntN)
+             (let (bounds (numeric-bounds term))
+               (and (exact-integer? value) (or (not (car bounds)) (<= (car bounds) value))
+                    (or (not (cdr bounds)) (<= value (cdr bounds))))))
+            ((Exactly) (equal? value (cadr term)))
+            ((Enum) (and (member value (cdr term)) #t))
+            ((Union) (ormap (cut literal-in-type? value <> work) (cdr term)))
+            (else #f))))))
+;; Bytes validation is identity-preserving; mutable contents never enter literal
+;; metadata or a value cache. Only the carrier and immutable vector length matter.
+(def (byte-type? term)
+  (or (and (memq term '(Bytes Bytes32 Bytes64)) #t)
+      (and (pair? term) (eq? (car term) 'BytesN))))
+;; Finite fixed-length branches cover a fixed source only at that same length.
+;; An unbounded Bytes source requires a whole Bytes branch; no finite length list
+;; can cover every vector. Ordered target traversal remains the shared flat rule.
+(def (byte-subtype? source target work)
+  (def left (or (descriptor-alias source) source))
+  (def right (or (descriptor-alias target) target))
+  (cond ((eq? right 'Bytes) #t)
+        ((and (pair? right) (eq? (car right) 'BytesN))
+         (and (pair? left) (= (cadr left) (cadr right))))
+        ((and (pair? target) (eq? (car target) 'Union))
+         (ormap (cut flat-subtype? source <> work) (cdr target)))
+        (else #f)))
+;; Inclusion distributes only over the proven identity-preserving flat fragment.
+;; An explicit Any source still cannot replace a narrower field or signature.
+(def (flat-subtype? source target work)
+  (work)
+  (cond ((equal? source target) #t)
+        ((or (eq? source 'Never) (eq? target 'Any)) #t)
+        ;; The private finite view reuses literal membership without rewriting
+        ;; the public Bool descriptor or interpreting false as missing data.
+        ((eq? source 'Null) (literal-in-type? [] target work))
+        ((eq? source 'Unit) (literal-in-type? (void) target work))
+        ((byte-type? source) (byte-subtype? source target work))
+        ((eq? source 'Bool) (flat-subtype? '(Enum #f #t) target work))
+        ((and (pair? source) (eq? (car source) 'Union))
+         (andmap (cut flat-subtype? <> target work) (cdr source)))
+        ((and (pair? source) (memq (car source) '(Exactly Enum)))
+         (andmap (cut literal-in-type? <> target work) (cdr source)))
+        ((and (pair? target) (memq (car target) '(Exactly Enum)))
+         (range-literals-subtype? source (cdr target) work))
+        ((and (pair? target) (eq? (car target) 'Union))
+         (or (ormap (cut flat-subtype? source <> work) (cdr target))
+             ;; Every Gerbil real is rational or a flonum. Exceptional flonums
+             ;; are not rational; retain BOTH obligations and target order under
+             ;; the original quota. No literal floating-point metadata is needed.
+             (and (eq? source 'Real)
+                  (flat-subtype? 'Rational target work)
+                  (flat-subtype? 'Float target work))
+             (range-union-subtype? source (cdr target) work)))
+        (else (numeric-subtype? source target))))
+
+;; Object fields are required; Record fields carry explicit presence metadata.
+;; Syntax admission already rejects duplicate names and unknown presence markers.
+(def (field-required? field)
+  (or (null? (cddr field)) (eq? (caddr field) 'required)))
+
+;; Decide only witnessed emptiness of admitted, normalized finite data Types.
+;; Products need one impossible mandatory child; alternatives need every child
+;; impossible. Empty List/Map, void/false sentinels, optional fields and procedures
+;; remain inhabited or unknown. No mutable descriptor/user predicate is invoked.
+;; Shared work is charged even for a negative result; Mu means only its explicit
+;; finite approximant, never a claim about an unrestricted recursive fixed point.
+(def (empty-type? term work)
+  (work)
+  (cond ((eq? term 'Never) #t)
+        ((not (pair? term)) #f)
+        (else
+          (case (car term)
+            ;; Empty literal alternatives and empty dependent-Type directories admit no value.
+            ;; A nonempty directory remains opaque: never run its payload recognizers.
+            ((Enum TypeValuePair) (null? (cdr term)))
+            ((IntegerRange) (empty-range? (range-bounds term)))
+            ((Tuple Pair) (ormap (cut empty-type? <> work) (cdr term)))
+            ((Union Or) (andmap (cut empty-type? <> work) (cdr term)))
+            ((Sum) (let loop ((entries (cdr term)))
+                     (or (null? entries)
+                         (and (empty-type? (cadr entries) work) (loop (cddr entries))))))
+            ((Object Record) (ormap (lambda (field)
+                              (work)
+                              (and (field-required? field) (empty-type? (cadr field) work)))
+                              (cadr term)))
+            (else #f)))))
+
+;; Descriptor identity is independent of inhabitants: direct Sum/Union sources
+;; retain their tag/branch protocol. Other failed comparisons may use a witnessed
+;; empty source without rewriting its descriptor kind, fields or callback Types.
+(def (empty-replacement? source target work)
+  (and (not (and (pair? source) (memq (car source) '(Union Or Sum))))
+       (or (not (and (pair? target) (eq? (car target) 'Union))) (flat-type? target))
+       (empty-type? source work)))
+
+;; Standard symbol-keyed tables index admitted immutable field declarations.
+;; Charge the shared quota before inserting each name; never evaluate a Slot.
+(def (field-index fields work)
+  (list->hash-table-eq (map-in-order (lambda (field)
+    (work) (cons (car field) field)) fields)))
+
+;; Optional presence plus a positive finite empty-child witness proves absence.
+;; Empty collections and optional sentinels are inhabited; unknown predicates
+;; cannot supply this evidence. The original descriptor and shared quota remain.
+(def (absent-field? field work)
+  (and (not (field-required? field)) (empty-type? (cadr field) work)))
+
+;; One observational protocol for Object rows and required/optional Record slots.
+;; Closed targets require a closed source; extra keys need proved absence. Missing
+;; optional targets are safe only for closed sources: an open source could hide
+;; that name with an incompatible value. Supplied fields retain readable variance;
+;; this rule grants neither mutable writes nor arbitrary callback implication.
+(def (row-related? source target relate work)
+  (def left (field-index (cadr source) work))
+  (def right (field-index (cadr target) work))
+  (def closed? (eq? (caddr source) 'closed))
+  (and (or (eq? (caddr target) 'open)
+           (and closed? (andmap (lambda (field) (work)
+             (or (hash-key? right (car field)) (absent-field? field work))) (cadr source))))
+    (andmap (lambda (expected)
+      (work)
+      (cond ((hash-get left (car expected)) =>
+             (lambda (actual)
+               (and (or (not (field-required? expected)) (field-required? actual))
+                    (or (absent-field? actual work)
+                        (relate (cadr actual) (cadr expected))))))
+            (else (and closed? (not (field-required? expected)))))) (cadr target))))
+
+;; Each Sum branch promises exactly two readable fields, with an open carrier:
+;; runtime Sum accepts inherited/extra slots. Reuse the common row protocol for
+;; each inhabited exact symbol tag and its original payload, under the caller's
+;; quota. A positive existing empty-payload witness discharges only this read
+;; obligation: original variants, runtime selection and direct Sum identity stay.
+;; This temporary metadata view changes neither the Sum descriptor nor its wire
+;; tag order. Open sources cannot justify closed targets or absent extra fields.
+(def (sum-row-related? source target relate work)
+  (andmap (lambda (variant)
+    (work)
+    (or (empty-type? (cdr variant) work)
+      (row-related? `(Object ((tag (Exactly ,(make-symbol (car variant))))
+                           (value ,(cdr variant))) open) target relate work)))
+    (plist->alist (cdr source))))
+
+;; Both branches of an optional source must fit one original target. Sharing
+;; this decomposition keeps optional and ordinary targets under the same quota
+;; and prevents a successful payload from hiding an uncovered void/false value.
+(def (optional-source-related? source target relate work)
+  (work)
+  (and (relate (if (eq? (car source) 'Maybe) 'Unit '(Exactly #f)) target)
+       (relate (cadr source) target)))
+
+;; Optional membership is its exact sentinel or its original child membership.
+;; Decompose optional sources, preserving BOTH obligations across different kinds.
+;; Bool/immutable literal sources use exhaustive values, not samples or a top Type.
+;; Other carriers lift only through the existing child relation; no Union tree,
+;; Map key or opaque descriptor is rewritten. Each visit shares the caller quota.
+(def (optional-related? source target relate work)
+  (work)
+  (def payload (cadr target))
+  ;; False is data here, not a missing association. Void is not an Enum literal.
+  (def (literal-covered? value)
+    (work)
+    (or (and (eq? (car target) 'OrFalse) (eq? value #f))
+        (relate (list 'Exactly value) payload)))
+  (cond
+    ;; Keep the established fast covariance proof before broader decomposition.
+    ((and (pair? source) (eq? (car source) (car target))
+          (relate (cadr source) payload)) #t)
+    ((and (eq? source 'Unit) (eq? (car target) 'Maybe)) #t)
+    ((and (pair? source) (memq (car source) '(Maybe OrFalse)))
+     (optional-source-related? source target relate work))
+    ((eq? source 'Bool) (and (literal-covered? #f) (literal-covered? #t)))
+    ((and (pair? source) (memq (car source) '(Exactly Enum)))
+     (andmap literal-covered? (cdr source)))
+    (else (relate source payload))))
+
+;; Compare normalized finite terms; every required target field must be present.
+;; Open source rows leave undeclared fields unconstrained; closed targets exclude extras.
+(def (compare-types source target work)
+  (work)
+  (or (cond
+   ((equal? source target) #t)
+   ((or (eq? target 'Any) (eq? source 'Never)) #t)
+   ;; An impossible element leaves exactly nil, not an empty Type. Reuse Null's
+   ;; complete intrinsic coverage, including ordered flat Union targets, only
+   ;; after the existing finite witness. No child validator can run on nil.
+   ;; Wrapper-bearing alternative targets and invariant Map keys stay outside
+   ;; this value-preserving view; original List metadata is never rewritten.
+   ((and (pair? source) (eq? (car source) 'List) (flat-type? target))
+    (and (empty-type? (cadr source) work) (compare-types 'Null target work)))
+   ;; Null is an empty LIST, while Tuple uses a vector, even at arity zero.
+   ;; A Pair belongs to List only when its head and entire tail are covered.
+   ;; Recurse through existing replacement, retaining nested wrapper checks,
+   ;; invariant keys, finite Mu normalization and the same shared work budget.
+   ((and (pair? target) (eq? (car target) 'List)
+         (or (eq? source 'Null) (and (pair? source) (eq? (car source) 'Pair))))
+    (or (eq? source 'Null)
+        (and (compare-types (cadr source) (cadr target) work)
+             (compare-types (caddr source) target work))))
+   ;; All explicit structural targets share one source-Union decomposition. Every
+   ;; original branch must pass that SAME target's existing carrier, sentinel,
+   ;; tag/directory and child rules under the common quota. Runtime selection,
+   ;; wrapping and failure remain ordered. Function/CaseFunction branches reuse
+   ;; the complete ordered call-language/variance judgment, including nested
+   ;; callbacks; direct Union and opaque targets are deliberately not widened.
+   ;; Or retains first-member selection; Union retains structural selection.
+   ;; Neither direct ordered alternative target is widened by this read rule.
+   ((and (pair? source) (memq (car source) '(Union Or))
+         (or (and (flat-type? target)
+                  (not (and (pair? target) (eq? (car target) 'Union))))
+             (and (pair? target)
+                  (memq (car target) '(List Tuple Pair Map Object Record Maybe OrFalse TypeValuePair Sum Function CaseFunction)))))
+    (andmap (cut compare-types <> target work) (cdr source)))
+   ;; Same-kind covariance, payload lifting and cross-sentinel coverage share
+   ;; one rule. Runtime optional validation still owns sentinel bypass/wrapping.
+   ((and (pair? target) (memq (car target) '(Maybe OrFalse)))
+    (optional-related? source target (cut compare-types <> <> work) work))
+   ;; Eliminate optional syntax only into the admitted identity-validating flat
+   ;; fragment. Every original branch is checked; ordered Union trees and Map
+   ;; keys are retained, and an optional Function never becomes directly callable.
+   ((and (pair? source) (memq (car source) '(Maybe OrFalse)) (flat-type? target))
+    (optional-source-related? source target (cut compare-types <> <> work) work))
+   ((and (flat-type? source) (flat-type? target)
+         ;; Flat source alternatives may each replace one ordinary flat target.
+         ;; Keep direct Union-to-Union identity: no branch permutation or widening.
+         (not (and (pair? source) (eq? (car source) 'Union)
+                   (pair? target) (eq? (car target) 'Union)))
+         (or (not (and (pair? target) (eq? (car target) 'Union)))
+             (flat-union-source? source work)))
+    (flat-subtype? source target work))
+   ((and (pair? source) (pair? target)
+         (memq (car source) '(Function CaseFunction)) (memq (car target) '(Function CaseFunction)))
+    (function-replaces? source target work))
+   ;; Tagged objects already have this carrier; inspect every declared variant
+   ;; through existing required/open row rules without projecting runtime values.
+   ((and (pair? source) (eq? (car source) 'Sum) (pair? target)
+         (memq (car target) '(Record Object)))
+    (sum-row-related? source target (cut compare-types <> <> work) work))
+   ;; Finite Record/Class and ObjectContract rows share the POO object carrier.
+   ;; Reuse the entire named presence/closure/child protocol in either direction;
+   ;; their original validators, initialization policies and descriptors stay distinct.
+   ((and (pair? source) (pair? target)
+         (memq (car source) '(Record Object)) (memq (car target) '(Record Object)))
+    (row-related? source target (cut compare-types <> <> work) work))
+   ((and (pair? source) (pair? target) (eq? (car source) (car target)))
+    (case (car source)
+      ((List Tuple Pair)
+       (and (= (length source) (length target))
+            (andmap (lambda (s t) (compare-types s t work)) (cdr source) (cdr target))))
+      ;; Inhabited entries retain invariant keys and readable values. A positive
+      ;; empty key OR value witness proves no entries can exist, so another Map
+      ;; checks the same empty carrier without invoking either child validator.
+      ;; This is not an empty Type and grants no mutable insertion permission.
+      ((Map) (or (and (equal? (cadddr source) (cadddr target))
+                       (compare-types (cadr source) (cadr target) work))
+                 (empty-type? (cadddr source) work)
+                 (empty-type? (cadr source) work)))
+      ;; Catalog membership is descriptor identity, not payload covariance:
+      ;; UInt's Type object never becomes Integer's Type object. Source order
+      ;; remains metadata, even when set inclusion permits readable replacement.
+      ((TypeValuePair)
+       (andmap (lambda (name) (work) (and (memq name (cdr target)) #t)) (cdr source)))
+      ;; Equal tag skeletons retain wire order and selected payload identity.
+      ((Sum)
+       (let loop ((left (cdr source)) (right (cdr target)))
+         (work)
+         (cond ((null? left) (null? right))
+               ((null? right) #f)
+               (else (and (eq? (car left) (car right))
+                          (compare-types (cadr left) (cadr right) work)
+                          (loop (cddr left) (cddr right)))))))
+      ;; Union equality was handled above. No widening, sorting, deduplication or
+      ;; branchwise covariance may change committed first-match normalization.
+      ((Union Or) #f)
+      (else #f)))
+   (else #f))
+    (empty-replacement? source target work)))
+
+;; Project raw Type positions to the EXISTING shape selector/argument normalizer.
+;; These temporary objects are shape views, not new Types or dispatch certificates.
+(def (signature-view term)
+  (call-with-function-types term
+    (lambda (outputs inputs optional keywords required rest)
+      (.o bind-these: #f outputs: outputs inputs: inputs optional: optional
+        keywords: keywords required-keywords: required rest: rest))))
+
+;; Shared structural views feed inference and coverage through the same existing
+;; Function selector/normalizer. They do not construct Types or certificates.
+(def (function-signatures term)
+  (map-in-order signature-view (if (eq? (car term) 'Function) (list term) (cdr term))))
+
+;; Recognized ground Types exclude outer keyword/escape tokens without calling
+;; user recognizers. Containers keep their outer carrier even when their payload
+;; is Any; Maybe/OrFalse and Union can expose payloads, so inspect those alternatives.
+;; Mu has already undergone the existing finite normalization/admission guard.
+(def (keyword-stable-type? term work)
+  (work)
+  (cond ((catalog-type? term) #f)
+        ((scalar-recognizer term) =>
+         (lambda (recognize)
+           (not (or (recognize mode:) (recognize #!key) (recognize #!rest)))))
+        (else (case (car term)
+          ((IntegerRange Z/ UIntN IntN BytesN) #t)
+          ((Exactly Enum) (andmap (lambda (value) (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
+          ((Maybe OrFalse) (keyword-stable-type? (cadr term) work))
+          ((Union Or) (andmap (cut keyword-stable-type? <> work) (cdr term)))
+          ((List Tuple Pair TypeValuePair Map Sum Record Object Function CaseFunction) #t)
+          (else #f)))))
+
+;; Only the raw transport judgment uses extensional flat-origin inclusion:
+;; identity validators cannot alter earlier branch wrapping or normalization.
+;; Literal token origins keep their public guard. Scalar family coverage is
+;; value inclusion, not permission to erase wire origins or change Union order.
+;; Interpret identity-validating alternatives only for raw value obligations.
+;; Or keeps its runtime membership selection; optional sentinels are explicit
+;; values. Complete ordered child projection refuses any wrapping/opaque branch.
+;; Public descriptor comparisons and original candidate metadata never use this
+;; view. Every visit shares the existing work counter; no Any is synthesized.
+(def (flat-origin-view type work)
+  (work)
+  (cond
+    ((and (pair? type) (memq (car type) '(Union Or)))
+     (let (children (map-in-order (cut flat-origin-view <> work) (cdr type)))
+       (and (andmap identity children) (cons 'Union children))))
+    ((and (pair? type) (memq (car type) '(Maybe OrFalse)))
+     (let (child (flat-origin-view (cadr type) work))
+       (and child (list 'Union (if (eq? (car type) 'Maybe) 'Unit '(Exactly #f)) child))))
+    ((flat-type? type) type)
+    (else #f)))
+
+;; Reuse the existing intrinsic inclusion solver after both complete projections.
+;; Unknown/wrapping origins retain their original comparison, not a wider view.
+(def (raw-origin-subtype? source target work)
+  (def left (flat-origin-view source work))
+  (def right (flat-origin-view target work))
+  (if (and left right) (flat-subtype? left right work) (compare-types source target work)))
+
+;; Restrict ordinary (unescaped) data to values the keyword decoder can read as
+;; data. Exactly/Enum/Keyword are decided extensionally; no user recognizer runs.
+;; Flat Union alternatives are identity validators, so removing token-only arms
+;; preserves their ordinary values. Opaque/wrapper-bearing carriers stay bounded
+;; overapproximations. Explicit Any remains explicit; no complement is invented.
+(def (ordinary-origin type work)
+  (def view (flat-origin-view type work))
+  ;; Restrict one completed view, without reprojecting each nested subtree.
+  ;; False and void stay ordinary data; only actual keyword/escape tokens vanish.
+  (def (restrict term)
+    (work)
+    (case term
+      ((Keyword) 'Never)
+      (else (if (not (pair? term)) term
+        (case (car term)
+        ((Exactly Enum)
+         (let (values (filter (lambda (value)
+                        (not (or (keyword? value) (eq? value #!key) (eq? value #!rest)))) (cdr term)))
+           (if (null? values) 'Never (cons (car term) values))))
+        ((Union)
+           (let (types (filter (lambda (child) (not (eq? child 'Never)))
+                        (map-in-order restrict (cdr term))))
+             (cond ((null? types) 'Never) ((null? (cdr types)) (car types))
+                   (else (cons 'Union types)))))
+        (else term))))))
+  (if view (restrict view) type))
+
+;; Private graph edges retain ordered origin Types, including exact marker Types.
+;; States are standard equal?-hashed lists (position, keys, raw offset, rest mode).
+(defstruct raw-edge (next origins) final: #t)
+
+;; Explore a finite directed graph with the arrow/target protocol used by
+;; std/struct/dag. Unlike walk-dag, this worklist admits cycles: an explored node
+;; records outgoing arrows, never a successful subtype result. Each pop consumes
+;; the caller's quota; the whole request-local graph is discarded on exhaustion.
+(def (raw-reachable starts arrows target work)
+  (def visited (make-hash-table))
+  (let visit ((pending starts))
+    (unless (null? pending)
+      (work)
+      (let (node (car pending))
+        (if (hash-key? visited node) (visit (cdr pending))
+          (let (outgoing (arrows node))
+            (hash-put! visited node outgoing)
+            (visit (foldr (lambda (arrow tail) (cons (target arrow) tail))
+                     (cdr pending) outgoing)))))))
+  visited)
+
+;; Construct the decoder/arity product, its reverse arrows and legal endings.
+;; Exact and saturated counters share this grammar; no subtype is admitted here.
+(def (raw-graph expected row raw-count limits work)
+  (def positions (list->vector (car row)))
+  (def position-count (vector-length positions))
+  (def bounded-positions? (<= position-count (cdr limits)))
+  (def bounded-raw? (<= raw-count (car limits)))
+  (def initial (list 0 (cdr row) 0 #f))
+  (def predecessors (make-hash-table))
+  (def ordinary (make-hash-table))
+  (def emptiness (make-hash-table))
+  (def endings [])
+  ;; At the saturated decoded position, only the target's declared rest repeats.
+  (def (position-type index)
+    (if (< index position-count) (vector-ref positions index) (.get expected rest)))
+  ;; Cache only completed ordinary restrictions, including an explicit Never.
+  (def (ordinary-type type)
+    (hash-ensure-ref ordinary type (cut ordinary-origin type work)))
+  ;; Share the positive finite witness with ordinary replacement. Cache completed
+  ;; true/false results only within this graph, using Gerbil's presence-aware
+  ;; hash protocol. Unknown carriers remain live; exhaustion installs no answer.
+  (def (empty-origin? type)
+    (hash-ensure-ref emptiness type (cut empty-type? type work)))
+  ;; Necessary exact-region bounds prune unreachable suffix sizes early. Rest
+  ;; mode has no further keyword interpretation, hence exactly one token/value.
+  (def (feasible? position keys offset rest?)
+    (work)
+    (and (or (not bounded-raw?) (<= offset raw-count))
+      (or (not bounded-positions?)
+        (let ((remaining (- position-count position)) (raw-left (- raw-count offset)))
+          (and (>= remaining 0)
+            (if bounded-raw?
+              (if rest? (= raw-left remaining)
+                (and (<= (+ remaining (* 2 (length keys))) raw-left)
+                     (<= raw-left (+ (* 2 remaining) (* 2 (length keys)) 1))))
+              (>= (+ offset (if rest? remaining
+                           (+ (* 2 remaining) (* 2 (length keys)) 1))) raw-count)))))))
+  ;; Emit the exact one/two-token prefix and its counter successor, or no edge.
+  (def (edge position keys offset rest? origins)
+    (def next-offset (+ offset (length origins)))
+    (and (feasible? position keys next-offset rest?)
+      (make-raw-edge
+        (list position keys (if bounded-raw? next-offset (min raw-count next-offset)) rest?) origins)))
+  ;; Enumerate decoder alternatives using the existing supplied key/Type pairs.
+  ;; Literal token payloads may occur after key/rest escape but never ordinary.
+  (def (successors state)
+    (match state
+      ([position keys offset rest?]
+       (def type (and (or (< position position-count) (not bounded-positions?)) (position-type position)))
+       (def next-position (min position-count (1+ position)))
+       (def data? (and type (not (empty-origin? type))))
+       (filter identity
+         (if rest?
+           (if data? (list (edge next-position keys offset #t (list type))) [])
+           (append
+             (if data?
+               (let (plain (ordinary-type type))
+                 (list (and (not (empty-origin? plain)) (edge next-position keys offset #f (list plain)))
+                       (edge next-position keys offset #f (list '(Exactly #!key) type)))) [])
+             (map (lambda (entry)
+               (and (not (empty-origin? (cdr entry)))
+                 (edge position (remq entry keys) offset #f (list (list 'Exactly (car entry)) (cdr entry))))) keys)
+             (if (null? keys) (list (edge position [] offset #t '((Exactly #!rest)))) [])))))))
+  ;; Register reverse arrows while exploring; the same traversal later closes
+  ;; predecessors. The official hash-update! retains all shared predecessors.
+  (def (arrows state)
+    (match state
+      ([position keys offset _rest?]
+       (when (and (= position position-count) (null? keys) (= offset raw-count))
+         (set! endings (cons state endings)))))
+    (def outgoing (successors state))
+    (for-each (lambda (out)
+      (hash-update! predecessors (raw-edge-next out) (cut cons state <>) [])) outgoing)
+    outgoing)
+  (values (raw-reachable (list initial) arrows raw-edge-next work) predecessors endings initial))
+
+;; Independently check endings, predecessor closure and ordered per-slot evidence.
+;; Even an empty initial language must carry a complete closure certificate;
+;; merely encountering an explored cycle can never approve a call region.
+(def (raw-certificate? edges live endings initial actual at? work)
+  (and (andmap (cut hash-key? live <>) endings)
+    (or (not (hash-key? live initial)) actual)
+    (hash-fold (lambda (state outgoing accepted?)
+      (work)
+      (and accepted?
+        (match state
+          ([_position _keys offset _rest?]
+           (andmap (lambda (out)
+             (or (not (hash-key? live (raw-edge-next out)))
+               (and (hash-key? live state) actual
+                 (let slots ((origins (raw-edge-origins out)) (index offset))
+                   (or (null? origins)
+                     (and (at? index (car origins)) (slots (cdr origins) (1+ index)))))))) outgoing))))) #t edges)
+    (if (hash-key? live initial) #t 'empty)))
+
+;; Normalize through the existing signature protocol, construct the product,
+;; close predecessors, then check slot evidence. Cache only completed comparisons
+;; with std/hash/misc: cached #f stays #f and exceptions never install an answer.
+(def (raw-inputs-related? actual expected arguments raw-arguments limits work)
+  (def row (signature.decode-arguments
+    (signature.normalize-arguments expected arguments #t (lambda (formal _) formal)) #t))
+  (defvalues (edges predecessors endings initial)
+    (raw-graph expected row (length raw-arguments) limits work))
+  (def live (raw-reachable endings (cut hash-ref predecessors <> []) identity work))
+  (def admitted (make-hash-table))
+  (def source-fixed (and actual (list->vector (append (.get actual inputs) (.get actual optional)))))
+  (def source-rest (and actual (.get actual rest)))
+  ;; Each edge origin uses its own raw offset, including the saturated rest slot.
+  ;; Public Union bounds remain invariant; only identity origins use flat inclusion.
+  (def (at? index origin)
+    (work)
+    (def formal (if (< index (vector-length source-fixed)) (vector-ref source-fixed index) source-rest))
+    (and formal (hash-ensure-ref admitted (cons origin formal)
+                  (cut raw-origin-subtype? origin formal work))))
+  (raw-certificate? edges live endings initial actual at? work))
+
+;; Keyword sources still require stable supplied target carriers. Plain sources
+;; use value-sensitive raw origin checks, preserving the exact selected clause.
+(def (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments limits work)
+  (work)
+  (if source-mode?
+    (let (stable #t)
+      (signature.normalize-arguments expected arguments target-mode?
+        (lambda (formal _placeholder)
+          (unless (keyword-stable-type? formal work) (set! stable #f))
+          formal))
+      stable)
+    (raw-inputs-related? actual expected arguments raw-arguments limits work)))
+
+;; Decide shape-language inclusion in the bounded finite algebra. This checks
+;; all allowed supplied rows, not Type inclusion or arbitrary host procedure arity.
+;; Unsupported/malformed syntax and quota exhaustion retain their typed errors.
+(def (function-covers? source target (budget 8192))
+  (def work (type-work budget))
+  (call-with-type-inputs [source target] work
+    (lambda (source target) (function-covers/checked? source target work))))
+
+;; The public gate owns both signatures before either live Type is inspected.
+;; Keep the original ordered call-language algorithm and quota in one consumer.
+(def (function-covers/checked? source target work)
+  (type-expression source [] work) (type-expression target [] work)
+  (def left (normalize-type source work)) (def right (normalize-type target work))
+  (unless (and (pair? left) (pair? right)
+               (memq (car left) '(Function CaseFunction)) (memq (car right) '(Function CaseFunction)))
+    (refuse-type 'bounds "Call coverage requires Function signatures"))
+  (signature.covers-signatures? (function-signatures left) (function-signatures right) work
+    (lambda _ #t)
+    (lambda (actual expected arguments source-mode? target-mode? raw-arguments limits)
+      ;; Direct rows ask shape coverage only, as in the same-mode judgment.
+      ;; Replacement separately checks every direct value's contravariance.
+      (or (and (not source-mode?) target-mode? actual (<= (length raw-arguments) (car limits))
+               (let (row (signature.decode-arguments arguments #t))
+                 (and (null? (cdr row)) (= (length (car row)) (length raw-arguments)))))
+          (function-wire-related? actual expected arguments source-mode? target-mode? raw-arguments limits work)))
+    ;; Shape-only admission intentionally retains even uninhabited rows.
+    (lambda _ #f)))
+
+;; First-match selection determines BOTH sides of every row. Required/optional/
+;; rest and provided keyword inputs are contravariant; exact-count outputs are
+;; covariant. Shadowed later cases cannot repair an earlier incompatible clause.
+(def (function-replaces? source target work)
+  ;; Keep completed positive/negative witnesses local to this replacement.
+  ;; Standard presence-aware lookup never treats a cached false as missing.
+  (def emptiness (make-hash-table))
+  ;; Normalize only supplied positions/keys through the existing binder. An
+  ;; omitted optional/default or unused rest Type cannot make a live row empty.
+  ;; No runtime validator or host procedure runs while collecting these Types.
+  (def (row-empty? expected arguments keyword-mode?)
+    (work)
+    (let/cc empty
+      (signature.normalize-arguments expected arguments keyword-mode?
+        (lambda (formal placeholder)
+          (work)
+          (when (hash-ensure-ref emptiness formal (cut empty-type? formal work)) (empty #t))
+          placeholder))
+      #f))
+  (signature.covers-signatures? (function-signatures source) (function-signatures target) work
+    (lambda (actual expected arguments source-mode? target-mode? _raw-arguments limits)
+      (work)
+      (and (= (length (.get actual outputs)) (length (.get expected outputs)))
+           (andmap (lambda (s t) (compare-types s t work)) (.get actual outputs) (.get expected outputs))
+        ;; The raw origin checker already establishes all cross-mode inputs.
+        ;; Same-mode calls reuse ordinary supplied-input variance below.
+        (or (and (not source-mode?) target-mode?)
+          (let* ((accepted #t)
+                 (normalized (signature.normalize-arguments expected arguments target-mode?
+                   (lambda (formal _placeholder) formal)))
+                 (supplied normalized))
+            (signature.normalize-arguments actual supplied source-mode?
+              (lambda (formal value)
+                (work)
+                (unless (compare-types value formal work) (set! accepted #f))
+                value))
+            accepted))))
+    (cut function-wire-related? <> <> <> <> <> <> <> work) row-empty?))
+
+;; Compile a checked ground expression through existing recursive container and
+;; Function validators. Wrapping remains at validate/contract boundaries, so this
+;; never proves a host procedure's arity, totality or its result without a call.
+(def (expression-type expression (budget 8192))
+  (def work (type-work budget))
+  (call-with-type-inputs [expression] work
+    (lambda (expression)
+      (type-expression expression [] work)
+      (compile-expression expression work))))
+
+;; Internal checked compiler shares its caller's work counter. Only finite terms
+;; already admitted by type-expression may enter this lower-level operation.
+(def (compile-expression expression work)
+  (defvalues (descriptor _dependent?)
+    (let build ((term (normalize-type expression work)))
+      (work)
+      (def dependent? (catalog-type? term))
+      (def dependencies [])
+      ;; Recursively compile once, retaining provenance only for catalog-derived
+      ;; children. Standard scalar-only constructors allocate no dependency edges.
+      (def (child expression)
+        (defvalues (value tracked?) (build expression))
+        (when tracked? (set! dependencies (cons (cons value (object-revision value)) dependencies)))
+        value)
+      (def result
+        (if (catalog-type? term) (catalog-contract term work) (case term
+          ((Null) Null) ((Unit) Unit) ((Bytes) Bytes) ((Bytes32) Bytes32) ((Bytes64) Bytes64) ((UInt256) UInt256) ((JsInt) JsInt) ((Any) Any) ((Never) Never) ((Bool) Bool) ((Number) Number) ((Real) Real) ((Rational) Rational) ((Float) Float) ((Integer) Integer) ((UInt) UInt) ((Keyword) Keyword) ((String) String) ((Symbol) Symbol)
+          (else
+           (case (car term)
+             ;; Reuse Class and its effective Slot protocol, including recursive
+             ;; validation and checked initialization. Defaults/hooks are host policy,
+             ;; supplied by deriving this descriptor, never executable inference data.
+             ((Record)
+              ;; .cc fields are lazy: finish child compilation while this request
+              ;; owns its counter. Runtime Class observation must not spend it again.
+              (let (slots (object<-alist (map (lambda (field)
+                      (cons (car field) (RecordSlot (child (cadr field)) optional: (eq? (caddr field) 'optional))))
+                      (cadr term))))
+                (.cc Class. sexp: (copy-type term) sealed: (eq? (caddr term) 'closed) slots: slots)))
+             ((Object)
+              (let (fields (object<-alist (map (lambda (field) (cons (car field) (child (cadr field)))) (cadr term))))
+                (if (eq? (caddr term) 'closed)
+                  (.cc ObjectContract. responsibilities: fields)
+                  (.cc ObjectContract. responsibilities: fields extra-fields: 'delegate constraints: (list Object)))))
+             ((Z/) (Z/ (cadr term)))
+             ((UIntN) (UIntN (cadr term)))
+             ((IntN) (IntN (cadr term)))
+             ((BytesN) (BytesN (cadr term)))
+             ((IntegerRange)
+              (let (bounds (range-bounds term)) (IntegerRange min: (car bounds) max: (cdr bounds))))
+             ((Exactly) (Exactly (cadr term)))
+             ((Enum)
+              ;; Snapshot before entering lazy slots: later caller syntax mutation
+              ;; cannot change the first observation's literal set or display syntax.
+              (let ((values (copy-type (cdr term))) (syntax (copy-type term)))
+                (.cc Enum. vals: values sexp: syntax)))
+             ((Pair) (Pair (child (cadr term)) (child (caddr term))))
+             ((TypeValuePair)
+              (let (tokens (filter catalog-type? (cdr term)))
+                (set! dependent? (pair? tokens))
+                (def carrier (type-value-catalog TypeValuePair
+                  (map (lambda (entry) (if (catalog-type? entry) (catalog-descriptor entry work) (child entry))) (cdr term))
+                  (copy-type term) (lambda () (for-each catalog-current! tokens))))
+                (for-each (cut link-catalog-sources! carrier <> work) tokens)
+                carrier))
+             ((Map)
+              ;; Map is syntax, not a strict constructor. Capture compiled values
+              ;; before its lazy Key/Value slots can retain the request counter.
+              (let* ((value (child (cadr term))) (key (child (cadddr term))))
+                (Map value <- key)))
+             ((Sum) (apply Sum (cdr (map-sum-types term child))))
+             ((Union) (apply Union (map child (cdr term))))
+             ((Or) (apply Or (map child (cdr term))))
+             ((Maybe) (Maybe (child (cadr term))))
+             ((OrFalse) (OrFalse (child (cadr term))))
+             ((List) (List (child (cadr term))))
+             ((Tuple) (apply Tuple (map child (cdr term))))
+             ((CaseFunction) (apply CaseFunction (map child (cdr term))))
+             ((Function)
+              (call-with-function-types term
+                (lambda (outputs inputs optional keywords required rest)
+                  (Function (map child outputs) (map child inputs)
+                    optional: (map child optional)
+                    keywords: (map (lambda (entry) (cons (car entry) (child (cdr entry)))) keywords)
+                    required-keywords: required rest: (and rest (child rest)))))))))))
+      ;; Later child getters must not refresh an earlier child's revision stamp.
+      ;; Pure checks and weak links precede the parent's own binding snapshot.
+      (for-each (lambda (entry)
+        (work)
+        (unless (= (object-revision (car entry)) (cdr entry))
+          (refuse-type 'bounds "Compiled catalog child changed"))
+        (depend-on-object! result (car entry))) dependencies)
+      (values result (or dependent? (pair? dependencies)))))
+  descriptor)

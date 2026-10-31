@@ -1,0 +1,763 @@
+;;; Typed products inherit the enclosing run's admission through ordinary modules.
+(export handoff-test product-row-test consuming-product-sampler generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action keyword-routing-action)
+(import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type ../testing/function
+        (prefix-in :clan/poo/testing/property/generator core.)
+        (prefix-in :clan/poo/testing/property property.)
+        (prefix-in (only-in ../support/testing require-property-passed) standard.)
+        (only-in ../testing/generation-graph generation-refusal?)
+        (prefix-in :clan/poo/testing/property/replay corpus.)
+        (prefix-in (only-in ../fun Observation.) fun.))
+
+;; A downstream error policy is separate from the typed request domain. Capture
+;; recipe authority once, derive/wrap service Records through POO, and deliver the
+;; generic report with the ordinary Reader/FUN bind. Retry explicitly prepares a
+;; new action; neither a classifier nor seed replay renews the old recipe.
+(def (service-classification-action recipe classify consume)
+  (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def stamp (object-revision recipe))
+  (def sampler (make-generator schema
+    (lambda (_random _size)
+      (if (.get recipe blocked?) (raise (.get recipe cause))
+        (make-instance schema count: 2 handler: abs)))
+    (lambda (value) (if (zero? (.get value count)) [] (list (.cc value count: 0))))
+    (cut .get <> count) dependencies: (list recipe)))
+  (def domain (property.make-specification (cut element? schema <>) (.@ sampler measure)
+    current?: (lambda () (= stamp (object-revision recipe)))))
+  (.call fun.Observation. .bind
+    (lambda (configuration)
+      (property.check-property (generator-core sampler)
+        (lambda (value) (= ((.@ value handler) -1) 0)) domain
+        seed: (.get configuration seed) cases: (.get configuration cases)
+        size: (.get configuration size)
+        size-limit: (or (.get configuration size-limit)
+          (and (not (procedure? (.get configuration size))) (.get configuration size)))
+        shrink-budget: (.get configuration shrink-budget) policy: (.get configuration policy)
+        classify-error: classify))
+    (lambda (report) (lambda (_configuration) (consume report)))))
+
+;; Compose the existing typed property Reader with portable export. Validation,
+;; Function wrapping, generation, shrinking and replay keep their existing owners;
+;; the consumer receives one confirmed report and one complete corpus string.
+(def (service-corpus-action schema sampler codec consume)
+  (property-action schema (lambda (value) (= ((.@ value handler) -1) 0))
+    (lambda (report)
+      (def output (open-output-string))
+      (write-counterexample report codec output)
+      (consume report (get-output-string output))) sampler: sampler))
+
+;; One five-bit service result stays in its declared carrier even when the
+;; faulty implementation wraps instead of saturating; representation alone is
+;; therefore insufficient to establish the application property.
+(def (bounded-credit-result amount delta faulty?)
+  (def total (+ amount delta))
+  (if faulty? (modulo total 32) (min 31 (max 0 total))))
+;; Compose automatically derived finite/modular/range samplers through the same
+;; product, Record constructor and Reader/FUN action used by other services.
+;; The external port Type is a revision owner, not an unchecked numeric fallback.
+(def (bounded-credit-action port faulty? consume)
+  (def Amount (UIntN 5)) (def Delta (IntN 6)) (def Mode (Z/ 3))
+  (def Request (Record amount: [Amount] delta: [Delta] mode: [Mode] port: [port]
+    handler: [(Function [Amount] [Amount Delta])]))
+  (def sampler (product-generator Request (map generator (list Amount Delta Mode port))
+    (lambda (value) (list (.get value amount) (.get value delta) (.get value mode) (.get value port)))
+    (lambda (parts) (make-instance Request amount: (car parts) delta: (cadr parts)
+      mode: (caddr parts) port: (cadddr parts)
+      handler: (lambda (amount delta) (bounded-credit-result amount delta faulty?))))))
+  (property-action Request (lambda (value)
+    (or (= (.get value mode) 2)
+      (= ((.@ value handler) (.get value amount) (.get value delta))
+         (bounded-credit-result (.get value amount) (.get value delta) #f))))
+    consume sampler: sampler))
+
+;; Preserve the empty keyword as data. A faulty service confuses its empty
+;; spelling with omission, while both implementations still satisfy String.
+(def (keyword-routing-result value faulty?)
+  (def spelling (keyword->string value))
+  (if (and faulty? (string=? spelling "")) "missing" spelling))
+;; One product constructor supplies the Function wrapper. Keyword call values
+;; then cross the ordinary Function signature and FUN report boundary unchanged.
+(def (keyword-routing-action descriptor faulty? consume)
+  (def sampler (product-generator descriptor
+    (list (generator Keyword) (generator (List Keyword)))
+    (lambda (value) (list (.get value selector) (.get value aliases)))
+    (lambda (parts) (make-instance descriptor selector: (car parts) aliases: (cadr parts)
+      handler: (cut keyword-routing-result <> faulty?)))))
+  (def signature (Function [String] [descriptor] keywords: (list (cons label: Keyword))))
+  (def checked (validate signature (lambda (row label: (label (string->keyword "")))
+    ((.@ row handler) label))))
+  (property-action descriptor (lambda (value)
+    (string=? (apply checked (list value label: (.get value selector)))
+      (keyword->string (.get value selector)))) consume sampler: sampler))
+
+;; The standard suite owns registration; every case uses ordinary public actions.
+(def generated-products-test
+  (test-suite "nested typed product admission"
+    (test-case "keyword routing preserves empty values wrappers corpus and fresh FUN repair"
+      (def descriptor (Record selector: [Keyword] aliases: [(List Keyword)]
+        handler: [(Function [String] [Keyword])]))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 12 size: 8 shrink-budget: 128))
+      (def report ((keyword-routing-action descriptor #t identity) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (keyword->string (.get (.get report counterexample) selector)) "")
+      (check-exception ((.@ (.get report counterexample) handler) 'ordinary-symbol) TypeError?)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check (replay-counterexample report) => #f)
+      (def codec (corpus.make-codec '(keyword-routing 1)
+        (lambda (value) (list (.get value selector) (.get value aliases)))
+        (lambda (data) (make-instance descriptor selector: (car data) aliases: (cadr data)
+          handler: (cut keyword-routing-result <> #t)))))
+      (def output (open-output-string))
+      (write-counterexample report codec output)
+      (check (read-counterexample (.get report sampler) codec (open-input-string (get-output-string output))
+        (property.report-property (.get report execution))) => #f)
+      (.set! descriptor sexp 'revised-keyword-routing)
+      (check-exception (replay-property report) Error?)
+      (standard.require-property-passed ((keyword-routing-action descriptor #f identity) configuration)))
+    (test-case "automatic keyword call rows retain optional keyword and rest interpretations"
+      (def signature (Function [Keyword] [Keyword] optional: [Keyword]
+        keywords: (list (cons label: Keyword)) rest: Keyword))
+      (def descriptor (FunctionArguments signature))
+      (standard.require-property-passed (check-property descriptor (cut element? descriptor <>)
+        seed: 42 cases: 25 size: 8 shrink-budget: 80)))
+    (test-case "bounded credit services retain Function contracts through FUN corpus and fresh repair"
+      (def port (IntegerRange min: 8000 max: 8007)) (def deliveries 0)
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 40 size: 8 shrink-budget: 128))
+      (def report ((bounded-credit-action port #t (lambda (value) (set! deliveries (1+ deliveries)) value)) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? deliveries 1)
+      (def witness (.get report counterexample))
+      (check-exception ((.@ witness handler) -1 0) TypeError?)
+      (check-exception ((.@ witness handler) 0 32) TypeError?)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check (replay-counterexample report) => #f)
+      (def schema (.get report descriptor))
+      (def codec (corpus.make-codec '(bounded-credit 1)
+        (lambda (value) (vector (.get value amount) (.get value delta) (.get value mode) (.get value port)))
+        (lambda (data) (make-instance schema amount: (vector-ref data 0) delta: (vector-ref data 1)
+          mode: (vector-ref data 2) port: (vector-ref data 3) handler: (cut bounded-credit-result <> <> #t)))))
+      (def output (open-output-string))
+      (write-counterexample report codec output)
+      (check (read-counterexample (.get report sampler) codec (open-input-string (get-output-string output))
+        (property.report-property (.get report execution))) => #f)
+      (.set! port .most-positive 8008)
+      (check-exception (replay-property report) Error?)
+      (standard.require-property-passed ((bounded-credit-action port #f identity) configuration)))
+    (test-case "Rational derives through recursive containers while Float remains explicit"
+      (def sampler (generator Rational))
+      (for (value '(0 1/2 -2/3 0.5))
+        (for (smaller (.call sampler shrink value))
+          (check (element? Rational smaller) => #t)
+          (check (< (.call sampler measure smaller) (.call sampler measure value)) => #t)))
+      (def descriptor (Tuple Rational (List Rational) (Pair Rational UInt) (Maybe Rational)))
+      (check-eq? (.get (check-property descriptor (cut element? descriptor <>)
+        seed: 19 cases: 20 size: 5) status) 'passed)
+      (check-exception (generator Float) Error?))
+    (test-case "Rational custom declarations retain precedence over the automatic profile"
+      (def custom (.cc Rational .generator: (lambda ()
+        (make-generator custom (lambda (_random _size) 7/11) (lambda (_) []) core.rational-weight))))
+      (check-eq? (.get (check-property custom (cut = <> 7/11) cases: 3) status) 'passed))
+    (test-case "exact rate services compose FUN shrinking corpus replay and fresh source preparation"
+      (def service (Record rate: [Rational] series: [(List Rational)]
+        handler: [(Function [Rational] [Rational Rational])]))
+      ;; The injected defect loses fractions without leaving the declared result
+      ;; Type. Ordinary Function wrapping still rejects invalid call arguments.
+      (def (truncated-rate rate amount) (truncate (* rate amount)))
+      ;; Product owns the two existing typed samplers. Record construction alone
+      ;; validates the payload and wraps the chosen application procedure.
+      (def (prepare correct?)
+        (def rate (generator Rational))
+        (def sampler (product-generator service (list rate (generator (List Rational)))
+          (lambda (value) (list (.get value rate) (.get value series)))
+          (lambda (parts) (make-instance service rate: (car parts) series: (cadr parts)
+            handler: (if correct? * truncated-rate)))))
+        (values (property-action service
+          (lambda (value) (= ((.@ value handler) (.get value rate) 1) (.get value rate)))
+          identity sampler: sampler) rate))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 60 size: 8 shrink-budget: 128))
+      (let-values (((action owner) (prepare #f)))
+        (def failed (action configuration))
+        (check-eq? (.get failed status) 'failed)
+        (check-equal? (abs (.get (.get failed counterexample) rate)) 1/2)
+        (check-equal? (.get (.get failed counterexample) series) [])
+        (check-exception ((.@ (.get failed counterexample) handler) 'invalid 1) TypeError?)
+        (check (replay-counterexample failed) => #f)
+        (check-eq? (.get (replay-property failed) status) 'failed)
+        ;; Integer pairs reuse Rational's declared conversion. The replay envelope
+        ;; stays unchanged; no rational atom or serialized procedure is introduced.
+        (def codec (corpus.make-codec '(exact-rate-service 1)
+          (lambda (value) (vector (.call Rational .pair<- (.get value rate))
+            (map (.@ Rational .pair<-) (.get value series))))
+          (lambda (datum) (make-instance service rate: (.call Rational .<-pair (vector-ref datum 0))
+            series: (map (.@ Rational .<-pair) (vector-ref datum 1)) handler: truncated-rate))))
+        (def output (open-output-string))
+        (corpus.write-counterexample (.get failed execution) codec output)
+        (check (corpus.read-counterexample codec (open-input-string (get-output-string output))
+          (property.report-specification (.get failed execution))
+          (property.report-property (.get failed execution))) => #f)
+        (.putslot! owner 'revision ($constant-slot-spec 1))
+        (check-exception (replay-property failed) Error?)
+        (check-exception (replay-counterexample failed) Error?))
+      (let-values (((action _owner) (prepare #t)))
+        (standard.require-property-passed (action configuration))))
+    (test-case "bounded service corpus refuses oversized vectors and retries through fresh FUN metadata"
+      (def service (Record count: [UInt] requests: [(List (Tuple Symbol UInt))]
+        handler: [(Function [Integer] [Integer])]))
+      (def recipe (.o oversized?: #t)) (def draws 0) (def decoded 0)
+      ;; Normal Record initialization validates request tuples and wraps the
+      ;; Function once; the corpus stores logical requests, not procedures.
+      (def (packet count)
+        (make-instance service count: count
+          requests: (make-list (+ count 2) #(request 2)) handler: abs))
+      (def sampler (make-generator service
+        (lambda (_random _size) (set! draws (1+ draws)) (packet 4))
+        (lambda (value) (if (zero? (.get value count)) [] (list (packet 0)))) (cut .get <> count)))
+      (def action (property-action service (lambda (value) (= ((.@ value handler) -1) 0))
+        identity sampler: sampler))
+      (def failed (action (make-instance PropertyConfiguration seed: 7 cases: 1 size: 4 shrink-budget: 8)))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      ;; Fault injection belongs to explicit recipe metadata. Revisions require
+      ;; fresh codec preparation, while both attempts retain the same 16-node cap.
+      (def (prepare-codec)
+        (def stamp (object-revision recipe))
+        (corpus.make-codec #(service 1)
+          (lambda (value) (vector (.get value count)
+            (if (.get recipe oversized?) (make-vector 64 #(request 2))
+              (list->vector (.get value requests)))))
+          (lambda (datum) (set! decoded (1+ decoded))
+            (make-instance service count: (vector-ref datum 0)
+              requests: (vector->list (vector-ref datum 1)) handler: abs))
+          nodes: 16 current?: (lambda () (= stamp (object-revision recipe)))))
+      (def codec (prepare-codec)) (def output (open-output-string))
+      (check-exception (corpus.write-counterexample (.get failed execution) codec output) Error?)
+      (check-equal? (get-output-string output) "")
+      (check-equal? decoded 0)
+      (.set! recipe oversized? #f)
+      (check-exception (corpus.write-counterexample (.get failed execution) codec output) Error?)
+      (def fresh (prepare-codec))
+      (corpus.write-counterexample (.get failed execution) fresh output)
+      (let (before draws)
+        (check (corpus.read-counterexample fresh (open-input-string (get-output-string output))
+          (property.report-specification (.get failed execution))
+          (lambda (value) (check-equal? (length (.get value requests)) 2)
+            (= ((.@ value handler) -1) 0))) => #f)
+        (check-equal? (list decoded draws) (list 1 before))))
+    (test-case "finite service calls stop after retirement then retry shrink and portable replay through FUN"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def continued 0)
+      (def finite (core.function-from-table '(((0) 4) ((1) 8))))
+      ;; The Record owns the Function wrapper; its finite table remains an ordinary
+      ;; generated value rather than a second call adapter or dispatcher.
+      (def (packet count function)
+        (make-instance service count: count handler: (core.function-procedure function)))
+      ;; Each fresh Reader action captures the owner's actual revision. Retirement
+      ;; happens before the nested call, so its continuation must never run.
+      (def (prepare retire?)
+        (def sampler (make-generator service (lambda (_r _s) (packet 4 finite))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0 finite))))
+          (cut .get <> count) dependencies: (list owner)))
+        (property-action service (lambda (value)
+          (when retire? (.set! owner epoch (1+ (.get owner epoch))))
+          (def result ((.@ value handler) 0))
+          (set! continued (1+ continued)) (< result 4)) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 12 cases: 1 size: 4 shrink-budget: 8))
+      (def retired ((prepare #t) configuration))
+      (check-eq? (.get retired status) 'stale)
+      (check-equal? continued 0)
+      (check-exception (replay-property retired) Error?)
+      (def failed ((prepare #f) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      ;; A downstream corpus stores data only. Restoration rebuilds the same
+      ;; Record contract once, preserving finite-row refusal and wrapped calls.
+      (def codec (corpus.make-codec '(finite-service 1)
+        (lambda (value) (vector (.get value count) (core.function-table finite)))
+        (lambda (datum) (packet (vector-ref datum 0) (core.function-from-table (vector-ref datum 1))))))
+      (def output (open-output-string))
+      (corpus.write-counterexample (.get failed execution) codec output)
+      (check (corpus.read-counterexample codec (open-input-string (get-output-string output))
+        (property.report-specification (.get failed execution))
+        (property.report-property (.get failed execution))) => #f))
+    (test-case "service FUN reports retain assertion authority across rendering and replay"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def rendered 0) (def mapped 0)
+      ;; Normal Record construction keeps the Function wrapper throughout shrinking.
+      (def (packet count) (make-instance service count: count handler: abs))
+      ;; The same Reader configuration prepares independent reports; the source
+      ;; epoch belongs to each report and cannot be refreshed by its formatter.
+      (def (action failing?)
+        (def sampler (make-generator service (lambda (_r _s) (packet 4))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0))))
+          (cut .get <> count) dependencies: (list owner)))
+        (property-action service (lambda (value)
+          (if failing? (= ((.@ value handler) -1) 0) (>= (.get value count) 0))) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 4 shrink-budget: 16))
+      (def failed ((action #t) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) count) 0)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (def refused (with-catch values (lambda () (standard.require-property-passed failed
+        diagnostics: (lambda (_) '((status . passed) (cause . invented) (service . billing)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants refused))) 'failed)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (def passed ((action #f) configuration))
+      (def retired (with-catch values (lambda () (standard.require-property-passed passed
+        diagnostics: (lambda (_)
+          (set! rendered (1+ rendered)) (.set! owner epoch 1)
+          (core.generate (core.generator-map (core.generator-unit 1)
+            (lambda (value) (set! mapped (1+ mapped)) value)) (core.random-at 0) 0)
+          '((status . passed)))))))
+      (check-eq? (cdr (assq 'status (Error-irritants retired))) 'stale)
+      (check-equal? (list rendered mapped) '(1 0))
+      (check (void? (standard.require-property-passed ((action #f) configuration)
+        diagnostics: (lambda (report) (report-diagnostics report)))) => #t))
+    (test-case "service products refuse a retired factory then retry shrink and replay through FUN"
+      (def service (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (Tuple service UInt))
+      (def later 0) (def packs 0) (def draws 0)
+      (def last (.cc (make-generator UInt (lambda (_r _s) 5) core.integer-shrinks identity)
+        epoch: 0 generation: (lambda (_)
+          (set! later (1+ later)) (core.make-generator (lambda (_r _s) 5) core.integer-shrinks))))
+      ;; Record initialization supplies the Function contract, including every
+      ;; reduced service value; no product-specific wrapper repeats validation.
+      (def (packet count) (make-instance service count: count handler: abs))
+      ;; A factory revision changes another known participant before it opens.
+      ;; Fresh construction observes the new epoch; the old Reader cannot renew it.
+      (def (prepare retire?)
+        (def first (.cc (make-generator service (lambda (_r _s) (packet 2))
+          (lambda (value) (if (zero? (.get value count)) [] (list (packet 0)))) (cut .get <> count))
+          generation: (lambda (_)
+            (when retire? (.set! last epoch 1))
+            (core.make-generator (lambda (_r _s) (set! draws (1+ draws)) (packet 2))
+              (lambda (value) (if (zero? (.get value count)) [] (list (packet 0))))))))
+        (def sampler (product-generator descriptor (list first last) vector->list
+          (lambda (row) (set! packs (1+ packs)) (list->vector row))))
+        (property-action descriptor (lambda (row)
+          (< (+ (.get (vector-ref row 0) count)
+            ((.@ (vector-ref row 0) handler) (- (vector-ref row 1)))) 3)) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1 size: 2 shrink-budget: 64))
+      (def old (prepare #f))
+      (check-exception (prepare #t) generation-refusal?)
+      (check-equal? (list later packs draws) '(1 0 0))
+      (check-eq? (.get (old configuration) status) 'stale)
+      (def fresh ((prepare #f) configuration))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (.get (vector-ref (.get fresh counterexample) 0) count) 0)
+      (check-equal? (vector-ref (.get fresh counterexample) 1) 3)
+      (check-exception ((.@ (vector-ref (.get fresh counterexample) 0) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed))
+    (test-case "service schema migration constructs a fresh sampler and retains required Type ownership"
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def source (.cc schema .element?: (cut element? schema <>) .generator: (lambda ()
+        (make-generator source (lambda (_random _size) (make-instance schema count: 2 handler: abs))
+          (lambda (value) (if (zero? (.get value count)) [] (list (.cc value count: 0)))) (cut .get <> count)))))
+      (def target (Record [schema] region: [(Enum east west)]))
+      (def original (generator source))
+      (def calls 0) (def delivered 0)
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3 shrink-budget: 20))
+      ;; Migration is a declared value transformation, not a relabeling of the
+      ;; source grammar. Record initialization retains checked Function fields.
+      (def projected (core.generator-map (generator-core original) (lambda (value)
+        (make-instance target count: (.get value count) handler: (.@ value handler) region: 'west))))
+      ;; Each explicit constructor binds the target declaration afresh. Replacing
+      ;; optional dependencies cannot remove that mandatory revision owner.
+      (def (prepare) (.cc (from-generator target projected (cut .get <> count)) sources: []))
+      ;; The existing property Reader owns execution; FUN delivers reports once.
+      (def (run sampler)
+        ((property-action target (lambda (value) (set! calls (1+ calls)) (= ((.@ value handler) -1) 0))
+          (lambda (report) (set! delivered (1+ delivered)) report) sampler: sampler) configuration))
+      (def bad (run (.cc original descriptor: target)))
+      (check-eq? (.get bad status) 'error)
+      (check-equal? (list calls delivered) '(0 1))
+      (def fresh (run (prepare)))
+      (check-eq? (.get fresh status) 'failed)
+      (check-equal? (.get (.get fresh counterexample) count) 0)
+      (check-eq? (.get (.get fresh counterexample) region) 'west)
+      (check-exception ((.@ (.get fresh counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (.putslot! target 'epoch ($constant-slot-spec 1))
+      (check-exception (replay-property fresh) Error?)
+      (check-exception (replay-property bad) Error?)
+      (check-eq? (.get (run (prepare)) status) 'failed)
+      (check-equal? delivered 3))
+    (test-case "service corpus scopes stop obsolete Record packing and retry through FUN"
+      (for (stage '(encode decode))
+        (def schema (Record count: [UInt] zone: [(Enum east west)] handler: [(Function [Integer] [Integer])]))
+        (def bundle (Record report: [Object] wire: [String]))
+        (def settings (.o epoch: 0))
+        (def nested 0) (def delivered 0) (def properties 0) (def decoded #f)
+        (def sampler (make-generator schema
+          (lambda (_random _size) (make-instance schema count: 2 zone: 'east handler: abs))
+          (lambda (value) (if (zero? (.get value count)) [] (list (.cc value count: 0)))) (cut .get <> count)))
+        (def configuration (make-instance PropertyConfiguration seed: 31 cases: 1 size: 3 shrink-budget: 10))
+        ;; Each codec captures its own revision. Nested map owns the ordinary
+        ;; representation transformation, including checked Function construction.
+        (def (prepare fault)
+          (def stamp (object-revision settings))
+          ;; This controlled change is observed before any nested map callback.
+          (def (transform phase value pack)
+            (when (eq? fault phase)
+              (.putslot! settings 'epoch ($constant-slot-spec (1+ (.get settings epoch)))))
+            (core.sample-value (core.generate (core.generator-map (core.generator-unit value)
+              (lambda (value) (set! nested (1+ nested)) (pack value))) (core.random-at 31) 0)))
+          (corpus.make-codec '(service 1)
+            (lambda (value) (transform 'encode value (lambda (value) (list (.get value count) (.get value zone)))))
+            (lambda (value) (transform 'decode value (lambda (row)
+              (set! decoded (make-instance schema count: (car row) zone: (cadr row) handler: abs)) decoded)))
+            current?: (lambda () (= stamp (object-revision settings)))))
+        ;; POO Record bundles retain named outputs instead of positional progress data.
+        (def (consume report wire)
+          (set! delivered (1+ delivered)) (make-instance bundle report: report wire: wire))
+        (def bad (prepare stage))
+        (if (eq? stage 'encode)
+          (begin
+            (check-exception ((service-corpus-action schema sampler bad consume) configuration) Error?)
+            (check-equal? (list nested delivered) '(0 0)))
+          (let (published ((service-corpus-action schema sampler bad consume) configuration))
+            (set! nested 0)
+            (check-exception (read-counterexample sampler bad (open-input-string (.get published wire))
+              (lambda (_) (set! properties (1+ properties)) #f)) Error?)
+            (check-equal? (list nested properties) '(0 0))
+            (check-eq? decoded #f)))
+        (def codec (prepare 'none))
+        (def fresh ((service-corpus-action schema sampler codec consume) configuration))
+        (check-equal? (.get (.get (.get fresh report) counterexample) count) 0)
+        (check (read-counterexample sampler codec (open-input-string (.get fresh wire))
+          (lambda (value) (= ((.@ value handler) -1) 0))) => #f)
+        (check-exception ((.@ decoded handler) 'invalid) TypeError?)
+        (check (replay-counterexample (.get fresh report)) => #f)
+        (check-eq? (.get (replay-property (.get fresh report)) status) 'failed)
+        (check-equal? delivered (if (eq? stage 'encode) 1 2))
+        (check-exception (write-counterexample (.get fresh report) bad (open-output-string)) Error?)))
+    (test-case "Record Function service classification retires its recipe then retries through FUN"
+      (def cause (cons 'service 'unavailable))
+      (def recipe (.o bind-these: #f blocked?: #t cause: cause))
+      (def classified 0) (def delivered 0)
+      (def configuration (make-instance PropertyConfiguration seed: 23 cases: 1 size: 3 shrink-budget: 10))
+      ;; Negotiation replaces the declared recipe: its normal unsupported result
+      ;; is obsolete, and the original service failure stays available for diagnosis.
+      (def (classify original)
+        (check-eq? original cause)
+        (set! classified (1+ classified))
+        (.putslot! recipe 'blocked? ($constant-slot-spec #f))
+        'unsupported)
+      ;; Reader composition delivers exactly one completed report per action.
+      (def (consume report) (set! delivered (1+ delivered)) report)
+      (def old-action (service-classification-action recipe classify consume))
+      (def old (old-action configuration))
+      (check-eq? (property.report-status old) 'stale)
+      (check-eq? (property.report-cause old) cause)
+      (check-equal? (list classified delivered) '(1 1))
+      (check-exception (property.replay-property old) Error?)
+      (let (fresh ((service-classification-action recipe classify consume) configuration))
+        (check-eq? (property.report-status fresh) 'failed)
+        (check-equal? (.get (property.report-counterexample fresh) count) 0)
+        (check-exception ((.@ (property.report-counterexample fresh) handler) 'invalid) TypeError?)
+        (check (property.replay-counterexample fresh) => #f)
+        (check-eq? (property.report-status (property.replay-property fresh)) 'failed))
+      (check-equal? (list classified delivered) '(1 2))
+      (check-eq? (property.report-status (old-action configuration)) 'stale)
+      (check-equal? (list classified delivered) '(1 3))
+      (check-exception (property.replay-property old) Error?))
+    (test-case "Record Function products refuse ancestor revision before packing and retry through FUN"
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (Tuple schema schema))
+      (def owner (.o epoch: 0))
+      (def packs 0) (def later 0)
+      ;; Each preparation captures its own fault policy and the same declared owner.
+      ;; The inner product deliberately has no owner edge: it must inherit the run.
+      (def (workflow revise?)
+        (def first (make-generator schema
+          (lambda (_random _size) (make-instance schema count: 2 handler: abs))
+          (lambda (value) (if (zero? (.get value count)) []
+            (begin (when revise? (.putslot! owner 'epoch ($constant-slot-spec (1+ (.get owner epoch)))))
+              (list (.cc value count: 0))))) (cut .get <> count)))
+        (def second (make-generator schema
+          (lambda (_random _size) (make-instance schema count: 2 handler: abs))
+          (lambda (value) (set! later (1+ later))
+            (if (zero? (.get value count)) [] (list (.cc value count: 0)))) (cut .get <> count)))
+        (def product (product-generator descriptor (list first second) vector->list
+          (lambda (row) (set! packs (1+ packs)) (list->vector row))))
+        (def outer (make-generator descriptor
+          (lambda (_random _size) (vector (make-instance schema count: 2 handler: abs)
+            (make-instance schema count: 2 handler: abs)))
+          (cut .call product shrink <>) (cut .call product measure <>) dependencies: (list owner)))
+        (property-action descriptor (lambda (row) (= ((.@ (vector-ref row 0) handler) -1) 0)) identity sampler: outer))
+      (def configuration (make-instance PropertyConfiguration seed: 13 cases: 1 size: 2 shrink-budget: 20))
+      (def old ((workflow #t) configuration))
+      (check-eq? (.get old status) 'stale)
+      (check-equal? (list packs later (.get old attempts) (.get old steps)) '(0 0 0 0))
+      (check-exception (replay-property old) Error?)
+      (let (fresh ((workflow #f) configuration))
+        (check-eq? (.get fresh status) 'failed)
+        (check-equal? (map (cut .get <> count) (vector->list (.get fresh counterexample))) '(0 0))
+        (check-exception ((.@ (vector-ref (.get fresh counterexample) 0) handler) 'invalid) TypeError?)
+        (check (replay-counterexample fresh) => #f)
+        (check-eq? (.get (replay-property fresh) status) 'failed))
+      (check-exception (replay-property old) Error?))
+    (test-case "unpack field measure and pack share inherited producer ownership"
+      (for (stage '(unpack measure pack))
+        (def owner (.o epoch: 0)) (def measured 0) (def packs 0) (def later 0)
+        ;; Explicit revision identity is captured once by the enclosing producer.
+        (def stamp (object-revision owner))
+        ;; A selected callback changes only the explicitly registered epoch.
+        (def (revise phase)
+          (when (eq? stage phase) (.putslot! owner 'epoch ($constant-slot-spec (1+ (.get owner epoch))))))
+        (def first (make-generator UInt (lambda (_random _size) 2) (lambda (_) [0])
+          (lambda (_) (set! measured (1+ measured)) (revise 'measure) 1)))
+        (def second (make-generator UInt (lambda (_random _size) 2)
+          (lambda (_) (set! later (1+ later)) [0])
+          (lambda (_) (set! later (1+ later)) 1)))
+        (def product (product-generator (Tuple UInt UInt) (list first second)
+          (lambda (row) (revise 'unpack) (vector->list row))
+          (lambda (row) (set! packs (1+ packs)) (revise 'pack) (list->vector row))))
+        (def parent (core.make-generator (lambda (_random _size)
+          (if (eq? stage 'pack) (.call product shrink #(2 2)) (.call product measure #(2 2))))
+          (lambda (_) []) current?: (lambda () (= stamp (object-revision owner)))))
+        (check-exception (core.generate parent (core.random-at 1) 0) core.stale-generation?)
+        (check-equal? later 0)
+        (check-equal? measured (if (eq? stage 'measure) 1 0))
+        (check-equal? packs (if (eq? stage 'pack) 1 0))))))
+
+;; Build a heterogeneous request using the existing product/Record protocol. The
+;; packer consumes its temporary row with standard reverse!, while the scalar
+;; callbacks and checked Function field retain their ordinary contracts.
+(def (consuming-product-sampler schema owner faulty?)
+  (def left (make-generator UInt (lambda (_random _size) 4) core.integer-shrinks identity
+    dependencies: (list owner)))
+  (def right (make-generator Integer (lambda (_random _size) 6) core.integer-shrinks abs))
+  (def enabled (from-generator Bool (core.generator-unit #t) (lambda (_) 0) shrink: (lambda (_) [])))
+  (product-generator schema (list left right enabled)
+    (lambda (value) (list (.get value x) (.get value y) (.get value enabled)))
+    (lambda (row)
+      (match (reverse! row)
+        ([enabled y x] (make-instance schema x: x y: y enabled: enabled
+          handler: (lambda (_) (if (and faulty? enabled (positive? x) (positive? y)) 1 0))))))))
+
+;; These malformed spines are finite graphs: standard list? rejects each before
+;; a packer or iterator can turn a proper prefix into a candidate batch.
+(def (product-invalid-spines)
+  (def cycle (list 0 2)) (set-cdr! (cdr cycle) cycle)
+  (list #f '#(0 2) '(0 2 . tail) cycle))
+
+;; Whole product protocol controls are colocated with the existing product
+;; examples; the normal test module reexports this ordinary suite.
+(def product-row-test
+  (test-suite "owned fixed product value protocol"
+    (test-case "malformed child neighborhoods refuse before packing or later children"
+      (for (bad (product-invalid-spines))
+        (def packs 0) (def later 0)
+        (def left (make-generator UInt (lambda (_r _s) 4) (lambda (_) bad) identity))
+        (def right (make-generator UInt (lambda (_r _s) 6)
+          (lambda (_) (set! later (1+ later)) '(0)) identity))
+        (def product (product-generator (List UInt) (list left right) identity
+          (lambda (row) (set! packs (1+ packs)) row)))
+        (check-exception (.call product shrink '(4 6)) Error?)
+        (check-equal? (list packs later) '(0 0))
+        (def report (check-property (.get product descriptor) (lambda (_) #f)
+          sampler: (.cc product generation: #f) cases: 1 shrink-budget: 32))
+        (check-eq? (.get report status) 'error)
+        (check-equal? (list packs later (.get report attempts)) '(1 0 0))
+        (check-equal? (.get report counterexample) '(4 6))
+        (check-exception (replay-counterexample report) Error?)))
+    (test-case "invalid decompositions refuse before measuring shrinking or packing any field"
+      (for (bad (append (product-invalid-spines) (list [] '(4) '(4 6 8))))
+        (def measures 0) (def shrinks 0) (def packs 0)
+        (def child (make-generator UInt (lambda (_r _s) 4)
+          (lambda (_) (set! shrinks (1+ shrinks)) '(0))
+          (lambda (value) (set! measures (1+ measures)) value)))
+        (def product (product-generator (List UInt) (list child child) (lambda (_) bad)
+          (lambda (row) (set! packs (1+ packs)) row)))
+        (check-exception (.call product measure '(4 6)) Error?)
+        (check-exception (.call product shrink '(4 6)) Error?)
+        (check-equal? (list measures shrinks packs) '(0 0 0)))
+      (def empty (product-generator (List UInt) [] (lambda (_) #f) identity))
+      (check-exception (.call empty measure []) Error?)
+      (check-exception (.call empty shrink []) Error?)
+      (def valid (product-generator (List UInt) [] identity identity))
+      (check-equal? (.call valid measure []) 0)
+      (check-equal? (.call valid shrink []) []))
+    (test-case "decomposition snapshots protect future coordinates from temporary cache edits"
+      (for (operation '(measure shrink))
+        (def cached (list 4 6)) (def seen [])
+        ;; The cache is parser staging, not the tested request's payload.
+        (def (touch value) (set! seen (cons value seen)) (set-cdr! cached cached) value)
+        (def first (make-generator UInt (lambda (_r _s) 4)
+          (lambda (value) (touch value) '(0)) touch))
+        (def second (make-generator UInt (lambda (_r _s) 6)
+          (lambda (value) (set! seen (cons value seen)) '(0))
+          (lambda (value) (set! seen (cons value seen)) value)))
+        (def product (product-generator (List UInt) (list first second) (lambda (_) cached) identity))
+        (check-equal? (if (eq? operation 'measure) (.call product measure '(4 6))
+                         (.call product shrink '(4 6)))
+          (if (eq? operation 'measure) 10 '((0 6) (4 0))))
+        (check-equal? (reverse seen) '(4 6))))
+    (test-case "consuming packers receive private full rows without changing future coordinates"
+      (for (edit (list (lambda (row) (set-car! (cdr row) 99))
+                      (lambda (row) (set-cdr! (cdr row) []))
+                      (lambda (row) (set-cdr! (cdr row) 'tail))
+                      (lambda (row) (set-cdr! (cdr row) (cdr row)))))
+        (def input (list 4 6 8)) (def seen [])
+        (def child (make-generator UInt (lambda (_r _s) 4)
+          (lambda (value) (set! seen (cons value seen)) '(0)) identity))
+        (def product (product-generator (List UInt) (list child child child) identity
+          (lambda (row) (def packed (list-copy row)) (edit row) packed)))
+        (check-equal? (.call product shrink input) '((0 6 8) (4 0 8) (4 6 0)))
+        (check-equal? (reverse seen) '(4 6 8))
+        (check-equal? input '(4 6 8))))
+    (test-case "child spine snapshots survive packing mutations before the next candidate"
+      (def candidates [])
+      (def first (make-generator UInt (lambda (_r _s) 4)
+        (lambda (_) (set! candidates (list 0 2)) candidates) identity))
+      (def second (make-generator UInt (lambda (_r _s) 6) (lambda (_) '(0)) identity))
+      (def product (product-generator (List UInt) (list first second) identity
+        (lambda (row) (set-cdr! candidates candidates) (list-copy row))))
+      (check-equal? (.call product shrink '(4 6)) '((0 6) (2 6) (4 0))))
+    (test-case "ordinary typed raw shrinking owns a paused finite producer spine"
+      (def candidates []) (def observed [])
+      (def sampler (make-generator UInt (lambda (_r _s) 4)
+        (lambda (value) (if (> value 2) (begin (set! candidates (list 0 2)) candidates) [])) identity))
+      (def report (check-property UInt (lambda (value)
+        (set! observed (cons value observed))
+        (when (zero? value) (set-cdr! candidates candidates)) (zero? value))
+        sampler: sampler cases: 1 shrink-budget: 16))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (list (.get report counterexample) (.get report attempts) (.get report steps)) '(2 2 1))
+      (check (.get report minimal?) => #t)
+      (check-equal? (reverse observed) '(4 0 2))
+      (check (replay-counterexample report) => #f)
+      (check-equal? (.get (replay-property report) counterexample) 2))
+    (test-case "owned finite products preserve exact causes and source refusal before packing"
+      (for (cause (list #f (cons 'coordinate 'cause)))
+        (def packs 0) (def later 0)
+        (def first (make-generator UInt (lambda (_r _s) 4) (lambda (_) (raise cause)) identity))
+        (def second (make-generator UInt (lambda (_r _s) 6)
+          (lambda (_) (set! later (1+ later)) []) identity))
+        (def product (product-generator (List UInt) (list first second) identity
+          (lambda (row) (set! packs (1+ packs)) row)))
+        (check-eq? (with-catch identity (lambda () (.call product shrink '(4 6)))) cause)
+        (check-equal? (list packs later) '(0 0)))
+      (def owner (.o epoch: 0)) (def packs 0) (def later 0)
+      (def first (make-generator UInt (lambda (_r _s) 4)
+        (lambda (_) (.set! owner epoch 1) '(0)) identity dependencies: (list owner)))
+      (def second (make-generator UInt (lambda (_r _s) 6)
+        (lambda (_) (set! later (1+ later)) []) identity))
+      (def product (product-generator (List UInt) (list first second) identity
+        (lambda (row) (set! packs (1+ packs)) row)))
+      (check-exception (.call product shrink '(4 6)) generation-refusal?)
+      (check-equal? (list packs later) '(0 0)))
+    (test-case "heterogeneous consuming products align finite and retained FUN corpus workflows"
+      (def schema (Record x: [UInt] y: [Integer] enabled: [Bool]
+        handler: [(Function [Integer] [Integer])]))
+      ;; Application behavior is separate from the sampler's representation work.
+      (def (valid-service? value) (= ((.@ value handler) -1) 0))
+      (def witness #f)
+      (for (finite? '(#f #t))
+        (def owner (.o epoch: 0))
+        (def base (consuming-product-sampler schema owner #t))
+        (def sampler (if finite? (.cc base generation: #f) base))
+        (def codec (corpus.make-codec '(consuming-product 1)
+          (lambda (value) (vector (.get value x) (.get value y) (.get value enabled)))
+          (lambda (data)
+            (let ((x (vector-ref data 0)) (y (vector-ref data 1)) (enabled (vector-ref data 2)))
+              (make-instance schema x: x y: y enabled: enabled
+                handler: (lambda (_) (if (and enabled (positive? x) (positive? y)) 1 0)))))))
+        (def configuration (make-instance PropertyConfiguration seed: 43 cases: 1 size: 6 shrink-budget: 128))
+        (def delivered ((service-corpus-action schema sampler codec cons) configuration))
+        (def report (car delivered))
+        (def value (.get report counterexample))
+        (check-eq? (.get report status) 'failed)
+        (check-equal? (list (.get value x) (.get value y) (.get value enabled)) '(1 1 #t))
+        (check (.get report minimal?) => #t)
+        (check-exception ((.@ value handler) 'invalid) TypeError?)
+        (def receipt (list (.get value x) (.get value y) (.get value enabled)
+          (.get report attempts) (.get report steps)))
+        (if witness (check-equal? receipt witness) (set! witness receipt))
+        (check (replay-counterexample report) => #f)
+        (check-eq? (.get (replay-property report) status) 'failed)
+        (check (read-counterexample sampler codec (open-input-string (cdr delivered)) valid-service?) => #f)
+        (.set! owner epoch 1)
+        (check-exception (replay-property report) Error?)
+        (check-exception (replay-counterexample report) Error?)
+        (def fresh (consuming-product-sampler schema owner #f))
+        (check-eq? (.get ((property-action schema valid-service? identity sampler: fresh) configuration) status) 'passed)))))
+
+
+;; Portable handoff validates static requests before forcing POO metadata and
+;; composes the same typed Reader action with explicitly refreshed recipe owners.
+(def handoff-test
+  (test-suite "typed portable handoff admission"
+    (test-case "invalid import and export configurations do not force computed fields"
+      (def metadata 0) (def decoded 0)
+      (def sampler (.o descriptor: (begin (set! metadata (1+ metadata)) UInt)))
+      (def report (.o replayable?: (begin (set! metadata (1+ metadata)) #t)))
+      (def codec (corpus.make-codec 'frame identity
+        (lambda (data) (set! decoded (1+ decoded)) data)))
+      (for (kind '(codec port property policy))
+        (def input (open-input-string "#(property-counterexample 1 frame 2)"))
+        (def output (open-output-string))
+        (check-exception (read-counterexample sampler
+          (if (eq? kind 'codec) #f codec) (if (eq? kind 'port) output input)
+          (if (eq? kind 'property) #f values)
+          policy: (if (eq? kind 'policy) #f (property.make-policy))) Error?)
+        (check-equal? (input-port-char-position input) 0)
+        (check-equal? (get-output-string output) ""))
+      (check-exception (write-counterexample report #f (open-output-string)) Error?)
+      (check-exception (write-counterexample report codec (open-input-string "")) Error?)
+      (check-equal? (list metadata decoded) '(0 0)))
+    (test-case "Record Function and FUN corpus retries retain ownership and framing"
+      (def schema (Record x: [UInt] y: [Integer] enabled: [Bool]
+        handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def decoded 0) (def restored #f)
+      ;; Each revision captures a distinct format identity; importing never
+      ;; silently renews the caller's old codec or generator authority.
+      (def (prepare-codec)
+        (def stamp (object-revision owner))
+        (corpus.make-codec (list 'handoff-service 1 stamp)
+          (lambda (value) (vector (.get value x) (.get value y) (.get value enabled)))
+          (lambda (data)
+            (set! decoded (1+ decoded))
+            (let ((x (vector-ref data 0)) (y (vector-ref data 1)) (enabled (vector-ref data 2)))
+              (set! restored (make-instance schema x: x y: y enabled: enabled
+                handler: (lambda (_) (if (and enabled (positive? x) (positive? y)) 1 0))))
+              restored))
+          current?: (lambda () (= stamp (object-revision owner)))))
+      ;; The domain property exercises a checked nested Function after decoding.
+      (def (valid-service? value) (= ((.@ value handler) -1) 0))
+      (def codec (prepare-codec))
+      (def sampler (consuming-product-sampler schema owner #t))
+      (def configuration (make-instance PropertyConfiguration seed: 43 cases: 1 size: 6 shrink-budget: 128))
+      (def delivered ((service-corpus-action schema sampler codec cons) configuration))
+      (def report (car delivered)) (def text (cdr delivered))
+      (def input (open-input-string text))
+      (check-exception (read-counterexample sampler codec input #f) Error?)
+      (check-equal? (input-port-char-position input) 0)
+      (check-equal? decoded 0)
+      (check (read-counterexample sampler codec input valid-service?) => #f)
+      (check-equal? decoded 1)
+      (check-equal? (list (.get restored x) (.get restored y) (.get restored enabled)) '(1 1 #t))
+      (check-exception ((.@ restored handler) 'invalid) TypeError?)
+      (check-exception (read-counterexample sampler codec
+        (open-input-string (string-append text " #!eof 99")) valid-service?) Error?)
+      (check-equal? decoded 1)
+      (check (replay-counterexample report) => #f)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample report) Error?)
+      (def stale-input (open-input-string text))
+      (check-exception (read-counterexample sampler codec stale-input valid-service?) Error?)
+      (check-equal? (input-port-char-position stale-input) 0)
+      (def fresh (consuming-product-sampler schema owner #f))
+      (check-exception (read-counterexample fresh (prepare-codec)
+        (open-input-string text) valid-service?) Error?)
+      (check-equal? decoded 1)
+      (standard.require-property-passed
+        ((property-action schema valid-service? identity sampler: fresh) configuration)))))

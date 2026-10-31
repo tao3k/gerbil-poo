@@ -1,0 +1,219 @@
+;;; Fixed-product generation, domain observation and source-refusal examples.
+(export product-test-cases! product-row-test-cases!)
+(import :std/test :std/error :std/iter
+        (prefix-in :clan/poo/testing/property/generator generator.)
+        (prefix-in :clan/poo/testing/property property.))
+
+;; Immutable-field seed/tree oracle, independent of the benchmark control; not a runtime
+;; compatibility path. It reconstructs the former retained bind/map algebra.
+(def (retained-product-reference fields)
+  ;; Each field is a hidden preimage; root composition never shrinks or redraws it.
+  (def (sampled field)
+    (generator.make-tree-generator (lambda (random size)
+      (let (tree (generator.generate field random size))
+        (generator.make-sample tree (lambda () []) sources: (generator.sample-sources tree))))))
+  (def roots (foldr (lambda (field tail)
+    (generator.generator-bind (sampled field) (lambda (tree)
+      (generator.generator-map tail (lambda (trees) (cons tree trees))))))
+    (generator.generator-unit []) fields))
+  (generator.make-tree-generator (lambda (random size)
+    (let (root (generator.generate roots random size))
+      (generator.sample-sequence (generator.sample-value root) min-length: (length fields)
+        sources: (generator.sample-sources root))))))
+
+;; Register these ordinary cases in the caller's current :std/test suite.
+;; The standard runner still owns discovery, fixtures, assertions and results.
+(def (product-test-cases!)
+    (test-case "product topology contracts reject malformed spines before drawing"
+      (def draws 0)
+      (def field (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 1) (lambda (_) [])))
+      (def cycle (list field)) (set-cdr! cycle cycle)
+      (for (invalid (list #f (cons field 'tail) cycle (list field #f)))
+        (check-exception (generator.generator-sequence invalid) Error?))
+      (check-equal? draws 0))
+    (test-case "captured product topology is independent of caller spine edits"
+      (def fields (list (generator.generator-unit 1) (generator.generator-unit 2)))
+      (def product (generator.generator-sequence fields))
+      (set-car! fields (generator.generator-unit 99)) (set-cdr! fields fields)
+      (check-equal? (generator.sample-value (generator.generate product (generator.random-at 41) 2)) '(1 2)))
+    (test-case "checked products retain the established split schedule and root remainder"
+      (for* ((width '(0 1 3 16)) (seed '(0 1 41 4294967086)) (dependent? '(#f #t)))
+        (def field (if dependent?
+          (generator.generator-bind (generator.generator-integer 0 16)
+            (lambda (lower) (generator.generator-integer lower (+ lower 16))))
+          (generator.generator-integer 0 1024)))
+        (def fields (make-list width field))
+        (def before (generator.random-at seed)) (def after (generator.random-at seed))
+        (check-equal? (generator.sample-value (generator.generate (retained-product-reference fields) before 8))
+          (generator.sample-value (generator.generate (generator.generator-sequence fields) after 8)))
+        (check-equal? (before 4294967087) (after 4294967087))))
+    (test-case "checked retained products preserve coordinate trees and both replay receipts"
+      (def fields (list (generator.generator-integer 0 16) (generator.generator-integer 0 16)))
+      (def domain (property.make-specification list? (cut apply + <>)))
+      ;; Compare receipts as well as values: neither callback counts nor budgets
+      ;; may disappear behind an apparently equal final counterexample.
+      (def (receipt constructor)
+        (let (report (property.check-property (constructor fields) (lambda (row) (< (apply + row) 3))
+          domain seed: 41 cases: 1 shrink-budget: 32))
+          (check-eq? (property.report-status report) 'failed)
+          (check (property.replay-counterexample report) => #f)
+          (def again (property.replay-property report))
+          (check-equal? (property.report-counterexample again) (property.report-counterexample report))
+          (list (property.report-original report) (property.report-counterexample report)
+            (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))))
+      (check-equal? (receipt generator.generator-sequence) (receipt retained-product-reference)))
+    (test-case "newly discovered branch retirement suppresses the next field"
+      (def live #t) (def later 0)
+      (def first (generator.make-tree-generator (lambda (_random _size)
+        (set! live #f) (generator.make-sample 1 (lambda () []) (lambda () live)))))
+      (def last (generator.make-generator (lambda (_random _size) (set! later (1+ later)) 2) (lambda (_) [])))
+      (check-exception (generator.generate (generator.generator-sequence (list first last))
+        (generator.random-at 41) 2) generator.stale-generation?)
+      (check-equal? later 0))
+    (test-case "wide fixed products retain every field and their empty neighborhood"
+      (def fields (map generator.generator-unit (iota 512)))
+      (def root (generator.generate (generator.generator-sequence fields) (generator.random-at 41) 0))
+      (check-equal? (generator.sample-value root) (iota 512))
+      (check-equal? (for/collect (child ((generator.sample-children root))) child) []))
+    (test-case "fixed products refuse obsolete later fields before randomness or drawing"
+      (def live #t) (def draws 0) (def randoms 0)
+      (def first (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 8)
+        generator.integer-shrinks))
+      (def last (generator.make-generator (lambda (_random _size) 2) generator.integer-shrinks
+        current?: (lambda () live)))
+      (def product (generator.generator-sequence
+        (list first (generator.generator-sequence (list first last)))))
+      (set! live #f)
+      (check (generator.generator-current? product) => #f)
+      (check-exception (generator.generate product
+        (lambda (_) (set! randoms (1+ randoms)) 0) 5) generator.stale-generation?)
+      (check-equal? (list randoms draws) '(0 0))
+      (def report (property.check-property product (lambda (_) #f)
+        (property.make-specification list? (lambda (_) 0)) cases: 1))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? (list (property.report-trial report) (property.report-attempts report) draws) '(0 0 0)))
+    (test-case "fixed product ownership stops mapping after an earlier draw revises a later field"
+      (def live #t) (def mapped 0) (def later 0)
+      (def first (generator.generator-map
+        (generator.make-generator (lambda (_random _size) (set! live #f) 8) generator.integer-shrinks)
+        (lambda (value) (set! mapped (1+ mapped)) value)))
+      (def last (generator.make-generator (lambda (_random _size) (set! later (1+ later)) 2)
+        generator.integer-shrinks current?: (lambda () live)))
+      (check-exception (generator.generate (generator.generator-sequence (list first last))
+        (generator.random-at 3) 5) generator.stale-generation?)
+      (check-equal? (list mapped later) '(0 0)))
+    (test-case "fixed product observer causes remain exact before any field callback"
+      (def cause (Error "product-source")) (def calls 0)
+      (for (raising? '(#t #f))
+        (def observer (if raising? (lambda () (raise cause)) (lambda () 'not-boolean)))
+        (def field (generator.make-generator (lambda (_random _size) (set! calls (1+ calls)) 1)
+          generator.integer-shrinks current?: observer))
+        (def product (generator.generator-sequence (list (generator.generator-unit 0) field)))
+        (def failure (with-catch identity (lambda () (generator.generate product (generator.random-at 1) 5))))
+        (if raising? (check-eq? failure cause)
+          (check-equal? (Error-message failure) "source observer must return a boolean")))
+      (check-equal? calls 0))
+    (test-case "finite function products share leaves while empty and unselected domains stay independent"
+      (def live #t) (def draws 0) (def guard (lambda () live))
+      (def field (generator.make-generator (lambda (random _size) (set! draws (1+ draws)) (list (random 16)))
+        (lambda (_) []) current?: guard))
+      (def function (generator.generator-function '((a) (b)) field))
+      (def root (generator.generate function (generator.random-at 9) 5))
+      (check-equal? (length (generator.sample-sources root)) 1)
+      (check-equal? draws 2)
+      (check-equal? (generator.function-table (generator.sample-value root))
+        (generator.function-table (generator.sample-value (generator.generate function (generator.random-at 9) 5))))
+      (set! live #f)
+      (check (generator.generator-current? function) => #f)
+      (check-exception (generator.function-apply (generator.sample-value root) '(a)) generator.stale-generation?)
+      (check-exception (generator.generate function (generator.random-at 9) 5) generator.stale-generation?)
+      (check-equal? draws 4)
+      (def empty (generator.generator-function [] field))
+      (check (generator.generator-current? empty) => #t)
+      (check-equal? (generator.function-table (generator.sample-value
+        (generator.generate empty (generator.random-at 9) 5))) [])
+      (def selected (generator.generator-frequency
+        (list (cons 0 field) (cons 1 (generator.generator-unit 7)))))
+      (check-equal? (generator.sample-value (generator.generate selected (generator.random-at 9) 5)) 7))
+    (test-case "product recognition stops when an earlier field invalidates a later source"
+      (def current #t) (def visited []) (def calls 0)
+      (def first (property.make-specification (lambda (_)
+        (set! visited (cons 'first visited)) (set! current #f) #t) abs))
+      (def second (property.make-specification (lambda (_)
+        (set! visited (cons 'second visited)) #t) abs current?: (lambda () current)))
+      (def report (property.check-property (generator.generator-unit '(1 2))
+        (lambda (_) (set! calls (1+ calls)) #f) (property.make-product-specification (list first second)) cases: 1))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? visited '(first))
+      (check-equal? calls 0)
+      (check-equal? (property.report-attempts report) 0))
+    (test-case "product measurement stops before later fields or pending witness installation"
+      (def current #t) (def visited []) (def calls 0)
+      (def first (property.make-specification exact-integer? (lambda (_)
+        (set! visited (cons 'first visited)) (set! current #f) 1)))
+      (def second (property.make-specification exact-integer? (lambda (_)
+        (set! visited (cons 'second visited)) 2) current?: (lambda () current)))
+      (def report (property.check-property
+        (generator.make-generator (lambda (_random _size) '(2 2)) (lambda (_) '((1 2))))
+        (lambda (_) (set! calls (1+ calls)) #f) (property.make-product-specification (list first second)) cases: 1))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? visited '(first))
+      (check-equal? calls 1)
+      (check-equal? (property.report-counterexample report) '(2 2))
+      (check-equal? (property.report-attempts report) 1)
+      (check-equal? (property.report-steps report) 0))
+)
+
+;; A product row is finite data of the declared width. Its admission is Boolean,
+;; while an explicit invalid weight request is an error before field effects.
+(def (product-row-test-cases!)
+  (test-case "product rows reject malformed and unequal widths before field callbacks"
+    (def accepts 0) (def measures 0) (def properties 0)
+    (def field (property.make-specification
+      (lambda (_) (set! accepts (1+ accepts)) #t)
+      (lambda (_) (set! measures (1+ measures)) 1)))
+    (def product (property.make-product-specification (list field field)))
+    (def cycle (list 4 6)) (set-cdr! (cdr cycle) cycle)
+    (for (bad (list #f '#(4 6) '(4 6 . tail) cycle [] '(4) '(4 6 8)))
+      (check-exception (property.specification-weight product bad) Error?)
+      (check-exception (property.check-counterexample bad
+        (lambda (_) (set! properties (1+ properties)) #f) product) Error?))
+    (check-equal? (list accepts measures properties) '(0 0 0)))
+  (test-case "empty and false-containing product rows retain their distinct domains"
+    (def empty (property.make-product-specification []))
+    (check-equal? (property.specification-weight empty []) 0)
+    (check (property.check-counterexample [] (lambda (_) #f) empty) => #f)
+    (check-exception (property.specification-weight empty #f) Error?)
+    (def booleans (property.make-product-specification
+      (list (property.make-specification boolean? (lambda (_) 0)))))
+    (check-equal? (property.specification-weight booleans '(#f)) 0)
+    (check (property.check-counterexample '(#f) (lambda (_) #f) booleans) => #f)
+    (check-exception (property.check-counterexample #f (lambda (_) #f) booleans) Error?))
+  (test-case "product measurement consumes one captured row despite temporary spine edits"
+    (for (edit (list (lambda (row) (set-car! (cdr row) 99))
+                    (lambda (row) (set-cdr! row []))
+                    (lambda (row) (set-cdr! row 'tail))
+                    (lambda (row) (set-cdr! row row))))
+      (def input (list 4 6)) (def calls [])
+      (def first (property.make-specification exact-integer? (lambda (value)
+        (set! calls (cons value calls)) (edit input) value)))
+      (def second (property.make-specification exact-integer? (lambda (value)
+        (set! calls (cons value calls)) value)))
+      (check-equal? (property.specification-weight
+        (property.make-product-specification (list first second)) input) 10)
+      (check-equal? (reverse calls) '(4 6))))
+  (test-case "product row capture preserves source refusal and exact measurement causes"
+    (for (cause (list #f (cons 'product 'cause)))
+      (def later 0)
+      (def first (property.make-specification exact-integer? (lambda (_) (raise cause))))
+      (def second (property.make-specification exact-integer?
+        (lambda (_) (set! later (1+ later)) 0)))
+      (check-eq? (with-catch identity (lambda () (property.specification-weight
+        (property.make-product-specification (list first second)) '(4 6)))) cause)
+      (check-equal? later 0))
+    (def live #t) (def later 0)
+    (def first (property.make-specification exact-integer? (lambda (value) (set! live #f) value)))
+    (def second (property.make-specification exact-integer? (lambda (value) (set! later (1+ later)) value)))
+    (check-exception (property.specification-weight
+      (property.make-product-specification (list first second) current?: (lambda () live)) '(4 6)) Error?)
+    (check-equal? later 0)))

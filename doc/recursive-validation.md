@@ -1,0 +1,519 @@
+# Controlled recursive validation
+
+This module advances the paper's generalized MOP **future work**. Section 2 gives
+parent and child the same final self; section 5 supplies Type descriptors and
+recursive recognition. The paper's Racket code does not already implement this
+whole cyclic validation/publication lifecycle.
+
+## Finite catalog API
+
+`close-validation` accepts a builder and a positive node-count limit (default
+256). The builder receives an owner-scoped Reference-Type constructor and returns
+a nonempty list of `(name descriptor source)` triples. Names are distinct symbols;
+every Reference target must be declared. Sources are ordinary POO objects;
+descriptors implement the Class/ObjectContract `.validation-fields` protocol.
+Reference Types can occur inside existing List/Tuple/optional/variant Types.
+Source checking recognizes the exact named source; final membership requires
+the canonical target, including values supplied by custom Slot normalizers.
+Explicit validation of a known source can resolve its already admitted target.
+
+```scheme
+(close-validation
+  (lambda (reference)
+    (def Left (Record peer: [(reference 'right)]))
+    (def Right (Record peer: [(reference 'left)]))
+    (def left (.o peer: right))
+    (def right (.o peer: left))
+    (list (list 'left Left left) (list 'right Right right))))
+```
+
+This is explicit finite cataloging, not automatic discovery or a universal
+coinductive Type checker. Each name denotes one canonical receiver. Repeated
+references to that named target retain sharing. No graph unrolling is required.
+
+## Closure and failure discipline
+
+1. Check the complete catalog and every source's structure, before normalization.
+2. Allocate all canonical receiver identities using `prepare-rebinding`.
+3. Force every selected field using `force-rebinding`. References resolve through
+   this attempt's private directory; they never mark active targets as validated.
+4. Run deferred nested Class/ObjectContract whole-value obligations, then every
+   named node's final admission against the complete graph.
+5. Seal canonical receivers and Reference Types through supported APIs; return a
+   private `closed?` value only after complete success.
+
+`closed-ref graph name` reads a canonical node; `closed-type graph name` supplies
+its Reference Type. Later explicit Reference validation rechecks graph admission
+and returns the same canonical identity. Normal construction hooks are not invoked
+implicitly; this protocol validates the supplied sources. Ordinary Class and
+ObjectContract validation still performs final checks immediately outside closure.
+
+Each closure attempt owns its deferred queue and Reference directory. Nested
+attempts have separate owners. A descriptor from another graph cannot cut
+recursion in a new attempt. Build fresh descriptors with the supplied constructor
+after failure/revision; do not transplant old Reference descriptors into a new graph.
+
+Whole-catalog shape failure suppresses all normalizers. A normalization exception
+discards queued obligations and unwinds the dynamic scope. Remote final refusal
+returns no closed graph. Original callback exceptions and `CyclicSlot` propagate;
+structured validation failures distinguish catalog, duplicate, missing-reference,
+protocol, reference, owner, shape, admission and stale phases.
+
+Registered source/descriptor/Reference/canonical revision stamps guard access and
+Reference validation, including supported transitive ancestor invalidation.
+Canonical nodes and Reference Types reject supported direct writes. These checks
+do not globally revoke arbitrary retained Functions, cover raw setters, discover
+external callback dependencies, or provide concurrent mutation isolation. Child
+Types/nested metadata not registered through inheritance must remain immutable;
+the directory does not automatically discover those object-valued dependencies. Keep
+sources/metadata immutable while using admitted values and close/publish a fresh
+version after revision. A callback may retain a private receiver or perform effects;
+those effects are not rolled back.
+
+## Computed cycles and safe recursive work
+
+Productive computed Function fields can capture checked peer Functions across
+object backedges. `examples/recursive-validation.ss` combines this with:
+
+- A genuine positive Boolean cycle solved by existing `closure` least closure:
+  `left = true OR right`, `right = left`. It does not choose an arbitrary warm seed.
+- The existing explicit recursive Interaction, owner-bound memo and current Type
+  admission. Requests decrease their count and carry a finite machine budget.
+- Two calls sharing the right/3 request: results 10 and 8, total 18.
+- Reader/FUN decoding, complete graph closure, root `refine` and exact
+  `bind-evidence`, including raw/stale evidence refusal and current retry.
+
+Active unannotated structural Type/value pairs return a `recursive-structure`
+diagnostic rather than receiving coinductive acceptance. Repeated shared pairs
+after return remain legal. Immediate cyclic getter demands still raise `CyclicSlot`; arbitrary eager
+fixed-point equations are not solved. Machine cycle/budget diagnostics are not
+values or successful admission. The graph node-count limit does not bound host
+getter/validator execution time. Unregistered recursive Type paths, cyclic raw
+containers, arbitrary lexical snapshots and callback termination remain outside
+this controlled protocol. Constants keep strict equality; canonical Function
+wrapper deduplication is separate work.
+
+## Lean correspondence
+
+`Functional.RecursiveValidation` proves eleven finite catalog/graph laws:
+preflight completeness, all-position collection and finite completion, separate
+shape/normalization/admission refusal, all-node successful requirements,
+canonical reference preservation/sharing/distinctness, and bound root publication.
+Named-catalog lowering, receiver allocation, host pointer identity, deferred
+callbacks, sealing and revision-stamp correspondence are supplied boundaries.
+
+`Examples/RecursiveContracts.lean` proves the concrete two-hop backedge law and
+executes matching positive least closure, productive handlers, shared certified
+memo, guarded arguments, budget/eager-cycle refusal, remote/shape refusal and
+fresh-owner evidence controls. Existing final-self, recursive cache, positive
+closure, refinement and binding proofs are reused. This does not certify Scheme
+compiler/runtime/GC behavior or end-to-end performance. Scheme requires no Lean
+checkout at build or runtime.
+
+## Selective invalidation and reclosure
+
+`validation-node name dependencies watches build` declares an immutable recipe.
+`dependencies` lists **all** named links, computed reads/captures and obligations;
+`watches` lists external POO inputs whose supported revisions affect this node.
+`build` receives `(reference source)` and returns `(descriptor raw-source)`.
+Both accessors reject undeclared targets. Delay cyclic raw-source reads in ordinary
+POO slot formulas until every builder has returned. For a retained target, `source`
+returns its already canonical receiver, so a new reader never installs its raw
+predecessor. Lists/recipes and untracked nested metadata must remain immutable.
+
+`revise-validation #f recipes` starts a revision family. Subsequent calls use its
+current `closed?` snapshot as the first argument. The protocol:
+
+1. Preflight distinct support and declared dependency targets before builders.
+2. Seed changes from new/replaced recipe identity, registered source/descriptor/
+   canonical/Reference revisions, and watched-input revisions.
+3. Propagate invalidation to every reader in the **new** dependency graph. A
+   changed footprint requires a new recipe, seeding its reader directly; a
+   dangling dependency refuses. Sharing and cycles participate in this closure.
+4. Reuse clean canonical receivers, Reference Types and computed caches without
+   builder invocation, shape replay, normalization or wrapper reconstruction.
+   Allocate/normalize all dirty receivers through the same closure engine as
+   `close-validation`; computed fields see their new final self and checked peers.
+5. Recheck **every** final node obligation, including clean nodes. A cache hit is
+   never final approval. On failure no candidate snapshot is returned or installed.
+   Retention preserves the original stamps: if a builder edits a clean source,
+   the candidate refuses rather than silently re-stamping its old cached value.
+6. After complete success, retire the previous graph-access capability and revoke
+   old Reference Types for dirty/removed nodes. A clean Reference survives unrelated
+   revisions; its own declared reachable stamps/final checks remain current.
+
+`closed-evaluated` and `closed-reused` report construction decisions (reuse order
+is unspecified). `revision-action recipes` is a FUN Reader-compatible action from
+the current graph to the completely admitted next graph. Ordinary `close-validation`
+still has its original all-node fresh-owner semantics. Revisions must start with
+`revise-validation`; an ordinary closed graph is not silently upgraded.
+
+A revision family shares ownership, but normalization/admission also checks the
+exact Reference Type selected for each name **in this attempt**. Reusing an old
+dirty descriptor cannot smuggle old canonical edges into the new graph. Revocation
+cells follow retained References across several rounds, so later replacement also
+rejects capabilities originating before an intervening clean round.
+
+`examples/recursive-revision.ss` combines a shared checked Function provider, two
+mutually recursive services, computed peer-method captures, a computed report and
+an independent node. A watched provider edit rebuilds four nodes (report 13→23),
+while a peer replacement rebuilds its SCC/report and retains provider/idle. Its
+FUN action composes root `refine` with existing exact `bind-evidence` publication.
+Controls include current/stale subject/context, failure/retry, removed targets,
+source/descriptor edits, old-Type injection, and a reentrant competing commit.
+
+The commit guard rejects an old snapshot already retired by a reentrant callback.
+This is a **sequential in-process protocol**, not thread synchronization. Complete
+read declarations, immutable untracked metadata, terminating callbacks, and no
+concurrent mutation are premises. External callback effects are not rolled back;
+if a callback edits an old source, failure cannot restore that mutation. Arbitrary
+previously retained Functions are not globally revoked. Graph revision completes
+before a separately requested FUN effect publication, with no cross-effect atomicity
+claim. Scoped checks revalidate reachable nodes, not unrelated global obligations;
+whole-graph obligations belong in the publication envelope and its dependency set.
+
+`Functional.RecursiveRevision` reuses `StrongComponents.Checked` reachability and
+`RecursiveValidation.close`: clean consumers cannot reach dirty dependencies,
+shared inputs invalidate all readers, clean construction is skipped, dirty
+construction uses its actual callback, node generations are monotone, old target
+references refuse (including across intervening clean rounds), every successful
+reclosure passes all final obligations, failure retains pure prior state, and
+current canonical-root evidence is exact. `Examples/RecursiveRevisions.lean`
+executes both invalidation cones, checked Function refusal, current refinement,
+old-reference/context refusal and retry. The proofs concern a finite consistently
+indexed catalog with supplied source/dependency/host-identity correspondence;
+Scheme membership edits are tested controls, not a proof of arbitrary index
+relowering. No Scheme runtime/compiler, GC or performance theorem is asserted.
+
+## Multi-round membership and dependency migration
+
+`reconfigure-validation current added removed replacements` checks one complete
+catalog edit before calling `revise-validation`; `reconfiguration-action` supplies
+the same operation as a FUN Reader action. Added/replacement entries are ordinary
+`validation-node` recipes; removals are names. Survivors preserve recipe identity
+and order, and additions are appended. All write names must be distinct: additions
+must be new, removals must exist, replacements must survive. Removing/readding
+one name in a single batch refuses; resubmission after a later round is supported.
+The final nonempty/size/dependency checks run before any builder. This is catalog
+membership publication, not a cross-effect or concurrent transaction.
+
+`examples/recursive-migration.ss` exposes reusable provider, peer and summary recipe
+constructors, plus stable report/meter/idle recipes. The matching Lean and Scheme
+workflow is:
+
+| Round | Edit | Construction decision | Report |
+| --- | --- | --- | --- |
+| 0 | Start provider a, cyclic peers, left summary, report and idle | Close all | 19 |
+| 1 | Add b; migrate both shared links; summary chooses right | Rebuild peers/summary/report/b; retain a/idle | 35 |
+| 2 | Remove unread a; add downstream meter | Build meter only, despite shifted directory positions | 35 |
+| 3 | Remove b; re-add the exact original a recipe; migrate back | Rebuild readers/a/meter; retain idle | 19 |
+| 4 | Change left weight and summary; late refusal, then retry | Failed candidate leaves current graph; retry retains a/idle | 27 |
+| 5 | Switch only computed summary reader | Rebuild summary/report/meter; retain provider/peer SCC/idle | 33 |
+
+Old a references never become valid again after resubmitting that same name and
+recipe. A separate equal-output control switches summary from left to right when
+both return 6: summary/report still rebuild, old summary references refuse, and
+peer receivers remain shared. Root refinement checks the actual chosen reader,
+shared aliases and checked method capture; existing FUN publication binds exact
+current subject/descriptor/context and rejects stale-context evidence.
+
+`Functional.RecursiveMigration` extends the earlier fixed-index proof with checked
+**named** catalogs. Ordered lowering preserves repeated reference aliases; names
+resolve to actual current rows, and injectivity prevents accidental row merging.
+Clean named identities survive index shifts. A logical per-name generation ledger
+retains tombstones across removal/readdition, proving cross-gap refusal. Gerbil
+implements this boundary with fresh canonical/Type identities and permanently
+revoked old capabilities; it does not serialize Lean numeric generations.
+
+Named body/new-node/footprint seeds feed the existing positive Boolean least fixed
+point. Its equations, leastness, finite height bound and reader/clean-dependency
+laws cover shared nodes and SCCs. Removing edges starts from the least solution,
+without keeping unsupported old dirty bits. Named reclosure refuses dangling
+lowering before callbacks, never reuses an outside-support fallback for additions,
+and composes every final obligation with exact bound-root evidence.
+
+These are finite explicit-dependency constructions advancing generalized MOP future
+work. Mathematical named/index lowering is now proved; correspondence to actual
+Scheme object identity, complete callback reads, immutable metadata, custom Type
+laws and sequential mutation remains required. Positive invalidation equations do
+not solve arbitrary eager computed getters. Graph commit and FUN effect admission
+remain separate boundaries; no cross-effect rollback, arbitrary retained-Function
+revocation, concurrent isolation or runtime/compiler/GC certification is claimed.
+
+## Interleaved SCC merges and splits
+
+`closed-reads graph name` returns a copied declared footprint after the normal
+current-graph check. `recursive-topology.partition` adapts these reads to the
+existing checked `strong-components.partition`; it never runs node builders,
+normalizers, computed getters or computation evaluators. Analysis is on demand,
+with freshness checked before/after. Ordinary reclosure performs no SCC discovery.
+An ordinary `close-validation` graph cannot invent this metadata: it must originate
+from the explicit revision-catalog protocol.
+
+`recursive-topology.changed-members before after` compares immutable historical
+partition receipts by membership sets, including added/removed keys. Reordering
+rows or changing a representative alone does not report changed membership. A
+receipt is structural information, not permission to reuse a cached node or skip
+current approval. Obtaining a new receipt from a retired snapshot refuses.
+
+`examples/recursive-topology.ss` reuses the provider/peer/summary/meter recipes,
+Tuple reference normalization and FUN publication. Eight services form four pairs;
+both pairs of SCCs merge simultaneously into quartets, split into different pairs,
+and merge across the original quartet boundary. Shared dependencies migrate to a
+new provider; the unused provider is removed. A late final refusal keeps the old
+partitions/capabilities, and retry completes the crossed merge. Restoring the
+original grouping never revives old References. A computed-only switch rebuilds
+summary/report/meter; a later single-member body edit rebuilds only its pair and
+downstream report/meter, retaining the other three SCCs, provider and computed
+reader. Root refinement checks actual canonical peers/providers/reader and checked
+Function captures before bound evidence. Totals are 82→108→128→132→127→134→135.
+
+`Functional.RecursiveTopology` proves fourteen laws over a common finite name
+embedding. A removed edge itself seeds its consumer, so every old path still
+propagates invalidation: surviving edges propagate to an already dirty target,
+and deleted edges dirty the consumer directly. Consequently both old split groups
+and new merged groups are atomic with respect to current dirtiness. A clean node
+has unchanged reads, preserves paths in both directions and retains exactly its
+checked SCC membership. Every merge/split participant is therefore dirty using
+body/footprint seeds alone. Existing positive least invalidation still supplies
+minimality and finite closure; no extra partition pass is required for correctness.
+
+`Examples/RecursiveTopologies.lean` executes matching rounds, exact checked SCC
+receipts, refusal/retry, named epoch guards, refinement and stale subject/context
+binding. Its common comparison universe reserves inactive provider vertices;
+current membership guards hide them. It is not an allocation/cost model. Actual
+support changes and index lowering use the preceding named-catalog laws. Complete
+reads, immutable metadata, host source/identity correspondence, custom Type laws
+and sequential mutation remain premises. These constructions advance generalized
+MOP future work, without solving arbitrary eager computed fixed points, callback
+termination, concurrent installation or atomic graph/effect publication.
+
+
+## Deferred recursive revision requests
+
+`recursive-staging.stage-reconfiguration` captures edit list spines, the exact
+current graph and the versions of proposed recipe watches. It returns a FUN Reader
+action. Staging runs no builders, normalizers, computed getters or admission
+callbacks, and allocates no candidate graph. Graph identity and complete input
+versions are checked before the action invokes existing `reconfigure-validation`.
+A sibling commit invalidates all requests from the old snapshot even if every
+node Reference remains valid. A proposed watched input can invalidate a request
+without any intervening graph commit. Stage again from the actual current graph
+and input versions; closure refusal leaves that graph and its References current.
+The request can be retried after refusal only while its exact checkpoint remains
+current; it grants no reservation or reusable approval of later states.
+
+`examples/recursive-staging.ss` composes guarded revision, whole-value `refine` and
+existing `bind-evidence` through `Observation.` bind. Tests interleave multiple
+requests across seven actual graph states: simultaneous SCC merges/splits, shared
+provider addition/removal/migration, crossed merge refusal/re-staging, restored
+SCCs, computed-only edits and local-pair reclosure. Obsolete requests refuse across
+all later rounds; dirty old References do not revive when groups return. Extra
+controls cover proposed-watch drift before any builder, copied edit list spines,
+and a no-rebuild commit that retains all nodes but still expires sibling requests.
+The combined publication action returns the installed graph separately from effect
+success/refusal. A later effect-policy refusal preserves the old effect context;
+it does not undo the completed graph revision. Fresh evidence can then retry on
+that installed graph.
+
+Lean `Functional.RecursiveStaging` proves eight laws: revision/stamp refusal,
+closure failure preservation, fresh re-staging success, exact revision advance,
+all-refusal preservation, sibling invalidation and permanent old-round rejection.
+`Examples/RecursiveStaging.lean` uses actual selective reclosure, epochs, checked
+Functions, SCC inspection and the existing refinement/evidence models. A logical
+monotone revision corresponds to exact Scheme graph identity, and logical stamps
+to complete watched input versions; those correspondences are explicit premises.
+This advances the original text's generalized-prototype future work. Complete
+reads/watches, immutable metadata, trusted terminating callbacks and sequential
+mutation remain required. No automatic read discovery, concurrent CAS, side-effect
+rollback or atomic graph-plus-effect transaction is claimed.
+
+
+## Explicit preparation with older requests still pending
+
+`recursive-staging.restaging-action` lifts a FUN Reader of three edit lists
+(additions, removals, replacements) into a Reader of guarded requests. Each
+explicit invocation computes edits against the actual current catalog, then uses
+`stage-reconfiguration` to capture that graph identity and all proposed watches.
+Preparation does not build a graph, reserve publication or rewrite old requests.
+Preparation exceptions produce no request; closure refusal preserves the current
+graph. Retry consists of running preparation again, then publishing the new
+request through the existing guard. Preparation must terminate locally and leave
+the installed graph and metadata immutable.
+
+`examples/recursive-restaging.ss` derives provider additions/removals from current
+membership using standard map/filter, retaining the existing service, checked
+Function, computed summary and publication recipes. Eight rounds merge/split SCCs,
+migrate shared dependencies, restore primary-only membership, reintroduce the same
+secondary recipe, and change computed readers/local bodies. Each round prepares new
+requests while historical requests remain pending, attempts historical work,
+refuses late admission, explicitly prepares again, and publishes through the
+existing whole-value `refine` and exact `bind-evidence` FUN chain. Old requests are
+attempted again after installation. Historical graph/reference capabilities never
+revive when old names and groups return; an independent node retains identity.
+
+Lean `Functional.RecursiveRestaging` proves preparation failure, exact new request
+capture, successful prepared publication, refusal followed by retry, preservation
+under any finite list of obsolete attempts, and successful fresh publication
+interleaved with old attempts on both sides. `Examples/RecursiveRestaging.lean`
+runs the same eight actual selective closures and checks old-reference rejection,
+current refinement and wrong-context refusal followed by exact-evidence retry.
+These extend the generalized-prototype **future work**. Exact graph identity and
+complete watched-version correspondence, explicit dependency footprints, pure
+locally terminating preparation/closure and sequential attempts remain premises.
+The list theorem describes serialized observations; it proves neither concurrent
+host installation nor atomic graph/effect rollback or arbitrary callback effects.
+
+
+## Multiple entry points sharing one recursive graph
+
+`recursive-publication.publication` creates one sequential handle for a checked
+recursive graph. All entry points use `current` and `stage-with` on that handle;
+there is one authoritative installed graph, rather than private per-entry heads.
+`stage-with` accepts the existing FUN restaging Reader. `submit!` invokes its guarded
+request and records a successful new graph before calling the entry observer.
+Graph rejection leaves the head untouched and never invokes the observer.
+
+`observe!` runs a fresh observer over the current graph without reconstructing it.
+An entry's refinement, evidence or policy refusal therefore cannot resurrect the
+retired graph; it can retry observation against the installed graph with its own
+unchanged context. Exceptions also release the operation guard and keep any graph
+already installed. The guard rejects nested preparation/publication before user
+callbacks run. Access must be serialized by the caller: the guard is not a thread
+lock, and each revision family must use one handle. Graph requests must be existing
+guarded staging actions. Callbacks must return locally and leave graph metadata
+immutable outside supported operations.
+
+`examples/recursive-publication.ss` composes existing service `refine` and exact
+`bind-evidence` observers with per-entry contexts. Three entry points rotate across
+eight actual revisions: simultaneous SCC merges/splits, shared provider migration,
+provider removal/reintroduction, computed-reader changes and a local SCC body edit.
+Fresh requests are prepared while historical generations remain pending. Late
+closure refusal is followed by explicit restaging; after installation, policy
+refusal is followed by an effect-only retry. Requests from all other entries and
+prior rounds refuse; old dirty References never revive. Foreign entry contexts
+refuse at the exact evidence gate; independent-node identity is retained. Separate
+controls cover real refinement exceptions, observer exceptions and reentrant calls.
+
+Lean `Functional.RecursivePublication` proves eight laws: observation preserves the
+shared graph; observation refusal preserves the whole world; other entry contexts
+are preserved by observation and submission; graph rejection prevents effects;
+late effect refusal retains the new graph; successful reclosure remains installed;
+and all sibling requests expire regardless of the winning entry's effect outcome.
+`Examples/RecursivePublication.lean` runs the same eight actual selective closures
+with distinct entry contexts, current refinement, evidence transplant rejection
+and effect-only retry. The shared contexts are explicit caller state, not stored
+inside the Scheme handle.
+
+This advances the original generalized-prototype **future work**. Complete declared
+reads/watches, exact graph identity/version correspondence, immutable metadata,
+trusted terminating callbacks and sequential installation remain premises. There
+is no claim of concurrent CAS, arbitrary callback-effect rollback, or atomic graph
+and external-effect publication. The finite model does not verify Scheme runtime
+or compiler internals.
+
+
+## Shared approval metadata and graph revisions
+
+`recursive-publication.snapshot` now captures the graph and metadata together.
+`publication(graph, metadata:)` initializes this pair; existing graph-only readers
+and operations retain their API and preserve installed metadata. New read-only
+`snapshot-graph` / `snapshot-metadata` projections, `stage-joint-with`,
+`submit-joint!` and `observe-joint!` operate on one captured pair. Installation is
+one private snapshot-pointer replacement, before later entry effects. Access stays
+caller-serialized; the busy guard rejects reentrant writes.
+
+`recursive-approvals.stage-with` prepares against that exact whole snapshot and
+captures existing lens revision guards for installed and proposed approval POO
+objects. These guards reject changed versions even when values change back, and
+prevent supported metadata writes during preparation, closure and admission.
+Untracked interior mutations and hidden callback dependencies remain unsupported.
+`submit!` installs the admitted pair before the entry observer; `observe!` retries
+only refinement/evidence over a consistent current pair under the same metadata
+write discipline. Observer refusal keeps the pair and the old entry context.
+
+The existing recursive closure accepts `admit:` at its revision/reconfiguration
+and staging boundaries. The callback receives a complete locally normalized and
+admitted candidate, with canonical nodes sealed. It must return exactly `#t`.
+Joint refusal occurs BEFORE predecessor retirement or dirty Reference revocation.
+The attempt moves to its existing failed phase: leaked candidate graph access and
+new Reference capabilities refuse, while reused clean predecessor capabilities
+remain valid. This reuses selective closure and its dependency propagation, rather
+than building an independent graph engine or undoing a committed graph afterward.
+
+`examples/recursive-approvals.ss` uses per-entry ceilings, a stricter joint budget,
+existing computed-shape refinement and checked Function recipes. Three entries
+rotate through eight SCC/provider/computed rounds. Every round checks local success
+with joint refusal, preserved old pair/references, rejected failed-candidate
+capabilities, separate installed/proposed metadata ABA drift, explicit restaging,
+late effect refusal and exact bind-evidence retry. Historical requests remain
+pending across rounds. A ninth approval-only revision reconstructs no nodes and
+retains canonical References, but still expires old whole-snapshot requests.
+Supported approval writes from an admission callback refuse before mutation.
+A final captured-version recheck also rejects a callback that changed a proposed
+recipe watch before retirement; the external write persists, while the old graph
+remains usable and fresh staging can retry. Callback effects are not rolled back.
+
+Lean `Functional.RecursiveApprovals` proves eight composition laws: construction
+refusal, joint refusal, exact successful pair, whole-state preservation, one-step
+pair publication, metadata guard refusal, cross-round sibling invalidation and
+late effect refusal retaining both installed projections. Its executable example
+uses the same nine actual finite graph/approval states and per-entry contexts.
+This extends the original generalized-prototype **future work**, under complete
+registered versions/dependencies, exact host identity correspondence, lawful guard
+operations, immutable-in-use metadata, locally terminating callbacks and serialized
+access. It does not establish concurrent CAS, arbitrary effect rollback, or atomic
+graph-plus-external-effect publication, and does not verify runtime/compiler code.
+
+
+## Interleaved joint requests and repeated approval invalidation
+
+`recursive-approvals.submit-sequence!` accepts an ordered list of `(request . observer)`
+procedures. It preflights and copies every row before the first publication, then
+uses standard `foldl` to invoke the existing guarded `submit!` once per row. It
+continues after exceptions and preserves every attempt in input order. There is no
+automatic restaging, reapproval or transaction across the sequence.
+
+Read-only attempt selectors expose the original request, that attempt's actual
+post-attempt snapshot, all returned observer values, an explicit `attempt-failed?`
+flag and the original exception payload. The flag distinguishes a raised `#f` from
+normal `#f` or zero return values. A normally returned metadata/effect refusal stays
+in the returned values; it is not relabelled as an exception or accepted effect.
+An observer exception after successful graph installation records the installed
+pair, and later rows still attempt against that pair. Historical snapshot references
+are observations, not renewed approvals or frozen copies of mutable metadata.
+
+`examples/recursive-competition.ss` reuses current/future policy objects and the
+existing joint-approval/service observers. Eight actual SCC/provider/computed
+rounds retain a losing future proposal for explicit preparation in the next round.
+Within each round, two requests share a proposed policy; proposed-policy ABA first
+invalidates both. Freshly staged current/future requests then expire AGAIN after
+installed-policy ABA. Explicitly prepared fresh requests compete only after these
+two windows. Local success/joint refusal leaves the predecessor usable; a winner
+installs despite later effect refusal, and the future challenger plus a replayed
+winner refuse as stale. Historical requests remain interleaved on both sides.
+Fresh `refine` / exact `bind-evidence` observation retries against the installed
+pair, preserving the other entries' contexts and rejecting dirty old References.
+
+Controls also retain an installed head after observer exceptions, continue to the
+next stale request, reject a malformed queue before any publication, prevent an
+observer rewriting the original queue from replacing later copied requests, and
+distinguish false exceptions from normal false/zero values.
+
+Lean `Functional.RecursiveCompetition` proves eight sequence laws: one receipt per
+attempt, graph-refusal continuation, late-effect-refusal continuation with the
+installed graph, exact preservation under an obsolete batch, single-step and
+finite-sequence revision monotonicity, permanent historical request rejection and
+invalidation of all same-or-earlier-round challengers after a winner. Each formal
+submission carries its own observed stamp and entry effect. The executable example
+uses the same eight actual graph revisions and competing future intentions, reusing
+`Examples/Support/RecursiveApprovals.lean` for the existing checked service fixture.
+That fixture is shared with the preceding joint-revision example; executable checks
+remain in top-level `Examples/`.
+
+These extend generalized-prototype **future work**. Native snapshot/guard identity
+correspondence, complete registered reads and versions, immutable-in-use metadata,
+caller-serialized attempts and pure locally terminating formal effects remain
+premises. Host exception and queue-alias controls are separate Scheme evidence.
+No concurrent CAS, arbitrary callback rollback, runtime/compiler verification or
+whole-sequence atomicity is claimed.

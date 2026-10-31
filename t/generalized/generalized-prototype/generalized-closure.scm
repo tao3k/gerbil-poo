@@ -1,0 +1,84 @@
+;; Return the precise operational counterexample, retaining unexpected host errors.
+(def (law-result focus states values)
+  (try (check-lens-laws focus states values)
+    (catch (lens-law-failure? failure) (lens-law-failure-law failure))))
+;; Real closed raw states, finite law controls and failure-preserving publication.
+(def generalized-closure-test
+  (test-suite "controlled generalized raw closure and custom lens laws"
+    (test-case "a dependent non-record chain closes before callable method cooking"
+      (def prepared (service.prepare-service))
+      (defvalues (closed failure) (close-fragments prepared service.base service.base 4 checks: (service.checks)))
+      (check-equal? failure #f)
+      (check-equal? (closed-steps closed) 4)
+      (check-equal? (service.report closed 2) '(10 13 15 96 audit))
+      (check-equal? (closed-raw closed) (step-fragments prepared (closed-raw closed) service.base))
+      (check-equal? service.base (vector (vector 0 0 0) 'audit))
+      (def action (.call fun.Observation. .map (lambda (value) (service.report value 2))
+        (closure-action prepared service.base 4 checks: (service.checks))))
+      (check-equal? (action (vector (vector 99 88 77) 'seed)) '(10 13 15 96 audit)))
+    (test-case "zero budget never executes a raw transition and exhaustion returns no prefix"
+      (def calls 0)
+      (def focus (lens-of-get-set identity (lambda (value _) value)))
+      (def prepared (.prototype GeneralizedDeclaration. (.o) identity
+        (fragment grow (lens-fragment focus (lambda (value self inherited)
+          (set! calls (+ calls 1)) (+ value (self))) 1))))
+      (defvalues (none zero) (close-fragments prepared 0 0 0))
+      (check-equal? none #f) (check-equal? (closure-failure-kind zero) 'budget)
+      (check-equal? calls 0)
+      (defvalues (missing exhausted) (close-fragments prepared 0 0 3))
+      (check-equal? missing #f) (check-equal? (closure-failure-kind exhausted) 'budget)
+      (check-equal? (closure-failure-steps exhausted) 3) (check-equal? calls 3))
+    (test-case "equal callable samples cannot authorize a raw procedure fixed point"
+      (def prepared (finite.callable-service))
+      (def seed (lambda (_) 7))
+      (check-equal? ((observe-fragments prepared seed seed 1) 0) 7)
+      (check-equal? ((observe-fragments prepared seed seed 2) 0) 7)
+      (defvalues (closed failure) (close-fragments prepared seed seed 3))
+      (check-equal? closed #f) (check-equal? (closure-failure-kind failure) 'budget))
+    (test-case "each custom lens law has a distinct executable counterexample"
+      (def erased (lens-of-get-set car (lambda (value _) (cons value 'erased))))
+      (check-equal? (law-result erased '((1 . audit)) '(1 2)) 'get-put)
+      (def ignored (lens-of-get-set car (lambda (_ raw) raw)))
+      (check-equal? (law-result ignored '((1 . audit)) '(1 2)) 'put-get)
+      (def history (lens-of-get-set car (lambda (value raw)
+        (cons value (if (= value (car raw)) (cdr raw) (+ 1 (cdr raw)))))))
+      (check-equal? (law-result history '((0 . 0)) '(1 2)) 'put-put))
+    (test-case "a finite passed lens check is not a universal law proof"
+      (def lossy (lens-of-get-set car (lambda (value raw) (cons (abs value) (cdr raw)))))
+      (check-equal? (law-result lossy '((1 . audit)) '(1 2)) #t)
+      (check-equal? (law-result lossy '((1 . audit)) '(-1)) 'put-get))
+    (test-case "law refusal and cooking failure retain the exact old publication"
+      (def prepared (service.prepare-service))
+      (defvalues (old _) (close-fragments prepared service.base service.base 4))
+      (def bad (lens-of-get-set (lambda (raw) (vector-ref raw 1)) (lambda (_ raw) raw)))
+      (defvalues (held failure) (publish-closure old prepared service.base service.base 4
+        checks: [(lens-check bad '(different))]))
+      (check (eq? held old) => #t) (check-equal? (closure-failure-kind failure) 'lens)
+      (def focus (lens-of-get-set identity (lambda (value _) value)))
+      (def broken (.prototype GeneralizedDeclaration. (.o) (lambda (_) (error "cooking refused"))
+        (fragment stable (lens-fragment focus (lambda (value _ inherited) value) 7))))
+      (defvalues (same refused) (publish-closure old broken 0 0 2))
+      (check (eq? same old) => #t) (check-equal? (closure-failure-kind refused) 'source)
+      (check-equal? (service.report old 2) '(10 13 15 96 audit)))
+    (test-case "check-only dependencies stay protected through raw transitions and stale checks refuse"
+      (def source (.o (value 1)))
+      (def focus (lens-of-get-set identity (lambda (value _) value)))
+      (def check (lens-check focus '(0 7) sources: [source]))
+      (def prepared (.prototype GeneralizedDeclaration. (.o) identity
+        (fragment guarded (lens-fragment focus (lambda (value _ inherited)
+          (.putslot! source 'value ($constant-slot-spec 2)) value) 7))))
+      (defvalues (closed failure) (close-fragments prepared 0 0 2 checks: [check]))
+      (check-equal? closed #f) (check-equal? (closure-failure-kind failure) 'source)
+      (check-equal? (.@ source value) 1)
+      (.putslot! source 'value ($constant-slot-spec 3))
+      (check-exception (run-lens-check check '(0)) true)
+      (check-equal? (active-object-constructions) []))
+    (test-case "Reader refusal skips downstream observation"
+      (def reached? #f)
+      (def action (.call fun.Observation. .map (lambda (_) (set! reached? #t))
+        (closure-action (service.prepare-service) service.base 0)))
+      (check-exception (action service.base) true)
+      (check-equal? reached? #f))))
+
+;; Return the original suites from this lexical scope.
+(values generalized-closure-test)
