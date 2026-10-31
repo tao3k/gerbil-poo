@@ -85,3 +85,11 @@ the escape boundary. The keyword-routing action in `examples/generated-products.
 shows Record/Function/FUN composition, corpus replay and fresh repair. Content
 shrinking preserves exact carriers; symbolic refinement still requires an explicit
 sampler. No string is evaluated or treated as module syntax.
+
+Explicit `map-generator` requests own their original finite key and dependency
+spines. Key/Value metadata is observed in order under first-version authority;
+a getter that revises an earlier participant refuses preparation. A failure
+preserves its original callback cause and effects; prepare a new Map sampler to
+retry. `map-service-action` in `examples/collection-properties.ss` demonstrates
+how a custom two-service tree retains that same Map guard through typed FUN,
+Function wrappers and portable replay. No new parser or validator chain is used.

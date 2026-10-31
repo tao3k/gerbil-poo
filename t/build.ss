@@ -139,7 +139,7 @@
     ("representations" "collection-testing-test"
     "declaration-index-test"
     "function-signature-test"
-    "property-testing-test"
+    (gxc: "property-testing-test" (extra-inputs: ("property-testing/samplers.scm")))
     "prototype-types-test"
     "recursive-generation-test"
     (gxc: "representation-test" (extra-inputs: ("representation/growth.scm")))

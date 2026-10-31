@@ -111,6 +111,10 @@
         (map-in-order (lambda (smaller) (call pack (append (reverse before) (cons smaller (cdr values)))))
              (call (.@ (car children) shrink) (car values)))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
+;; Identity sharing retains first-observation stamps. Product and Map factories
+;; use the same standard hash policy; rediscovery never refreshes old authority.
+(def (retain-source-stamps! ledger stamps)
+  (delete-duplicates/hash stamps table: ledger key: car from-end?: #t))
 ;; Products share draw/shrink/measure composition for tuples, pairs and call rows.
 (def (product-generator descriptor (children :~ list?) (unpack : :procedure) (pack : :procedure))
   (set! children (list-copy children))
@@ -120,8 +124,7 @@
   ;; dependencies need one pure revision read, never a refreshed later snapshot.
   ;; Per-coordinate domain/current hooks remain separate and run as before.
   (def owner-ledger (make-hash-table-eq))
-  (def owners (delete-duplicates/hash (snapshot #f (cons descriptor children))
-    table: owner-ledger key: car from-end?: #t))
+  (def owners (retain-source-stamps! owner-ledger (snapshot #f (cons descriptor children))))
   ;; All known participants precede metadata/factory reads, even if a later child
   ;; has not yet supplied its additional dependencies. This checker is transient.
   (def admission (lambda () (current? owners)))
@@ -132,7 +135,7 @@
       (def domain (testing.make-product-specification
         (map-in-order (lambda (child) (core.with-sources []
           (def captured (snapshot child []))
-          (def added (delete-duplicates/hash captured table: owner-ledger key: car from-end?: #t))
+          (def added (retain-source-stamps! owner-ledger captured))
           (unless (null? added) (set! owners (append owners added)))
           (property-specification child captured))) children)
         current?: (lambda () (current? owners))))
@@ -156,30 +159,57 @@
 ;; materialized node. Key validation must preserve the supplied representation;
 ;; callers normalize keys explicitly before declaring this finite domain.
 (def (map-generator descriptor keys value-sampler domain-limit: (limit 256) dependencies: (dependencies []))
-  (validate Type descriptor)
-  (unless (memq Map. (compute-precedence-list! descriptor)) (error "Map descriptor required"))
-  (set! value-sampler (validate GeneratorRecord value-sampler))
-  (def key-type (validate Type (.get descriptor Key)))
-  (def value-type (validate Type (.get descriptor Value)))
-  (unless (eq? value-type (.get value-sampler descriptor)) (error "Map value sampler descriptor mismatch"))
+  (unless (object? descriptor) (validate Type descriptor))
+  (unless (object? value-sampler) (validate GeneratorRecord value-sampler))
+  ;; Freeze request spines before validators/getters can change caller-owned data.
   (unless (list? keys) (error "finite Map keys required"))
-  (def domain (list-copy keys))
-  (def sources (append (list descriptor key-type value-type) dependencies))
-  (def guard (source-guard (snapshot value-sampler sources) value-sampler))
-  ;; Kernel domain admission precedes application key validators. Its captured
-  ;; guard also prevents silently refreshing a sampler between preparation/run.
-  (def generation (core.generator-hash domain (generator-core value-sampler) domain-limit: limit current?: guard))
-  (for (key domain)
-    (def checked (core.with-sources []
-      (unless (core.live? guard) (error "stale Map generator preparation"))
-      (begin0 (validate key-type key)
-        (unless (core.live? guard) (error "stale Map generator preparation")))))
-    (unless (eq? checked key) (error "finite Map key validation must preserve representation" key)))
-  (unless (core.live? guard) (error "stale Map generator preparation"))
-  (.cc (from-generator descriptor (core.generator-map generation (cut validate descriptor <>))
-    (lambda (table) (+ (hash-length table)
-      (hash-fold (lambda (_key value total) (+ total (weight value-sampler value))) 0 table)))
-    dependencies: (append sources (generator-sources value-sampler))) .current?: guard))
+  (unless (and (list? dependencies) (every object? dependencies)) (error "Map sources required"))
+  (def domain (list-copy keys)) (def declared (list-copy dependencies))
+  (def ledger (make-hash-table-eq))
+  (def owners (retain-source-stamps! ledger (snapshot #f (append (list descriptor value-sampler) declared))))
+  ;; Capture each newly discovered participant immediately, before a later getter.
+  (def (capture! stamps)
+    (def added (retain-source-stamps! ledger stamps))
+    (unless (null? added) (set! owners (append owners added))))
+  ;; Keep the transient checker pure: callback observers run only at explicit
+  ;; checked actions, never recursively inside their own generation checker.
+  (def (check!) (unless (current? owners) (refuse-generation 'stale)))
+  (core.with-generation-check check!
+    (core.with-sources []
+      (validate Type descriptor)
+      (unless (memq Map. (compute-precedence-list! descriptor)) (error "Map descriptor required"))
+      (set! value-sampler (validate GeneratorRecord value-sampler))
+      (capture! (snapshot value-sampler []))
+      (def hook (and (.has? value-sampler .current?) (.@ value-sampler .current?)))
+      ;; This one retained guard sees the growing ledger during preparation and
+      ;; the closed ledger afterwards. No factory callback can mutate it later.
+      (def (guard) (and (current? owners) (or (not hook) (hook))))
+      (def (checked action . arguments)
+        (core.with-sources []
+          (unless (core.live? guard) (refuse-generation 'stale))
+          (begin0 (apply action arguments)
+            (unless (core.live? guard) (refuse-generation 'stale)))))
+      (def key-type (checked (lambda () (.get descriptor Key))))
+      (unless (object? key-type) (validate Type key-type))
+      (capture! (snapshot #f (list key-type)))
+      (checked validate Type key-type)
+      (def value-type (checked (lambda () (.get descriptor Value))))
+      (unless (object? value-type) (validate Type value-type))
+      (capture! (snapshot #f (list value-type)))
+      (checked validate Type value-type)
+      (unless (eq? value-type (.get value-sampler descriptor)) (error "Map value sampler descriptor mismatch"))
+      (def sources (append (list descriptor key-type value-type) declared))
+      ;; Generic finite-domain admission precedes application key validators.
+      (def generation (checked (lambda ()
+        (core.generator-hash domain (generator-core value-sampler) domain-limit: limit current?: guard))))
+      (for (key domain)
+        (unless (eq? (checked validate key-type key) key)
+          (error "finite Map key validation must preserve representation" key)))
+      (checked (lambda ()
+        (.cc (from-generator descriptor (core.generator-map generation (cut validate descriptor <>))
+          (lambda (table) (+ (hash-length table)
+            (hash-fold (lambda (_key value total) (+ total (weight value-sampler value))) 0 table)))
+          dependencies: (append sources (generator-sources value-sampler))) .current?: guard))))))
 ;; Standard data Types reuse the independent algebra, including its lazy shrink tree.
 ;; Content weight permits same-length coordinate shrinking; required byte lengths
 ;; remain explicit rather than silently falling back to a different Type.

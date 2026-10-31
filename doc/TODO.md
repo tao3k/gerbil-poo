@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P49 closes first-observation preparation for explicit finite-key Map generators.
+Known owners and request spines precede callbacks; Key authority cannot be
+refreshed by a later Value getter. Existing Record/Function/FUN trees retain the
+Map guard through shrinking and replay; recovery requires fresh preparation.
+The existing self-mutation prohibition is a boundary, not a new gap. See
+[P49 in the PBT RFC](pbt-design-rfc.md#p49-first-observation-admission-for-explicit-map-factories).
+
 P48 closes standard Keyword derivation and unifies text carrier generation and
 shrinking through one spelling protocol. FunctionArguments, Record/Function/FUN,
 portable replay and explicit fresh repair compose without another parser or
