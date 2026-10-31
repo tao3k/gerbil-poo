@@ -686,3 +686,70 @@ and List metadata are captured at construction through the existing source guard
 Eight new cases, a Record/Function schema-migration FUN example and six finite
 binding/source laws cover preparation, diagnostics, compositions and portable replay.
 No per-value wrapping or extra generator call is introduced; see P38 in the RFC.
+
+
+## Independent build host policy
+
+The isolated package still builds all twelve modules with `gerbil build` and runs
+all 140 current ordered cases through `gerbil test`. Its 60-second build and test limits,
+1 GiB Scheme heaps and inherited machine concurrency are unchanged. The root
+build and isolated build include one source-only `testing/property/build.scm`
+declaration; standard make tracks both that policy and the case include as
+`extra-inputs`. A source regression performs fresh standard builds to verify an
+unchanged input reuses its artifact and a changed policy rebuilds it.
+
+The original inline kernel generated 77,865 C lines and 5,044 Gambit labels.
+With `___SINGLE_HOST_LIMIT=0`, the requested single host remained unbounded.
+During a reproduced 60-second refusal, the frontend sampled in device selection
+185/185 times; its completed GC reports totaled 3.645 seconds. The pending kernel
+C compiler reached 2,848,064 KiB RSS. This identifies a backend critical path,
+without pretending the GCC optimization pass itself was sampled. CPU collected
+by an outer `time` after killing a process group can omit unreaped descendants;
+that incomplete CPU receipt cannot be subtracted from wall time to infer idleness.
+
+Six named case-registration groups now use the same standard TestSuite collector,
+in the same module, preserving every body, refusal and ordered case. The existing
+Gambit `___SINGLE_HOST_LIMIT=4096` policy targets this module only. This threshold
+selects multiple-host generation above the module label count; it does not promise
+that every generated C function has at most 4096 labels. No optimizer, runtime
+check or test is disabled. There is no additional runtime image or loader.
+
+On macOS 26.6.1, Gerbil 1cfb032 / Gambit ea114fc / GCC 16.2, the original
+instrumented inline build timed out at 60.04 seconds. Flag-only instrumented
+construction completed in 31.94 seconds (frontend timed GC 1.795 seconds,
+frontend CPU 6.402 seconds, frontend region wall 28.342 seconds). Those clock
+scopes overlap backend work and are not additive phase costs. An uninstrumented
+flag-only build took 26.88 seconds; named groups plus the flag took 23.51 seconds.
+These diagnostic variants locate the work; they are not an ordered speedup claim.
+
+A predeclared AB/BA control used identical final grouped source bytes, fresh
+artifact directories, 12 standard workers, and the same 60-second/1-GiB bounds.
+A selected the standard zero threshold; B selected 4096. No GC was forced and all
+outcomes are retained:
+
+| Order | Policy | Wall seconds | Child user + system seconds | Reported maximum RSS bytes |
+| --- | --- | ---: | ---: | ---: |
+| A1 | zero | 54.85 | 82.78 | 3565223936 |
+| B1 | 4096 | 28.47 | 77.50 | 1688272896 |
+| B2 | 4096 | 58.56 | 78.04 | 1677590528 |
+| A2 | zero | 35.92 | 77.14 | 3567321088 |
+
+All four builds exited naturally. The standard maximum-RSS receipt is not the
+Scheme frontend heap limit or a simultaneous total-memory bound. Both B receipts
+reduce that field consistently, but B2 retains a near-limit wall tail. These four
+samples do not establish a wall-clock tail bound or stable latency improvement.
+“Cold” here means empty build artifacts, not a flushed operating-system cache.
+The original and grouped suites both passed 139 cases with identical ordered CASE
+names. Complete root acceptance is recorded separately from these controls.
+
+Lean's existing BuildPreparation model now covers positive/zero host cutoff
+admission, partitioned label-pair potential with charged routing, and incomplete
+child-CPU accounting. Ordered case regrouping reuses the existing state/result
+law, conditional on preserving each case's behavior. These are finite policy and
+accounting proofs, not correctness proofs of Gerbil/GCC, collector timing or OS
+scheduling. Runtime controls supply the corresponding executable evidence.
+
+The fixed-source controls above predate upstream 56f2b81, which adds one source-
+retirement case in property-scopes. Final acceptance includes that change and
+requires 140 isolated cases; the existing main inventory stays at 144 modules.
+The upstream four standard make graphs and all their checks are retained.
