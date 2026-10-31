@@ -1,6 +1,6 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
-(import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
+(import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash length=n?)
         ../object ../mop (only-in ../type Rational String Symbol Keyword Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt IntegerRange. Z/.)
@@ -142,8 +142,11 @@
   (let loop ((children children) (values values) (before []))
     (if (null? children) []
       (append
-        (map-in-order (lambda (smaller) (call pack (append (reverse before) (cons smaller (cdr values)))))
-             (call (.@ (car children) shrink) (car values)))
+        (map-in-order (lambda (smaller)
+          ;; A packer may consume its temporary row. Fresh prefix AND suffix
+          ;; pairs keep that mutation away from the remaining coordinates.
+          (call pack (foldl cons (cons smaller (list-copy (cdr values))) before)))
+          (finite-shrink-children (call (.@ (car children) shrink) (car values))))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Identity sharing retains first-observation stamps. Product and Map factories
 ;; use the same standard hash policy; rediscovery never refreshes old authority.
@@ -183,10 +186,17 @@
         (core.with-sources []
           (unless (current) (refuse-generation 'stale))
           (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
+      ;; Raw shrinking shares the finite row contract with generic product
+      ;; measurement. Shape and width precede any child or packing callback.
+      (def width (length children))
+      (def (unpack-row value)
+        (def row (checked unpack value))
+        (unless (and (list? row) (length=n? row width)) (error "invalid product value row"))
+        (list-copy row))
       (.cc (from-generator descriptor
         (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
         (lambda (value) (testing.specification-weight domain (checked unpack value)))
-        shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
+        shrink: (lambda (value) (coordinate-shrinks children (unpack-row value) pack checked))
         dependencies: (apply append (map generator-sources children))) .current?: current))))
 
 ;; Finite-key Maps reuse their existing validation/wrapping protocol once per
@@ -383,11 +393,16 @@
   (cond ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'stale)) 'stale)
         ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'unguarded)) 'unsupported)
         ((generation-refusal? cause) 'exhausted) (else 'error)))
-;; POO-derived shrink callbacks retain their proper-list contract at one boundary.
-;; The generic kernel itself consumes standard iterators and knows no POO grammar.
+;; One finite data boundary is shared by direct products and raw sampler
+;; lifting. Whole-spine admission precedes copying or any candidate callback.
+(def (finite-shrink-children children)
+  (list-copy (require-value children list?
+    (lambda () (error "shrinker must return a finite proper list")))))
+;; Invoke under the caller's source scope before admitting the returned spine.
+;; Direct products use their existing checked call, then the same data boundary.
+;; Generic callbacks retain their independent Iterator protocol.
 (def (sampler-children sampler value)
-  (require-value (.call sampler shrink value) list?
-    (lambda () (error "shrinker must return a finite proper list"))))
+  (finite-shrink-children (core.with-sources [] (.call sampler shrink value))))
 ;; This layer owns Type compilation and the POO report projection. Trial execution,
 ;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
 (def (check-property descriptor property . options)

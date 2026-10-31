@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P57 closes fixed-product decomposition and finite expansion ownership. Whole
+rows must match field width before callbacks; finite child lists and temporary
+pack rows are owned at their existing boundaries. Heterogeneous Record/Function
+requests align finite/retained FUN shrinking and corpus replay; arbitrary payload
+mutation and user representation laws remain explicit obligations. See
+[P57 in the PBT RFC](pbt-design-rfc.md#p57-fixed-product-row-and-finite-expansion-ownership).
+
 P56 closes scoped fixture admission before typed metadata preparation. Closed,
 repeated and reentrant use cannot force raw getters or authorize an earlier
 receipt after refusal. Record/Function/FUN scenarios cover errors, shrinking,

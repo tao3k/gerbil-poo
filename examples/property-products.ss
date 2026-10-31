@@ -1,5 +1,5 @@
 ;;; Fixed-product generation, domain observation and source-refusal examples.
-(export product-test-cases!)
+(export product-test-cases! product-row-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -163,3 +163,57 @@
       (check-equal? (property.report-attempts report) 1)
       (check-equal? (property.report-steps report) 0))
 )
+
+;; A product row is finite data of the declared width. Its admission is Boolean,
+;; while an explicit invalid weight request is an error before field effects.
+(def (product-row-test-cases!)
+  (test-case "product rows reject malformed and unequal widths before field callbacks"
+    (def accepts 0) (def measures 0) (def properties 0)
+    (def field (property.make-specification
+      (lambda (_) (set! accepts (1+ accepts)) #t)
+      (lambda (_) (set! measures (1+ measures)) 1)))
+    (def product (property.make-product-specification (list field field)))
+    (def cycle (list 4 6)) (set-cdr! (cdr cycle) cycle)
+    (for (bad (list #f '#(4 6) '(4 6 . tail) cycle [] '(4) '(4 6 8)))
+      (check-exception (property.specification-weight product bad) Error?)
+      (check-exception (property.check-counterexample bad
+        (lambda (_) (set! properties (1+ properties)) #f) product) Error?))
+    (check-equal? (list accepts measures properties) '(0 0 0)))
+  (test-case "empty and false-containing product rows retain their distinct domains"
+    (def empty (property.make-product-specification []))
+    (check-equal? (property.specification-weight empty []) 0)
+    (check (property.check-counterexample [] (lambda (_) #f) empty) => #f)
+    (check-exception (property.specification-weight empty #f) Error?)
+    (def booleans (property.make-product-specification
+      (list (property.make-specification boolean? (lambda (_) 0)))))
+    (check-equal? (property.specification-weight booleans '(#f)) 0)
+    (check (property.check-counterexample '(#f) (lambda (_) #f) booleans) => #f)
+    (check-exception (property.check-counterexample #f (lambda (_) #f) booleans) Error?))
+  (test-case "product measurement consumes one captured row despite temporary spine edits"
+    (for (edit (list (lambda (row) (set-car! (cdr row) 99))
+                    (lambda (row) (set-cdr! row []))
+                    (lambda (row) (set-cdr! row 'tail))
+                    (lambda (row) (set-cdr! row row))))
+      (def input (list 4 6)) (def calls [])
+      (def first (property.make-specification exact-integer? (lambda (value)
+        (set! calls (cons value calls)) (edit input) value)))
+      (def second (property.make-specification exact-integer? (lambda (value)
+        (set! calls (cons value calls)) value)))
+      (check-equal? (property.specification-weight
+        (property.make-product-specification (list first second)) input) 10)
+      (check-equal? (reverse calls) '(4 6))))
+  (test-case "product row capture preserves source refusal and exact measurement causes"
+    (for (cause (list #f (cons 'product 'cause)))
+      (def later 0)
+      (def first (property.make-specification exact-integer? (lambda (_) (raise cause))))
+      (def second (property.make-specification exact-integer?
+        (lambda (_) (set! later (1+ later)) 0)))
+      (check-eq? (with-catch identity (lambda () (property.specification-weight
+        (property.make-product-specification (list first second)) '(4 6)))) cause)
+      (check-equal? later 0))
+    (def live #t) (def later 0)
+    (def first (property.make-specification exact-integer? (lambda (value) (set! live #f) value)))
+    (def second (property.make-specification exact-integer? (lambda (value) (set! later (1+ later)) value)))
+    (check-exception (property.specification-weight
+      (property.make-product-specification (list first second) current?: (lambda () live)) '(4 6)) Error?)
+    (check-equal? later 0)))

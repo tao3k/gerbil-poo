@@ -163,3 +163,12 @@ callers keep their usual with-system/use interface. Do not catch a duplicate-use
 error and return an earlier observation: the whole session refuses delivery.
 Escaped callbacks refuse before metadata reads after cleanup. See
 [P56](pbt-design-rfc.md#p56-fixture-lifetime-admission-before-typed-preparation).
+
+A product unpacker must return a proper list with exactly one value per declared
+child. Measurement and finite shrinking reject mismatched rows before invoking
+field callbacks. The packer receives a private outer row and may consume it (the
+consuming-product-sampler example uses standard reverse!). Finite POO child lists
+are admitted and copied before packing or iterator publication. Arbitrary payloads
+remain shared under their Type/source contracts; no inverse law is inferred for a
+custom pack/unpack pair. See
+[P57](pbt-design-rfc.md#p57-fixed-product-row-and-finite-expansion-ownership).
