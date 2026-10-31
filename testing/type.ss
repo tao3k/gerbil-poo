@@ -61,23 +61,6 @@
   (Record State: [Type constant: state-type] initial: [state-type]
           step: [Procedure] observe: [Procedure]))
 
-;; One preparation boundary owns the constructor's declaration binding. Retarget
-;; through a fresh constructor, never by inheriting a different Type's parser/tree.
-;; Mandatory identities cannot be removed by replacing application dependencies.
-(def (generator-sources sampler (retain! void) (expected #f))
-  (retain! sampler)
-  (def descriptor (core.with-sources [] (.get sampler descriptor)))
-  (retain! descriptor)
-  (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
-  (def bound (core.with-sources [] (.get sampler bound-descriptor)))
-  (retain! bound)
-  (unless (eq? descriptor bound)
-    (error "sampler descriptor binding changed; construct a new sampler"))
-  (def dependencies (core.with-sources [] (.get sampler sources)))
-  (unless (list? dependencies) (error "finite sampler sources required"))
-  (def captured (list-copy dependencies))
-  (for-each retain! captured)
-  (cons sampler (cons descriptor captured)))
 ;; Shared typed-source operations are module exports for domain extensions;
 ;; they retain the same first-observation protocol, not a second preparation API.
 ;; Bind a stamp variable, not an effectful expression. Snapshot discovery may
@@ -315,7 +298,7 @@
   (cond
     ((.has? descriptor .generator)
      (let (sampler (.call descriptor .generator))
-       (unless (and (object? sampler) (eq? (.get sampler descriptor) descriptor))
+       (unless (object? sampler)
          (error "generator descriptor mismatch")) sampler))
     ((eq? descriptor Bool)
      (make-generator descriptor (lambda (random _) (= (random 2) 1))

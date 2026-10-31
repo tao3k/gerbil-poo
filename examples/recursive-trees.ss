@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
+(export opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
 (import ../object
         ../mop
         ../type
@@ -122,3 +122,23 @@
   (property-action (Tuple (List edge) edge) (lambda (value)
     (trigger 'property Leaf)
     (= ((.@ (car (vector-ref value 1)) handler) -1) 0)) consume))
+
+;; An opaque Record sampler shares one declared owner across the recursive graph.
+;; Optional availability is read after constructor binding and source admission;
+;; each new FUN invocation can retry, while prior reports keep their old epochs.
+(def (opaque-tree-tests owner trigger consume faulty?: (faulty? #t))
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'factory owner)
+      (def base (make-generator Leaf (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: (list owner)))
+      (.o bind-these: #f inherit: [base]
+        .inhabited?: (begin (trigger 'metadata owner) #t)))))
+  (def Tail (.cc UInt .generator: (lambda ()
+    (trigger 'tail owner)
+    (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
+  (property-action (Tuple Leaf (List Leaf) (Pair Tail Leaf)) (lambda (value)
+    (trigger 'property owner)
+    (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) consume))

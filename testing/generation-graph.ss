@@ -1,5 +1,5 @@
 ;;; Finite recursive Type graphs; scalar samplers are supplied by the caller.
-(export compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler node-branches
+(export generator-sources compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler node-branches
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ../support/base require-value) :std/iter :std/error ../object
         (only-in :clan/poo/testing/property/generator with-sources with-generation-check)
@@ -25,6 +25,23 @@
     (every (lambda (sampler)
       (or (not (.has? sampler .current?)) (.call sampler .current?))) samplers)))
 
+;; One preparation boundary owns the constructor's declaration binding. Retarget
+;; through a fresh constructor, never by inheriting a different Type's parser/tree.
+;; Mandatory identities cannot be removed by replacing application dependencies.
+(def (generator-sources sampler (retain! void) (expected #f))
+  (retain! sampler)
+  (def descriptor (with-sources [] (.get sampler descriptor)))
+  (retain! descriptor)
+  (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
+  (def bound (with-sources [] (.get sampler bound-descriptor)))
+  (retain! bound)
+  (unless (eq? descriptor bound)
+    (error "sampler descriptor binding changed; construct a new sampler"))
+  (def dependencies (with-sources [] (.get sampler sources)))
+  (unless (list? dependencies) (error "finite sampler sources required"))
+  (def captured (list-copy dependencies))
+  (for-each retain! captured)
+  (cons sampler (cons descriptor captured)))
 ;; Validate bounded configuration before allocating a graph or dynamic-program table.
 ;; These caps bound protocol bookkeeping, not arbitrary callback execution or bytes.
 (def (check-limits depth nodes descriptors search)
@@ -41,6 +58,9 @@
   ;; Explicit finite-empty samplers must not poison an otherwise viable Union.
   (def (as-leaf)
     (def sampler (scalar descriptor))
+    ;; Admit the returned sampler through the SAME constructor/source boundary
+    ;; as bridges and products, before optional metadata or later factories.
+    (generator-sources sampler capture! descriptor)
     (values (if (and (.has? sampler .inhabited?) (not (.get sampler .inhabited?))) 'empty 'leaf) [] sampler #f))
   ;; One edge-discovery action owns quota, source admission and first observation.
   ;; Metadata callbacks cannot run ahead of the captured earlier child epochs.
@@ -169,9 +189,7 @@
         (let-values (((kind children sampler tags) (with-sources [] (describe type scalar capture! discover))))
           (vector-set! rows index (make-node type kind children sampler
             (if (memq kind '(union sum)) (map cons (or tags (make-list (length children) #f)) children) [])))
-          (when sampler
-            (for-each capture! (cons sampler (.get sampler sources)))
-            (set! samplers (cons sampler samplers)))
+          (when sampler (set! samplers (cons sampler samplers)))
           (check!)))
       (loop (+ index 1))))
   (let (nodes (subvector rows 0 count))

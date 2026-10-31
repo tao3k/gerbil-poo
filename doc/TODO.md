@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P63 closes opaque-leaf preparation through the SAME constructor/source admission
+used by typed bridges: declared owner epochs precede optional availability,
+malformed/retargeted declarations stop early, and empty alternatives retain their
+source obligations without draws. See [P63](pbt-design-rfc.md#p63-shared-opaque-sampler-admission-before-optional-metadata).
+
+
 P62 closes fixed recursive carrier discovery for List/Pair/Maybe/OrFalse through
 the existing edge action: exhausted fuel skips metadata; earlier returned Types
 retain authority before later getters. Shared identities keep occurrence costs
