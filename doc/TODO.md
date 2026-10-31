@@ -4,6 +4,16 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Static shape narrowing now reuses the existing ordered directory only after
+complete identity-subset admission, using the standard deduplication table and
+filter. Current value seeding, ordinary reads, inline offsets and supported
+invalidation retain one authority. Exhaustive finite subset controls, a shared
+FUN/refinement removal-and-retry example, canonical-directory Lean laws and the
+existing paired study cover this bounded unit. Mixed replacements still use
+full construction. Whole-workflow tail acceleration is not established; see
+[representation.md](representation.md#checked-static-shape-narrowing).
+
+
 P46 closes automatic bounded tagged Sum generation, branch-preserving shrinking
 and replay in the existing PBT protocol. Effective variant directories and shared
 payload Types retain first-observation epochs; descriptor limits precede later

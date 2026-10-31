@@ -23,3 +23,37 @@
   (def hinted (make-slot-layout names #f absent-value previous: previous))
   (check-eq? (slot-layout-shape hinted) (slot-layout-shape (make-slot-layout names #f absent-value)))
   (check (slot-layout-index hinted 'c) => #f))
+
+(test-case "narrowed layouts retain identity order and only current seeded values"
+  (def names (map (lambda (_) (string->uninterned-symbol "same")) '(0 1 2 3 4 5)))
+  (def prior (make-slot-layout names (list->hash-table (map (cut cons <> identity) names)) absent-value))
+  (def site (make-slot-cache (car names)))
+  (slot-cache-bind! site 'owner 0 prior (slot-layout-index prior (car names)))
+  ;; Every subset includes empty/all cases, reordered duplicate requests and
+  ;; same-spelling distinct identities. The complete constructor is the oracle.
+  (for (bits (in-range 64))
+    (def kept (for/fold (out []) ((key names) (bit (in-range 6)))
+      (if (zero? (bitwise-and bits (arithmetic-shift 1 bit))) out (cons key out))))
+    (def seed (list->hash-table (map (cut cons <> #f) kept)))
+    (def next (make-slot-layout (append (reverse kept) kept) seed absent-value previous: prior))
+    (def oracle (make-slot-layout kept seed absent-value))
+    (unless (= (length kept) (length names))
+      (check (slot-cache-offset site next) => #f))
+    (check-eq? (slot-layout-shape next) (slot-layout-shape oracle))
+    (for (key names)
+      (check-equal? (slot-layout-index next key) (slot-layout-index oracle key)))
+    (for (key kept)
+      (check-eq? (slot-layout-ref next (slot-layout-index next key)) #f))
+    (when (pair? kept)
+      (slot-layout-put! next (car kept) 1+)
+      (check-eq? (slot-layout-ref prior (slot-layout-index prior (car kept))) identity)
+      (check-eq? (slot-layout-ref oracle (slot-layout-index oracle (car kept))) #f))))
+(test-case "smaller replacement sets do not qualify as shape subsets"
+  (def prior (make-slot-layout '(a b c d) #f absent-value))
+  (def next (make-slot-layout '(a new) #f absent-value previous: prior))
+  (check-eq? (slot-layout-shape next) (slot-layout-shape (make-slot-layout '(new a) #f absent-value)))
+  (check (slot-layout-index next 'b) => #f)
+  (check (integer? (slot-layout-index next 'new)) => #t))
+(test-case "shared service narrowing rejects old reads and retries failed refinement"
+  (for (reuse? '(#f #t))
+    (check-equal? (service.shape-prune-workflow 8 reuse?) '#(27 34 41 6))))
