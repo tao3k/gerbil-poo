@@ -392,6 +392,9 @@
 
 ;; Sum : {Kw Type} ... -> Type
 ;; Sum types aka tagged unions, each kw is a tag
+;; A nominal carrier protocol lets bounded consumers recognize Sum without
+;; guessing from user-defined slot names or parsing its printed declaration.
+(define-type (Sum. @ [methods.bytes<-marshal Type.]))
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
   (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (plist->alist plist)))
@@ -403,7 +406,7 @@
                    (tag-n (in-range (length sum-variant-names))))
        (cons tag tag-n))))
   (def tag-marsh-t (UIntN (integer-length (max 0 (1- (vector-length variant-names@))))))
-  {(:: @ [methods.bytes<-marshal Type.])
+  {(:: @ [Sum.])
       sexp: ['Sum (apply append (map-in-order (match <> ([k . t] [(make-keyword k) (.@ t sexp)])) a))...]
       variants: (object<-alist a)
       variant-names: sum-variant-names

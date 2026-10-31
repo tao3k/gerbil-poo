@@ -4,6 +4,14 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P46 closes automatic bounded tagged Sum generation, branch-preserving shrinking
+and replay in the existing PBT protocol. Effective variant directories and shared
+payload Types retain first-observation epochs; descriptor limits precede later
+getters. Record/FUN journal, recursive carrier and Function-wrapper controls are
+paired with finite Lean selection/inspection laws. This is a concrete finite
+future-work unit; unrestricted inference and compiler/runtime performance remain
+outside it. See [P46 in the PBT RFC](pbt-design-rfc.md#p46-bounded-tagged-sum-derivation-and-retained-branch-identity).
+
 One-key shape extension now reuses the immutable ordered directory through
 standard `find` and the existing symbolic index. Constructor hints authenticate
 the entire identity set before admitting growth; dynamic delegation uses the same

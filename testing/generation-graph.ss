@@ -1,10 +1,11 @@
 ;;; Finite recursive Type graphs; scalar samplers are supplied by the caller.
-(export compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler
+(export compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler node-branches
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ../support/base require-value) :std/iter :std/error ../object
         (only-in :clan/poo/testing/property/generator with-sources with-generation-check)
         (only-in ../mop Type validate)
-        (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse.))
+        (only-in :std/list/list map-in-order delete-duplicates/hash)
+        (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse. Sum.))
 
 ;; Controlled resource refusal is distinct from a property exception or false result.
 (deferror-class GenerationRefusal () generation-refusal?)
@@ -13,7 +14,7 @@
 ;; All controlled limits carry the original operation/resource tag.
 (def (refuse-generation kind) (raise (GenerationRefusal "generation limit" irritants: [kind])))
 ;; Graph nodes contain stable integer edges; no recursive value is used as a hash key.
-(defstruct node (descriptor kind children sampler) final: #t)
+(defstruct node (descriptor kind children sampler branches) final: #t)
 ;; Graph discovery captures every descriptor and explicit sampler dependency.
 (defstruct graph (nodes sources costs stamps) final: #t)
 
@@ -34,28 +35,45 @@
     (require-value search (in-range-inclusive? 1 1048576) refuse)))
 ;; Classify standard carrier constructors; explicit .generator overrides remain
 ;; opaque leaves with declared callback dependencies. Container semantics are reused.
-(def (describe descriptor scalar)
+(def (describe descriptor scalar capture! discover)
   (validate Type descriptor)
   (def ancestors (compute-precedence-list! descriptor))
   ;; Explicit finite-empty samplers must not poison an otherwise viable Union.
   (def (as-leaf)
     (def sampler (scalar descriptor))
-    (values (if (and (.has? sampler .inhabited?) (not (.get sampler .inhabited?))) 'empty 'leaf) [] sampler))
+    (values (if (and (.has? sampler .inhabited?) (not (.get sampler .inhabited?))) 'empty 'leaf) [] sampler #f))
+  ;; One edge-discovery action owns quota, source admission and first observation.
+  ;; Metadata callbacks cannot run ahead of the captured earlier child epochs.
+  (def (carrier kind children)
+    (unless (list? children) (error "proper descriptor child list required"))
+    (values kind (map-in-order (lambda (child) (discover (lambda () child))) children) #f #f))
   (cond
     ((.has? descriptor .generator) (as-leaf))
-    ((memq List. ancestors) (values 'list (list (.get descriptor type)) #f))
-    ((memq Tuple. ancestors) (values 'tuple (.get descriptor type-list) #f))
-    ((memq Pair. ancestors) (values 'pair (list (.get descriptor left) (.get descriptor right)) #f))
+    ((memq List. ancestors) (carrier 'list (list (.get descriptor type))))
+    ((memq Tuple. ancestors) (carrier 'tuple (.get descriptor type-list)))
+    ((memq Pair. ancestors) (carrier 'pair (list (.get descriptor left) (.get descriptor right))))
+    ((memq Sum. ancestors)
+     ;; Own the effective directory epoch before reading any tag or payload Type.
+     ;; Duplicate child Types remain distinct branches; their labels are not IDs.
+     (def directory (with-sources [] (.get descriptor variants)))
+     (unless (object? directory) (error "Sum variant directory required"))
+     (capture! directory)
+     (def names (with-sources [] (.get descriptor variant-names)))
+     (unless (and (list? names) (every symbol? names)
+       (= (length names) (length (delete-duplicates/hash names table: (make-hash-table-eq)))))
+       (error "distinct finite Sum tags required"))
+     (def owned (list-copy names))
+     (values 'sum (map-in-order (lambda (tag) (discover (lambda () (.ref directory tag)))) owned) #f owned))
     ;; Both protocols share a finite alternative membership grammar. Runtime
     ;; selection/normalization still belongs to the original descriptor.
     ((or (memq Union. ancestors) (memq Or. ancestors))
-     (values 'union (.get descriptor types) #f))
-    ((memq Maybe. ancestors) (values 'maybe (list (.get descriptor type)) #f))
-    ((memq OrFalse. ancestors) (values 'or-false (list (.get descriptor type)) #f))
+     (carrier 'union (.get descriptor types)))
+    ((memq Maybe. ancestors) (carrier 'maybe (list (.get descriptor type))))
+    ((memq OrFalse. ancestors) (carrier 'or-false (list (.get descriptor type))))
     (else (as-leaf))))
 
 ;; Refuse cycles containing only transparent alternatives. A supported recursive
-;; cycle must cross a concrete List/Tuple/Pair carrier, so finite values make
+;; cycle must cross a concrete List/Tuple/Pair or tagged Sum carrier, so finite values make
 ;; structural progress. This is guarded finite-data generation, not arbitrary knots.
 (def (check-guarded nodes)
   (def colors (make-vector (vector-length nodes) 'white))
@@ -89,7 +107,7 @@
         (case (node-kind node)
           ((leaf list maybe or-false) 1)
           ((tuple pair) (and (every identity costs) (min cap (+ 1 (apply + costs)))))
-          ((union) (let (known (filter identity costs)) (and (pair? known) (min cap (+ 1 (apply min known))))))
+          ((union sum) (let (known (filter identity costs)) (and (pair? known) (min cap (+ 1 (apply min known))))))
           (else #f))))
     (vector-set! table level row))
   table)
@@ -133,15 +151,19 @@
         (vector-set! types index descriptor)
         (hash-put! indices descriptor index)
         index)))
+  ;; Reserve edge fuel before reading metadata, then capture its Type before
+  ;; another edge callback. Intern still charges repeated/shared occurrences.
+  (def (discover read)
+    (when (zero? remaining) (refuse-generation 'descriptors))
+    (intern (with-sources [] (read))))
   (intern root)
   (with-generation-check check!
   (let loop ((index 0))
     (when (< index count)
       (let (type (vector-ref types index))
-        (let-values (((kind children sampler) (with-sources [] (describe type scalar))))
-          (unless (list? children) (error "proper descriptor child list required"))
-          (let (edges (map intern children))
-            (vector-set! rows index (make-node type kind edges sampler)))
+        (let-values (((kind children sampler tags) (with-sources [] (describe type scalar capture! discover))))
+          (vector-set! rows index (make-node type kind children sampler
+            (if (memq kind '(union sum)) (map cons (or tags (make-list (length children) #f)) children) [])))
           (when sampler
             (for-each capture! (cons sampler (.get sampler sources)))
             (set! samplers (cons sampler samplers)))

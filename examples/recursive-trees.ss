@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests)
+(export Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
 (import ../object
         ../mop
         ../type
@@ -83,3 +83,25 @@
     (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
   (property-action (Tuple Left Right (Pair Left Tail))
     (lambda (value) (trigger 'property owner) (= ((.@ (vector-ref value 1) handler) -1) 0)) consume))
+
+;; Repeated UInt payload Types deliberately share one graph node. Labels still
+;; distinguish credit from debit; clear carries false rather than absence.
+(def JournalCommand (Sum credit: UInt debit: UInt clear: (Exactly #f)))
+;; The service boundary retains ordinary Record validation, independent of PBT.
+(define-type JournalObservation (Record expected: [Integer] actual: [Integer]))
+;; Fold one admitted journal in order. The injected implementation fault ignores
+;; debit while the model subtracts it; clear resets both states together.
+(def (journal-observation commands faulty?)
+  (def result (foldl (lambda (command states)
+    (def amount (.get command value))
+    (case (.get command tag)
+      ((credit) (cons (+ (car states) amount) (+ (cdr states) amount)))
+      ((debit) (cons (- (car states) amount) (if faulty? (cdr states) (- (cdr states) amount))))
+      ((clear) (cons 0 0)))) (cons 0 0) commands))
+  (make-instance JournalObservation expected: (car result) actual: (cdr result)))
+;; Compare the same finite model/service observation through the existing Reader
+;; property action. The caller owns IO delivery and the standard configuration.
+(def (tagged-journal-tests consume faulty?: (faulty? #t))
+  (property-action (List JournalCommand) (lambda (commands)
+    (def observation (journal-observation commands faulty?))
+    (= (.get observation expected) (.get observation actual))) consume))

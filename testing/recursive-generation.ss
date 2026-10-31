@@ -6,25 +6,36 @@
         (prefix-in :clan/poo/testing/property/generator core.))
 ;; Immutable finite derivations retain the selected Union branch and normalized
 ;; scalar weight. They are private evidence, not user-injected source receipts.
-(defstruct derivation (node value children weight count sample) final: #t)
+(defstruct derivation (node value children weight count sample tag) final: #t)
 ;; Remaining visit quota flows through every sibling and failed alternative.
 (defstruct answer (value remaining) final: #t)
 
 ;; A local deterministic source makes each request replayable from its explicit
 ;; seed. Choices/seeds are fully consumed before a continuation is returned.
 ;; Reuse existing carrier representations; transparent descriptors retain values.
-(def (pack node children)
+(def (pack node children (tag #f))
   (case (node-kind node)
     ((list) children) ((tuple) (list->vector children))
     ((pair) (cons (car children) (cadr children)))
     ((union) (car children))
+    ((sum)
+     ;; Preserve the selected label and exact payload at the existing constructor
+     ;; boundary. A custom maker cannot substitute a different branch or value.
+     (core.with-sources []
+       (def payload (car children))
+       (def value (core.with-sources [] (.call (node-descriptor node) make tag payload)))
+       (unless (and (object? value) (.has? value tag)
+         (eq? (core.with-sources [] (.get value tag)) tag)
+         (.has? value value) (eq? (core.with-sources [] (.get value value)) payload))
+         (error "Sum constructor must preserve tag and payload"))
+       value))
     ((maybe) (if (null? children) (void) (car children)))
     ((or-false) (and (pair? children) (car children)))))
 ;; Combine one concrete constructor with already finite child derivations.
-(def (constructed index node children)
-  (make-derivation index (pack node (map derivation-value children)) children
+(def (constructed index node children (tag #f) (original #f))
+  (make-derivation index (or original (pack node (map derivation-value children) tag)) children
     (+ 1 (apply + (map derivation-weight children)))
-    (+ 1 (apply + (map derivation-count children))) #f))
+    (+ 1 (apply + (map derivation-count children))) #f tag))
 ;; Proper-list admission is bounded and detects cycles by pair identity before
 ;; invoking any recursive Type predicate or computing length on an unknown tail.
 (def (list-carrier value budget)
@@ -76,7 +87,7 @@
     (def sampler (node-sampler node))
     (def weight (core.with-sources [] (.call sampler measure value)))
     (unless (and (exact-integer? weight) (>= weight 0)) (error "invalid shrink measure" weight))
-    (make-derivation index value [] (+ weight 1) 1 sample))
+    (make-derivation index value [] (+ weight 1) 1 sample #f))
   ;; Fold independent child requests with explicit residual quota, using the same
   ;; Interaction bind that source-language recursive programs already use.
   (def (children-action mode ids level remaining values seeds reserve?)
@@ -98,6 +109,7 @@
     (def available (- remaining 1))
     (def lower (- level 1))
     (def ids (node-children node))
+    (def tag #f)
     (unless (cost index level) (refuse-generation 'depth))
     (when (> (cost index level) remaining) (refuse-generation 'nodes))
     (if (eq? (node-kind node) 'leaf)
@@ -111,15 +123,17 @@
              (let* ((minimum (cost (car ids) lower))
                     (width (if minimum (min size (quotient available minimum)) 0)))
                (make-list (random (+ width 1)) (car ids))))
-            ((union)
-             (let (choices (filter (lambda (id) (let (n (cost id lower)) (and n (<= n available)))) ids))
-               (list (list-ref choices (random (length choices))))))
+            ((union sum)
+             (let* ((choices (filter (lambda (branch)
+                       (let (n (cost (cdr branch) lower)) (and n (<= n available)))) (node-branches node)))
+                    (selected (list-ref choices (random (length choices)))))
+               (set! tag (car selected)) (list (cdr selected))))
             ((maybe or-false)
              (if (and (cost (car ids) lower) (<= (cost (car ids) lower) available) (= (random 2) 1)) ids []))
             (else ids)))
              (seeds (map (lambda (_) (random 268435456)) chosen)))
         (recursive.map-interaction
-          (lambda (children) (make-answer (constructed index node (answer-value children)) (answer-remaining children)))
+          (lambda (children) (make-answer (constructed index node (answer-value children) tag) (answer-remaining children)))
           (children-action 'draw chosen lower available (make-list (length chosen) size) seeds #t)))))
   ;; Ordered bounded membership never invokes a container's recursively defined
   ;; .element?. Failed alternatives spend quota; malformed/cyclic carriers refuse.
@@ -139,6 +153,18 @@
                (if (answer-value child)
                  (recursive.value (make-answer (constructed index node (list (answer-value child))) (answer-remaining child)))
                  (loop (cdr choices) (answer-remaining child))))))))
+      ((eq? (node-kind node) 'sum)
+       ;; Label admission precedes the payload getter. Only its captured branch
+       ;; is inspected, spending the same residual quota as any concrete carrier.
+       (def branch (and (object? value) (.has? value tag)
+         (assq (core.with-sources [] (.get value tag)) (node-branches node))))
+       (if (and branch (.has? value value))
+         (recursive.map-interaction (lambda (child)
+           (make-answer (and (answer-value child)
+             (constructed index node (list (answer-value child)) (car branch) value)) (answer-remaining child)))
+           (recursive.request (list 'inspect (cdr branch) lower available 0
+             (core.with-sources [] (.get value value)))))
+         (recursive.value (make-answer #f available))))
       (else
         (def values
           (case (node-kind node)
@@ -182,7 +208,7 @@
               (unless (list? (answer-value candidates)) (error "shrinker must return a finite proper list"))
               (loop (cdr rest) (cons (derivation-value (car rest)) before) (answer-remaining candidates)
                 (append out (map (lambda (smaller)
-                  (pack node (append (reverse before) (cons smaller (map derivation-value (cdr rest))))))
+                  (pack node (append (reverse before) (cons smaller (map derivation-value (cdr rest)))) (derivation-tag witness)))
                   (answer-value candidates)))))))))))
   ;; The program's requests carry all quotas and seeds. No cross-run memo is reused
   ;; for random/stateful callbacks; source observation depth remains independent.
@@ -217,7 +243,7 @@
     (def node (vector-ref nodes (derivation-node witness)))
     (if (eq? (node-kind node) 'leaf) (derivation-sample witness)
       (let (children (map sample-tree (derivation-children witness)))
-        (core.sample-sequence children (cut pack node <>)
+        (core.sample-sequence children (lambda (values) (pack node values (derivation-tag witness)))
           min-length: (if (memq (node-kind node) '(list maybe or-false)) 0 (length children))
           current?: graph-current?))))
   (def sampler (make-generator descriptor
