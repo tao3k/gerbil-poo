@@ -657,26 +657,30 @@
     (def (wrap action) (lambda arguments (apply checked action arguments)))
     (def normalized (checked validate (List (.get model Command)) commands))
     (def reference (checked prepare-model model identity wrap))
-    (def execution (model.check-trace reference normalized
-      (lambda (use)
-        (checked with-system (lambda (system)
-          ;; Fixture declarations belong to use, not to teardown. Restore model
-          ;; ownership before user cleanup; model edits still refuse factory return.
-          (parameterize ((sources (sources)))
-            (retain! (list system))
-            (def state-type (checked (lambda () (.get system State))))
-            (unless (object? state-type) (checked validate Type state-type))
-            (retain! (list state-type))
-            (def schema (checked TraceSystem state-type))
-            (retain! (list schema))
-            (set! system (checked validate schema system))
-            (retain! (list system))
-            (def step (checked (lambda () (.@ system step))))
-            (def observe (checked (lambda () (.@ system observe))))
-            (use (model.make-system (checked (lambda () (.get system initial)))
-              (lambda (state command)
-                (let-values (((next result) (checked step state command)))
-                  (values (checked validate state-type next) result))) (wrap observe)))))))
+    ;; Generic lifetime admission precedes every raw fixture getter. This hook
+    ;; is preparation only; its caller's existing source scope also covers run.
+    (def (prepare-system system)
+      (retain! (list system))
+      (def state-type (checked (lambda () (.get system State))))
+      (unless (object? state-type) (checked validate Type state-type))
+      (retain! (list state-type))
+      (def schema (checked TraceSystem state-type))
+      (retain! (list schema))
+      (set! system (checked validate schema system))
+      (retain! (list system))
+      (def step (checked (lambda () (.@ system step))))
+      (def observe (checked (lambda () (.@ system observe))))
+      (model.make-system (checked (lambda () (.get system initial)))
+        (lambda (state command)
+          (let-values (((next result) (checked step state command)))
+            (values (checked validate state-type next) result))) (wrap observe)))
+    ;; Fixture ownership spans admitted preparation AND execution, then restores
+    ;; model authority before application cleanup. No metadata is read here.
+    (def (with-fixture use)
+      (checked with-system (lambda (system)
+        (parameterize ((sources (sources))) (use system)))))
+    (def execution (model.check-trace reference normalized with-fixture
+      prepare-system: prepare-system
       same?: (wrap (lambda (phase left right)
         (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
     (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)

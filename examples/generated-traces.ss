@@ -306,4 +306,83 @@
       (check-exception (replay-counterexample report) Error?)
       (check-exception (replay-property report) Error?)
       (check-eq? (.get ((prepare #f) configuration) status) 'passed)
+      (check-equal? opened closed))
+    (test-case "typed fixture admission refuses raw metadata before duplicate and escaped use"
+      (for (mode '(success duplicate factory-error))
+        (def reads 0) (def escape #f) (def closed 0) (def cause (cons 'fixture 'cause))
+        (def reference (make-instance TraceModel Command: UInt State: UInt Result: UInt Observation: UInt
+          initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+          advance: (lambda (state command) (values (1+ state) command)) observe: identity))
+        (def actual (make-instance (TraceSystem UInt) initial: 0
+          step: (lambda (state command) (values (1+ state) command)) observe: identity))
+        ;; Every raw computed field is observable; none belongs to a refused use.
+        (def late (.o State: (begin (set! reads (1+ reads)) UInt)
+          initial: (begin (set! reads (1+ reads)) 0)
+          step: (begin (set! reads (1+ reads)) (lambda (state command) (values state command)))
+          observe: (begin (set! reads (1+ reads)) identity)))
+        (def outcome (with-catch identity (lambda ()
+          (check-trace reference '(7) (lambda (use)
+            (set! escape use)
+            (try
+              (if (eq? mode 'factory-error) (raise cause)
+                (let (first (use actual))
+                  (when (eq? mode 'duplicate) (check-exception (use late) Error?)) first))
+              (finally (set! closed (1+ closed)))))))))
+        (case mode
+          ((success) (check (.get outcome matched?) => #t))
+          ((duplicate) (check (Error? outcome) => #t))
+          ((factory-error) (check-eq? outcome cause)))
+        (check-exception (escape late) Error?)
+        (check-equal? (list reads closed) '(0 1))))
+    (test-case "scoped Record Function requests reject reuse then shrink replay and renew through FUN"
+      (def command (Record kind: [(Enum open use)] key: [UInt]
+        handler: [(Function [Integer] [Integer])]))
+      (def state (List UInt)) (def system-type (TraceSystem state))
+      (def owner (.o epoch: 0)) (def opened 0) (def closed 0) (def escape #f) (def reads 0)
+      ;; Logical handles and results are pure; actual fixtures own their scope.
+      (def (emit kind) (make-instance command kind: kind key: 1 handler: abs))
+      (def (advance previous item)
+        (values (if (eq? (.get item kind) 'open) (cons (.get item key) previous) previous)
+          ((.@ item handler) (.get item key))))
+      (def reference (make-instance TraceGenerator Command: command State: state Result: Integer Observation: state
+        initial: (lambda () []) enabled?: (lambda (previous item)
+          (if (eq? (.get item kind) 'open) (not (memv (.get item key) previous))
+            (and (memv (.get item key) previous) #t)))
+        advance: advance observe: identity measure: (lambda (_) 0) shrink: (lambda (_) [])
+        draw: (lambda (previous _random _size) (some (emit (if (null? previous) 'open 'use))))))
+      ;; A fresh action prepares the same type-driven tree and scoped dispatcher;
+      ;; retry never reuses a closed callback or refreshes an old report's owners.
+      (def (prepare mode)
+        (def sampler (trace-generator command reference steps: 3 dependencies: (list owner)))
+        ;; Cleanup surrounds the whole attempt, including a refused second use.
+        (def (fixture use)
+          (set! opened (1+ opened)) (set! escape use)
+          (def actual (make-instance system-type initial: [] observe: identity
+            step: (lambda (previous item)
+              (let-values (((next reply) (advance previous item)))
+                (values next (+ reply (if (and (eq? mode 'fault) (eq? (.get item kind) 'use)) 1 0)))))))
+          (try (let (first (use actual))
+            (when (eq? mode 'duplicate) (check-exception (use actual) Error?)) first)
+            (finally (set! closed (1+ closed)))))
+        (property-debug-action #f (.get sampler descriptor) (trace-property reference fixture) sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3 shrink-budget: 64))
+      (def refused ((prepare 'duplicate) configuration))
+      (check-eq? (.get refused status) 'error)
+      (check-equal? (.get refused attempts) 0)
+      (check-exception (replay-counterexample refused) Error?)
+      (def report ((prepare 'fault) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+      (check (.get report minimal?) => #t)
+      (check-exception ((.@ (car (.get report counterexample)) handler) 'invalid) TypeError?)
+      ;; A closed callback cannot retire live evidence by forcing this raw Type.
+      (def late (.o State: (begin (set! reads (1+ reads)) (.set! owner epoch 1) state)))
+      (check-exception (escape late) Error?)
+      (check-equal? (list reads (.get owner epoch)) '(0 0))
+      (check (replay-counterexample report) => #f)
+      (check-equal? (map (cut .get <> kind) (.get (replay-property report) counterexample)) '(open use))
+      (.set! owner epoch 1)
+      (check-exception (replay-property report) Error?)
+      (check-exception (replay-counterexample report) Error?)
+      (check-eq? (.get ((prepare 'correct) configuration) status) 'passed)
       (check-equal? opened closed))))

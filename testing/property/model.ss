@@ -2,7 +2,7 @@
 (export make-model model? make-system system? valid-trace? repair-trace shrink-trace trace-generator draw-trace check-trace
         trace-report? trace-report-matched? trace-report-phase trace-report-index
         trace-report-has-command? trace-report-command trace-report-expected trace-report-actual)
-(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources)
+(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources with-generation-check)
         (prefix-in (only-in ./generator make-generator make-sample sample-sequence sample-children sample-value) core.))
 ;; Private model records hold ordinary callbacks, not POO descriptors. Trace
 ;; laws require pure model transitions. The shared source boundary also refuses
@@ -118,7 +118,8 @@
 ;; Scope and first-difference execution are generic. The same? callback receives
 ;; phase/expected/actual, permitting typed domains to normalize at that boundary.
 (def (check-trace model commands (with-system : :procedure)
-                  same?: (same? (lambda (_phase left right) (equal? left right))))
+                  same?: (same? (lambda (_phase left right) (equal? left right)))
+                  prepare-system: (prepare : :procedure := identity))
   (def prepared (prepare-trace model commands))
   (unless prepared (error "invalid command trace"))
   ;; The comparison fold exits before any later step or unnecessary observation.
@@ -144,10 +145,20 @@
             (compare 'state index #t command expected-state found-state))
           (cons next updated)))
       (make-trace-report #t 'complete (length prepared) #f #f #f #f)))
-  (def active? #t) (def entered? #f) (def result #f)
+  ;; Count active attempts BEFORE preparation: a caught duplicate refusal cannot
+  ;; authorize the earlier receipt. Closed callbacks refuse without touching the
+  ;; caller's raw fixture or changing a previously completed observation.
+  (def active? #t) (def uses 0) (def result #f)
+  ;; The existing transient check also interrupts nested producers and every
+  ;; later model/fixture action if preparation catches a reentrant-use error.
+  (def (require-use!)
+    (unless (and active? (= uses 1)) (error "trace fixture callback is not active or was reused")))
   (try
     (let (returned (with-sources [] (with-system (lambda (actual)
-      (unless (and active? (not entered?)) (error "trace fixture callback is not active or was reused"))
-      (set! entered? #t) (set! result (run actual)) result))))
-      (unless (and entered? result (eq? returned result)) (error "trace fixture did not return its observation")) result)
+      (when active? (set! uses (1+ uses)))
+      (require-use!)
+      (with-generation-check require-use!
+        (set! result (run (with-sources [] (prepare actual)))) result)))))
+      (unless (and (= uses 1) result (eq? returned result))
+        (error "trace fixture did not return its observation")) result)
     (finally (set! active? #f))))

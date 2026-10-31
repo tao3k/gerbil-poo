@@ -154,3 +154,12 @@ the already captured coordinates. This is shallow preparation: command payloads
 remain shared, and callbacks must obey declared source and payload ownership.
 Neither deep copying nor rollback of callback effects is provided. See P55 in
 [pbt-design-rfc.md](pbt-design-rfc.md#p55-owned-finite-sequence-preparation).
+
+Generic model.check-trace accepts an optional prepare-system: procedure mapping
+a raw fixture into make-system's ordinary fixture record. It runs only after
+one-use lifetime admission, under the existing source/dynamic-check scope.
+POO check-trace supplies its existing TraceSystem validation here; downstream POO
+callers keep their usual with-system/use interface. Do not catch a duplicate-use
+error and return an earlier observation: the whole session refuses delivery.
+Escaped callbacks refuse before metadata reads after cleanup. See
+[P56](pbt-design-rfc.md#p56-fixture-lifetime-admission-before-typed-preparation).

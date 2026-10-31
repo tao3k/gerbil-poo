@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P56 closes scoped fixture admission before typed metadata preparation. Closed,
+repeated and reentrant use cannot force raw getters or authorize an earlier
+receipt after refusal. Record/Function/FUN scenarios cover errors, shrinking,
+replay and fresh source renewal, with cleanup/ownership unchanged. See
+[P56 in the PBT RFC](pbt-design-rfc.md#p56-fixture-lifetime-admission-before-typed-preparation).
+
 P55 closes finite sequence input ownership across structural/parameter shrinking
 and model repair/preflight. One standard shallow snapshot precedes callbacks;
 caller pair edits cannot change the prepared command order. Record/Function/FUN
