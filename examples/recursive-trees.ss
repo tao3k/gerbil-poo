@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
+(export edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
 (import ../object
         ../mop
         ../type
@@ -105,3 +105,20 @@
   (property-action (List JournalCommand) (lambda (commands)
     (def observation (journal-observation commands faulty?))
     (= (.get observation expected) (.get observation actual))) consume))
+
+;; A delayed Pair edge shares a Record leaf through Tuple/List/Maybe carriers.
+;; Trigger receives that first-observed Type before any leaf factory is entered;
+;; each FUN invocation prepares anew while old reports retain their own epochs.
+(def (edge-tree-tests owner trigger consume)
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema epoch: 0 .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'factory Leaf)
+      (make-generator Leaf (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: (list owner)))))
+  (def edge (.o bind-these: #f inherit: [Pair.] sexp: 'ServiceEdge left: Leaf
+    right: (begin (trigger 'edge Leaf) (Maybe Leaf))))
+  (property-action (Tuple (List edge) edge) (lambda (value)
+    (trigger 'property Leaf)
+    (= ((.@ (car (vector-ref value 1)) handler) -1) 0)) consume))

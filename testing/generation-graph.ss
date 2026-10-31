@@ -47,11 +47,16 @@
   (def (carrier kind children)
     (unless (list? children) (error "proper descriptor child list required"))
     (values kind (map-in-order (lambda (child) (discover (lambda () child))) children) #f #f))
+  ;; Fixed named edges use the same quota/observation action as Sum branches.
+  ;; Capture each returned Type before another computed field can revise it.
+  (def (fields kind names)
+    (values kind (map-in-order (lambda (name)
+      (discover (lambda () (.ref descriptor name)))) names) #f #f))
   (cond
     ((.has? descriptor .generator) (as-leaf))
-    ((memq List. ancestors) (carrier 'list (list (.get descriptor type))))
+    ((memq List. ancestors) (fields 'list '(type)))
     ((memq Tuple. ancestors) (carrier 'tuple (.get descriptor type-list)))
-    ((memq Pair. ancestors) (carrier 'pair (list (.get descriptor left) (.get descriptor right))))
+    ((memq Pair. ancestors) (fields 'pair '(left right)))
     ((memq Sum. ancestors)
      ;; Own the effective directory epoch before reading any tag or payload Type.
      ;; Duplicate child Types remain distinct branches; their labels are not IDs.
@@ -68,8 +73,8 @@
     ;; selection/normalization still belongs to the original descriptor.
     ((or (memq Union. ancestors) (memq Or. ancestors))
      (carrier 'union (.get descriptor types)))
-    ((memq Maybe. ancestors) (carrier 'maybe (list (.get descriptor type))))
-    ((memq OrFalse. ancestors) (carrier 'or-false (list (.get descriptor type))))
+    ((memq Maybe. ancestors) (fields 'maybe '(type)))
+    ((memq OrFalse. ancestors) (fields 'or-false '(type)))
     (else (as-leaf))))
 
 ;; Refuse cycles containing only transparent alternatives. A supported recursive

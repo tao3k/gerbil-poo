@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P62 closes fixed recursive carrier discovery for List/Pair/Maybe/OrFalse through
+the existing edge action: exhausted fuel skips metadata; earlier returned Types
+retain authority before later getters. Shared identities keep occurrence costs
+and one graph node. See [P62](pbt-design-rfc.md#p62-ordered-fixed-carrier-edge-discovery).
+
+
 P61 closes FunctionArguments preparation authority: computed signature getters
 cannot renew Function, clause or previously discovered input Type epochs. Existing
 source scopes, lazy child derivation and the standard LRU carry the same authority
