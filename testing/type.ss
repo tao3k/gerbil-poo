@@ -3,7 +3,7 @@
 (import (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
         ../object ../mop (only-in ../type Rational String Symbol Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
-        (only-in ../number Integer UInt)
+        (only-in ../number Integer UInt IntegerRange. Z/.)
         (prefix-in :clan/poo/testing/property testing.)
         (prefix-in :clan/poo/testing/property/replay replay.)
         (prefix-in :clan/poo/testing/property/generator core.)
@@ -199,6 +199,27 @@
     shrink: (lambda (value) (map pack (core.data-list-shrinks (unpack value)
       (if bytes? integer-shrinks core.character-shrinks) lower)))))
 
+;; Empty finite numeric declarations share the existing uninhabited-leaf policy.
+;; Their absence is not a generator exception or a reason to use another Type.
+(def (empty-generator descriptor)
+  (.cc (make-generator descriptor (lambda (_random _size) (refuse-generation 'empty))
+    (lambda (_) []) (lambda (_) 0)) .inhabited?: #f))
+;; Capture effective bounds under the enclosing graph's checked source scope.
+;; Omitted endpoints are admitted only for IntegerRange; fixed/modular carriers
+;; must expose exact finite endpoints. Custom predicates must faithfully admit
+;; their declared interval or supply their own .generator override.
+(def (integer-range-generator descriptor finite?)
+  (def lower (core.with-sources [] (.get descriptor .most-negative)))
+  (def upper (core.with-sources [] (.get descriptor .most-positive)))
+  (unless (and (or (exact-integer? lower) (and (not finite?) (not lower)))
+               (or (exact-integer? upper) (and (not finite?) (not upper))))
+    (error "exact integer carrier bounds required"))
+  (if (and lower upper (> lower upper)) (empty-generator descriptor)
+    (let (anchor (core.integer-range-anchor lower upper))
+      (from-generator descriptor (core.generator-integer-range lower upper)
+        (lambda (value) (abs (- value anchor)))
+        shrink: (cut core.integer-range-shrinks anchor <>)))))
+
 ;; Custom scalar callbacks retain explicit obligations; standard exact/enumerated
 ;; Types are finite leaves and never require recursive data predicates.
 (def (scalar-generator descriptor)
@@ -234,11 +255,12 @@
          ;; Nonempty domains reuse Enum's first-index metadata for strict descent;
          ;; equal duplicate payloads may be proposed but never falsely decrease.
          (if (null? values)
-           (.cc (make-generator descriptor (lambda (_random _size) (refuse-generation 'empty))
-             (lambda (_) []) (lambda (_) 0)) .inhabited?: #f)
+           (empty-generator descriptor)
            (let ((rank (.@ descriptor .uint<-)) (value (.@ descriptor .<-uint)))
              (from-generator descriptor (core.generator-elements values) rank
                shrink: (lambda (item) (map value (integer-shrinks (rank item))))))))
+        ((or (memq IntegerRange. ancestors) (memq Z/. ancestors))
+         (integer-range-generator descriptor (and (memq Z/. ancestors) #t)))
         (else (error "descriptor requires an explicit .generator" descriptor))))))
 
 ;; Recursive carrier graphs share one bounded compiler, including mutually

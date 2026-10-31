@@ -15,6 +15,50 @@
 ;; make a recursive descriptor pass, and no inconclusive result is a success.
 (def recursive-generation-test
   (test-suite "automatic guarded recursive generators"
+    (test-case "standard integer carrier families derive within bounds and size windows"
+      (for (descriptor (list (IntegerRange min: 8000 max: 8007) (IntegerRange max: -10)
+                            (UIntN 8) (IntN 8) (UIntN 0) (UIntN 256) (Z/ 7)))
+        (def sampler (generator descriptor))
+        (def lower (.get descriptor .most-negative)) (def upper (.get descriptor .most-positive))
+        (def anchor (core.integer-range-anchor lower upper))
+        (for (seed (in-range 8))
+          (def value (.call sampler draw (core.random-at seed) 8))
+          (check (element? descriptor value) => #t)
+          (check (<= (abs (- value anchor)) 8) => #t)
+          (for (smaller (.call sampler shrink value))
+            (check (element? descriptor smaller) => #t)
+            (check (< (.call sampler measure smaller) (.call sampler measure value)) => #t)))
+        (check-equal? (.call sampler draw (core.random-at 1) 0) anchor)))
+    (test-case "empty integer domains remain uninhabited alternatives without resampling"
+      (def Empty (IntegerRange min: 9 max: 4))
+      (check-eq? (.get (check-property Empty (lambda (_) #t)) status) 'exhausted)
+      (check-eq? (.get (check-property (Z/ 0) (lambda (_) #t)) status) 'exhausted)
+      (check-eq? (.get (check-property (Union Empty (Z/ 1)) zero? cases: 8) status) 'passed)
+      (check-eq? (.get (check-property (List Empty) null? cases: 8) status) 'passed))
+    (test-case "invalid numeric metadata stays an error and floating carriers remain explicit"
+      (for (descriptor (list (IntN 0) (UIntN -1)
+        (.cc (IntegerRange min: 0 max: 3) .most-positive: 3.0) Float Real Number))
+        (check-exception (generator descriptor) Error?)))
+    (test-case "range bound getters cannot revise an earlier Type then reach later metadata"
+      (def Early (IntegerRange min: 0 max: 9)) (def later 0)
+      (def Range (IntegerRange min: 5 max: 9))
+      (.putslot! Range '.most-negative ($self-slot-spec
+        (lambda (_self) (.set! Early sexp 'retired) 5)))
+      (.putslot! Range '.most-positive ($self-slot-spec
+        (lambda (_self) (set! later (1+ later)) 9)))
+      (check-exception (generator (Tuple Early Range)) (limited? 'stale))
+      (check-equal? later 0))
+    (test-case "bound revisions retire numeric samplers while fresh metadata and overrides work"
+      (def Range (IntegerRange min: 5 max: 9))
+      (def old (generator-core (generator Range)))
+      (.set! Range .most-positive 6)
+      (check-exception (core.generate old (core.random-at 1) 8) core.stale-generation?)
+      (def fresh (generator Range))
+      (for (seed (in-range 8))
+        (check (<= 5 (.call fresh draw (core.random-at seed) 8) 6) => #t))
+      (def Custom (.cc Range .generator: (lambda ()
+        (make-generator Custom (lambda (_random _size) 6) (lambda (_) []) (lambda (_) 0)))))
+      (check-eq? (.get (check-property Custom (cut = <> 6) cases: 4) status) 'passed))
     (test-case "Sum labels stay distinct when payload descriptors share one graph node"
       (def descriptor (Sum left: UInt right: UInt absent: (Exactly #f)))
       (def sampler (generator descriptor)) (def seen (make-hash-table-eq))

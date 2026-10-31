@@ -32,7 +32,8 @@ keyword defaults, recursive Function wrapping, descriptor-driven call generation
 and Reader/FUN consumption. Both repositories retain their complete checks and
 resource limits. No Scheme runtime or test imports a Lean checkout.
 
-Generators derive Bool, Integer, UInt, String, Exactly/Enum and bounded recursive
+Generators derive Bool, Integer, UInt, IntegerRange, UIntN, IntN, Z/, Rational,
+String, Symbol, Bytes, BytesN, Exactly/Enum and bounded recursive
 List, Tuple, Pair, Union, Maybe and OrFalse graphs. Other opaque Types,
 refined Types and Function *values* supply an explicit `.generator`; the example
 supplies a semantically chosen identity callback. Arbitrary closure synthesis,
@@ -67,3 +68,12 @@ wrapper does not introspect or prove native arity, termination or side effects;
 host defaults/body errors propagate. A declared keyword API uses Gerbil's standard
 `#!key`/`#!rest` forwarding; signatures with no keyword API preserve legacy raw
 positional keyword values. Source callback dependencies must be declared.
+
+Exact interval descriptors use a nearest-to-zero admitted anchor, a size-limited
+inclusive window and segment-preserving shrinking. An omitted IntegerRange bound
+is unbounded; malformed endpoints fail preparation and empty finite domains exhaust
+without drawing. Fixed/modular endpoints must be exact finite integers. A draw
+has at most twice size plus one choices; arithmetic cost still depends on endpoint
+bit widths. Capture invalidation retires old samplers and reports; prepare a fresh
+sampler to observe changed bounds. See the numeric cases and Record/Function/FUN
+service in `examples/property-numbers.ss` and `examples/generated-products.ss`.

@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P47 closes automatic exact integer interval generation and shrinking for
+IntegerRange, UIntN, IntN and Z/, including empty-domain exhaustion, source-owned
+metadata and bounded draw windows. The Record/Function/FUN example covers replay
+and fresh preparation after revision. This is a finite derivation capability, not
+arbitrary predicate inference or floating-point support. See
+[P47 in the PBT RFC](pbt-design-rfc.md#p47-automatic-exact-integer-carrier-profiles).
+
 P46 closes automatic bounded tagged Sum generation, branch-preserving shrinking
 and replay in the existing PBT protocol. Effective variant directories and shared
 payload Types retain first-observation epochs; descriptor limits precede later

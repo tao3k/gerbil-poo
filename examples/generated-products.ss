@@ -1,5 +1,5 @@
 ;;; Typed products inherit the enclosing run's admission through ordinary modules.
-(export generated-products-test service-classification-action service-corpus-action)
+(export generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
@@ -45,9 +45,56 @@
       (write-counterexample report codec output)
       (consume report (get-output-string output))) sampler: sampler))
 
+;; One five-bit service result stays in its declared carrier even when the
+;; faulty implementation wraps instead of saturating; representation alone is
+;; therefore insufficient to establish the application property.
+(def (bounded-credit-result amount delta faulty?)
+  (def total (+ amount delta))
+  (if faulty? (modulo total 32) (min 31 (max 0 total))))
+;; Compose automatically derived finite/modular/range samplers through the same
+;; product, Record constructor and Reader/FUN action used by other services.
+;; The external port Type is a revision owner, not an unchecked numeric fallback.
+(def (bounded-credit-action port faulty? consume)
+  (def Amount (UIntN 5)) (def Delta (IntN 6)) (def Mode (Z/ 3))
+  (def Request (Record amount: [Amount] delta: [Delta] mode: [Mode] port: [port]
+    handler: [(Function [Amount] [Amount Delta])]))
+  (def sampler (product-generator Request (map generator (list Amount Delta Mode port))
+    (lambda (value) (list (.get value amount) (.get value delta) (.get value mode) (.get value port)))
+    (lambda (parts) (make-instance Request amount: (car parts) delta: (cadr parts)
+      mode: (caddr parts) port: (cadddr parts)
+      handler: (lambda (amount delta) (bounded-credit-result amount delta faulty?))))))
+  (property-action Request (lambda (value)
+    (or (= (.get value mode) 2)
+      (= ((.@ value handler) (.get value amount) (.get value delta))
+         (bounded-credit-result (.get value amount) (.get value delta) #f))))
+    consume sampler: sampler))
+
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "bounded credit services retain Function contracts through FUN corpus and fresh repair"
+      (def port (IntegerRange min: 8000 max: 8007)) (def deliveries 0)
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 40 size: 8 shrink-budget: 128))
+      (def report ((bounded-credit-action port #t (lambda (value) (set! deliveries (1+ deliveries)) value)) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? deliveries 1)
+      (def witness (.get report counterexample))
+      (check-exception ((.@ witness handler) -1 0) TypeError?)
+      (check-exception ((.@ witness handler) 0 32) TypeError?)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check (replay-counterexample report) => #f)
+      (def schema (.get report descriptor))
+      (def codec (corpus.make-codec '(bounded-credit 1)
+        (lambda (value) (vector (.get value amount) (.get value delta) (.get value mode) (.get value port)))
+        (lambda (data) (make-instance schema amount: (vector-ref data 0) delta: (vector-ref data 1)
+          mode: (vector-ref data 2) port: (vector-ref data 3) handler: (cut bounded-credit-result <> <> #t)))))
+      (def output (open-output-string))
+      (write-counterexample report codec output)
+      (check (read-counterexample (.get report sampler) codec (open-input-string (get-output-string output))
+        (property.report-property (.get report execution))) => #f)
+      (.set! port .most-positive 8008)
+      (check-exception (replay-property report) Error?)
+      (standard.require-property-passed ((bounded-credit-action port #f identity) configuration)))
     (test-case "Rational derives through recursive containers while Float remains explicit"
       (def sampler (generator Rational))
       (for (value '(0 1/2 -2/3 0.5))

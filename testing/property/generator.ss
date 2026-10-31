@@ -8,7 +8,7 @@
         boolean-result live? random-at
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
-        generator-integer generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
+        generator-integer generator-integer-range integer-range-anchor integer-range-shrinks generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
         generator-string generator-symbol generator-bytes generator-elements generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
 (import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
@@ -346,6 +346,30 @@
     (error "ordered exact integer bounds required" lower upper))
   (make-generator (lambda (random _) (+ lower (random (1+ (- upper lower)))))
     (lambda (value) (map (cut + lower <>) (integer-shrinks (- value lower))))))
+;; Prepare the nearest-to-zero inhabitant once. False denotes an omitted bound,
+;; never a numeric fallback; reversed finite endpoints are configuration errors.
+(def (integer-range-anchor lower upper)
+  (unless (and (or (not lower) (exact-integer? lower))
+               (or (not upper) (exact-integer? upper))
+               (or (not lower) (not upper) (<= lower upper)))
+    (error "ordered optional exact integer bounds required" lower upper))
+  (cond ((and lower (> lower 0)) lower) ((and upper (< upper 0)) upper) (else 0)))
+;; Shrink distance on the same side of the captured anchor. Every proposal stays
+;; on that closed segment, without filtering, wrapping arithmetic or resampling.
+(def (integer-range-shrinks (anchor :~ exact-integer?) (value :~ exact-integer?))
+  (map (if (< value anchor) (lambda (distance) (- anchor distance))
+                              (lambda (distance) (+ anchor distance)))
+    (integer-shrinks (abs (- value anchor)))))
+;; Size bounds distance from the anchor, including one-sided/unbounded ranges.
+;; Each primitive draw therefore spans at most 2*size+1 values, not the entire
+;; bignum representation. The original with-shrink owner retains tree provenance.
+(def (generator-integer-range lower upper)
+  (def anchor (integer-range-anchor lower upper))
+  (generator-with-shrink
+    (generator-sized (lambda (size)
+      (generator-integer (if lower (max lower (- anchor size)) (- anchor size))
+                         (if upper (min upper (+ anchor size)) (+ anchor size)))))
+    (cut integer-range-shrinks anchor <>)))
 ;; Scheme's finite inexact rationals also have an exact numeric value. This
 ;; canonical rank is natural, symmetric in sign, and independent of input spelling.
 ;; It does not measure floating-point representation, rounding error or byte cost.

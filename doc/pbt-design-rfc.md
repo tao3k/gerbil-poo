@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P46 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P47 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -38,7 +38,7 @@ The independent-library acceptance copies these five generic source modules and
 `examples/property-kernel.ss` and its ordinary product/number/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
-through `gerbil test`. It requires all 140 case receipts, an error-free result and
+through `gerbil test`. It requires all 145 case receipts, an error-free result and
 correct process exit status under the existing heap and timeout limits. The
 isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
@@ -3113,3 +3113,51 @@ inspection and shrinking retain their existing search/proposal/node budgets.
 These operation counts do not imply constant lookup cost, allocation bounds or a
 wall-clock speedup. No upstream changes, runner, namespace or resource-limit
 changes are required; the independent generic package remains POO-free.
+
+## P47: automatic exact integer carrier profiles
+
+The concentrated audit reproduced a missing derivation path for existing
+`IntegerRange`, `UIntN`, `IntN` and `Z/` descriptors. They required handwritten
+`.generator` fields despite exposing exact interval metadata. They now share one
+POO-free `generator-integer-range` combinator and one typed preparation path;
+custom overrides and Exactly/Enum retain precedence. No additional framework,
+namespace, validator chain or upstream change is involved.
+
+The nearest-to-zero admitted integer is the anchor. Size bounds the draw's
+distance from that anchor; finite endpoints clip the inclusive window. A primitive
+draw has at most `2*size+1` choices, even for a 256-bit carrier. Size zero produces
+the anchor, including positive-only and negative-only intervals. Shrinking maps
+existing natural-distance candidates back along the original closed segment;
+every candidate remains admitted and strictly decreases distance. No rejection
+sampling, modulo coercion or Any fallback is used. This follows the compositional
+integer/shrink-tree approach of [Rackcheck](https://docs.racket-lang.org/rackcheck/index.html),
+while retaining this project's explicit size and source-ownership protocols.
+
+IntegerRange admits omitted endpoints; fixed-width/modular descriptors require
+exact finite endpoints. Malformed metadata is a preparation error. Empty finite
+intervals, including `Z/ 0`, reuse Enum's uninhabited-leaf exhaustion protocol.
+The recursive graph's original source scope checks each bound getter before the
+next one; retained samples, diagnostics and reports reject retired ownership.
+Only fresh preparation sees changed endpoints. Custom predicates must faithfully
+admit their interval or supply an explicit generator. Float/Real/Number remain
+outside this exact profile; their absence is not silently repaired.
+
+`examples/property-numbers.ss` exercises the generic combinator, bounded windows,
+strict shrinking, seed/concrete/corpus replay and stale ownership. The independent
+POO-free package now requires 145 cases. `examples/generated-products.ss` combines
+a five-bit balance, signed delta, modular mode and revised port range in a Record
+with a wrapped Function and FUN action. It detects wrapping arithmetic versus a
+saturating reference, replays the failure through a data-only codec, refuses a
+retired port descriptor, and accepts a freshly prepared corrected service.
+Regressions cover unbounded/one-sided intervals, large bit widths, empty domains,
+malformed endpoints, override precedence and getter ordering after invalidation.
+
+`PropertyNumbers.lean` proves anchor admission, window admission/nonemptiness,
+size-zero uniqueness, width bounds, sign/distance reconstruction, strict candidate
+descent, interval preservation and terminal anchors. Top-level examples fix both
+positive and negative boundaries. The interpretation requires exact arithmetic,
+faithful interval metadata, truthful revision clocks, terminating callbacks and
+the existing random-source contract. These are finite source/model laws advancing
+the paper's future work, not proofs of Scheme execution, PRNG distribution or
+wall-clock performance. The width bound is not a constant-time bignum arithmetic
+claim. All existing checks and resource limits remain unchanged.

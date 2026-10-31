@@ -1,5 +1,5 @@
 ;;; Numeric profiles reuse ordinary products, source scopes and replay codecs.
-(export rational-test-cases!)
+(export rational-test-cases! integer-range-test-cases!)
 (import :std/test :std/error :std/iter
   (prefix-in :clan/poo/testing/property/generator g.)
   (prefix-in :clan/poo/testing/property p.)
@@ -80,3 +80,54 @@
     (def fresh (g.generator-map (g.generator-rational) identity current?: (lambda () (= epoch 1))))
     (check-eq? (p.report-status (p.check-property fresh rational? domain cases: 4)) 'passed)
     (check (p.report-current? report) => #f)))
+
+;; All integer carriers share one anchor/distance profile, not rejection sampling.
+(def (integer-range-test-cases!)
+  (test-case "integer windows respect finite one-sided and unbounded declarations"
+    (for (bounds '((8000 8007) (-17 -10) (-3 5) (#f -5) (5 #f) (#f #f) (7 7)))
+      (def lower (car bounds)) (def upper (cadr bounds))
+      (def anchor (g.integer-range-anchor lower upper))
+      (def generation (g.generator-integer-range lower upper))
+      (for (seed (in-range 20))
+        (def size (modulo seed 9))
+        (def value (g.sample-value (g.generate generation (g.random-at seed) size)))
+        (check (exact-integer? value) => #t)
+        (check (or (not lower) (<= lower value)) => #t)
+        (check (or (not upper) (<= value upper)) => #t)
+        (check (<= (abs (- value anchor)) size) => #t))
+      (check-equal? (g.sample-value (g.generate generation (g.random-at 9) 0)) anchor)))
+  (test-case "anchored integer shrinking stays on the original segment and decreases"
+    (for (pair '((8000 8007) (-10 -17) (0 -32) (0 31) (7 7)))
+      (def anchor (car pair)) (def value (cadr pair))
+      (for (smaller (g.integer-range-shrinks anchor value))
+        (check (<= (min anchor value) smaller (max anchor value)) => #t)
+        (check (< (abs (- smaller anchor)) (abs (- value anchor))) => #t)))
+    (check-equal? (g.integer-range-shrinks 8000 8007) '(8000 8003 8006))
+    (check-equal? (g.integer-range-shrinks -10 -17) '(-10 -13 -16))
+    (check-equal? (g.integer-range-shrinks 7 7) []))
+  (test-case "integer profile configuration refuses inexact reversed and nonnumeric bounds"
+    (for (bounds '((4 3) (1.0 3) (0 3.0) (bad 3) (0 #t)))
+      (check-exception (g.generator-integer-range (car bounds) (cadr bounds)) Error?))
+    (check-exception (g.integer-range-shrinks 0 1.0) Error?))
+  (test-case "bounded integer witnesses share ordinary shrinking and both replays"
+    (def domain (p.make-specification (lambda (value) (and (exact-integer? value) (<= 8000 value 8007)))
+      (lambda (value) (- value 8000))))
+    (def report (p.check-property (g.generator-integer-range 8000 8007)
+      (lambda (value) (= value 8000)) domain seed: 41 cases: 20 size: 8 shrink-budget: 30))
+    (check-eq? (p.report-status report) 'failed)
+    (check-equal? (p.report-counterexample report) 8001)
+    (check-equal? (p.report-counterexample (p.replay-property report)) 8001)
+    (check (p.replay-counterexample report) => #f)
+    (def codec (r.make-codec '(integer-window 1) identity identity))
+    (def output (open-output-string))
+    (r.write-counterexample report codec output)
+    (check (r.read-counterexample codec (open-input-string (get-output-string output)) domain
+      (lambda (value) (= value 8000))) => #f))
+  (test-case "integer windows inherit source scopes and retained children refuse retired owners"
+    (def epoch 0)
+    (def old (g.generator-map (g.generator-integer-range -17 -10) identity current?: (lambda () (= epoch 0))))
+    (def tree (g.generate old (g.random-at 6) 8))
+    (set! epoch 1)
+    (check-exception (for (_ ((g.sample-children tree))) (void)) g.stale-generation?)
+    (def fresh (g.generator-map (g.generator-integer-range -17 -10) identity current?: (lambda () (= epoch 1))))
+    (check (<= -17 (g.sample-value (g.generate fresh (g.random-at 6) 8)) -10) => #t)))
