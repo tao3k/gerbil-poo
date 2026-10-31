@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P55 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P65 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -3663,3 +3663,530 @@ host allocation, concurrent mutation or compiler/runtime verification. The added
 model snapshot costs a linear shallow copy per preparation; no wall-time or
 allocation improvement is inferred from these correctness controls. Existing
 complete checks, watchdogs and heap limits remain unchanged.
+
+## P56: fixture lifetime admission before typed preparation
+
+The scoped differential protocol had two concrete admission defects. A typed
+callback retained after check-trace returned read a later raw fixture's computed
+State twice before the generic layer refused its closed use. Separately, a
+with-system function could catch the second-use exception and return the first
+observation; the generic layer then published that observation as a valid report.
+These violate the existing one-use scoped fixture contract. They are not a demand
+for unrestricted continuation safety, concurrent fixture use or rollback.
+
+Generic check-trace now accepts prepare-system: (default identity). Gerbil's
+ordinary procedure contract admits that hook before model initialization. The
+existing callback owner counts each active invocation before entering preparation;
+closed and repeated calls refuse before inspecting the raw value. Final delivery
+requires exactly one invocation and the actual observation's identity. Catching a
+repeated-use error cannot reset the count or authorize an earlier receipt.
+
+The same callback installs one existing with-generation-check scope. A caught
+reentrant attempt interrupts the next checked boundary, including nested generator
+pulls, post-preparation admission and subsequent observation/step actions. No
+lifetime observer is retained by the report or generated tree. A normally completed
+scope keeps its historical observation; later closed calls merely refuse and do
+not change it. Constructor, preparation and actual callback exceptions retain
+their original causes when they escape, including false. Source retirement remains
+stale; misuse is an error, never a false property or shrinkable counterexample.
+
+Typed check-trace extracts its existing Record/TraceSystem preparation into one
+named function. Its with-system wrapper now establishes only the prior dynamic
+source binding and invokes the generic callback. Consequently lifetime admission
+precedes retain/getter/validation/initial-state work. The original parameterized
+fixture ownership still spans preparation AND execution, then restores model
+ownership before application teardown. This relocates the original work rather
+than adding a second validator or per-field lifetime wrapper. FUN actions and
+the ordinary trace-property Boolean projection continue through this same owner.
+
+The pinned Rackcheck map/bind/with-shrink algebra still owns generator composition
+and retained trees. This fixture extension belongs to our stated model-driven PBT
+future work, not a Racket source-epoch mechanism. Gerbil's standard annotated
+keyword/default argument syntax and dynamic parameters supply the implementation;
+no upstream change, runner, namespace, registry or framework is introduced.
+
+Seven independent cases cover procedure preflight, closed callbacks after success
+and failure, caught duplicates, preparation/observation/step reentry, interruption
+of nested production, exact false/object causes, source retirement, omitted use,
+substituted receipts and malformed prepared fixtures. All 174 previous cases remain;
+the independent stdlib-only compiled library now requires 181. Two typed examples
+cover raw computed getters and a complete Record/Function/FUN chain: misuse produces
+an error with zero shrink attempts, fresh faulty fixtures shrink to a valid
+producer/consumer trace, wrappers remain checked, seed/concrete replay reproduces
+failure, a closed callback cannot retire live evidence, explicit source revision
+refuses old reports and fresh corrected preparation passes with balanced cleanup.
+
+PropertyTraces.lean adds admitFixture through the existing guardedGeneration and
+fixtureReceipt over the scope's use count and observed identity relation. Ten laws
+prove closed/repeated/stale preflight refusal, exact preparation/run causes, source
+retirement before actual effects, normalized fixture/state forwarding and irreversible
+refusal of earlier receipts after further attempts. Top-level examples distinguish
+false payloads/causes, stale sources, substituted receipts and forbidden metadata.
+Faithful sequential counters, standard dynamic-scope unwinding, accurate source
+observers, receipt identity and terminating callbacks remain premises. Arbitrary
+concurrent access, call/cc reentry, host evaluator verification and user-caught
+exceptions outside the protocol are not proved. Resource guards and full checks
+are unchanged; no latency or allocation improvement is claimed by these laws.
+
+## P57: fixed product row and finite expansion ownership
+
+The audit reproduced three defects in the value-level product path. An improper
+child neighborhood invoked the packer once before refusing its tail. A two-field
+product whose unpacker returned one value measured only that prefix, invoking
+one child and returning four instead of refusing the decomposition. A packer
+editing its temporary row changed a subsequent child argument from six to 99.
+The retained product tree already owned its rows; the finite view did not share
+that preparation discipline. These are concrete protocol gaps, not inference of
+arbitrary representation inverses or automatic proofs of user callbacks.
+
+The generic product specification now captures one proper row of exactly its
+fixed width before admission or measurement callbacks. Gerbil list? establishes
+properness before std/list/list's length=n? checks width; that standard helper
+alone also treats an improper terminal atom as an end, so it is not a replacement
+for list?. Invalid membership remains false, and invalid explicit measurement is
+an error before field effects. Empty rows remain valid data at width zero; a
+false row is invalid, while a row containing a permitted false payload is valid.
+
+Typed product measurement delegates to that same generic owner. Finite shrinking
+admits and copies its unpacked row before child or packer calls. A single private
+finite-shrink-children boundary validates/copies every finite POO child spine;
+products invoke it after their existing checked child action, and ordinary raw
+sampler lifting uses it after the inherited source action. Source refusal and
+original causes therefore retain their existing priority. Generic user shrinkers
+still accept Iterators; their explicitly budgeted infinite neighborhoods remain
+supported. No generic iterator is eagerly converted into a finite list.
+
+Every product packer receives a private complete outer row. The existing reversed
+prefix is reconstructed with standard foldl/cons and a copied suffix, avoiding
+another reversed-prefix list. Thus consuming a pack argument cannot change the
+remaining coordinates. Constructor identity, field order, per-coordinate callback
+order, interleaved packing and source gates stay with their original owners.
+Malformed child lists cannot publish prefixes; a later error still discards the
+returned batch, without rolling back already performed callback effects. A producer
+retaining an alias to its returned candidate spine cannot change an already
+prepared typed iterator's next candidate. Payloads themselves are not deep-copied;
+mutable semantic data and callback dependencies retain their source obligations.
+
+This follows the pinned Rackcheck retained-product/shrink-tree direction and the
+author's compositional representation discipline. It reuses the project product,
+Type, Record and FUN protocols plus standard Gerbil list operations. No second
+product engine, public adapter, runner, namespace or upstream change is introduced.
+The pure fixed-width checks occur once at the operation's owning boundary rather
+than validating every packed field through another wrapper. Snapshot copying has
+linear spine cost; these correctness controls make no wall-time speedup claim.
+
+Four generic cases cover malformed/short/long rows, zero fields, false payloads,
+measurement snapshots and exact source/cause refusal. All earlier 181 cases remain,
+raising the independent stdlib-only compiled acceptance to 185. Eight typed cases
+cover invalid finite child batches before packing, decomposition failure before
+any field work, staging-cache and consuming-packer edits, paused producer aliases,
+exact causes and source retirement. The complex consuming-product-sampler example
+composes UInt, Integer and Bool fields with a Record/Function carrier. Its standard
+reverse! packer is valid on private rows. The ordinary finite and retained views
+agree on the minimal witness, attempt count and shrink steps through FUN/corpus
+export, seeded/concrete/portable replay, old-source refusal and fresh corrected
+preparation. Function argument contracts remain checked on each witness.
+
+PropertyProducts.lean reuses PropertySequences.finiteShrinkStage and the existing
+guardedStages. Eleven laws establish exact-width row capture, empty/invalid
+separation, refusal before consumers, original-row forwarding, coordinate width,
+prefix/suffix order and no finite batch after child or packing refusal. Examples
+cover unequal widths, false payloads, malformed children and source retirement.
+Faithful standard shallow copying, sequential source binding, terminating callbacks
+and the application's Type/pack/unpack laws remain premises. These are not host
+heap alias proofs, automatic isomorphism discovery, concurrency verification or
+compiler/runtime validation. Existing complete checks and resource limits remain.
+
+
+## P58: portable handoff request admission and physical framing
+
+The audit found three actual handoff defects: an explicit `#!eof` could hide
+pending input (`#!eof 99`) from the second reader call; an invalid property could
+consume input and call the decoder before rejection; and a wrong-direction output
+port could reconfirm a witness and invoke its encoder before failing. These are
+request/framing defects, not a request for a new serialization framework.
+
+The existing generic replay module exposes its standard record recognizer
+`codec?`. Generic and typed read/write requests use Gerbil parameter contracts to
+reject malformed configuration before source observers, computed POO metadata,
+property callbacks or port operations. For valid configuration the existing
+codec-before-domain source priority remains. No new Type wrapper, registry or
+namespace is introduced, and the version-one envelope is unchanged.
+
+After admitting the envelope, the standard reader and `peek-char` run under
+separate existing source boundaries. Reader EOF must also be physical EOF before
+decoding. Ordinary whitespace, comments and datum comments retain standard reader
+semantics; a terminal `#!eof` at physical end remains accepted. Any pending input
+after that terminator is refused. Source retirement during the reader's normal
+return precedes physical probing and result interpretation; original callback
+exceptions remain exact, including a false exception.
+
+Six independent generic cases cover admission without observers, export without
+reconfirmation, hidden suffixes, standard reader trivia/false witnesses, cursor-
+observed source retirement and exact decoder causes/fresh retries. The independent
+compiled stdlib-only suite now has 191 cases, retaining all earlier 185. Two typed
+cases check computed-metadata exclusion and a heterogeneous UInt/Integer/Bool
+Record with a wrapped Function. Its consuming product sampler feeds the existing
+FUN property action, shrinking, portable export and import. Invalid configuration
+can retry on the same untouched port; malformed framing requires explicit fresh
+input. Revision retirement rejects old reports/codecs before input consumption;
+fresh preparation rejects old identities before decoding and admits the corrected
+service. Nested Function contracts survive reconstruction.
+
+`PropertyReplay.admitReplayRequest` and `replayInputEnd` add eleven laws for static
+admission, ordered logical/physical EOF, source retirement, exact causes, final
+state forwarding and refusal before decoding. Top-level Lean examples include
+hidden suffixes, stale sources and false causes. The model assumes faithful host
+port observations, pure observers and terminating callbacks. It does not verify
+the Scheme reader grammar, allocator, compiler or runtime. Port predicates check
+direction/type only: closed ports and later device failures remain host I/O
+failures. Consumed input, partial output and callback effects are not rolled back;
+`peek-char` may perform underlying I/O. Existing heap/time guards remain necessary.
+This continues the RFC's finite future-work protocol, not a claim that the original
+paper supplies a portable handoff or host-I/O proof.
+
+
+## P59: trace request admission before declarations and fixture scope
+
+The complete trace front door had two reproduced admission defects. A generic
+`check-trace` request with a nonprocedure equality callback initialized its model
+twice and opened/closed a fixture before failing. A typed `trace-generator` with
+negative steps forced computed Command metadata before rejecting configuration.
+These are static request errors; they should not acquire an application resource
+or evaluate declarations. This is distinct from a valid callback throwing during
+execution, which must retain its original cause and ordinary scope cleanup.
+
+The existing generic model entry now uses Gerbil contracts for the model, proper
+command spine and equality callback, alongside its existing fixture/preparation
+contracts. The typed trace generator admits exact bounded
+steps and a proper dependency spine before entering `with-trace-model`. The same
+0–65536 step bound is preserved, with no clamping. Typed `check-trace` replaces
+manual callable checks with the same standard parameter mechanism; `trace-property`
+checks its fixture/equality binding immediately instead of deferring a static
+error until after a property generator has drawn. `valid-trace?` still returns
+false for an invalid trace, and domain mismatch, Boolean mismatch, stale sources
+and callback exceptions retain their existing owners. No guard framework, new
+namespace, wrapper chain or fixture scheduler is introduced.
+
+The compiled regression also exposed a representation distinction at a known
+improper command literal: the optimized call selected the unchecked entry while
+the interpreted request refused. Gerbil's official MOP places `:pair` under
+`:list`; that carrier fact is insufficient for PBT's proper finite-spine law.
+The existing parameter/using contracts therefore use the existing standard `proper-list?`
+predicate contract across finite sequence, specification, product, trace and
+dependency boundaries. This retains an explicit properness judgment without a
+new list implementation or wrapper. POO model/descriptor validation stays in
+`with-trace-model`, preserving its TypeError rather than duplicating it with a
+carrier contract; static callback/spine/budget failures use ContractViolation.
+A compiled literal regression covers repair,
+raw sequence shrinking and specification preparation before callbacks. The
+existing finite-sequence Lean laws apply under truthful host shape recognition;
+this is executable optimizer-path acceptance, not compiler verification.
+
+Five generic regression cases cover all configuration dimensions before any model,
+normalizer, preparation or fixture action; no cleanup for an unacquired fixture;
+exact false/object callback causes with balanced acquired scope; and fresh empty
+traces/false commands. The independent compiled stdlib-only acceptance grows from
+191 to 196 cases. Three typed cases cover malformed limits/dependency spines before
+computed metadata, binding/check configuration without declaration reads, and a
+Record/Function service carried through dependency-aware generation, FUN delivery,
+shrinking, seeded/concrete replay, old-source refusal and fresh corrected retry.
+The oracle's reply is independent of the checked implementation Function. Invalid
+binding performs zero draws or fixture actions; valid mismatches still open and
+clean each acquired fixture once.
+
+`PropertyTraces.traceStepLimit` records the existing finite integer interval.
+Eleven Lean laws reuse `admitWitness` and `guardedGeneration` for static refusal,
+valid forwarding, both limit boundaries, stale preparation, revision during normal
+return, exact callback causes and exact result/state preservation. Top-level
+examples distinguish successful false mismatch from thrown false and reject both
+out-of-range endpoints. Host procedure recognition/arity, fixnum representation,
+truthful source observers, terminating callbacks and actual fixture cleanup remain
+executable premises. These laws do not prove callback purity, host contracts or
+resource rollback. This is finite RFC future-work protocol completion, not an
+extension into the original paper's compiler/runtime validation. Existing full
+checks, negative controls and resource limits remain unchanged.
+
+
+## P60: owned trace ingress and first-observed explicit dependencies
+
+The audit reproduced a shared ingress ownership defect across typed validation,
+repair, execution and generation. A computed Command declaration could replace
+`(1 2)` with `(99 2)` before the model saw the commands. A computed declaration
+could also replace an explicit dependency owner in the caller's list; retiring
+the originally supplied owner then left the old sampler current. P59's properness
+checks admitted a shape, but did not yet capture that admitted request before
+computed declarations. The frozen baseline uses direct lazy declarations and
+checks that caller rows/owners are unchanged immediately before API entry; effects
+while constructing an already initialized Record are outside this boundary. Record
+normalization may observe a getter more than once, without changing the captured
+request or its first owner epochs. This is an actual protocol gap, not unrestricted payload
+isolation or a new mutable-heap verification requirement.
+
+The existing typed entries now capture the outer command/dependency spine before
+`with-trace-model`. Validation retains malformed ingress as false; repair retains
+its ordinary contract refusal after the POO model/Type boundary. Checking captures
+its already admitted proper row before Record normalization. Empty proper rows
+remain valid and false command payloads are not refusal sentinels. Computed metadata
+cannot repair an originally malformed request into an admitted one, or redirect an
+admitted row by replacement, truncation or a newly introduced caller-side cycle.
+
+`with-trace-model` accepts optional initial owners and uses the SAME first-
+observation ledger and transient source check. Generation supplies the copied
+explicit dependency row there before any model field is read. Source retirement
+during metadata refuses before the next getter; original callback exceptions still
+escape unchanged. The normal no-extra-owner form is a syntax expansion, not a new
+runtime guard layer. The final sampler retains the original declared identities,
+so unrelated substitute revisions do not invalidate it and original-owner revisions
+do. Retry is explicit new preparation; an old report never refreshes its stamps.
+
+Six typed regression cases cover all ingress operations, edited/cyclic caller
+aliases, initially malformed inputs repaired by metadata, owner replacement and
+truncation, source retirement between getters, exact false/object causes and scope
+unwinding. The complex Record/Function example stages private command rows and
+uses the ordinary trace sampler and FUN property action. Metadata truncates only
+the application's staging alias; the protocol executes its captured row, revealing
+the faulty consumer instead of passing an incomplete trace. Dependency-aware
+shrinking reaches open/use, nested Function contracts survive, concrete/seeded
+replays agree, substitute-owner edits remain harmless, original-owner retirement
+rejects replay before fixture opening, and fresh corrected preparation passes.
+The property protects its generated witness by staging a shallow copy; PBT does
+not claim that arbitrary property callbacks may mutate their own witnesses safely.
+The independent generic library remains at 196 cases with no POO dependency.
+
+`PropertyTraces.guardedTraceRequest` reuses `guardedGeneration`. Eight laws establish
+stale preflight, exact metadata/execution causes, retirement refusal, original-
+request handoff, ingress extensionality and exact successful result/state. Top-level
+examples distinguish None from empty/false data, preserve duplicate owner IDs,
+refuse retired authority and retain false exceptions. Faithful host shallow copying,
+pure model/source observers and terminating callbacks remain premises. Payloads
+are shared; there is no deep snapshot, concurrent linearizability, rollback or
+compiler/runtime proof. Capture costs one outer-spine copy per admitted typed
+request; metadata and epoch registration remain with their existing owners. No
+wall-clock speedup is inferred. Existing complete acceptance and resource limits
+remain unchanged. This continues the RFC's finite future-work protocol.
+
+## P61: first-observed Function input declarations
+
+The audit found a preparation defect, rather than a missing generator domain:
+a delayed nested signature keyword getter could revise its enclosing Function.
+The old FunctionArguments sampler then captured the new epoch and returned current.
+The frozen reproduction checks revision/read count 0 immediately before public
+`generator` entry; the old result was revision 1 / accepted-current. Effects during
+caller-side initialized object construction are outside this boundary.
+
+FunctionArguments now captures the Function before its signature getter, clauses
+before clause metadata, and each returned positional/optional/keyword/rest Type
+before the next getter. It reuses the typed source ledger and action scope through
+normal module imports. Field spines and keyword entry pairs are copied at discovery;
+known identities never renew their first epoch. The existing early keyword-mode
+pass and ordered clause semantics remain. Metadata callback causes, including
+thrown false and MOP's self-mutation error, keep their original precedence.
+
+One source guard on the existing shape generator carries the completed epochs
+through bind, the standard 128-entry LRU, products and lazy child promises. There is
+no second cache, signature clone, replacement parser, or per-consumer wrapper.
+Shadowed and omitted children stay unforced; output Types and optional defaults
+are not inspected to generate supplied inputs. A cached layout cannot acquire new
+authority by a hit or by clearing a sampler's public dependency list. Fresh retry
+requires explicit new preparation, while old reports remain obsolete.
+
+Six regression cases cover Function/clause retirement, earlier positional and
+keyword Type retirement, exact callback causes and dynamic-scope restoration,
+dormant inputs in ordered signatures and cached-layout renewal refusal. The complex
+service example combines nested Function callbacks, List inputs, optional/keyword
+shapes, a FUN action, shrinking, concrete/seeded replay, retirement and explicit
+corrected retry. Existing unsupported-domain failures remain explicit.
+
+Eight finite Lean laws in PropertyPreparation model guarded discovery, exact
+causes, first-observation retention, stale cached work, bookkeeping cardinality and
+refusal before construction. Top-level examples include duplicate input IDs,
+false causes, obsolete layouts and explicit renewal. Source clocks, faithful
+shallow copying, standard MOP behavior and terminating callbacks are premises.
+Unversioned mutation of hidden metadata aliases and concurrent heap isolation are
+not proved. The size bound counts retained identities, not elapsed time or total
+hash-table work. This is the RFC's finite future-work protocol, not a claim about
+the compiler/runtime or completion of unrestricted recursive/type generation.
+All full acceptance checks and resource limits remain unchanged.
+
+## P62: ordered fixed-carrier edge discovery
+
+The source audit reproduced two related defects in the finite recursive graph:
+Pair evaluated both child getters before registering either child; its right
+computed declaration could therefore revise the left Type and the resulting
+sampler still returned current. List also evaluated its child getter after the
+remaining descriptor occurrence budget was zero. Both probes use lazy declarations
+and confirm zero getter calls/unchanged owner revisions before public generator
+entry. Caller-side initialized-object effects are outside this observation.
+
+List, Pair, Maybe and OrFalse now use one local ordered field traversal through
+the existing discover action, as Sum's named branches already do. Each edge checks
+remaining occurrence fuel before its getter, brackets the getter with the existing
+source scope, then interns/captures the returned identity before the next field.
+No alternate graph, cache, validation wrapper or dispatcher is introduced. Dynamic
+Tuple/Union rows keep their existing directory admission and ordered traversal.
+Repeated/shared identities still spend occurrence fuel and occupy one graph node;
+edge order, PRNG schedule, carrier packing and lazy shrinking are unchanged.
+
+Five regression cases cover earlier-Type retirement before factories, unary and
+Pair quota boundaries, exact false/object exceptions and scope restoration,
+repeated/shared identity accounting, and an integrated Record/Function service.
+The service shares a Pair through Tuple/List and its Record leaf through Maybe;
+a computed right edge retires the first-observed left Type. Initial preparation
+returns a non-replayable stale report without opening any leaf factory. Explicit
+fresh preparation uses the completed metadata, derives the shared leaf once,
+shrinks a real service fault, preserves nested Function contracts, agrees on
+concrete/seeded replay, refuses old reports after dependency revision and retries
+through the same FUN action. Reusing a new attempt never renews old receipts.
+
+Eight finite PropertyPreparation laws reuse guardedGeneration and captureRevision:
+zero-fuel getter suppression, stale preflight, original exceptions, post-getter
+retirement refusal, exact stable state/fuel/identity, shared occurrence accounting,
+current first-observation capture and bounded ledger growth. Top-level examples
+exercise exhausted throwing getters, sibling retirement, aliasing and false causes.
+Faithful revision clocks, sequential supported edits, standard dynamic-scope
+restoration and terminating callbacks remain premises. Edge fuel bounds discovery
+occurrences and registration cardinality, not arbitrary getter cost or latency.
+This continues the finite future-work protocol; full checks and process limits
+remain unchanged, and no compiler/runtime or unversioned-heap proof is claimed.
+
+## P63: shared opaque sampler admission before optional metadata
+
+The audit reproduced an opaque-leaf source-order defect. A custom sampler declared
+an owner in sources, then its delayed .inhabited? getter retired that owner. The
+recursive compiler inspected availability before registering the sampler/dependencies,
+so it captured the newer epoch and returned current. The frozen public generator
+probe starts with owner revision/read count zero and previously accepted-current.
+Construction-side effects before a factory returns remain outside this observation.
+
+The existing generator-sources implementation now lives in generation-graph and
+is imported by the typed bridge through the standard module system. Graph leaves
+use that SAME constructor binding and first-observation protocol before optional
+metadata: sampler identity, actual/bound Type identities, then declared source
+spine and objects. The recursive compiler no longer separately reads sources after
+availability, and scalar dispatch no longer reads descriptor before sampler capture.
+There is no second validator, registry, cache, guard chain or namespace. Generated
+errors for constructor mismatch use the shared binding protocol; original callback
+exceptions retain exact identity, including false after a source change.
+
+False availability still means an empty alternative. Such a leaf keeps its source
+obligations, contributes no finite inhabitant and is never drawn to retry another
+branch. True availability and absence of the optional field retain their prior
+meaning. Shared identities still compile once, descriptor occurrence budgets and
+PRNG schedules are unchanged, and runtime trees keep the original captured epochs.
+Explicit fresh construction can retry; existing reports cannot renew authority.
+
+Six regression cases cover source retirement in optional metadata, actual/bound
+retargeting before optional reads, malformed source declarations, exact exceptions
+and scope restoration, source-owning empty alternatives without draws, and a
+shared Record/Function service through Tuple/List/Pair. The service reveals its
+owner only through the returned sampler. Initial preparation stops after that
+sampler's metadata, before a later factory. Fresh FUN preparation derives the
+shared leaf once, shrinks the service fault, preserves nested Function contracts,
+agrees on concrete/seeded replay, rejects obsolete receipts and admits a corrected
+service on explicit retry. The independent generic library keeps its POO-free
+module boundary.
+
+Six PropertyPreparation laws compose existing observeSamplerSources and
+guardedGeneration: admission refusal skips metadata, stale preflight skips it,
+retirement refuses publication, exact metadata causes survive, stable preparation
+keeps declaration/state/ledger, and refused preparation cannot enter later work.
+Top-level examples distinguish false availability, false exceptions and stale
+refusal, and reject binding mismatch before a throwing optional getter. The model
+is conditional on the existing constructor/source admission result, faithful host
+revision clocks, normalized availability classification and terminating callbacks.
+It does not discover hidden callback dependencies, prove arbitrary Type predicates
+or model effects before a factory returns. Bookkeeping remains one declared-source
+traversal with first-identity retention; no wall-clock improvement is claimed.
+The finite future-work scope, complete checks and resource limits are unchanged.
+
+## P64: strict Boolean source admission across typed composition
+
+The audit reproduced a source-judgment inconsistency: an opaque .current? hook
+returning a symbol was accepted as truthy while compiling a recursive graph. A
+later factory ran, and the returned graph reported current when an additional
+participant masked that malformed reply. The generic core already required an
+actual Boolean. The frozen public generator probe previously returned accepted /
+current and recorded one later factory. This is an admission defect, not a demand
+to prove callback purity, discover hidden sources or synthesize arbitrary Types.
+
+Graph participant checks and the typed direct checker now call the EXISTING core
+boolean-result primitive. The already cached bound hook in source-guard uses the
+core live? operation. There is no new validator, observer wrapper, cache or module.
+Every present participant is checked before conjunction can discard its reply;
+empty sampler alternatives still own their observer obligations. Captured epoch
+refusal precedes hooks, absent hooks remain true, false replies remain stale, and
+malformed replies are errors rather than source retirement or property failures.
+Original hook exceptions, including thrown false, escape unchanged. Hook purity
+with respect to semantic source state and termination remain explicit premises.
+
+Six regression cases cover malformed numeric/symbol/list/object replies before
+and during later factory preparation, inhabited and empty leaves, cached guards,
+epoch-first short-circuiting, explicit typed sampler failure before draw/property,
+false-versus-exception distinctions and scope restoration, and unchanged source-free
+seeded generation. The complex shared Record/Function service composes Tuple/List/
+Pair through FUN: malformed observation stops before later construction; external
+correction permits explicit preparation, decreasing shrinking and concrete/seeded
+replay; malformed/false observation and later epoch retirement reject old receipts;
+a corrected service passes after fresh preparation. Nested Function wrappers remain
+in force. Correcting a reply never rewrites an old error report into a valid witness.
+
+Eight PropertyPreparation laws model strict reply admission and ordered finite
+observer conjunction: valid Boolean preservation, empty/missing hooks, stale epoch
+priority, original causes, malformed reply refusal, false short-circuiting, true
+continuation and equivalence to conjunction over the valid Boolean domain. Top-level
+examples show malformed replies at either position, epoch refusal before a throwing
+hook and false exceptions distinct from valid false data. Non-Boolean host values
+are one explicitly rejected class; they are never cast to a catch-all Type. These
+are finite protocol proofs under faithful host dispatch, accurate clocks, pure
+observers and terminating callbacks, not compiler/runtime verification. An explicitly supplied prepared recipe retains its existing replayable flag;
+invalid current authority still refuses actual replay. Automatic preparation
+failure retains its non-replayable report. Normal observer identities, invocation
+sites and PRNG schedules are retained. No elapsed-
+time claim follows from a Boolean contract check; complete checks and all resource
+limits remain unchanged within the RFC's finite future-work scope.
+
+## P65: shared primary-cause ownership during typed preparation failure
+
+The audit reproduced a typed error-reporting defect. An owned generation factory
+raised a primary exception after its opaque observer became unavailable. The
+initialization catch queried that observer again; a secondary exception escaped
+and replaced the primary, so no report reached the caller. The frozen public
+check-property probe recorded the secondary identity and zero draws/properties.
+The generic kernel already protected primary causes during status classification.
+
+The existing failure-status function is now exported through its ordinary generic
+module and reused by typed initialization. No duplicate classifier, record, guard,
+catch hierarchy or namespace is introduced. The typed handler passes the same
+primary cause into its existing report builder regardless of classifier/observer
+failure. Confirmed source retirement keeps stale status; unavailable or malformed
+secondary observation gives error with the original cause. Existing bounded,
+unsupported and core-interruption precedence remains. Reports created before a
+generic execution exists keep replayable false, zero trial/shrink progress and no
+property witness. Consumer IO stays outside this error-classification boundary.
+
+Six regression cases cover delayed metadata and owned-factory failures with false
+and object primary/secondary causes, malformed secondary Boolean replies, false
+hooks and epoch-first retirement, existing controlled statuses/core interruptions,
+exactly one FUN delivery and unchanged consumer exceptions, and an integrated
+callback service. The service reuses ServiceSignature and its FunctionArguments
+sampler, nested Function/List inputs, optional/keyword arguments, a checked target,
+and the original supplied core. Injected binding failure produces one non-replayable
+primary-cause report; explicit correction permits decreasing shrinking and concrete/
+seeded replay of a real service fault. A later owner revision refuses old receipts;
+a fresh corrected service passes. Older error reports retain their original cause
+and never become falsifying witnesses. Source/metadata fields that fail static
+request admission remain outside this initialization-report boundary.
+
+Eight initializationFailure laws compose the existing classifyFailure model at
+one fixed diagnostic context: primary identity and absent execution, interruption
+and epoch precedence, observer/classifier errors, false observation, stable status
+and non-passing outcomes under a lawful classifier. Top-level examples distinguish
+false causes, secondary exceptions, skipped callbacks and bounded exhaustion.
+The typed generation-status classifier and source observation are pure at this
+context; host dispatch, record field fidelity, source accuracy, callback termination
+and FUN/IO delivery remain premises rather than a Scheme runtime proof. The model
+retains original diagnostic identity; it does not roll back failed preparation or
+arbitrary consumer effects. No elapsed-time improvement is claimed. The independent
+library remains POO-free, and complete checks/resource limits are unchanged within
+the RFC's finite future-work scope.

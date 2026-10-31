@@ -2,7 +2,7 @@
 (export make-model model? make-system system? valid-trace? repair-trace shrink-trace trace-generator draw-trace check-trace
         trace-report? trace-report-matched? trace-report-phase trace-report-index
         trace-report-has-command? trace-report-command trace-report-expected trace-report-actual)
-(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources)
+(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources with-generation-check)
         (prefix-in (only-in ./generator make-generator make-sample sample-sequence sample-children sample-value) core.))
 ;; Private model records hold ordinary callbacks, not POO descriptors. Trace
 ;; laws require pure model transitions. The shared source boundary also refuses
@@ -55,7 +55,7 @@
 (def (valid-trace? model commands) (and (prepare-trace model commands) #t))
 ;; Finite spine admission precedes initialization. Dependency retirement uses
 ;; the same fold and never treats an improper tail as a completed prefix.
-(def (repair-trace (model :~ model?) (commands :~ list?))
+(def (repair-trace (model :~ model?) (commands :~ proper-list?))
   (reverse (cdr (fold-trace model commands (lambda (state raw)
     (if (judgment (with-sources [] ((reference-accept model) raw)) "command predicate must return a boolean")
       (let (command (with-sources [] ((reference-normalize model) raw)))
@@ -93,7 +93,7 @@
 ;; trace, so parameter samples have no independent recursive children here.
 (def (trace-command command shrink)
   (core.make-sample command (lambda ()
-    (using (candidates (with-sources [] (shrink command)) :~ list?)
+    (using (candidates (with-sources [] (shrink command)) :~ proper-list?)
       (def owned (list-copy candidates))
       (in-coroutine (lambda (yield)
         (for (candidate owned)
@@ -115,10 +115,15 @@
     (apply core.make-generator (lambda (random size) (draw-trace model draw steps random size))
       (lambda (commands) (trace-neighborhood model commands shrink)) options)))
 
+;; Proper finite spines use the standard proper-list? predicate contract, rather
+;; than authorizing the whole spine from a known :pair/:list carrier alone.
+;; Standard parameter contracts admit the entire request before model preparation
+;; or fixture entry. Callback arity, purity and termination remain caller laws.
 ;; Scope and first-difference execution are generic. The same? callback receives
 ;; phase/expected/actual, permitting typed domains to normalize at that boundary.
-(def (check-trace model commands (with-system : :procedure)
-                  same?: (same? (lambda (_phase left right) (equal? left right))))
+(def (check-trace (model :~ model?) (commands :~ proper-list?) (with-system : :procedure)
+                  same?: (same? : :procedure := (lambda (_phase left right) (equal? left right)))
+                  prepare-system: (prepare : :procedure := identity))
   (def prepared (prepare-trace model commands))
   (unless prepared (error "invalid command trace"))
   ;; The comparison fold exits before any later step or unnecessary observation.
@@ -144,10 +149,20 @@
             (compare 'state index #t command expected-state found-state))
           (cons next updated)))
       (make-trace-report #t 'complete (length prepared) #f #f #f #f)))
-  (def active? #t) (def entered? #f) (def result #f)
+  ;; Count active attempts BEFORE preparation: a caught duplicate refusal cannot
+  ;; authorize the earlier receipt. Closed callbacks refuse without touching the
+  ;; caller's raw fixture or changing a previously completed observation.
+  (def active? #t) (def uses 0) (def result #f)
+  ;; The existing transient check also interrupts nested producers and every
+  ;; later model/fixture action if preparation catches a reentrant-use error.
+  (def (require-use!)
+    (unless (and active? (= uses 1)) (error "trace fixture callback is not active or was reused")))
   (try
     (let (returned (with-sources [] (with-system (lambda (actual)
-      (unless (and active? (not entered?)) (error "trace fixture callback is not active or was reused"))
-      (set! entered? #t) (set! result (run actual)) result))))
-      (unless (and entered? result (eq? returned result)) (error "trace fixture did not return its observation")) result)
+      (when active? (set! uses (1+ uses)))
+      (require-use!)
+      (with-generation-check require-use!
+        (set! result (run (with-sources [] (prepare actual)))) result)))))
+      (unless (and (= uses 1) result (eq? returned result))
+        (error "trace fixture did not return its observation")) result)
     (finally (set! active? #f))))

@@ -225,7 +225,7 @@
 ;; Admit finite topology before mapping or source discovery, then own its spine.
 ;; Retain the established bind/map checkpoint owner and split schedule: a direct
 ;; iterative draw candidate did not pass the full-workflow GC cost acceptance.
-(def (sampled-sequence (generators :~ list?))
+(def (sampled-sequence (generators :~ proper-list?))
   (unless (every generator? generators) (error "product generators required"))
   (def fields (list-copy generators))
   (def roots
@@ -452,19 +452,19 @@
 ;; Snapshot the caller-owned spine before exposing the lazy iterator. Minimum
 ;; constrains length rather than privileging any particular retained prefix.
 (def (list-deletions values minimum)
-  (using (values :~ list?) (sequence-deletions (list-copy values) minimum)))
+  (using (values :~ proper-list?) (sequence-deletions (list-copy values) minimum)))
 ;; The whole finite policy owns ONE input spine before any parameter callback.
 ;; Both structural and coordinate phases read that snapshot, even if a callback
 ;; edits the caller's list. Parameter lists still require whole-spine admission;
 ;; no partial batch escapes on refusal, and arbitrary payloads are not copied.
 (def (data-list-shrinks values (shrink : :procedure) minimum)
-  (using (values :~ list?)
+  (using (values :~ proper-list?)
     (def owned (list-copy values))
     (def structural (for/collect (candidate (sequence-deletions owned minimum)) candidate))
     (append structural
       (let coordinates ((tail owned) (before []))
         (if (null? tail) []
-          (using (children (with-sources [] (shrink (car tail))) :~ list?)
+          (using (children (with-sources [] (shrink (car tail))) :~ proper-list?)
             (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) children)
               (coordinates (cdr tail) (cons (car tail) before)))))))))
 ;; Compose retained element trees without drawing again. Every descendant keeps

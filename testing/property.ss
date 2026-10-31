@@ -1,5 +1,5 @@
 ;;; Independent property execution and replay; only generic generators and stdlib.
-(export make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
+(export failure-status make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
         call-with-specifications report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
@@ -7,7 +7,7 @@
         inspect-generator inspection? inspection-status inspection-seed inspection-size inspection-count inspection-depth inspection-budget
         inspection-draws inspection-attempts inspection-events inspection-counts
         inspection-truncated? inspection-cause inspection-current?)
-(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order)
+(import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order length=n?)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current rejected? proposal-sources generation-exhausted?
           stale-generation? boolean-result live? random-at with-generation-check with-sources))
@@ -102,7 +102,7 @@
 ;; Declare fixed domains in order before constructing a named property's generator.
 ;; The existing action scope protects all previously admitted domains, including
 ;; nested producer pulls. Only preparation is scoped; no checker enters a tree.
-(def (call-with-specifications (builders :~ list?) (build : :procedure))
+(def (call-with-specifications (builders :~ proper-list?) (build : :procedure))
   (unless (every procedure? builders) (error "specification constructors required"))
   (def pending (list-copy builders))
   (def observed [])
@@ -123,18 +123,27 @@
 (def (make-product-specification specifications current?: (owner (lambda () #t)))
   (unless (and (procedure? owner) (list? specifications) (every specification? specifications))
     (error "product specifications required"))
-  (def domains (map identity specifications))
+  (def domains (list-copy specifications))
+  (def width (length domains))
+  ;; Own each admitted value spine before any field callback. False denotes
+  ;; malformed shape; an empty proper row remains present data for zero fields.
+  (def (capture values)
+    (and (list? values) (length=n? values width) (list-copy values)))
   ;; All captured domains participate in each stage, including a later field's
   ;; source invalidated by an earlier callback. Refusal skips the next callback.
   (def (current) (and (live? owner)
     (every (lambda (domain) (live? (domain-current domain))) domains)))
   (def (stop _status _minimal?) (error "stale product specification"))
   (make-specification
-    (lambda (values) (and (list? values) (= (length values) (length domains))
-      (andmap (lambda (domain value)
-        (with-current current stop (accepts? domain value))) domains values)))
-    (lambda (values) (apply + (map-in-order (lambda (domain value)
-      (with-current current stop (weight domain value))) domains values)))
+    (lambda (values)
+      (def row (capture values))
+      (and row (andmap (lambda (domain value)
+        (with-current current stop (accepts? domain value))) domains row)))
+    (lambda (values)
+      (def row (capture values))
+      (unless row (error "invalid product value row"))
+      (apply + (map-in-order (lambda (domain value)
+        (with-current current stop (weight domain value))) domains row)))
     current?: current))
 ;; Delayed assertions cannot reuse a formerly passing report after its sources change.
 (def (report-current? report)
@@ -208,6 +217,7 @@
     (loop)))
 ;; Source-observer failure during error classification must not replace the
 ;; original callback exception. Such a report is an error, never valid evidence.
+;; Typed initialization reuses this same status decision while retaining its cause.
 (def (failure-status cause current classify)
   (if (stale-generation? cause) 'stale
     (with-catch (lambda (_) 'error)

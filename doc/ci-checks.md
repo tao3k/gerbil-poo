@@ -147,8 +147,9 @@ The finite Lean model already proves ordered fixture-free regrouping, retained
 refusal results and subsequent state (`observeSuiteCases_regroup_between`), and
 permutation invariance when repartitioning the resulting compile declarations. See
 [BuildPreparation](https://github.com/tao3k/lean-poo/blob/2652a2a531a6eec321f0d0665b5a5647d997cc07/LeanPoo/Prototype/BuildPreparation.lean#L140).
-Absence of hooks/context-sensitive effects is a premise, checked here by retaining
-fixture modules and the complete execution trace. This does not verify GXC,
+Absence of hooks/context-sensitive effects is a model premise. Current fixture
+modules stay separate and the complete execution trace is checked; these finite
+observations do not establish independence of arbitrary callbacks. This does not verify GXC,
 Gambit, dyld or macOS library validation.
 
 ## Frozen-source cold controls

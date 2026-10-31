@@ -1,8 +1,8 @@
 ;;; Finite recursive Type graphs; scalar samplers are supplied by the caller.
-(export compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler node-branches
+(export generator-sources compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler node-branches
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ../support/base require-value) :std/iter :std/error ../object
-        (only-in :clan/poo/testing/property/generator with-sources with-generation-check)
+        (only-in :clan/poo/testing/property/generator with-sources with-generation-check boolean-result)
         (only-in ../mop Type validate)
         (only-in :std/list/list map-in-order delete-duplicates/hash)
         (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse. Sum.))
@@ -20,11 +20,30 @@
 
 ;; Discovery and evaluation share the same epoch and opaque-sampler admission.
 ;; Callers prepare the sampler spine once; checking never rebuilds a node list.
+;; Every present hook uses the core Boolean contract before the next participant.
 (def (graph-sources-current? stamps samplers)
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) stamps)
     (every (lambda (sampler)
-      (or (not (.has? sampler .current?)) (.call sampler .current?))) samplers)))
+      (or (not (.has? sampler .current?))
+        (boolean-result (.call sampler .current?) "source observer must return a boolean"))) samplers)))
 
+;; One preparation boundary owns the constructor's declaration binding. Retarget
+;; through a fresh constructor, never by inheriting a different Type's parser/tree.
+;; Mandatory identities cannot be removed by replacing application dependencies.
+(def (generator-sources sampler (retain! void) (expected #f))
+  (retain! sampler)
+  (def descriptor (with-sources [] (.get sampler descriptor)))
+  (retain! descriptor)
+  (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
+  (def bound (with-sources [] (.get sampler bound-descriptor)))
+  (retain! bound)
+  (unless (eq? descriptor bound)
+    (error "sampler descriptor binding changed; construct a new sampler"))
+  (def dependencies (with-sources [] (.get sampler sources)))
+  (unless (list? dependencies) (error "finite sampler sources required"))
+  (def captured (list-copy dependencies))
+  (for-each retain! captured)
+  (cons sampler (cons descriptor captured)))
 ;; Validate bounded configuration before allocating a graph or dynamic-program table.
 ;; These caps bound protocol bookkeeping, not arbitrary callback execution or bytes.
 (def (check-limits depth nodes descriptors search)
@@ -41,17 +60,25 @@
   ;; Explicit finite-empty samplers must not poison an otherwise viable Union.
   (def (as-leaf)
     (def sampler (scalar descriptor))
+    ;; Admit the returned sampler through the SAME constructor/source boundary
+    ;; as bridges and products, before optional metadata or later factories.
+    (generator-sources sampler capture! descriptor)
     (values (if (and (.has? sampler .inhabited?) (not (.get sampler .inhabited?))) 'empty 'leaf) [] sampler #f))
   ;; One edge-discovery action owns quota, source admission and first observation.
   ;; Metadata callbacks cannot run ahead of the captured earlier child epochs.
   (def (carrier kind children)
     (unless (list? children) (error "proper descriptor child list required"))
     (values kind (map-in-order (lambda (child) (discover (lambda () child))) children) #f #f))
+  ;; Fixed named edges use the same quota/observation action as Sum branches.
+  ;; Capture each returned Type before another computed field can revise it.
+  (def (fields kind names)
+    (values kind (map-in-order (lambda (name)
+      (discover (lambda () (.ref descriptor name)))) names) #f #f))
   (cond
     ((.has? descriptor .generator) (as-leaf))
-    ((memq List. ancestors) (carrier 'list (list (.get descriptor type))))
+    ((memq List. ancestors) (fields 'list '(type)))
     ((memq Tuple. ancestors) (carrier 'tuple (.get descriptor type-list)))
-    ((memq Pair. ancestors) (carrier 'pair (list (.get descriptor left) (.get descriptor right))))
+    ((memq Pair. ancestors) (fields 'pair '(left right)))
     ((memq Sum. ancestors)
      ;; Own the effective directory epoch before reading any tag or payload Type.
      ;; Duplicate child Types remain distinct branches; their labels are not IDs.
@@ -68,8 +95,8 @@
     ;; selection/normalization still belongs to the original descriptor.
     ((or (memq Union. ancestors) (memq Or. ancestors))
      (carrier 'union (.get descriptor types)))
-    ((memq Maybe. ancestors) (carrier 'maybe (list (.get descriptor type))))
-    ((memq OrFalse. ancestors) (carrier 'or-false (list (.get descriptor type))))
+    ((memq Maybe. ancestors) (fields 'maybe '(type)))
+    ((memq OrFalse. ancestors) (fields 'or-false '(type)))
     (else (as-leaf))))
 
 ;; Refuse cycles containing only transparent alternatives. A supported recursive
@@ -164,9 +191,7 @@
         (let-values (((kind children sampler tags) (with-sources [] (describe type scalar capture! discover))))
           (vector-set! rows index (make-node type kind children sampler
             (if (memq kind '(union sum)) (map cons (or tags (make-list (length children) #f)) children) [])))
-          (when sampler
-            (for-each capture! (cons sampler (.get sampler sources)))
-            (set! samplers (cons sampler samplers)))
+          (when sampler (set! samplers (cons sampler samplers)))
           (check!)))
       (loop (+ index 1))))
   (let (nodes (subvector rows 0 count))

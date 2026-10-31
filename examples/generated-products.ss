@@ -1,5 +1,5 @@
 ;;; Typed products inherit the enclosing run's admission through ordinary modules.
-(export generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action keyword-routing-action)
+(export handoff-test product-row-test consuming-product-sampler generated-products-test service-classification-action service-corpus-action bounded-credit-result bounded-credit-action keyword-routing-action)
 (import :std/test :std/error :std/iter ../object ../mop ../type ../number ../testing/type ../testing/function
         (prefix-in :clan/poo/testing/property/generator core.)
         (prefix-in :clan/poo/testing/property property.)
@@ -527,3 +527,237 @@
         (check-equal? later 0)
         (check-equal? measured (if (eq? stage 'measure) 1 0))
         (check-equal? packs (if (eq? stage 'pack) 1 0))))))
+
+;; Build a heterogeneous request using the existing product/Record protocol. The
+;; packer consumes its temporary row with standard reverse!, while the scalar
+;; callbacks and checked Function field retain their ordinary contracts.
+(def (consuming-product-sampler schema owner faulty?)
+  (def left (make-generator UInt (lambda (_random _size) 4) core.integer-shrinks identity
+    dependencies: (list owner)))
+  (def right (make-generator Integer (lambda (_random _size) 6) core.integer-shrinks abs))
+  (def enabled (from-generator Bool (core.generator-unit #t) (lambda (_) 0) shrink: (lambda (_) [])))
+  (product-generator schema (list left right enabled)
+    (lambda (value) (list (.get value x) (.get value y) (.get value enabled)))
+    (lambda (row)
+      (match (reverse! row)
+        ([enabled y x] (make-instance schema x: x y: y enabled: enabled
+          handler: (lambda (_) (if (and faulty? enabled (positive? x) (positive? y)) 1 0))))))))
+
+;; These malformed spines are finite graphs: standard list? rejects each before
+;; a packer or iterator can turn a proper prefix into a candidate batch.
+(def (product-invalid-spines)
+  (def cycle (list 0 2)) (set-cdr! (cdr cycle) cycle)
+  (list #f '#(0 2) '(0 2 . tail) cycle))
+
+;; Whole product protocol controls are colocated with the existing product
+;; examples; the normal test module reexports this ordinary suite.
+(def product-row-test
+  (test-suite "owned fixed product value protocol"
+    (test-case "malformed child neighborhoods refuse before packing or later children"
+      (for (bad (product-invalid-spines))
+        (def packs 0) (def later 0)
+        (def left (make-generator UInt (lambda (_r _s) 4) (lambda (_) bad) identity))
+        (def right (make-generator UInt (lambda (_r _s) 6)
+          (lambda (_) (set! later (1+ later)) '(0)) identity))
+        (def product (product-generator (List UInt) (list left right) identity
+          (lambda (row) (set! packs (1+ packs)) row)))
+        (check-exception (.call product shrink '(4 6)) Error?)
+        (check-equal? (list packs later) '(0 0))
+        (def report (check-property (.get product descriptor) (lambda (_) #f)
+          sampler: (.cc product generation: #f) cases: 1 shrink-budget: 32))
+        (check-eq? (.get report status) 'error)
+        (check-equal? (list packs later (.get report attempts)) '(1 0 0))
+        (check-equal? (.get report counterexample) '(4 6))
+        (check-exception (replay-counterexample report) Error?)))
+    (test-case "invalid decompositions refuse before measuring shrinking or packing any field"
+      (for (bad (append (product-invalid-spines) (list [] '(4) '(4 6 8))))
+        (def measures 0) (def shrinks 0) (def packs 0)
+        (def child (make-generator UInt (lambda (_r _s) 4)
+          (lambda (_) (set! shrinks (1+ shrinks)) '(0))
+          (lambda (value) (set! measures (1+ measures)) value)))
+        (def product (product-generator (List UInt) (list child child) (lambda (_) bad)
+          (lambda (row) (set! packs (1+ packs)) row)))
+        (check-exception (.call product measure '(4 6)) Error?)
+        (check-exception (.call product shrink '(4 6)) Error?)
+        (check-equal? (list measures shrinks packs) '(0 0 0)))
+      (def empty (product-generator (List UInt) [] (lambda (_) #f) identity))
+      (check-exception (.call empty measure []) Error?)
+      (check-exception (.call empty shrink []) Error?)
+      (def valid (product-generator (List UInt) [] identity identity))
+      (check-equal? (.call valid measure []) 0)
+      (check-equal? (.call valid shrink []) []))
+    (test-case "decomposition snapshots protect future coordinates from temporary cache edits"
+      (for (operation '(measure shrink))
+        (def cached (list 4 6)) (def seen [])
+        ;; The cache is parser staging, not the tested request's payload.
+        (def (touch value) (set! seen (cons value seen)) (set-cdr! cached cached) value)
+        (def first (make-generator UInt (lambda (_r _s) 4)
+          (lambda (value) (touch value) '(0)) touch))
+        (def second (make-generator UInt (lambda (_r _s) 6)
+          (lambda (value) (set! seen (cons value seen)) '(0))
+          (lambda (value) (set! seen (cons value seen)) value)))
+        (def product (product-generator (List UInt) (list first second) (lambda (_) cached) identity))
+        (check-equal? (if (eq? operation 'measure) (.call product measure '(4 6))
+                         (.call product shrink '(4 6)))
+          (if (eq? operation 'measure) 10 '((0 6) (4 0))))
+        (check-equal? (reverse seen) '(4 6))))
+    (test-case "consuming packers receive private full rows without changing future coordinates"
+      (for (edit (list (lambda (row) (set-car! (cdr row) 99))
+                      (lambda (row) (set-cdr! (cdr row) []))
+                      (lambda (row) (set-cdr! (cdr row) 'tail))
+                      (lambda (row) (set-cdr! (cdr row) (cdr row)))))
+        (def input (list 4 6 8)) (def seen [])
+        (def child (make-generator UInt (lambda (_r _s) 4)
+          (lambda (value) (set! seen (cons value seen)) '(0)) identity))
+        (def product (product-generator (List UInt) (list child child child) identity
+          (lambda (row) (def packed (list-copy row)) (edit row) packed)))
+        (check-equal? (.call product shrink input) '((0 6 8) (4 0 8) (4 6 0)))
+        (check-equal? (reverse seen) '(4 6 8))
+        (check-equal? input '(4 6 8))))
+    (test-case "child spine snapshots survive packing mutations before the next candidate"
+      (def candidates [])
+      (def first (make-generator UInt (lambda (_r _s) 4)
+        (lambda (_) (set! candidates (list 0 2)) candidates) identity))
+      (def second (make-generator UInt (lambda (_r _s) 6) (lambda (_) '(0)) identity))
+      (def product (product-generator (List UInt) (list first second) identity
+        (lambda (row) (set-cdr! candidates candidates) (list-copy row))))
+      (check-equal? (.call product shrink '(4 6)) '((0 6) (2 6) (4 0))))
+    (test-case "ordinary typed raw shrinking owns a paused finite producer spine"
+      (def candidates []) (def observed [])
+      (def sampler (make-generator UInt (lambda (_r _s) 4)
+        (lambda (value) (if (> value 2) (begin (set! candidates (list 0 2)) candidates) [])) identity))
+      (def report (check-property UInt (lambda (value)
+        (set! observed (cons value observed))
+        (when (zero? value) (set-cdr! candidates candidates)) (zero? value))
+        sampler: sampler cases: 1 shrink-budget: 16))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (list (.get report counterexample) (.get report attempts) (.get report steps)) '(2 2 1))
+      (check (.get report minimal?) => #t)
+      (check-equal? (reverse observed) '(4 0 2))
+      (check (replay-counterexample report) => #f)
+      (check-equal? (.get (replay-property report) counterexample) 2))
+    (test-case "owned finite products preserve exact causes and source refusal before packing"
+      (for (cause (list #f (cons 'coordinate 'cause)))
+        (def packs 0) (def later 0)
+        (def first (make-generator UInt (lambda (_r _s) 4) (lambda (_) (raise cause)) identity))
+        (def second (make-generator UInt (lambda (_r _s) 6)
+          (lambda (_) (set! later (1+ later)) []) identity))
+        (def product (product-generator (List UInt) (list first second) identity
+          (lambda (row) (set! packs (1+ packs)) row)))
+        (check-eq? (with-catch identity (lambda () (.call product shrink '(4 6)))) cause)
+        (check-equal? (list packs later) '(0 0)))
+      (def owner (.o epoch: 0)) (def packs 0) (def later 0)
+      (def first (make-generator UInt (lambda (_r _s) 4)
+        (lambda (_) (.set! owner epoch 1) '(0)) identity dependencies: (list owner)))
+      (def second (make-generator UInt (lambda (_r _s) 6)
+        (lambda (_) (set! later (1+ later)) []) identity))
+      (def product (product-generator (List UInt) (list first second) identity
+        (lambda (row) (set! packs (1+ packs)) row)))
+      (check-exception (.call product shrink '(4 6)) generation-refusal?)
+      (check-equal? (list packs later) '(0 0)))
+    (test-case "heterogeneous consuming products align finite and retained FUN corpus workflows"
+      (def schema (Record x: [UInt] y: [Integer] enabled: [Bool]
+        handler: [(Function [Integer] [Integer])]))
+      ;; Application behavior is separate from the sampler's representation work.
+      (def (valid-service? value) (= ((.@ value handler) -1) 0))
+      (def witness #f)
+      (for (finite? '(#f #t))
+        (def owner (.o epoch: 0))
+        (def base (consuming-product-sampler schema owner #t))
+        (def sampler (if finite? (.cc base generation: #f) base))
+        (def codec (corpus.make-codec '(consuming-product 1)
+          (lambda (value) (vector (.get value x) (.get value y) (.get value enabled)))
+          (lambda (data)
+            (let ((x (vector-ref data 0)) (y (vector-ref data 1)) (enabled (vector-ref data 2)))
+              (make-instance schema x: x y: y enabled: enabled
+                handler: (lambda (_) (if (and enabled (positive? x) (positive? y)) 1 0)))))))
+        (def configuration (make-instance PropertyConfiguration seed: 43 cases: 1 size: 6 shrink-budget: 128))
+        (def delivered ((service-corpus-action schema sampler codec cons) configuration))
+        (def report (car delivered))
+        (def value (.get report counterexample))
+        (check-eq? (.get report status) 'failed)
+        (check-equal? (list (.get value x) (.get value y) (.get value enabled)) '(1 1 #t))
+        (check (.get report minimal?) => #t)
+        (check-exception ((.@ value handler) 'invalid) TypeError?)
+        (def receipt (list (.get value x) (.get value y) (.get value enabled)
+          (.get report attempts) (.get report steps)))
+        (if witness (check-equal? receipt witness) (set! witness receipt))
+        (check (replay-counterexample report) => #f)
+        (check-eq? (.get (replay-property report) status) 'failed)
+        (check (read-counterexample sampler codec (open-input-string (cdr delivered)) valid-service?) => #f)
+        (.set! owner epoch 1)
+        (check-exception (replay-property report) Error?)
+        (check-exception (replay-counterexample report) Error?)
+        (def fresh (consuming-product-sampler schema owner #f))
+        (check-eq? (.get ((property-action schema valid-service? identity sampler: fresh) configuration) status) 'passed)))))
+
+
+;; Portable handoff validates static requests before forcing POO metadata and
+;; composes the same typed Reader action with explicitly refreshed recipe owners.
+(def handoff-test
+  (test-suite "typed portable handoff admission"
+    (test-case "invalid import and export configurations do not force computed fields"
+      (def metadata 0) (def decoded 0)
+      (def sampler (.o descriptor: (begin (set! metadata (1+ metadata)) UInt)))
+      (def report (.o replayable?: (begin (set! metadata (1+ metadata)) #t)))
+      (def codec (corpus.make-codec 'frame identity
+        (lambda (data) (set! decoded (1+ decoded)) data)))
+      (for (kind '(codec port property policy))
+        (def input (open-input-string "#(property-counterexample 1 frame 2)"))
+        (def output (open-output-string))
+        (check-exception (read-counterexample sampler
+          (if (eq? kind 'codec) #f codec) (if (eq? kind 'port) output input)
+          (if (eq? kind 'property) #f values)
+          policy: (if (eq? kind 'policy) #f (property.make-policy))) Error?)
+        (check-equal? (input-port-char-position input) 0)
+        (check-equal? (get-output-string output) ""))
+      (check-exception (write-counterexample report #f (open-output-string)) Error?)
+      (check-exception (write-counterexample report codec (open-input-string "")) Error?)
+      (check-equal? (list metadata decoded) '(0 0)))
+    (test-case "Record Function and FUN corpus retries retain ownership and framing"
+      (def schema (Record x: [UInt] y: [Integer] enabled: [Bool]
+        handler: [(Function [Integer] [Integer])]))
+      (def owner (.o epoch: 0)) (def decoded 0) (def restored #f)
+      ;; Each revision captures a distinct format identity; importing never
+      ;; silently renews the caller's old codec or generator authority.
+      (def (prepare-codec)
+        (def stamp (object-revision owner))
+        (corpus.make-codec (list 'handoff-service 1 stamp)
+          (lambda (value) (vector (.get value x) (.get value y) (.get value enabled)))
+          (lambda (data)
+            (set! decoded (1+ decoded))
+            (let ((x (vector-ref data 0)) (y (vector-ref data 1)) (enabled (vector-ref data 2)))
+              (set! restored (make-instance schema x: x y: y enabled: enabled
+                handler: (lambda (_) (if (and enabled (positive? x) (positive? y)) 1 0))))
+              restored))
+          current?: (lambda () (= stamp (object-revision owner)))))
+      ;; The domain property exercises a checked nested Function after decoding.
+      (def (valid-service? value) (= ((.@ value handler) -1) 0))
+      (def codec (prepare-codec))
+      (def sampler (consuming-product-sampler schema owner #t))
+      (def configuration (make-instance PropertyConfiguration seed: 43 cases: 1 size: 6 shrink-budget: 128))
+      (def delivered ((service-corpus-action schema sampler codec cons) configuration))
+      (def report (car delivered)) (def text (cdr delivered))
+      (def input (open-input-string text))
+      (check-exception (read-counterexample sampler codec input #f) Error?)
+      (check-equal? (input-port-char-position input) 0)
+      (check-equal? decoded 0)
+      (check (read-counterexample sampler codec input valid-service?) => #f)
+      (check-equal? decoded 1)
+      (check-equal? (list (.get restored x) (.get restored y) (.get restored enabled)) '(1 1 #t))
+      (check-exception ((.@ restored handler) 'invalid) TypeError?)
+      (check-exception (read-counterexample sampler codec
+        (open-input-string (string-append text " #!eof 99")) valid-service?) Error?)
+      (check-equal? decoded 1)
+      (check (replay-counterexample report) => #f)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample report) Error?)
+      (def stale-input (open-input-string text))
+      (check-exception (read-counterexample sampler codec stale-input valid-service?) Error?)
+      (check-equal? (input-port-char-position stale-input) 0)
+      (def fresh (consuming-product-sampler schema owner #f))
+      (check-exception (read-counterexample fresh (prepare-codec)
+        (open-input-string text) valid-service?) Error?)
+      (check-equal? decoded 1)
+      (standard.require-property-passed
+        ((property-action schema valid-service? identity sampler: fresh) configuration)))))

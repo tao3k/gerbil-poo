@@ -1,5 +1,5 @@
 ;;; Typed finite shrinking composes existing Record contracts and FUN actions.
-(export generated-traces-test)
+(export trace-snapshot-test trace-request-test generated-traces-test)
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../testing/type ../support/option
         (only-in ../testing/generation-graph generation-refusal?)
@@ -306,4 +306,323 @@
       (check-exception (replay-counterexample report) Error?)
       (check-exception (replay-property report) Error?)
       (check-eq? (.get ((prepare #f) configuration) status) 'passed)
+      (check-equal? opened closed))
+    (test-case "typed fixture admission refuses raw metadata before duplicate and escaped use"
+      (for (mode '(success duplicate factory-error))
+        (def reads 0) (def escape #f) (def closed 0) (def cause (cons 'fixture 'cause))
+        (def reference (make-instance TraceModel Command: UInt State: UInt Result: UInt Observation: UInt
+          initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+          advance: (lambda (state command) (values (1+ state) command)) observe: identity))
+        (def actual (make-instance (TraceSystem UInt) initial: 0
+          step: (lambda (state command) (values (1+ state) command)) observe: identity))
+        ;; Every raw computed field is observable; none belongs to a refused use.
+        (def late (.o State: (begin (set! reads (1+ reads)) UInt)
+          initial: (begin (set! reads (1+ reads)) 0)
+          step: (begin (set! reads (1+ reads)) (lambda (state command) (values state command)))
+          observe: (begin (set! reads (1+ reads)) identity)))
+        (def outcome (with-catch identity (lambda ()
+          (check-trace reference '(7) (lambda (use)
+            (set! escape use)
+            (try
+              (if (eq? mode 'factory-error) (raise cause)
+                (let (first (use actual))
+                  (when (eq? mode 'duplicate) (check-exception (use late) Error?)) first))
+              (finally (set! closed (1+ closed)))))))))
+        (case mode
+          ((success) (check (.get outcome matched?) => #t))
+          ((duplicate) (check (Error? outcome) => #t))
+          ((factory-error) (check-eq? outcome cause)))
+        (check-exception (escape late) Error?)
+        (check-equal? (list reads closed) '(0 1))))
+    (test-case "scoped Record Function requests reject reuse then shrink replay and renew through FUN"
+      (def command (Record kind: [(Enum open use)] key: [UInt]
+        handler: [(Function [Integer] [Integer])]))
+      (def state (List UInt)) (def system-type (TraceSystem state))
+      (def owner (.o epoch: 0)) (def opened 0) (def closed 0) (def escape #f) (def reads 0)
+      ;; Logical handles and results are pure; actual fixtures own their scope.
+      (def (emit kind) (make-instance command kind: kind key: 1 handler: abs))
+      (def (advance previous item)
+        (values (if (eq? (.get item kind) 'open) (cons (.get item key) previous) previous)
+          ((.@ item handler) (.get item key))))
+      (def reference (make-instance TraceGenerator Command: command State: state Result: Integer Observation: state
+        initial: (lambda () []) enabled?: (lambda (previous item)
+          (if (eq? (.get item kind) 'open) (not (memv (.get item key) previous))
+            (and (memv (.get item key) previous) #t)))
+        advance: advance observe: identity measure: (lambda (_) 0) shrink: (lambda (_) [])
+        draw: (lambda (previous _random _size) (some (emit (if (null? previous) 'open 'use))))))
+      ;; A fresh action prepares the same type-driven tree and scoped dispatcher;
+      ;; retry never reuses a closed callback or refreshes an old report's owners.
+      (def (prepare mode)
+        (def sampler (trace-generator command reference steps: 3 dependencies: (list owner)))
+        ;; Cleanup surrounds the whole attempt, including a refused second use.
+        (def (fixture use)
+          (set! opened (1+ opened)) (set! escape use)
+          (def actual (make-instance system-type initial: [] observe: identity
+            step: (lambda (previous item)
+              (let-values (((next reply) (advance previous item)))
+                (values next (+ reply (if (and (eq? mode 'fault) (eq? (.get item kind) 'use)) 1 0)))))))
+          (try (let (first (use actual))
+            (when (eq? mode 'duplicate) (check-exception (use actual) Error?)) first)
+            (finally (set! closed (1+ closed)))))
+        (property-debug-action #f (.get sampler descriptor) (trace-property reference fixture) sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1 size: 3 shrink-budget: 64))
+      (def refused ((prepare 'duplicate) configuration))
+      (check-eq? (.get refused status) 'error)
+      (check-equal? (.get refused attempts) 0)
+      (check-exception (replay-counterexample refused) Error?)
+      (def report ((prepare 'fault) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+      (check (.get report minimal?) => #t)
+      (check-exception ((.@ (car (.get report counterexample)) handler) 'invalid) TypeError?)
+      ;; A closed callback cannot retire live evidence by forcing this raw Type.
+      (def late (.o State: (begin (set! reads (1+ reads)) (.set! owner epoch 1) state)))
+      (check-exception (escape late) Error?)
+      (check-equal? (list reads (.get owner epoch)) '(0 0))
+      (check (replay-counterexample report) => #f)
+      (check-equal? (map (cut .get <> kind) (.get (replay-property report) counterexample)) '(open use))
+      (.set! owner epoch 1)
+      (check-exception (replay-property report) Error?)
+      (check-exception (replay-counterexample report) Error?)
+      (check-eq? (.get ((prepare 'correct) configuration) status) 'passed)
+      (check-equal? opened closed))))
+
+
+;; Static request contracts guard computed POO declarations before the existing
+;; Record-driven trace/FUN workflow acquires its ordinary scoped fixture.
+(def trace-request-test
+  (test-suite "typed trace request admission"
+    (test-case "invalid limits and dependency spines cannot force computed declarations"
+      (def reads 0)
+      (def subject (.o Command: (begin (set! reads (1+ reads)) Integer)))
+      (for (steps (list -1 65537 1/2 2.0 +inf.0 +nan.0 #f))
+        (check-exception (trace-generator Integer subject steps: steps) contract-violation-error?))
+      (for (dependencies (list '(owner . bad) (malformed-spine 'owner #t)))
+        (check-exception (trace-generator Integer subject dependencies: dependencies) contract-violation-error?))
+      (check-exception (trace-generator Integer #f) TypeError?)
+      (check-equal? reads 0))
+    (test-case "typed comparisons and property binding admit callbacks before declarations"
+      (def reads 0) (def opened 0)
+      (def subject (.o Command: (begin (set! reads (1+ reads)) Integer)))
+      ;; These are invalid static requests, not generated out-of-domain commands.
+      (def (with-system _use) (set! opened (1+ opened)) (error "must not open"))
+      (check-exception (check-trace subject [] with-system same?: #f) contract-violation-error?)
+      (check-equal? (list 0 reads opened) '(0 0 0))
+      (check-exception (check-trace subject '(step . bad) with-system) contract-violation-error?)
+      (check-equal? (list 1 reads opened) '(1 0 0))
+      (check-exception (check-trace subject [] #f) contract-violation-error?)
+      (check-equal? (list 2 reads opened) '(2 0 0))
+      (check-exception (trace-property subject with-system same?: #f) contract-violation-error?)
+      (check-equal? (list 3 reads opened) '(3 0 0))
+      (check-exception (trace-property subject #f) contract-violation-error?)
+      (check-equal? (list 4 reads opened) '(4 0 0))
+      ;; Descriptor failures keep the POO Type owner and its existing error class.
+      (check-exception (check-trace #f [] with-system) TypeError?)
+      (check-exception ((trace-property #f with-system) []) TypeError?)
+      (check-equal? (list reads opened) '(0 0)))
+    (test-case "fresh FUN binding retains dependency repair Function checks and source retirement"
+      (def Command (Record kind: [(Enum open use)] key: [UInt]
+        handler: [(Function [Integer] [Integer])]))
+      (def State (List UInt)) (def owner (.o faulty?: #t))
+      (def draws 0) (def opened 0) (def closed 0) (def last-command #f)
+      ;; One ordinary constructor supplies both the POO carrier and Function
+      ;; wrapper; the model's expected reply is independent of this implementation.
+      (def (emit kind)
+        (set! last-command (make-instance Command kind: kind key: 1
+          handler: (lambda (value) (if (.get owner faulty?) value (1+ value))))) last-command)
+      ;; Shared transition preserves handle dependencies in both model and fixture.
+      (def (advance state command)
+        (values (if (eq? (.get command kind) 'open) (cons (.get command key) state) state)
+          (1+ (.get command key))))
+      (def subject (make-instance TraceGenerator Command: Command State: State Result: Integer Observation: State
+        initial: (lambda () []) enabled?: (lambda (state command)
+          (if (eq? (.get command kind) 'open) (not (memv (.get command key) state))
+            (and (memv (.get command key) state) #t)))
+        advance: advance observe: identity
+        draw: (lambda (state _random _size) (set! draws (1+ draws))
+          (some (emit (if (null? state) 'open 'use))))
+        shrink: (lambda (_) []) measure: (lambda (_) 0)))
+      (def System (TraceSystem State))
+      ;; Existing fixture scope owns cleanup on mismatches and callback errors.
+      (def (with-system use)
+        (set! opened (1+ opened))
+        (try (use (make-instance System initial: [] observe: identity
+          step: (lambda (state command)
+            (let-values (((next reply) (advance state command)))
+              (values next (if (eq? (.get command kind) 'use)
+                ((.@ command handler) (.get command key)) reply))))))
+          (finally (set! closed (1+ closed)))))
+      (check-exception (trace-property subject with-system same?: #f) contract-violation-error?)
+      (check-equal? (list draws opened closed) '(0 0 0))
+      ;; Retry prepares a fresh ordinary property action rather than renewing a
+      ;; refused closure. The enclosing sampler owns the mutable implementation.
+      (def (prepare)
+        (def sampler (trace-generator Command subject steps: 3 dependencies: (list owner)))
+        (property-action (.get sampler descriptor) (trace-property subject with-system) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 19 cases: 1 size: 3 shrink-budget: 32))
+      (def report ((prepare) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+      (check-exception ((.@ last-command handler) 'invalid) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (.set! owner faulty? #f)
+      (check-exception (replay-counterexample report) Error?)
+      (check-exception (replay-property report) Error?)
+      (check-eq? (.get ((prepare) configuration) status) 'passed)
+      (check-equal? opened closed))))
+
+
+;; Raw declarations defer field evaluation to the existing TraceGenerator Record
+;; boundary. Metadata thunks make construction-time and ingress effects distinct.
+(def (integer-trace-source advance (draw (lambda (_state _random _size) (some 1)))
+                           command: (command (lambda () Integer)) state: (state (lambda () Integer)))
+  (.o bind-these: #f Command: (command) State: (state) Result: Integer Observation: Integer
+    initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+    advance: advance observe: identity draw: draw shrink: (lambda (_) []) measure: abs))
+
+;; Ingress spines are protocol-owned before computed metadata. These cases keep
+;; payloads shared intentionally and distinguish configured ownership from aliases.
+(def trace-snapshot-test
+  (test-suite "typed trace ingress snapshots"
+    (test-case "validation repair and execution retain the ingress row through metadata edits"
+      (for (operation '(valid repair check))
+        (for (edit (list (lambda (row) (set-car! row 99))
+                        (lambda (row) (set-cdr! row []))
+                        (lambda (row) (set-cdr! row row))))
+          (def commands (list 1 2)) (def seen []) (def opened 0) (def closed 0)
+          (def subject (integer-trace-source (lambda (state command)
+              (set! seen (cons command seen)) (values (+ state command) command))
+            command: (lambda () (edit commands) Integer)))
+          (check-equal? commands '(1 2))
+          (case operation
+            ((valid) (check (valid-trace? subject commands) => #t))
+            ((repair) (check-equal? (repair-trace subject commands) '(1 2)))
+            ((check)
+             (let (report (check-trace subject commands (lambda (use)
+               (set! opened (1+ opened))
+               (try (use (make-instance (TraceSystem Integer) initial: 0 observe: identity
+                 step: (lambda (state command) (values (+ state command) command))))
+                 (finally (set! closed (1+ closed)))))))
+             (check (.get report matched?) => #t)
+             (check-equal? (.get report index) 2))))
+          (check-equal? (reverse seen) (if (eq? operation 'check) '(1 2 1 2) '(1 2)))
+          (check-equal? opened (if (eq? operation 'check) 1 0))
+          (check-equal? opened closed))))
+    (test-case "malformed ingress cannot become admitted when metadata repairs its alias"
+      (for (operation '(valid repair))
+        (for (cyclic? '(#f #t))
+          (def commands (malformed-spine 1 cyclic?)) (def advances 0) (def reads 0)
+          (def subject (integer-trace-source (lambda (state command)
+              (set! advances (1+ advances)) (values (+ state command) command))
+            command: (lambda () (set! reads (1+ reads)) (set-cdr! commands []) Integer)))
+          (check-equal? reads 0)
+          (if (eq? operation 'valid) (check (valid-trace? subject commands) => #f)
+            (check-exception (repair-trace subject commands) contract-violation-error?))
+          (check (positive? reads) => #t)
+          (check-equal? advances 0)
+          (check (proper-list? commands) => #t)))
+      (check-exception (valid-trace? #f '(1 . bad)) TypeError?)
+      (check-exception (repair-trace #f '(1 . bad)) TypeError?))
+    (test-case "explicit dependency identity survives replacement truncation and cycles"
+      (for (edit (list (lambda (row replacement) (set-car! row replacement))
+                      (lambda (row _replacement) (set-cdr! row []))
+                      (lambda (row _replacement) (set-cdr! row row))))
+        (def owner (.o epoch: 0)) (def second (.o epoch: 0)) (def replacement (.o epoch: 0))
+        (def dependencies (list owner second)) (def draws 0)
+        (def subject (integer-trace-source (lambda (state command) (values (+ state command) command))
+            (lambda (_state _random _size) (set! draws (1+ draws)) (some 1))
+          command: (lambda () (edit dependencies replacement) Integer)))
+        (check-eq? (car dependencies) owner)
+        (def sampler (trace-generator Integer subject steps: 1 dependencies: dependencies))
+        (check (.call sampler .current?) => #t)
+        (.set! replacement epoch 1)
+        (check (.call sampler .current?) => #t)
+        (.set! second epoch 1)
+        (check (.call sampler .current?) => #f)
+        (def refused (with-catch (lambda (_) #t) (lambda ()
+          (core.generate (generator-core sampler) (core.random-at 1) 1) #f)))
+        (check refused => #t) (check-equal? draws 0)))
+    (test-case "owner retirement during metadata refuses before the next declaration"
+      (def owner (.o epoch: 0)) (def later 0) (def draws 0)
+      (def subject (integer-trace-source (lambda (state command) (values (+ state command) command))
+          (lambda (_state _random _size) (set! draws (1+ draws)) (some 1))
+        command: (lambda () (.set! owner epoch 1) Integer)
+        state: (lambda () (set! later (1+ later)) Integer)))
+      (check-equal? (.get owner epoch) 0)
+      (check-exception (trace-generator Integer subject dependencies: (list owner)) generation-refusal?)
+      (check-equal? (list later draws) '(0 0))
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 1) 1)) 7)
+      (def fresh (trace-generator Integer
+        (integer-trace-source (lambda (state command) (values (+ state command) command)))
+        steps: 1 dependencies: (list owner)))
+      (check (.call fresh .current?) => #t))
+    (test-case "metadata exceptions keep exact causes even after retiring explicit owners"
+      (for (cause (list #f (cons 'metadata 'cause)))
+        (def owner (.o epoch: 0)) (def later 0)
+        (def subject (integer-trace-source (lambda (state command) (values (+ state command) command))
+          command: (lambda () (.set! owner epoch 1) (raise cause))
+          state: (lambda () (set! later (1+ later)) Integer)))
+        (check-equal? (.get owner epoch) 0)
+        (def caught (with-catch (lambda (value) (cons 'caught value)) (lambda ()
+          (trace-generator Integer subject dependencies: (list owner)))))
+        (check-eq? (car caught) 'caught) (check-eq? (cdr caught) cause)
+        (check-equal? later 0)
+        (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 1) 1)) 7)))
+    (test-case "Record Function FUN workflows retain staged commands original owners and explicit retry"
+      (def Command (Record kind: [(Enum open use)] key: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def State (List UInt)) (def owner (.o faulty?: #t)) (def replacement (.o epoch: 0))
+      (def opened 0) (def closed 0)
+      ;; Only the implementation Function consults the mutable recipe. The
+      ;; independent oracle predicts replies without invoking that Function.
+      (def (advance state command)
+        (values (if (eq? (.get command kind) 'open) (cons (.get command key) state) state)
+          (1+ (.get command key))))
+      ;; Each explicit preparation owns a fresh caller dependency row. Its
+      ;; computed declaration edits that row, but must not retarget the sampler.
+      (def (prepare)
+        (def dependencies (list owner))
+        (def subject (.o bind-these: #f Command: (begin (set-car! dependencies replacement) Command)
+          State: State Result: Integer Observation: State
+          initial: (lambda () []) enabled?: (lambda (state command)
+            (if (eq? (.get command kind) 'open) (not (memv (.get command key) state))
+              (and (memv (.get command key) state) #t)))
+          advance: advance observe: identity shrink: (lambda (_) []) measure: (lambda (_) 0)
+          draw: (lambda (state _random _size)
+            (some (make-instance Command kind: (if (null? state) 'open 'use) key: 1
+              handler: (lambda (value) (if (.get owner faulty?) value (1+ value))))))))
+        (def sampler (trace-generator Command subject steps: 3 dependencies: dependencies))
+        ;; The application staging row is distinct from the PBT witness. The
+        ;; protocol in turn captures that staging row before metadata truncates it.
+        (def (property commands)
+          (def staged (list-copy commands))
+          (def checked (.o bind-these: #f Command: (begin (when (pair? staged) (set-cdr! staged [])) Command)
+            State: State Result: Integer Observation: State initial: (.@ subject initial)
+            enabled?: (.@ subject enabled?) advance: advance observe: identity))
+          (.get (check-trace checked staged (lambda (use)
+            (set! opened (1+ opened))
+            (try (use (make-instance (TraceSystem State) initial: [] observe: identity
+              step: (lambda (state command)
+                (let-values (((next reply) (advance state command)))
+                  (values next (if (eq? (.get command kind) 'use)
+                    ((.@ command handler) (.get command key)) reply))))))
+              (finally (set! closed (1+ closed)))))) matched?))
+        (property-action (.get sampler descriptor) property identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 31 cases: 1 size: 3 shrink-budget: 32))
+      (def report ((prepare) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+      (check-exception ((.@ (cadr (.get report counterexample)) handler) 'invalid) TypeError?)
+      (.set! replacement epoch 1)
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      ;; Capture the observation at this expression boundary, after both replays.
+      (let (before-retirement opened)
+        (.set! owner faulty? #f)
+        (check-exception (replay-counterexample report)
+          (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "stale property replay"))))
+        (check-exception (replay-property report)
+          (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "stale property replay"))))
+        (check-equal? opened before-retirement))
+      (check-eq? (.get ((prepare) configuration) status) 'passed)
       (check-equal? opened closed))))

@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
+(export observer-tree-tests opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
 (import ../object
         ../mop
         ../type
@@ -105,3 +105,58 @@
   (property-action (List JournalCommand) (lambda (commands)
     (def observation (journal-observation commands faulty?))
     (= (.get observation expected) (.get observation actual))) consume))
+
+;; A delayed Pair edge shares a Record leaf through Tuple/List/Maybe carriers.
+;; Trigger receives that first-observed Type before any leaf factory is entered;
+;; each FUN invocation prepares anew while old reports retain their own epochs.
+(def (edge-tree-tests owner trigger consume)
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema epoch: 0 .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'factory Leaf)
+      (make-generator Leaf (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: (list owner)))))
+  (def edge (.o bind-these: #f inherit: [Pair.] sexp: 'ServiceEdge left: Leaf
+    right: (begin (trigger 'edge Leaf) (Maybe Leaf))))
+  (property-action (Tuple (List edge) edge) (lambda (value)
+    (trigger 'property Leaf)
+    (= ((.@ (car (vector-ref value 1)) handler) -1) 0)) consume))
+
+;; An opaque Record sampler shares one declared owner across the recursive graph.
+;; Optional availability is read after constructor binding and source admission;
+;; each new FUN invocation can retry, while prior reports keep their old epochs.
+(def (opaque-tree-tests owner trigger consume faulty?: (faulty? #t))
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'factory owner)
+      (def base (make-generator Leaf (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: (list owner)))
+      (.o bind-these: #f inherit: [base]
+        .inhabited?: (begin (trigger 'metadata owner) #t)))))
+  (def Tail (.cc UInt .generator: (lambda ()
+    (trigger 'tail owner)
+    (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
+  (property-action (Tuple Leaf (List Leaf) (Pair Tail Leaf)) (lambda (value)
+    (trigger 'property owner)
+    (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) consume))
+
+;; A shared Record leaf exposes a pure application observer through the ordinary
+;; sampler protocol. Malformed replies refuse before later factories or the
+;; property; each FUN invocation may prepare explicitly after external correction.
+(def (observer-tree-tests owner observe trigger consume faulty?: (faulty? #t))
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'factory)
+      (.cc (make-generator Leaf (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: [owner]) .current?: observe))))
+  (def Tail (.cc UInt .generator: (lambda ()
+    (trigger 'tail)
+    (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
+  (property-action (Tuple Leaf (List Leaf) (Pair Tail Leaf)) (lambda (value)
+    (trigger 'property)
+    (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) consume))

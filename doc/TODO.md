@@ -4,6 +4,81 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P65 closes typed initialization failure reporting with the existing generic
+classifier. Secondary observation cannot replace the primary cause; confirmed
+retirement stays stale, unfinished execution stays non-replayable, and FUN consumer
+IO remains outside classification. See [P65](pbt-design-rfc.md#p65-shared-primary-cause-ownership-during-typed-preparation-failure).
+
+
+P64 closes strict Boolean source admission across typed graphs, direct checks and
+cached guards using the existing core primitives. False remains stale, malformed
+replies remain errors, exceptions stay exact, and epoch refusal skips hooks. See
+[P64](pbt-design-rfc.md#p64-strict-boolean-source-admission-across-typed-composition).
+
+
+P63 closes opaque-leaf preparation through the SAME constructor/source admission
+used by typed bridges: declared owner epochs precede optional availability,
+malformed/retargeted declarations stop early, and empty alternatives retain their
+source obligations without draws. See [P63](pbt-design-rfc.md#p63-shared-opaque-sampler-admission-before-optional-metadata).
+
+
+P62 closes fixed recursive carrier discovery for List/Pair/Maybe/OrFalse through
+the existing edge action: exhausted fuel skips metadata; earlier returned Types
+retain authority before later getters. Shared identities keep occurrence costs
+and one graph node. See [P62](pbt-design-rfc.md#p62-ordered-fixed-carrier-edge-discovery).
+
+
+P61 closes FunctionArguments preparation authority: computed signature getters
+cannot renew Function, clause or previously discovered input Type epochs. Existing
+source scopes, lazy child derivation and the standard LRU carry the same authority
+through caching, shrinking and replay; exceptions retain their original causes.
+See [P61](pbt-design-rfc.md#p61-first-observed-function-input-declarations).
+
+
+
+P60 captures typed trace ingress before computed metadata and registers explicit
+owners in the existing first-observation ledger. Validation, repair, checking and
+generation reuse the existing Record, source and FUN protocols. Caller spine edits
+cannot retarget commands or dependency identities; payloads remain shared. Eight
+finite Lean laws model the original request handoff and guarded preparation;
+faithful host copying/observers and callback termination remain premises. See
+[P60](pbt-design-rfc.md#p60-owned-trace-ingress-and-first-observed-explicit-dependencies).
+
+
+
+P59 closes static trace request admission before computed declarations and
+fixture acquisition. Standard Gerbil contracts cover generic/typed check requests,
+typed finite limits/dependencies and trace-property binding. Existing model folds,
+source checks, Record/Function wrapping and FUN delivery remain the execution
+owners. Eleven finite Lean laws reuse Boolean admission and guarded preparation;
+callback arity, termination and host cleanup are premises. See
+[P59](pbt-design-rfc.md#p59-trace-request-admission-before-declarations-and-fixture-scope).
+
+
+
+P58 closes portable handoff configuration and physical framing admission.
+Gerbil parameter contracts run before observers/computed metadata; standard
+reader EOF and a separately guarded physical EOF probe precede decoding. Invalid
+requests leave caller ports untouched; malformed input may be consumed and needs
+explicit fresh input. Revision/exception behavior and nested Function wrapping
+remain with their existing owners. Eleven finite Lean laws model request/source/
+framing order, assuming faithful host port operations rather than proving the
+reader or I/O rollback. See [P58](pbt-design-rfc.md#p58-portable-handoff-request-admission-and-physical-framing).
+
+
+P57 closes fixed-product decomposition and finite expansion ownership. Whole
+rows must match field width before callbacks; finite child lists and temporary
+pack rows are owned at their existing boundaries. Heterogeneous Record/Function
+requests align finite/retained FUN shrinking and corpus replay; arbitrary payload
+mutation and user representation laws remain explicit obligations. See
+[P57 in the PBT RFC](pbt-design-rfc.md#p57-fixed-product-row-and-finite-expansion-ownership).
+
+P56 closes scoped fixture admission before typed metadata preparation. Closed,
+repeated and reentrant use cannot force raw getters or authorize an earlier
+receipt after refusal. Record/Function/FUN scenarios cover errors, shrinking,
+replay and fresh source renewal, with cleanup/ownership unchanged. See
+[P56 in the PBT RFC](pbt-design-rfc.md#p56-fixture-lifetime-admission-before-typed-preparation).
+
 P55 closes finite sequence input ownership across structural/parameter shrinking
 and model repair/preflight. One standard shallow snapshot precedes callbacks;
 caller pair edits cannot change the prepared command order. Record/Function/FUN

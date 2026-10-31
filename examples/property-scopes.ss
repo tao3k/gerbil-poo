@@ -1,5 +1,5 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
-(export declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+(export handoff-test-cases! declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in (only-in :std/test/base TestConfig TestCase TestResultError
           test-case! test-result-error? current-test-config current-test-exit) test.) (only-in :std/list/list delete-duplicates/hash)
@@ -814,3 +814,91 @@
       ;; Empty product declarations still enter the ordinary runner and assertion.
       (assertion.define-property empty () #t)
       (empty cases: 2))))
+
+;; Portable request admission and physical framing share the existing corpus
+;; owner. No custom reader, proxy port or alternate test runner participates.
+(def (handoff-test-cases!)
+  (test-case "import configuration refuses before observers decoding or input consumption"
+    (for (kind '(codec port specification property policy))
+      (def decoded 0) (def observed 0) (def properties 0)
+      (def domain (property.make-specification exact-integer? abs
+        current?: (lambda () (set! observed (1+ observed)) #t)))
+      (def codec (replay.make-codec 'frame identity
+        (lambda (value) (set! decoded (1+ decoded)) value)
+        current?: (lambda () (set! observed (1+ observed)) #t)))
+      (def input (open-input-string "#(property-counterexample 1 frame 2)"))
+      (def output (open-output-string))
+      (check-exception (replay.read-counterexample
+        (if (eq? kind 'codec) #f codec) (if (eq? kind 'port) output input)
+        (if (eq? kind 'specification) #f domain)
+        (if (eq? kind 'property) #f (lambda (_) (set! properties (1+ properties)) #f))
+        policy: (if (eq? kind 'policy) #f (property.make-policy))) Error?)
+      (check-equal? (list decoded observed properties (input-port-char-position input)) '(0 0 0 0))
+      (check-equal? (get-output-string output) "")))
+  (test-case "export configuration refuses before witness reconfirmation or encoding"
+    (def properties 0) (def encoded 0) (def observed 0)
+    (def domain (property.make-specification boolean? (lambda (_) 0)))
+    (def report (property.check-property (generator.generator-unit #f)
+      (lambda (_) (set! properties (1+ properties)) #f) domain cases: 1 shrink-budget: 0))
+    (def codec (replay.make-codec #f (lambda (value) (set! encoded (1+ encoded)) value) identity
+      current?: (lambda () (set! observed (1+ observed)) #t)))
+    (check (replay.codec? codec) => #t) (check (replay.codec? #f) => #f)
+    (set! properties 0)
+    (for (kind '(report codec port))
+      (def output (open-output-string)) (def input (open-input-string "99"))
+      (check-exception (replay.write-counterexample (if (eq? kind 'report) #f report)
+        (if (eq? kind 'codec) #f codec) (if (eq? kind 'port) input output)) Error?)
+      (check-equal? (list properties encoded observed (input-port-char-position input)) '(0 0 0 0))
+      (check-equal? (get-output-string output) "")))
+  (test-case "reader EOF markers cannot hide pending bytes from decoder admission"
+    (for (suffix '(" #!eof 99" " #!eof #(tail)" " #!eof #!eof" " #!eof ; tail\n" " #!eof #;99"))
+      (def decoded 0) (def properties 0)
+      (def codec (replay.make-codec 'frame identity (lambda (value) (set! decoded (1+ decoded)) value)))
+      (def input (open-input-string (string-append "#(property-counterexample 1 frame 2)" suffix)))
+      (check-exception (replay.read-counterexample codec input
+        (property.make-specification exact-integer? abs)
+        (lambda (_) (set! properties (1+ properties)) #f)) Error?)
+      (check-equal? (list decoded properties) '(0 0))
+      (check (eof-object? (peek-char input)) => #f)))
+  (test-case "ordinary reader trivia terminal EOF and false witnesses keep their semantics"
+    (for (suffix '("" " \n; comment\n" " #| comment |#" " #;99" " #!eof"))
+      (def decoded 0) (def properties 0)
+      (def codec (replay.make-codec 'frame identity (lambda (value) (set! decoded (1+ decoded)) value)))
+      (def input (open-input-string (string-append "#(property-counterexample 1 frame #f)" suffix)))
+      (check (replay.read-counterexample codec input (property.make-specification boolean? (lambda (_) 0))
+        (lambda (value) (check-eq? value #f) (set! properties (1+ properties)) #f)) => #f)
+      (check-equal? (list decoded properties) '(1 1))
+      (check (eof-object? (peek-char input)) => #t)))
+  (test-case "trailing reader source retirement precedes physical probing and decoding"
+    (for (owner '(codec context))
+      (def header "#(property-counterexample 1 frame 2)")
+      (def input (open-input-string (string-append header " #!eof 99")))
+      (def decoded 0) (def properties 0)
+      ;; Observe the standard logical cursor without consuming input. The first
+      ;; datum fits; reading its trailing EOF marker retires this request.
+      (def (current?) (<= (input-port-char-position input) (+ 2 (string-length header))))
+      (def codec (replay.make-codec 'frame identity (lambda (value) (set! decoded (1+ decoded)) value)
+        current?: (if (eq? owner 'codec) current? (lambda () #t))))
+      (def domain (property.make-specification exact-integer? abs
+        current?: (if (eq? owner 'context) current? (lambda () #t))))
+      (def cause (with-catch identity (lambda () (replay.read-counterexample codec input domain
+        (lambda (_) (set! properties (1+ properties)) #f)))))
+      (check (Error? cause) => #t)
+      (check-equal? (Error-message cause) (if (eq? owner 'codec) "stale replay codec" "stale replay context"))
+      (check-equal? (list decoded properties) '(0 0))
+      (check-equal? (read input) 99)))
+  (test-case "framed decoder causes remain exact and explicit fresh import retries"
+    (for (cause (list #f (cons 'decoder 'cause)))
+      (def properties 0) (def decoded 0)
+      (def domain (property.make-specification exact-integer? abs))
+      (def codec (replay.make-codec 'frame identity (lambda (_) (set! decoded (1+ decoded)) (raise cause))))
+      (def input (open-input-string "#(property-counterexample 1 frame 2)"))
+      (def caught (with-catch (lambda (value) (cons 'caught value)) (lambda ()
+        (replay.read-counterexample codec input domain (lambda (_) (set! properties (1+ properties)) #f)))))
+      (check-eq? (car caught) 'caught) (check-eq? (cdr caught) cause)
+      (check-equal? (list decoded properties) '(1 0))
+      (check (eof-object? (peek-char input)) => #t)
+      (check (replay.read-counterexample (replay.make-codec 'frame identity identity)
+        (open-input-string "#(property-counterexample 1 frame 2)") domain
+        (lambda (_) (set! properties (1+ properties)) #f)) => #f)
+      (check-equal? properties 1))))

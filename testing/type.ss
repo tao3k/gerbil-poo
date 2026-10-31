@@ -1,6 +1,6 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
-(export write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
-(import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash)
+(export snapshot with-source-stamps source-guard retain-source-stamps! write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
+(import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash length=n?)
         ../object ../mop (only-in ../type Rational String Symbol Keyword Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt IntegerRange. Z/.)
@@ -61,23 +61,8 @@
   (Record State: [Type constant: state-type] initial: [state-type]
           step: [Procedure] observe: [Procedure]))
 
-;; One preparation boundary owns the constructor's declaration binding. Retarget
-;; through a fresh constructor, never by inheriting a different Type's parser/tree.
-;; Mandatory identities cannot be removed by replacing application dependencies.
-(def (generator-sources sampler (retain! void) (expected #f))
-  (retain! sampler)
-  (def descriptor (core.with-sources [] (.get sampler descriptor)))
-  (retain! descriptor)
-  (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
-  (def bound (core.with-sources [] (.get sampler bound-descriptor)))
-  (retain! bound)
-  (unless (eq? descriptor bound)
-    (error "sampler descriptor binding changed; construct a new sampler"))
-  (def dependencies (core.with-sources [] (.get sampler sources)))
-  (unless (list? dependencies) (error "finite sampler sources required"))
-  (def captured (list-copy dependencies))
-  (for-each retain! captured)
-  (cons sampler (cons descriptor captured)))
+;; Shared typed-source operations are module exports for domain extensions;
+;; they retain the same first-observation protocol, not a second preparation API.
 ;; Bind a stamp variable, not an effectful expression. Snapshot discovery may
 ;; extend it; preparation uses the closed list. The checker reads epochs only,
 ;; unwinds through the standard dynamic scope and is never retained on values.
@@ -103,15 +88,17 @@
     (when sampler (generator-sources sampler retain! expected))
     (reverse stamps)))
 ;; Refuse result admission after any declared source changed, including callbacks.
+;; A malformed observer is an error, rather than truthy authority or retirement.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
-       (or (not sampler) (not (.has? sampler .current?)) (.call sampler .current?))))
+       (or (not sampler) (not (.has? sampler .current?))
+         (core.boolean-result (.call sampler .current?) "source observer must return a boolean"))))
 ;; Prepare the optional hook once. Source revisions are still checked before
 ;; every call, so a replaced/inherited hook cannot acquire fresh authority.
-(def (source-guard sources sampler)
-  (def hook (and (.has? sampler .current?) (.@ sampler .current?)))
+(def (source-guard sources (sampler #f))
+  (def hook (and sampler (.has? sampler .current?) (.@ sampler .current?)))
   (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
-    (or (not hook) (hook)))))
+    (or (not hook) (core.live? hook)))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
 ;; factory are separate actions: an obsolete getter cannot invoke its result,
 ;; and an obsolete false factory result cannot enter the raw fallback.
@@ -142,15 +129,18 @@
   (let loop ((children children) (values values) (before []))
     (if (null? children) []
       (append
-        (map-in-order (lambda (smaller) (call pack (append (reverse before) (cons smaller (cdr values)))))
-             (call (.@ (car children) shrink) (car values)))
+        (map-in-order (lambda (smaller)
+          ;; A packer may consume its temporary row. Fresh prefix AND suffix
+          ;; pairs keep that mutation away from the remaining coordinates.
+          (call pack (foldl cons (cons smaller (list-copy (cdr values))) before)))
+          (finite-shrink-children (call (.@ (car children) shrink) (car values))))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Identity sharing retains first-observation stamps. Product and Map factories
 ;; use the same standard hash policy; rediscovery never refreshes old authority.
 (def (retain-source-stamps! ledger stamps)
   (delete-duplicates/hash stamps table: ledger key: car from-end?: #t))
 ;; Products share draw/shrink/measure composition for tuples, pairs and call rows.
-(def (product-generator descriptor (children :~ list?) (unpack : :procedure) (pack : :procedure))
+(def (product-generator descriptor (children :~ proper-list?) (unpack : :procedure) (pack : :procedure))
   (set! children (list-copy children))
   (unless (object? descriptor) (validate Type descriptor))
   (for (child children) (unless (object? child) (validate GeneratorRecord child)))
@@ -183,10 +173,17 @@
         (core.with-sources []
           (unless (current) (refuse-generation 'stale))
           (begin0 (apply action arguments) (unless (current) (refuse-generation 'stale)))))
+      ;; Raw shrinking shares the finite row contract with generic product
+      ;; measurement. Shape and width precede any child or packing callback.
+      (def width (length children))
+      (def (unpack-row value)
+        (def row (checked unpack value))
+        (unless (and (list? row) (length=n? row width)) (error "invalid product value row"))
+        (list-copy row))
       (.cc (from-generator descriptor
         (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
         (lambda (value) (testing.specification-weight domain (checked unpack value)))
-        shrink: (lambda (value) (coordinate-shrinks children (checked unpack value) pack checked))
+        shrink: (lambda (value) (coordinate-shrinks children (unpack-row value) pack checked))
         dependencies: (apply append (map generator-sources children))) .current?: current))))
 
 ;; Finite-key Maps reuse their existing validation/wrapping protocol once per
@@ -303,7 +300,7 @@
   (cond
     ((.has? descriptor .generator)
      (let (sampler (.call descriptor .generator))
-       (unless (and (object? sampler) (eq? (.get sampler descriptor) descriptor))
+       (unless (object? sampler)
          (error "generator descriptor mismatch")) sampler))
     ((eq? descriptor Bool)
      (make-generator descriptor (lambda (random _) (= (random 2) 1))
@@ -383,11 +380,16 @@
   (cond ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'stale)) 'stale)
         ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'unguarded)) 'unsupported)
         ((generation-refusal? cause) 'exhausted) (else 'error)))
-;; POO-derived shrink callbacks retain their proper-list contract at one boundary.
-;; The generic kernel itself consumes standard iterators and knows no POO grammar.
+;; One finite data boundary is shared by direct products and raw sampler
+;; lifting. Whole-spine admission precedes copying or any candidate callback.
+(def (finite-shrink-children children)
+  (list-copy (require-value children list?
+    (lambda () (error "shrinker must return a finite proper list")))))
+;; Invoke under the caller's source scope before admitting the returned spine.
+;; Direct products use their existing checked call, then the same data boundary.
+;; Generic callbacks retain their independent Iterator protocol.
 (def (sampler-children sampler value)
-  (require-value (.call sampler shrink value) list?
-    (lambda () (error "shrinker must return a finite proper list"))))
+  (finite-shrink-children (core.with-sources [] (.call sampler shrink value))))
 ;; This layer owns Type compilation and the POO report projection. Trial execution,
 ;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
 (def (check-property descriptor property . options)
@@ -426,7 +428,10 @@
       depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
       limits: (and sampler (.has? sampler limits) (.get sampler limits))))
   (with-catch
-    (lambda (cause) (report (if (not (current? sources sampler)) 'stale (generation-status cause))
+    ;; Classification observers may fail too; the shared core preserves the
+    ;; first cause and refuses success without swallowing application consumer IO.
+    (lambda (cause) (report (testing.failure-status cause
+      (lambda () (current? sources sampler)) generation-status)
       #f #f 0 0 #f cause #f))
     (lambda ()
       (when (some? failure) (raise (some-value failure)))
@@ -471,14 +476,16 @@
   (replayed-report report (testing.replay-property (.get report execution))))
 
 ;; Typed export preserves the existing report and generic source authority.
-;; Only completed executions have a portable core witness to admit.
-(def (write-counterexample report codec port)
+;; Only completed executions have a portable core witness to admit. Pure request
+;; contracts also precede any computed POO report/sampler metadata.
+(def (write-counterexample (report :~ object?) (codec :~ replay.codec?) (port :~ output-port?))
   (unless (.get report replayable?) (error "property report has no replayable generator"))
   (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
   (replay.write-counterexample (.get report execution) codec port))
 ;; Reuse the sampler's bounded domain without drawing or opening a new runner.
 ;; Application codecs reconstruct ordinary validated Record/Function carriers.
-(def (read-counterexample sampler codec port property policy: (policy (testing.make-policy)))
+(def (read-counterexample (sampler :~ object?) (codec :~ replay.codec?) (port :~ input-port?)
+                          (property : :procedure) policy: (policy :~ testing.policy? := (testing.make-policy)))
   (def sources (snapshot sampler []))
   (replay.read-counterexample codec port (property-specification sampler sources) property policy: policy))
 
@@ -538,10 +545,15 @@
 ;; Trace preparation observes each declaration before requesting the next one.
 ;; The same private scope serves generation, repair and differential execution;
 ;; a later computed field must never refresh an earlier Type's revision stamp.
-(defrule (with-trace-model model contract (sources retain! checked) body ...)
+;; Explicit request owners join this same ledger before the first field callback;
+;; the default form adds no owners, registry or extra dynamic guard layer.
+(defrules with-trace-model ()
+ ((_ model contract (sources retain! checked) body ...)
+  (with-trace-model model contract [] (sources retain! checked) body ...))
+ ((_ model contract initial-owners (sources retain! checked) body ...)
   (let (schema contract)
     (unless (object? model) (validate schema model))
-    (def sources (make-parameter (snapshot #f (list model schema))))
+    (def sources (make-parameter (snapshot #f (cons model (cons schema initial-owners)))))
     ;; Append stamps without replacing an earlier observation of the same owner.
     (def (retain! owners) (sources (append (sources) (snapshot #f owners))))
     ;; Dynamic admission also reaches nested generator/iterator operations.
@@ -561,7 +573,7 @@
       (capture! model)
       (set! model (checked validate schema model))
       (capture! model)
-      (checked (lambda () body ...)))))
+      (checked (lambda () body ...))))))
 
 ;; Shared callback lifting keeps validation/transition stages separate under the
 ;; active declaration scope, including pure admission and dependency repair.
@@ -587,58 +599,69 @@
 ;; Prefix admission and dependency repair share the generic fold; neither owns a
 ;; second traversal or invokes an actual backend during model validation.
 (def (valid-trace? model commands)
+  ;; Own only the outer spine before any computed declaration. False retains
+  ;; malformed ingress as refusal even if a later getter repairs the caller row.
+  (def owned (and (proper-list? commands) (list-copy commands)))
   (with-trace-model model TraceModel (sources retain! checked)
-    (model.valid-trace? (prepare-model model) commands)))
+    (model.valid-trace? (prepare-model model) owned)))
+;; Capture precedes metadata, but malformed input still reaches the existing
+;; repair contract after POO Type validation. Payloads remain caller-owned.
 ;; The domain normalizer preserves nested Function wrapping while retiring dependents.
 (def (repair-trace model commands)
+  (def owned (and (proper-list? commands) (list-copy commands)))
   (with-trace-model model TraceModel (sources retain! checked)
-    (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands)))
+    (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) owned)))
 
 ;; Build an ordinary List sampler; the existing runner owns random sources,
 ;; report stamps, proposal budgets and strict decrease/falsity admission.
 ;; Only the bounded command spine is specialized, not the generation framework.
-(def (trace-generator command-type model steps: (steps 64) dependencies: (dependencies []))
+;; Pure configuration contracts precede computed model metadata and snapshots.
+(def (trace-generator command-type model
+                      steps: (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))) := 64)
+                      dependencies: (dependencies :~ proper-list? := []))
   (def source model)
-  (with-trace-model model TraceGenerator (sources retain! checked)
+  ;; Capture owner identities before metadata can mutate the caller's spine;
+  ;; the same model scope registers their first epochs before reading fields.
+  (def declared (list-copy dependencies))
+  (with-trace-model model TraceGenerator declared (sources retain! checked)
     (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
-    (using (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))))
-      ;; Compile the captured callbacks once. Guarded invocations still acquire
-      ;; fresh model state; admission does not revalidate metadata per proposal.
-      (def admission (checked prepare-model model))
-      (def prepared (checked prepare-model model (cut validate command-type <>)))
-      (def result #f)
-      ;; The Type's existing .generator extension makes this sampler usable by
-      ;; ordinary check-property/property-action without a parallel dispatch path.
-      (def descriptor (.cc (List command-type)
-        .generator: (lambda () (or result (error "trace generator not initialized")))))
-      ;; One draw adapter serves the public value callback and owned lazy tree.
-      (def (draw-command state random size)
-        (match (.call model draw state random size)
-          (#f (values #f #f)) ((some command) (values #t command))
-          (else (error "trace draw requires Option"))))
-      ;; Generic sequence trees defer repair and parameter work until demanded.
-      (def generation (model.trace-generator prepared draw-command
-        (lambda (command) (.call model shrink command)) steps))
-      (def sampler (make-generator descriptor
-        (lambda (random size) (model.draw-trace prepared draw-command steps random size))
-        (lambda (commands)
-          (model.shrink-trace prepared
-            commands (.@ model shrink)))
-        (lambda (commands)
-          (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
-        dependencies: (append (list source TraceGenerator command-type (.get model State)
-          (.get model Result) (.get model Observation)) dependencies)
-        generation: generation))
-      ;; The bounded trace predicate is compiled against this model/declaration.
-      ;; Capture now, outside the lazy slot expression, just as Map/products do;
-      ;; later model or List metadata cannot silently retarget that predicate.
-      (def own (source-guard (snapshot sampler []) sampler))
-      (def stamps (sources))
-      (def guard (lambda () (and (current? stamps) (own))))
-      (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
-        (and (list? commands) (<= (length commands) steps) (model.valid-trace? admission commands)))
-        limits: (.o bind-these: #f steps: steps)))
-      result)))
+    ;; Compile the captured callbacks once. Guarded invocations still acquire
+    ;; fresh model state; admission does not revalidate metadata per proposal.
+    (def admission (checked prepare-model model))
+    (def prepared (checked prepare-model model (cut validate command-type <>)))
+    (def result #f)
+    ;; The Type's existing .generator extension makes this sampler usable by
+    ;; ordinary check-property/property-action without a parallel dispatch path.
+    (def descriptor (.cc (List command-type)
+      .generator: (lambda () (or result (error "trace generator not initialized")))))
+    ;; One draw adapter serves the public value callback and owned lazy tree.
+    (def (draw-command state random size)
+      (match (.call model draw state random size)
+        (#f (values #f #f)) ((some command) (values #t command))
+        (else (error "trace draw requires Option"))))
+    ;; Generic sequence trees defer repair and parameter work until demanded.
+    (def generation (model.trace-generator prepared draw-command
+      (lambda (command) (.call model shrink command)) steps))
+    (def sampler (make-generator descriptor
+      (lambda (random size) (model.draw-trace prepared draw-command steps random size))
+      (lambda (commands)
+        (model.shrink-trace prepared
+          commands (.@ model shrink)))
+      (lambda (commands)
+        (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
+      dependencies: (append (list source TraceGenerator command-type (.get model State)
+        (.get model Result) (.get model Observation)) declared)
+      generation: generation))
+    ;; The bounded trace predicate is compiled against this model/declaration.
+    ;; Capture now, outside the lazy slot expression, just as Map/products do;
+    ;; later model or List metadata cannot silently retarget that predicate.
+    (def own (source-guard (snapshot sampler []) sampler))
+    (def stamps (sources))
+    (def guard (lambda () (and (current? stamps) (own))))
+    (set! result (.cc sampler .current?: guard .accept?: (lambda (commands)
+      (and (list? commands) (<= (length commands) steps) (model.valid-trace? admission commands)))
+      limits: (.o bind-these: #f steps: steps)))
+    result))
 
 ;; Validate observed replies and snapshots at ONE comparison boundary. A declared
 ;; equality relation must return Boolean; an exception is an error, never a pass.
@@ -649,34 +672,39 @@
 ;; Preflight the whole normalized command list before opening a fresh scoped
 ;; fixture. Compare initial state, then each reply/state exactly once; stop on
 ;; first divergence. Reports contain observations, never actual fixture owners.
-(def (check-trace model commands with-system same?: (same? equal?))
-  (require-value with-system procedure? (lambda () (error "trace fixture must be a procedure")))
-  (require-value same? procedure? (lambda () (error "trace equality must be a procedure")))
+(def (check-trace model (commands :~ proper-list?) (with-system : :procedure)
+                  same?: (same? : :procedure := equal?))
+  ;; Record normalization consumes the admitted row, never a metadata-edited alias.
+  (def owned (list-copy commands))
   (with-trace-model model TraceModel (sources retain! checked)
     ;; Prepare method wrappers once; the shared scope owns their declarations.
     (def (wrap action) (lambda arguments (apply checked action arguments)))
-    (def normalized (checked validate (List (.get model Command)) commands))
+    (def normalized (checked validate (List (.get model Command)) owned))
     (def reference (checked prepare-model model identity wrap))
-    (def execution (model.check-trace reference normalized
-      (lambda (use)
-        (checked with-system (lambda (system)
-          ;; Fixture declarations belong to use, not to teardown. Restore model
-          ;; ownership before user cleanup; model edits still refuse factory return.
-          (parameterize ((sources (sources)))
-            (retain! (list system))
-            (def state-type (checked (lambda () (.get system State))))
-            (unless (object? state-type) (checked validate Type state-type))
-            (retain! (list state-type))
-            (def schema (checked TraceSystem state-type))
-            (retain! (list schema))
-            (set! system (checked validate schema system))
-            (retain! (list system))
-            (def step (checked (lambda () (.@ system step))))
-            (def observe (checked (lambda () (.@ system observe))))
-            (use (model.make-system (checked (lambda () (.get system initial)))
-              (lambda (state command)
-                (let-values (((next result) (checked step state command)))
-                  (values (checked validate state-type next) result))) (wrap observe)))))))
+    ;; Generic lifetime admission precedes every raw fixture getter. This hook
+    ;; is preparation only; its caller's existing source scope also covers run.
+    (def (prepare-system system)
+      (retain! (list system))
+      (def state-type (checked (lambda () (.get system State))))
+      (unless (object? state-type) (checked validate Type state-type))
+      (retain! (list state-type))
+      (def schema (checked TraceSystem state-type))
+      (retain! (list schema))
+      (set! system (checked validate schema system))
+      (retain! (list system))
+      (def step (checked (lambda () (.@ system step))))
+      (def observe (checked (lambda () (.@ system observe))))
+      (model.make-system (checked (lambda () (.get system initial)))
+        (lambda (state command)
+          (let-values (((next result) (checked step state command)))
+            (values (checked validate state-type next) result))) (wrap observe)))
+    ;; Fixture ownership spans admitted preparation AND execution, then restores
+    ;; model authority before application cleanup. No metadata is read here.
+    (def (with-fixture use)
+      (checked with-system (lambda (system)
+        (parameterize ((sources (sources))) (use system)))))
+    (def execution (model.check-trace reference normalized with-fixture
+      prepare-system: prepare-system
       same?: (wrap (lambda (phase left right)
         (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
     (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
@@ -686,5 +714,8 @@
 
 ;; This is only the Boolean projection expected by check-property. Fresh-fixture
 ;; lifetime and exact step diagnostics remain in the existing callback/IO layer.
-(def (trace-property model with-system same?: (same? equal?))
+;; Bind only a valid callable request; constructing a property cannot postpone
+;; a static fixture/equality error until after an unrelated generator has drawn.
+(def (trace-property model (with-system : :procedure)
+                     same?: (same? : :procedure := equal?))
   (lambda (commands) (.get (check-trace model commands with-system same?: same?) matched?)))
