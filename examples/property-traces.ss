@@ -1,9 +1,10 @@
 ;;; Bounded model drawing uses the generic protocol and standard Gerbil contracts.
-(export trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!)
+(export trace-lazy-test-cases! trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!)
 (import :std/test :std/error :std/iter (only-in :std/list/list take drop-right)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/generator generator.)
-        (prefix-in :clan/poo/testing/property/model model.))
+        (prefix-in :clan/poo/testing/property/model model.)
+        (prefix-in :clan/poo/testing/property/replay replay.))
 
 ;; Register ordinary cases in the existing independent kernel suite.
 (def (trace-draw-test-cases!)
@@ -249,3 +250,184 @@
     (set! live #t)
     (check-eq? (property.report-status (execute #f)) 'passed)
     (check-equal? (list steps closed) '(3 2))))
+
+;; A standard pure reference for counting draw/repair initialization separately.
+(def (index-model (initial (lambda () 0)))
+  (model.make-model initial (lambda (_state _command) #t)
+    (lambda (state _command) (values (1+ state) 0)) identity exact-integer? identity))
+;; State supplies deterministic commands without consuming an extra random source.
+(def (index-draw state _random _size) (values #t state))
+
+;; Lazy trace trees use the same finite sequence neighborhood and repair oracle.
+(def (trace-lazy-test-cases!)
+  (test-case "zero and one proposal budgets skip every unused parameter callback"
+    (for (budget '(0 1))
+      (let ((starts 0) (parameters 0))
+        (def reference (index-model (lambda () (set! starts (1+ starts)) 0)))
+        (def source (model.trace-generator reference index-draw
+          (lambda (_) (set! parameters (1+ parameters)) (error "unused parameter shrink")) 8))
+        (def report (property.check-property source (lambda (_) #f)
+          (property.make-specification list? length) cases: 1 size: 8 shrink-budget: budget))
+        (check-eq? (property.report-status report) 'failed)
+        (check-equal? (property.report-attempts report) budget)
+        (check-equal? (property.report-counterexample report) (if (zero? budget) (iota 8) []))
+        (check (property.report-minimal? report) => #f)
+        (check-equal? (list starts parameters) (list (1+ budget) 0)))))
+  (test-case "lazy root draws and complete neighborhoods agree with the finite value policy"
+    (def reference (index-model))
+    ;; Both factories receive the same untouched PRNG and the same size.
+    (def (draw _state random _size) (values #t (random 100)))
+    (def source (model.trace-generator reference draw generator.integer-shrinks 4))
+    (def root (generator.generate source (generator.random-at 42) 4))
+    (def commands (model.draw-trace reference draw 4 (generator.random-at 42) 4))
+    (check-equal? (generator.sample-value root) commands)
+    (check-equal? (for/collect (child ((generator.sample-children root))) (generator.sample-value child))
+      (model.shrink-trace reference commands generator.integer-shrinks)))
+  (test-case "accepted repaired traces rebuild their own neighborhoods without orphan origins"
+    (def commands '(open use open use))
+    (def reference (model.make-model (lambda () (cons 0 #f))
+      (lambda (state command) (or (eq? command 'open) (cdr state)))
+      (lambda (state command) (values (cons (1+ (car state)) (or (cdr state) (eq? command 'open))) #t))
+      identity symbol? identity))
+    (def source (model.trace-generator reference
+      (lambda (state _random _size) (values #t (list-ref commands (car state)))) (lambda (_) []) 4))
+    (def root (generator.generate source (generator.random-at 1) 4))
+    (def children (for/collect (child ((generator.sample-children root))) child))
+    ;; The fourth raw deletion removes just the first open. Repair also drops
+    ;; its orphan use; descendants must start from the remaining (open use).
+    (def repaired (list-ref children 3))
+    (check-equal? (generator.sample-value repaired) '(open use))
+    (for (child children) (check (model.valid-trace? reference (generator.sample-value child)) => #t))
+    (check-equal? (for/collect (child ((generator.sample-children repaired))) (generator.sample-value child))
+      (model.shrink-trace reference '(open use) (lambda (_) []))))
+  (test-case "malformed demanded parameter lists refuse after precisely charged structural proposals"
+    (for (invalid (invalid-spines))
+      (let ((parameters 0))
+        (def reference (index-model))
+        (def source (model.trace-generator reference index-draw
+          (lambda (_) (set! parameters (1+ parameters)) invalid) 2))
+        (def report (property.check-property source (lambda (trace) (not (equal? trace '(0 1))))
+          (property.make-specification list? length) cases: 1 size: 2 shrink-budget: 8))
+        (check-eq? (property.report-status report) 'error)
+        (check-equal? (list (property.report-attempts report) (property.report-steps report) parameters) '(3 0 1))
+        (check-equal? (property.report-counterexample report) '(0 1)))))
+  (test-case "parameter exceptions retain false causes and never become false witnesses"
+    (for* ((retire? '(#f #t)) (cause (list #f (cons 'parameter 'cause))))
+      (let ((alive #t) (parameters 0))
+        (def source (model.trace-generator (index-model) index-draw
+          (lambda (_) (set! parameters (1+ parameters))
+            (when retire? (set! alive #f)) (raise cause)) 2 current?: (lambda () alive)))
+        (def report (property.check-property source (lambda (trace) (not (equal? trace '(0 1))))
+          (property.make-specification list? length) cases: 1 size: 2 shrink-budget: 8))
+        (check-eq? (property.report-status report) (if retire? 'stale 'error))
+        (check-eq? (property.report-cause report) cause)
+        (check-equal? (list (property.report-attempts report) (property.report-steps report) parameters) '(3 0 1))
+        (check (property.report-minimal? report) => #f)
+        (check-exception (property.replay-counterexample report) Error?))))
+  (test-case "paused trace iterators reject old owners before repair and permit explicit fresh generation"
+    (let ((epoch 0) (starts 0) (parameters 0))
+      (def reference (index-model (lambda () (set! starts (1+ starts)) 0)))
+      ;; Each fresh factory owns one immutable epoch; earlier trees never refresh.
+      (def (prepare)
+        (let (captured epoch)
+          (model.trace-generator reference index-draw
+            (lambda (_) (set! parameters (1+ parameters)) []) 4
+            current?: (lambda () (= epoch captured)))))
+      (def source (prepare))
+      (def root (generator.generate source (generator.random-at 1) 4))
+      (def before #f)
+      ;; A coroutine retains its first pull's dynamic handler. Enclose both
+      ;; pulls in one standard catch, rather than installing one only on resume.
+      (def refusal (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (let (first (cursor.next!))
+            (check-equal? (generator.sample-value first) [])
+            (set! before starts) (set! epoch 1) (cursor.next!)
+            (error "stale cursor unexpectedly resumed"))))))
+      (check (generator.stale-generation? refusal) => #t)
+      (check-equal? starts before)
+      (check-equal? parameters 0)
+      (check-equal? (generator.sample-value (generator.generate (prepare) (generator.random-at 1) 4)) '(0 1 2 3))
+      (check-exception (generator.generate source (generator.random-at 1) 4) generator.stale-generation?)))
+  (test-case "repair retirement stops before a second transition or parameter factory"
+    (let ((alive #t) (repairing? #f) (transitions 0) (parameters 0))
+      (def reference (model.make-model (lambda () 0) (lambda (_state _command) #t)
+        (lambda (state _command)
+          (when repairing? (set! transitions (1+ transitions)) (set! alive #f))
+          (values (1+ state) 0)) identity integer? identity))
+      (def source (model.trace-generator reference index-draw
+        (lambda (_) (set! parameters 1) []) 4 current?: (lambda () alive)))
+      (def report (property.check-property source (lambda (trace)
+        (set! repairing? #t) (not (= (length trace) 4)))
+        (property.make-specification list? length) cases: 1 size: 4 shrink-budget: 8))
+      (check-eq? (property.report-status report) 'stale)
+      (check-equal? (list (property.report-attempts report) transitions parameters) '(1 1 0))
+      (check-equal? (property.report-counterexample report) '(0 1 2 3))))
+  (test-case "trace generator contracts and standard source options precede initialization"
+    (let ((starts 0))
+      (def reference (index-model (lambda () (set! starts (1+ starts)) 0)))
+      (check-exception (model.trace-generator #f index-draw (lambda (_) []) 0) Error?)
+      (check-exception (model.trace-generator reference #f (lambda (_) []) 0) Error?)
+      (check-exception (model.trace-generator reference index-draw #f 0) Error?)
+      (for (invalid '(-1 1/2 2.0 #f))
+        (check-exception (model.trace-generator reference index-draw (lambda (_) []) invalid) Error?))
+      (check-exception (model.trace-generator reference index-draw (lambda (_) []) 0 current?: #f) Error?)
+      (check-exception (model.trace-generator reference index-draw (lambda (_) []) 0 sources: '(bad)) Error?)
+      (check-equal? starts 0)))
+  (test-case "paired value and owned policies retain outcomes while demanded repair work stays bounded"
+    (for* ((size '(1 8 128)) (order '((value tree) (tree value))))
+      (for (policy order)
+        (let ((starts 0) (parameters 0))
+          (def reference (index-model (lambda () (set! starts (1+ starts)) 0)))
+          ;; The counter is observational only; both policies see the same model,
+          ;; draw callback, seed, size, property and total construction boundary.
+          (def (shrink _) (set! parameters (1+ parameters)) [])
+          (def source (if (eq? policy 'tree) (model.trace-generator reference index-draw shrink size)
+            (generator.make-generator (lambda (random limit)
+              (model.draw-trace reference index-draw size random limit))
+              (cut model.shrink-trace reference <> shrink))))
+          (def report (property.check-property source (lambda (_) #f)
+            (property.make-specification list? length) seed: 42 cases: 1 size: size shrink-budget: 1))
+          (check-eq? (property.report-status report) 'failed)
+          (check-equal? (property.report-counterexample report) [])
+          (check-equal? (property.report-attempts report) 1)
+          (check-equal? parameters (if (eq? policy 'tree) 0 size))
+          (check-equal? starts (if (eq? policy 'tree) 2 (1+ (generator.list-deletion-count size 0))))))))
+  (test-case "model driven lazy traces shrink replay and freshly repair a real first difference"
+    (let ((epoch 0) (fault? #t) (opened 0) (closed 0))
+      (def commands '(noise open noise use))
+      (def reference (model.make-model (lambda () (cons 0 #f))
+        (lambda (state command) (or (not (eq? command 'use)) (cdr state)))
+        (lambda (state command) (values (cons (1+ (car state)) (or (cdr state) (eq? command 'open)))
+          (eq? command 'use))) identity symbol? identity))
+      ;; Actual fixtures have their own transition and result implementation.
+      (def (fixture use)
+        (set! opened (1+ opened))
+        (try (use (model.make-system (cons 0 #f)
+          (lambda (state command) (values (cons (1+ (car state))
+            (if (eq? command 'open) #t (cdr state))) (and (not fault?) (eq? command 'use)))) identity))
+          (finally (set! closed (1+ closed)))))
+      ;; Logical format identity serializes only commands, never fixtures or closures.
+      (def (correct? trace) (model.trace-report-matched? (model.check-trace reference trace fixture)))
+      (def domain (property.make-specification (cut model.valid-trace? reference <>) length))
+      ;; Fresh factories capture a new source epoch; seed replay uses the old one.
+      (def (prepare)
+        (let (captured epoch)
+          (model.trace-generator reference (lambda (state _random _size)
+            (values #t (list-ref commands (car state)))) (lambda (_) []) 4
+            current?: (lambda () (= epoch captured)))))
+      (let (report (property.check-property (prepare) correct? domain cases: 1 size: 4 shrink-budget: 64))
+        (check-eq? (property.report-status report) 'failed)
+        (check-equal? (property.report-counterexample report) '(open use))
+        (check (property.report-minimal? report) => #t)
+        (check (property.replay-counterexample report) => #f)
+        (check-equal? (property.report-counterexample (property.replay-property report)) '(open use))
+        (let ((codec (replay.make-codec '(lazy-trace 1) values values)) (output (open-output-string)))
+          (replay.write-counterexample report codec output)
+          (check (replay.read-counterexample codec (open-input-string (get-output-string output)) domain correct?) => #f))
+        (set! epoch 1) (set! fault? #f)
+        (check-exception (property.replay-property report) Error?)
+        (check-eq? (property.report-status
+          (property.check-property (prepare) correct? domain cases: 2 size: 4)) 'passed)
+        (check-exception (property.replay-property report) Error?))
+      (check-equal? opened closed))))

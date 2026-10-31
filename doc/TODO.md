@@ -4,6 +4,36 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P54 closes demand-driven repair in generated trace trees. The default typed path
+now reuses the existing lazy sequence tree instead of preparing every finite
+candidate and unused parameter callback before the first proposal. Confirmed
+repaired traces own their next neighborhood; finite value inspection and explicit
+method overrides retain their separate contracts. Indexed Record/Function/FUN
+requests cover replay, retirement and fresh correction. See
+[P54 in the PBT RFC](pbt-design-rfc.md#p54-demand-driven-dependency-repaired-trace-trees).
+
+P53 closes ordered named-property declaration preparation across the report and
+standard assertion forms. Fixed specifications precede generator construction;
+retirement stops later declarations and nested producers, while dependent draws,
+shrinking and replay keep the existing bind owner. Standard TestResult controls
+and Record/Function/FUN examples cover failure and explicit fresh repair. Direct
+caller arguments and arbitrary effects remain boundaries. See
+[P53 in the PBT RFC](pbt-design-rfc.md#p53-ordered-named-property-declaration-preparation).
+
+P52 closes Reader configuration and initial automatic-generator request admission.
+Known owners precede getters and generator construction; dependency identity
+spines cannot erase authority, and size is read once through standard reflection.
+Record/Function/FUN services cover controlled refusal, shrinking/replay and fresh
+retry. Application-owned argument evaluation and arbitrary effects remain explicit
+boundaries. See [P52 in the PBT RFC](pbt-design-rfc.md#p52-reader-configuration-and-initial-request-admission).
+
+P51 closes typed bridge/domain preparation after first-observation snapshots.
+Retired getters/factories cannot bind later metadata or enter a raw fallback;
+checks and diagnostics share one captured authority. Deferred Record/Function/FUN
+recipes cover probing, replay and explicit fresh repair. Arbitrary direct host
+effects and termination remain boundaries. See
+[P51 in the PBT RFC](pbt-design-rfc.md#p51-closed-bridge-and-specification-preparation).
+
 P50 closes shared sampler declaration snapshots across bridges, checks,
 diagnostics, products and explicit Maps. Actual/bound Types precede sources,
 known dependencies precede getters and aliases cannot refresh earlier stamps.

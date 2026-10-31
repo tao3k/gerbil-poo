@@ -103,3 +103,47 @@ after correction. `service-value-generator` and `service-batch-action` in
 `examples/collection-properties.ss` show shared Record/Function producers, FUN,
 shrinking, portable replay and fresh retry. No hidden dependency inference or deep
 payload snapshot is promised.
+
+Bridge and specification binding use the same captured stamp set. Metadata getters,
+owned recipes and fallback binding are checked before the next stage; a factory
+returning #f may use the raw path only while its sources remain current. A generic
+tree yielding false is a present tree, not a missing recipe. Nested core probes
+inherit the preparation scope, which is released before ordinary execution.
+`service-factory-action` in `examples/collection-properties.ss` shows a deferred
+Record/Function recipe, bounded probe, FUN, shrinking, three replay forms and
+fresh corrected preparation. Direct arbitrary host effects are not transactional.
+
+Reader recipes freeze dependency identities at construction, capture current
+configuration/Type/sampler sources before library-owned getters, and thread those
+identities into automatic-generator preparation. Each explicit fresh invocation
+may capture new epochs; replacing the caller's dependency spine cannot erase old
+owners. Configuration size is read once through standard dynamic slot access.
+Configuration exceptions precede report/consumer creation; incomplete automatic
+generation retains existing non-replayable typed reports. Consumer IO and direct
+caller argument evaluation stay outside preparation. See P52 in the design RFC.
+
+Named properties now share ordered fixed specification preparation. Use the
+existing `testing/property` report-form `define-property` or
+`testing/property/test` multiargument assertion form: each fixed specification is
+prepared once before generator construction. Later generator expressions can
+still depend on earlier generated arguments through the original bind tree.
+`call-with-specifications` also exposes the same construction scope to explicit
+compositions, using constructor thunks and one callback over the admitted domains.
+A failed construction has no run report; standard assertions retain Gerbil's
+TestResult behavior. Ordinary invocation options are caller-evaluated arguments.
+The named service case in `examples/collection-properties.ss` shows typed Record/
+Function generators, FUN delivery, three replay forms and fresh correction without
+retaining a transient construction checker. See P53 of the RFC for the boundary.
+
+Generated model traces now use owned lazy neighborhoods. The generic
+`testing/property/model` `trace-generator` takes a model, two-value draw callback,
+finite parameter shrink callback and step bound; ordinary generator source options
+are forwarded unchanged. The typed `testing/type` factory supplies the same tree
+through its existing generation field. A proposal budget controls demand instead
+of merely stopping after a complete batch has already been built. Explicit
+`shrink-trace` calls retain the finite-list inspection contract. Each reached
+parameter callback must still return a finite proper list. Exact exceptions and
+previously charged work are retained on interruption; budget cutoff is not EOF.
+`collection-request-action` in `examples/collection-properties.ss` composes this
+with an indexed backend, a Record/Function product, FUN, replay and fresh repair.
+See P54 in the RFC for the finite proof and work-count boundaries.

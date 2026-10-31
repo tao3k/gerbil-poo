@@ -1,6 +1,6 @@
 ;;; Independent property execution and replay; only generic generators and stdlib.
 (export make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
-        report? report-status report-generator report-property report-specification
+        call-with-specifications report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
         make-policy policy? make-product-specification specification-current? specification-weight report-current? report-diagnostics
@@ -99,6 +99,25 @@
   (def (current) (specification-current? specification))
   (def (stop _status _minimal?) (error "stale property specification"))
   (with-current current stop (weight specification value)))
+;; Declare fixed domains in order before constructing a named property's generator.
+;; The existing action scope protects all previously admitted domains, including
+;; nested producer pulls. Only preparation is scoped; no checker enters a tree.
+(def (call-with-specifications (builders :~ list?) (build : :procedure))
+  (unless (every procedure? builders) (error "specification constructors required"))
+  (def pending (list-copy builders))
+  (def observed [])
+  ;; Observers are pure; the growing list contains domains, never its own checker.
+  (def (current) (every specification-current? observed))
+  ;; Construction has not started a run and therefore cannot fabricate a report.
+  (def (stop _status _minimal?) (error "stale property preparation"))
+  (with-current current stop
+    (let (domains (map-in-order (lambda (construct)
+        (with-current current stop
+          (def domain (construct))
+          (unless (specification? domain) (error "property specification required"))
+          (set! observed (cons domain observed)) domain)) pending))
+      (build domains))))
+
 ;; Products share the existing domain/measure/currentness gates; domains are fixed
 ;; for one check while dependent generator branches retain their own provenance.
 (def (make-product-specification specifications current?: (owner (lambda () #t)))
@@ -377,7 +396,10 @@
 ;; Generator/specification expressions run once per check; replay owns that run.
 (defrule (define-property (name value) generator specification body ...)
   (def (name . options)
-    (apply check-property generator (lambda (value) body ...) specification name: 'name options)))
+    (let-values (((domain generation)
+                   (call-with-specifications (list (lambda () specification))
+                     (lambda (domains) (values (car domains) generator)))))
+      (apply check-property generation (lambda (value) body ...) domain name: 'name options))))
 ;; Seed replay observes the original run's entire visited provenance throughout
 ;; rerun, while its new report owns only that rerun's observations.
 (def (replay-property report)

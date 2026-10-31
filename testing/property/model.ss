@@ -1,8 +1,9 @@
 ;;; Generic finite model traces. Domains supply admission and normalization.
-(export make-model model? make-system system? valid-trace? repair-trace shrink-trace draw-trace check-trace
+(export make-model model? make-system system? valid-trace? repair-trace shrink-trace trace-generator draw-trace check-trace
         trace-report? trace-report-matched? trace-report-phase trace-report-index
         trace-report-has-command? trace-report-command trace-report-expected trace-report-actual)
-(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources))
+(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources)
+        (prefix-in (only-in ./generator make-generator make-sample sample-sequence sample-children sample-value) core.))
 ;; Private model records hold ordinary callbacks, not POO descriptors. Trace
 ;; laws require pure model transitions. The shared source boundary also refuses
 ;; declared revisions between actions without retaining wrappers or run checks.
@@ -84,6 +85,33 @@
           (let-values (((next _reply) (with-sources [] ((reference-advance model) (car progress) command))))
             (cons next (cons command (cdr progress))))))))
     (reverse (cdr progress))))
+;; One command exposes a lazy coordinate sequence after admitting and owning its
+;; finite result spine. The outer generator rebuilds descendants from each repaired
+;; trace, so parameter samples have no independent recursive children here.
+(def (trace-command command shrink)
+  (core.make-sample command (lambda ()
+    (using (candidates (with-sources [] (shrink command)) :~ list?)
+      (def owned (list-copy candidates))
+      (in-coroutine (lambda (yield)
+        (for (candidate owned)
+          (yield (core.make-sample candidate (lambda () []))))))))))
+;; Share sequence structural/coordinate order, without repairing an unused root
+;; or constructing every repaired candidate before the first budgeted pull.
+(def (trace-neighborhood model commands shrink)
+  (def root (core.sample-sequence (map (cut trace-command <> shrink) commands)))
+  (in-coroutine (lambda (yield)
+    (for (candidate ((core.sample-children root)))
+      (yield (repair-trace model (core.sample-value candidate)))))))
+
+;; The ordinary generator owns lazy iteration, provenance and restart from each
+;; confirmed repaired value. The runner's existing proposal budget stops demand;
+;; draw limits and callback contracts precede initialization. Standard generator
+;; options pass unchanged to their existing owner, including current?/sources.
+(def (trace-generator model draw shrink steps . options)
+  (using ((model :~ model?) (draw : :procedure) (shrink : :procedure) (steps :~ trace-limit?))
+    (apply core.make-generator (lambda (random size) (draw-trace model draw steps random size))
+      (lambda (commands) (trace-neighborhood model commands shrink)) options)))
+
 ;; Scope and first-difference execution are generic. The same? callback receives
 ;; phase/expected/actual, permitting typed domains to normalize at that boundary.
 (def (check-trace model commands (with-system : :procedure)

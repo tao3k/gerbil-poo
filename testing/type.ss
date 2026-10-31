@@ -64,10 +64,11 @@
 ;; One preparation boundary owns the constructor's declaration binding. Retarget
 ;; through a fresh constructor, never by inheriting a different Type's parser/tree.
 ;; Mandatory identities cannot be removed by replacing application dependencies.
-(def (generator-sources sampler (retain! void))
+(def (generator-sources sampler (retain! void) (expected #f))
   (retain! sampler)
   (def descriptor (core.with-sources [] (.get sampler descriptor)))
   (retain! descriptor)
+  (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
   (def bound (core.with-sources [] (.get sampler bound-descriptor)))
   (retain! bound)
   (unless (eq? descriptor bound)
@@ -77,10 +78,17 @@
   (def captured (list-copy dependencies))
   (for-each retain! captured)
   (cons sampler (cons descriptor captured)))
+;; Bind a stamp variable, not an effectful expression. Snapshot discovery may
+;; extend it; preparation uses the closed list. The checker reads epochs only,
+;; unwinds through the standard dynamic scope and is never retained on values.
+(defrule (with-source-stamps stamps body ...)
+  (core.with-generation-check (lambda ()
+    (unless (current? stamps) (refuse-generation 'stale)))
+    (core.with-sources [] body ...)))
 ;; Capture known owners before getters, then retain each declaration at first
 ;; observation. The same pure checker protects direct bridges, products, Maps,
 ;; diagnostics and runs; it is never stored in a sample or shared registry.
-(def (snapshot sampler dependencies)
+(def (snapshot sampler dependencies (expected #f))
   (unless (list? dependencies) (error "finite snapshot sources required"))
   (def declared (list-copy dependencies))
   (def ledger (make-hash-table-eq)) (def stamps [])
@@ -90,13 +98,10 @@
     (def added (retain-source-stamps! ledger (list (cons source (object-revision source)))))
     ;; One candidate stamp per registration; cons avoids quadratic append work.
     (when (pair? added) (set! stamps (cons (car added) stamps))))
-  (for-each retain! (append (if sampler (list sampler) []) declared))
-  ;; Never refresh an early owner while a later declaration is being computed.
-  (def (check!) (unless (current? stamps) (refuse-generation 'stale)))
-  (core.with-generation-check check!
-    (core.with-sources []
-      (when sampler (generator-sources sampler retain!))
-      (reverse stamps))))
+  (for-each retain! (append (if sampler (list sampler) []) (if expected (list expected) []) declared))
+  (with-source-stamps stamps
+    (when sampler (generator-sources sampler retain! expected))
+    (reverse stamps)))
 ;; Refuse result admission after any declared source changed, including callbacks.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
@@ -107,17 +112,22 @@
   (def hook (and (.has? sampler .current?) (.@ sampler .current?)))
   (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
     (or (not hook) (hook)))))
-;; Capture one typed boundary without dismantling the generator's lazy tree.
-;; Raw callback samplers are lifted once here; sample-tree compositions stay intact.
+;; Bind from one admitted snapshot. Metadata getters and the optional owned
+;; factory are separate actions: an obsolete getter cannot invoke its result,
+;; and an obsolete false factory result cannot enter the raw fallback.
+(def (sampler-generation sampler sources)
+  (with-source-stamps sources
+    (def owned (core.with-sources [] (.get sampler generation)))
+    (def candidate (and owned (core.with-sources [] (owned sampler))))
+    (def generation (or candidate
+      (let (draw (core.with-sources [] (.@ sampler draw)))
+        (core.make-generator draw (cut sampler-children sampler <>)))))
+    (def guard (core.with-sources [] (source-guard sources sampler)))
+    (core.generator-map generation identity current?: guard)))
+;; Public bridges acquire their own first-observation snapshot. Composite
+;; preparations call the same binder with their already captured authority.
 (def (generator-core sampler)
-  ;; Preparation is one inherited action: custom factories cannot end their
-  ;; parent's authority and then let a caller bind the next field.
-  (core.with-sources []
-    (def sources (snapshot sampler []))
-    (def owned (.get sampler generation))
-    (core.generator-map (or (and owned (owned sampler))
-      (core.make-generator (.@ sampler draw) (cut sampler-children sampler <>))) identity
-      current?: (source-guard sources sampler))))
+  (sampler-generation sampler (snapshot sampler [])))
 ;; Measures are natural numbers; malformed callbacks cannot admit shrink steps.
 (def (weight sampler value)
   ;; The shared primitive also protects Map folds and trace command costs. A
@@ -204,7 +214,7 @@
       (unless (memq Map. (compute-precedence-list! descriptor)) (error "Map descriptor required"))
       ;; Preserve ordinary Record errors for missing declarations; valid raw
       ;; declarations acquire first-version authority before Record validation.
-      (unless (every (cut .has? value-sampler <>) '(descriptor bound-descriptor sources))
+      (unless (every (cut .slot? value-sampler <>) '(descriptor bound-descriptor sources))
         (validate GeneratorRecord value-sampler))
       (capture! (snapshot value-sampler []))
       (set! value-sampler (validate GeneratorRecord value-sampler))
@@ -346,17 +356,26 @@
 ;; Compile the typed domain boundary once. The independent kernel receives only
 ;; admission/cost/current callbacks, never a Type, Record or object-revision API.
 (def (property-specification sampler sources)
-  (testing.make-specification (cut accepts-value? sampler <>) (.@ sampler measure)
-    current?: (source-guard sources sampler)))
+  (with-source-stamps sources
+    (def measure (core.with-sources [] (.@ sampler measure)))
+    (def guard (core.with-sources [] (source-guard sources sampler)))
+    (testing.make-specification (cut accepts-value? sampler <>) measure current?: guard)))
+;; One ordered binding path serves runs and diagnostics, without rereading
+;; declaration snapshots or retaining a transient checker during execution.
+(def (prepare-sampler sampler sources)
+  (let* ((generation (sampler-generation sampler sources))
+         (specification (property-specification sampler sources)))
+    (values generation specification)))
 ;; Typed diagnostics reuse the existing sampler bridge and captured Type sources.
 ;; Preparation errors remain ordinary Type errors; execution refusals retain the
 ;; generic inspection status/cause. No property, assertion or coverage is run.
 (def (inspect-generator sampler seed: (seed 0) count: (count 10) size: (size 20)
                        depth: (depth 0) proposal-budget: (budget 0) labels: (labels (lambda (_) [])))
   (def sources (snapshot sampler []))
-  (testing.inspect-generator (generator-core sampler) (property-specification sampler sources)
-    seed: seed count: count size: size depth: depth proposal-budget: budget
-    labels: labels classify-error: generation-status))
+  (let-values (((generation specification) (prepare-sampler sampler sources)))
+    (testing.inspect-generator generation specification
+      seed: seed count: count size: size depth: depth proposal-budget: budget
+      labels: labels classify-error: generation-status)))
 
 ;; Interpret only POO's own generation refusal categories. All other exceptions
 ;; keep their original cause and the kernel owns ordinary failure/error reporting.
@@ -371,7 +390,13 @@
     (lambda () (error "shrinker must return a finite proper list"))))
 ;; This layer owns Type compilation and the POO report projection. Trial execution,
 ;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
-(def (check-property descriptor property seed: (seed 0) cases: (cases 100)
+(def (check-property descriptor property . options)
+  (apply run-property descriptor property [] #f options))
+
+;; One report owner serves direct checks and Reader preparation. Initial stamps
+;; retain Reader authority; a present Option carries even a false metadata cause,
+;; without replaying the failing getter or constructing a surrogate sampler.
+(def (run-property descriptor property initial failure seed: (seed 0) cases: (cases 100)
                      size: (size 20) shrink-budget: (shrink-budget 100) sampler: (supplied #f)
                      size-limit: (size-limit (and (not (procedure? size)) size))
                      policy: (policy (testing.make-policy)) name: (name #f)
@@ -381,7 +406,10 @@
     (list seed shrink-budget)) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
     (exact-integer? cases) (> cases 0)
     (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
-  (def sampler #f) (def sources [])
+  (unless (object? descriptor) (validate Type descriptor))
+  ;; Freeze declared identities before any automatic generator callback.
+  (def declared (list-copy dependencies))
+  (def sampler supplied) (def sources initial)
   ;; Initialization can fail before a complete snapshot exists; those reports
   ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
   (def (report status original counterexample attempts steps minimal? cause execution)
@@ -393,7 +421,7 @@
       labels: (if execution (testing.report-labels execution) [])
       trial: (if execution (testing.report-trial execution) 0)
       trial-size: (and execution (testing.report-trial-size execution)) original: original counterexample: counterexample
-      attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: dependencies
+      attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: declared
       replayable?: (and execution #t) execution: execution
       depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
       limits: (and sampler (.has? sampler limits) (.get sampler limits))))
@@ -401,19 +429,22 @@
     (lambda (cause) (report (if (not (current? sources sampler)) 'stale (generation-status cause))
       #f #f 0 0 #f cause #f))
     (lambda ()
-      (set! sampler (or supplied (generator descriptor depth node-budget: nodes
-        descriptor-budget: descriptors search-budget: search)))
-      (unless (eq? (.get sampler descriptor) descriptor) (error "sampler descriptor mismatch"))
-      (set! sources (snapshot sampler dependencies))
-      (def execution (testing.check-property
-        (generator-core sampler) property
-        (property-specification sampler sources) seed: seed cases: cases size: size
-        size-limit: size-limit
-        shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
-      (report (testing.report-status execution) (testing.report-original execution)
-        (testing.report-counterexample execution) (testing.report-attempts execution)
-        (testing.report-steps execution) (testing.report-minimal? execution)
-        (testing.report-cause execution) execution))))
+      (when (some? failure) (raise (some-value failure)))
+      (set! sources (append initial
+        (snapshot #f (append (if supplied (list supplied) []) declared) descriptor)))
+      (let-values (((generation specification)
+                    (with-source-stamps sources
+                      (set! sampler (or supplied (generator descriptor depth node-budget: nodes
+                        descriptor-budget: descriptors search-budget: search)))
+                      (set! sources (snapshot sampler declared descriptor))
+                      (prepare-sampler sampler sources))))
+        (let (execution (testing.check-property generation property specification
+               seed: seed cases: cases size: size size-limit: size-limit
+               shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
+          (report (testing.report-status execution) (testing.report-original execution)
+            (testing.report-counterexample execution) (testing.report-attempts execution)
+            (testing.report-steps execution) (testing.report-minimal? execution)
+            (testing.report-cause execution) execution))))))
 
 ;; Project generic replay back to the same POO metadata, retaining the exact
 ;; originally captured sources rather than taking a permissive fresh snapshot.
@@ -451,23 +482,47 @@
   (def sources (snapshot sampler []))
   (replay.read-counterexample codec port (property-specification sampler sources) property policy: policy))
 
-;; Reader/FUN composition makes the test run one observation followed by the
-;; supplied consumer, which may be an existing IO action or an evidence gate.
-;; The configuration is itself a revision source, including callback-driven edits.
+;; Read configuration through the standard dynamic slot interface. Each getter
+;; is an action boundary; size is evaluated once and defaults remain lazy.
+;; The caller owns the source scope, so no configuration wrapper is retained.
+(def (configuration-options configuration)
+  ;; Dynamic names use .ref/.slot?, not the literal-name .get/.has? syntax.
+  (def (field name) (core.with-sources [] (.ref configuration name)))
+  ;; Optional fields preserve the existing bare-object Reader configuration.
+  (def (option name fallback)
+    (if (core.with-sources [] (.slot? configuration name)) (field name) fallback))
+  (let* ((policy (if (core.with-sources [] (.slot? configuration 'policy))
+                   (field 'policy) (testing.make-policy)))
+         (seed (field 'seed)) (cases (field 'cases)) (size (field 'size))
+         (shrinks (field 'shrink-budget)) (limit (option 'size-limit #f))
+         (depth (option 'depth 32)) (nodes (option 'node-budget 256))
+         (descriptors (option 'descriptor-budget 256)) (search (option 'search-budget 8192)))
+    (list policy: policy seed: seed cases: cases size: size shrink-budget: shrinks
+      size-limit: (or limit (and (not (procedure? size)) size))
+      depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search)))
+
+;; Reader/FUN captures known participants before configuration getters. The
+;; recipe freezes identities, not epochs: explicit fresh invocations may retry.
+;; Preparation scopes end before trial execution and application-owned consumer IO.
 (def (property-action descriptor property consume sampler: (sampler #f) dependencies: (dependencies []))
+  (unless (and (list? dependencies) (every object? dependencies))
+    (error "finite property dependency objects required"))
+  (def declared (list-copy dependencies))
   (.call fun.Observation. .bind
-    (lambda (configuration) (check-property descriptor property
-      sampler: sampler dependencies: (cons configuration dependencies)
-      policy: (if (.has? configuration policy) (.get configuration policy)
-        (testing.make-policy))
-      seed: (.get configuration seed) cases: (.get configuration cases)
-      size: (.get configuration size) shrink-budget: (.get configuration shrink-budget)
-      size-limit: (or (and (.has? configuration size-limit) (.get configuration size-limit))
-        (and (not (procedure? (.get configuration size))) (.get configuration size)))
-      depth: (if (.has? configuration depth) (.get configuration depth) 32)
-      node-budget: (if (.has? configuration node-budget) (.get configuration node-budget) 256)
-      descriptor-budget: (if (.has? configuration descriptor-budget) (.get configuration descriptor-budget) 256)
-      search-budget: (if (.has? configuration search-budget) (.get configuration search-budget) 8192)))
+    (lambda (configuration)
+      (def owners (cons configuration declared))
+      (def sources (snapshot #f (append (if sampler (list sampler) []) owners) descriptor))
+      (def failure #f)
+      ;; Stable declaration errors become the usual non-replayable report once
+      ;; configuration is available. Retirement still stops later getters.
+      (with-catch (lambda (cause)
+                    (unless (current? sources) (raise cause))
+                    (set! failure (some cause)))
+        (lambda () (set! sources
+          (with-source-stamps sources (snapshot sampler owners descriptor)))))
+      (def options (with-source-stamps sources (configuration-options configuration)))
+      (apply run-property descriptor property sources failure
+        (append (list sampler: sampler dependencies: (map car sources)) options)))
     (lambda (report) (lambda (_configuration) (consume report)))))
 
 
@@ -556,20 +611,24 @@
       ;; ordinary check-property/property-action without a parallel dispatch path.
       (def descriptor (.cc (List command-type)
         .generator: (lambda () (or result (error "trace generator not initialized")))))
+      ;; One draw adapter serves the public value callback and owned lazy tree.
+      (def (draw-command state random size)
+        (match (.call model draw state random size)
+          (#f (values #f #f)) ((some command) (values #t command))
+          (else (error "trace draw requires Option"))))
+      ;; Generic sequence trees defer repair and parameter work until demanded.
+      (def generation (model.trace-generator prepared draw-command
+        (lambda (command) (.call model shrink command)) steps))
       (def sampler (make-generator descriptor
-        (lambda (random size)
-          (model.draw-trace prepared
-            (lambda (state random size)
-              (match (.call model draw state random size)
-                (#f (values #f #f)) ((some command) (values #t command))
-                (else (error "trace draw requires Option")))) steps random size))
+        (lambda (random size) (model.draw-trace prepared draw-command steps random size))
         (lambda (commands)
           (model.shrink-trace prepared
             commands (.@ model shrink)))
         (lambda (commands)
           (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
         dependencies: (append (list source TraceGenerator command-type (.get model State)
-          (.get model Result) (.get model Observation)) dependencies)))
+          (.get model Result) (.get model Observation)) dependencies)
+        generation: generation))
       ;; The bounded trace predicate is compiled against this model/declaration.
       ;; Capture now, outside the lazy slot expression, just as Map/products do;
       ;; later model or List metadata cannot silently retarget that predicate.

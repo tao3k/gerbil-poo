@@ -1,6 +1,6 @@
 # RFC: model-driven collection property tests
 
-- Status: finite V1 and P0–P50 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and P0–P54 implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -3327,3 +3327,277 @@ bounds. Draw/shrink retain their existing tree protocol; no transient checker is
 retained and no latency improvement is claimed. The independent generic library
 remains POO-free at 148 cases. No upstream, namespace, scheduler, resource-limit
 or complete-acceptance changes are required.
+
+## P51: closed bridge and specification preparation
+
+The audit reproduced a post-snapshot admission gap: a generation getter retired
+the captured Type, yet generator-core invoked its returned factory and published
+a stale bridge. Attaching a guard only to later value pulls did not protect the
+preparation callbacks already executed. This closes a concrete typed preparation
+path rather than expanding the inference domain.
+
+A private `with-source-stamps` form now reuses the existing dynamic generation
+check and source boundary for both discovery and preparation. It reads only the
+stamp variable and never invokes metadata or source hooks from its checker.
+`sampler-generation` checks generation metadata, owned-factory return, raw draw
+binding and source-hook binding in order. Stable factory #f remains the legitimate
+raw opt-out; a retired #f return cannot enter fallback. Present trees containing
+false data remain distinct from opt-out. Exceptions, including false causes,
+escape unchanged. Scope exit restores the caller and does not roll back effects.
+
+`prepare-sampler` binds generation then domain from the same captured stamps for
+checks and diagnostics; it does not take a permissive second snapshot. Domain
+measure binding is checked before later hook metadata. A check's known requested
+Type is registered before its sampler descriptor getter; identity mismatch still
+refuses before later declarations. Invalid false requests remain Type errors,
+not absent-authority sentinels. Product preparation uses the same binder discipline.
+There is no new public interface, namespace, parser, cache or wrapper chain.
+
+The construction scope also protects nested pulls using the existing core protocol.
+An obsolete factory cannot enter a nested generic producer. Arbitrary direct host
+side effects or callback termination are not controlled or rolled back. Completed
+generators retain their ordinary explicit source guard, not the transient checker;
+normal draws, shrinking and replay keep their existing generic owner.
+
+`service-factory-action` in the existing collection example reuses the Record/
+Function producer and accepts an owned tree recipe. The complex regression retires
+a declared owner before a bounded probe and verifies no producer/Function binding
+runs. A fresh recipe finds and shrinks the deliberately faulty service, retains
+wrappers, replays seed/concrete/corpus witnesses, refuses later retirement without
+extra factory/producer effects and explicitly prepares a corrected passing service.
+Controls also cover getter/factory ordering, raw opt-out, false data, nested pulls,
+exact causes, expected-Type admission and scope release. Existing tests remain.
+
+`PropertyPreparation.lean` imports the established scope/generation laws under the
+same Functional.PropertyTesting namespace. Eight finite laws cover stale preflight,
+retiring factories, exact causes, owned result selection, legitimate fallback,
+fallback retirement/error and suppression of later metadata. Top-level examples
+distinguish absent trees, false values, false causes and fresh authority. The new
+files avoid further growing PropertyScopes and are part of the normal library and
+complete example checks. Accurate clocks, faithful host binding/metadata, standard
+dynamic scope and terminating callbacks remain explicit premises. These are
+source/model laws advancing the paper's future work, not compiler, concurrency,
+arbitrary effect or physical performance proofs.
+
+Checks/diagnostics share one declaration snapshot. Pure epoch checks run at
+preparation stage boundaries over its finite owner set; no transient frame is
+stored or added to hot execution. Operation counts do not imply a wall-clock
+speedup. The independent generic package remains at 148 cases and imports no POO.
+No upstream, scheduler, resource-limit or full-acceptance changes are introduced.
+
+## P52: Reader configuration and initial request admission
+
+The audit reproduced a library-owned admission gap: a Reader policy getter
+retired its known Type, but the later seed getter and draw still ran and the
+report passed. Direct caller argument evaluation remains outside admission;
+this fix addresses configuration getters invoked by property-action itself.
+Automatic generator construction had the analogous window before the initial
+request dependency snapshot. These are preparation-order bugs, not expansions
+of inference or of the callback effect model.
+
+property-action now copies declared dependency identities when constructing the
+Reader recipe, then captures their current epochs with the configuration, Type
+and supplied sampler at each invocation, before any configuration getter. One
+private configuration-options reader uses the existing dynamic .slot?/.ref
+protocol and checked source boundary. It reads size once, preserves optional
+bare-object defaults, size zero, explicit scheduled-size limits and invalid false
+policies, and returns ordinary keyword arguments through standard apply. There
+is no replacement configuration class, new public protocol, namespace or runner.
+The existing Map sampler's dynamic presence test also uses .slot? rather than
+literal-name .has? syntax; shape contracts still belong to the existing Record.
+
+check-property freezes its dependency spine and captures known request owners
+before selecting an automatic generator. That authority protects generator
+construction, metadata discovery and bridge binding; a later snapshot cannot
+refresh a retired owner or erase one by replacing the caller's list spine. The
+existing generic core boundary also suppresses nested producer pulls after
+retirement. Final captured authority still belongs to the existing sampler/report.
+No transient preparation checker is retained during trials or consumer IO.
+
+A configuration exception escapes unchanged, including a false cause, before a
+report/consumer exists. Once check-property starts, its existing preparation
+report semantics remain: stale/error/exhausted are distinct and incomplete runs
+are non-replayable. No effects are rolled back. Explicit fresh invocation captures
+new epochs; it is not an automatic retry and cannot authorize an old report.
+
+The downstream collection-properties example composes existing service recipes,
+Record/Function contracts and FUN: an obsolete configuration stops all producers
+and delivery, a corrected invocation finds and shrinks a wrapped faulty service,
+seed/concrete replay reproduce it, later configuration revision refuses the old
+report, and an explicitly corrected recipe passes. Regression controls cover
+known Type/sampler/dependency retirement, exact causes, single configuration reads,
+optional defaults, dependency-spine mutation, nested automatic-generation probes,
+non-replayable refusal and scope release before consumer effects.
+
+PropertyPreparation.lean composes the existing guardedGeneration and prepareBridge
+models as prepareConfiguredBridge. Seven laws prove stale preflight, configuration
+retirement, exact causes, option/state forwarding, factory retirement, stable
+publication and suppression of a later consumer. Top-level examples include false
+options/causes, exact state threading, stale opt-out and explicit fresh authority.
+Accurate declared identity/epoch tracking, pure observers, terminating callbacks
+and faithful sequential host/dynamic-scope binding remain premises. The paper's
+prototype-composition model and RFC-pinned Rackcheck gen:map/gen:bind motivate
+composition through existing values and shrink trees; they do not specify POO
+mutable-epoch checks. This is future-work source/model verification, not a proof
+of compiler/runtime correctness, arbitrary effects or concurrent atomicity.
+
+The generic generator algebra, budgets, resource limits and complete acceptance
+suite are unchanged. Additional transient owner checks occur only during preparation; fewer
+configuration reads are not a measured wall-clock performance claim.
+
+Reader source discovery preserves stable declaration failures through the same
+private report runner as direct checks. The existing Option carrier retains an
+original false cause without rerunning the failing getter, wrapping a substitute
+sampler or skipping the consumer's ordinary error report. If the getter also
+retired known authority, its original exception escapes before configuration;
+no later configuration getter runs. This distinguishes original exceptions from
+normal stale returns without refreshing epochs. The established Schema migration
+regression and exact-cause/one-delivery controls cover this report boundary.
+
+## P53: ordered named-property declaration preparation
+
+The audit found a concrete gap in the public named-property forms: a generator
+expression retired its already known specification and then ran a nested producer.
+The final report was stale, but the obsolete producer had already executed. The
+same window covered later fixed specification expressions in multiargument
+properties. These expressions are invoked inside a library-generated declaration,
+not ordinary caller arguments evaluated before an explicit check-property call.
+
+One shared call-with-specifications combinator now owns ordered fixed declaration
+preparation in the existing generic property module. It admits a proper list of
+constructor procedures, copies its spine, evaluates each constructor once with
+standard map-in-order, and registers the returned specification immediately.
+Already captured specifications authorize each later constructor and the final
+construction callback. Newly returned stale or malformed domains refuse before
+any next callback. The existing with-current / with-sources / dynamic generation
+checks also interrupt nested producer pulls. The combinator returns its callback's
+exact values, including multiple values and false; there is no new carrier class,
+registry, PRNG, namespace, framework or per-value validation wrapper.
+
+Both define-property forms use this owner. The one-argument report form explicitly
+prepares its fixed specification before the generator expression. The standard
+assertion form prepares all fixed specifications in declaration order, constructs
+the product specification and existing bind-generators tree once, then leaves the
+preparation scope before checking. Dependent child generator expressions remain
+inside the original bind tree, evaluated only when their preceding values exist;
+no eager second runner or different split/shrink schedule is introduced. Property
+names, named diagnostics, ordinary options, effective coverage and replay retain
+their existing owners. Empty declarations use the same checked preparation path.
+
+Construction exceptions, including false causes, escape unchanged. A normal return
+that retires a captured domain raises stale property preparation before a run has
+started; the library does not fabricate replayable evidence for an unconstructed
+generator. The std/test form records that failure through Gerbil's ordinary
+TestResult/nonlocal-exit mechanism. Negative assertion controls use a fresh standard
+TestCase and inspect its exact result/cause; they do not contaminate outer results,
+ignore unexpected errors, spawn another CLI or replace the complete acceptance.
+Fresh explicit invocation prepares new domains, while old reports retain their
+original observers and still refuse retirement.
+
+Ten generic controls cover malformed/stale declarations, later-specification and
+generator invalidation with nested probes, original false/object causes, ordered
+single evaluation, multiple values, input-spine ownership, single/multiargument
+macros, dependent trial counts, zero arguments, scope release, shrinking and three
+replay forms. The independent stdlib-only library includes these same cases.
+The collection-properties example composes a named declaration with existing typed
+service generators, Record/Function wrapping and FUN Reader mapping. It rejects
+an obsolete factory before production/delivery, freshly shrinks a faulty service,
+replays seed/concrete/portable witnesses without rerunning its declaration factory,
+rejects old evidence and explicitly prepares a corrected passing service.
+
+The RFC-pinned Rackcheck gen:bind retains dependent child construction and its
+child random checkpoint in the shrink tree. That remains our existing bind owner;
+this unit fixes declaration preparation rather than replacing that algebra.
+The author's modular prototype construction likewise motivates composition through
+existing operations, not an additional testing runtime. Mutable-domain admission
+is our stated future-work protocol, not a claim about a Racket epoch mechanism.
+
+PropertyPreparation.lean reuses guardedProduct and scopeCurrent instead of adding
+another evaluator. Six laws establish first-observed source refusal, retention of
+old authority as declarations grow, exact ordered state/value forwarding, original
+construction causes, refusal after construction retirement and publication of the
+actual ledger without transient directories. Top-level examples include evolving
+owner sets, stale new declarations, false causes and zero-argument ancestor checks.
+Premises remain finite sequential terminating callbacks, accurate declared source
+observers and faithful host scope/ledger binding. Sources not yet returned by a
+constructor cannot be discovered inside it. Direct caller argument evaluation,
+arbitrary host effects, rollback and compiler/runtime verification remain outside
+these laws. No resource limit or complete check is removed or broadened.
+
+## P54: demand-driven dependency-repaired trace trees
+
+The audit reproduced unused framework work on the normal typed trace path: an
+eight-command trace with shrink-budget one called all eight parameter shrinkers
+and repaired the entire finite structural batch before returning its first
+proposal. The accepted witness was already the empty trace. An exception in an
+unused parameter callback could therefore prevent that budgeted witness entirely.
+The value-only finite-list API itself is an explicit contract, not this gap; the
+normal generated trace was incorrectly routed exclusively through that eager path.
+
+The existing generic model module now exports trace-generator, a thin composition
+of draw-trace and the ordinary generator constructor. The established core owns
+iteration, source leaves, proposal charging and restart from confirmed values.
+Its standard current?/sources options pass unchanged through a plain Scheme rest
+forwarder with Gerbil using contracts; no second option parser or domain namespace
+is introduced. No constructor invokes model initialization or generation callbacks.
+
+One private trace-neighborhood uses sample-sequence's existing aligned deletions
+and coordinate policy. A command exposes a finite, validated and owned parameter
+spine, but allocates sample nodes only as its standard iterator is pulled. Each
+requested sequence proposal is dependency-repaired once before yielding. Unused
+neighborhoods invoke neither parameter callbacks nor repair; initial construction
+still prepares a linear number of command nodes. After confirmation, the ordinary
+value-generator tree rebuilds the next neighborhood from the REPAIRED commands,
+not from raw nodes whose orphan dependents were removed. The raw sample-sequence
+is only one neighborhood layer; it is not retained as the accepted trace's origin.
+
+Typed trace-generator reuses that owned generic tree through make-generator's
+existing generation field, while preserving its public draw/shrink/measure views,
+Record contracts and declaration guard. An explicit derived draw/shrink method
+continues to own a new callback protocol through the established ownership check;
+the earlier default tree cannot silently override it. shrink-trace remains the
+finite, all-or-nothing value-neighborhood operation. Its existing malformed-list
+and pre-repair refusal controls are retained unchanged. These two contracts share
+existing sequence algorithms; there is no legacy strategy selector or new runner.
+
+Returned proposals keep the existing charge-before-admission rule. A failure during
+repair or a parameter factory has not returned a proposal, so it adds no attempt;
+previous returned structural proposals remain charged and confirmed progress is
+retained. Exact false/object exceptions remain distinct from falsity and stale
+sources. Paused iterators reject retirement before additional repair or producers.
+A fresh factory may capture a new epoch; old reports/trees stay refused. Budget
+cutoff does not probe EOF and cannot claim local minimality. A reached parameter
+callback still owes a finite proper list; its own allocation/termination is not
+bounded solely by the proposal counter. Existing process guards remain necessary.
+
+Ten independent controls cover zero/one budgets, identical seeded draws and finite
+neighborhood order, restart after orphan retirement, malformed demanded lists,
+exact causes, repair interruption, paused/fresh ownership, constructor contracts,
+and complete shrinking/replay against a first-difference fixture. Paired value/tree
+controls run both orders at sizes 1, 8 and 128 with the same seed/model/property and
+construction boundary: one requested proposal makes zero parameter calls in the
+tree path, rather than one per original command. Initialization counts expose one
+repair rather than the complete structural batch. These are work-count controls,
+not wall-clock or GC speed claims. All 158 earlier independent cases remain and
+the independent compiled receipt now requires exactly 168 cases.
+
+Two typed controls cover zero/one budgets, nested command Function wrapping,
+retired Type ownership and explicit callback overrides. The collection request
+example composes the owned trace with a constant checked Function dispatcher,
+Record packing, the existing product tree and FUN delivery. Real Trie indexed
+deltas exercise inverse failures, old-value/index conflicts, source refresh and
+stale tickets from the established lifecycle. A failing request shrinks without
+orphan handles, retains wrappers, replays seed/concrete/portable witnesses, refuses
+old ownership and explicitly prepares a corrected fresh passing request. The
+reference oracle and actual indexed backend remain separate existing algorithms.
+
+PropertyTraces.lean adds repairedTracePrefix using only take, map and the existing
+retire. Nine finite laws prove eager-prefix agreement, repair-count budget, zero
+demand, candidate validity and origin order, independence of unvisited parameter
+suffixes, full-deletion selection and strict structural measure decrease. Examples
+exercise orphan retirement and restarting from repaired commands. Existing guarded
+action and interrupted-shrink laws continue to own source and exception semantics.
+Faithful standard iteration, accurate sources, pure/terminating model transitions,
+normalization and fixture simulation remain premises. This advances the paper's
+future work; it is not compiler/runtime verification or a universal callback-cost
+bound. No upstream source, scheduler, namespace or resource limit is changed.

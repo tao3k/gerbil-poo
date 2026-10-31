@@ -71,10 +71,13 @@
 (defrule (define-property name ((argument generator specification) ...) body ...)
   (def (name . options)
     (do-check! name name
-      (let (domain (property.make-product-specification (list specification ...)))
+      (let-values (((domain generation)
+                     (property.call-with-specifications (list (lambda () specification) ...)
+                       (lambda (domains)
+                         (values (property.make-product-specification domains)
+                           (generator.bind-generators ((argument generator) ...) (list argument ...)))))))
         (require-passed
-          (apply property.check-property
-            (generator.bind-generators ((argument generator) ...) (list argument ...))
+          (apply property.check-property generation
             (lambda (arguments) (apply (lambda (argument ...) body ...) arguments))
             domain name: 'name options)
           diagnostics: (lambda (report)
