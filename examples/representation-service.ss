@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export shape-growth-workflow value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
+(export shape-prune-workflow shape-growth-workflow value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
@@ -605,3 +605,57 @@
           (unless (and (not (read owner)) (current?) (= calls 6))
             (error "explicit false assignment lost during redemand"))
           (vector calls #t #t))))))
+
+
+;; Complete two-service narrowing shares one source and one checked FUN consumer.
+;; Preparation is metadata-only and precedes the same refinement in both arms;
+;; only the supplied old shape differs. Removal rejects old issued reads/offsets,
+;; failed refinement delivers nothing, and recovery seeds current receiver cells.
+(def (shape-prune-workflow width reuse?)
+  (using (width :~ (lambda (n) (and (fixnum? n) (>= n 2))))
+    (def names (for/collect (n (in-range width))
+      (string->symbol (string-append "retired-" (number->string n)))))
+    (def shared (object<-alist (append (map (lambda (name) (cons name #f)) names)
+      (list (cons 'callback identity) (cons 'disabled #f)))))
+    (def recipe (.o inherit: [Service shared] tariff: 3 (unused (error "narrowing forced unused"))))
+    (def owners (map (lambda (amount) (.o inherit: [recipe] capacity: amount)) '(2 5)))
+    (def site (make-slot-cache 'total shapes: 2))
+    (def delivered 0)
+    (def checked (checked-action ValidService (lambda (owner)
+      (def total (.ref/inline owner site))
+      (unless (and (eq? (.ref owner 'callback) identity) (not (.ref owner 'disabled)))
+        (error "narrowing lost receiver values"))
+      (set! delivered (1+ delivered)) total)))
+    (def action (.call fun.Observation. .map checked (lambda (owner)
+      (object-layout owner previous: (and reuse? (slot-cache-layout site))) owner)))
+    ;; One owned action performs the same ordered refinement/delivery for each owner.
+    (def (visit) (apply + (map action owners)))
+    (def first (visit))
+    (def old (object-layout (cadr owners)))
+    (unless (slot-cache-hit? site (cadr owners) (object-revision (cadr owners)) old)
+      (error "narrowing failed to warm its original guard"))
+    (defvalues (_ roots) (%call-with-recorded-slot-reads (cut .all-slots (car owners))))
+    (for-each (cut .removeslot! shared <>) (take names (quotient width 2)))
+    (unless (not (slot-cache-hit? site (cadr owners) (object-revision (cadr owners)) old))
+      (error "narrowing retained an old value guard"))
+    (def stale (with-catch values (lambda ()
+      (replay-slot-reads! roots (lambda (_owner _name) (void))) #f)))
+    (unless (and (Error? stale) (equal? (error-message stale) "stale slot dependency"))
+      (error "narrowing accepted old structural reads" stale))
+    (.putslot! recipe 'tariff ($constant-slot-spec 4))
+    (def narrowed (visit))
+    (unless (NoApplicableMethod? (with-catch values (cut .ref (car owners) (car names))))
+      (error "narrowing retained a removed field"))
+    (.putslot! recipe 'tariff ($constant-slot-spec -1))
+    (unless (and (TypeError? (with-catch values (cut action (car owners)))) (= delivered 4))
+      (error "narrowing ran a refused consumer"))
+    (for-each (lambda (name) (.putslot! shared name ($constant-slot-spec #f)))
+      (take names (quotient width 2)))
+    (.putslot! recipe 'tariff ($constant-slot-spec 5))
+    (def recovered (visit))
+    (unless (and (eq? (slot-layout-shape old) (slot-layout-shape (object-layout (cadr owners))))
+                 (not (eq? old (object-layout (cadr owners)))))
+      (error "narrowing reused old cells or failed to restore its descriptor"))
+    (unless (and (= first 27) (= narrowed 34) (= recovered 41) (= delivered 6))
+      (error "narrowing service oracle"))
+    (vector first narrowed recovered delivered)))

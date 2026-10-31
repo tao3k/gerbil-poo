@@ -42,7 +42,10 @@
 ;; precedes reuse, so additions/removals still canonicalize through the weak table.
 ;; Reusing its ordered names skips sorting/interning, never current value seeding.
 (def (make-slot-layout names initial missing previous: (previous #f))
-  (def unique (delete-duplicates/hash names table: (make-hash-table-eq)))
+  ;; The standard deduplicator already builds this membership table. Retain it
+  ;; only during construction, so narrowing needs no second set or value cache.
+  (def members (make-hash-table-eq))
+  (def unique (delete-duplicates/hash names table: members))
   (def hint (and previous (slot-layout-shape previous)))
   ;; Count each hinted directory once; unhinted construction pays neither scan.
   (def width (and hint (length unique)))
@@ -51,6 +54,12 @@
     (cond
       ((and hint (= width prior-width)
             (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint)
+      ;; A certified subset keeps the old canonical identity order. No values
+      ;; are copied from the hint; replacement keys must take the general path.
+      ((and hint (< width prior-width)
+            (andmap (cut hash-key? (shape-indices hint) <>) unique))
+        (intern-ordered-shape
+          (if (null? unique) [] (filter (cut hash-key? members <>) (shape-names hint)))))
       ;; Cardinality plus exactly one unknown certifies a strict extension.
       ;; Replacements/removals retain complete canonicalization, not this hint.
       ((and hint (= width (1+ prior-width)))

@@ -34,7 +34,7 @@
   slot-offset-churn slot-offset-workflow))
 (def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
-    slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change) +slot-offset-phases+))
+    slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire) +slot-offset-phases+))
 
 ;; Compare indexed deletion against the supported complete-specification rebuild.
 ;; Construction and snapshot observation are charged in the cold/full paths.
@@ -228,11 +228,15 @@
   (def added (string->uninterned-symbol "extra-growth"))
   (def (action reuse?)
     (lambda ()
-      (if (memq scenario '(slot-shape-prepare slot-shape-grow))
+      (if (eq? scenario 'slot-shape-retire)
+        (service.shape-prune-workflow size reuse?)
+      (if (memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-prune))
         (let (layout (make-slot-layout
-          (append (reverse names) (if (eq? scenario 'slot-shape-grow) (list added) []) names)
+          (if (eq? scenario 'slot-shape-prune)
+            (append (reverse (drop names (quotient size 2))) (drop names (quotient size 2)))
+            (append (reverse names) (if (eq? scenario 'slot-shape-grow) (list added) []) names))
           initial absent-value previous: (and reuse? old)))
-          (unless (eq? (slot-layout-ref layout (slot-layout-index layout (car names))) #f)
+          (unless (eq? (slot-layout-ref layout (slot-layout-index layout (list-ref names (if (eq? scenario 'slot-shape-prune) (quotient size 2) 0)))) #f)
             (error "shape preparation oracle"))
           (when (eq? scenario 'slot-shape-grow)
             (unless (eq? (slot-layout-ref layout (slot-layout-index layout added)) absent-value)
@@ -261,7 +265,7 @@
               (error "shape refused consumer oracle"))
             (when (eq? scenario 'slot-shape-change) (.removeslot! recipe 'approval))
             (visit 5)
-            (unless (= delivered 12) (error "shape delivery oracle")))))
+            (unless (= delivered 12) (error "shape delivery oracle"))))))
       #t))
   (values (action #f) (action #t)))
 
@@ -749,7 +753,7 @@
   (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
   (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -779,7 +783,7 @@
              (cut traversal-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
-            ((memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change))
+            ((memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire))
              (cut shape-workload n scenario))
             ((memq scenario +slot-value-phases+) (cut slot-values-workload n scenario))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
@@ -933,9 +937,9 @@
   (report-study (cut run-collection-study "16" "16" "6" +slot-value-phases+) "SLOT-VALUES")
   #t)
 
-;; Hinted one-key preparation and complete revision/refusal/recovery workflows
+;; Hinted growth/narrowing and complete revision/refusal/recovery workflows
 ;; share the existing AB/BA, A/A/B/B, GC accounting and tail-reporting engine.
 (def (run-shape-study)
   (report-study (cut run-collection-study "64" "32" "6"
-    '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change)) "SHAPE")
+    '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire)) "SHAPE")
   #t)

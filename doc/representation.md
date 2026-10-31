@@ -1839,3 +1839,78 @@ and delegates it, plus lazy diagnostics, through the same optional IO entry.
 Formatting cannot manufacture a successful execution. This newer assertion
 implementation is covered by the source-current full checks; the frozen cold
 table above is not a cold-performance qualification of that subsequent change.
+
+
+## Checked static-shape narrowing
+
+The author's efficient-implementation chapter explicitly charges descriptor
+construction and value rearrangement when fields disappear, and permits a
+specialized representation only behind a complete guard. Source:
+[chapter 10, General vs Common](https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/ltuo_10_efficient_object_implementation.scrbl#L532-L573).
+The minimal-core chapter separately motivates lazy memo values and vector storage
+for known names. This change implements a concrete preparation optimization of
+that existing construction; automatic layout selection and perfect hashing are
+not claimed complete.
+
+`make-slot-layout` already retained an immutable ordered directory but discarded
+its order whenever multiple keys disappeared. It now retains the temporary
+membership table already populated by standard `delete-duplicates/hash` and
+checks that every distinct requested identity belongs to the old directory.
+Only a strict subset uses standard `filter` over that directory, followed by the
+existing weak shape interner. No second set, transition registry, value cache or
+loader is added. Equal-width replacements and mixed add/remove requests still
+use full canonical construction. All current value seeding and fresh vector
+allocation remain charged; the old layout supplies only names, never values.
+Even an empty request still pays existing hint/cardinality preparation; it does
+not filter an old directory merely to produce an empty list.
+
+`representation/growth.scm` checks every subset of six distinct uninterned
+same-spelling symbols, duplicate/reordered requests, complete-constructor shape
+and offset equality, stale offset refusal, current false seeding, Function cell
+identity and receiver independence. A smaller replacement set is a negative
+control for size-only admission. The existing included-source dependency keeps
+these controls in the same test module.
+
+`shape-prune-workflow` composes the existing FUN Observation map with one checked
+service consumer. Both timing arms prepare metadata before the same refinement;
+only the explicit old-shape hint differs. Two services share a source, remove
+half its fields, reject old issued structural reads and offsets, refuse a negative
+tariff without delivery, then restore the same field identities and retry with
+fresh receiver values. A live old descriptor may be reused after restoration,
+but its cells and revision authority cannot be reused. An unrelated erroring
+computed field remains lazy. Standard module loading is unchanged.
+
+The existing `run-shape-study` adds `slot-shape-prune` and `slot-shape-retire` to
+its ordinary inventory and complete acceptance path. It retains width 64,
+32 batch calls, six AB/BA pairs, four A/A and B/B controls, natural/collected/
+post-GC regimes, first-call and explicitly charged collection diagnostics.
+The whole service action charges initial construction, hint preparation, shared
+source edits, refinement, binding, refusal and retry. The direct preparation
+comparison charges its common old-directory setup separately. These are
+with/without-hint current strategies, not a compatibility implementation.
+
+One fixed-source run naturally completed in 33.93 seconds (inner study 27.599).
+Candidate-minus-baseline wall deltas in microseconds per action were:
+
+| Phase | Natural mean / worst | Collected mean / worst | Post-GC mean / worst |
+| --- | ---: | ---: | ---: |
+| Direct narrowing | +0.61 / +19.47 | -0.39 / -0.07 | -0.07 / +0.75 |
+| Complete service | -58.01 / +57.25 | -76.73 / +31.75 | -35.09 / -11.47 |
+
+The inclusive service diagnostic, charging forced GC, first call and batch,
+was -34.64 mean / -6.66 worst. These six-pair tails are observed maxima, not
+population bounds. Direct natural A/A ranged -15.12 to +18.59 microseconds;
+service natural B/B reached +563.69. The collected service B/B range was
+-4528.09 to +1471.28. Such controls prevent claiming stable natural or complete-
+workflow tail acceleration from this sample. There is no demonstrated large
+regression to justify a new scheduler, cache or arbitrary size threshold.
+Raw diagnostics stay outside Git; complete root acceptance is separate.
+
+Lean's `narrowShapeRanks` laws prove exact membership, uniqueness, ordering,
+full requested inventory/length, equality with any complete canonical directory,
+and composition of removals. Existing shape guards, primary-value publication
+and refusal/frame laws retain their role. `narrowShapeWork_le_iff` charges hint
+acquisition, admission, filtering and common work; benefit requires these costs
+to fit the avoided sort. This is not a hash-complexity, allocator, GC, concurrent
+mutation, compiler or wall-clock proof. Symbol serial injectivity, standard
+container behavior and serialized registered edits remain host premises.
