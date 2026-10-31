@@ -38,13 +38,13 @@ suite. This budget change is completion headroom, not a speedup claim.
 
 The current machine reports twelve physical and twelve logical cores. The
 existing =GERBIL_BUILD_CORES= export resolves to twelve unless supplied by the
-caller. Standard compilation consumes it; the installed October 9 macOS SDK's
+caller. Standard compilation consumes it; the installed October 9 macOS compiler's
 =gxtest= CLI does not expose =--jobs= and its =prepare-harness= uses a serial
 =for/fold= calling =prepare-module= for every file. Each call imports its module,
 resolves exports and evaluates the suite bindings before =test-run!= begins.
 Consequently no =HARNESS= or =CASE= line is promised during this preparation.
 Passing compiler concurrency does not make this loop parallel. This statement
-is about the installed compiled SDK, not all newer Gerbil sources or releases.
+is about the installed compiler, not all newer Gerbil sources or releases.
 
 Source inspection also finds the standard runtime module-state cache; no second
 POO loader cache is introduced. A live loaded-image snapshot included 905
@@ -61,7 +61,7 @@ in this path; no system validation/security setting is changed.
 All controls use the same installed Gerbil/Gambit binaries, checked by SHA-256,
 and copies of the same compiled library. Only the POO resource-policy assertion
 was rebuilt when changing the published deadline. APFS cloning creates fresh
-paths/inodes without purging global disk, signature or SDK caches. Runs are
+paths/inodes without purging global disk, signature or compiler caches. Runs are
 sequential controls, not randomized causal attribution or worst-case bounds.
 System =awk/date= observes stdout boundary times outside the project; it does not
 construct suites, alter discovery or replace Gerbil's assertions/cleanup.
@@ -93,9 +93,9 @@ seconds, without demonstrating a functional regression or infinite evaluation.
 Comparing it to the /tmp control changes both path and order/cache history, so
 it does NOT isolate a unique path-related cause or establish a speedup.
 
-The exact role of each kernel verification wait remains an upstream SDK/OS
+The exact role of each kernel verification wait remains a compiler/OS
 investigation. The evidence supports reducing the standard CLI's eager
-export-discovery/import cost, and checking released SDK support for isolated
+export-discovery/import cost, and checking released compiler support for isolated
 parallel tests, while retaining the additional shared-state complete check.
 The older linked wrapper is not restored, no POO resolver parses interfaces,
 and no security/library-validation policy is disabled. A larger deadline alone

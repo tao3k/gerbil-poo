@@ -1267,6 +1267,7 @@ standard backends per package. No deadline or heap ceiling was increased.
 | B1, grouped 62 modules | 187.72 | 9.62 | 189.66 | 260.89 | 22.10 | 18.30 | 28.22 | 718.49, natural success |
 | B2, grouped 62 modules | 262.00 | 35.24 | 300.06, refused | not run | not run | not run | not run | 602.08 until failure |
 | C1, separated executable closure | 144.75 | 19.76 | 279.63 | 322.14 | 21.41, refused | not run | not run | 789.81 until failure |
+| Integrated 6486159, original layout | 118.01 | 13.80 | 216.04 | 342.35, refused | not run | not run | not run | 691.66 until failure |
 
 These are command-wrapper observations; they are not an exact additive partition
 of the parent's clock. A1/A2 used the same source snapshot and B1/B2 the same
@@ -1334,3 +1335,21 @@ source scanner or alternate loader is added. The existing Lean
 cannot retain its old witness; this does not verify the compiler or predict wall
 time. The final integration preserves newer remote PBT work, whose acceptance
 must be attached to its own head rather than to the older timing cohort above.
+
+** Current-head trace regression
+
+The integrated cohort contains 2,277 main cases and 168 independent library
+cases. One main assertion failed, also failing both representations and complete
+CI jobs at =51e73dc=. The example still expected eager parameter admission,
+whereas the declared demand-driven protocol charges returned structural proposals
+and retains their confirmed failing prefix before a later iterator refusal.
+The failed 691.66-second entry is not a complete success or a speedup.
+
+The example now checks six charged proposals, one confirmed reduction, seven
+balanced fixture entries, the untouched original trace, retained valid Function
+wrapping, refusal of direct replay for an error report and a complete repeatable
+retry. The representations package passed naturally in 79.70 seconds, including
+all 168 independent cases. The companion Lean PropertyTraces example computes
+the same repaired-prefix audit using =auditShrinks= and =shrink=; the existing
+=interrupted_shrink_preserves= law supplies the general validity/descent bound.
+Host fixture cleanup and physical latency remain separately executed obligations.
