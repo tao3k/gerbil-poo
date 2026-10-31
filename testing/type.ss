@@ -88,14 +88,15 @@
   (def (retain! source)
     (unless (object? source) (validate Object source))
     (def added (retain-source-stamps! ledger (list (cons source (object-revision source)))))
-    (unless (null? added) (set! stamps (append stamps added))))
+    ;; One candidate stamp per registration; cons avoids quadratic append work.
+    (when (pair? added) (set! stamps (cons (car added) stamps))))
   (for-each retain! (append (if sampler (list sampler) []) declared))
   ;; Never refresh an early owner while a later declaration is being computed.
   (def (check!) (unless (current? stamps) (refuse-generation 'stale)))
   (core.with-generation-check check!
     (core.with-sources []
       (when sampler (generator-sources sampler retain!))
-      stamps)))
+      (reverse stamps))))
 ;; Refuse result admission after any declared source changed, including callbacks.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)

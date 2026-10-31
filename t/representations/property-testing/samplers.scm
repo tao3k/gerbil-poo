@@ -247,14 +247,15 @@
         (lambda (_random _size) (set! draws (1+ draws)) 1) (lambda (_) []) abs))
       (.putslot! field 'sources ($self-slot-spec (lambda (_self)
         (set-car! dependencies replacement) [])))
-      (def report (check-property Integer (lambda (_) #f) sampler: field dependencies: dependencies
-        cases: 1 size: 1 shrink-budget: 0))
-      (check-eq? (.get report status) 'failed)
-      (check (replay-counterexample report) => #f)
-      (.set! owner epoch 1)
-      (def before draws)
-      (check-exception (replay-property report) Error?)
-      (check-equal? draws before))
+      (let (report (check-property Integer (lambda (_) #f) sampler: field dependencies: dependencies
+                    cases: 1 size: 1 shrink-budget: 0))
+        (check-eq? (.get report status) 'failed)
+        (check-eq? (car dependencies) replacement)
+        (check (replay-counterexample report) => #f)
+        (.set! owner epoch 1)
+        (let (draws-before draws)
+          (check-exception (replay-property report) Error?)
+          (check-equal? draws draws-before))))
     (test-case "source getter exceptions keep original false causes and fresh bridges retry"
       (for (cause (list #f (cons 'source 'cause)))
         (def Descriptor (.cc Integer)) (def draws 0)
