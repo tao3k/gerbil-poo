@@ -52,24 +52,29 @@
                    (time->seconds before)) => #t))))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (test-build-spec))
-        (check (and (member "collection-order/table-cursor-test" complete) #t) => #t)
+        (check (and (member '(gxc: "collection-order/table-cursor-test"
+          (extra-inputs: ("collection-order/../build.ss"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-order/table-order-test"
-          (extra-inputs: ("collection-order/table-order/observations.scm"))) complete) #t) => #t)
+          (extra-inputs: ("collection-order/../build.ss"
+                          "collection-order/table-order/observations.scm"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-updates/table-mapping-test"
-          (extra-inputs: ("collection-updates/table-mapping/composition.scm"
+          (extra-inputs: ("collection-updates/../build.ss"
+                          "collection-updates/table-mapping/composition.scm"
                           "collection-updates/table-mapping/retraction.scm"))) complete) #t) => #t))
       (check (test-build-spec "collection-order") =>
-        '("rationaldict-order-test" "table-cursor-test"
-          (gxc: "table-order-test" (extra-inputs: ("table-order/observations.scm")))
-          "table-split-test")))
+        '((gxc: "rationaldict-order-test" (extra-inputs: ("../build.ss")))
+          (gxc: "table-cursor-test" (extra-inputs: ("../build.ss")))
+          (gxc: "table-order-test" (extra-inputs: ("../build.ss" "table-order/observations.scm")))
+          (gxc: "table-split-test" (extra-inputs: ("../build.ss"))))))
     (test-case "compiler partitions cover every existing package exactly once"
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))
              (all (test-build-spec)))
         (check (test-build-spec "collection-deltas") =>
-          '((gxc: "table-batch-test" (extra-inputs: ("table-batch/capture.scm"
+          '((gxc: "table-batch-test" (extra-inputs: ("../build.ss" "table-batch/capture.scm"
             "table-batch/origins.scm" "table-batch/transport.scm")))))
-        (check (test-build-spec "recovery") => '("coordinator-interleaving-test"))
+        (check (test-build-spec "recovery") =>
+          '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
         (check (length all) => 144)
         (check (length groups) => 25)
@@ -112,4 +117,32 @@
         '((:clan/poo/debug . clan/poo/io)
           (:clan/poo/support/testing . clan/poo/support/io))))
     (test-case "unknown package refuses instead of silently dropping checks"
-      (check-exception (test-build-spec "not-a-declared-package") Error?))))
+      (check-exception (test-build-spec "not-a-declared-package") Error?))
+    (test-case "shared test compiler policy invalidates outputs without source edits"
+      (call-with-temporary-directory "test-policy-input-" (lambda (project)
+        (def directory (path-expand "t/recovery" project))
+        (def policy (path-expand "t/build.ss" project))
+        (create-directory* directory)
+        (copy-file "t/build.ss" policy)
+        (copy-file "t/recovery/build.ss" (path-expand "build.ss" directory))
+        (run-process ["chmod" "755" (path-expand "build.ss" directory)])
+        (call-with-output-file (path-expand "gerbil.pkg" directory)
+          (lambda (port) (write '(package: clan/poo/t/recovery) port)))
+        (call-with-output-file (path-expand "coordinator-interleaving-test.ss" directory)
+          (lambda (port) (write '(export value) port) (newline port)
+            (write '(def value 7) port) (newline port)))
+        ;; Use the unchanged package script and its ordinary compiler cleanup.
+        (def (build)
+          (run-process ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
+                        "gerbil" "-:max-heap=1G,debug=q" "build"]
+            directory: directory stdout-redirection: #f stderr-redirection: #f))
+        (def target (path-expand "package/lib/clan/poo/t/recovery/coordinator-interleaving-test.ssi" project))
+        (build)
+        (def before (time->seconds (file-info-last-modification-time (file-info target))))
+        (build)
+        (check-equal? (time->seconds (file-info-last-modification-time (file-info target))) before)
+        (call-with-output-file [path: policy append: #t]
+          (lambda (port) (display "\n;; changed shared test compiler policy\n" port)))
+        (build)
+        (check (> (time->seconds (file-info-last-modification-time (file-info target))) before) => #t))))
+))

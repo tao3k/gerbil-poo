@@ -174,19 +174,27 @@
   (def (path file) (string-append group "/" file))
   (match spec
     ((? string?) (path spec))
-    ([gxc: file [extra-inputs: inputs]]
-     [gxc: (path file) [extra-inputs: (map path inputs)]])
+    ([gxc: file [extra-inputs: inputs] . options]
+     [gxc: (path file) [extra-inputs: (map path inputs)] options ...])
     (else (error "unsupported test build declaration" group spec))))
 
-;; Select the existing package verbatim, or flatten every package in declaration
-;; order for a single standard make/import cache. Unknown packages never mean empty.
+;; Attach the shared compiler input, then flatten declarations in package order
+;; when requested. Unknown packages never mean an empty or partial build.
 (def (test-build-spec (group #f))
+  ;; The shared policy is a real standard-make input, including compiler flags.
+  ;; Imported build-script code alone is not a freshness dependency of a leaf.
+  (def (with-policy spec)
+    (match spec
+      ((? string?) [gxc: spec [extra-inputs: ["../build.ss"]]])
+      ([gxc: file [extra-inputs: inputs] . options]
+       [gxc: file [extra-inputs: (cons "../build.ss" inputs)] options ...])
+      (else (error "unsupported test build declaration" group spec))))
   (if group
     (cond
-      ((assoc group +test-packages+) => cdr)
+      ((assoc group +test-packages+) => (lambda (entry) (map with-policy (cdr entry))))
       (else (error "unknown test package" group)))
     (append-map (lambda (entry)
-                  (map (cut prefix-test-spec (car entry) <>) (cdr entry)))
+                  (map (cut prefix-test-spec (car entry) <>) (test-build-spec (car entry))))
       +test-packages+)))
 
 ;; These compiler-only partitions reuse the original package declarations. They
