@@ -185,3 +185,13 @@ The CPU/compilation tradeoff is real; fewer images alone is not acceptance.
 The failed A1 remains a failure, not a latency sample or a discarded outlier.
 Two controls do not establish a tail percentile or a universal wall-time bound.
 Raw traces, patches, generated outputs and complete benchmark rows stay outside Git.
+
+Production acceptance at merged source `089e0bd` restored randomized container
+checks and included the current PBT changes from `0d5964a`. The complete cold
+entry naturally exited in 709.57 seconds: library 171.41, program 8.36, test
+packages 202.53, main tests 255.74, declaration acceptance 21.82, collection study
+19.54 and generator study 27.89 seconds. The 2,356 main cases and eight declaration
+cases matched the current upstream CI's exact ordered suite/case tuples. Dynamic
+module entries remained 631 and preparation was 144.09 seconds. Subsequent owner
+assertions follow the five real retained test modules, covering all six original
+helper families rather than checking deleted module names.

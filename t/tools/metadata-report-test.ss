@@ -2,11 +2,12 @@
 (import :std/test :std/iter (only-in :std/list/list-builder with-list-builder)
         (only-in :gerbil/runtime/loader list-modules) :clan/poo/benchmarks/closure-measure
         (prefix-in (only-in :clan/poo/benchmarks/metadata-report sources phases rounds repetitions) benchmark.) (only-in :clan/poo/benchmarks/metadata-report check-study))
-;; Suite-local helpers expand before import; these six module stages are unused.
+;; Six helper families now share five real compiled owners. Check their actual
+;; lexical expansion owners, not names of deleted standalone test modules.
 (def private-helper-owners
-  '("clan/poo/t/backends/fq-test" "clan/poo/t/backends/polynomial-test"
-    "clan/poo/t/backends/trie-test" "clan/poo/t/objects/parameters-test"
-    "clan/poo/t/objects/support-test" "clan/poo/t/representations/type-test"))
+  '("clan/poo/t/backends/fq-test" "clan/poo/t/backends/number-test"
+    "clan/poo/t/backends/trie-test" "clan/poo/t/objects/object-test"
+    "clan/poo/t/representations/type-test"))
 ;; The complete harness executes this after all imports; focused runs have a
 ;; smaller inventory. The existing observer checks complete-run order separately.
 ;; Read the official registry without retaining loader state.
