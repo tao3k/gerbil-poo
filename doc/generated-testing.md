@@ -93,3 +93,13 @@ preserves its original callback cause and effects; prepare a new Map sampler to
 retry. `map-service-action` in `examples/collection-properties.ss` demonstrates
 how a custom two-service tree retains that same Map guard through typed FUN,
 Function wrappers and portable replay. No new parser or validator chain is used.
+
+All typed entrypoints share first-observation sampler snapshots. A later sources
+getter cannot revise an earlier actual/bound Type and silently renew it. Explicit
+dependency spines and returned source spines are copied before later preparation;
+source identities retain their earliest versions. Original getter exceptions and
+binding errors remain distinct from stale refusal. Prepare a fresh bridge/action
+after correction. `service-value-generator` and `service-batch-action` in
+`examples/collection-properties.ss` show shared Record/Function producers, FUN,
+shrinking, portable replay and fresh retry. No hidden dependency inference or deep
+payload snapshot is promised.

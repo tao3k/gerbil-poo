@@ -1,5 +1,5 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
-(export map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
+(export service-value-generator service-batch-action map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
 (import (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.)
@@ -127,10 +127,7 @@
 ;; publication share the same request authority. The Map factory alone owns key
 ;; admission; its original guard travels with this deterministic two-entry tree.
 (def (map-service-action descriptor cell owner weigh consume)
-  (def values (make-generator cell
-    (lambda (_random _size) (make-instance cell amount: 2 handler: abs))
-    (lambda (value) (if (zero? (.get value amount)) [] (list (.cc value amount: 0))))
-    (lambda (value) (weigh value) (.get value amount)) dependencies: (list owner)))
+  (def values (service-value-generator cell owner weigh))
   (def maps (map-generator descriptor '(left right) values dependencies: (list owner)))
   (def guard (.@ maps .current?))
   (def generation (core.generator-map
@@ -141,3 +138,19 @@
     dependencies: (list owner maps)) .current?: guard))
   (property-action descriptor (lambda (table) (= ((.@ (hash-ref table 'left) handler) -1) 0))
     consume sampler: sampler))
+
+;; One standard Record producer serves both service collection workflows. It
+;; constructs Function wrappers at the existing field boundary exactly once.
+(def (service-value-generator cell owner weigh)
+  (make-generator cell
+    (lambda (_random _size) (make-instance cell amount: 2 handler: abs))
+    (lambda (value) (if (zero? (.get value amount)) [] (list (.cc value amount: 0))))
+    (lambda (value) (weigh value) (.get value amount)) dependencies: (list owner)))
+
+;; Shared field samplers compose as an ordinary product, so source declaration
+;; preparation precedes every draw/pack and the same guard owns FUN and replay.
+(def (service-batch-action cell field consume)
+  (def descriptor (Tuple cell cell))
+  (def sampler (product-generator descriptor (list field field) vector->list list->vector))
+  (property-action descriptor (lambda (batch)
+    (= ((.@ (vector-ref batch 0) handler) -1) 0)) consume sampler: sampler))

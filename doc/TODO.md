@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P50 closes shared sampler declaration snapshots across bridges, checks,
+diagnostics, products and explicit Maps. Actual/bound Types precede sources,
+known dependencies precede getters and aliases cannot refresh earlier stamps.
+Record/Function/FUN batches preserve wrapping, replay and explicit fresh retry.
+Hidden dependencies, deep payload freezing and unrestricted inference remain
+boundaries. See [P50 in the PBT RFC](pbt-design-rfc.md#p50-shared-sampler-declaration-snapshots).
+
 P49 closes first-observation preparation for explicit finite-key Map generators.
 Known owners and request spines precede callbacks; Key authority cannot be
 refreshed by a later Value getter. Existing Record/Function/FUN trees retain the

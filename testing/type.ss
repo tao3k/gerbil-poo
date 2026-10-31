@@ -64,15 +64,38 @@
 ;; One preparation boundary owns the constructor's declaration binding. Retarget
 ;; through a fresh constructor, never by inheriting a different Type's parser/tree.
 ;; Mandatory identities cannot be removed by replacing application dependencies.
-(def (generator-sources sampler)
-  (def descriptor (.get sampler descriptor))
-  (unless (eq? descriptor (.get sampler bound-descriptor))
+(def (generator-sources sampler (retain! void))
+  (retain! sampler)
+  (def descriptor (core.with-sources [] (.get sampler descriptor)))
+  (retain! descriptor)
+  (def bound (core.with-sources [] (.get sampler bound-descriptor)))
+  (retain! bound)
+  (unless (eq? descriptor bound)
     (error "sampler descriptor binding changed; construct a new sampler"))
-  (cons sampler (cons descriptor (.get sampler sources))))
-;; Capture mutable sources once; non-generator observations supply explicit owners.
+  (def dependencies (core.with-sources [] (.get sampler sources)))
+  (unless (list? dependencies) (error "finite sampler sources required"))
+  (def captured (list-copy dependencies))
+  (for-each retain! captured)
+  (cons sampler (cons descriptor captured)))
+;; Capture known owners before getters, then retain each declaration at first
+;; observation. The same pure checker protects direct bridges, products, Maps,
+;; diagnostics and runs; it is never stored in a sample or shared registry.
 (def (snapshot sampler dependencies)
-  (map (lambda (source) (cons source (object-revision source)))
-       (delete-duplicates/hash (append (if sampler (generator-sources sampler) []) dependencies))))
+  (unless (list? dependencies) (error "finite snapshot sources required"))
+  (def declared (list-copy dependencies))
+  (def ledger (make-hash-table-eq)) (def stamps [])
+  ;; Only identity/revision bookkeeping runs here: hooks belong to action gates.
+  (def (retain! source)
+    (unless (object? source) (validate Object source))
+    (def added (retain-source-stamps! ledger (list (cons source (object-revision source)))))
+    (unless (null? added) (set! stamps (append stamps added))))
+  (for-each retain! (append (if sampler (list sampler) []) declared))
+  ;; Never refresh an early owner while a later declaration is being computed.
+  (def (check!) (unless (current? stamps) (refuse-generation 'stale)))
+  (core.with-generation-check check!
+    (core.with-sources []
+      (when sampler (generator-sources sampler retain!))
+      stamps)))
 ;; Refuse result admission after any declared source changed, including callbacks.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
@@ -178,6 +201,11 @@
     (core.with-sources []
       (validate Type descriptor)
       (unless (memq Map. (compute-precedence-list! descriptor)) (error "Map descriptor required"))
+      ;; Preserve ordinary Record errors for missing declarations; valid raw
+      ;; declarations acquire first-version authority before Record validation.
+      (unless (every (cut .has? value-sampler <>) '(descriptor bound-descriptor sources))
+        (validate GeneratorRecord value-sampler))
+      (capture! (snapshot value-sampler []))
       (set! value-sampler (validate GeneratorRecord value-sampler))
       (capture! (snapshot value-sampler []))
       (def hook (and (.has? value-sampler .current?) (.@ value-sampler .current?)))
