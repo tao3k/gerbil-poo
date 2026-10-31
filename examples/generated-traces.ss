@@ -47,11 +47,24 @@
         (def configuration (make-instance PropertyConfiguration seed: 7 cases: 1 size: 3 shrink-budget: 64))
         (def report ((prepare subject) configuration))
         (check-eq? (.get report status) 'error)
-        (check-equal? (list parameters draws opened closed (.get report attempts) (.get report steps)) '(1 3 1 1 0 0))
-        (check-equal? (length (.get report counterexample)) 3)
+        ;; Returned structural proposals remain charged before a demanded
+        ;; parameter spine refuses. The refusal itself returns no proposal.
+        (check-equal? (list parameters draws opened closed (.get report attempts) (.get report steps)) '(1 3 7 7 6 1))
+        (check-equal? (map (cut .get <> kind) (.get report original)) '(open use use))
+        (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+        (check (valid-trace? subject (.get report counterexample)) => #t)
+        (check (.get report minimal?) => #f)
+        (check-exception ((.@ (cadr (.get report counterexample)) handler) 'invalid) TypeError?)
+        ;; A diagnostic retained value does not authorize replay of an error
+        ;; report or another fixture entry, even when that value was confirmed.
         (check-exception (replay-counterexample report) Error?)
-        (check-eq? (.get (replay-property report) status) 'error)
-        (check-equal? (list parameters draws opened closed) '(2 6 2 2))
+        (check-equal? (list parameters draws opened closed) '(1 3 7 7))
+        ;; Full replay reconstructs the same trace, proposal prefix and refusal.
+        (def replayed (replay-property report))
+        (check-eq? (.get replayed status) 'error)
+        (check-equal? (map (cut .get <> kind) (.get replayed counterexample)) '(open use))
+        (check-equal? (list (.get replayed attempts) (.get replayed steps)) '(6 1))
+        (check-equal? (list parameters draws opened closed) '(2 6 14 14))
         (def fresh ((prepare (.cc subject shrink: (lambda (_) []))) configuration))
         (check-eq? (.get fresh status) 'failed)
         (check-equal? (map (cut .get <> kind) (.get fresh counterexample)) '(open use))
