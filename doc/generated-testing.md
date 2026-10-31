@@ -112,3 +112,12 @@ inherit the preparation scope, which is released before ordinary execution.
 `service-factory-action` in `examples/collection-properties.ss` shows a deferred
 Record/Function recipe, bounded probe, FUN, shrinking, three replay forms and
 fresh corrected preparation. Direct arbitrary host effects are not transactional.
+
+Reader recipes freeze dependency identities at construction, capture current
+configuration/Type/sampler sources before library-owned getters, and thread those
+identities into automatic-generator preparation. Each explicit fresh invocation
+may capture new epochs; replacing the caller's dependency spine cannot erase old
+owners. Configuration size is read once through standard dynamic slot access.
+Configuration exceptions precede report/consumer creation; incomplete automatic
+generation retains existing non-replayable typed reports. Consumer IO and direct
+caller argument evaluation stay outside preparation. See P52 in the design RFC.

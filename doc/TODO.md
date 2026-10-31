@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P52 closes Reader configuration and initial automatic-generator request admission.
+Known owners precede getters and generator construction; dependency identity
+spines cannot erase authority, and size is read once through standard reflection.
+Record/Function/FUN services cover controlled refusal, shrinking/replay and fresh
+retry. Application-owned argument evaluation and arbitrary effects remain explicit
+boundaries. See [P52 in the PBT RFC](pbt-design-rfc.md#p52-reader-configuration-and-initial-request-admission).
+
 P51 closes typed bridge/domain preparation after first-observation snapshots.
 Retired getters/factories cannot bind later metadata or enter a raw fallback;
 checks and diagnostics share one captured authority. Deferred Record/Function/FUN

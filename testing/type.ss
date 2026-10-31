@@ -214,7 +214,7 @@
       (unless (memq Map. (compute-precedence-list! descriptor)) (error "Map descriptor required"))
       ;; Preserve ordinary Record errors for missing declarations; valid raw
       ;; declarations acquire first-version authority before Record validation.
-      (unless (every (cut .has? value-sampler <>) '(descriptor bound-descriptor sources))
+      (unless (every (cut .slot? value-sampler <>) '(descriptor bound-descriptor sources))
         (validate GeneratorRecord value-sampler))
       (capture! (snapshot value-sampler []))
       (set! value-sampler (validate GeneratorRecord value-sampler))
@@ -401,6 +401,8 @@
     (exact-integer? cases) (> cases 0)
     (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
   (unless (object? descriptor) (validate Type descriptor))
+  ;; Freeze declared identities before any automatic generator callback.
+  (def declared (list-copy dependencies))
   (def sampler #f) (def sources [])
   ;; Initialization can fail before a complete snapshot exists; those reports
   ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
@@ -413,7 +415,7 @@
       labels: (if execution (testing.report-labels execution) [])
       trial: (if execution (testing.report-trial execution) 0)
       trial-size: (and execution (testing.report-trial-size execution)) original: original counterexample: counterexample
-      attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: dependencies
+      attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: declared
       replayable?: (and execution #t) execution: execution
       depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
       limits: (and sampler (.has? sampler limits) (.get sampler limits))))
@@ -421,10 +423,13 @@
     (lambda (cause) (report (if (not (current? sources sampler)) 'stale (generation-status cause))
       #f #f 0 0 #f cause #f))
     (lambda ()
-      (set! sampler (or supplied (generator descriptor depth node-budget: nodes
-        descriptor-budget: descriptors search-budget: search)))
-      (set! sources (snapshot sampler dependencies descriptor))
-      (let-values (((generation specification) (prepare-sampler sampler sources)))
+      (set! sources (snapshot #f (append (if supplied (list supplied) []) declared) descriptor))
+      (let-values (((generation specification)
+                    (with-source-stamps sources
+                      (set! sampler (or supplied (generator descriptor depth node-budget: nodes
+                        descriptor-budget: descriptors search-budget: search)))
+                      (set! sources (snapshot sampler declared descriptor))
+                      (prepare-sampler sampler sources))))
         (let (execution (testing.check-property generation property specification
                seed: seed cases: cases size: size size-limit: size-limit
                shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
@@ -469,23 +474,39 @@
   (def sources (snapshot sampler []))
   (replay.read-counterexample codec port (property-specification sampler sources) property policy: policy))
 
-;; Reader/FUN composition makes the test run one observation followed by the
-;; supplied consumer, which may be an existing IO action or an evidence gate.
-;; The configuration is itself a revision source, including callback-driven edits.
+;; Read configuration through the standard dynamic slot interface. Each getter
+;; is an action boundary; size is evaluated once and defaults remain lazy.
+;; The caller owns the source scope, so no configuration wrapper is retained.
+(def (configuration-options configuration)
+  ;; Dynamic names use .ref/.slot?, not the literal-name .get/.has? syntax.
+  (def (field name) (core.with-sources [] (.ref configuration name)))
+  ;; Optional fields preserve the existing bare-object Reader configuration.
+  (def (option name fallback)
+    (if (core.with-sources [] (.slot? configuration name)) (field name) fallback))
+  (let* ((policy (if (core.with-sources [] (.slot? configuration 'policy))
+                   (field 'policy) (testing.make-policy)))
+         (seed (field 'seed)) (cases (field 'cases)) (size (field 'size))
+         (shrinks (field 'shrink-budget)) (limit (option 'size-limit #f))
+         (depth (option 'depth 32)) (nodes (option 'node-budget 256))
+         (descriptors (option 'descriptor-budget 256)) (search (option 'search-budget 8192)))
+    (list policy: policy seed: seed cases: cases size: size shrink-budget: shrinks
+      size-limit: (or limit (and (not (procedure? size)) size))
+      depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search)))
+
+;; Reader/FUN captures known participants before configuration getters. The
+;; recipe freezes identities, not epochs: explicit fresh invocations may retry.
+;; Preparation scopes end before trial execution and application-owned consumer IO.
 (def (property-action descriptor property consume sampler: (sampler #f) dependencies: (dependencies []))
+  (unless (and (list? dependencies) (every object? dependencies))
+    (error "finite property dependency objects required"))
+  (def declared (list-copy dependencies))
   (.call fun.Observation. .bind
-    (lambda (configuration) (check-property descriptor property
-      sampler: sampler dependencies: (cons configuration dependencies)
-      policy: (if (.has? configuration policy) (.get configuration policy)
-        (testing.make-policy))
-      seed: (.get configuration seed) cases: (.get configuration cases)
-      size: (.get configuration size) shrink-budget: (.get configuration shrink-budget)
-      size-limit: (or (and (.has? configuration size-limit) (.get configuration size-limit))
-        (and (not (procedure? (.get configuration size))) (.get configuration size)))
-      depth: (if (.has? configuration depth) (.get configuration depth) 32)
-      node-budget: (if (.has? configuration node-budget) (.get configuration node-budget) 256)
-      descriptor-budget: (if (.has? configuration descriptor-budget) (.get configuration descriptor-budget) 256)
-      search-budget: (if (.has? configuration search-budget) (.get configuration search-budget) 8192)))
+    (lambda (configuration)
+      (def owners (cons configuration declared))
+      (def sources (snapshot sampler owners descriptor))
+      (def options (with-source-stamps sources (configuration-options configuration)))
+      (apply check-property descriptor property
+        (append (list sampler: sampler dependencies: (map car sources)) options)))
     (lambda (report) (lambda (_configuration) (consume report)))))
 
 
