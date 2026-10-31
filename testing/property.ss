@@ -102,7 +102,7 @@
 ;; Declare fixed domains in order before constructing a named property's generator.
 ;; The existing action scope protects all previously admitted domains, including
 ;; nested producer pulls. Only preparation is scoped; no checker enters a tree.
-(def (call-with-specifications (builders :~ list?) (build : :procedure))
+(def (call-with-specifications (builders :~ proper-list?) (build : :procedure))
   (unless (every procedure? builders) (error "specification constructors required"))
   (def pending (list-copy builders))
   (def observed [])

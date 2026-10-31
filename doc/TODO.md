@@ -5,6 +5,16 @@ In the future, we may add the following features and optimizations.
 ## Current implementation boundary
 
 
+P59 closes static trace request admission before computed declarations and
+fixture acquisition. Standard Gerbil contracts cover generic/typed check requests,
+typed finite limits/dependencies and trace-property binding. Existing model folds,
+source checks, Record/Function wrapping and FUN delivery remain the execution
+owners. Eleven finite Lean laws reuse Boolean admission and guarded preparation;
+callback arity, termination and host cleanup are premises. See
+[P59](pbt-design-rfc.md#p59-trace-request-admission-before-declarations-and-fixture-scope).
+
+
+
 P58 closes portable handoff configuration and physical framing admission.
 Gerbil parameter contracts run before observers/computed metadata; standard
 reader EOF and a separately guarded physical EOF probe precede decoding. Invalid

@@ -55,7 +55,7 @@
 (def (valid-trace? model commands) (and (prepare-trace model commands) #t))
 ;; Finite spine admission precedes initialization. Dependency retirement uses
 ;; the same fold and never treats an improper tail as a completed prefix.
-(def (repair-trace (model :~ model?) (commands :~ list?))
+(def (repair-trace (model :~ model?) (commands :~ proper-list?))
   (reverse (cdr (fold-trace model commands (lambda (state raw)
     (if (judgment (with-sources [] ((reference-accept model) raw)) "command predicate must return a boolean")
       (let (command (with-sources [] ((reference-normalize model) raw)))
@@ -93,7 +93,7 @@
 ;; trace, so parameter samples have no independent recursive children here.
 (def (trace-command command shrink)
   (core.make-sample command (lambda ()
-    (using (candidates (with-sources [] (shrink command)) :~ list?)
+    (using (candidates (with-sources [] (shrink command)) :~ proper-list?)
       (def owned (list-copy candidates))
       (in-coroutine (lambda (yield)
         (for (candidate owned)
@@ -115,10 +115,14 @@
     (apply core.make-generator (lambda (random size) (draw-trace model draw steps random size))
       (lambda (commands) (trace-neighborhood model commands shrink)) options)))
 
+;; Proper finite spines use the standard proper-list? predicate contract, rather
+;; than authorizing the whole spine from a known :pair/:list carrier alone.
+;; Standard parameter contracts admit the entire request before model preparation
+;; or fixture entry. Callback arity, purity and termination remain caller laws.
 ;; Scope and first-difference execution are generic. The same? callback receives
 ;; phase/expected/actual, permitting typed domains to normalize at that boundary.
-(def (check-trace model commands (with-system : :procedure)
-                  same?: (same? (lambda (_phase left right) (equal? left right)))
+(def (check-trace (model :~ model?) (commands :~ proper-list?) (with-system : :procedure)
+                  same?: (same? : :procedure := (lambda (_phase left right) (equal? left right)))
                   prepare-system: (prepare : :procedure := identity))
   (def prepared (prepare-trace model commands))
   (unless prepared (error "invalid command trace"))

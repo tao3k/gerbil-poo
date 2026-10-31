@@ -1,5 +1,5 @@
 ;;; Typed finite shrinking composes existing Record contracts and FUN actions.
-(export generated-traces-test)
+(export trace-request-test generated-traces-test)
 (import :std/test :std/error :std/iter
         ../object ../mop ../type ../number ../testing/type ../support/option
         (only-in ../testing/generation-graph generation-refusal?)
@@ -385,4 +385,86 @@
       (check-exception (replay-property report) Error?)
       (check-exception (replay-counterexample report) Error?)
       (check-eq? (.get ((prepare 'correct) configuration) status) 'passed)
+      (check-equal? opened closed))))
+
+
+;; Static request contracts guard computed POO declarations before the existing
+;; Record-driven trace/FUN workflow acquires its ordinary scoped fixture.
+(def trace-request-test
+  (test-suite "typed trace request admission"
+    (test-case "invalid limits and dependency spines cannot force computed declarations"
+      (def reads 0)
+      (def subject (.o Command: (begin (set! reads (1+ reads)) Integer)))
+      (for (steps (list -1 65537 1/2 2.0 +inf.0 +nan.0 #f))
+        (check-exception (trace-generator Integer subject steps: steps) contract-violation-error?))
+      (for (dependencies (list '(owner . bad) (malformed-spine 'owner #t)))
+        (check-exception (trace-generator Integer subject dependencies: dependencies) contract-violation-error?))
+      (check-exception (trace-generator #f subject) contract-violation-error?)
+      (check-equal? reads 0))
+    (test-case "typed comparisons and property binding admit callbacks before declarations"
+      (def reads 0) (def opened 0)
+      (def subject (.o Command: (begin (set! reads (1+ reads)) Integer)))
+      ;; These are invalid static requests, not generated out-of-domain commands.
+      (def (with-system _use) (set! opened (1+ opened)) (error "must not open"))
+      (check-exception (check-trace subject [] with-system same?: #f) contract-violation-error?)
+      (check-equal? (list 0 reads opened) '(0 0 0))
+      (check-exception (check-trace subject '(step . bad) with-system) contract-violation-error?)
+      (check-equal? (list 1 reads opened) '(1 0 0))
+      (check-exception (check-trace subject [] #f) contract-violation-error?)
+      (check-equal? (list 2 reads opened) '(2 0 0))
+      (check-exception (trace-property subject with-system same?: #f) contract-violation-error?)
+      (check-equal? (list 3 reads opened) '(3 0 0))
+      (check-exception (trace-property subject #f) contract-violation-error?)
+      (check-equal? (list 4 reads opened) '(4 0 0))
+      (check-equal? (list reads opened) '(0 0)))
+    (test-case "fresh FUN binding retains dependency repair Function checks and source retirement"
+      (def Command (Record kind: [(Enum open use)] key: [UInt]
+        handler: [(Function [Integer] [Integer])]))
+      (def State (List UInt)) (def owner (.o faulty?: #t))
+      (def draws 0) (def opened 0) (def closed 0) (def last-command #f)
+      ;; One ordinary constructor supplies both the POO carrier and Function
+      ;; wrapper; the model's expected reply is independent of this implementation.
+      (def (emit kind)
+        (set! last-command (make-instance Command kind: kind key: 1
+          handler: (lambda (value) (if (.get owner faulty?) value (1+ value))))) last-command)
+      ;; Shared transition preserves handle dependencies in both model and fixture.
+      (def (advance state command)
+        (values (if (eq? (.get command kind) 'open) (cons (.get command key) state) state)
+          (1+ (.get command key))))
+      (def subject (make-instance TraceGenerator Command: Command State: State Result: Integer Observation: State
+        initial: (lambda () []) enabled?: (lambda (state command)
+          (if (eq? (.get command kind) 'open) (not (memv (.get command key) state))
+            (and (memv (.get command key) state) #t)))
+        advance: advance observe: identity
+        draw: (lambda (state _random _size) (set! draws (1+ draws))
+          (some (emit (if (null? state) 'open 'use))))
+        shrink: (lambda (_) []) measure: (lambda (_) 0)))
+      (def System (TraceSystem State))
+      ;; Existing fixture scope owns cleanup on mismatches and callback errors.
+      (def (with-system use)
+        (set! opened (1+ opened))
+        (try (use (make-instance System initial: [] observe: identity
+          step: (lambda (state command)
+            (let-values (((next reply) (advance state command)))
+              (values next (if (eq? (.get command kind) 'use)
+                ((.@ command handler) (.get command key)) reply))))))
+          (finally (set! closed (1+ closed)))))
+      (check-exception (trace-property subject with-system same?: #f) contract-violation-error?)
+      (check-equal? (list draws opened closed) '(0 0 0))
+      ;; Retry prepares a fresh ordinary property action rather than renewing a
+      ;; refused closure. The enclosing sampler owns the mutable implementation.
+      (def (prepare)
+        (def sampler (trace-generator Command subject steps: 3 dependencies: (list owner)))
+        (property-action (.get sampler descriptor) (trace-property subject with-system) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 19 cases: 1 size: 3 shrink-budget: 32))
+      (def report ((prepare) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (map (cut .get <> kind) (.get report counterexample)) '(open use))
+      (check-exception ((.@ last-command handler) 'invalid) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (.set! owner faulty? #f)
+      (check-exception (replay-counterexample report) Error?)
+      (check-exception (replay-property report) Error?)
+      (check-eq? (.get ((prepare) configuration) status) 'passed)
       (check-equal? opened closed))))

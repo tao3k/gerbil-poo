@@ -1,5 +1,5 @@
 ;;; Bounded model drawing uses the generic protocol and standard Gerbil contracts.
-(export trace-fixture-test-cases! trace-owned-test-cases! trace-lazy-test-cases! trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!)
+(export trace-request-test-cases! trace-fixture-test-cases! trace-owned-test-cases! trace-lazy-test-cases! trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!)
 (import :std/test :std/error :std/iter (only-in :std/list/list take drop-right)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/generator generator.)
@@ -598,3 +598,64 @@
     (check-exception (model.check-trace reference [] (lambda (use) (use 'raw))
       prepare-system: (lambda (_) #f)) Error?)
     (check (model.trace-report-matched? (model.check-trace reference [] (lambda (use) (use actual)))) => #t)))
+
+
+;; Complete request admission belongs to the existing model entry, not fixture
+;; cleanup. Invalid requests must not initialize, normalize, prepare or open.
+(def (trace-request-test-cases!)
+  (test-case "trace request configuration refuses before model and fixture callbacks"
+    (for (kind '(model commands fixture equality preparation))
+      (def calls [])
+      ;; Reference and fixture actions record execution order without a second runner.
+      (def (record value) (set! calls (cons value calls)) 0)
+      (def reference (model.make-model (lambda () (record 'initial))
+        (lambda (_s _c) #t) (lambda (s _c) (values s #f)) identity
+        (lambda (_) (record 'accept) #t) (lambda (c) (record 'normalize) c)))
+      (check-exception (model.check-trace (if (eq? kind 'model) #f reference)
+        (if (eq? kind 'commands) '(step . bad) '(step))
+        (if (eq? kind 'fixture) #f (lambda (use)
+          (record 'open) (use (model.make-system 0 (lambda (s _c) (values s #f)) identity))))
+        same?: (if (eq? kind 'equality) #f (lambda (_p a b) (equal? a b)))
+        prepare-system: (if (eq? kind 'preparation) #f (lambda (system) (record 'prepare) system))) contract-violation-error?)
+      (check-equal? calls [])))
+  (test-case "compiled finite spine contracts reject improper literals before callbacks"
+    (def initialized 0) (def shrunk 0) (def built 0)
+    (def reference (model.make-model (lambda () (set! initialized (1+ initialized)) 0)
+      (lambda (_s _c) #t) (lambda (s _c) (values s #f)) identity (lambda (_) #t) identity))
+    (check-exception (model.repair-trace reference '(step . bad)) contract-violation-error?)
+    (check-exception (generator.data-list-shrinks '(step . bad)
+      (lambda (_) (set! shrunk (1+ shrunk)) []) 0) contract-violation-error?)
+    (check-exception (property.call-with-specifications '(builder . bad)
+      (lambda (_) (set! built (1+ built)))) contract-violation-error?)
+    (check-equal? (list initialized shrunk built) '(0 0 0)))
+  (test-case "invalid requests do not acquire or clean an otherwise throwing fixture"
+    (def opened 0) (def closed 0) (def initialized 0)
+    (def reference (model.make-model (lambda () (set! initialized (1+ initialized)) 0)
+      (lambda (_s _c) #t) (lambda (s _c) (values s #f)) identity (lambda (_) #t) identity))
+    (check-exception (model.check-trace reference [] (lambda (_use)
+      (set! opened (1+ opened))
+      (try (raise 'fixture) (finally (set! closed (1+ closed))))) same?: #f) contract-violation-error?)
+    (check-equal? (list initialized opened closed) '(0 0 0)))
+  (test-case "valid callback errors retain causes and balanced fixture lifetime"
+    (for (cause (list #f (cons 'comparison 'cause)))
+      (def opened 0) (def closed 0) (def steps 0)
+      (def reference (model.make-model (lambda () 0) (lambda (_s _c) #t)
+        (lambda (s _c) (values s #f)) identity (lambda (_) #t) identity))
+      (def caught (with-catch (lambda (value) (cons 'caught value)) (lambda ()
+        (model.check-trace reference '(step) (lambda (use)
+          (set! opened (1+ opened))
+          (try (use (model.make-system 0 (lambda (s _c) (set! steps (1+ steps)) (values s #f)) identity))
+            (finally (set! closed (1+ closed))))) same?: (lambda (_p _a _b) (raise cause))))))
+      (check-eq? (car caught) 'caught) (check-eq? (cdr caught) cause)
+      (check-equal? (list opened closed steps) '(1 1 0))))
+  (test-case "fresh valid requests still compare empty traces and false command payloads"
+    (def closed 0)
+    (def reference (model.make-model (lambda () 0) (lambda (_s _c) #t)
+      (lambda (s _c) (values (1+ s) #f)) identity boolean? identity))
+    (for (commands (list [] (list #f)))
+      (def report (model.check-trace reference commands (lambda (use)
+        (try (use (model.make-system 0 (lambda (s _c) (values (1+ s) #f)) identity))
+          (finally (set! closed (1+ closed)))))))
+      (check (model.trace-report-matched? report) => #t)
+      (check-equal? (model.trace-report-index report) (length commands)))
+    (check-equal? closed 2)))

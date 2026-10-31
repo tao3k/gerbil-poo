@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export handoff-test product-row-test trace-tree-test request-preparation-test bridge-preparation-test snapshot-admission-test assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export trace-request-test handoff-test product-row-test trace-tree-test request-preparation-test bridge-preparation-test snapshot-admission-test assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
 (import (prefix-in (only-in :clan/poo/support/testing require-property-passed) standard.)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
@@ -15,7 +15,7 @@
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
         (only-in :clan/poo/examples/property-workflows property-workflows-test)
         (only-in :clan/poo/examples/generated-batches generated-batches-test)
-        (only-in :clan/poo/examples/generated-traces generated-traces-test)
+        (only-in :clan/poo/examples/generated-traces trace-request-test generated-traces-test)
         (only-in :clan/poo/examples/generated-products generated-products-test product-row-test handoff-test))
 
 ;; Deterministic fixture isolates shrinking from random trial distribution.
@@ -107,11 +107,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 191)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 196)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 191 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 196 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
