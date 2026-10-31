@@ -64,10 +64,11 @@
 ;; One preparation boundary owns the constructor's declaration binding. Retarget
 ;; through a fresh constructor, never by inheriting a different Type's parser/tree.
 ;; Mandatory identities cannot be removed by replacing application dependencies.
-(def (generator-sources sampler (retain! void))
+(def (generator-sources sampler (retain! void) (expected #f))
   (retain! sampler)
   (def descriptor (core.with-sources [] (.get sampler descriptor)))
   (retain! descriptor)
+  (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
   (def bound (core.with-sources [] (.get sampler bound-descriptor)))
   (retain! bound)
   (unless (eq? descriptor bound)
@@ -77,10 +78,17 @@
   (def captured (list-copy dependencies))
   (for-each retain! captured)
   (cons sampler (cons descriptor captured)))
+;; Bind a stamp variable, not an effectful expression. Snapshot discovery may
+;; extend it; preparation uses the closed list. The checker reads epochs only,
+;; unwinds through the standard dynamic scope and is never retained on values.
+(defrule (with-source-stamps stamps body ...)
+  (core.with-generation-check (lambda ()
+    (unless (current? stamps) (refuse-generation 'stale)))
+    (core.with-sources [] body ...)))
 ;; Capture known owners before getters, then retain each declaration at first
 ;; observation. The same pure checker protects direct bridges, products, Maps,
 ;; diagnostics and runs; it is never stored in a sample or shared registry.
-(def (snapshot sampler dependencies)
+(def (snapshot sampler dependencies (expected #f))
   (unless (list? dependencies) (error "finite snapshot sources required"))
   (def declared (list-copy dependencies))
   (def ledger (make-hash-table-eq)) (def stamps [])
@@ -90,13 +98,10 @@
     (def added (retain-source-stamps! ledger (list (cons source (object-revision source)))))
     ;; One candidate stamp per registration; cons avoids quadratic append work.
     (when (pair? added) (set! stamps (cons (car added) stamps))))
-  (for-each retain! (append (if sampler (list sampler) []) declared))
-  ;; Never refresh an early owner while a later declaration is being computed.
-  (def (check!) (unless (current? stamps) (refuse-generation 'stale)))
-  (core.with-generation-check check!
-    (core.with-sources []
-      (when sampler (generator-sources sampler retain!))
-      (reverse stamps))))
+  (for-each retain! (append (if sampler (list sampler) []) (if expected (list expected) []) declared))
+  (with-source-stamps stamps
+    (when sampler (generator-sources sampler retain! expected))
+    (reverse stamps)))
 ;; Refuse result admission after any declared source changed, including callbacks.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
@@ -107,17 +112,22 @@
   (def hook (and (.has? sampler .current?) (.@ sampler .current?)))
   (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
     (or (not hook) (hook)))))
-;; Capture one typed boundary without dismantling the generator's lazy tree.
-;; Raw callback samplers are lifted once here; sample-tree compositions stay intact.
+;; Bind from one admitted snapshot. Metadata getters and the optional owned
+;; factory are separate actions: an obsolete getter cannot invoke its result,
+;; and an obsolete false factory result cannot enter the raw fallback.
+(def (sampler-generation sampler sources)
+  (with-source-stamps sources
+    (def owned (core.with-sources [] (.get sampler generation)))
+    (def candidate (and owned (core.with-sources [] (owned sampler))))
+    (def generation (or candidate
+      (let (draw (core.with-sources [] (.@ sampler draw)))
+        (core.make-generator draw (cut sampler-children sampler <>)))))
+    (def guard (core.with-sources [] (source-guard sources sampler)))
+    (core.generator-map generation identity current?: guard)))
+;; Public bridges acquire their own first-observation snapshot. Composite
+;; preparations call the same binder with their already captured authority.
 (def (generator-core sampler)
-  ;; Preparation is one inherited action: custom factories cannot end their
-  ;; parent's authority and then let a caller bind the next field.
-  (core.with-sources []
-    (def sources (snapshot sampler []))
-    (def owned (.get sampler generation))
-    (core.generator-map (or (and owned (owned sampler))
-      (core.make-generator (.@ sampler draw) (cut sampler-children sampler <>))) identity
-      current?: (source-guard sources sampler))))
+  (sampler-generation sampler (snapshot sampler [])))
 ;; Measures are natural numbers; malformed callbacks cannot admit shrink steps.
 (def (weight sampler value)
   ;; The shared primitive also protects Map folds and trace command costs. A
@@ -346,17 +356,26 @@
 ;; Compile the typed domain boundary once. The independent kernel receives only
 ;; admission/cost/current callbacks, never a Type, Record or object-revision API.
 (def (property-specification sampler sources)
-  (testing.make-specification (cut accepts-value? sampler <>) (.@ sampler measure)
-    current?: (source-guard sources sampler)))
+  (with-source-stamps sources
+    (def measure (core.with-sources [] (.@ sampler measure)))
+    (def guard (core.with-sources [] (source-guard sources sampler)))
+    (testing.make-specification (cut accepts-value? sampler <>) measure current?: guard)))
+;; One ordered binding path serves runs and diagnostics, without rereading
+;; declaration snapshots or retaining a transient checker during execution.
+(def (prepare-sampler sampler sources)
+  (let* ((generation (sampler-generation sampler sources))
+         (specification (property-specification sampler sources)))
+    (values generation specification)))
 ;; Typed diagnostics reuse the existing sampler bridge and captured Type sources.
 ;; Preparation errors remain ordinary Type errors; execution refusals retain the
 ;; generic inspection status/cause. No property, assertion or coverage is run.
 (def (inspect-generator sampler seed: (seed 0) count: (count 10) size: (size 20)
                        depth: (depth 0) proposal-budget: (budget 0) labels: (labels (lambda (_) [])))
   (def sources (snapshot sampler []))
-  (testing.inspect-generator (generator-core sampler) (property-specification sampler sources)
-    seed: seed count: count size: size depth: depth proposal-budget: budget
-    labels: labels classify-error: generation-status))
+  (let-values (((generation specification) (prepare-sampler sampler sources)))
+    (testing.inspect-generator generation specification
+      seed: seed count: count size: size depth: depth proposal-budget: budget
+      labels: labels classify-error: generation-status)))
 
 ;; Interpret only POO's own generation refusal categories. All other exceptions
 ;; keep their original cause and the kernel owns ordinary failure/error reporting.
@@ -381,6 +400,7 @@
     (list seed shrink-budget)) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
     (exact-integer? cases) (> cases 0)
     (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
+  (unless (object? descriptor) (validate Type descriptor))
   (def sampler #f) (def sources [])
   ;; Initialization can fail before a complete snapshot exists; those reports
   ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
@@ -403,17 +423,15 @@
     (lambda ()
       (set! sampler (or supplied (generator descriptor depth node-budget: nodes
         descriptor-budget: descriptors search-budget: search)))
-      (unless (eq? (.get sampler descriptor) descriptor) (error "sampler descriptor mismatch"))
-      (set! sources (snapshot sampler dependencies))
-      (def execution (testing.check-property
-        (generator-core sampler) property
-        (property-specification sampler sources) seed: seed cases: cases size: size
-        size-limit: size-limit
-        shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
-      (report (testing.report-status execution) (testing.report-original execution)
-        (testing.report-counterexample execution) (testing.report-attempts execution)
-        (testing.report-steps execution) (testing.report-minimal? execution)
-        (testing.report-cause execution) execution))))
+      (set! sources (snapshot sampler dependencies descriptor))
+      (let-values (((generation specification) (prepare-sampler sampler sources)))
+        (let (execution (testing.check-property generation property specification
+               seed: seed cases: cases size: size size-limit: size-limit
+               shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
+          (report (testing.report-status execution) (testing.report-original execution)
+            (testing.report-counterexample execution) (testing.report-attempts execution)
+            (testing.report-steps execution) (testing.report-minimal? execution)
+            (testing.report-cause execution) execution))))))
 
 ;; Project generic replay back to the same POO metadata, retaining the exact
 ;; originally captured sources rather than taking a permissive fresh snapshot.

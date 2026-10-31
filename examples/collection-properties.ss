@@ -1,5 +1,5 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
-(export service-value-generator service-batch-action map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
+(export service-factory-action service-value-generator service-batch-action map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
 (import (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.)
@@ -154,3 +154,11 @@
   (def sampler (product-generator descriptor (list field field) vector->list list->vector))
   (property-action descriptor (lambda (batch)
     (= ((.@ (vector-ref batch 0) handler) -1) 0)) consume sampler: sampler))
+
+;; A downstream recipe may supply an owned generic tree or decline with #f.
+;; The standard typed action owns binding, probing, reports and explicit retries;
+;; the recipe must use the core protocol for guarded nested producer pulls.
+(def (service-factory-action cell owner factory consume)
+  (def field (service-value-generator cell owner void))
+  (.putslot! field 'generation ($constant-slot-spec factory))
+  (property-action cell (lambda (value) (= ((.@ value handler) -1) 0)) consume sampler: field))

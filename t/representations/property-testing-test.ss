@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export snapshot-admission-test assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export bridge-preparation-test snapshot-admission-test assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
 (import (prefix-in (only-in :clan/poo/support/testing require-property-passed) standard.)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
@@ -11,7 +11,7 @@
         (only-in :clan/poo/testing/generation-graph generation-refusal?)
         (only-in :clan/poo/support/option some)
         (prefix-in :clan/poo/examples/signature-service service.)
-        (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests map-service-action service-value-generator service-batch-action) collection.)
+        (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests map-service-action service-value-generator service-batch-action service-factory-action) collection.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
         (only-in :clan/poo/examples/property-workflows property-workflows-test)
         (only-in :clan/poo/examples/generated-batches generated-batches-test)

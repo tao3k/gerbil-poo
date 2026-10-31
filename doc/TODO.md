@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P51 closes typed bridge/domain preparation after first-observation snapshots.
+Retired getters/factories cannot bind later metadata or enter a raw fallback;
+checks and diagnostics share one captured authority. Deferred Record/Function/FUN
+recipes cover probing, replay and explicit fresh repair. Arbitrary direct host
+effects and termination remain boundaries. See
+[P51 in the PBT RFC](pbt-design-rfc.md#p51-closed-bridge-and-specification-preparation).
+
 P50 closes shared sampler declaration snapshots across bridges, checks,
 diagnostics, products and explicit Maps. Actual/bound Types precede sources,
 known dependencies precede getters and aliases cannot refresh earlier stamps.

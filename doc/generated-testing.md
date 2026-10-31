@@ -103,3 +103,12 @@ after correction. `service-value-generator` and `service-batch-action` in
 `examples/collection-properties.ss` show shared Record/Function producers, FUN,
 shrinking, portable replay and fresh retry. No hidden dependency inference or deep
 payload snapshot is promised.
+
+Bridge and specification binding use the same captured stamp set. Metadata getters,
+owned recipes and fallback binding are checked before the next stage; a factory
+returning #f may use the raw path only while its sources remain current. A generic
+tree yielding false is a present tree, not a missing recipe. Nested core probes
+inherit the preparation scope, which is released before ordinary execution.
+`service-factory-action` in `examples/collection-properties.ss` shows a deferred
+Record/Function recipe, bounded probe, FUN, shrinking, three replay forms and
+fresh corrected preparation. Direct arbitrary host effects are not transactional.
