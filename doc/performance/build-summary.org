@@ -1268,6 +1268,7 @@ standard backends per package. No deadline or heap ceiling was increased.
 | B2, grouped 62 modules | 262.00 | 35.24 | 300.06, refused | not run | not run | not run | not run | 602.08 until failure |
 | C1, separated executable closure | 144.75 | 19.76 | 279.63 | 322.14 | 21.41, refused | not run | not run | 789.81 until failure |
 | Integrated 6486159, original layout | 118.01 | 13.80 | 216.04 | 342.35, refused | not run | not run | not run | 691.66 until failure |
+| Fixed b0cffe8, original layout | 135.13 | 15.08 | 295.36 | 439.48 | 23.72 | 19.41 | 39.20 | 969.22, natural success |
 
 These are command-wrapper observations; they are not an exact additive partition
 of the parent's clock. A1/A2 used the same source snapshot and B1/B2 the same
@@ -1353,3 +1354,16 @@ all 168 independent cases. The companion Lean PropertyTraces example computes
 the same repaired-prefix audit using =auditShrinks= and =shrink=; the existing
 =interrupted_shrink_preserves= law supplies the general validity/descent bound.
 Host fixture cleanup and physical latency remain separately executed obligations.
+
+The fixed =b0cffe8= empty-prefix complete entry naturally passed all 144 modules,
+2,277 main cases, eight source regressions, 168 independent cases and both paired
+studies. Its ordered main digest is
+=a1474fcfbca61105660c78cd33ea9deb92b2c44b55e1b1da3f05f6b3ed704fc2=.
+The compiler's 6,875 program/library/header checksums were unchanged across the
+integrated and fixed runs. The parent's intervals were 446.20 seconds of build
+preparation, 281.91 of import/init, 150.29 of cases, 7.91 after reporting and
+82.72 of later checks/studies. Preparation counters record 6.32 CPU seconds and
+0.12 GC-wall seconds; they do not assign every remaining wait to one subsystem.
+This is functional/resource acceptance, not an admitted speedup: 969.22 seconds
+remains worse than the historical complete entries. No regrouping, compiler-policy
+separation, new loader or relaxed limit is retained to manufacture a faster row.
