@@ -428,7 +428,10 @@
       depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
       limits: (and sampler (.has? sampler limits) (.get sampler limits))))
   (with-catch
-    (lambda (cause) (report (if (not (current? sources sampler)) 'stale (generation-status cause))
+    ;; Classification observers may fail too; the shared core preserves the
+    ;; first cause and refuses success without swallowing application consumer IO.
+    (lambda (cause) (report (testing.failure-status cause
+      (lambda () (current? sources sampler)) generation-status)
       #f #f 0 0 #f cause #f))
     (lambda ()
       (when (some? failure) (raise (some-value failure)))

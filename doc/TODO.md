@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P65 closes typed initialization failure reporting with the existing generic
+classifier. Secondary observation cannot replace the primary cause; confirmed
+retirement stays stale, unfinished execution stays non-replayable, and FUN consumer
+IO remains outside classification. See [P65](pbt-design-rfc.md#p65-shared-primary-cause-ownership-during-typed-preparation-failure).
+
+
 P64 closes strict Boolean source admission across typed graphs, direct checks and
 cached guards using the existing core primitives. False remains stale, malformed
 replies remain errors, exceptions stay exact, and epoch refusal skips hooks. See

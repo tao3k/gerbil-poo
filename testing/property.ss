@@ -1,5 +1,5 @@
 ;;; Independent property execution and replay; only generic generators and stdlib.
-(export make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
+(export failure-status make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
         call-with-specifications report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
@@ -217,6 +217,7 @@
     (loop)))
 ;; Source-observer failure during error classification must not replace the
 ;; original callback exception. Such a report is an error, never valid evidence.
+;; Typed initialization reuses this same status decision while retaining its cause.
 (def (failure-status cause current classify)
   (if (stale-generation? cause) 'stale
     (with-catch (lambda (_) 'error)
