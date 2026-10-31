@@ -2,7 +2,7 @@
 (export generator-sources compile-graph graph-nodes graph-sources graph-costs graph-stamps graph-sources-current? node-descriptor node-kind node-children node-sampler node-branches
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ../support/base require-value) :std/iter :std/error ../object
-        (only-in :clan/poo/testing/property/generator with-sources with-generation-check)
+        (only-in :clan/poo/testing/property/generator with-sources with-generation-check boolean-result)
         (only-in ../mop Type validate)
         (only-in :std/list/list map-in-order delete-duplicates/hash)
         (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse. Sum.))
@@ -20,10 +20,12 @@
 
 ;; Discovery and evaluation share the same epoch and opaque-sampler admission.
 ;; Callers prepare the sampler spine once; checking never rebuilds a node list.
+;; Every present hook uses the core Boolean contract before the next participant.
 (def (graph-sources-current? stamps samplers)
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) stamps)
     (every (lambda (sampler)
-      (or (not (.has? sampler .current?)) (.call sampler .current?))) samplers)))
+      (or (not (.has? sampler .current?))
+        (boolean-result (.call sampler .current?) "source observer must return a boolean"))) samplers)))
 
 ;; One preparation boundary owns the constructor's declaration binding. Retarget
 ;; through a fresh constructor, never by inheriting a different Type's parser/tree.

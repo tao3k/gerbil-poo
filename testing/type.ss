@@ -88,15 +88,17 @@
     (when sampler (generator-sources sampler retain! expected))
     (reverse stamps)))
 ;; Refuse result admission after any declared source changed, including callbacks.
+;; A malformed observer is an error, rather than truthy authority or retirement.
 (def (current? sources (sampler #f))
   (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
-       (or (not sampler) (not (.has? sampler .current?)) (.call sampler .current?))))
+       (or (not sampler) (not (.has? sampler .current?))
+         (core.boolean-result (.call sampler .current?) "source observer must return a boolean"))))
 ;; Prepare the optional hook once. Source revisions are still checked before
 ;; every call, so a replaced/inherited hook cannot acquire fresh authority.
 (def (source-guard sources (sampler #f))
   (def hook (and sampler (.has? sampler .current?) (.@ sampler .current?)))
   (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
-    (or (not hook) (hook)))))
+    (or (not hook) (core.live? hook)))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
 ;; factory are separate actions: an obsolete getter cannot invoke its result,
 ;; and an obsolete false factory result cannot enter the raw fallback.

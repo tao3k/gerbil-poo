@@ -1,5 +1,5 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
+(export observer-tree-tests opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
 (import ../object
         ../mop
         ../type
@@ -141,4 +141,22 @@
     (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
   (property-action (Tuple Leaf (List Leaf) (Pair Tail Leaf)) (lambda (value)
     (trigger 'property owner)
+    (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) consume))
+
+;; A shared Record leaf exposes a pure application observer through the ordinary
+;; sampler protocol. Malformed replies refuse before later factories or the
+;; property; each FUN invocation may prepare explicitly after external correction.
+(def (observer-tree-tests owner observe trigger consume faulty?: (faulty? #t))
+  (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+  (def Leaf (.cc schema .element?: (cut element? schema <>)
+    .generator: (lambda ()
+      (trigger 'factory)
+      (.cc (make-generator Leaf (lambda (_random _size) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] (list (.cc value key: 0))))
+        (cut .get <> key) dependencies: [owner]) .current?: observe))))
+  (def Tail (.cc UInt .generator: (lambda ()
+    (trigger 'tail)
+    (make-generator Tail (lambda (_random _size) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
+  (property-action (Tuple Leaf (List Leaf) (Pair Tail Leaf)) (lambda (value)
+    (trigger 'property)
     (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) consume))
