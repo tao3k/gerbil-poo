@@ -123,3 +123,64 @@ supports retaining those standard owners rather than adding a project loader
 or successful-initialization cache. These source mechanisms do not, by
 themselves, assign measured wall time to individual initializers or prove the
 compiler/runtime implementation.
+
+## Fixture-free TestSuite composition
+
+The official runner evaluates each compiled test interface and loads its `~0`
+code image directly. Its generated loader stub is not a second test-image load.
+Adjacent suites without module fixtures now share 62 declared test roots instead
+of 144. Standard `let` scopes retain private helpers, each suite is constructed
+once, and exports retain the original suite/case order. Modules with setup or
+cleanup stay separate. `extra-inputs:` records every included source in the
+existing `std/make` declaration; no source scanner or alternate loader is used.
+Signature contracts share the existing contract/method build graph, balancing
+its work with the inference graph. The four-worker/standard-backend allocation
+and every deadline and heap ceiling remain unchanged.
+
+Metadata report admission owns its source/dimension definition. The workload
+imports that definition; reading a report no longer imports or initializes the
+whole workload. The standard prepared-harness fixture refuses that dependency
+if it returns. This removes one additional image, not the entire business
+closure: other tests legitimately use those business modules.
+
+The finite Lean model already proves ordered fixture-free regrouping, retained
+refusal results and subsequent state (`observeSuiteCases_regroup_between`), and
+permutation invariance when repartitioning the resulting compile declarations. See
+[BuildPreparation](https://github.com/tao3k/lean-poo/blob/2652a2a531a6eec321f0d0665b5a5647d997cc07/LeanPoo/Prototype/BuildPreparation.lean#L140).
+Absence of hooks/context-sensitive effects is a premise, checked here by retaining
+fixture modules and the complete execution trace. This does not verify GXC,
+Gambit, dyld or macOS library validation.
+
+## Frozen-source cold controls
+
+The read-only 30-second `fs_usage` trace isolated 29.118 seconds in 281 `F_CHECK_LV` calls;
+55 calls longer than 10 ms accounted for 29.116 seconds. Compiled private type
+metadata and runtime code were among the actual paths. Same-file checks were
+usually fast after first validation; the standard module registry was already
+deduplicating loads. The changes therefore remove unnecessary physical images,
+not validation or loader failure handling. No system security setting changed.
+
+Two A/B controls used the same physical compiler closure (6,875 checked files),
+12 automatic cores, previously absent output prefixes, and the unchanged complete
+`just check 2 1 4 600` entry. OS/compiler caches were not purged. Temporary SRFI-27
+streams 0/1 and one state-restoration control made container inputs replayable in
+both variants; those controls were removed afterward. Production retains its
+original randomized checks. All completed controlled runs delivered 2,285
+cases with trace `cf948e090f0fc361cf09429f54714e022bab4e2c16dc4df9cf6dd59c1ceca7ae`.
+
+| Trial | Result | Complete-entry wall seconds |
+| --- | --- | ---: |
+| Original A1 | test build hit its 300-second guard; standard clean completed | incomplete (591.09 spent) |
+| Candidate B1 | complete, natural exit | 738.84 |
+| Original A2 | complete, natural exit | 744.13 |
+| Candidate B2 | complete, natural exit | 646.90 |
+
+A2/B2 reduced wall time by 97.23 seconds (13.1%), including conversion/preparation,
+all test execution, independent consumer checks, both paired studies and reaping.
+Its preparation window fell from 227.09 to 158.92 seconds; observed dynamic module
+entries fell from 714 to 631. Test-package compilation increased from 153.28 to
+198.99 seconds, and total user CPU increased from 1,328.44 to 1,459.20 seconds.
+The CPU/compilation tradeoff is real; fewer images alone is not acceptance.
+The failed A1 remains a failure, not a latency sample or a discarded outlier.
+Two controls do not establish a tail percentile or a universal wall-time bound.
+Raw traces, patches, generated outputs and complete benchmark rows stay outside Git.

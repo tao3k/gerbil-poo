@@ -3,11 +3,11 @@
         (prefix-in :clan/poo/joint-publication joint.) (prefix-in :clan/poo/construction-cache cache.)
         (prefix-in :clan/poo/examples/joint-topology service.) (prefix-in :clan/poo/examples/joint-receipts receipts.)
         (prefix-in :clan/poo/examples/joint-concurrency concurrent.))
-;; Preserve the opaque receipt's identity alongside each complete native outcome.
+;; Preserve the opaque receipt's identity alongside each complete outcome.
 (defstruct observation (receipt snapshot failure) final: #t)
 ;; Installation never rebuilds independent feedback during actual revision work.
 (def builder (.cc cache.Builder. allow: (lambda (key) (not (eq? key 'stable)))))
-;; Existing native declarations describe symmetric or asymmetric lifecycle edits.
+;; Existing declarations describe symmetric or asymmetric lifecycle edits.
 (def (change phase) (.cc service.Change. phase: phase))
 ;; Shared replacements are distinct from immutable installed policy objects.
 (def (policy owner ceiling budget) (.cc (joint.approval (joint.current owner) 'shared) limit: ceiling budget: budget))

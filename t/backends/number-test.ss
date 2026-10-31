@@ -1,32 +1,27 @@
-(export number-test)
-
+;;; Related fixture-free suites share one standard runtime section.
+;;; Static record definitions retain their original module-level type bindings.
+(export number-test polynomial-test)
 (import
-  :std/assert :std/format
+  :std/assert
+  :std/format
   :std/iter
   :std/test
-  :clan/poo/support/base :clan/poo/support/debug :clan/poo/support/testing
-  :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/brace)
+  :clan/poo/support/base
+  :clan/poo/support/debug
+  :clan/poo/support/testing
+  :clan/poo/object
+  :clan/poo/mop
+  :clan/poo/number
+  :clan/poo/type
+  :clan/poo/brace
+  :std/debug/DBG
+  :clan/poo/fq
+  :clan/poo/polynomial)
 
-(def number-test
-  (test-suite "test suite for clan/poo/number"
-    (test-case "simple tests for Z/nZ"
-      (def Z/3Z (Z/ 3))
-      (check
-       (for/collect (i (iota 3))
-         (for/collect (j (iota 3))
-           (.call Z/3Z .add i j)))
-       => [[0 1 2][1 2 0][2 0 1]])
-      (check
-       (for/collect (i (iota 3))
-         (for/collect (j (iota 3))
-           (.call Z/3Z .mul i j)))
-       => [[0 0 0][0 1 2][0 2 1]])
-      (check
-       (for/collect (i (iota 3))
-         (for/collect (j (iota 2 1))
-           (.call Z/3Z .div i j)))
-       => [[0 0][1 2][2 1]]))
-    (test-case "test mul-expt<-mul"
-      (check (mul-expt<-mul + 5 10 7) => 75)
-      (check (mul-expt<-mul * 42 42 22) => (expt 42 23))
-      (check (mul-expt<-mul * 42 42 22 8) => (expt 42 23)))))
+;; Construct once with the original private helper scope and declaration order.
+(defvalues (number-test)
+  (let () (include "number/cases.scm")))
+
+;; Construct once with the original private helper scope and declaration order.
+(defvalues (polynomial-test)
+  (let () (include "number/polynomial.scm")))

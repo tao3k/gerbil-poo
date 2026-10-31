@@ -15,128 +15,106 @@
         execute-pending-compile-jobs!)
       (raise cause))))
 
+;; Adjacent fixture-free suites share runtime images and retain private helper
+;; scopes and export order. Modules with setup/cleanup remain separate. Gambit's
+;; existing host threshold bounds grouped C graphs without disabling inlining.
 ;; One authoritative standard make declaration serves the complete graph and
 ;; existing isolated CI packages. These are declarations, not discovered inputs.
+;; Fixture-free suites share runtime sections; Gambit's standard multiple-host
+;; fallback bounds C optimizer work without changing production module policy.
 (def +test-packages+
   '(
-    ("backends" "fq-test"
+    ("backends"
+    "fq-test"
     "library-reuse-test"
-    "number-test"
-    "polynomial-test"
+    (gxc: "number-test" (extra-inputs: ("number/cases.scm" "number/polynomial.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
     "rationaldict-test"
     "trie-test")
-    ("closure" "closure-alignment-test"
-    "closure-test"
-    "component-closure-test")
+    ("closure"
+    (gxc: "closure-test" (extra-inputs: ("closure/closure-alignment.scm" "closure/cases.scm" "closure/component-closure.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
     ("collection-deltas"
     (gxc: "table-batch-test" (extra-inputs: ("table-batch/capture.scm"
       "table-batch/origins.scm" "table-batch/transport.scm"))))
-    ("collection-order" "rationaldict-order-test"
+    ("collection-order"
+    "rationaldict-order-test"
     "table-cursor-test"
     (gxc: "table-order-test" (extra-inputs: ("table-order/observations.scm")))
     "table-split-test")
-    ("collection-styles" "set-algebra-test"
-    "set-observation-test"
-    "set-style-test"
-    "table-receiver-test"
-    "table-style-test")
-    ("collection-updates" "table-fold-test"
-    "table-group-join-test"
-    "table-index-equivalence-test"
-    "table-index-test"
+    ("collection-styles"
+    (gxc: "set-algebra-test" (extra-inputs: ("set-algebra/cases.scm" "set-algebra/set-observation.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "table-style-test" (extra-inputs: ("table-style/set-style.scm" "table-style/table-receiver.scm" "table-style/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("collection-updates"
+    "table-fold-test"
+    (gxc: "table-index-test" (extra-inputs: ("table-index/table-group-join.scm" "table-index/table-index-equivalence.scm" "table-index/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
     (gxc: "table-mapping-test" (extra-inputs: ("table-mapping/composition.scm" "table-mapping/retraction.scm")))
     "table-merge-test")
-    ("collections" "table-construction-test"
-    "table-focus-test"
-    "table-io-test"
-    "table-normalization-test"
-    "table-selection-test"
-    "table-validation-test"
+    ("collections"
+    (gxc: "table-construction-test" (extra-inputs: ("table-construction/cases.scm" "table-construction/table-focus.scm" "table-construction/table-io.scm" "table-construction/table-normalization.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "table-validation-test" (extra-inputs: ("table-validation/table-selection.scm" "table-validation/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
     "table-wrapper-test")
-    ("components" "component-membership-test"
-    "component-migration-test"
-    "component-requests-test"
-    "component-rounds-test")
-    ("construction" "construction-cache-test"
-    "construction-workflow-test"
-    "focused-closure-test")
-    ("contracts" "class-validation-test"
-    "computed-validation-test"
-    "container-validation-test"
-    "contract-checks-test"
-    "contract-family-test"
-    "contract-publication-test"
-    "evidence-binding-test"
-    "object-contract-flow-test"
-    "object-contract-test"
-    "object-contract-validation-test"
-    "optional-validation-test"
-    "protected-dispatch-test"
-    "recursive-approvals-test"
-    "recursive-competition-test"
-    "recursive-coordination-test"
-    "recursive-migration-test"
-    "recursive-publication-test"
-    "recursive-recovery-test"
-    "recursive-restaging-test"
-    "recursive-revision-test"
-    "recursive-staging-test"
-    "recursive-submissions-test"
-    "recursive-topology-test"
-    "recursive-validation-test"
-    "service-bundle-test"
-    "service-metadata-test"
-    "service-revisions-test"
-    "shared-approvals-test"
+    ("components"
+    (gxc: "component-membership-test" (extra-inputs: ("component-membership/cases.scm" "component-membership/component-migration.scm" "component-membership/component-requests.scm" "component-membership/component-rounds.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("construction"
+    (gxc: "construction-cache-test" (extra-inputs: ("construction-cache/cases.scm" "construction-cache/construction-workflow.scm" "construction-cache/focused-closure.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("contracts"
+    (gxc: "object-contract-test" (extra-inputs: ("object-contract/class-validation.scm" "object-contract/computed-validation.scm" "object-contract/container-validation.scm" "object-contract/contract-checks.scm" "object-contract/contract-family.scm" "object-contract/contract-publication.scm" "object-contract/evidence-binding.scm" "object-contract/object-contract-flow.scm" "object-contract/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "object-contract-validation-test" (extra-inputs: ("object-contract-validation/cases.scm" "object-contract-validation/optional-validation.scm" "object-contract-validation/protected-dispatch.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "recursive-approvals-test" (extra-inputs: ("recursive-approvals/cases.scm" "recursive-approvals/recursive-competition.scm" "recursive-approvals/recursive-coordination.scm" "recursive-approvals/recursive-migration.scm" "recursive-approvals/recursive-publication.scm" "recursive-approvals/recursive-recovery.scm" "recursive-approvals/recursive-restaging.scm" "recursive-approvals/recursive-revision.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "recursive-validation-test" (extra-inputs: ("recursive-validation/recursive-staging.scm" "recursive-validation/recursive-submissions.scm" "recursive-validation/recursive-topology.scm" "recursive-validation/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "service-bundle-test" (extra-inputs: ("service-bundle/cases.scm" "service-bundle/service-metadata.scm" "service-bundle/service-revisions.scm" "service-bundle/shared-approvals.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
     "variant-validation-test")
-    ("coordination" "coordinator-recovery-test"
-    "coordinator-rejoining-test"
-    "joint-concurrency-test"
-    "joint-coordination-test")
-    ("declarations" "catalog-inference-test"
-    "declarative-metadata-test"
-    "generalized-declaration-test"
-    "meta-prototype-test"
-    "recursive-declaration-test")
-    ("feedback" "cyclic-access-test"
-    "feedback-cache-test"
-    "feedback-closure-test"
+    ("coordination"
+    (gxc: "joint-coordination-test" (extra-inputs: ("joint-coordination/coordinator-recovery.scm" "joint-coordination/coordinator-rejoining.scm" "joint-coordination/joint-concurrency.scm" "joint-coordination/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("declarations"
+    (gxc: "generalized-declaration-test" (extra-inputs: ("generalized-declaration/catalog-inference.scm" "generalized-declaration/declarative-metadata.scm" "generalized-declaration/cases.scm" "generalized-declaration/meta-prototype.scm" "generalized-declaration/recursive-declaration.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("feedback"
+    (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.scm" "feedback-closure/feedback-cache.scm" "feedback-closure/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
     "feedback-graph-test"
     "feedback-revision-test")
-    ("generalized" "binding-benchmark-test"
-    "factory-benchmark-test"
-    "focused-benchmark-test"
-    "generalized-benchmark-test"
-    "generalized-closure-test"
-    "generalized-prototype-test")
-    ("inference" "candidate-inference-test"
-    "container-inference-test"
-    "descriptor-inference-test"
-    "empty-inference-test"
-    "optional-inference-test"
-    "record-inference-test")
-    ("methods" "inferred-declaration-test"
-    "method-combination-test"
-    "method-declaration-test"
-    "multimethod-test"
-    "typed-method-declaration-test")
-    ("objects" "inheritance-hooks-test"
+    ("generalized"
+    (gxc: "generalized-prototype-test" (extra-inputs: ("generalized-prototype/binding-benchmark.scm" "generalized-prototype/factory-benchmark.scm" "generalized-prototype/focused-benchmark.scm" "generalized-prototype/generalized-benchmark.scm" "generalized-prototype/generalized-closure.scm" "generalized-prototype/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("inference"
+    (gxc: "candidate-inference-test" (extra-inputs: ("candidate-inference/cases.scm" "candidate-inference/container-inference.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096")
+    (gxc: "descriptor-inference-test" (extra-inputs: ("descriptor-inference/cases.scm" "descriptor-inference/empty-inference.scm" "descriptor-inference/optional-inference.scm" "descriptor-inference/record-inference.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("methods"
+    "inferred-declaration-test"
+    (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.scm" "method-declaration/cases.scm" "method-declaration/multimethod.scm" "method-declaration/typed-method-declaration.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("objects"
+    "inheritance-hooks-test"
     "issued-read-test"
-    "lifecycle-test"
-    "mop-test"
-    "object-test"
-    "parameters-test"
-    "slot-observation-test"
-    "support-test")
-    ("publication" "approval-revision-test"
-    "joint-admission-test"
-    "joint-installation-test"
-    "joint-publication-test"
-    "joint-receipts-test")
-    ("recovery" "coordinator-interleaving-test")
-    ("recursion" "recursive-benchmark-test"
-    "recursive-test")
-    ("representations" "collection-testing-test"
+    (gxc: "object-test" (extra-inputs: ("object/lifecycle.scm" "object/mop.scm" "object/cases.scm" "object/parameters.scm" "object/slot-observation.scm" "object/support.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("publication"
+    (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.scm" "joint-publication/joint-admission.scm" "joint-publication/joint-installation.scm" "joint-publication/cases.scm" "joint-publication/joint-receipts.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("recovery"
+    "coordinator-interleaving-test")
+    ("recursion"
+    (gxc: "recursive-test" (extra-inputs: ("recursive/recursive-benchmark.scm" "recursive/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("representations"
+    "collection-testing-test"
     "declaration-index-test"
     "function-signature-test"
     (gxc: "property-testing-test" (extra-inputs: ("property-testing/samplers.scm")))
@@ -144,24 +122,21 @@
     "recursive-generation-test"
     (gxc: "representation-test" (extra-inputs: ("representation/growth.scm")))
     "row-types-test"
-    "tuple-json-performance-test"
-    "tuple-unmarshal-performance-test"
-    "type-performance-test"
-    "type-test")
-    ("revisions" "joint-generations-test"
+    (gxc: "type-test" (extra-inputs: ("type/tuple-json-performance.scm" "type/tuple-unmarshal-performance.scm" "type/type-performance.scm" "type/cases.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("revisions"
+    "joint-generations-test"
     "joint-restaging-test"
-    "joint-rounds-test"
-    "joint-topology-test")
-    ("scalars" "range-inference-test"
-    "scalar-inference-test"
-    "union-inference-test")
-    ("signatures" "function-coverage-test"
-    "function-options-test"
-    "keyword-coverage-test"
-    "keyword-prefix-test"
-    "keyword-rest-test"
-    "keyword-values-test")
-    ("tools" "cli-test"
+    (gxc: "joint-rounds-test" (extra-inputs: ("joint-rounds/cases.scm" "joint-rounds/joint-topology.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("scalars"
+    (gxc: "scalar-inference-test" (extra-inputs: ("scalar-inference/range-inference.scm" "scalar-inference/cases.scm" "scalar-inference/union-inference.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("signatures"
+    (gxc: "function-coverage-test" (extra-inputs: ("function-coverage/cases.scm" "function-coverage/function-options.scm" "function-coverage/keyword-coverage.scm" "function-coverage/keyword-prefix.scm" "function-coverage/keyword-rest.scm" "function-coverage/keyword-values.scm"))
+      "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"))
+    ("tools"
+    "cli-test"
     "debug-test"
     "metadata-paired-test"
     "metadata-report-test")
@@ -199,13 +174,15 @@
 
 ;; These compiler-only partitions reuse the original package declarations. They
 ;; change session lifetime, never the installed test namespaces or test inventory.
+;; Signature contracts share the method/contract context instead of extending
+;; the already larger inference graph; standard make still owns all four jobs.
 (def (test-build-partitions)
   '(("collections" "backends" "collection-deltas" "collection-styles" "collections"
       "coordination" "recovery" "revisions" "publication" "tools")
     ("prototypes" "collection-order" "collection-updates" "closure" "construction" "objects" "generalized"
       "components" "feedback" "recursion")
-    ("contracts" "contracts" "methods")
-    ("types" "declarations" "inference" "representations" "scalars" "signatures")))
+    ("contracts" "contracts" "methods" "signatures")
+    ("types" "declarations" "inference" "representations" "scalars")))
 
 ;; Public standard build scripts own parsing, freshness, parallel backend jobs
 ;; and cleanup. Bound each source-context lifetime by a declared functional part;

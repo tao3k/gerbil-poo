@@ -1,89 +1,27 @@
-(export joint-rounds-test)
-(import :std/test :std/sync/channel (only-in :std/list/list foldl) :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/feedback-graph
-        (prefix-in :clan/poo/joint-publication joint.) (prefix-in :clan/poo/construction-cache cache.)
-        (prefix-in :clan/poo/examples/component-rounds rounds.) (prefix-in :clan/poo/examples/joint-services service.))
-;; Unchanged inputs and independent feedback cannot invoke constructors in these rounds.
-(def builder (.cc cache.Builder. allow: (lambda (key) (not (memq key '(quota spare stable))))))
-;; Explicit standard thread scheduling retains fixed bounds on all communication.
-(def (submit-worker owner request output)
-  (thread-start! (make-thread (lambda ()
-    (defvalues (snapshot failure) (joint.submit! owner request))
-    (channel-put output (cons snapshot failure))))))
-;; Several complete bundles compete; only whole winners affect any observer.
-(def joint-rounds-test
-  (test-suite "interleaved atomic joint requests and cross-round restaging"
-    (test-case "two approved paused requests lose to a third whole winner before later split restore"
-      (def ready (make-channel)) (def resume (make-channel)) (def output (make-channel))
-      (def owner (service.start extra-joint: (lambda (old candidate)
-        (when (and old (< (.@ (joint.approval candidate 'shared) limit) 30)
-                   (= (service.value candidate 'a) 24))
-          (channel-put ready 'approved)
-          (unless (eq? (channel-get resume 5 'timeout) 'go) (error "joint round resume timed out"))) #t)))
-      (def original (joint.current owner))
-      (def first (service.stage-current owner 'merge 24 builder))
-      (def second (service.stage-current owner 'merge 26 builder))
-      (def rival (service.stage-current owner 'merge 30 builder))
-      (def workers (map (lambda (request) (submit-worker owner request output)) [first second]))
-      (check-equal? (channel-get ready 5 'timeout) 'approved)
-      (check-equal? (channel-get ready 5 'timeout) 'approved)
-      (check (eq? original (joint.current owner)) => #t)
-      (defvalues (winner ok) (joint.submit! owner rival))
-      (check-equal? ok #f)
-      (for-each (lambda (_) (channel-put resume 'go)) workers)
-      (for-each (lambda (_)
-        (def result (channel-get output 5 'timeout))
-        (check (eq? (car result) winner) => #t) (check (not (not (cdr result))) => #t)) workers)
-      (for-each (lambda (worker) (thread-join! worker 5)) workers)
-      (defvalues (split fine) (joint.submit! owner (service.stage-current owner 'replace 30 builder)))
-      (check-equal? fine #f) (check-equal? (service.value split 'a) 16)
-      (defvalues (restored good) (joint.submit! owner (service.stage-current owner 'restore 12 builder)))
-      (check-equal? good #f)
-      (for-each (lambda (key) (check-equal? (service.value restored key) (service.value original key))) '(a b))
-      (for-each (lambda (request)
-        (defvalues (held stale) (joint.submit! owner request))
-        (check (eq? held restored) => #t) (check (not (not stale)) => #t)) [first second rival]))
-    (test-case "preparation must not silently attach old computed replacements to a new current bundle"
-      (def owner (service.start)) (def original (joint.current owner))
-      (def rival (service.stage-current owner 'merge 30 builder))
-      (def winner #f)
-      (check-exception (joint.stage-with owner (lambda (expected)
-        (check (eq? expected original) => #t)
-        (defvalues (next ok) (joint.submit! owner rival))
-        (check-equal? ok #f) (set! winner next)
-        (values [(cons 'shared (.cc (joint.approval expected 'shared) limit: 24))]
-          [(cons 'a (rounds.contributions 'merge)) (cons 'b (rounds.contributions 'merge))])) builder: builder) true)
-      (check (eq? (joint.current owner) winner) => #t)
-      (check-exception (joint.stage-at owner original 'invalid 'invalid) true)
-      (defvalues (next ok) (joint.submit! owner (service.stage-current owner 'replace 30 builder)))
-      (check-equal? ok #f) (check-equal? (service.value next 'b) 16))
-    (test-case "six rounds refuse joint candidates then freshly prepare complete current bundles"
-      (def owner (service.start)) (def original (joint.current owner))
-      (def final (foldl (lambda (phase previous)
-        (def ceiling (if (eq? phase 'restore) 12 30))
-        (def denied (service.stage owner phase
-          [(cons 'shared (service.policy ceiling)) (cons 'b (service.policy 30 #f))] builder))
-        (def sibling (service.stage-current owner phase ceiling builder))
-        (defvalues (held failure) (joint.submit! owner denied))
-        (check (eq? held previous) => #t) (check (not (not failure)) => #t)
-        (defvalues (next ok) (joint.submit! owner (service.stage-current owner phase ceiling builder)))
-        (check-equal? ok #f)
-        (for-each (lambda (request)
-          (defvalues (head stale) (joint.submit! owner request))
-          (check (eq? head next) => #t) (check (not (not stale)) => #t)) [denied sibling])
-        (for-each (lambda (key)
-          (check (eq? (graph-cache-ref (joint.head original key) 'stable)
-                      (graph-cache-ref (joint.head next key) 'stable)) => #t)) '(a b))
-        next) original '(merge replace restore merge replace restore)))
-      (check-equal? (service.value final 'a) 12) (check-equal? (.@ (joint.approval final 'shared) limit) 12))
-    (test-case "policy-only whole publication invalidates siblings despite unchanged endpoint values"
-      (def owner (service.start)) (def original (joint.current owner))
-      (def request (joint.stage owner [(cons 'shared (service.policy 12))] []
-        builder: (.cc cache.Builder. allow: (lambda (_) #f))))
-      (def sibling (service.stage-current owner 'merge 24 builder))
-      (defvalues (next ok) (joint.submit! owner request))
-      (check-equal? ok #f)
-      (check-equal? (service.value next 'a) (service.value original 'a))
-      (defvalues (held stale) (joint.submit! owner sibling))
-      (check (eq? held next) => #t) (check (not (not stale)) => #t)
-      (defvalues (merged fine) (joint.submit! owner (service.stage-current owner 'merge 24 builder)))
-      (check-equal? fine #f) (check-equal? (service.value merged 'a) 24))))
+;;; Related fixture-free suites share one standard runtime section.
+;;; Static record definitions retain their original module-level type bindings.
+(export joint-rounds-test joint-topology-test)
+(import
+  :std/test
+  :std/sync/channel
+  (only-in :std/list/list foldl)
+  :clan/poo/object
+  :clan/poo/mop
+  :clan/poo/brace
+  :clan/poo/feedback-graph
+  (prefix-in :clan/poo/joint-publication joint.)
+  (prefix-in :clan/poo/construction-cache cache.)
+  (prefix-in :clan/poo/examples/component-rounds rounds.)
+  (prefix-in :clan/poo/examples/joint-services joint-rounds.service.)
+  :clan/poo/support/option
+  (prefix-in :clan/poo/dependency-analysis code.)
+  (prefix-in :clan/poo/strong-components scc.)
+  (prefix-in :clan/poo/examples/joint-topology joint-topology.service.))
+
+;; Construct once with the original private helper scope and declaration order.
+(defvalues (joint-rounds-test)
+  (let () (include "joint-rounds/cases.scm")))
+
+;; Construct once with the original private helper scope and declaration order.
+(defvalues (joint-topology-test)
+  (let () (include "joint-rounds/joint-topology.scm")))

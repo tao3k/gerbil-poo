@@ -7,7 +7,7 @@ ledger, manifest parser, copied source view or test runner.
 
 `just build` prepares the root library, the required benchmark programs and all
 declared functional test packages. `GERBIL_BUILD_CORES` is the standard backend
-budget and defaults to the machine's physical core count. Ordinary `xargs`
+budget and defaults to the machine's physical core count. Just's standard parallel dependency queue
 shares the existing process/heap envelope between package frontends and backend
 workers; `BUILD-CONCURRENCY` reports the effective allocation. No additional
 scheduler or load-path variable is introduced. Compiler phases retain their
@@ -20,9 +20,9 @@ On compiler failure the small build boundary drains the compiler's public
 `just test` runs every compiled `*-test.ssi` under the standard test runner in
 one process. Explicit compiled interfaces prevent the expander from retaining
 all source ASTs before the first case. The complete-suite deadline defaults to
-900 seconds, including eager module imports; `just test 300` explicitly selects the shorter bound. The heap remains
+600 seconds, including eager module imports; `just test 300` explicitly selects the shorter bound. The heap remains
 1 GiB and group/focused bounds remain 300/90 seconds.
-`just test-group signatures` uses official discovery on `t/signatures`. `just test-file t/contracts/class-validation-test.ss` selects
+`just test-group signatures` uses official discovery on `t/signatures`. `just test-file t/contracts/object-contract-test.ss` selects
 a source file with the existing 90-second focused bound. Tests export suites
 ending in `-test`, as required by the official runner.
 
@@ -34,7 +34,7 @@ they did not exercise POO behavior or pending compiler cleanup. No replacement
 Scheme orchestration suite is introduced.
 
 `t/tools` retains POO CLI, debug and metadata-admission behavior tests. Object
-lifecycle assertions live in `t/objects/lifecycle-test.ss`, unchanged in scope.
+lifecycle assertions live in `t/objects/object/lifecycle.scm`, unchanged in scope.
 The failure-drain helper `t/build.ss` is source-only build support and is no
 longer compiled as a runtime library. Actual startup execution, every POO
 behavior suite and both paired studies remain required.

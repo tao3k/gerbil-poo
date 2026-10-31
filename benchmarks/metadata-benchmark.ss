@@ -1,6 +1,6 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import :gerbil/runtime/gambit
+(import (only-in "metadata-report.ss" sources phases rounds repetitions) :gerbil/runtime/gambit
         :std/iter
         (only-in :clan/poo/object .cc .@ .o .call)
         :clan/poo/support/option
@@ -44,42 +44,6 @@
         (runtime: :clan/poo/dependency-analysis)
         (prefix-in (only-in :clan/poo/dependency-analysis make-success need) code.)
         (prefix-in :clan/poo/examples/construction-workflow workflow.))
-(def sources '("contract-family.ss" "build.ss" "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
-               "closure.ss" "object.ss" "mop.ss" "type.ss" "number.ss" "justfile"
-               "examples/shared-contracts.ss" "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
-               "benchmarks/closure-measure.ss" "benchmarks/metadata-benchmark.ss" "benchmarks/metadata-report.ss"))
-(def phases '(raw bound invoke wrap-build input-refuse output-refuse logic-refuse family-build family-warm revise refused-revise
-              protected-build protected-cold protected-warm guarded-low guarded-high protected-refuse protected-cancelled metadata-refuse call-refuse
-              component-start component-refresh component-reuse component-root component-presence
-              selective-release policy-release selective-negative-refuse selective-admission-refuse
-              schedule-full schedule-retained component-recapture protected-full-cold protected-full-warm
-              service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
-              service-budget-refuse service-negative-refuse
-              contract-prepare contract-retain contract-change contract-rebind
-              contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold
-              shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint
-              joint-input-shared joint-input-independent joint-construct joint-bind joint-family-shared joint-family-independent joint-generics joint-approval joint-cook
-              selected-price selected-joint joint-family-selected joint-input-direct joint-selection joint-unfactored-construct unfactored-joint unfactored-price
-              workflow-selected-joint workflow-unfactored-joint))
-(def rounds 4)
-(def (repetitions phase)
-  ;; Release-only follow-up: initial 8-op natural-GC price comparison regressed.
-  ;; Increase both matched sides equally; keep the same fixed time/heap bounds.
-  (cond ((memq phase '(workflow-selected-joint workflow-unfactored-joint)) 128)
-        ((memq phase '(selected-price selected-joint joint-family-selected joint-input-direct joint-selection joint-unfactored-construct unfactored-joint unfactored-price)) 128)
-        ((memq phase '(joint-input-shared joint-input-independent joint-construct joint-bind joint-family-shared joint-family-independent joint-generics joint-approval joint-cook)) 128)
-        ((memq phase '(shared-input-retain independent-input-retain shared-price independent-price shared-joint independent-joint)) 128)
-        ((memq phase '(contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 128)
-        ((memq phase '(family-build revise refused-revise protected-build protected-refuse protected-cancelled metadata-refuse
-                         component-start component-refresh component-reuse component-root component-presence
-                         selective-release policy-release selective-negative-refuse selective-admission-refuse
-                         schedule-full schedule-retained component-recapture
-                         service-reuse service-cold service-price service-price-cold service-invoice service-invoice-cold
-                         service-budget-refuse service-negative-refuse
-                         contract-prepare contract-retain contract-change contract-rebind
-                         contract-release-reuse contract-release-cold contract-price-reuse contract-price-cold)) 8)
-        ((memq phase '(protected-cold protected-warm guarded-low guarded-high call-refuse protected-full-cold protected-full-warm)) 512)
-        (else 4000)))
 ;; Matched unfactored control: the previous public constructor semantics.
 ;; This intentionally reconstructs invariant Types/Formula; it is not a runtime API.
 (def reference-units-type (IntegerRange min: 0))

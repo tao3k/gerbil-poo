@@ -1,7 +1,7 @@
 (export metadata-report-test test-setup!)
 (import :std/test :std/iter (only-in :std/list/list-builder with-list-builder)
         (only-in :gerbil/runtime/loader list-modules) :clan/poo/benchmarks/closure-measure
-        (prefix-in :clan/poo/benchmarks/metadata-benchmark benchmark.) (only-in :clan/poo/benchmarks/metadata-report check-study))
+        (prefix-in (only-in :clan/poo/benchmarks/metadata-report sources phases rounds repetitions) benchmark.) (only-in :clan/poo/benchmarks/metadata-report check-study))
 ;; Suite-local helpers expand before import; these six module stages are unused.
 (def private-helper-owners
   '("clan/poo/t/backends/fq-test" "clan/poo/t/backends/polynomial-test"
@@ -12,6 +12,9 @@
 ;; Read the official registry without retaining loader state.
 (def (test-setup!)
   (def modules (list-modules))
+  ;; Every root is already prepared here; reporting must not demand its workload.
+  (when (assoc "clan/poo/benchmarks/metadata-benchmark" modules)
+    (error "metadata admission loaded the benchmark workload"))
   (displayln "TEST-IMPORT-INVENTORY "
     (length (filter (lambda (entry) (string? (cdr entry))) modules)) " "
     (length (filter (lambda (owner) (assoc (string-append owner "~1") modules)) private-helper-owners)))
