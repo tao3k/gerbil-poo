@@ -31,13 +31,16 @@
 ;; One shared fold advances retained commands. Selection returns two values,
 ;; separating keep/omit from a command payload which may itself be false. Each
 ;; caller action shares the active source/check scope; refusal skips the next one.
+;; Admitters check shape first; this one copy freezes the command spine BEFORE
+;; initialization or selection can edit caller-owned pairs. Payloads stay shared.
 (def (fold-trace model commands select)
+  (def owned (list-copy commands))
   (foldl (lambda (raw progress)
     (let-values (((keep? command) (select (car progress) raw)))
       (if keep?
         (let-values (((next _reply) (with-sources [] ((reference-advance model) (car progress) command))))
           (cons next (cons command (cdr progress)))) progress)))
-    (cons (with-sources [] ((reference-initial model))) []) commands))
+    (cons (with-sources [] ((reference-initial model))) []) owned))
 ;; Retain the exact normalized commands admitted by every model prefix. A false
 ;; result rejects the whole trace; an empty prepared list is a successful trace.
 (def (prepare-trace model commands)
