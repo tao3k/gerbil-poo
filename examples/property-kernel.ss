@@ -9,7 +9,7 @@
         (only-in ./property-filters filter-test-cases! proposal-test-cases!)
         (only-in ./property-scopes declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
         (only-in ./property-sizes size-test-cases! collection-source-test-cases!)
-        (only-in ./property-traces trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!))
+        (only-in ./property-traces trace-lazy-test-cases! trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!))
 
 ;; A dependent packet exposes its generated count and its matching payload.
 (defstruct packet (count payload) final: #t)
@@ -89,6 +89,7 @@
     (size-test-cases!)
     (collection-source-test-cases!)
     (trace-draw-test-cases!)
+    (trace-lazy-test-cases!)
     (trace-sequence-test-cases!)
     (trace-action-test-cases!)
     (policy-domain-test-cases!)

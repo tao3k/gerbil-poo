@@ -4,6 +4,14 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P54 closes demand-driven repair in generated trace trees. The default typed path
+now reuses the existing lazy sequence tree instead of preparing every finite
+candidate and unused parameter callback before the first proposal. Confirmed
+repaired traces own their next neighborhood; finite value inspection and explicit
+method overrides retain their separate contracts. Indexed Record/Function/FUN
+requests cover replay, retirement and fresh correction. See
+[P54 in the PBT RFC](pbt-design-rfc.md#p54-demand-driven-dependency-repaired-trace-trees).
+
 P53 closes ordered named-property declaration preparation across the report and
 standard assertion forms. Fixed specifications precede generator construction;
 retirement stops later declarations and nested producers, while dependent draws,

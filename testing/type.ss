@@ -611,20 +611,24 @@
       ;; ordinary check-property/property-action without a parallel dispatch path.
       (def descriptor (.cc (List command-type)
         .generator: (lambda () (or result (error "trace generator not initialized")))))
+      ;; One draw adapter serves the public value callback and owned lazy tree.
+      (def (draw-command state random size)
+        (match (.call model draw state random size)
+          (#f (values #f #f)) ((some command) (values #t command))
+          (else (error "trace draw requires Option"))))
+      ;; Generic sequence trees defer repair and parameter work until demanded.
+      (def generation (model.trace-generator prepared draw-command
+        (lambda (command) (.call model shrink command)) steps))
       (def sampler (make-generator descriptor
-        (lambda (random size)
-          (model.draw-trace prepared
-            (lambda (state random size)
-              (match (.call model draw state random size)
-                (#f (values #f #f)) ((some command) (values #t command))
-                (else (error "trace draw requires Option")))) steps random size))
+        (lambda (random size) (model.draw-trace prepared draw-command steps random size))
         (lambda (commands)
           (model.shrink-trace prepared
             commands (.@ model shrink)))
         (lambda (commands)
           (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
         dependencies: (append (list source TraceGenerator command-type (.get model State)
-          (.get model Result) (.get model Observation)) dependencies)))
+          (.get model Result) (.get model Observation)) dependencies)
+        generation: generation))
       ;; The bounded trace predicate is compiled against this model/declaration.
       ;; Capture now, outside the lazy slot expression, just as Map/products do;
       ;; later model or List metadata cannot silently retarget that predicate.

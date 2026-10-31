@@ -134,3 +134,16 @@ TestResult behavior. Ordinary invocation options are caller-evaluated arguments.
 The named service case in `examples/collection-properties.ss` shows typed Record/
 Function generators, FUN delivery, three replay forms and fresh correction without
 retaining a transient construction checker. See P53 of the RFC for the boundary.
+
+Generated model traces now use owned lazy neighborhoods. The generic
+`testing/property/model` `trace-generator` takes a model, two-value draw callback,
+finite parameter shrink callback and step bound; ordinary generator source options
+are forwarded unchanged. The typed `testing/type` factory supplies the same tree
+through its existing generation field. A proposal budget controls demand instead
+of merely stopping after a complete batch has already been built. Explicit
+`shrink-trace` calls retain the finite-list inspection contract. Each reached
+parameter callback must still return a finite proper list. Exact exceptions and
+previously charged work are retained on interruption; budget cutoff is not EOF.
+`collection-request-action` in `examples/collection-properties.ss` composes this
+with an indexed backend, a Record/Function product, FUN, replay and fresh repair.
+See P54 in the RFC for the finite proof and work-count boundaries.

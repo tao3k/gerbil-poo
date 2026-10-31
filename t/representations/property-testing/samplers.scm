@@ -581,3 +581,50 @@
           (check-eq? (.get report status) 'passed)
           (check-equal? (list draws delivered) '(1 1))
           (check-exception (replay-property report) Error?))))))
+
+;; Default trace samplers own lazy generic trees; their explicit value callbacks
+;; still honor ordinary derived-sampler overrides through the existing bridge.
+(def trace-tree-test
+  (test-suite "typed lazy trace shrinking"
+    (test-case "typed one-proposal trace runs never force unused parameter shrinkers"
+      (for (budget '(0 1))
+        (let ((parameters 0))
+          (def reference (make-instance TraceGenerator Command: UInt State: UInt Result: UInt Observation: UInt
+            initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+            advance: (lambda (state _command) (values (1+ state) 0)) observe: identity
+            draw: (lambda (_state _random _size) (some 0))
+            shrink: (lambda (_) (set! parameters (1+ parameters)) (raise #f)) measure: (lambda (_) 0)))
+          (def sampler (trace-generator UInt reference steps: 8))
+          (def report (check-property (.get sampler descriptor) (lambda (_) #f)
+            sampler: sampler cases: 1 size: 8 shrink-budget: budget))
+          (check-eq? (.get report status) 'failed)
+          (check-equal? (.get report attempts) budget)
+          (check-equal? (length (.get report counterexample)) (if (zero? budget) 8 0))
+          (check-equal? parameters 0))))
+    (test-case "command Function wrapping ownership and explicit sampler overrides survive lazy trees"
+      (let* ((Command (Record value: [UInt] handler: [(Function [Integer] [Integer])]))
+             (parameters 0)
+             (reference (make-instance TraceGenerator Command: Command State: UInt Result: UInt Observation: UInt
+               initial: (lambda () 0) enabled?: (lambda (_state _command) #t)
+               advance: (lambda (state _command) (values (1+ state) 0)) observe: identity
+               draw: (lambda (_state _random _size) (some (make-instance Command value: 0 handler: abs)))
+               shrink: (lambda (_) (set! parameters (1+ parameters)) []) measure: (lambda (_) 0)))
+             (sampler (trace-generator Command reference steps: 8)))
+        (let (report (check-property (.get sampler descriptor) (lambda (_) #f)
+                       sampler: sampler cases: 1 size: 8 shrink-budget: 1))
+          (check-equal? (.get report counterexample) [])
+          (check-equal? parameters 0)
+          (check-exception ((.@ (car (.get report original)) handler) 'bad) TypeError?)
+          (.set! Command epoch 1)
+          (check-exception (replay-property report) Error?))
+        (let* ((fresh (trace-generator Command reference steps: 8))
+               (overridden (.cc fresh shrink: (lambda (_) [])))
+               (report (check-property (.get overridden descriptor) (lambda (_) #f)
+                         sampler: overridden cases: 1 size: 8 shrink-budget: 1)))
+          ;; An explicit new shrink method owns the new callback protocol. The
+          ;; earlier default tree must not silently override that declaration.
+          (check-eq? (.get report status) 'failed)
+          (check-equal? (length (.get report counterexample)) 8)
+          (check (.get report minimal?) => #t)
+          (check-equal? (.get report attempts) 0)
+          (check-equal? parameters 0))))))

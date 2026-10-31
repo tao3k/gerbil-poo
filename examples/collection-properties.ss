@@ -1,5 +1,5 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
-(export service-factory-action service-value-generator service-batch-action map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
+(export collection-request-action service-factory-action service-value-generator service-batch-action map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
 (import (prefix-in (only-in ../fun Observation.) fun.)
         (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property property.)
@@ -204,6 +204,36 @@
             (check-eq? (property.report-status (action configuration)) 'passed)
             (check-exception (property.replay-property report) Error?))
           (check-equal? delivered 2))))
+    (test-case "lazy indexed requests retain dependencies Function wrapping replay and fresh FUN repair"
+      (let* ((reference (collection-model lifecycle)) (delivered 0)
+             (configuration (make-instance PropertyConfiguration seed: 42 cases: 1
+               size: (length lifecycle) shrink-budget: 160)))
+        ;; Every returned report uses the existing Reader consumer exactly once.
+        (def (deliver report) (set! delivered (1+ delivered)) report)
+        (let* ((action (collection-request-action reference 'trie 'inverse deliver))
+               (report (action configuration)) (request (.get report counterexample))
+               (commands (.get request commands)))
+          (check-eq? (.get report status) 'failed)
+          (check (valid-trace? reference commands) => #t)
+          (check (< (length commands) (length lifecycle)) => #t)
+          (check (any (lambda (command) (eq? (vector-ref command 0) 'undo)) commands) => #t)
+          (check-exception ((.@ request dispatch) '(bad-command)) TypeError?)
+          (check (replay-counterexample report) => #f)
+          (check-equal? (.get (.get (replay-property report) counterexample) commands) commands)
+          (let* ((Request (.get report descriptor)) (dispatch (.get request dispatch))
+                 (codec (replay.make-codec '(indexed-request 1)
+                   (lambda (value) (.get value commands))
+                   (lambda (saved) (make-instance Request commands: saved dispatch: dispatch))))
+                 (output (open-output-string)))
+            (write-counterexample report codec output)
+            (check (read-counterexample (.get report sampler) codec
+              (open-input-string (get-output-string output)) (.get report property)) => #f))
+          (.set! reference epoch 1)
+          (check-exception (replay-property report) Error?)
+          (check-eq? (.get (action configuration) status) 'stale)
+          (check-eq? (.get ((collection-request-action reference 'trie 'none deliver) configuration) status) 'passed)
+          (check-exception (replay-property report) Error?)
+          (check-equal? delivered 3))))
     (test-case "interleaved ownership transfer and inverse index conflicts" (check-scenario handoff))
     (test-case "multi-round upgrades with retained stale receipts" (check-scenario rolling-upgrade))
     (test-case "ABA retry differs from cross-epoch receipt reuse" (check-scenario optimistic-aba))))
@@ -254,3 +284,22 @@
   (def field (service-value-generator cell owner void))
   (.putslot! field 'generation ($constant-slot-spec factory))
   (property-action cell (lambda (value) (= ((.@ value handler) -1) 0)) consume sampler: field))
+
+;; Compose one owned trace tree with a constant checked dispatcher. The existing
+;; product retains the dispatcher node as command neighborhoods shrink; Record
+;; alone owns Function wrapping and FUN owns report delivery.
+(def (collection-request-action reference backend fault consume)
+  (def traces (trace-generator Command reference))
+  (def Commands (.get traces descriptor))
+  ;; Function follows the project convention: outputs precede inputs.
+  (def Dispatch (Function (list Bool) (list Commands)))
+  (def dispatch (trace-property reference
+    (lambda (use) (with-collection-system use backend: backend fault: fault))))
+  (def handler (from-generator Dispatch (core.generator-unit dispatch) (lambda (_) 0)
+    dependencies: (list reference)))
+  (def Request (Record commands: [Commands] dispatch: [Dispatch]))
+  (def sampler (product-generator Request (list traces handler)
+    (lambda (request) (list (.get request commands) (.get request dispatch)))
+    (lambda (values) (make-instance Request commands: (car values) dispatch: (cadr values)))))
+  (property-action Request (lambda (request) ((.@ request dispatch) (.get request commands)))
+    consume sampler: sampler))
