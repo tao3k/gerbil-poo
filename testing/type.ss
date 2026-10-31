@@ -615,16 +615,16 @@
 ;; report stamps, proposal budgets and strict decrease/falsity admission.
 ;; Only the bounded command spine is specialized, not the generation framework.
 ;; Pure configuration contracts precede computed model metadata and snapshots.
-(def (trace-generator (command-type :~ object?) (subject :~ object?)
+(def (trace-generator command-type model
                       steps: (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))) := 64)
                       dependencies: (dependencies :~ proper-list? := []))
-  (def source subject)
-  (with-trace-model subject TraceGenerator (sources retain! checked)
-    (unless (eq? command-type (.get subject Command)) (error "trace command descriptor mismatch"))
+  (def source model)
+  (with-trace-model model TraceGenerator (sources retain! checked)
+    (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
     ;; Compile the captured callbacks once. Guarded invocations still acquire
-    ;; fresh subject state; admission does not revalidate metadata per proposal.
-    (def admission (checked prepare-model subject))
-    (def prepared (checked prepare-model subject (cut validate command-type <>)))
+    ;; fresh model state; admission does not revalidate metadata per proposal.
+    (def admission (checked prepare-model model))
+    (def prepared (checked prepare-model model (cut validate command-type <>)))
     (def result #f)
     ;; The Type's existing .generator extension makes this sampler usable by
     ;; ordinary check-property/property-action without a parallel dispatch path.
@@ -632,25 +632,25 @@
       .generator: (lambda () (or result (error "trace generator not initialized")))))
     ;; One draw adapter serves the public value callback and owned lazy tree.
     (def (draw-command state random size)
-      (match (.call subject draw state random size)
+      (match (.call model draw state random size)
         (#f (values #f #f)) ((some command) (values #t command))
         (else (error "trace draw requires Option"))))
     ;; Generic sequence trees defer repair and parameter work until demanded.
     (def generation (model.trace-generator prepared draw-command
-      (lambda (command) (.call subject shrink command)) steps))
+      (lambda (command) (.call model shrink command)) steps))
     (def sampler (make-generator descriptor
       (lambda (random size) (model.draw-trace prepared draw-command steps random size))
       (lambda (commands)
         (model.shrink-trace prepared
-          commands (.@ subject shrink)))
+          commands (.@ model shrink)))
       (lambda (commands)
-        (+ (length commands) (apply + (map (lambda (command) (weight subject command)) commands))))
-      dependencies: (append (list source TraceGenerator command-type (.get subject State)
-        (.get subject Result) (.get subject Observation)) dependencies)
+        (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
+      dependencies: (append (list source TraceGenerator command-type (.get model State)
+        (.get model Result) (.get model Observation)) dependencies)
       generation: generation))
-    ;; The bounded trace predicate is compiled against this subject/declaration.
+    ;; The bounded trace predicate is compiled against this model/declaration.
     ;; Capture now, outside the lazy slot expression, just as Map/products do;
-    ;; later subject or List metadata cannot silently retarget that predicate.
+    ;; later model or List metadata cannot silently retarget that predicate.
     (def own (source-guard (snapshot sampler []) sampler))
     (def stamps (sources))
     (def guard (lambda () (and (current? stamps) (own))))
@@ -668,13 +668,13 @@
 ;; Preflight the whole normalized command list before opening a fresh scoped
 ;; fixture. Compare initial state, then each reply/state exactly once; stop on
 ;; first divergence. Reports contain observations, never actual fixture owners.
-(def (check-trace (subject :~ object?) (commands :~ proper-list?) (with-system : :procedure)
+(def (check-trace model (commands :~ proper-list?) (with-system : :procedure)
                   same?: (same? : :procedure := equal?))
-  (with-trace-model subject TraceModel (sources retain! checked)
+  (with-trace-model model TraceModel (sources retain! checked)
     ;; Prepare method wrappers once; the shared scope owns their declarations.
     (def (wrap action) (lambda arguments (apply checked action arguments)))
-    (def normalized (checked validate (List (.get subject Command)) commands))
-    (def reference (checked prepare-model subject identity wrap))
+    (def normalized (checked validate (List (.get model Command)) commands))
+    (def reference (checked prepare-model model identity wrap))
     ;; Generic lifetime admission precedes every raw fixture getter. This hook
     ;; is preparation only; its caller's existing source scope also covers run.
     (def (prepare-system system)
@@ -693,14 +693,14 @@
           (let-values (((next result) (checked step state command)))
             (values (checked validate state-type next) result))) (wrap observe)))
     ;; Fixture ownership spans admitted preparation AND execution, then restores
-    ;; subject authority before application cleanup. No metadata is read here.
+    ;; model authority before application cleanup. No metadata is read here.
     (def (with-fixture use)
       (checked with-system (lambda (system)
         (parameterize ((sources (sources))) (use system)))))
     (def execution (model.check-trace reference normalized with-fixture
       prepare-system: prepare-system
       same?: (wrap (lambda (phase left right)
-        (trace-equal? (if (eq? phase 'result) (.get subject Result) (.get subject Observation)) same? left right checked)))))
+        (trace-equal? (if (eq? phase 'result) (.get model Result) (.get model Observation)) same? left right checked)))))
     (.o bind-these: #f matched?: (model.trace-report-matched? execution) phase: (model.trace-report-phase execution)
       index: (model.trace-report-index execution)
       command: (and (model.trace-report-has-command? execution) (some (model.trace-report-command execution)))
@@ -710,6 +710,6 @@
 ;; lifetime and exact step diagnostics remain in the existing callback/IO layer.
 ;; Bind only a valid callable request; constructing a property cannot postpone
 ;; a static fixture/equality error until after an unrelated generator has drawn.
-(def (trace-property (model :~ object?) (with-system : :procedure)
+(def (trace-property model (with-system : :procedure)
                      same?: (same? : :procedure := equal?))
   (lambda (commands) (.get (check-trace model commands with-system same?: same?) matched?)))

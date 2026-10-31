@@ -399,7 +399,7 @@
         (check-exception (trace-generator Integer subject steps: steps) contract-violation-error?))
       (for (dependencies (list '(owner . bad) (malformed-spine 'owner #t)))
         (check-exception (trace-generator Integer subject dependencies: dependencies) contract-violation-error?))
-      (check-exception (trace-generator #f subject) contract-violation-error?)
+      (check-exception (trace-generator Integer #f) TypeError?)
       (check-equal? reads 0))
     (test-case "typed comparisons and property binding admit callbacks before declarations"
       (def reads 0) (def opened 0)
@@ -416,6 +416,9 @@
       (check-equal? (list 3 reads opened) '(3 0 0))
       (check-exception (trace-property subject #f) contract-violation-error?)
       (check-equal? (list 4 reads opened) '(4 0 0))
+      ;; Descriptor failures keep the POO Type owner and its existing error class.
+      (check-exception (check-trace #f [] with-system) TypeError?)
+      (check-exception ((trace-property #f with-system) []) TypeError?)
       (check-equal? (list reads opened) '(0 0)))
     (test-case "fresh FUN binding retains dependency repair Function checks and source retirement"
       (def Command (Record kind: [(Enum open use)] key: [UInt]
