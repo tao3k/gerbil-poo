@@ -1242,3 +1242,95 @@ The Lean =observeSuiteCases_regroup_between= law extends the existing finite
 fixture-free stateful case model to a selected adjacent group between untouched
 neighbors. It retains ordered results and state after refusal. It does not prove
 arbitrary module initialization, host cleanup behavior or elapsed-time bounds.
+
+* Full-entry regression audit, 2026-10-31
+
+The historical full cold entries below 700 seconds are real: 681.08, 621.48,
+671.08 and 628.08 seconds. They are not the separate warm-prefix 75.61-second
+observation. Their workload was 2,065 main cases plus three source regressions.
+The following cohort uses =f2090e5= plus the shared-policy freshness regression
+in =85f9695=: 2,232 main cases, eight source regressions, 148 independently
+compiled library cases and both paired studies. Compiler/GSC/GCC executable
+checksums were checked around the runs. This is an empty project-output-prefix
+protocol; compiler and OS caches are retained, not claimed cold.
+
+All completed main cohorts below retained the ordered suite/case digest
+=f256621dffe9c6f249e214ee41ff8f1ffcfefd82c36f4f72221cab9131437e7c=.
+The public child was =just check 2 1 4 600= and all tests used =gerbil test=.
+The twelve-core machine retained four concurrent package frontends and two
+standard backends per package. No deadline or heap ceiling was increased.
+
+| cohort | root | startup | test preparation | main command | source | collections | generators | full wall / outcome |
+|--------+------+---------+------------------+--------------+--------+-------------+------------+---------------------|
+| A1, original 144 modules | 123.11 | 17.01 | 208.81 | 315.82 | 20.62 | 19.74 | 45.72 | 753.61, natural success |
+| A2, original 144 modules | 148.71 | 11.94 | 252.21 | 295.86 | 40.65 | 17.95 | 28.80 | 798.30, natural success |
+| B1, grouped 62 modules | 187.72 | 9.62 | 189.66 | 260.89 | 22.10 | 18.30 | 28.22 | 718.49, natural success |
+| B2, grouped 62 modules | 262.00 | 35.24 | 300.06, refused | not run | not run | not run | not run | 602.08 until failure |
+| C1, separated executable closure | 144.75 | 19.76 | 279.63 | 322.14 | 21.41, refused | not run | not run | 789.81 until failure |
+
+These are command-wrapper observations; they are not an exact additive partition
+of the parent's clock. A1/A2 used the same source snapshot and B1/B2 the same
+=e6fc57a= candidate. The C diagnostic intervened before B2 and used direct file
+capture rather than the other cohorts' external tee; it is not silently pooled
+as an identically instrumented paired success. Failed rows are censored entries,
+not faster complete checks. No stable-tail or population-quantile claim follows
+from this small cohort.
+
+** Additional checks are not duplicate work
+
+Compared with the historical source, the generator entry adds the product
+preparation/draw/shrink/replay study at widths 16 and 64. Its recorded action
+walls sum to 42.15 seconds in A1 and 25.37 in A2; the existing actions sum to
+1.36 and 1.33 seconds. Total generator commands are 45.72 and 28.80 seconds.
+This accounts for substantive additional work, rather than describing the whole
+increase as repeated module loading. Source regressions also grew from three
+to eight. None is removed to recover an older time.
+
+The compilation transcript's repeated property-kernel and coordinator builds
+belong to independent-package admission and deliberate input-change freshness
+controls. They must not be deduplicated into a weaker test. A1's parent clock
+reports approximately 350.53 seconds of build preparation, 203.51 of import/init,
+105.83 of main cases, 7.03 after reporting and 86.64 of later checks/studies.
+Thus the later checks and build preparation must remain in any full-entry claim.
+
+** Reject both structural candidates
+
+B grouped fixture-free suites using ordinary lexical includes and private
+initializers. Its first complete result reduced preparation, but its reverse
+run could not finish preparation under the unchanged 300-second deadline.
+Standard clean completed after that refusal. All grouping, extra compiler flags
+and initializer wrappers are withdrawn; the original 144-module layout remains.
+
+C separated the library and executable declarations. Although static objects
+fell from 218 to 27, the installed Darwin compiler already compiles the static
+object once and links the dynamic bundle from that same object. Artifact count
+was therefore not a duplicate-C-compilation count. Separation additionally needs
+the executable's closure preparation. C's source regression incorrectly looked
+for the =gxc:= table declaration as a string and refused; the corrected nine-case
+source regression subsequently exited naturally in 21.18 seconds. The failed
+whole run remains failed. The entire separation and its extra regression are
+withdrawn, not promoted from a partial timing.
+
+** Bounded frontend observations
+
+After the refusal, an original-layout diagnostic reused the already built
+production prefix and compiled the cleaned test outputs. Root freshness checking
+took 30.56 seconds, startup checking 7.98 and test compilation 172.86. These are
+not another full cold-entry success. One-second frontend samples distinguished
+early type-expansion GC marking/scanning from contracts macro compilation; a
+later types window was entirely =__select= waiting. A local sample cannot assign
+the complete phase to GC, dyld or backend compilation. The diagnostic did not
+change compiler policy, limits or concurrency.
+
+** Retained correctness fix
+
+The common =t/build.ss= compiler policy is now an explicit standard-make
+=extra-inputs:= dependency of each declared test output. Previously, editing an
+imported compiler-option declaration could leave apparently fresh leaf outputs.
+The regression runs ordinary =gerbil build=, verifies unchanged-build reuse, edits
+only that policy and requires an output refresh. No project freshness cache,
+source scanner or alternate loader is added. The existing Lean
+=sameBuildInputs_required_revision= law models why changing a required input
+cannot retain its old witness; this does not verify the compiler or predict wall
+time. The final integration preserves newer remote PBT work, whose acceptance
+must be attached to its own head rather than to the older timing cohort above.

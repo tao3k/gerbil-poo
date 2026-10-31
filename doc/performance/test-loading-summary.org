@@ -1,6 +1,21 @@
 #+title: Standard CLI complete-suite loading
 
-* Current protocol, 2026-10-28
+* Current acceptance, 2026-10-31
+
+The public entry remains =gerbil test=. Complete tests retain their 600-second
+deadline, the compiler frontend remains bounded at 2 GiB, and ordinary tests
+retain 1 GiB. Root/package builds retain 300 seconds, source regressions 90
+seconds, and paired studies 300 seconds. Machine-derived concurrency is unchanged.
+Every test, independent-package check, paired study and natural process exit is
+required. Earlier deadlines and executable experiments below are historical.
+
+See [[file:build-summary.org::*Full-entry regression audit, 2026-10-31][the full-entry audit]] for the
+fixed-source controls, failed candidates and the distinction between additional
+acceptance work, frontend computation, backend waiting and image mapping.
+Neither a smaller artifact inventory nor a successful harness marker admits a
+performance change. No module regrouping from this audit is retained.
+
+* Historical protocol, 2026-10-28
 
 =gerbil test -v 5= remains the only test entry. There is no POO test executable,
 export parser, alternative runner or load-path layer. The measured PBT
