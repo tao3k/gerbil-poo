@@ -555,10 +555,15 @@
 ;; Trace preparation observes each declaration before requesting the next one.
 ;; The same private scope serves generation, repair and differential execution;
 ;; a later computed field must never refresh an earlier Type's revision stamp.
-(defrule (with-trace-model model contract (sources retain! checked) body ...)
+;; Explicit request owners join this same ledger before the first field callback;
+;; the default form adds no owners, registry or extra dynamic guard layer.
+(defrules with-trace-model ()
+ ((_ model contract (sources retain! checked) body ...)
+  (with-trace-model model contract [] (sources retain! checked) body ...))
+ ((_ model contract initial-owners (sources retain! checked) body ...)
   (let (schema contract)
     (unless (object? model) (validate schema model))
-    (def sources (make-parameter (snapshot #f (list model schema))))
+    (def sources (make-parameter (snapshot #f (cons model (cons schema initial-owners)))))
     ;; Append stamps without replacing an earlier observation of the same owner.
     (def (retain! owners) (sources (append (sources) (snapshot #f owners))))
     ;; Dynamic admission also reaches nested generator/iterator operations.
@@ -578,7 +583,7 @@
       (capture! model)
       (set! model (checked validate schema model))
       (capture! model)
-      (checked (lambda () body ...)))))
+      (checked (lambda () body ...))))))
 
 ;; Shared callback lifting keeps validation/transition stages separate under the
 ;; active declaration scope, including pure admission and dependency repair.
@@ -604,12 +609,18 @@
 ;; Prefix admission and dependency repair share the generic fold; neither owns a
 ;; second traversal or invokes an actual backend during model validation.
 (def (valid-trace? model commands)
+  ;; Own only the outer spine before any computed declaration. False retains
+  ;; malformed ingress as refusal even if a later getter repairs the caller row.
+  (def owned (and (proper-list? commands) (list-copy commands)))
   (with-trace-model model TraceModel (sources retain! checked)
-    (model.valid-trace? (prepare-model model) commands)))
+    (model.valid-trace? (prepare-model model) owned)))
+;; Capture precedes metadata, but malformed input still reaches the existing
+;; repair contract after POO Type validation. Payloads remain caller-owned.
 ;; The domain normalizer preserves nested Function wrapping while retiring dependents.
 (def (repair-trace model commands)
+  (def owned (and (proper-list? commands) (list-copy commands)))
   (with-trace-model model TraceModel (sources retain! checked)
-    (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) commands)))
+    (model.repair-trace (prepare-model model (cut validate (.get model Command) <>)) owned)))
 
 ;; Build an ordinary List sampler; the existing runner owns random sources,
 ;; report stamps, proposal budgets and strict decrease/falsity admission.
@@ -619,7 +630,10 @@
                       steps: (steps :~ (lambda (n) (and (fixnum? n) (<= 0 n 65536))) := 64)
                       dependencies: (dependencies :~ proper-list? := []))
   (def source model)
-  (with-trace-model model TraceGenerator (sources retain! checked)
+  ;; Capture owner identities before metadata can mutate the caller's spine;
+  ;; the same model scope registers their first epochs before reading fields.
+  (def declared (list-copy dependencies))
+  (with-trace-model model TraceGenerator declared (sources retain! checked)
     (unless (eq? command-type (.get model Command)) (error "trace command descriptor mismatch"))
     ;; Compile the captured callbacks once. Guarded invocations still acquire
     ;; fresh model state; admission does not revalidate metadata per proposal.
@@ -646,7 +660,7 @@
       (lambda (commands)
         (+ (length commands) (apply + (map (lambda (command) (weight model command)) commands))))
       dependencies: (append (list source TraceGenerator command-type (.get model State)
-        (.get model Result) (.get model Observation)) dependencies)
+        (.get model Result) (.get model Observation)) declared)
       generation: generation))
     ;; The bounded trace predicate is compiled against this model/declaration.
     ;; Capture now, outside the lazy slot expression, just as Map/products do;
@@ -670,10 +684,12 @@
 ;; first divergence. Reports contain observations, never actual fixture owners.
 (def (check-trace model (commands :~ proper-list?) (with-system : :procedure)
                   same?: (same? : :procedure := equal?))
+  ;; Record normalization consumes the admitted row, never a metadata-edited alias.
+  (def owned (list-copy commands))
   (with-trace-model model TraceModel (sources retain! checked)
     ;; Prepare method wrappers once; the shared scope owns their declarations.
     (def (wrap action) (lambda arguments (apply checked action arguments)))
-    (def normalized (checked validate (List (.get model Command)) commands))
+    (def normalized (checked validate (List (.get model Command)) owned))
     (def reference (checked prepare-model model identity wrap))
     ;; Generic lifetime admission precedes every raw fixture getter. This hook
     ;; is preparation only; its caller's existing source scope also covers run.

@@ -5,6 +5,16 @@ In the future, we may add the following features and optimizations.
 ## Current implementation boundary
 
 
+P60 captures typed trace ingress before computed metadata and registers explicit
+owners in the existing first-observation ledger. Validation, repair, checking and
+generation reuse the existing Record, source and FUN protocols. Caller spine edits
+cannot retarget commands or dependency identities; payloads remain shared. Eight
+finite Lean laws model the original request handoff and guarded preparation;
+faithful host copying/observers and callback termination remain premises. See
+[P60](pbt-design-rfc.md#p60-owned-trace-ingress-and-first-observed-explicit-dependencies).
+
+
+
 P59 closes static trace request admission before computed declarations and
 fixture acquisition. Standard Gerbil contracts cover generic/typed check requests,
 typed finite limits/dependencies and trace-property binding. Existing model folds,
