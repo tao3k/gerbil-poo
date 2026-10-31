@@ -390,7 +390,13 @@
     (lambda () (error "shrinker must return a finite proper list"))))
 ;; This layer owns Type compilation and the POO report projection. Trial execution,
 ;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
-(def (check-property descriptor property seed: (seed 0) cases: (cases 100)
+(def (check-property descriptor property . options)
+  (apply run-property descriptor property [] #f options))
+
+;; One report owner serves direct checks and Reader preparation. Initial stamps
+;; retain Reader authority; a present Option carries even a false metadata cause,
+;; without replaying the failing getter or constructing a surrogate sampler.
+(def (run-property descriptor property initial failure seed: (seed 0) cases: (cases 100)
                      size: (size 20) shrink-budget: (shrink-budget 100) sampler: (supplied #f)
                      size-limit: (size-limit (and (not (procedure? size)) size))
                      policy: (policy (testing.make-policy)) name: (name #f)
@@ -403,7 +409,7 @@
   (unless (object? descriptor) (validate Type descriptor))
   ;; Freeze declared identities before any automatic generator callback.
   (def declared (list-copy dependencies))
-  (def sampler #f) (def sources [])
+  (def sampler supplied) (def sources initial)
   ;; Initialization can fail before a complete snapshot exists; those reports
   ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
   (def (report status original counterexample attempts steps minimal? cause execution)
@@ -423,7 +429,9 @@
     (lambda (cause) (report (if (not (current? sources sampler)) 'stale (generation-status cause))
       #f #f 0 0 #f cause #f))
     (lambda ()
-      (set! sources (snapshot #f (append (if supplied (list supplied) []) declared) descriptor))
+      (when (some? failure) (raise (some-value failure)))
+      (set! sources (append initial
+        (snapshot #f (append (if supplied (list supplied) []) declared) descriptor)))
       (let-values (((generation specification)
                     (with-source-stamps sources
                       (set! sampler (or supplied (generator descriptor depth node-budget: nodes
@@ -503,9 +511,17 @@
   (.call fun.Observation. .bind
     (lambda (configuration)
       (def owners (cons configuration declared))
-      (def sources (snapshot sampler owners descriptor))
+      (def sources (snapshot #f (append (if sampler (list sampler) []) owners) descriptor))
+      (def failure #f)
+      ;; Stable declaration errors become the usual non-replayable report once
+      ;; configuration is available. Retirement still stops later getters.
+      (with-catch (lambda (cause)
+                    (unless (current? sources) (raise cause))
+                    (set! failure (some cause)))
+        (lambda () (set! sources
+          (with-source-stamps sources (snapshot sampler owners descriptor)))))
       (def options (with-source-stamps sources (configuration-options configuration)))
-      (apply check-property descriptor property
+      (apply run-property descriptor property sources failure
         (append (list sampler: sampler dependencies: (map car sources)) options)))
     (lambda (report) (lambda (_configuration) (consume report)))))
 
