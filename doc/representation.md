@@ -2264,3 +2264,18 @@ call to the private traversal entry; compilation exited 70 (257.72 s including
 standard cleanup). That test now supplies the required retention flag and
 receiver-set callback argument. All 23 ownership cases and negative controls are
 retained; this is an updated private call, not a compatibility overload.
+
+Final integration at `a437746` naturally passed `just check 2 1 4` in 748.02 s:
+2,408 cases, 63 module results, three complete harnesses, independent source
+acceptance and both paired studies. Only the aggregate preparation deadline was
+removed with explicit authorization; 2-GiB heaps, automatic 12 cores / four
+frontends with two backends each, other phase bounds and cleanup remain.
+The fixed final-source `2 4 8` repeat then exited 0 in 174.32 s (41.58 s user,
+0.93 s system). Its workflow differences were substantially worse and noisier:
+natural mean +19,265.79 us/max +88,748.22 us (three wins/five losses), collected
++29,454.49/+65,047.50 us and post-GC +22,853.94/+44,697.58 us.
+Inclusive +27,987.96 us comprised non-GC CPU +3,218.42 us, GC CPU +576.20 us and
+signed wall residual +24,193.33 us. This repeat is retained, not discarded as
+noise. Fewer allocation/registration operations and earlier lower policy gaps
+do NOT establish stable full-workflow wall/tail improvement. That acceptance
+remains unresolved; functional acceptance and both current-head CIs passed.

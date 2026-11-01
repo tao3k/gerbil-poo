@@ -302,3 +302,36 @@ state and timing instrumentation, so it is not a cold-entry comparison. The earl
 be assigned entirely to optimization. No upstream compiler, system validation,
 compiler optimization policy or required POO check was changed. Raw logs and
 artifacts remain outside Git.
+
+### Complete-entry regression at a437746
+
+The fixed `a437746` incremental entry naturally passed in 748.02 s with 2,408
+cases / 63 module results. The earlier project-artifact-cold C1 entry completed
+in 637.25 s with 2,387 cases. Both used automatic 12 cores, four standard compiler
+partitions with two backends, and two runtime processes. Different revisions,
+inventories and artifact histories make this a diagnostic comparison, not a
+matched implementation-speedup experiment:
+
+| Stage | C1 seconds | Current seconds |
+| --- | ---: | ---: |
+| Library + startup package | 141.35 | 27.86 |
+| Test preparation | 134.64 | 297.25 |
+| Complete runtime tests | 279.73 | 315.24 |
+| Independent source + collection + generator studies | 74.77 | 103.10 |
+
+Other invocation residuals are 6.76 s and 4.57 s; complete-entry regression is
+110.77 s. Preparation alone adds 162.61 s. Its aggregate user/system CPU grows
+from 602.08 s to 718.65 s; parallel CPU cannot simply be subtracted from wall
+to identify a waiting cause. Removing the deadline is not a performance repair.
+
+A standard test-only clean followed by `just build` reproduced 314.56 s test
+preparation (643.89 s user / 75.57 s system). Early five-second read-only samples
+of each owned frontend showed macro/syntax expansion and GC scanning, with
+967 MiB footprint in the sampled types context and later 1.7–2.0 GiB RSS across
+frontends. They do not explain the whole phase or prove a dyld diagnosis. The
+same diagnostic root check performed no compilation yet spent 114.37 s wall
+versus 26.87 s CPU, compared with 24.28 s in the complete entry. Repeated source
+compilation is therefore not established as that cached-root delay's cause.
+Actual preparation/runtime waiting remains unresolved. Original failures and
+all qualification runs are retained outside Git; the Slot workflow's poor final
+repeat is recorded in representation.md rather than presenting only earlier wins.
