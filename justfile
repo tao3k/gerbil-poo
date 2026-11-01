@@ -25,7 +25,7 @@ build-core: check-layout
     #!/usr/bin/env bash
     set -euo pipefail
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build; then
+    if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 gerbil -:max-heap=2G,debug=q build; then
         exit 0
     else
         build_status=$?
@@ -90,9 +90,9 @@ _build-test-package part action='build':
 
 # CI has already prepared the shared package; no hidden rebuild or copied view.
 build-group group:
-    cd "t/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
+    cd "t/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 gerbil {{ test-runtime-options }} build
 
-# Test execution runs to completion; compilation keeps its separate deadline.
+# Standard compilation and tests run to completion; program studies retain their own bounds.
 test: build
     just _test-parallel
 

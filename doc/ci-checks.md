@@ -232,8 +232,8 @@ The user-authorized policy removes only the complete test-preparation phase's
 build is not a timeout failure. `timeout --signal=TERM --kill-after=3s 0` uses
 GNU's documented disabled-deadline mode to retain process-group signal forwarding
 and cancellation cleanup. The existing 2-GiB heaps, standard concurrency, all
-POO checks, original root-library/isolated-build/program bounds and failure-time
-standard clean remain. This is not a speedup claim: complete-entry wall time and
+POO checks, isolated heap/program-study bounds and failure-time standard clean
+remain. This is not a speedup claim: complete-entry wall time and
 actual stage costs are reported separately. A TERM probe exited 143 with its
 child reaped; the disabled deadline does not disable cancellation.
 
@@ -245,3 +245,10 @@ Its 1-GiB heap and signal-group supervision remain. The first uncapped aggregate
 run completed test preparation in 277.18 seconds but then failed this separate
 60-second compiler deadline (exit 124), so that 891.30-second entry is not a pass.
 A subsequent complete acceptance must use another empty artifact prefix.
+
+Root-library and individual test-package compiler invocations follow the same
+user-authorized completion policy: their remaining 300-second wall fences also
+use signal-only zero duration. This avoids moving the same false timeout to an
+outer or inner compiler boundary. Program-study, cleanup, heap and CI job-level
+limits are unchanged. Genuine compiler errors retain their statuses and still
+trigger standard clean.
