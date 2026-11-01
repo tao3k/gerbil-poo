@@ -29,16 +29,22 @@
     size-limit: [(OrFalse UInt) default: #f] policy: [PropertyPolicy default: (testing.make-policy)]
     depth: [UInt default: 32] node-budget: [UInt default: 256]
     descriptor-budget: [UInt default: 256] search-budget: [UInt default: 8192]))
+;; A present owned value must be a generic generator; only #f declines the
+;; owned path. This construction boundary returns the exact value and preserves
+;; the existing ordinary error before raw binding or source-hook metadata.
+(def (checked-generation value)
+  (require-value value (lambda (value) (or (not value) (core.generator? value)))
+    (lambda () (error "generic generator required"))))
 ;; Public samplers retain ordinary Record/Class initialization and validation.
 ;; Additional mutable callback dependencies remain explicit source objects.
 (def (make-generator descriptor draw shrink measure dependencies: (dependencies []) generation: (generation #f))
-  (unless (or (not generation) (core.generator? generation)) (error "generic generator required"))
+  (def owned (checked-generation generation))
   (make-instance GeneratorRecord descriptor: descriptor bound-descriptor: descriptor draw: draw shrink: shrink
     measure: measure sources: (cons descriptor dependencies)
     ;; A derived sampler that replaces a value callback owns a new protocol.
     ;; Do not keep using the inherited sample tree after that override.
-    generation: (and generation (lambda (owner)
-      (and (eq? (.get owner draw) draw) (eq? (.get owner shrink) shrink) generation)))))
+    generation: (and owned (lambda (owner)
+      (and (eq? (.get owner draw) draw) (eq? (.get owner shrink) shrink) owned)))))
 ;; Type metadata and measures stay in POO; sample provenance stays in the generic
 ;; generator. Value-only shrinking, when needed by a domain, is explicitly supplied.
 (def (from-generator descriptor generation measure dependencies: (dependencies [])
@@ -105,7 +111,7 @@
 (def (sampler-generation sampler sources)
   (with-source-stamps sources
     (def owned (core.with-sources [] (.get sampler generation)))
-    (def candidate (and owned (core.with-sources [] (owned sampler))))
+    (def candidate (checked-generation (and owned (core.with-sources [] (owned sampler)))))
     (def generation (or candidate
       (let (draw (core.with-sources [] (.@ sampler draw)))
         (core.make-generator draw (cut sampler-children sampler <>)))))
@@ -181,7 +187,7 @@
         (unless (and (list? row) (length=n? row width)) (error "invalid product value row"))
         (list-copy row))
       (.cc (from-generator descriptor
-        (core.generator-map (core.generator-sequence (map generator-core children)) pack current?: current)
+        (core.generator-map (core.generator-sequence (map-in-order generator-core children)) pack current?: current)
         (lambda (value) (testing.specification-weight domain (checked unpack value)))
         shrink: (lambda (value) (coordinate-shrinks children (unpack-row value) pack checked))
         dependencies: (apply append (map generator-sources children))) .current?: current))))

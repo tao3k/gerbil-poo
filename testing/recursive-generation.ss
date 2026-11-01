@@ -76,7 +76,7 @@
   ;; the following bridge must then remain unevaluated.
   (def scalar-generators
     (core.with-generation-check check-graph!
-      (list->vector (map (lambda (node)
+      (list->vector (map-in-order (lambda (node)
         (and (node-sampler node) (core.with-sources [] (to-core (node-sampler node)))))
         (vector->list nodes)))))
   ;; Read a saturated minimum; zero depth never has an inhabitant.

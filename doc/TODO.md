@@ -35,6 +35,11 @@ protocol assumes faithful standard copying, finite recognition and loader effect
 it does not certify arbitrary callbacks or concurrent mutation during capture.
 Balanced complete-call controls retain natural/post-GC, AB/BA and A/A/B/B samples.
 
+P69 closes owned-factory result admission at the existing typed bridge: malformed
+present values refuse before subsequent binding, #f alone selects raw fallback,
+and factory exceptions/source retirement retain their precedence. Product and
+recursive preparation use standard ordered traversal. See [P69](pbt-design-rfc.md#p69-owned-factory-result-admission-before-subsequent-binding).
+
 P68 closes static run admission before named declarations and typed sampler
 preparation. Direct checks, both named macros and FUN reuse one prepared generic
 check with Gerbil keyword/default binding; every execution keeps its own random

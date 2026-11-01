@@ -314,6 +314,51 @@
 ;; only later value pulls. Every counter is sequenced at its observation point.
 (def bridge-preparation-test
   (test-suite "typed bridge and specification preparation"
+    (test-case "malformed owned factory results refuse before raw and hook metadata"
+      (for (bad (list #t 17 'wrong (void) (lambda () #t)))
+        (let ((raw 0) (hooks 0) (secondary (cons 'hook 'cause))
+              (field (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs)))
+          (.putslot! field 'generation ($constant-slot-spec (lambda (_) bad)))
+          (.putslot! field 'draw ($self-slot-spec (lambda (_)
+            (set! raw (1+ raw)) (error "must not bind raw draw"))))
+          (.putslot! field '.current? ($self-slot-spec (lambda (_)
+            (set! hooks (1+ hooks)) (raise secondary))))
+          (check-exception (generator-core field)
+            (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "generic generator required"))))
+          (check-equal? (list raw hooks) '(0 0))
+          (check-exception (make-generator Integer values (lambda (_) []) abs generation: bad) Error?))))
+    (test-case "factory exceptions and source retirement keep precedence over result admission"
+      (for (cause (list #f (cons 'factory 'cause)))
+        (let* ((descriptor (.cc Integer)) (hooks 0)
+               (field (make-generator descriptor (lambda (_r _s) 1) (lambda (_) []) abs)))
+          (.putslot! field 'generation ($constant-slot-spec (lambda (_)
+            (.set! descriptor epoch 1) (raise cause))))
+          (.putslot! field '.current? ($self-slot-spec (lambda (_) (set! hooks (1+ hooks)) (lambda () #t))))
+          (check-eq? (with-catch identity (lambda () (generator-core field))) cause)
+          (check-equal? hooks 0)))
+      (let* ((descriptor (.cc Integer))
+             (field (make-generator descriptor (lambda (_r _s) 1) (lambda (_) []) abs)))
+        (.putslot! field 'generation ($constant-slot-spec (lambda (_)
+          (.set! descriptor epoch 1) #t)))
+        (check-exception (generator-core field)
+          (lambda (cause) (and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'stale))))))
+    (test-case "malformed shared bridges stop later product and recursive binding without fallback"
+      (for (kind '(product recursive map))
+        (let* ((first (.cc Integer)) (second (.cc Integer)) (later 0) (draws 0) (packs 0)
+               (left (make-generator first (lambda (_r _s) (set! draws (1+ draws)) 1) (lambda (_) []) abs))
+               (right (make-generator second (lambda (_r _s) (set! draws (1+ draws)) 2) (lambda (_) []) abs)))
+          (.putslot! left 'generation ($constant-slot-spec (lambda (_) #t)))
+          (.putslot! right 'generation ($constant-slot-spec (lambda (_)
+            (set! later (1+ later)) (core.generator-unit 2))))
+          (.putslot! first '.generator ($constant-slot-spec (lambda () left)))
+          (.putslot! second '.generator ($constant-slot-spec (lambda () right)))
+          (check-exception
+            (case kind
+              ((product) (product-generator (Tuple first second) (list left right) vector->list
+                (lambda (row) (set! packs (1+ packs)) (list->vector row))))
+              ((recursive) (generator (Tuple first second)))
+              ((map) (map-generator (Map Symbol -> first) '(shared) left))) Error?)
+          (check-equal? (list later draws packs) '(0 0 0)))))
     (test-case "check requests capture expected Types and mismatch before later metadata"
       (let* ((Descriptor (.cc Integer)) (later 0) (draws 0)
              (field (make-generator Descriptor (lambda (_random _size) (set! draws (1+ draws)) 1)

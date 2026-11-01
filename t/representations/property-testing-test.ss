@@ -8,7 +8,7 @@
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
         (only-in :clan/poo/function-signature encode-arguments)
-        (only-in :clan/poo/testing/generation-graph generation-refusal?)
+        (only-in :clan/poo/testing/generation-graph generation-refusal? generation-refusal-kind)
         (only-in :clan/poo/support/option some)
         (only-in :clan/poo/examples/signature-service signature-preparation-test failure-preparation-test inspection-request-test)
         (prefix-in :clan/poo/examples/signature-service service.)

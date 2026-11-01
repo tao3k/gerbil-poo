@@ -95,6 +95,45 @@
 ;; through gerbil test after the standard qualification build, without a new runner.
 (def collection-properties-test
   (test-suite "complex model-driven collection properties"
+    (test-case "malformed deferred services refuse then freshly retry shrink and replay"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def ready? #f) (def handler abs) (def factories 0) (def produced 0)
+      ;; Each fresh recipe captures the current handler. Record alone installs
+      ;; its Function contract; the retained integer tree owns real shrinking.
+      (def (generation callback)
+        (core.generator-map (core.make-generator (lambda (_r _s) 3) core.integer-shrinks)
+          (lambda (amount) (set! produced (1+ produced))
+            (make-instance cell amount: amount handler: callback))))
+      ;; Only #f means fallback. A malformed present result cannot start a run.
+      (def (factory _field)
+        (set! factories (1+ factories)) (if ready? (generation handler) #t))
+      (def action (service-factory-action cell owner factory identity))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 shrink-budget: 40))
+      (def refused (action configuration))
+      (check-eq? (.get refused status) 'error)
+      (check-equal? (Error-message (.get refused cause)) "generic generator required")
+      (check-eq? (.get refused replayable?) #f)
+      (check-equal? (list factories produced) '(1 0))
+      (check-exception (replay-counterexample refused) Error?)
+      (set! ready? #t) (.set! owner epoch 1)
+      (def failed (action configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? (.get (.get failed counterexample) amount) 0)
+      (check (> (.get failed steps) 0) => #t)
+      (check-exception ((.@ (.get failed counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (def codec (replay.make-codec '(owned-service 1)
+        (lambda (value) (.get value amount))
+        (lambda (amount) (make-instance cell amount: amount handler: abs))))
+      (def output (open-output-string))
+      (write-counterexample failed codec output)
+      (check (read-counterexample (.get failed sampler) codec
+        (open-input-string (get-output-string output)) (.get failed property)) => #f)
+      (set! handler (lambda (_) 0)) (.set! owner epoch 2)
+      (check-exception (replay-property failed) Error?)
+      (check-eq? (.get (action configuration) status) 'passed))
     (test-case "owned prefixes and state-derived producer identities"
       (def command (vector 'stage 2 1 10))
       (def selected (collection-model (list command)))
