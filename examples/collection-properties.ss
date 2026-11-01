@@ -186,6 +186,39 @@
         (let (report ((service-factory-action cell owner (recipe (lambda (_) 0)) deliver) config))
           (check-eq? (.get report status) 'passed)
           (check-equal? delivered 2))))
+    (test-case "Map service observer admission closes before FUN generation shrinking replay and repair"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (Map Symbol -> cell))
+      (def inherited (service-value-generator cell owner void))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 3 shrink-budget: 40))
+      (def keys 0) (def delivered 0)
+      (.putslot! descriptor 'Key ($self-slot-spec (lambda (_) (set! keys (1+ keys)) Symbol)))
+      (.putslot! inherited '.current? ($constant-slot-spec #f))
+      ;; Use prototype inheritance; the retry explicitly overrides its hook.
+      (def field (.mix inherited))
+      ;; Consumer IO has no opportunity to run after declaration refusal.
+      (def (deliver report) (set! delivered (1+ delivered)) report)
+      (check-exception (map-service-action descriptor cell owner void deliver sampler: field) Error?)
+      (check-equal? (list keys delivered) '(0 0))
+      (.putslot! field '.current? ($constant-slot-spec (lambda () #t)))
+      (def action (map-service-action descriptor cell owner void deliver sampler: field))
+      (def report (action configuration))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (hash-length (.get report counterexample)) 2)
+      (for (key '(left right))
+        (def value (hash-ref (.get report counterexample) key))
+        (check-equal? (.get value amount) 0)
+        (check-exception ((.@ value handler) 'invalid) TypeError?))
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (.set! owner epoch 1)
+      (check-exception (replay-property report) Error?)
+      (check-eq? (.get (action configuration) status) 'stale)
+      (def fresh ((map-service-action descriptor cell owner void deliver sampler: field) configuration))
+      (check-eq? (.get fresh status) 'failed)
+      (check (replay-counterexample fresh) => #f)
+      (check-equal? delivered 3))
     (test-case "dependent Record services retain owned epochs through FUN shrink replay and retry"
       (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
       (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
@@ -317,8 +350,9 @@
 ;; Accept an already declared service directory, so metadata preparation and
 ;; publication share the same request authority. The Map factory alone owns key
 ;; admission; its original guard travels with this deterministic two-entry tree.
-(def (map-service-action descriptor cell owner weigh consume)
-  (def values (service-value-generator cell owner weigh))
+;; An explicit value sampler uses the same factory and declaration admission.
+(def (map-service-action descriptor cell owner weigh consume sampler: (supplied #f))
+  (def values (or supplied (service-value-generator cell owner weigh)))
   (def maps (map-generator descriptor '(left right) values dependencies: (list owner)))
   (def guard (.@ maps .current?))
   (def generation (core.generator-map

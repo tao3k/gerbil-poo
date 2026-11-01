@@ -3648,3 +3648,10 @@ prototype-map benchmark module, keeping the paired runner below 1000 lines.
 The paired new/hot/full phases compare safe explicit and observed declarations
 with equal client outcomes; setup, validation, binding, GC and retry remain
 charged. Hidden effects and concurrent mutation retain their documented bounds.
+
+P71 closes Map observer declaration admission: present noncallable hooks refuse
+before Key/Value metadata and core construction, sharing the closed guard's
+existing observer reader. Record/Function/FUN service generation, shrinking,
+replay, old-root refusal and explicit fresh retry use the same Map factory.
+See [P71](pbt-design-rfc.md#p71-shared-observer-binding-before-map-declarations)
+for finite proofs, exact failure ordering and unchanged generic-core boundaries.

@@ -103,14 +103,19 @@
   (and (stamps-current? sources)
        (or (not sampler) (not (.has? sampler .current?))
          (core.boolean-result (.call sampler .current?) "source observer must return a boolean"))))
+;; Read optional observer metadata once at the existing checked action boundary.
+;; Absence alone is opt-out; present values must be callable before any later
+;; declaration getter. This returns the original procedure, not a wrapper/cache.
+(def (source-observer sampler)
+  (and sampler (.has? sampler .current?)
+    (require-value (core.with-sources [] (.@ sampler .current?)) procedure?
+      (lambda () (error "source observer must be a procedure")))))
 ;; Bind a reusable guard from owned stamp pairs BEFORE any hook metadata. Copy
 ;; declared epochs, never recapture them. Only absence omits the observer: a
 ;; present value must be callable; its false/exception reply retains core semantics.
 (def (source-guard (sources :~ proper-list?) (sampler #f))
   (def owned (map (lambda (entry) (cons (car entry) (cdr entry))) sources))
-  (def hook (and sampler (.has? sampler .current?)
-    (require-value (core.with-sources [] (.@ sampler .current?)) procedure?
-      (lambda () (error "source observer must be a procedure")))))
+  (def hook (source-observer sampler))
   (lambda () (and (stamps-current? owned) (or (not hook) (core.live? hook)))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
 ;; factory are separate actions: an obsolete getter cannot invoke its result,
@@ -229,7 +234,7 @@
       (capture! (snapshot value-sampler []))
       (set! value-sampler (validate GeneratorRecord value-sampler))
       (capture! (snapshot value-sampler []))
-      (def hook (and (.has? value-sampler .current?) (.@ value-sampler .current?)))
+      (def hook (source-observer value-sampler))
       ;; This one retained guard sees the growing ledger during preparation and
       ;; the closed ledger afterwards. No factory callback can mutate it later.
       (def (guard)
