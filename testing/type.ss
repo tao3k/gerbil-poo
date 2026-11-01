@@ -406,20 +406,19 @@
                      policy: (policy (testing.make-policy)) name: (name #f)
                      dependencies: (dependencies []) depth: (depth 32) node-budget: (nodes 256)
                      descriptor-budget: (descriptors 256) search-budget: (search 8192))
-  ;; Share complete generic request admission before any descriptor/sampler read.
-  ;; Static refusal remains an ordinary configuration error, not replay evidence.
-  (def run (testing.prepare-property-check seed: seed cases: cases size: size
-    size-limit: size-limit shrink-budget: shrink-budget policy: policy name: name
-    classify-error: generation-status))
-  (unless (and (procedure? property) (list? dependencies) (every object? dependencies))
-    (error "invalid property testing configuration"))
+  ;; Preserve the established immediate argument refusals. Remaining generic
+  ;; configuration errors belong to this typed runner's non-replayable report.
+  (unless (and (procedure? property) (every (lambda (n) (and (exact-integer? n) (>= n 0)))
+    (list seed shrink-budget)) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
+    (exact-integer? cases) (> cases 0)
+    (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
   (unless (object? descriptor) (validate Type descriptor))
   ;; Freeze declared identities before any automatic generator callback.
   (def declared (list-copy dependencies))
   (def sampler supplied) (def sources initial)
   ;; Initialization can fail before a complete snapshot exists; those reports
   ;; remain explicitly non-replayable. Successful executions retain opaque provenance.
-  (def (report status original counterexample attempts steps minimal? cause execution)
+  (def (report status original counterexample attempts steps minimal? cause execution (metadata? #t))
     (.o bind-these: #f status: status descriptor: descriptor property: property sampler: sampler
       seed: seed cases: cases size: size size-limit: size-limit shrink-budget: shrink-budget sources: sources
       name: (if execution (testing.report-name execution) name)
@@ -431,28 +430,35 @@
       attempts: attempts steps: steps minimal?: minimal? cause: cause dependencies: declared
       replayable?: (and execution #t) execution: execution
       depth: depth node-budget: nodes descriptor-budget: descriptors search-budget: search
-      limits: (and sampler (.has? sampler limits) (.get sampler limits))))
-  (with-catch
-    ;; Classification observers may fail too; the shared core preserves the
-    ;; first cause and refuses success without swallowing application consumer IO.
-    (lambda (cause) (report (testing.failure-status cause
-      (lambda () (current? sources sampler)) generation-status)
-      #f #f 0 0 #f cause #f))
-    (lambda ()
-      (when (some? failure) (raise (some-value failure)))
-      (set! sources (append initial
-        (snapshot #f (append (if supplied (list supplied) []) declared) descriptor)))
-      (let-values (((generation specification)
-                    (with-source-stamps sources
-                      (set! sampler (or supplied (generator descriptor depth node-budget: nodes
-                        descriptor-budget: descriptors search-budget: search)))
-                      (set! sources (snapshot sampler declared descriptor))
-                      (prepare-sampler sampler sources))))
-        (let (execution (run generation property specification))
-          (report (testing.report-status execution) (testing.report-original execution)
-            (testing.report-counterexample execution) (testing.report-attempts execution)
-            (testing.report-steps execution) (testing.report-minimal? execution)
-            (testing.report-cause execution) execution))))))
+      limits: (and metadata? sampler (.has? sampler limits) (.get sampler limits))))
+  (let/cc refuse
+    ;; Static generic refusal has no run/source authority to classify. Return the
+    ;; same typed preparation error receipt without polling sampler metadata.
+    (def run (with-catch (lambda (cause) (refuse (report 'error #f #f 0 0 #f cause #f #f)))
+      (lambda () (testing.prepare-property-check seed: seed cases: cases size: size
+        size-limit: size-limit shrink-budget: shrink-budget policy: policy name: name
+        classify-error: generation-status))))
+    (with-catch
+      ;; Classification observers may fail too; the shared core preserves the
+      ;; first cause and refuses success without swallowing application consumer IO.
+      (lambda (cause) (report (testing.failure-status cause
+        (lambda () (current? sources sampler)) generation-status)
+        #f #f 0 0 #f cause #f))
+      (lambda ()
+        (when (some? failure) (raise (some-value failure)))
+        (set! sources (append initial
+          (snapshot #f (append (if supplied (list supplied) []) declared) descriptor)))
+        (let-values (((generation specification)
+                      (with-source-stamps sources
+                        (set! sampler (or supplied (generator descriptor depth node-budget: nodes
+                          descriptor-budget: descriptors search-budget: search)))
+                        (set! sources (snapshot sampler declared descriptor))
+                        (prepare-sampler sampler sources))))
+          (let (execution (run generation property specification))
+            (report (testing.report-status execution) (testing.report-original execution)
+              (testing.report-counterexample execution) (testing.report-attempts execution)
+              (testing.report-steps execution) (testing.report-minimal? execution)
+              (testing.report-cause execution) execution)))))))
 
 ;; Project generic replay back to the same POO metadata, retaining the exact
 ;; originally captured sources rather than taking a permissive fresh snapshot.
