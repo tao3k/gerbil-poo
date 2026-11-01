@@ -161,9 +161,12 @@
       (check-equal? (get-output-string output) "")
       (set! codec-reply #t)
       (write-counterexample report codec output)
-      (check (read-counterexample (.get report sampler) codec (open-input-string (get-output-string output))
+      ;; Gerbil get-output-string drains its port; retain the wire data once
+      ;; before opening independent replay attempts over the same envelope.
+      (def text (get-output-string output))
+      (check (read-counterexample (.get report sampler) codec (open-input-string text)
         (property.report-property (.get report execution))) => #f)
-      (def input (open-input-string (get-output-string output)))
+      (def input (open-input-string text))
       (set! codec-reply 'malformed)
       (check-exception (read-counterexample (.get report sampler) codec input
         (property.report-property (.get report execution)))
