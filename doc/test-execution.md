@@ -19,10 +19,15 @@ On compiler failure the small build boundary drains the compiler's public
 
 `just test` runs every compiled `*-test.ssi` under the standard test runner in
 one process. Explicit compiled interfaces prevent the expander from retaining
-all source ASTs before the first case. The complete-suite deadline defaults to
+all source ASTs before the first case. `gerbil test t/*/*-test.ss` instead expands
+all source bodies into one retained context and overflowed the same 1-GiB bound
+before any case in the recorded negative control. Full compiled testing is one
+process with every case, not a sequence of smaller source-test processes. The complete-suite deadline defaults to
 600 seconds, including eager module imports; `just test 300` explicitly selects the shorter bound. The heap remains
 1 GiB and group/focused bounds remain 300/90 seconds.
-`just test-group signatures` uses official discovery on `t/signatures`. `just test-file t/contracts/object-contract-test.ss` selects
+After `just build-group signatures`, `just test-group signatures` passes the
+compiled interfaces in `$GERBIL_PATH/lib/clan/poo/t/signatures` to the official
+runner. CI consumes its downloaded artifacts without expanding source bodies. `just test-file t/contracts/object-contract-test.ss` selects
 a source file with the existing 90-second focused bound. Tests export suites
 ending in `-test`, as required by the official runner.
 

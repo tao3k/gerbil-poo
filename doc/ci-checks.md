@@ -11,7 +11,7 @@ retains 53 checks. Job enumeration lists package declarations; the project does
 not parse Scheme imports or reconstruct a dependency graph.
 
 Collection-delta and coordinator-recovery suites share their existing functional
-owners through standard multiple TestSuite exports. There are 144 physical test
+owners through standard multiple TestSuite exports. There are 62 declared functional test
 modules; the Suite names, cases and observed execution order are retained. The
 three collection include bodies are explicit `extra-inputs`, so standard make
 tracks their freshness. Package and compiler-partition boundaries are unchanged.
@@ -37,7 +37,7 @@ The complete local entry prints standard `/usr/bin/time -p` wall/user/system obs
 for shared preparation, startup preparation, test-package preparation, the whole
 test process and the collection study. Existing commands, progress and failure
 markers remain intact; phase CPU observations do not isolate GC or loader costs.
-The local test-package phase uses six compiler-only standard packages, whose
+The local test-package phase uses four compiler-only standard packages, whose
 specifications reuse the 25 public CI package declarations. At 12 physical cores,
 Just's existing parallel dependency queue admits four packages, each using two
 standard Gerbil backend jobs. This bounds retained compiler contexts without
@@ -55,8 +55,8 @@ and execute the prepared programs without rebuilding them.
 
 Each compilation job invokes `gerbil build` in its real test package. The
 namespace matches that directory. Its artifact contains that package's compiled
-interfaces and loadable bodies. Independent test jobs use official directory
-discovery; the full job downloads all groups and passes all compiled interfaces
+interfaces and loadable bodies. Independent test jobs pass downloaded `*-test.ssi` interfaces to the official
+runner instead of re-expanding their source directories; the full job downloads all groups and passes all compiled interfaces
 to `gerbil test` in one process, then runs the complete collection paired study.
 The representation job runs the paired startup TestSuite, including both unknown
 request refusals and the runtime-loaded and linked entries.

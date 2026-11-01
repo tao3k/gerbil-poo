@@ -1367,3 +1367,91 @@ preparation, 281.91 of import/init, 150.29 of cases, 7.91 after reporting and
 This is functional/resource acceptance, not an admitted speedup: 969.22 seconds
 remains worse than the historical complete entries. No regrouping, compiler-policy
 separation, new loader or relaxed limit is retained to manufacture a faster row.
+
+* Shared test protection and compiled group admission, 2026-11-01
+
+The previous supplemental =gerbil test t/*/*-test.ss= request expanded and
+retained every source module before running a case. It overflowed the unchanged
+1-GiB heap after 34.74 seconds. This is not evidence of an infinite property or a
+recursive-cache leak. The complete public entry already uses compiled interfaces;
+group CI, however, still re-expanded source directories after downloading those
+same interfaces. =test-group= now consumes its prepared =*-test.ssi= files with
+the official runner. Missing preparation is not a reason to silently evaluate
+sources. No loader, harness, fixture scope or test-process sharding is added.
+
+The existing C-host protection was repeated on grouped suites but absent from
+large ungrouped roots. A representative public compiler emission of
+=property-testing-test= contained 9,545 Gambit labels and 6,554,648 C bytes.
+=with-policy= now attaches =-D___SINGLE_HOST_LIMIT=4096= exactly once to every
+one of the same 62 declarations, alongside the existing tracked input. This is
+Gambit's existing fallback to multiple C host procedures, not a new runtime
+namespace or a proof that every individual C procedure has a fixed size.
+The declaration regression separately preserves every source/include projection
+and checks unique option coverage. All 25 functional groups and four compiler
+partitions remain; =GERBIL_BUILD_CORES=12 still selects four-by-two locally.
+
+** Rejected controls remain failures
+
+| Control | Scope | Observed result |
+|---------+-------+-----------------|
+| Common C-host protection, four-by-two | test preparation | 300.08 s, timeout |
+| Four extra SDK pass overrides, four-by-two | complete empty-prefix attempt | preparation timeout at 300.22 s |
+| Four extra SDK pass overrides, four-by-one | complete empty-prefix attempt | preparation timeout at 300.05 s |
+| Four-by-one with an already prepared root | isolated test compilation | 276.41 s, completed; not complete cold acceptance |
+| Single complete compiler context | dependency preparation | 2-GiB heap overflow at 36.58 s |
+| Three compiler contexts with two backend jobs | isolated compilation | timeout at 300.03 s |
+
+Other repeated empty-prefix attempts also timed out. Neither the isolated
+276.41-second result nor a smaller compiler-request count establishes a complete
+workflow speedup. Repartitioning and extra GCC-pass overrides were withdrawn.
+The original parallel allocation, deadlines and heaps are unchanged. Failed
+whole-entry transcripts remain external diagnostic records, not admitted passes.
+After timeout, cwd/parent checks found no surviving project C compiler processes.
+
+The serial representative C-only control measured 47.59 seconds with the SDK
+pass set, versus 41.78 seconds after disabling four extra scheduling/IPA passes.
+These are component observations, not a landed optimization or a matched cold
+workflow claim. GCC's reported GC was 0.27/0.18 seconds in those controls; it must
+not be confused with Scheme GC. A compactness control enlarged emitted C rather
+than improving it. Successful child CPU receipts are used for attribution:
+a timeout can prevent the parent from collecting descendant CPU usage, so its
+near-zero reported CPU is not a zero-cost compilation result.
+
+** Complete admitted empty-prefix entry
+
+The final =just check= started with an empty standard =GERBIL_PATH=, used the
+released macOS compiler, retained the machine's 12-core standard budget and
+naturally exited zero. No project machine objects were borrowed from a preceding
+prefix. The OS and precompiled compiler were not globally purged. The source
+changes for this receipt are only shared C-host coverage and compiled group
+selection, not the rejected compiler or partition experiments.
+
+| Phase | Wall seconds |
+|-------+--------------|
+| Root library and shared program | 132.28 |
+| Startup program | 23.02 |
+| All test compilation, aggregate | 294.16 |
+| Single-process compiled suite, 1 GiB | 335.20 |
+| Build-declaration regressions | 24.16 |
+| Collection paired study | 26.42 |
+| Generator paired study | 32.92 |
+| Complete entry | 870.56 |
+
+The test compiler contexts completed at 246.897, 250.258, 262.929 and 293.397
+seconds. Aggregate compiler CPU was 878.55 user plus 81.42 system seconds.
+The suite retained 62 modules/2,361 top-level case receipts, eight declaration
+regression cases, isolated =PROPERTY-LIBRARY-OK 196 cases=, both paired-study
+completion markers and no error/heap/stack-overflow markers. This is one complete
+cold acceptance, not a guarantee under arbitrary host contention. Preparation
+has only 5.84 seconds of headroom below its unchanged 300-second limit.
+
+The existing standard fixtures reported pre-case wall 190.065 seconds, process
+CPU 5.743 seconds and Scheme GC wall 0.641 seconds. Between prepared/executed
+snapshots, wall was 138.432 seconds, process CPU 43.510 seconds and GC wall 7.216
+seconds. Those boundaries include VM bootstrap, loading/initialization and case
+work; child processes and policy/IO/scheduling waits are not all captured by the
+parent's CPU counter. They do not partition exclusive dyld or kernel time. Raw
+allocation counters are not live-heap measurements. The 1-GiB compiled run
+completed naturally, while all-source expansion remains a refused negative
+control. The complete 870.56-second wall and narrow compiler margin remain
+material performance limits; no stable whole-entry speedup is claimed.

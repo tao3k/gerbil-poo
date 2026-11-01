@@ -83,8 +83,10 @@ test test-seconds='600': build
 test-file file:
     just _test 90 "$1"
 
+# Use the group's prepared interfaces; loading the source directory repeats
+# expansion even when CI has already downloaded the complete compiler artifact.
 test-group group:
-    just _test 300 "t/$1"
+    just _test 300 "$GERBIL_PATH/lib/clan/poo/t/$1/"*-test.ssi
 
 test-atomic name:
     just _test 90 "$GERBIL_PATH/lib/clan/poo/t/"*/"$1-test.ssi"

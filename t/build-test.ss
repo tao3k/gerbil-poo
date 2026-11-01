@@ -3,10 +3,14 @@
 (import (only-in :gerbil/expander import-module expander-context-id module-context-import
           module-context? module-import? module-import-source module-export-context
           import-set? import-set-source)
-        :std/test :std/error (only-in :std/misc/process run-process)
+        :std/test :std/error :std/iter (only-in :std/misc/process run-process)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
+        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
+
+;; Preserve the declaration/input projection independently of backend flags;
+;; a separate assertion checks one shared compiler option for every root.
+(def (build-inputs specs) (map (cut take <> 3) specs))
 
 (def build-test
   (test-suite "standard test package declarations"
@@ -51,7 +55,7 @@
         (check (> (time->seconds (file-info-last-modification-time (file-info target)))
                    (time->seconds before)) => #t))))
     (test-case "shared graph preserves included-source dependencies and package order"
-      (let (complete (test-build-spec))
+      (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
           (extra-inputs: ("collection-order/../build.ss"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-order/table-order-test"
@@ -61,7 +65,7 @@
           (extra-inputs: ("collection-updates/../build.ss"
                           "collection-updates/table-mapping/composition.scm"
                           "collection-updates/table-mapping/retraction.scm"))) complete) #t) => #t))
-      (check (test-build-spec "collection-order") =>
+      (check (build-inputs (test-build-spec "collection-order")) =>
         '((gxc: "rationaldict-order-test" (extra-inputs: ("../build.ss")))
           (gxc: "table-cursor-test" (extra-inputs: ("../build.ss")))
           (gxc: "table-order-test" (extra-inputs: ("../build.ss" "table-order/observations.scm")))
@@ -70,13 +74,17 @@
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))
              (all (test-build-spec)))
-        (check (test-build-spec "collection-deltas") =>
+        (check (build-inputs (test-build-spec "collection-deltas")) =>
           '((gxc: "table-batch-test" (extra-inputs: ("../build.ss" "table-batch/capture.scm"
             "table-batch/origins.scm" "table-batch/transport.scm")))))
-        (check (test-build-spec "recovery") =>
+        (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
         (check (length all) => 62)
+        ;; Grouping cannot leave any root unbounded or duplicate its policy.
+        (for (spec all)
+          (check-equal? (drop spec 3)
+            '("-cc-options" "-D___SINGLE_HOST_LIMIT=4096")))
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
