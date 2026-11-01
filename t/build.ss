@@ -160,13 +160,15 @@
 ;; change session lifetime, never the installed test namespaces or test inventory.
 ;; Signature contracts share the method/contract context instead of extending
 ;; the already larger inference graph; standard make still owns all four jobs.
+;; Feedback shares the lighter type context: after Object changes, leaving it in
+;; prototypes stranded the final backend queue beyond the unchanged phase fence.
 (def (test-build-partitions)
   '(("collections" "backends" "collection-deltas" "collection-styles" "collections"
       "coordination" "recovery" "revisions" "publication" "tools")
     ("prototypes" "collection-order" "collection-updates" "closure" "construction" "objects" "generalized"
-      "components" "feedback" "recursion")
+      "components" "recursion")
     ("contracts" "contracts" "methods" "signatures")
-    ("types" "declarations" "inference" "representations" "scalars")))
+    ("types" "declarations" "inference" "representations" "scalars" "feedback")))
 
 ;; Public standard build scripts own parsing, freshness, parallel backend jobs
 ;; and cleanup. Bound each source-context lifetime by a declared functional part;

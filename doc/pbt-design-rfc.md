@@ -4494,3 +4494,13 @@ This unit changes neither that seed schedule nor the existing shrink tree. The
 additional revision/metadata protocol is this project's finite future-work
 extension. Advanced handwritten sample producers and consumer-owned source
 admission retain their existing contract; they are not redefined as this defect.
+
+P71 integration acceptance retained the first local preparation timeout: at
+fb80464 the standard types graph completed in 209 seconds and contracts/collections
+in 244/246 seconds, while the prototypes tail reached the original 300-second
+fence before semantic tests. Standard cleanup ran with exit 124. The existing
+feedback group now shares the lighter types compiler context; all four standard
+make graphs, every runtime package/source, backend flags, 2-GiB heaps and original
+phase fences remain unchanged. Existing exact-inventory/partition tests cover
+the relocation. This is declaration-level load balancing, not a new scheduler or
+a weakened test. Acceptance must still finish the complete standard entry.
