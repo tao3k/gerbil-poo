@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P74 closes finite Function result admission at each observed row, before the
+next producer runs. One existing map captures proper tuple spines; table assembly
+reuses them rather than revalidating/recopying every sibling. Exact causes,
+zero/multiple values, source refusal, shrinking and replay retain their existing
+protocol. Mutable payload/preimage ownership remains explicit. See
+[P74](pbt-design-rfc.md#p74-first-observed-finite-function-result-tuples).
+
 P73 closes portable replay's symbol/keyword identity gap: only Gerbil-interned
 tokens enter codec identities or finite payloads. Fresh handles require explicit
 logical-ID codecs, with ordinary Record/Function reconstruction and source-bound

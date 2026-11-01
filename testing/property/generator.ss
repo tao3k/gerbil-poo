@@ -575,15 +575,21 @@
 ;; may wrap this ordinary rest procedure without changing its finite table.
 (def (function-procedure value)
   (lambda arguments (apply values (function-apply value arguments))))
-;; Lift the SAME result-product tree, retaining each node's own branch observers.
+;; Admit and own each returned tuple before another row producer can execute.
+;; This snapshots only the protocol spine; payloads and hidden preimage trees
+;; retain their existing caller-owned/source laws. Use the ordinary error kind.
+(def (function-result-tuple tuple)
+  (unless (list? tuple) (error "finite function results must be value tuples" tuple))
+  (list-copy tuple))
+;; Lift the SAME checked result-product tree, retaining its branch observers.
+;; Only generator-function calls this private path: fixed product width and
+;; proper owned tuples already follow from generator-sequence and row mapping.
 (def (function-tree tree rows current)
   (if (rejected? tree) tree
     (let (results (sample-value tree))
       (def guard (sample-current tree))
-      (unless (and (list? results) (= (length rows) (length results)) (every list? results))
-        (error "finite function results must be value tuples" results))
       (make-sample-node
-        (make-function-value (map cons rows (map (cut map identity <>) results))
+        (make-function-value (map cons rows results)
           (lambda () (and (live? current) (guard))))
         (lambda () (in-coroutine (lambda (yield)
           (for-sources (child ((sample-children tree)) (sample-node-sources tree))
@@ -611,7 +617,10 @@
 (def (generator-function rows result-generator domain-limit: (limit 256) current?: (current immutable-current))
   (unless (and (generator? result-generator) (procedure? current)) (error "invalid function result generator"))
   (def domain (function-rows rows limit))
-  (def tuples (generator-sequence (map (lambda (_) result-generator) domain)))
+  ;; Map once at the row boundary. Retained product siblings need no later
+  ;; tuple recopy, and a malformed row never draws the following row.
+  (def results (generator-map result-generator function-result-tuple))
+  (def tuples (generator-sequence (map (lambda (_) results) domain)))
   (make-tree-generator (lambda (random size)
     (function-tree (generate tuples random size) domain current)) current?: current
     sources: (generation-sources tuples)))

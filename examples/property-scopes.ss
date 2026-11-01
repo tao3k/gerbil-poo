@@ -11,6 +11,74 @@
 ;; Exercise each public observation under the same transient and retained owners.
 ;; A procedure delegates invocation to function-apply; no second dispatcher exists.
 (def (function-test-cases!)
+  ;; Malformed tuples keep the original finite-function protocol diagnostic.
+  (def (tuple-error? cause)
+    (and (Error? cause) (equal? (Error-message cause) "finite function results must be value tuples")))
+  (test-case "finite function tuples refuse before the next row can replace the cause"
+    (def cycle (list 1)) (set-cdr! cycle cycle)
+    (for (bad (list #f 7 '(1 . tail) cycle))
+      (def draws 0)
+      (def result (generator.make-generator (lambda (_r _s)
+        (set! draws (1+ draws)) (if (= draws 1) bad (raise #f))) (lambda (_) [])))
+      (check-exception (generator.generate (generator.generator-function '((first) (second)) result)
+        (generator.random-at 17) 4) tuple-error?)
+      (check-equal? draws 1)))
+  (test-case "finite function rows snapshot tuple spines while retaining payload identity"
+    (def payload (vector 7)) (def first (list #f payload)) (def draws 0)
+    (def result (generator.make-generator (lambda (_r _s)
+      (set! draws (1+ draws))
+      (if (= draws 1) first (begin (set-car! first 99) (set-cdr! first []) []))) (lambda (_) [])))
+    (def value (generator.sample-value (generator.generate
+      (generator.generator-function '((first) (second)) result) (generator.random-at 3) 4)))
+    (check-equal? (generator.function-apply value '(first)) (list #f payload))
+    (check-eq? (cadr (generator.function-apply value '(first))) payload)
+    (check-equal? (call-with-values (cut (generator.function-procedure value) 'second) list) [])
+    (check-equal? draws 2))
+  (test-case "finite tuple admission preserves source priority causes and lazy proposal accounting"
+    (def live #t) (def draws 0)
+    (def obsolete (generator.make-generator (lambda (_r _s)
+      (set! draws (1+ draws)) (set! live #f) 7) (lambda (_) []) current?: (lambda () live)))
+    (check-exception (generator.generate (generator.generator-function '((first) (second)) obsolete)
+      (generator.random-at 3) 4) generator.stale-generation?)
+    (check-equal? draws 1)
+    (check-eq? (with-catch values (lambda () (generator.generate
+      (generator.generator-function '((first))
+        (generator.make-generator (lambda (_r _s) (raise #f)) (lambda (_) [])))
+      (generator.random-at 3) 4))) #f)
+    (def malformed-child (generator.make-generator (lambda (_r _s) '(4)) (lambda (_) '(7))))
+    (def report (property.check-property (generator.generator-function '((first)) malformed-child)
+      (lambda (_) #f) (property.make-specification generator.function-value?
+        (lambda (value) (car (generator.function-apply value '(first))))) cases: 1))
+    (check-eq? (property.report-status report) 'error)
+    (check (tuple-error? (property.report-cause report)) => #t)
+    (check-equal? (property.report-attempts report) 0)
+    (check-equal? (generator.function-apply (property.report-counterexample report) '(first)) '(4)))
+  (test-case "checked finite tuple trees retain seed schedule shrinking and portable replay"
+    (def live #t)
+    (def result (generator.make-generator (lambda (_r _s) '(8 #f))
+      (lambda (tuple) (map (lambda (n) (list n #f)) (generator.integer-shrinks (car tuple))))))
+    (def rows '((first) (second scale: 2)))
+    (def direct (generator.generator-function rows result current?: (lambda () live)))
+    (def explicit (generator.generator-function rows (generator.generator-map result list-copy)))
+    (def left (generator.random-at 17)) (def right (generator.random-at 17))
+    (check-equal? (generator.function-table (generator.sample-value (generator.generate direct left 4)))
+      (generator.function-table (generator.sample-value (generator.generate explicit right 4))))
+    (check-equal? (left 1000) (right 1000))
+    (def domain (property.make-specification generator.function-value?
+      (lambda (value) (car (generator.function-apply value '(first))))))
+    (def report (property.check-property direct
+      (lambda (value) (< (car (generator.function-apply value '(first))) 3)) domain cases: 1 seed: 17))
+    (check-eq? (property.report-status report) 'failed)
+    (check (> (property.report-steps report) 0) => #t)
+    (check-eq? (property.report-status (property.replay-property report)) 'failed)
+    (check (property.replay-counterexample report) => #f)
+    (def codec (replay.make-codec '(finite-tuples 1) generator.function-table generator.function-from-table))
+    (def output (open-output-string))
+    (replay.write-counterexample report codec output)
+    (check (replay.read-counterexample codec (open-input-string (get-output-string output))
+      domain (property.report-property report)) => #f)
+    (set! live #f)
+    (check-exception (property.replay-counterexample report) Error?))
   (def observations
     (list generator.function-domain generator.function-table
       (cut generator.function-apply <> '(request))

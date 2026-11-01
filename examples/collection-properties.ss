@@ -95,6 +95,58 @@
 ;; through gerbil test after the standard qualification build, without a new runner.
 (def collection-properties-test
   (test-suite "complex model-driven collection properties"
+    (test-case "finite service functions reject first bad tuples then shrink replay and freshly retry"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def cell (Record amount: [UInt] first: [UInt] second: [UInt]
+        handler: [(Function [UInt] [Integer])]))
+      (def wire (Tuple UInt UInt)) (def broken? #t) (def draws 0)
+      ;; The normal Record constructor alone wraps the finite procedure. Store
+      ;; scalar wire fields rather than serializing an opaque callback closure.
+      (def (service function)
+        (def first (car (core.function-apply function '(-1))))
+        (def second (car (core.function-apply function '(1))))
+        (make-instance cell amount: first first: first second: second
+          handler: (core.function-procedure function)))
+      ;; Every fresh action owns its result producer and the original owner epoch.
+      ;; An invalid first tuple must not execute the next row's false exception.
+      (def (fresh)
+        (service-factory-action cell owner (lambda (_field)
+          (def row 0)
+          (def result (core.make-generator (lambda (_r _s)
+            (set! draws (1+ draws)) (set! row (1+ row))
+            (if broken? (if (= row 1) 7 (raise #f)) '(3)))
+            (lambda (tuple) (map list (core.integer-shrinks (car tuple))))))
+          (core.generator-map (core.generator-function '((-1) (1)) result) service)) identity))
+      ;; A finite Tuple restores the same two input rows under explicit source
+      ;; authority; standard Function wrapping and multiple-value delivery remain.
+      (def (codec)
+        (def guard (source-guard (snapshot #f (list owner cell wire))))
+        (replay.make-codec '(finite-service 1)
+          (lambda (record) (validate wire (vector (.get record first) (.get record second))))
+          (lambda (datum)
+            (def row (validate wire datum))
+            (service (core.function-from-table
+              (map cons '((-1) (1)) (map list (vector->list row))) current?: guard))) current?: guard))
+      (def configuration (make-instance PropertyConfiguration seed: 17 cases: 1 shrink-budget: 40))
+      (def refused ((fresh) configuration))
+      (check-eq? (.get refused status) 'error)
+      (check-equal? (Error-message (.get refused cause)) "finite function results must be value tuples")
+      (check-equal? draws 1)
+      (set! broken? #f) (.set! owner epoch 1)
+      (let* ((report ((fresh) configuration)) (ready (codec)) (output (open-output-string)))
+        (check-eq? (.get report status) 'failed)
+        (check (> (.get report steps) 0) => #t)
+        (check-exception ((.@ (.get report counterexample) handler) 'bad) TypeError?)
+        (check (replay-counterexample report) => #f)
+        (check-eq? (.get (replay-property report) status) 'failed)
+        (write-counterexample report ready output)
+        (check (read-counterexample (.get report sampler) ready
+          (open-input-string (get-output-string output)) (.get report property)) => #f)
+        (.set! owner epoch 2)
+        (check-exception (replay-property report) Error?)
+        (check-exception (read-counterexample (.get report sampler) ready
+          (open-input-string (get-output-string output)) (.get report property)) Error?))
+      (check-eq? (.get ((fresh) configuration) status) 'failed))
     (test-case "service handles require logical portable IDs through FUN shrink replay and fresh retry"
       (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
       (def cell (Record token: [Symbol] amount: [UInt] handler: [(Function [Integer] [Integer])]))

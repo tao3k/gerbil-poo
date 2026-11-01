@@ -258,3 +258,22 @@ service-handle workflow: real shrinking, rejected raw-handle export, validated
 Tuple IDs, wrapped Record reconstruction, stale-source refusal and fresh retry.
 `examples/property-replay.ss` registers the generic copying and token controls.
 Both run through the usual `gerbil build` and `gerbil test`, without a Lean checkout.
+
+### Finite Function return tuples
+
+A result generator for `generator-function` returns a proper list of values.
+For one numeric return, compose the ordinary generator with `list`:
+
+```scheme
+(import (prefix-in :clan/poo/testing/property/generator gen.))
+(def results (gen.generator-map (gen.generator-integer 0 20) list))
+(def functions (gen.generator-function '((read) (write)) results))
+```
+
+Each returned tuple is admitted and shallow-copied before the next row draws.
+`'()` delivers zero values and `'(#f)` delivers one false value. An invalid tuple
+refuses before later rows; there is no implicit scalar-to-tuple conversion.
+Payloads and advanced producers' hidden preimages keep their existing source and
+immutability laws. `examples/collection-properties.ss` demonstrates a typed
+Record/Function/FUN service, first-row refusal, explicit repair, shrinking,
+validated wire tuples, portable restoration and stale-source rejection.
