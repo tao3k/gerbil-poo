@@ -28,9 +28,8 @@ compares the Just partitions with the authoritative Scheme declarations.
 
 `just check` is the complete cold-build and parallel-test entry. It retains every
 suite, declaration regression, isolated-library acceptance and both paired
-studies. The whole parallel test phase has one 600-second watchdog, including
-queued work, imports and execution; `just test 300` selects the shorter bound.
-Group/focused bounds remain 300/90 seconds. All official test invocations now
+studies. Test imports and execution run to natural completion without a fixed
+project wall deadline, as explicitly requested. All official test invocations now
 use 2 GiB, explicitly requested on 2026-11-01. This changes the memory budget;
 it is not presented as an optimization under the historical 1-GiB constraint.
 
@@ -44,8 +43,7 @@ interpret interleaved parallel output as one ordered harness or one VM counter.
 Explicit compiled interfaces prevent re-expanding all source ASTs. The historical
 `gerbil test t/*/*-test.ss` negative control overflowed its 1-GiB heap before any
 case; it is not a measurement of the compiled 2-GiB path. No source fallback is
-introduced. Serial and parallel execution share the same result boundary, and
-each owning deadline covers its entire process group without nested watchdogs.
+introduced. Serial and parallel execution share the same result boundary.
 After `just build-group signatures`, `just test-group signatures` passes the
 compiled interfaces in `$GERBIL_PATH/lib/clan/poo/t/signatures` to the official
 runner. CI consumes its downloaded artifacts without expanding source bodies. `just test-file t/contracts/object-contract-test.ss` selects
@@ -80,3 +78,19 @@ consumer. All generated outputs remain under the official `GERBIL_PATH`.
 After a failed or inconsistent build use `gerbil clean` followed by
 `gerbil build` in the affected package (or `just clean`, then `just build`).
 Do not install source fallbacks or manufacture successful cache receipts.
+
+## Test execution policy, 2026-11-01
+
+The user removed fixed test-runner wall deadlines. `test`, `test-group`,
+`test-file`, `check` and `check-built` now run the official harness to natural
+completion, retaining verbose progress, error checks and the 2-GiB heap limit.
+CI semantic jobs use GitHub's platform default instead of a project job timeout.
+Compilation still retains its 300-second deadline;
+program builds and workload-specific negative controls keep their own bounds.
+
+Descriptor intrinsic and scalar Union fixtures compile as ordinary internal
+modules. Their original aggregate modules re-export the same suites. There are
+64 declared compilation units and the same 62 discovered test roots. The two
+private fixture scopes, every case and the aggregate export order are retained.
+These are standard module dependencies, with included source bodies explicitly
+tracked by `std/make`, rather than a new scheduler or test framework.

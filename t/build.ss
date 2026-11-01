@@ -79,7 +79,8 @@
     (gxc: "generalized-prototype-test" (extra-inputs: ("generalized-prototype/binding-benchmark.scm" "generalized-prototype/factory-benchmark.scm" "generalized-prototype/focused-benchmark.scm" "generalized-prototype/generalized-benchmark.scm" "generalized-prototype/generalized-closure.scm" "generalized-prototype/cases.scm"))))
     ("inference"
     (gxc: "candidate-inference-test" (extra-inputs: ("candidate-inference/cases.scm" "candidate-inference/container-inference.scm")))
-    (gxc: "descriptor-inference-test" (extra-inputs: ("descriptor-inference/cases.scm" "descriptor-inference/empty-inference.scm" "descriptor-inference/optional-inference.scm" "descriptor-inference/record-inference.scm"))))
+    (gxc: "descriptor-inference/intrinsic" (extra-inputs: ("descriptor-inference/cases.scm")))
+    (gxc: "descriptor-inference-test" (extra-inputs: ( "descriptor-inference/empty-inference.scm" "descriptor-inference/optional-inference.scm" "descriptor-inference/record-inference.scm"))))
     ("methods"
     "inferred-declaration-test"
     (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.scm" "method-declaration/cases.scm" "method-declaration/multimethod.scm" "method-declaration/typed-method-declaration.scm"))))
@@ -108,7 +109,8 @@
     "joint-restaging-test"
     (gxc: "joint-rounds-test" (extra-inputs: ("joint-rounds/cases.scm" "joint-rounds/joint-topology.scm"))))
     ("scalars"
-    (gxc: "scalar-inference-test" (extra-inputs: ("scalar-inference/range-inference.scm" "scalar-inference/cases.scm" "scalar-inference/union-inference.scm"))))
+    (gxc: "scalar-inference/union" (extra-inputs: ("scalar-inference/union-inference.scm")))
+    (gxc: "scalar-inference-test" (extra-inputs: ("scalar-inference/range-inference.scm" "scalar-inference/cases.scm"))))
     ("signatures"
     (gxc: "function-coverage-test" (extra-inputs: ("function-coverage/cases.scm" "function-coverage/function-options.scm" "function-coverage/keyword-coverage.scm" "function-coverage/keyword-prefix.scm" "function-coverage/keyword-rest.scm" "function-coverage/keyword-values.scm"))))
     ("tools"

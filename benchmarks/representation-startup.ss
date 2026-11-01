@@ -97,7 +97,7 @@
     ;; A nonzero public-command exit propagates through std/process, even when
     ;; an intermediate harness printed OK. Only a reaped successful child qualifies.
     (run-process ["env" (string-append "GERBIL_PATH=" (path-expand prefix))
-      "just" entry "2" "1" "4" "600"] stderr-redirection: #t coprocess: receive)
+      "just" entry "2" "1" "4"] stderr-redirection: #t coprocess: receive)
     (def finished (monotonic-ticks clock))
     (def phases (check-phase-summary started marks finished modules begun passed))
     (def digest (hex-encode (sha256 (string->utf8 (object->string (reverse trace))))))

@@ -1601,3 +1601,24 @@ timed out at 300.10 seconds. Standard cleanup completed and the entry naturally
 returned 124 after 474.34 seconds. This is another failed cold admission, not a
 complete-entry speedup. The runtime-only 164.04-second result does not close
 this remaining compilation gate. No timeout was increased to turn it into a pass.
+
+* Smaller inference translation units, 2026-11-01
+
+The descriptor intrinsic fixture and scalar Union fixture now compile as two
+ordinary internal modules. Their aggregate test modules re-export the same
+suites in the same declaration order and retain the original private fixture
+scopes. There are 64 compiler declarations, with the same 62 public test roots.
+No production optimization level, compiler queue or concurrency setting changes.
+
+The first empty-prefix attempt failed at the unchanged root-build guard after
+303.23 seconds, before the changed test units ran. This is not test-unit
+acceptance. Separate standard builds against previously admitted root objects
+then completed inference in 73.74 seconds and scalars in 26.51 seconds. The
+scalar C body previously observed at 6,569,256 bytes became separate bodies of
+2,818,648 and 3,261,057 bytes. These are component size observations, not a
+complete workflow speedup. All 191 cases from the two affected packages passed
+in 7.21 seconds under the official runner.
+
+Per the user's updated instruction, public test execution has no fixed project
+wall deadline. Compilation retains its original guards and all VMs retain the
+approved 2-GiB ceiling. Workload-specific budgets/negative controls remain.

@@ -16,10 +16,9 @@
   (prefix-in :clan/poo/examples/signature-service signature.)
   (prefix-in :clan/poo/examples/polymorphic-services service.)
   :clan/poo/number)
+(import (only-in ./descriptor-inference/intrinsic descriptor-inference-test))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (descriptor-inference-test)
-  (let () (include "descriptor-inference/cases.scm")))
+
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (empty-inference-test)

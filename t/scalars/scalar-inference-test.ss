@@ -15,6 +15,7 @@
   (prefix-in :clan/poo/examples/numeric-services numeric.)
   (only-in :clan/poo/function-signature encode-arguments)
   :clan/poo/type)
+(import (only-in ./scalar-inference/union union-inference-test))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (range-inference-test)
@@ -23,7 +24,3 @@
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (scalar-inference-test)
   (let () (include "scalar-inference/cases.scm")))
-
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (union-inference-test)
-  (let () (include "scalar-inference/union-inference.scm")))

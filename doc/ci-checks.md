@@ -84,8 +84,8 @@ object lifecycle assertions belong to `t/objects`. There is no separate
 CLI/make/runner validation; POO's compiler failure-drain support is imported as
 source during builds, not compiled into the runtime library.
 
-Limits remain 300 seconds per build/group stage, 90 seconds for focused checks,
-and 600 seconds for complete-suite imports plus execution. Runtime/test and package-frontend heaps now use the explicitly requested 2 GiB
+Compilation retains its 300-second bound. Test imports and execution have no
+fixed project wall deadline. Runtime/test and package-frontend heaps now use the explicitly requested 2 GiB
 ceiling, matching the existing root/backend bound. Existing isolated-consumer
 negative controls retain their own declared limits. Compiler tracing and module/case/harness
 markers remain visible. All POO behavior checks run on cache hits too.
@@ -211,3 +211,8 @@ cases matched the current upstream CI's exact ordered suite/case tuples. Dynamic
 module entries remained 631 and preparation was 144.09 seconds. Subsequent owner
 assertions follow the five real retained test modules, covering all six original
 helper families rather than checking deleted module names.
+
+The 2026-11-01 test policy removes project wall deadlines from semantic runner
+jobs and public test recipes, as explicitly requested. Compiler deadlines and
+2-GiB heaps remain. Two internal inference fixture modules increase compilation
+units to 64 while retaining the same 62 discovered test roots and all 53 CI jobs.

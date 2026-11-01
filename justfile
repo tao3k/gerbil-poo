@@ -75,25 +75,23 @@ _build-test-package part action='build':
 build-group group:
     cd "t/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
 
-# Complete-suite time includes gxtest's eager import of every declared module.
-# Keep this explicit at the CLI; compilation, focused tests and heaps keep their bounds.
-test test-seconds='600': build
-    just _test-parallel {{test-seconds}}
+# Test execution runs to completion; compilation keeps its separate deadline.
+test: build
+    just _test-parallel
 
 # Retain cross-module shared-state admission independently of parallel throughput.
-test-single-process test-seconds='600': build
-    just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+test-single-process: build
+    just _test "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
 
-# Reuse the four established compiler partitions. Just owns the queue; one
-# watchdog owns the whole process group, including every official test runner.
-_test-parallel test-seconds:
+# Reuse the four established compiler partitions and Just's standard queue.
+_test-parallel:
     #!/usr/bin/env bash
     set -euo pipefail
     [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
     workers=$((10#$GERBIL_BUILD_CORES))
     if (( workers < 1 )); then workers=1; elif (( workers > 4 )); then workers=4; fi
     printf 'TEST-CONCURRENCY cores=%s packages=%s heap=2G\n' "$GERBIL_BUILD_CORES" "$workers"
-    /usr/bin/time -p {{ timeout-executable }} --signal=TERM --kill-after=5s "$1"s just --jobs "$workers" _test-packages
+    /usr/bin/time -p just --jobs "$workers" _test-packages
 
 [parallel]
 _test-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion") (_test-groups "contracts" "methods" "signatures") (_test-groups "declarations" "inference" "representations" "scalars")
@@ -107,27 +105,24 @@ _test-groups +groups:
     just _test-run "${targets[@]}"
 
 test-file file:
-    just _test 90 "$1"
+    just _test "$1"
 
 # Use the group's prepared interfaces; loading the source directory repeats
 # expansion even when CI has already downloaded the complete compiler artifact.
 test-group group:
-    just _test 300 "$GERBIL_PATH/lib/clan/poo/t/$1/"*-test.ssi
+    just _test "$GERBIL_PATH/lib/clan/poo/t/$1/"*-test.ssi
 
 test-atomic name:
-    just _test 90 "$GERBIL_PATH/lib/clan/poo/t/"*/"$1-test.ssi"
+    just _test "$GERBIL_PATH/lib/clan/poo/t/"*/"$1-test.ssi"
 
 # The official runner owns discovery, fixtures, cases and failures. This boundary
 # retains its verbose progress and refuses empty or unsuccessful executions.
-_test max-seconds +targets:
+_test +targets:
     #!/usr/bin/env bash
     set -euo pipefail
-    seconds="$1"
-    shift
-    /usr/bin/time -p {{ timeout-executable }} --signal=TERM --kill-after=5s "${seconds}s" just _test-run "$@"
+    /usr/bin/time -p just _test-run "$@"
 
-# One common result boundary for serial and parallel official invocations. The
-# caller owns the watchdog, so nested timeout process groups cannot escape it.
+# Serial and parallel official invocations share the same result boundary.
 _test-run +targets:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -141,22 +136,22 @@ _test-run +targets:
     if grep -Eq '^ERROR |\*\*\* ERROR|Heap overflow|Stack overflow' "$log"; then exit 1; fi
 
 test-source-file file: build-shared
-    just _test 90 "$1"
+    just _test "$1"
 
-check width='2' samples='1' pairs='4' test-seconds='600': build (check-parallel-built width samples pairs test-seconds)
+check width='2' samples='1' pairs='4': build (check-parallel-built width samples pairs)
 
 # CI keeps the whole shared-state harness; throughput does not replace this gate.
-check-single-process width='2' samples='1' pairs='4' test-seconds='600': build (check-built width samples pairs test-seconds)
+check-single-process width='2' samples='1' pairs='4': build (check-built width samples pairs)
 
-check-parallel-built width='2' samples='1' pairs='4' test-seconds='600': check-layout
-    just _test-parallel {{test-seconds}}
-    just _test 90 t/build-test.ss
+check-parallel-built width='2' samples='1' pairs='4': check-layout
+    just _test-parallel
+    just _test t/build-test.ss
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2
 
-check-built width='2' samples='1' pairs='4' test-seconds='600': check-layout
-    just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
-    just _test 90 t/build-test.ss
+check-built width='2' samples='1' pairs='4': check-layout
+    just _test "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+    just _test t/build-test.ss
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2
 
@@ -188,7 +183,7 @@ example-representation: build-shared
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 indexed
 
 benchmark-representation-startup: build-shared
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} test -v 5 benchmarks/representation-startup.ss
+    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/representation-startup.ss
 
 benchmark-closure: (build-benchmarks "closure")
     mkdir -p .build/closure
@@ -220,40 +215,40 @@ benchmark-combination: (build-benchmarks "combination")
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/combination-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
 
 benchmark-scc: build
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
+    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
 
 # Standard test execution of the fixed higher-resolution offset study.
 benchmark-slot-offset: build-shared
-    just _test 300 benchmarks/slot-offset-test.ss
+    just _test benchmarks/slot-offset-test.ss
 
 # Fixed indexed-deletion study through the ordinary runner and shared producer.
 benchmark-prototype-map: build-shared
-    just _test 300 benchmarks/prototype-map-test.ss
+    just _test benchmarks/prototype-map-test.ss
 
 # Private traversal and immutable-map composition share the full standard sampler.
 benchmark-prototype-traversal: build-shared
-    just _test 300 benchmarks/prototype-traversal-test.ss
+    just _test benchmarks/prototype-traversal-test.ss
 
 # Higher-resolution complete publication retains the same paired controls.
 benchmark-prototype-composition: build-shared
-    just _test 300 benchmarks/prototype-composition-test.ss
+    just _test benchmarks/prototype-composition-test.ss
 
 # Structural snapshots and private enumeration use the same standard test entry.
 benchmark-names: build-shared
-    just _test 300 benchmarks/names-test.ss
+    just _test benchmarks/names-test.ss
 
 # Explicit and opaque SlotSpec encodings retain full construction and publication.
 benchmark-slot-construction: build-shared
-    just _test 300 benchmarks/slot-construction-test.ss
+    just _test benchmarks/slot-construction-test.ss
 
 # Catalog capture, clone, reflection and checked module publication remain paired.
 benchmark-prototype-catalog: build-shared
-    just _test 300 benchmarks/prototype-catalog-test.ss
+    just _test benchmarks/prototype-catalog-test.ss
 
 # Point metadata lookup includes cold preparation, observation and full workflows.
 benchmark-declaration-index: build-shared
-    just _test 300 benchmarks/declaration-index-test.ss
+    just _test benchmarks/declaration-index-test.ss
 
 # Longer cold/full workflow confirmation retains the ordinary bounded test entry.
 benchmark-cold-query: build-shared
-    just _test 300 benchmarks/cold-query-test.ss
+    just _test benchmarks/cold-query-test.ss

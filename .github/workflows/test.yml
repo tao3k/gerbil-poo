@@ -91,7 +91,6 @@ jobs:
     name: ${{ matrix.group }}
     needs: [build, compile-tests]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
@@ -118,7 +117,6 @@ jobs:
     name: representation entry
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: taiki-e/install-action@just
@@ -133,11 +131,10 @@ jobs:
       - name: Require the shared compiler and host dependencies
         run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - name: Exercise linked and runtime-loaded entries, including refusals
-        run: just _test 300 benchmarks/representation-startup.ss
+        run: just _test benchmarks/representation-startup.ss
   single-process:
     needs: [build, compile-tests]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: taiki-e/install-action@just
@@ -157,4 +154,4 @@ jobs:
           path: .ci-library/lib/clan/poo/t
           merge-multiple: true
       - name: Run every compiled suite in one process and the complete paired study
-        run: time -p just check-built 2 1 4 600
+        run: time -p just check-built 2 1 4
