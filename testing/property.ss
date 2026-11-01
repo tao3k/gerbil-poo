@@ -412,6 +412,9 @@
   (unless (and (policy? policy) (procedure? classify)
     (procedure? size-current) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
     (every (lambda (n) (and (exact-integer? n) (>= n 0))) (list seed budget size-limit))
+    ;; Constants are fully known here; schedules retain their per-trial check.
+    ;; No declaration, observer or size callback may run for an impossible bound.
+    (or (procedure? size) (<= size size-limit))
     (exact-integer? cases) (> cases 0)) (error "invalid property testing configuration"))
   (def named (if name (make-policy name: name
     precondition: (trial-policy-precondition policy) labels: (trial-policy-labels policy)

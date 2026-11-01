@@ -277,3 +277,18 @@ Payloads and advanced producers' hidden preimages keep their existing source and
 immutability laws. `examples/collection-properties.ss` demonstrates a typed
 Record/Function/FUN service, first-row refusal, explicit repair, shrinking,
 validated wire tuples, portable restoration and stale-source rejection.
+
+### Size envelopes before preparation
+
+A constant `size:` must be a natural number no larger than `size-limit:`. Omit
+the latter to use the constant itself; zero and the inclusive upper endpoint are
+legal. An impossible constant pair refuses before named declaration expressions
+or direct typed sampler metadata. Typed checks return their ordinary non-replayable
+preparation error; the generic/named interface raises its configuration error.
+
+A procedure-valued `size:` still requires an explicit finite `size-limit:` and
+is evaluated only during execution. Its actual result and exact callback failure
+remain in the run diagnostics. Reader/FUN still captures known owners and reads
+configuration first, then admits the normalized request before factory binding.
+The nested Function/List service in `examples/signature-service.ss` demonstrates
+constant failure/repair, scheduled execution, shrinking, replay and source refusal.

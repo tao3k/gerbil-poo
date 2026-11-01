@@ -21,6 +21,44 @@
 
 ;; Register these ordinary cases in the existing independent kernel suite.
 (def (size-test-cases!)
+  (test-case "constant size envelopes reject before observing or classifying sources"
+    (def observations 0) (def classifications 0)
+    (for (bounds (list (cons 1 0) (cons 20 3) (cons (expt 2 80) (1- (expt 2 80)))))
+      (check-exception (property.prepare-property-check size: (car bounds) size-limit: (cdr bounds)
+        size-current?: (lambda () (set! observations (1+ observations)) #t)
+        classify-error: (lambda (_) (set! classifications (1+ classifications)) 'error)) Error?))
+    (check-equal? (list observations classifications) '(0 0)))
+  (test-case "inclusive constant size bounds retain zero defaults and independent replay"
+    (def generation (generator.generator-sized generator.generator-unit))
+    (def domain (property.make-specification exact-integer? abs))
+    (for (bounds '((0 . 0) (0 . 4) (4 . 4) (1 . 4)))
+      (def run (property.prepare-property-check cases: 2 seed: 17
+        size: (car bounds) size-limit: (cdr bounds)))
+      (def report (run generation (cut = <> (car bounds)) domain))
+      (check-eq? (property.report-status report) 'passed)
+      (check-equal? (property.report-trial-size report) (car bounds))
+      (check-equal? (property.report-accepted report) 2)
+      (check-eq? (property.report-status (property.replay-property report)) 'passed))
+    (for (size '(0 4))
+      (check-eq? (property.report-status (property.check-property generation (cut = <> size)
+        domain cases: 1 size: size)) 'passed)))
+  (test-case "scheduled size envelopes remain lazy and preserve runtime bound and false causes"
+    (def calls 0) (def draws 0)
+    (def generation (generator.make-generator (lambda (_r size) (set! draws (1+ draws)) size) (lambda (_) [])))
+    (def domain (property.make-specification exact-integer? abs))
+    (def run (property.prepare-property-check cases: 1 size: (lambda (_) (set! calls (1+ calls)) 2) size-limit: 1))
+    (check-equal? calls 0)
+    (def report (run generation (lambda (_) #t) domain))
+    (check-eq? (property.report-status report) 'error)
+    (check-equal? (Error-message (property.report-cause report)) "size policy exceeded its declared limit")
+    (check-equal? (property.report-trial-size report) 2)
+    (check-equal? (list calls draws) '(1 0))
+    (def failed (property.check-property generation (lambda (_) #t) domain cases: 1
+      size: (lambda (_) (raise #f)) size-limit: 1))
+    (check-eq? (property.report-status failed) 'error)
+    (check-eq? (property.report-cause failed) #f)
+    (check-eq? (property.report-trial-size failed) #f)
+    (check-equal? draws 0))
   (test-case "scaled input ownership survives every static composition before drawing"
     (for (kind '(scale map resize no-shrink with-shrink filter product function))
       (def live #t) (def draws 0) (def scales 0) (def prefixes 0) (def randoms 0)

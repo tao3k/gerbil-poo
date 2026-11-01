@@ -2,6 +2,30 @@
 ;; observation. The standard CLI can focus this suite; full discovery is unchanged.
 (def sampler-scope-test
   (test-suite "typed sampler preparation and aggregate scopes"
+    (test-case "constant size overflow refuses before sampler sources or report metadata"
+      (def reads 0) (def limits 0)
+      (def field (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs))
+      (.putslot! field 'sources ($self-slot-spec (lambda (_self) (set! reads (1+ reads)) (raise #f))))
+      (.putslot! field 'limits ($self-slot-spec (lambda (_self) (set! limits (1+ limits)) (raise #f))))
+      (def report (check-property Integer (lambda (_) #t) sampler: field cases: 1 size: 2 size-limit: 1))
+      (check-eq? (.get report status) 'error)
+      (check-equal? (Error-message (.get report cause)) "invalid property testing configuration")
+      (check-eq? (.get report replayable?) #f)
+      (check-equal? (.get report trial) 0)
+      (check-eq? (.get report trial-size) #f)
+      (check-equal? (list reads limits) '(0 0)))
+    (test-case "in-bound constants preserve exact sampler metadata exceptions"
+      (for (cause (list #f (cons 'metadata 'cause)))
+        (for (bounds '((0 . 0) (1 . 1)))
+          (def reads 0)
+          (def field (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs))
+          (.putslot! field 'sources ($self-slot-spec (lambda (_self) (set! reads (1+ reads)) (raise cause))))
+          (def report (check-property Integer (lambda (_) #t) sampler: field cases: 1
+            size: (car bounds) size-limit: (cdr bounds)))
+          (check-eq? (.get report status) 'error)
+          (check-eq? (.get report cause) cause)
+          (check-eq? (.get report replayable?) #f)
+          (check-equal? reads 1))))
     (test-case "invalid finite Map directories refuse before computed declarations and factories"
       (for (request (list (cons '(left) 0) (cons '(left) -1) (cons '(left) 1/2)
                          (cons '(left left) 2) (cons '(left . tail) 2)))

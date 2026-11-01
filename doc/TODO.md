@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P75 closes the joint constant-size/declared-cap request relation in the shared
+prepared-check owner. Known overflow refuses before named declarations or direct
+typed sampler metadata; FUN retains initial Reader ownership/configuration
+precedence while suppressing factory binding. Inclusive/zero/default bounds and
+lazy runtime-checked schedules remain unchanged. See
+[P75](pbt-design-rfc.md#p75-joint-admission-of-constant-size-and-declared-limit).
+
 P74 closes finite Function result admission at each observed row, before the
 next producer runs. One existing map captures proper tuple spines; table assembly
 reuses them rather than revalidating/recopying every sibling. Exact causes,
