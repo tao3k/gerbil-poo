@@ -1,6 +1,7 @@
 ;;; Existing prototype-map studies share the same paired measurement engine.
 (export +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
-        +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot)
+        +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot
+        layout-admission-workload dependency-workload)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
         (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
@@ -359,3 +360,40 @@
             (else (service.value-storage-workflow size storage)))
           #t))))
   (values (action 'hash) (action 'vector)))
+
+;; Both complete workflows admit malformed rows, retain warm state, retry with
+;; false/Function seeds and revise a shared parent. Only the existing value store
+;; differs; construction and failed preparation stay inside both timed actions.
+(def (layout-admission-workload size)
+  (def (action storage)
+    (lambda ()
+      (for (_ (in-range size))
+        (unless (equal? (parameterize ((slot-value-storage storage))
+                         (service.layout-admission-workflow)) '#(5 9 11 #t))
+          (error "layout admission workflow oracle"))) #t))
+  (values (action 'hash) (action 'vector)))
+
+;; Compare explicit conservative declarations with actual observed getters in
+;; one compiler context and one existing value backend. New/cold/hot costs stay
+;; separate; complete workflows retain equal client results and original refusal.
+(def (dependency-workload size scenario)
+  ;; Preparation is charged by the existing paired runner, including warm sites.
+  (def (action observed?)
+    (def service (and (eq? scenario 'slot-dependencies-hot) (service.dependency-service observed?)))
+    (def owner (and service (.get service aggregate)))
+    (def site (and service (make-slot-cache 'value)))
+    (when owner (unless (= (.ref/inline owner site) 24) (error "dependency warm oracle")))
+    (lambda ()
+      (for (_ (in-range size))
+        (case scenario
+          ((slot-dependencies-new)
+            (let (fresh (service.dependency-service observed?))
+              (unless (= ((.get fresh calls)) 0) (error "dependency construction demanded a field"))))
+          ((slot-dependencies-hot)
+            (for (_ (in-range 64))
+              (unless (= (.ref/inline owner site) 24) (error "dependency hot oracle"))))
+          ((slot-dependencies-workflow)
+            (unless (equal? (service.dependency-workflow observed?) '#(24 24 30 30 42 #t))
+              (error "dependency complete workflow oracle")))
+          (else (error "unknown dependency phase" scenario)))) #t))
+  (values (action #f) (action #t)))

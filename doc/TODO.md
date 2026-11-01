@@ -3619,3 +3619,32 @@ bind tree. Closed typed source guards own epoch pairs before metadata, reject
 noncallable present observers and cannot be renewed through caller snapshot edits.
 See [P70](pbt-design-rfc.md#p70-shared-dependent-declarations-and-closed-source-observers)
 for the finite laws, public syntax, regression controls and explicit premises.
+
+### Explicit observed Slot source registration
+
+Added `with-slot-dependencies` for computations that explicitly choose automatic
+registration of their actual Slot reads. It reuses the existing collector, issued
+read graph, replay admission and weak source edges. Full graph/owner admission
+precedes registration; original work exceptions and empty/false/Function results
+retain their meanings. Source-work/preflight refusal publishes no result or new
+registration in this invocation. Earlier application effects are not rolled back;
+exceptional host registration failure may retain conservative edges. Parent
+capture roots retain occurrence/unique policy without duplicate observer calls.
+Registered earlier edges remain conservative.
+
+The complete service path covers external providers, two diamond receivers,
+transitive FUN aggregation, unused-branch reuse, once-only invalidation, stale
+credentials, refinement refusal, retry and provider switching. Direct controls
+cover late retirement, original false-like causes, observation multiplicity and
+no registration after failed full admission. Lean connects concrete registration
+to the existing finite invalidation model; this is bounded cache-invalidation
+future work, not a gap in the author's original pure-by-default policy.
+
+Object read issuance/replay lives in `object/observation.scm`, included in the
+existing Object namespace and tracked by standard make `extra-inputs`. There is
+no additional runtime image, cache, loader or namespace. Existing benchmark
+source identities include that input. Slot workload bodies reuse the existing
+prototype-map benchmark module, keeping the paired runner below 1000 lines.
+The paired new/hot/full phases compare safe explicit and observed declarations
+with equal client outcomes; setup, validation, binding, GC and retry remain
+charged. Hidden effects and concurrent mutation retain their documented bounds.

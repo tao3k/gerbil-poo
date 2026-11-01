@@ -102,7 +102,7 @@
     "strong-components"
     "feedback-graph"
     "reflection"
-    "object"
+    (gxc: "object" (extra-inputs: ("object/observation.scm")))
     "polynomial"
     "proto"
     "rationaldict"

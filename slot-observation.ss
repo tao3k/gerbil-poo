@@ -3,7 +3,7 @@
 (export make-slot-read slot-read-key slot-read-receiver
         slot-read-revision slot-read-instance slot-read-value slot-read-dependencies
         call-with-slot-read-observer without-observation
-        %slot-read-active? %slot-read-demand! %deliver-slot-read
+        %slot-read-active? %slot-read-demand! %deliver-slot-read %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?)
 (import :std/error)
 (defstruct slot-read (receiver key revision instance value dependencies current? birth)
@@ -68,17 +68,26 @@
       (make-read-scope frame (read-scope-observers parent) (read-scope-prechecks parent))
       frame))) (action)))
   (values value (reverse (read-collection-reversed frame))))
+;; One recording boundary serves normal delivery and already-delivered child
+;; captures. Respect the current collector's occurrence/deduplication policy.
+(def (record-slot-read! frame read)
+  (when frame
+    (let (seen (read-collection-seen frame))
+      (unless (and seen (hash-key? seen read))
+        (when seen (hash-put! seen read #t))
+        (set! (read-collection-reversed frame)
+          (cons read (read-collection-reversed frame)))))))
+;; Merge an authenticated child capture under one parent-scope lookup, without
+;; replaying observers/prechecks. Recording never mints or authenticates provenance.
+(def (%record-slot-reads! reads)
+  (def scope (current-read-scope))
+  (def frame (if (read-scope? scope) (read-scope-frame scope) scope))
+  (when frame (for-each (cut record-slot-read! frame <>) reads)))
 ;; Record the original read, then deliver it in order without observing callbacks.
 (def (%deliver-slot-read read value)
   (def scope (current-read-scope))
   (def observed? (read-scope? scope))
-  (let (frame (if observed? (read-scope-frame scope) scope))
-    (when frame
-      (let (seen (read-collection-seen frame))
-        (unless (and seen (hash-key? seen read))
-          (when seen (hash-put! seen read #t))
-          (set! (read-collection-reversed frame)
-            (cons read (read-collection-reversed frame)))))))
+  (record-slot-read! (if observed? (read-scope-frame scope) scope) read)
   ;; Deduplicate storage, NEVER delivery. Duplicate events, observer ordering,
   ;; effects and exceptions keep their original per-delivery boundary.
   (let (observers (if observed? (read-scope-observers scope) '()))

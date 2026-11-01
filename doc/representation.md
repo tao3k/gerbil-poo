@@ -2093,3 +2093,99 @@ establish a latency win or isolate admission's cost: both sides use the fix and
 only the existing store differs. A/A and B/B remain in the complete output; raw
 logs are external. Current-head remote build, all groups and the single-process
 whole-suite gate remain required acceptance, with all limits unchanged.
+
+### Explicit observation-backed Slot source edges
+
+`with-slot-dependencies owner action` is an explicit higher-order choice for a
+lazy computation. It captures actual Slot getter records once, checks the owner
+epoch, then uses the existing issued-read traversal to admit the WHOLE graph
+before adding edges through `depend-on-object!`. The same replay scope protects
+known sources through registration and final checks. Empty captures skip replay.
+Pure-by-default computations keep their current semantics; this is not a claim
+that the author's original pure cache design was missing automatic reactivity.
+
+Successful results retain exact false and Function identities. Original action
+exceptions, including false-like causes, outrank later stale-owner/read checks.
+A source-work or full-preflight refusal performs no new registration in this
+invocation and produces no cached value. Earlier application/nested effects are
+not rolled back; exceptional host allocation/registration failures can retain
+conservative earlier edges, while returning no value. Previously observed
+conditional sources stay registered, just like conservative old parent edges.
+No hidden callback state, delayed closure effects, raw runtime edits or concurrent
+heap transactions are inferred. Missing/negative facts still need actual recorded
+presence/miss queries or explicit dependencies.
+
+The new scope also forwards its original roots into the enclosing collector.
+Normal delivery and parent merging share one private frame recorder. Batch
+merging uses one dynamic lookup, preserves the outer occurrence/unique policy,
+and does NOT replay observers/prechecks. The first attempt failed a concrete
+control: two real getter deliveries yielded zero outer roots. The corrected
+control requires two deliveries and two ordinary/one unique original roots.
+There is no source-validity cache or second read issuer.
+
+`dependency-service` combines two diamond Service receivers with an external
+selected provider, false/Function leaves, ObjectContract refinement and FUN
+aggregation. `dependency-workflow` covers an unread provider revision, actual
+rate edits, shared once-only invalidation, obsolete evidence, business refusal
+before consumer effects, fresh repair and provider switching. Its safe reference
+explicitly declares all possible providers; observed registration avoids an
+unneeded recomputation until that provider is actually read. Contract cooking
+can create extra receivers, so avoided work is checked relative to the actual
+initial preparation, not hard-coded validation-clone counts.
+
+The author discusses explicit pure-cache policies and pervasive reactive
+tracking separately (`poof.scrbl` 1527–1553, pinned source 9affa8f). This operation
+advances that future work only for authenticated finite getter footprints.
+Lean `Object.CacheInvalidation` implements concrete captured-edge registration,
+keeps old paths/object identities and connects a captured source to ordinary
+invalidation. It also models source/epoch/full-admission outcomes and an update-
+attempt bound. `Object.SlotObservation` states callback/precheck frames and
+ordered/unique parent recording. Host identity interpretation, faithful finite
+weak registration, standard collectors and sequential publication are premises;
+callback termination, allocator/GC and compiler behavior are not theorems.
+
+Receiver-bound issuance/replay now lives in `object/observation.scm`, included
+under the EXISTING Object namespace. Standard make tracks it with `extra-inputs`;
+benchmark source identities include it and the existing Slot observation module.
+This adds no runtime image or namespace. Object and paired-runner sources remain
+below 1000 lines; Slot workload bodies reuse the existing prototype-map benchmark.
+
+`slot-dependencies-new`, `slot-dependencies-hot` and
+`slot-dependencies-workflow` compare explicit conservative declarations with
+observed registration in one compiler context and one current value backend.
+The existing AB/BA, A/A/B/B, natural/collected/post-GC and charged-setup/first-call
+controls remain. Complete outputs/refusals agree for the pure, observer-free
+business workload; internal read traces and avoided recomputation can differ by
+cache policy. Construction, validation/cooking, graph preparation, weak-edge
+updates, binding, repair, GC and wall residual stay charged. Captured read rows
+can contain more entries than a static source directory: fewer unique edges do
+not prove lower cost. Neither hot hits nor primitive counts establish a universal
+workflow speedup or an automatic policy threshold.
+
+Local acceptance used the fixed source/compiler and a previously absent package
+prefix, with automatic 12-core scheduling, the existing 2 GiB frontend heaps and
+all existing deadlines. `just check 2 1 4` exited naturally with status 0:
+2,392 outer cases, 63 module results, independent source-package acceptance and
+both complete paired matrices. Total wall time was 884.05 s: root 207.14 s,
+startup package 24.64 s, test compilation 290.71 s, main tests 271.97 s,
+source-package tests 28.68 s, collections 23.71 s and generators 33.86 s.
+This is functional acceptance, not a cold-build speedup; the total is materially
+higher than the earlier 637.25 s receipt, and this run does not identify that
+difference's cause. A subsequent comment-only edit documents two moved helpers;
+remote CI qualifies the final rebased source separately.
+
+The unchanged paired entry then ran `just _run-collections 2 4 8`, retaining the
+whole matrix and AB/BA plus A/A/B/B controls; it exited 0 in 35.71 s. Each action
+contains two service workflows. Observed minus manual registration was positive
+in all eight full-workflow pairs: natural mean +3,395.10 us/max +3,550.95 us,
+collected +3,455.71/+3,693.28 us, and post-GC +3,408.29/+3,861.01 us.
+Charged post-GC inclusive mean was +3,253.39 us, comprising batch +2,726.63 us,
+first +546.44 us and forced-GC -19.68 us. Non-GC CPU accounts for +2,573.62 us
+of that inclusive mean; GC CPU +663.25 us and signed wall residual +16.52 us
+complete it. Thus this small workload pays for graph capture, admission and
+registration despite avoiding an unused-provider recomputation; GC history is
+not the whole explanation. Natural construction mean -17.29 us (max +113.49 us)
+and hot mean +0.15 us (max +1.19 us) establish no useful speedup. The operation
+remains explicit, without an automatic selection threshold or changed defaults.
+Small empirical tails are diagnostics, not latency guarantees. Raw outputs and
+package products remain outside Git.

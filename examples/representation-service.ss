@@ -1,7 +1,7 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
 (export entry-recovery-workflow)
-(export cycle-diagnostic-workflow layout-admission-workflow)
+(export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
 (def (entry-arguments . arguments) (apply values arguments))
@@ -151,6 +151,71 @@
   (.putslot! recipe 'tariff ($constant-slot-spec 4))
   (when (object-read-current? saved) (error "layout workflow retained obsolete evidence"))
   (vector refused first (read owner) #t))
+
+;; Build two diamond services with an external rate directory and an aggregate.
+;; The explicit reference declares all possible sources; the observed strategy
+;; uses only actual getters. Both retain conservative edges once registered.
+(def (dependency-service (observed? #t))
+  (def primary (.o rate: 3 callback: identity disabled: #f))
+  (def secondary (.o rate: 5 callback: 1+ disabled: #f))
+  (def router (.o selected: primary))
+  (def calls 0) (def deliveries 0)
+  ;; Apply the chosen declaration at the ordinary Slot boundary, not every read.
+  (def (observe owner action)
+    (if observed? (with-slot-dependencies owner action)
+      (begin (for-each (cut depend-on-object! owner <>) [router primary secondary]) (action))))
+  ;; Both clients retain the existing Service inheritance and checked consumer.
+  (def (client capacity)
+    (.o bind-these: #f self: self inherit: [Service] capacity: capacity
+      (tariff (observe self (lambda () (set! calls (1+ calls)) (.get (.get router selected) rate))))
+      (handler (observe self (lambda () (.get (.get router selected) callback))))
+      (disabled (observe self (lambda () (.get (.get router selected) disabled))))))
+  (def first (client 2)) (def second (client 4))
+  (def read (checked-total-action (lambda (owner total)
+    (unless (and (eq? (.get owner handler) (.get (.get router selected) callback))
+                 (eq? (.get owner disabled) #f)) (error "dependency payload identity"))
+    (set! deliveries (1+ deliveries)) total)))
+  (def sum-action (.call fun.Observation. .bind (lambda (_) (read first))
+    (lambda (left) (lambda (_) (+ left (read second))))))
+  (def aggregate (.o self: self (value (observe self (cut sum-action self)))))
+  (unless observed? (for-each (cut depend-on-object! aggregate <>) [first second]))
+  (.o bind-these: #f primary: primary secondary: secondary router: router first: first second: second
+      aggregate: aggregate calls: (lambda () calls) deliveries: (lambda () deliveries)))
+
+;; Complete external-source revision, selective initial branch handling, late
+;; contract refusal and fresh repair through the existing checked FUN chain.
+;; Instrumentation asserts each policy's work; client-visible results are equal.
+(def (dependency-workflow (observed? #t))
+  (def service (dependency-service observed?))
+  (def aggregate (.get service aggregate)) (def primary (.get service primary))
+  (def secondary (.get service secondary)) (def router (.get service router))
+  (def site (make-slot-cache 'value shapes: 2))
+  (defvalues (first roots) (%call-with-recorded-slot-reads (cut .ref aggregate 'value)))
+  (def credential (car (filter (lambda (read)
+    (and (eq? (slot-read-receiver read) aggregate) (eq? (slot-read-key read) 'value))) roots)))
+  (def initial-work ((.get service calls)))
+  (.set! secondary rate 6)
+  (unless (eq? (object-read-current? credential) observed?) (error "unused dependency invalidation"))
+  (def unchanged (.ref/inline aggregate site))
+  ;; Contract cooking may build additional receivers; test avoided work relative
+  ;; to this actual preparation, not a hard-coded number of validation clones.
+  (unless (if observed? (= ((.get service calls)) initial-work)
+            (> ((.get service calls)) initial-work)) (error "unused branch recomputation"))
+  (def revision (object-revision aggregate))
+  (.set! primary rate 4)
+  (when (object-read-current? credential) (error "external source retained old evidence"))
+  (unless (= (object-revision aggregate) (1+ revision)) (error "shared dependency revised more than once"))
+  (def changed (.ref/inline aggregate site))
+  (.set! primary rate -1)
+  (def delivered ((.get service deliveries)))
+  (unless (TypeError? (with-catch identity (cut .ref/inline aggregate site)))
+    (error "dependency contract refusal changed"))
+  (unless (= delivered ((.get service deliveries))) (error "refused dependency reached consumer"))
+  (.set! primary rate 4)
+  (def repaired (.ref/inline aggregate site))
+  (.set! router selected secondary)
+  (def switched (.ref/inline aggregate site))
+  (vector first unchanged changed repaired switched #t))
 
 ;; The service path retains full refinement before total demand or consumer effects.
 ;; Selected fields share the receiver's ordinary lazy value authority.
