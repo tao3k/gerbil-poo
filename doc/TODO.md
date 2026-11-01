@@ -35,6 +35,12 @@ protocol assumes faithful standard copying, finite recognition and loader effect
 it does not certify arbitrary callbacks or concurrent mutation during capture.
 Balanced complete-call controls retain natural/post-GC, AB/BA and A/A/B/B samples.
 
+P67 closes the named-report diagnostic boundary: a prepared generic formatter
+owns a finite symbolic directory before source observations or typed computed
+metadata. It is reusable through :std/test without retaining report authority;
+false values, original failures, stale refusal and unmatched rows keep their
+existing semantics. See [P67](pbt-design-rfc.md#p67-prepared-named-diagnostics-across-report-observation).
+
 P66 closes typed diagnostic request admission before computed sampler metadata,
 source observation and factory binding. Both layers share the existing generic
 configuration check; zero budgets and valid-request failure behavior remain.

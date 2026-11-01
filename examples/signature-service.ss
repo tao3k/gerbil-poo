@@ -416,6 +416,34 @@
 ;; examples share the same FunctionArguments, checked service and FUN workflow.
 (def inspection-request-test
   (test-suite "typed diagnostic request admission"
+    (test-case "typed diagnostic names are admitted before computed report metadata"
+      (def reads 0)
+      (def report (.o execution: (begin (set! reads (1+ reads)) (error "must not read execution"))))
+      (check-exception (report-diagnostics report bindings: '(same same)) Error?)
+      (check-exception (report-diagnostics report bindings: '(4)) Error?)
+      (check-equal? reads 0))
+    (test-case "named FUN service diagnostics keep inherited getter edits outside their directory"
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 4))
+      (def descriptor (FunctionArguments ServiceSignature))
+      (def action (property-action descriptor service-property identity))
+      (def passed (action configuration))
+      (check-eq? (.get passed status) 'passed)
+      (def row (.get passed original))
+      (def names (map (lambda (index) (string->symbol (string-append "input-" (number->string index)))) (iota (length row))))
+      (def expected (map cons names row))
+      (def inherited (.o bind-these: #f inherit: [passed]
+        execution: (begin (set-car! names 'retargeted) (set-cdr! names names) (.get passed execution))))
+      (def fields (report-diagnostics inherited bindings: names))
+      (check-eq? (cdr (assq 'status fields)) 'passed)
+      (check-equal? (cdr (assq 'original fields)) expected)
+      ;; Reuse the same captured formatter through the official assertion boundary;
+      ;; it still refuses a real counterexample and cannot replace report truth.
+      (def render (property.prepare-report-diagnostics (map car expected)))
+      (def failed ((property-action descriptor (lambda (_) #f) identity) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (check-eq? (cdr (assq 'status (render (.get failed execution)))) 'failed))
     (test-case "all numeric controls refuse before computed declarations or observers"
       (def entered 0) (def observed 0)
       (def base (make-generator Integer (lambda (_r _s) (error "must not draw"))

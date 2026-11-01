@@ -3,7 +3,7 @@
         call-with-specifications report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
-        make-policy policy? make-product-specification specification-current? specification-weight report-current? report-diagnostics
+        make-policy policy? make-product-specification specification-current? specification-weight report-current? prepare-report-diagnostics report-diagnostics
         inspect-generator inspection? inspection-status inspection-seed inspection-size inspection-count inspection-depth inspection-budget
         inspection-draws inspection-attempts inspection-events inspection-counts
         inspection-truncated? inspection-cause inspection-current?)
@@ -154,21 +154,29 @@
 (def (argument-bindings names value)
   (def row (if (vector? value) (vector->list value) value))
   (if (and (pair? names) (list? row) (= (length names) (length row))) (map cons names row) value))
-;; Pure diagnostics contain no generator/property closures. Original exception
-;; identity is retained as data; only a passing report requires fresh admission.
-(def (report-diagnostics report bindings: (names []))
-  (unless (and (report? report) (list? names) (every symbol? names)
+;; Capture finite unique symbolic bindings before report/source callbacks. The
+;; prepared standard formatter can be reused by typed metadata and :std/test;
+;; it owns names only, never report truth, generated payloads or source authority.
+(def (prepare-report-diagnostics (names []))
+  (unless (and (list? names) (every symbol? names)
     (= (length names) (length (delete-duplicates/hash names)))) (error "invalid property diagnostics"))
-  (def status (report-status report))
-  (when (and (eq? status 'passed) (not (report-current? report))) (set! status 'stale))
-  (list (cons 'status status) (cons 'property (report-name report))
-    (cons 'seed (report-seed report)) (cons 'trial (report-trial report))
-    (cons 'trial-size (report-trial-size report)) (cons 'accepted (report-accepted report))
-    (cons 'discarded (report-discarded report)) (cons 'labels (report-labels report))
-    (cons 'original (argument-bindings names (report-original report)))
-    (cons 'counterexample (argument-bindings names (report-counterexample report)))
-    (cons 'attempts (report-attempts report)) (cons 'steps (report-steps report))
-    (cons 'minimal? (report-minimal? report)) (cons 'cause (report-cause report))))
+  (def owned (list-copy names))
+  (lambda (report)
+    (unless (report? report) (error "invalid property diagnostics"))
+    (def status (report-status report))
+    (when (and (eq? status 'passed) (not (report-current? report))) (set! status 'stale))
+    (list (cons 'status status) (cons 'property (report-name report))
+      (cons 'seed (report-seed report)) (cons 'trial (report-trial report))
+      (cons 'trial-size (report-trial-size report)) (cons 'accepted (report-accepted report))
+      (cons 'discarded (report-discarded report)) (cons 'labels (report-labels report))
+      (cons 'original (argument-bindings owned (report-original report)))
+      (cons 'counterexample (argument-bindings owned (report-counterexample report)))
+      (cons 'attempts (report-attempts report)) (cons 'steps (report-steps report))
+      (cons 'minimal? (report-minimal? report)) (cons 'cause (report-cause report)))))
+;; Direct rendering uses the same prepared formatter and preserves the report's
+;; original cause; only a passing report performs currentness observation.
+(def (report-diagnostics report bindings: (names []))
+  ((prepare-report-diagnostics names) report))
 ;; One invocation owns the latest confirmed witness and consumed proposals.
 ;; A callback error never installs its in-flight candidate as a false witness.
 (defstruct progress (best attempts steps) final: #t)

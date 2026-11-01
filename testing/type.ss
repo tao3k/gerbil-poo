@@ -466,8 +466,11 @@
 ;; Standard test integration consumes the same generic report when preparation
 ;; succeeded. Early Type/generator refusals retain their own cause and phase.
 (def (report-diagnostics report bindings: (names []))
+  ;; Snapshot presentation names before computed report metadata; the kernel owns
+  ;; their admission and rendering once, including preparation-only refusals.
+  (def render (testing.prepare-report-diagnostics names))
   (def execution (.get report execution))
-  (if execution (testing.report-diagnostics execution bindings: names)
+  (if execution (render execution)
     (list (cons 'status (.get report status)) (cons 'property (.get report name))
       (cons 'phase 'preparation) (cons 'seed (.get report seed))
       (cons 'trial (.get report trial)) (cons 'cause (.get report cause)))))
