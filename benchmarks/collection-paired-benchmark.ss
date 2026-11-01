@@ -1,5 +1,5 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-values-study run-offset-study run-shape-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study)
+(export main run-values-study run-offset-study run-shape-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study run-dependency-study)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) (only-in :clan/poo/benchmarks/prototype-map-benchmark
           +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
           +declaration-phases+ declaration-workload declaration-preparation-workload layout-admission-workload dependency-workload)
@@ -35,7 +35,8 @@
 (def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
     slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire
-    slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow) +slot-offset-phases+))
+    slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow
+    slot-dependencies-capture slot-dependencies-check slot-dependencies-register) +slot-offset-phases+))
 
 ;; Compare indexed deletion against the supported complete-specification rebuild.
 ;; Construction and snapshot observation are charged in the cold/full paths.
@@ -825,7 +826,7 @@
             ((eq? scenario 'slot-cycle-report) (cut cycle-report-workload n))
             ((eq? scenario 'slot-cycle-workflow) (cut cycle-workflow n))
             ((eq? scenario 'slot-layout-admission) (cut layout-admission-workload n))
-            ((memq scenario '(slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow))
+            ((memq scenario '(slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow slot-dependencies-capture slot-dependencies-check slot-dependencies-register))
               (cut dependency-workload n scenario))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
@@ -983,4 +984,12 @@
 (def (run-shape-study)
   (report-study (cut run-collection-study "64" "32" "6"
     '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire)) "SHAPE")
+  #t)
+
+;; One standard paired entry charges setup, GC, first calls and same-side tails.
+;; Boundary phases diagnose costs; only workflow pairs compare complete policies.
+(def (run-dependency-study)
+  (report-study (cut run-collection-study "2" "8" "12"
+    '(slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow
+      slot-dependencies-capture slot-dependencies-check slot-dependencies-register)) "SLOT-DEPENDENCY")
   #t)

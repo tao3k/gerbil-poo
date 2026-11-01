@@ -3,7 +3,7 @@
         +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot
         layout-admission-workload dependency-workload)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
-        (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
+        (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout)
         (only-in :clan/poo/reflection reflect-slots read-slot)
@@ -377,23 +377,62 @@
 ;; one compiler context and one existing value backend. New/cold/hot costs stay
 ;; separate; complete workflows retain equal client results and original refusal.
 (def (dependency-workload size scenario)
-  ;; Preparation is charged by the existing paired runner, including warm sites.
-  (def (action observed?)
-    (def service (and (eq? scenario 'slot-dependencies-hot) (service.dependency-service observed?)))
-    (def owner (and service (.get service aggregate)))
-    (def site (and service (make-slot-cache 'value)))
-    (when owner (unless (= (.ref/inline owner site) 24) (error "dependency warm oracle")))
+  (if (memq scenario '(slot-dependencies-capture slot-dependencies-check slot-dependencies-register))
+    (dependency-boundary-workload size scenario)
+    (let ()
+      ;; Preparation is charged by the existing paired runner, including warm sites.
+      (def (action observed?)
+        (def service (and (eq? scenario 'slot-dependencies-hot) (service.dependency-service observed?)))
+        (def owner (and service (.get service aggregate)))
+        (def site (and service (make-slot-cache 'value)))
+        (when owner (unless (= (.ref/inline owner site) 24) (error "dependency warm oracle")))
+        (lambda ()
+          (for (_ (in-range size))
+            (case scenario
+              ((slot-dependencies-new)
+                (let (fresh (service.dependency-service observed?))
+                  (unless (= ((.get fresh calls)) 0) (error "dependency construction demanded a field"))))
+              ((slot-dependencies-hot)
+                (for (_ (in-range 64))
+                  (unless (= (.ref/inline owner site) 24) (error "dependency hot oracle"))))
+              ((slot-dependencies-workflow)
+                (unless (equal? (service.dependency-workflow observed?) '#(24 24 30 30 42 #t))
+                  (error "dependency complete workflow oracle")))
+              (else (error "unknown dependency phase" scenario)))) #t))
+      (values (action #f) (action #t)))))
+
+;; Attribute capture, repeated live validation and weak registration separately.
+;; These are diagnostic pairs, not alternative admission policies. The complete
+;; workflow above retains every validation and charges its whole construction.
+(def (dependency-boundary-workload size scenario)
+  ;; Both sides own fresh equivalent services, graph records and target owners.
+  (def (action candidate?)
+    (def service (service.dependency-service #f))
+    (def receiver (.get service aggregate))
+    (unless (= (.get receiver value) 24) (error "dependency boundary warm oracle"))
+    (defvalues (_value roots) (%call-with-recorded-slot-reads (cut .ref receiver 'value)))
+    ;; Existing replay owns graph enumeration; the study adds no DFS or issuer.
+    (defvalues (_replayed reads) (%call-with-recorded-slot-reads (cut reobserve-slot-reads! roots)))
+    (def sources (filter (lambda (source) (not (eq? source receiver))) (map slot-read-receiver reads)))
+    (def unique (delete-duplicates/hash sources table: (make-hash-table-eq)))
+    (def target (.o marker: #f))
+    (unless (and (pair? reads) (pair? unique) (< (length unique) (length sources)))
+      (error "dependency diagnostic lacks repeated source reads"))
+    (displayln "SLOT-DEPENDENCY-COUNTS " scenario " reads=" (length reads)
+      " source-occurrences=" (length sources) " receivers=" (length unique))
     (lambda ()
       (for (_ (in-range size))
         (case scenario
-          ((slot-dependencies-new)
-            (let (fresh (service.dependency-service observed?))
-              (unless (= ((.get fresh calls)) 0) (error "dependency construction demanded a field"))))
-          ((slot-dependencies-hot)
-            (for (_ (in-range 64))
-              (unless (= (.ref/inline owner site) 24) (error "dependency hot oracle"))))
-          ((slot-dependencies-workflow)
-            (unless (equal? (service.dependency-workflow observed?) '#(24 24 30 30 42 #t))
-              (error "dependency complete workflow oracle")))
-          (else (error "unknown dependency phase" scenario)))) #t))
+          ((slot-dependencies-capture)
+            (let (value (if candidate?
+                         (let-values (((value _) (%call-with-recorded-slot-reads (cut .ref receiver 'value)))) value)
+                         (without-observation (cut .ref receiver 'value))))
+              (unless (= value 24) (error "dependency capture oracle"))))
+          ((slot-dependencies-check)
+            ;; Charge the second pass rather than silently deleting it. Repeated
+            ;; keys/epochs still require their own live checks in the real path.
+            (for (_ (in-range (if candidate? 2 1)))
+              (unless (andmap object-read-current? reads) (error "dependency check oracle"))))
+          ((slot-dependencies-register)
+            (for-each (cut depend-on-object! target <>) (if candidate? unique sources))))) #t))
   (values (action #f) (action #t)))

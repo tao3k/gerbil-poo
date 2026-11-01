@@ -3655,3 +3655,11 @@ existing observer reader. Record/Function/FUN service generation, shrinking,
 replay, old-root refusal and explicit fresh retry use the same Map factory.
 See [P71](pbt-design-rfc.md#p71-shared-observer-binding-before-map-declarations)
 for finite proofs, exact failure ordering and unchanged generic-core boundaries.
+
+One-shot captures now skip the existing retained-projection owner and register
+through the traversal's existing receiver set. Full ordered read admission and
+final revalidation stay intact, including different keys/epochs of one source.
+Lean proves identical edge/path/cache/revision observations and a non-increasing
+logical write count. The existing paired engine measures capture, second-pass
+validation and duplicate registration separately from the complete workflow;
+these diagnostics do not justify removing safety checks or a new cache layer.

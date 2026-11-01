@@ -2189,3 +2189,78 @@ and hot mean +0.15 us (max +1.19 us) establish no useful speedup. The operation
 remains explicit, without an automatic selection threshold or changed defaults.
 Small empirical tails are diagnostics, not latency guarantees. Raw outputs and
 package products remain outside Git.
+
+#### One-shot capture and distinct registration
+
+Fresh captured root lists now use the existing finite authenticated DFS directly,
+without constructing a projection cache owner or weak lookup entry that cannot
+be reused by another capture. Retained replay keeps the existing projection
+path. Both paths share the same traversal implementation and source guard set.
+Registration visits the traversal's already-built receiver set once, instead of
+rewriting a weak edge for every read of that receiver. No new cache/set/loader is
+introduced. Every read still receives issuance, route and revision validation,
+in the original order, followed by final revalidation. In particular, mixed old
+and current keys from one receiver cannot be admitted just because registration
+deduplicates that receiver. Parent root occurrences and observer delivery remain
+unchanged. Registration order is not an application callback order; exceptional
+host failures can retain conservative partial edges as documented above.
+
+Lean proves exact source-edge membership, bidirectional path preservation and
+complete invalidation/revision equality for the distinct registration set. Full
+read admission remains separate from post-admission selection. Its logical write
+bound excludes capture, graph preparation, authentication, hash costs and GC.
+
+`just benchmark-slot-dependencies` uses the existing compiled entry and paired
+engine: new/hot/full workflows plus capture, check and registration diagnostics.
+The capture diagnostic compares the same warm getter with/without recording.
+The check diagnostic measures one versus two full live passes; it does NOT
+remove a pass from the implementation. Registration compares per-record writes
+with distinct receiver writes over equivalent prepared graphs and fresh targets.
+Graph enumeration itself reuses `reobserve-slot-reads!`, not a benchmark DFS.
+Setup, AB/BA, A/A/B/B, GC and first-call history remain charged. Diagnostics are
+separate workloads, not additive components of the full workflow's wall time.
+The original compiler rejected a private keyword closure during downstream type
+inference (`!kw-lambda::return-type`); its three private callers now pass a required
+positional retention flag. The failed run exited 70 and standard clean completed;
+its 474.00 s log is a failed receipt, not acceptance or a cold performance claim.
+The corrected-source rebuild in that cleaned prefix hit the unchanged 300 s root
+deadline (308.03 s including clean). It is another failed preparation receipt,
+not a successful cold check. Subsequent local acceptance reuses a separately
+previously admitted package through standard make; its timing is incremental.
+
+The focused twelve-pair study passed (compiled entry 41.44 s; incremental
+build/startup plus study 190.85 s). Its warm aggregate has 86 authenticated graph
+records, 84 non-self source occurrences and 15 distinct receivers. Natural
+capture adds 0.30 us per two getter calls; a second full live pass adds 144.20 us
+(collected 152.95 us); replacing repeated weak writes with distinct writes saves
+12.04 us (collected 11.92 us). These isolated diagnostics explain why capture
+frame allocation and duplicate registration alone are not the remaining ms cost.
+The implementation retains its ordered checks instead of treating this diagnostic
+as permission to skip authentication. Full graph preparation/checking stays paid.
+
+A second complete matrix used the prior `2 4 8` configuration, including the same
+preceding workloads, with unchanged source/compiler during measurement. It exited
+0 in 35.64 s. Observed minus manual registration, in us per two complete workflows:
+
+| Regime | Prior mean / max | Current mean / max |
+| --- | ---: | ---: |
+| natural | 3395.10 / 3550.95 | 2174.85 / 2296.92 |
+| collected | 3455.71 / 3693.28 | 2135.51 / 2304.49 |
+| post-GC | 3408.29 / 3861.01 | 2326.10 / 2550.72 |
+
+Current natural p90 equals max at eight pairs; all eight policy differences remain
+positive in every regime. Natural A/A mean -1.68 us/max +105.56 us and B/B mean
+-116.02 us/max +77.96 us remain visible. Post-GC controls still show max +673 us
+(A/A) and +337 us (B/B), so these empirical tails are not hard latency bounds.
+Charged inclusive mean +2251.42 us splits into non-GC CPU +1907.65 us, GC CPU
++265.72 us and signed wall residual +78.04 us. It is not just a GC-history effect.
+Each revision compares policies within one binary using fresh matched fixtures;
+the inter-revision table is a historical comparison, not a simultaneously paired
+old/new implementation experiment. It supports a narrower measured policy gap,
+not a universal percentage speedup. Explicit tracking still has a real remaining
+cost and remains opt-in. No raw benchmark data or package artifacts enter Git.
+The first complete incremental check also caught an old two-argument white-box
+call to the private traversal entry; compilation exited 70 (257.72 s including
+standard cleanup). That test now supplies the required retention flag and
+receiver-set callback argument. All 23 ownership cases and negative controls are
+retained; this is an updated private call, not a compatibility overload.

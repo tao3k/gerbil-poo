@@ -13,7 +13,7 @@
 ;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
 (extern namespace: clan/poo/object call-with-issued-reads)
 (def (captured-order roots)
-  (call-with-issued-reads roots (lambda (reads _current!) reads)))
+  (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
   (def reads '())
   (call-with-slot-read-observer (lambda (r) (set! reads (cons r reads))) action)

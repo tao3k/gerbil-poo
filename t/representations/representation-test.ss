@@ -666,6 +666,17 @@
         (with-slot-dependencies owner (lambda () (.get source value) (.set! source value 1) (raise #f)))
         'unexpected)) '#(caught #f))
       (check-eq? (with-slot-dependencies owner (lambda () (.get source value))) 1))
+    (test-case "distinct receiver registration never hides a stale key from the same source"
+      (def source (.o left: #f right: identity)) (def owner (.o marker: #f))
+      (def revision (object-revision owner))
+      (check-exception (with-slot-dependencies owner (lambda ()
+        (.get source left) (.set! source left 1) (.get source right)))
+        (message? "stale slot dependency"))
+      (.set! source left 2)
+      (check-equal? (object-revision owner) revision)
+      (check-eq? (with-slot-dependencies owner (lambda () (.get source left) (.get source right))) identity)
+      (.set! source left 3)
+      (check-equal? (object-revision owner) (1+ revision)))
     (test-case "dependency capture forwards original parent roots without repeating observers"
       (for (unique? '(#f #t))
         (def source (.o value: #f)) (def owner (.o value: 0))

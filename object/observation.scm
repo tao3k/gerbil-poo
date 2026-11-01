@@ -119,14 +119,17 @@
               (table-set! owners roots owner)
               next)
             (build #f roots))))))
-    (lambda (roots consume)
-      (def selected (without-observation (lambda () (obtain roots))))
+    (lambda (roots consume retain?)
+      ;; Replay callers can retain roots; a fresh capture has no future lookup
+      ;; identity. Reuse the SAME finite DFS without a cache owner or weak entry.
+      (def selected (without-observation
+        (lambda () (if retain? (obtain roots) (using (roots :~ list?) (build #f roots))))))
       (def traversal (projection-reads selected))
       ;; The receiver set is private/read-only. Nested frames and unwind remain
       ;; per call; sharing structure never shares a populated DFS seen table.
       (parameterize ((active-read-replays
                       (cons (projection-receivers selected) (active-read-replays))))
-        (begin0 (consume traversal require-current!)
+        (begin0 (consume traversal require-current! (projection-receivers selected))
           (without-observation (lambda () (for-each require-current! traversal))))))))
 
 ;; Opt in to invalidation from actual observed Slot reads, not hidden callback
@@ -140,39 +143,40 @@
     (unless (= revision (object-revision self)) (error "object changed during dependency capture"))
     (if (null? roots) value
       (call-with-issued-reads roots
-        (lambda (reads current!)
+        (lambda (reads current! receivers)
           ;; Whole-graph admission precedes every new source registration.
           (for-each current! reads)
-          (for-each (lambda (read)
-            (def source (slot-read-receiver read))
-            (unless (eq? source self) (depend-on-object! self source))) reads)
+          ;; The existing traversal already owns the distinct receiver set.
+          ;; Admission still visits EVERY read, including different keys/epochs.
+          (for (([source . _] receivers))
+            (unless (eq? source self) (depend-on-object! self source)))
           ;; Preserve original dependency occurrences in the enclosing getter.
           ;; Their observers already ran during action; do not deliver them twice.
           (%record-slot-reads! roots)
-          value)))))
+          value) #f))))
 
 ;; Replay authenticated reads under the same guarded source set and final check.
 (def (replay-slot-reads! roots observe)
   (call-with-issued-reads roots
-    (lambda (reads current!)
+    (lambda (reads current! _receivers)
       (without-observation
         (lambda ()
           (for-each
             (lambda (read)
               (current! read)
-              (observe (slot-read-receiver read) (slot-read-key read))) reads))))))
+              (observe (slot-read-receiver read) (slot-read-key read))) reads)))) #t))
 
 ;; The Type catalog's warm path delivers ORIGINAL records into its caller's
 ;; frame. Keep the same selected write protection across work and delivery, not
 ;; only the initial check. Metadata inspection itself remains unobserved.
 (def (reobserve-slot-reads! roots (work void))
   (call-with-issued-reads roots
-    (lambda (reads current!)
+    (lambda (reads current! _receivers)
       (without-observation (lambda () (for-each current! reads)))
       (for-each
         (lambda (read)
           (work)
-          (%deliver-slot-read read (slot-read-value read))) reads))))
+          (%deliver-slot-read read (slot-read-value read))) reads)) #t))
 
 ;; Deliver computed provenance or mint a record for an exact explicit assignment.
 (def (object-deliver-value self slot value)

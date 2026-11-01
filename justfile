@@ -185,6 +185,10 @@ clean:
 
 benchmark-collections width='64' samples='10' pairs='6': build-shared (_run-collections width samples pairs)
 
+# Reuse the existing compiled module entry and complete paired measurement engine.
+benchmark-slot-dependencies: build-shared
+    /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#run-dependency-study'
+
 benchmark-class-proto width='1000' samples='3': (build-benchmarks "class-proto")
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/class-proto-benchmark" {{ test-runtime-options }} "$1" "$2"
 
