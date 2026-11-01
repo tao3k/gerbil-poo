@@ -22,8 +22,21 @@ check-layout:
     printf 'LAYOUT-OK\n'
 
 build-core: check-layout
+    #!/usr/bin/env bash
+    set -euo pipefail
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
-    /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build
+    if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build; then
+        exit 0
+    else
+        build_status=$?
+        # Standard make may publish interface markers before a backend fails.
+        # Invalidate its declared outputs so retry cannot admit a partial build.
+        printf 'BUILD-CLEANUP root-preparation status=%s\n' "$build_status" >&2
+        if ! {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil -:max-heap=2G,debug=q clean; then
+            printf 'BUILD-CLEANUP root failed; standard clean is still required\n' >&2
+        fi
+        exit "$build_status"
+    fi
 
 build-shared: build-core
     cd benchmarks/representation-startup && /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build

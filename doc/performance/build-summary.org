@@ -1667,3 +1667,72 @@ list handling. This is not a whole-phase allocation/GC measurement, nor proof
 that all delay is F_CHECK_LV. It identifies a remaining loader cost without
 changing the loader or security policy. No test or compilation failure is
 reclassified as successful based on completed harness markers alone.
+
+* Whole-entry wall and stage guards; interrupted-root recovery, 2026-11-01
+
+The complete entry has NO 300-second deadline. Root preparation and the four
+concurrent test compiler graphs each have their existing 300-second guards;
+the startup program retains 90 seconds. A historical 559–564-second complete
+entry is therefore compatible with successful bounded compilation. Test
+execution and natural process exit remain required, with the existing policy.
+
+The following fixed-source trials start from three absent project-artifact
+prefixes and invoke the same =just check 2 1 4=. They use source parent
+=a107759=, the same released Darwin compiler patch =618d76f9eb72=, identical
+SHA-256 contents for the CLI/interpreter/Gambit compiler/build driver/GCC 16.2,
+and automatic 12-core root / four-frontend, two-backend test preparation.
+All heaps, guards, cleanup, tests and Gerbil public entries are retained.
+These are project-artifact cold trials; OS caches are not purged. There is
+no concurrent build or compiler probe from this task. A/B each include one
+three-second read-only frontend sample; C is uninstrumented acceptance.
+
+| stage, seconds | A control | B rejected shared programs | C retained recovery |
+|----------------+-----------+----------------------------+---------------------|
+| root library/program graph | 163.60 | 201.32 | 123.87 |
+| standalone startup package | 18.13 | 12.14 | 17.48 |
+| four test compiler graphs | 226.91 | 198.67 | 134.64 |
+| main test command / natural exit | 281.22 | 323.29 | 279.73 |
+| source build regressions | 16.41 | 15.84 | 26.91 |
+| collection paired study | 20.34 | 20.57 | 18.99 |
+| generation paired study | 32.78 | 29.37 | 28.87 |
+| complete public entry | 761.33 | 803.66 | 637.25 |
+
+B requested both Darwin programs in one ordinary make graph. Standard startup
+freshness then removed its 21 repeated object-job requests, and direct process
+observation confirmed that A actually recompiled common object/mop objects.
+Nevertheless root/startup wall regressed and complete wall was worse. ALL B
+code is withdrawn: no program graph, declaration policy or namespace changes
+remain. Smaller preparation counts are not a wall-clock win.
+
+Root user CPU is 470.90 s in A and 468.26 s in C; the successful root build
+command and runtime algorithms are unchanged. The much smaller wall does NOT
+establish an algorithmic speedup or a solved latency tail. Short frontend
+samples include compiler/expander work and some GC; they do not attribute the
+whole wall residual exclusively to GC, dyld, or other tasks. The earlier root
+and test-compiler deadline failures remain failed receipts, not successful
+cold acceptance by resume. Differences between summed stage timers and total
+entry wall remain task/launch overhead, not an inferred OS diagnosis.
+
+The retained fix is failure admission: standard make's ordinary module outputs
+are an interface and static Scheme file, which may precede failed machine-code
+construction. The old root recipe lacked the standard-clean failure path
+already used for test graphs. A real public-CLI backend refusal left its .ssi;
+the new negative regression failed on that retained marker in 18.81 s.
+Root failure now invokes =gerbil clean= under the same existing 90-second
+cleanup policy and preserves the original build exit status. Cleanup refusal
+is reported explicitly. No replacement freshness registry, loader, scheduler,
+environment variable, compiler option or larger build deadline is introduced.
+
+The regression uses the real project Just recipe and a tiny standard Gerbil
+package with a deliberate C backend error. It requires both attempts to fail
+at that backend and checks that neither interface nor static Scheme completion
+markers survive. Expected diagnostics stay captured inside the fixture; no
+runner failure is ignored. All source-build tests pass, including the new case.
+
+C preserves all 62 public test roots and 66 compiler units. A/B have 2386 outer
+CASE-OK receipts; C has 2387, adding only the recovery case. All three retain
+63 outer MODULE-OK receipts, 203 isolated standard-library cases, both complete
+paired-study markers and natural zero exit. Compiler-content identities and
+C's frozen build/test patch were rechecked after exit. Full logs, generated
+products and rejected patches remain outside Git. This is cold functional and
+resource admission, not a claim that a later first load can never hit a guard.

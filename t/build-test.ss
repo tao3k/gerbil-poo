@@ -3,7 +3,7 @@
 (import (only-in :gerbil/expander import-module expander-context-id module-context-import
           module-context? module-import? module-import-source module-export-context
           import-set? import-set-source)
-        :std/test :std/error :std/iter (only-in :std/make make) (only-in :std/misc/process run-process)
+        :std/test :std/error :std/iter (only-in :std/text/pregexp pregexp-match) (only-in :std/make make) (only-in :std/misc/process run-process)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
@@ -159,6 +159,44 @@
                 (append (list-ref parts 1) (list-ref parts 2)))))
       (check (hash-key? recipes "_build-test-prototypes") => #f)
       (check (hash-key? recipes "_build-test-publication") => #f))
+    (test-case "failed root builds clear partial standard make markers before retry"
+      (def task-file (path-expand "justfile"))
+      (call-with-temporary-directory "root-refusal-" (lambda (project)
+        ;; Keep the actual layout preflight inputs, not empty stand-ins. Only
+        ;; the tiny standard fixture below belongs to this build declaration.
+        (for (file '("testing/type.ss" "testing/function.ss" "testing/generation-graph.ss"
+                     "testing/recursive-generation.ss" "testing/property.ss"
+                     "testing/property/generator.ss" "testing/property/model.ss"
+                     "testing/property/replay.ss" "testing/property/test.ss"))
+          (def target (path-expand file project))
+          (create-directory* (path-directory target)) (copy-file file target))
+        (call-with-output-file (path-expand "gerbil.pkg" project)
+          (lambda (port) (write '(package: clan/poo/testing) port)))
+        (call-with-output-file (path-expand "build.ss" project)
+          (lambda (port)
+            (display "#!/usr/bin/env -S gxi -:max-heap=2G,debug=q\n" port)
+            (write '(import :std/build-script) port) (newline port)
+            (write '(defbuild-script ["broken"]) port) (newline port)))
+        (run-process ["chmod" "755" (path-expand "build.ss" project)])
+        (call-with-output-file (path-expand "broken.ss" project)
+          (lambda (port)
+            (write '(export value) port) (newline port)
+            (write '(begin-foreign (c-declare "#error expected-backend-refusal")) port) (newline port)
+            (write '(def value #f) port) (newline port)))
+        (for (_ (in-range 2))
+          (def status #f)
+          ;; The real public compiler must fail BOTH attempts, never admit
+          ;; the first attempt's early .ssi/static Scheme files as completion.
+          (def output (run-process
+            ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
+             "just" "--justfile" task-file "--working-directory" project "build-core"]
+            directory: project stderr-redirection: #t
+            check-status: (lambda (code _settings) (set! status code))))
+          (check (and (exact-integer? status) (not (zero? status))) => #t)
+          (check (and (pregexp-match "expected-backend-refusal" output) #t) => #t)
+          (check (file-exists? (path-expand "package/lib/clan/poo/testing/broken.ssi" project)) => #f)
+          (check (file-exists? (path-expand "package/lib/static/clan__poo__testing__broken.scm" project)) => #f)
+          (check (and (pregexp-match "BUILD-CLEANUP root-preparation status=" output) #t) => #t)))))
     (test-case "shared build cleanup retains values failure identity and single evaluation"
       (check (call-with-values (lambda () (call-with-build-jobs (lambda () (values 1 #f)))) list) => '(1 #f))
       (def calls 0) (def cause (with-catch values (lambda () (error "original build refusal"))))
