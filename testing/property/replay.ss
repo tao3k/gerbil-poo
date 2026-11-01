@@ -48,7 +48,9 @@
        (charge! (u8vector-length datum)) (u8vector-copy datum))
       ((string? datum)
        (charge! (string-length datum)) (string-copy datum))
-      ((or (null? datum) (boolean? datum) (symbol? datum) (keyword? datum)
+      ;; Only interned tokens have stable reader/writer identity. Do not silently
+      ;; intern fresh tokens: codecs must map application handles explicitly.
+      ((or (null? datum) (boolean? datum) (interned-symbol? datum) (interned-keyword? datum)
            (char? datum) (exact-integer? datum)) datum)
       (else (error "nonportable replay datum" datum))))
   (copy datum depth))

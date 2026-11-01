@@ -54,7 +54,7 @@
     (create-directory* (path-expand "examples" project))
     (for-each (lambda (file)
       (copy-file (path-expand file source-root) (path-expand file project)))
-      '("examples/property-products.ss" "examples/property-numbers.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-sizes.ss" "examples/property-traces.ss" "examples/property-kernel.ss"))
+      '("examples/property-products.ss" "examples/property-numbers.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-replay.ss" "examples/property-sizes.ss" "examples/property-traces.ss" "examples/property-kernel.ss"))
     (create-directory* (path-expand "examples/property-kernel" project))
     (copy-file (path-expand "examples/property-kernel/cases.scm" source-root)
       (path-expand "examples/property-kernel/cases.scm" project))
@@ -113,11 +113,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 208)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 212)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 208 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 212 cases; isolated stdlib-only compiled modules"))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test

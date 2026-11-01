@@ -220,7 +220,7 @@ compiler-completion policy below removes compiler wall fences as well; 2-GiB
 heaps remain. Two internal inference fixture modules increase compilation
 units to 66 while retaining the same 62 discovered test roots and all 53 CI jobs.
 
-The seven property examples only register test suites. Their shared build
+The eight property examples only register test suites. Their shared build
 declarations use the existing harness C policy (`-Og` and
 `___SINGLE_HOST_LIMIT=4096`) in both the root package and its independent-library
 consumer. Generic PBT modules and performance studies retain production compiler

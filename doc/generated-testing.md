@@ -242,3 +242,19 @@ See [P65](pbt-design-rfc.md#p65-shared-primary-cause-ownership-during-typed-prep
 P66 admits diagnostic controls before typed preparation, sharing the generic
 request check without changing legal zero budgets or preparation exceptions.
 See [P66](pbt-design-rfc.md#p66-diagnostic-request-admission-before-typed-preparation).
+
+### Portable handle identity
+
+The generic replay grammar admits interned symbols and keywords. A `gensym` or
+`string->uninterned-keyword` is a valid in-memory application value but cannot
+keep its identity through standard `write`/`read`. Codecs must encode it as an
+explicit logical ID and reconstruct it under the application's current owner
+scope; the library never interns it silently. This applies recursively to codec
+identities and payloads. Export refusal occurs before writing; import refusal
+occurs before decoding, though input bytes may already have been read.
+
+`examples/collection-properties.ss` contains a complete Record/Function/FUN
+service-handle workflow: real shrinking, rejected raw-handle export, validated
+Tuple IDs, wrapped Record reconstruction, stale-source refusal and fresh retry.
+`examples/property-replay.ss` registers the generic copying and token controls.
+Both run through the usual `gerbil build` and `gerbil test`, without a Lean checkout.

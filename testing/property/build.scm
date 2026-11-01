@@ -12,10 +12,10 @@
 (def property-kernel-build-spec
   (property-build-spec "examples/property-kernel" ["examples/property-kernel/cases.scm"]))
 
-;; All six modules export test-case registration procedures. Share their exact
+;; All seven modules export test-case registration procedures. Share their exact
 ;; compiler declarations between the root project and isolated library consumer.
 (def property-example-build-specs
   (map (lambda (module) (property-build-spec module '()))
     '("examples/property-products" "examples/property-numbers"
-      "examples/property-filters" "examples/property-scopes"
+      "examples/property-filters" "examples/property-scopes" "examples/property-replay"
       "examples/property-sizes" "examples/property-traces")))

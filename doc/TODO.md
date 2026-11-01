@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P73 closes portable replay's symbol/keyword identity gap: only Gerbil-interned
+tokens enter codec identities or finite payloads. Fresh handles require explicit
+logical-ID codecs, with ordinary Record/Function reconstruction and source-bound
+retry; successful export cannot silently turn identity-sensitive failure into
+success merely by rereading tokens. See
+[P73](pbt-design-rfc.md#p73-stable-symbol-and-keyword-identities-in-portable-replay).
+
 P72 closes finite Hash/Map request admission before computed declaration and
 factory binding. One prepared generic directory constructor serves both layers;
 invalid limits/duplicates cannot execute later metadata, and valid requests keep

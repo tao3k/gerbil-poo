@@ -95,6 +95,54 @@
 ;; through gerbil test after the standard qualification build, without a new runner.
 (def collection-properties-test
   (test-suite "complex model-driven collection properties"
+    (test-case "service handles require logical portable IDs through FUN shrink replay and fresh retry"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def cell (Record token: [Symbol] amount: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def wire (Tuple UInt (Enum service)))
+      (def token (gensym 'service)) (def decoded #f)
+      ;; Each factory captures its handle once. Record installs the Function
+      ;; contract and the existing service action owns FUN, shrinking and sources.
+      (def (fresh)
+        (let (captured token)
+          (service-factory-action cell owner (lambda (_field)
+            (core.generator-map (core.make-generator (lambda (_r _s) 3) core.integer-shrinks)
+              (lambda (amount) (make-instance cell token: captured amount: amount handler: abs)))) identity)))
+      ;; An explicit finite logical ID reconstructs a handle under this codec's
+      ;; captured owner epoch. No pointer is serialized or silently interned.
+      (def (codec)
+        (let (captured token)
+          (replay.make-codec '(service-handles 1)
+            (lambda (record) (validate wire (vector (.get record amount) 'service)))
+            (lambda (datum)
+              (def row (validate wire datum))
+              (set! decoded (make-instance cell token: captured amount: (vector-ref row 0) handler: abs)) decoded)
+            current?: (source-guard (snapshot #f (list owner cell wire))))))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 shrink-budget: 40))
+      (def report ((fresh) configuration))
+      (check-eq? (.get report status) 'failed)
+      (check (> (.get report steps) 0) => #t)
+      (check-eq? (.get (.get report counterexample) token) token)
+      (def output (open-output-string))
+      (check-exception (write-counterexample report
+        (replay.make-codec '(service-handles 1)
+          (lambda (record) (vector (.get record amount) (.get record token))) values) output) Error?)
+      (check-equal? (get-output-string output) "")
+      (def ready (codec))
+      (write-counterexample report ready output)
+      (check (read-counterexample (.get report sampler) ready
+        (open-input-string (get-output-string output)) (.get report property)) => #f)
+      (check-eq? (.get decoded token) token)
+      (check-exception ((.@ decoded handler) 'bad) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (set! token (gensym 'replacement)) (.set! owner epoch 1)
+      (check-exception (replay-property report) Error?)
+      (check-exception (read-counterexample (.get report sampler) ready
+        (open-input-string (get-output-string output)) (.get report property)) Error?)
+      (let* ((retry ((fresh) configuration)) (retry-codec (codec)) (retry-output (open-output-string)))
+        (write-counterexample retry retry-codec retry-output)
+        (check (read-counterexample (.get retry sampler) retry-codec
+          (open-input-string (get-output-string retry-output)) (.get retry property)) => #f)
+        (check-eq? (.get decoded token) token)))
     (test-case "finite service directory admission precedes FUN binding and fresh retry"
       (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
       (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
