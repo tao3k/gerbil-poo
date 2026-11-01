@@ -406,10 +406,13 @@
                      policy: (policy (testing.make-policy)) name: (name #f)
                      dependencies: (dependencies []) depth: (depth 32) node-budget: (nodes 256)
                      descriptor-budget: (descriptors 256) search-budget: (search 8192))
-  (unless (and (procedure? property) (every (lambda (n) (and (exact-integer? n) (>= n 0)))
-    (list seed shrink-budget)) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
-    (exact-integer? cases) (> cases 0)
-    (list? dependencies) (every object? dependencies)) (error "invalid property testing configuration"))
+  ;; Share complete generic request admission before any descriptor/sampler read.
+  ;; Static refusal remains an ordinary configuration error, not replay evidence.
+  (def run (testing.prepare-property-check seed: seed cases: cases size: size
+    size-limit: size-limit shrink-budget: shrink-budget policy: policy name: name
+    classify-error: generation-status))
+  (unless (and (procedure? property) (list? dependencies) (every object? dependencies))
+    (error "invalid property testing configuration"))
   (unless (object? descriptor) (validate Type descriptor))
   ;; Freeze declared identities before any automatic generator callback.
   (def declared (list-copy dependencies))
@@ -445,9 +448,7 @@
                         descriptor-budget: descriptors search-budget: search)))
                       (set! sources (snapshot sampler declared descriptor))
                       (prepare-sampler sampler sources))))
-        (let (execution (testing.check-property generation property specification
-               seed: seed cases: cases size: size size-limit: size-limit
-               shrink-budget: shrink-budget classify-error: generation-status policy: policy name: name))
+        (let (execution (run generation property specification))
           (report (testing.report-status execution) (testing.report-original execution)
             (testing.report-counterexample execution) (testing.report-attempts execution)
             (testing.report-steps execution) (testing.report-minimal? execution)

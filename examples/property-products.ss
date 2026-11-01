@@ -1,6 +1,7 @@
 ;;; Fixed-product generation, domain observation and source-refusal examples.
-(export product-test-cases! product-row-test-cases!)
+(export diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
 (import :std/test :std/error :std/iter
+        (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
 
@@ -217,3 +218,49 @@
     (check-exception (property.specification-weight
       (property.make-product-specification (list first second) current?: (lambda () live)) '(4 6)) Error?)
     (check-equal? later 0)))
+
+;; Named diagnostics own only their finite symbolic directory. Generated values
+;; and report authority still belong to the existing kernel and standard checks.
+(def (diagnostic-binding-test-cases!)
+  (test-case "diagnostic bindings precede source callbacks and own cyclic caller edits"
+    (def names (list 'input)) (def armed #f)
+    (def domain (property.make-specification list? length current?: (lambda ()
+      (when armed (set-car! names 'retargeted) (set-cdr! names names)) #t)))
+    (def report (property.check-property (generator.generator-unit '(7)) (lambda (_) #t) domain cases: 1))
+    (set! armed #t)
+    (def fields (property.report-diagnostics report bindings: names))
+    (check-equal? (cdr (assq 'original fields)) '((input . 7)))
+    (check-eq? (cdr (assq 'status fields)) 'passed))
+  (test-case "prepared diagnostic bindings are reusable without retaining report authority"
+    (def names (list 'left 'right))
+    (def render (property.prepare-report-diagnostics names))
+    (set-car! names 'changed) (set-cdr! names [])
+    (def live #t)
+    (def domain (property.make-specification vector? vector-length current?: (lambda () live)))
+    (def passed (property.check-property (generator.generator-unit #(#f 2)) (lambda (_) #t) domain cases: 1))
+    (assertion.require-passed passed diagnostics: render)
+    (check-equal? (cdr (assq 'original (render passed))) '((left . #f) (right . 2)))
+    (set! live #f)
+    (check-eq? (cdr (assq 'status (render passed))) 'stale)
+    (check-exception (assertion.require-passed passed diagnostics: render) Error?))
+  (test-case "invalid diagnostic directories refuse before report source effects"
+    (def reads 0)
+    (def domain (property.make-specification list? length current?: (lambda () (set! reads (1+ reads)) #t)))
+    (def report (property.check-property (generator.generator-unit '(1)) (lambda (_) #t) domain cases: 1))
+    (set! reads 0)
+    (def cyclic (list 'input)) (set-cdr! cyclic cyclic)
+    (for (names (list '(same same) '(3) '(input . tail) cyclic))
+      (check-exception (property.prepare-report-diagnostics names) Error?)
+      (check-exception (property.report-diagnostics report bindings: names) Error?))
+    (check-equal? reads 0))
+  (test-case "historical failures retain causes and unmatched rows remain data"
+    (def live #t) (def cause (cons 'original 'cause))
+    (def domain (property.make-specification list? length current?: (lambda ()
+      (unless live (raise 'must-not-observe)) #t)))
+    (def failed (property.check-property (generator.generator-unit '(#f)) (lambda (_) #f) domain cases: 1 shrink-budget: 0))
+    (def broken (property.check-property (generator.generator-unit '(#f)) (lambda (_) (raise cause)) domain cases: 1))
+    (set! live #f)
+    (check-equal? (cdr (assq 'counterexample (property.report-diagnostics failed bindings: '(input)))) '((input . #f)))
+    (check-eq? (cdr (assq 'cause (property.report-diagnostics broken))) cause)
+    (check-equal? (cdr (assq 'original ((property.prepare-report-diagnostics '(a b)) failed))) '(#f))
+    (check-equal? (cdr (assq 'original (property.report-diagnostics failed))) '(#f))))

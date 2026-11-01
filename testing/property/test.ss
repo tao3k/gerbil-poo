@@ -71,14 +71,14 @@
 (defrule (define-property name ((argument generator specification) ...) body ...)
   (def (name . options)
     (do-check! name name
+      (def run (apply property.prepare-property-check name: 'name options))
       (let-values (((domain generation)
                      (property.call-with-specifications (list (lambda () specification) ...)
                        (lambda (domains)
                          (values (property.make-product-specification domains)
                            (generator.bind-generators ((argument generator) ...) (list argument ...)))))))
         (require-passed
-          (apply property.check-property generation
-            (lambda (arguments) (apply (lambda (argument ...) body ...) arguments))
-            domain name: 'name options)
+          (run generation
+            (lambda (arguments) (apply (lambda (argument ...) body ...) arguments)) domain)
           diagnostics: (lambda (report)
             (property.report-diagnostics report bindings: '(argument ...))))))))

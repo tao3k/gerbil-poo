@@ -1,5 +1,5 @@
 ;;; Independent property execution and replay; only generic generators and stdlib.
-(export check-inspection-request failure-status make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
+(export prepare-property-check check-inspection-request failure-status make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
         call-with-specifications report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
@@ -400,30 +400,39 @@
           (unless (covered? policy counts) (stop 'coverage #f))
           (result 'passed #f))))))
 
-;; Public checks require an explicit domain and finite trial/attempt budgets.
-;; Error classification may describe a caller's own bounded-generation refusals.
-(def (check-property generator (property : :procedure) specification seed: (seed 0)
-                     cases: (cases 100) size: (size 20) shrink-budget: (budget 100)
+;; Bind and admit static options with Gerbil's ordinary keyword/default rules.
+;; Preparation invokes no declaration, source, size, policy or classifier callback.
+;; The returned check owns configuration only; each call still starts a fresh run.
+(def (prepare-property-check seed: (seed 0) cases: (cases 100) size: (size 20)
+                     shrink-budget: (budget 100)
                      size-limit: (size-limit (and (not (procedure? size)) size))
                      size-current?: (size-current (lambda () #t))
                      classify-error: (classify (lambda (_) 'error))
                      policy: (policy (make-policy)) name: (name #f))
-  (unless (and (policy? policy) (generator? generator) (specification? specification) (procedure? classify)
+  (unless (and (policy? policy) (procedure? classify)
     (procedure? size-current) (or (procedure? size) (and (exact-integer? size) (>= size 0)))
     (every (lambda (n) (and (exact-integer? n) (>= n 0))) (list seed budget size-limit))
     (exact-integer? cases) (> cases 0)) (error "invalid property testing configuration"))
   (def named (if name (make-policy name: name
     precondition: (trial-policy-precondition policy) labels: (trial-policy-labels policy)
     required: (trial-policy-required policy) discard-budget: (trial-policy-discard-budget policy)) policy))
-  (execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named))
+  (lambda (generator (property : :procedure) specification)
+    (unless (and (generator? generator) (specification? specification))
+      (error "invalid property testing configuration"))
+    (execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named)))
+;; Direct checks and declaration macros use the same admitted request. There is
+;; no option parser, surrogate producer or second execution/PRNG owner.
+(def (check-property generator property specification . options)
+  ((apply prepare-property-check options) generator property specification))
 ;; Named properties remain ordinary callable Gerbil bindings inside :std/test.
 ;; Generator/specification expressions run once per check; replay owns that run.
 (defrule (define-property (name value) generator specification body ...)
   (def (name . options)
+    (def run (apply prepare-property-check name: 'name options))
     (let-values (((domain generation)
                    (call-with-specifications (list (lambda () specification))
                      (lambda (domains) (values (car domains) generator)))))
-      (apply check-property generation (lambda (value) body ...) domain name: 'name options))))
+      (run generation (lambda (value) body ...) domain))))
 ;; Seed replay observes the original run's entire visited provenance throughout
 ;; rerun, while its new report owns only that rerun's observations.
 (def (replay-property report)

@@ -416,6 +416,33 @@
 ;; examples share the same FunctionArguments, checked service and FUN workflow.
 (def inspection-request-test
   (test-suite "typed diagnostic request admission"
+    (test-case "typed static requests refuse before sampler metadata and source callbacks"
+      (def entered 0) (def observed 0)
+      (def base (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs))
+      (def sampler (.o bind-these: #f inherit: [base]
+        generation: (begin (set! entered (1+ entered)) (error "must not prepare"))
+        .current?: (lambda () (set! observed (1+ observed)) #t)))
+      (for (request (list (list size-limit: -1) (list size: values) (list policy: #f) (list name: #t)))
+        (check-exception (apply check-property Integer (lambda (_) #t) sampler: sampler request) Error?))
+      (check-equal? (list entered observed) '(0 0)))
+    (test-case "FUN rejects unbounded size configuration then freshly prepares nested service replay"
+      (def owner (.o epoch: 0)) (def bindings 0)
+      (def (prepare) (set! bindings (1+ bindings)))
+      (def action (prepared-service-tests owner prepare (lambda () #t) identity))
+      (def invalid (make-instance PropertyConfiguration cases: 1 size: values))
+      (check-exception (action invalid) Error?)
+      (check-equal? bindings 0)
+      (def valid (make-instance PropertyConfiguration cases: 1 seed: 42
+        size: (lambda (trial) (min 4 trial)) size-limit: 4))
+      (def failed (action valid))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? bindings 1)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample failed) Error?)
+      (def corrected (prepared-service-tests owner prepare (lambda () #t) identity faulty?: #f))
+      (check-eq? (.get (corrected valid) status) 'passed))
     (test-case "typed diagnostic names are admitted before computed report metadata"
       (def reads 0)
       (def report (.o execution: (begin (set! reads (1+ reads)) (error "must not read execution"))))

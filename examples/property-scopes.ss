@@ -1,5 +1,5 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
-(export diagnostic-binding-test-cases! handoff-test-cases! declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+(export handoff-test-cases! declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in (only-in :std/test/base TestConfig TestCase TestResultError
           test-case! test-result-error? current-test-config current-test-exit) test.) (only-in :std/list/list delete-duplicates/hash)
@@ -663,6 +663,47 @@
 ;; Named property declarations share ordered domain admission and one existing
 ;; generator-construction scope. Ordinary caller argument evaluation is separate.
 (def (declaration-test-cases!)
+  (test-case "named invalid requests refuse before every declaration expression"
+    (def entered 0)
+    (property.define-property (named value)
+      (begin (set! entered (1+ entered)) (generator.generator-unit 1))
+      (begin (set! entered (1+ entered)) (property.make-specification integer? abs)) #t)
+    (for (request (list (list seed: -1) (list seed: 1.0) (list cases: 0)
+                       (list size: -1) (list size: values) (list size-limit: -1)
+                       (list shrink-budget: -1) (list size-current?: #f)
+                       (list classify-error: #f) (list policy: #f)))
+      (check-exception (apply named request) Error?))
+    (check-equal? entered 0))
+  (test-case "standard named assertions admit configuration before fixed or dependent builders"
+    (def entered 0)
+    (def (domain) (set! entered (1+ entered)) (property.make-specification integer? abs))
+    (assertion.define-property balanced
+      ((left (begin (set! entered (1+ entered)) (generator.generator-unit 1)) (domain))
+       (right (begin (set! entered (1+ entered)) (generator.generator-unit (- left))) (domain)))
+      (= (+ left right) 0))
+    (for (request (list (list seed: -1) (list cases: 0) (list size: values) (list policy: #f)))
+      (check (test.test-result-error? (assertion-result (lambda () (apply balanced request)))) => #t))
+    (check-equal? entered 0)
+    (check (test.test-result-error? (assertion-result (lambda () (balanced cases: 1)))) => #f)
+    (check-equal? entered 4))
+  (test-case "prepared requests are callback free and create independent shrink and replay runs"
+    (def calls 0)
+    (def run (property.prepare-property-check cases: 1 seed: 17 shrink-budget: 20
+      size: (lambda (_) (set! calls (1+ calls)) 3) size-limit: 3 name: 'prepared))
+    (check-equal? calls 0)
+    (def generation (generator.make-generator (lambda (_r _s) 3) generator.integer-shrinks))
+    (def domain (property.make-specification integer? abs))
+    (def first (run generation (lambda (_) #f) domain))
+    (def second (run generation (lambda (_) #f) domain))
+    (check-eq? (property.report-status first) 'failed)
+    (check-eq? (property.report-name second) 'prepared)
+    (check-equal? calls 2)
+    (check-equal? (property.report-counterexample first) (property.report-counterexample second))
+    (check-equal? (property.report-attempts first) (property.report-attempts second))
+    (check (property.replay-counterexample first) => #f)
+    (check-equal? (property.report-counterexample (property.replay-property first)) 0)
+    (check-exception (property.prepare-property-check name: #t) Error?))
+
   (test-case "declarations admit proper builders and live domains before later effects"
     (let ((calls 0) (later 0))
       (def stale (property.make-specification integer? abs current?: (lambda () #f)))
@@ -902,49 +943,3 @@
         (open-input-string "#(property-counterexample 1 frame 2)") domain
         (lambda (_) (set! properties (1+ properties)) #f)) => #f)
       (check-equal? properties 1))))
-
-;; Named diagnostics own only their finite symbolic directory. Generated values
-;; and report authority still belong to the existing kernel and standard checks.
-(def (diagnostic-binding-test-cases!)
-  (test-case "diagnostic bindings precede source callbacks and own cyclic caller edits"
-    (def names (list 'input)) (def armed #f)
-    (def domain (property.make-specification list? length current?: (lambda ()
-      (when armed (set-car! names 'retargeted) (set-cdr! names names)) #t)))
-    (def report (property.check-property (generator.generator-unit '(7)) (lambda (_) #t) domain cases: 1))
-    (set! armed #t)
-    (def fields (property.report-diagnostics report bindings: names))
-    (check-equal? (cdr (assq 'original fields)) '((input . 7)))
-    (check-eq? (cdr (assq 'status fields)) 'passed))
-  (test-case "prepared diagnostic bindings are reusable without retaining report authority"
-    (def names (list 'left 'right))
-    (def render (property.prepare-report-diagnostics names))
-    (set-car! names 'changed) (set-cdr! names [])
-    (def live #t)
-    (def domain (property.make-specification vector? vector-length current?: (lambda () live)))
-    (def passed (property.check-property (generator.generator-unit #(#f 2)) (lambda (_) #t) domain cases: 1))
-    (assertion.require-passed passed diagnostics: render)
-    (check-equal? (cdr (assq 'original (render passed))) '((left . #f) (right . 2)))
-    (set! live #f)
-    (check-eq? (cdr (assq 'status (render passed))) 'stale)
-    (check-exception (assertion.require-passed passed diagnostics: render) Error?))
-  (test-case "invalid diagnostic directories refuse before report source effects"
-    (def reads 0)
-    (def domain (property.make-specification list? length current?: (lambda () (set! reads (1+ reads)) #t)))
-    (def report (property.check-property (generator.generator-unit '(1)) (lambda (_) #t) domain cases: 1))
-    (set! reads 0)
-    (def cyclic (list 'input)) (set-cdr! cyclic cyclic)
-    (for (names (list '(same same) '(3) '(input . tail) cyclic))
-      (check-exception (property.prepare-report-diagnostics names) Error?)
-      (check-exception (property.report-diagnostics report bindings: names) Error?))
-    (check-equal? reads 0))
-  (test-case "historical failures retain causes and unmatched rows remain data"
-    (def live #t) (def cause (cons 'original 'cause))
-    (def domain (property.make-specification list? length current?: (lambda ()
-      (unless live (raise 'must-not-observe)) #t)))
-    (def failed (property.check-property (generator.generator-unit '(#f)) (lambda (_) #f) domain cases: 1 shrink-budget: 0))
-    (def broken (property.check-property (generator.generator-unit '(#f)) (lambda (_) (raise cause)) domain cases: 1))
-    (set! live #f)
-    (check-equal? (cdr (assq 'counterexample (property.report-diagnostics failed bindings: '(input)))) '((input . #f)))
-    (check-eq? (cdr (assq 'cause (property.report-diagnostics broken))) cause)
-    (check-equal? (cdr (assq 'original ((property.prepare-report-diagnostics '(a b)) failed))) '(#f))
-    (check-equal? (cdr (assq 'original (property.report-diagnostics failed))) '(#f))))

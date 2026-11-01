@@ -4,10 +4,10 @@
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/model model.)
-        (only-in ./property-products product-test-cases! product-row-test-cases!)
+        (only-in ./property-products diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
         (only-in ./property-numbers rational-test-cases! integer-range-test-cases!)
         (only-in ./property-filters filter-test-cases! proposal-test-cases!)
-        (only-in ./property-scopes diagnostic-binding-test-cases! handoff-test-cases! declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
+        (only-in ./property-scopes handoff-test-cases! declaration-test-cases! copy-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
         (only-in ./property-sizes size-test-cases! collection-source-test-cases!)
         (only-in ./property-traces trace-request-test-cases! trace-fixture-test-cases! trace-owned-test-cases! trace-lazy-test-cases! trace-draw-test-cases! trace-sequence-test-cases! trace-action-test-cases!))
 

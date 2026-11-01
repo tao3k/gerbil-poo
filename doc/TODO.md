@@ -35,6 +35,11 @@ protocol assumes faithful standard copying, finite recognition and loader effect
 it does not certify arbitrary callbacks or concurrent mutation during capture.
 Balanced complete-call controls retain natural/post-GC, AB/BA and A/A/B/B samples.
 
+P68 closes static run admission before named declarations and typed sampler
+preparation. Direct checks, both named macros and FUN reuse one prepared generic
+check with Gerbil keyword/default binding; every execution keeps its own random
+source, coverage and shrink state. See [P68](pbt-design-rfc.md#p68-shared-static-run-admission-before-declaration-preparation).
+
 P67 closes the named-report diagnostic boundary: a prepared generic formatter
 owns a finite symbolic directory before source observations or typed computed
 metadata. It is reusable through :std/test without retaining report authority;
