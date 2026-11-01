@@ -41,8 +41,11 @@
   (unless (and (or (not report) (property.report? report)) (procedure? formatter)
     (or (not refusal) (and (not report) (diagnostic-fields? refusal))))
     (error "property report and diagnostic formatter required"))
-  (def fallback (and (not report) (or refusal
-    (list (cons 'status 'error) (cons 'cause (Error "property report has no execution"))))))
+  ;; Capture both the directory and its field pairs before rendering can edit
+  ;; caller-owned diagnostics. Payloads and original exception identities stay shared.
+  (def fallback (and (not report)
+    (if refusal (map (lambda (field) (cons (car field) (cdr field))) refusal)
+      (list (cons 'status 'error) (cons 'cause (Error "property report has no execution"))))))
   (def declared (and fallback (assq 'status fallback)))
   (def refused? (and declared (memq (cdr declared) '(failed error stale exhausted unsupported coverage))))
   (def original (if report (property.report-status report) (if refused? (cdr declared) 'error)))

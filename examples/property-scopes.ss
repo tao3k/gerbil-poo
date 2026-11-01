@@ -1,7 +1,7 @@
 ;;; Run-local admission through retained generator algebra and seeded replay.
 (export handoff-test-cases! declaration-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
 (import :std/test :std/error :std/iter
-        (prefix-in (only-in :std/test/base TestConfig TestCase TestResultError
+        (prefix-in (only-in :std/test/base TestError? TestConfig TestCase TestResultError
           test-case! test-result-error? current-test-config current-test-exit) test.) (only-in :std/list/list delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
@@ -569,6 +569,46 @@
 ;; Standard assertion admission uses actual reports; diagnostic callbacks supply
 ;; display fields only. The surrounding TestSuite owns all positive controls.
 (def (assertion-test-cases!)
+  (test-case "preparation refusal captures finite fields before a throwing formatter"
+    (for (mutate (list (lambda (fields) (set-car! fields 'broken))
+                      (lambda (fields) (set-cdr! fields 'improper))
+                      (lambda (fields) (set-cdr! fields fields))
+                      (lambda (fields) (set-car! (caddr fields) 17))
+                      (lambda (fields) (set-cdr! (caddr fields) 'replacement))))
+      (def primary (cons 'preparation 'cause)) (def secondary (cons 'renderer 'cause))
+      (def payload (vector #f values))
+      (def receipt (list (cons 'status 'unsupported) (cons 'cause primary) (cons 'detail payload)))
+      (def failure (with-catch values (lambda () (assertion.require-passed #f refusal: receipt
+        diagnostics: (lambda (_) (mutate receipt) (raise secondary))))))
+      (check (test.TestError? failure) => #t)
+      (def fields (Error-irritants failure))
+      (check-eq? (cdr (assq 'status fields)) 'unsupported)
+      (check-eq? (cdr (assq 'cause fields)) primary)
+      (check-eq? (cdr (assq 'diagnostic-cause fields)) secondary)
+      (check-eq? (cdr (assq 'detail fields)) payload)))
+  (test-case "malformed returned aliases cannot erase the original preparation refusal"
+    (def primary (cons 'preparation 'cause))
+    (def receipt (list (cons 'status 'error) (cons 'cause primary)))
+    (def failure (with-catch values (lambda () (assertion.require-passed #f refusal: receipt
+      diagnostics: (lambda (_) (set-car! receipt 'broken) receipt)))))
+    (check (test.TestError? failure) => #t)
+    (def fields (Error-irritants failure))
+    (check-eq? (cdr (assq 'cause fields)) primary)
+    (check (Error? (cdr (assq 'diagnostic-cause fields))) => #t)
+    ;; Valid returned display fields still replace fallback details, never authority.
+    (def rendered (with-catch values (lambda () (assertion.require-passed #f
+      refusal: '((status . unsupported) (cause . #f) (detail . captured))
+      diagnostics: (lambda (_) '((status . passed) (cause . replaced) (detail . rendered)))))))
+    (check-eq? (cdr (assq 'status (Error-irritants rendered))) 'unsupported)
+    (check-eq? (cdr (assq 'cause (Error-irritants rendered))) #f)
+    (check-eq? (cdr (assq 'detail (Error-irritants rendered))) 'rendered))
+  (test-case "malformed preparation receipts refuse before formatter callbacks"
+    (def cycle (list (cons 'status 'error))) (set-cdr! cycle cycle)
+    (def calls 0)
+    (for (receipt (list cycle '((status . error) . improper) '(broken) '((17 . error))))
+      (check-exception (assertion.require-passed #f refusal: receipt
+        diagnostics: (lambda (_) (set! calls (1+ calls)) [])) Error?))
+    (check-equal? calls 0))
   (test-case "formatter fields cannot promote a failed report or replace false cause"
     (def calls 0) (def formats 0)
     (def report (property.check-property (generator.generator-unit 1)

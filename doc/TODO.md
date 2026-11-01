@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P77 closes fallback diagnostic ownership at the existing standard assertion
+boundary. Preparation fields and entry pairs are captured before rendering;
+corrupted caller fields cannot hide the original cause or rendering fault.
+Payload identities, valid display replacement and missing-execution refusal stay.
+See [P77](pbt-design-rfc.md#p77-captured-preparation-refusals-across-diagnostic-rendering).
+
 P76 closes portable replay's source-judgment inconsistency through the existing
 core live? operation. Malformed replies are errors; false stays stale; original
 observer/action causes, codec-first ordering and explicit retry remain intact.

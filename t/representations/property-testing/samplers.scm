@@ -2,6 +2,39 @@
 ;; observation. The standard CLI can focus this suite; full discovery is unchanged.
 (def sampler-scope-test
   (test-suite "typed sampler preparation and aggregate scopes"
+    (test-case "Record Map FUN preparation diagnostics retain causes across formatter corruption and retry"
+      (def owner (.o epoch: 0))
+      (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (Map (Enum left right) -> cell))
+      (def action (collection.map-service-action descriptor cell owner void identity))
+      (def config (make-instance PropertyConfiguration seed: 17 cases: 1 size: 2 size-limit: 1))
+      (def refused (action config))
+      (check-eq? (.get refused replayable?) #f)
+      (def primary (.get refused cause)) (def secondary (cons 'renderer 'failure))
+      (def receipt (report-diagnostics refused))
+      (def captured (with-catch values (lambda ()
+        (assertion.require-passed (.get refused execution) refusal: receipt diagnostics: (lambda (_)
+          (set-car! receipt 'broken) (raise secondary))))))
+      (check (Error? captured) => #t)
+      (check-equal? (Error-message captured) "property check did not pass")
+      (def fields (Error-irritants captured))
+      (check-eq? (cdr (assq 'cause fields)) primary)
+      (check-eq? (cdr (assq 'diagnostic-cause fields)) secondary)
+      (check-eq? (cdr (assq 'phase fields)) 'preparation)
+      ;; Correct configuration creates a new run; diagnostics cannot promote the
+      ;; old receipt or alter the retained Map/Function shrinking and source laws.
+      (def valid (.cc config size: 1))
+      (def failed (action valid))
+      (check-eq? (.get failed status) 'failed)
+      (check (> (.get failed steps) 0) => #t)
+      (check-exception ((.@ (hash-ref (.get failed counterexample) 'left) handler) 'bad) TypeError?)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample failed) Error?)
+      (def retry ((collection.map-service-action descriptor cell owner void identity) valid))
+      (check-eq? (.get retry status) 'failed)
+      (check (replay-counterexample retry) => #f))
     (test-case "constant size overflow refuses before sampler sources or report metadata"
       (def reads 0) (def limits 0)
       (def field (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs))
