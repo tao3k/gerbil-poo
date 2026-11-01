@@ -3,14 +3,29 @@
 (import (only-in :gerbil/expander import-module expander-context-id module-context-import
           module-context? module-import? module-import-source module-export-context
           import-set? import-set-source)
-        :std/test :std/error :std/iter (only-in :std/misc/process run-process)
+        :std/test :std/error :std/iter (only-in :std/make make) (only-in :std/misc/process run-process)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
+        (prefix-in (only-in "../build.ss" main) root.)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
 ;; a separate assertion checks one shared compiler option for every root.
 (def (build-inputs specs) (map (cut take <> 3) specs))
+
+(include "../testing/property/build.scm")
+
+;; Re-enter standard make after the fixture's CLI build. Bound its backend
+;; children and drain them before restoring the caller's options, on success
+;; and refusal; the test process retains its existing heap ceiling.
+(def (make-fixture spec directory libdir heap)
+  (def options (getenv "GAMBOPT" #f))
+  (try
+    (setenv "GAMBOPT" (string-append (or options "")
+      (if (or (not options) (equal? options "")) "" ",") "max-heap=" heap ",debug=q"))
+    (call-with-build-jobs
+      (lambda () (make spec srcdir: directory libdir: libdir)))
+    (finally (setenv "GAMBOPT" options))))
 
 (def build-test
   (test-suite "standard test package declarations"
@@ -35,25 +50,43 @@
               '((import :std/build-script) (include "testing/property/build.scm")
                 (defbuild-script (list property-kernel-build-spec))))))
         (run-process ["chmod" "755" (path-expand "build.ss" project)])
-        (def options (getenv "GAMBOPT" ""))
-        (def bounded (string-append "GAMBOPT=" options
-          (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
-        ;; Standard fresh build processes own expansion and pending-job cleanup.
-        ;; Existing worker settings and the outer source-test watchdog apply.
-        (def (build)
-          (run-process ["env" (string-append "GERBIL_PATH=" (path-expand "package" project)) bounded
-                        "gerbil" "-:max-heap=1G,debug=q" "build"]
-            directory: project stdout-redirection: #f stderr-redirection: #f))
+        (def options (getenv "GAMBOPT" #f))
+        (def bounded (string-append (or options "")
+          (if (or (not options) (equal? options "")) "" ",") "max-heap=1G,debug=q"))
+        ;; Qualify the public build entry once, then reuse its standard owner
+        ;; for the same unchanged-input and revised-input checks.
+        (run-process ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
+                      (string-append "GAMBOPT=" bounded) "gerbil" "-:max-heap=1G,debug=q" "build"]
+          directory: project stdout-redirection: #f stderr-redirection: #f)
+        ;; Preserve the original backend bound while reusing prepared outputs.
+        (def build (cut make-fixture [property-kernel-build-spec]
+          project (path-expand "package/lib" project) "1G"))
         (def target (path-expand "package/lib/clan/poo/testing/examples/property-kernel.ssi" project))
-        (build)
         (def before (file-info-last-modification-time (file-info target)))
         (build)
         (check (time->seconds (file-info-last-modification-time (file-info target))) => (time->seconds before))
+        ;; Fast reuse may finish within a filesystem tick. Establish a strictly
+        ;; newer input instead of depending on compiler startup to consume time.
+        (thread-sleep! (seconds->time (+ 1 (time->seconds before))))
         (call-with-output-file (path-expand "testing/property/build.scm" project)
           (lambda (port) (display policy-source port) (display "\n;; changed compiler-policy source\n" port)))
+        (check (> (time->seconds (file-info-last-modification-time
+          (file-info (path-expand "testing/property/build.scm" project))))
+          (time->seconds before)) => #t)
         (build)
         (check (> (time->seconds (file-info-last-modification-time (file-info target)))
                    (time->seconds before)) => #t))))
+    (test-case "standard build metadata exclude progress output"
+      ;; Consume one datum from the generated build protocol; never evaluate it
+      ;; or reconstruct the compiler's dependency graph.
+      (def (metadata command)
+        (call-with-input-string (with-output-to-string (cut root.main command))
+          (lambda (port)
+            (def value (read port))
+            (check (eof-object? (read port)) => #t)
+            value)))
+      (check-equal? (metadata "meta") '("spec" "compile" "clean"))
+      (check (list? (metadata "spec")) => #t))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
@@ -84,7 +117,7 @@
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
           (check-equal? (drop spec 3)
-            '("-cc-options" "-D___SINGLE_HOST_LIMIT=4096")))
+            '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096")))
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
@@ -139,18 +172,22 @@
         (call-with-output-file (path-expand "coordinator-interleaving-test.ss" directory)
           (lambda (port) (write '(export value) port) (newline port)
             (write '(def value 7) port) (newline port)))
-        ;; Use the unchanged package script and its ordinary compiler cleanup.
-        (def (build)
-          (run-process ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
-                        "gerbil" "-:max-heap=1G,debug=q" "build"]
-            directory: directory stdout-redirection: #f stderr-redirection: #f))
+        ;; Qualify the unchanged package script once, including its cleanup.
+        (run-process ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
+                      "gerbil" "-:max-heap=1G,debug=q" "build"]
+          directory: directory stdout-redirection: #f stderr-redirection: #f)
+        ;; Preserve its two-GiB backend policy for the same freshness checks.
+        (def build (cut make-fixture (test-build-spec "recovery")
+          directory (path-expand "package/lib" project) "2G"))
         (def target (path-expand "package/lib/clan/poo/t/recovery/coordinator-interleaving-test.ssi" project))
-        (build)
         (def before (time->seconds (file-info-last-modification-time (file-info target))))
         (build)
         (check-equal? (time->seconds (file-info-last-modification-time (file-info target))) before)
+        ;; Establish make's strict timestamp premise before revising the input.
+        (thread-sleep! (seconds->time (+ 1 before)))
         (call-with-output-file [path: policy append: #t]
           (lambda (port) (display "\n;; changed shared test compiler policy\n" port)))
+        (check (> (time->seconds (file-info-last-modification-time (file-info policy))) before) => #t)
         (build)
         (check (> (time->seconds (file-info-last-modification-time (file-info target))) before) => #t))))
 ))

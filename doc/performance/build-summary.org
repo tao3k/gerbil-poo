@@ -1,5 +1,69 @@
 #+title: macOS Scheme build preparation and bounded reuse
 
+* Test C preparation and complete-entry controls, 2026-11-01
+
+The candidate above =5838d3b= keeps the existing mixed library/executable graph,
+62 test roots, four concurrent compiler graphs and two backends per graph on
+this 12-core machine. Public =gerbil build= and =gerbil test=, all deadlines,
+heap limits, tests, order and cleanup remain unchanged. Only test C artifacts
+use GCC's standard =-Og= level, including code inlined into those artifacts;
+production libraries and benchmark implementations retain their compiler levels.
+
+Two existing freshness fixtures still qualify their first build through the
+public CLI, then use =std/make= for their unchanged/revised input controls.
+This removes four extra compiler CLI startups without removing an assertion.
+Strictly newer input timestamps are established explicitly before testing make's
+invalidation. A new ninth source test verifies that =meta/spec= remain single
+readable data: compile progress must not contaminate the standard build protocol.
+
+Frozen generated test C, unchanged GCC 16.2 and ABBA order gave O1 times
+36.85/83.40 s versus Og 20.01/30.23 s; user CPU was 32.36/38.97 versus
+18.10/21.31 s. GCC cumulative GC allocation fell from 987 to 518 MB; these
+figures are not peak RSS and do not establish complete-workflow latency.
+The existing 4096 host threshold also reduced the property-scopes C control;
+the same change to generated-batches regressed and was withdrawn.
+
+The final fixed-source repetitions used separate absent project-artifact
+prefixes, the same 6875-file compiler manifest and backend binaries. They did
+not purge OS file caches or system library validation caches. No other build
+or compiler probe ran alongside either timed entry.
+
+| stage, seconds | M2 | M3 |
+|---------------+----+----|
+| root library/program graph | 110.06 | 108.88 |
+| startup program package | 7.91 | 8.20 |
+| four test compiler graphs | 138.31 | 139.18 |
+| test compiler user CPU | 572.62 | 570.29 |
+| main gerbil test including natural exit | 243.26 | 238.45 |
+| first-case preparation wall | 131.71 | 131.13 |
+| first-case preparation CPU | 5.73 | 6.02 |
+| first-case preparation GC wall | 0.129 | 0.136 |
+| source build tests | 11.85 | 11.55 |
+| collection paired study | 19.33 | 18.80 |
+| generation paired study | 30.40 | 31.32 |
+| complete public entry | 564.29 | 558.97 |
+
+Both naturally passed 2361 main cases in identical order, trace
+=29bb008fa0129c69b2fa0355ab1191f3b56ba8f61234bdbc07cb8e1d16779774=,
+all nine source cases, and both paired-study markers. Two successful samples
+are not a percentile or a guarantee about first-image validation latency.
+Preparation wall minus CPU is a residual, not an exclusive dyld attribution.
+
+Retain the failures: the published =5838d3b= control exceeded the 300 s test
+compile guard; the same final candidate's M1 exceeded the root 300 s guard.
+Consequently no matched complete-entry percentage speedup or solved tail is
+claimed. Separating the executable graph passed twice at 704.91/820.09 s but
+lacked stable benefit and was withdrawn. Additional module splitting took
+1023.36 s and was withdrawn. Removing Gambit's large-module optimization
+attribute gave Table C 30.53/33.35 s against 31.64/31.69 s and was rejected.
+A repeated =-cc-options= control retained both flags, excluding flag loss as
+the cause. No compiler, loader or security-policy change is included.
+
+These are external compiler/build measurements; existing Lean build-input laws
+describe conditional dependency freshness, not GCC optimization correctness,
+Mach-O admission, or OS wall-time bounds. No new Lean theorem is asserted for
+these build-policy changes. Raw logs and generated artifacts remain outside Git.
+
 * Dependency scope and rejected context sharing, 2026-10-30
 
 The shared CI library key now uses only GitHub's standard =hashFiles= footprint.
@@ -226,7 +290,7 @@ final experiment. A subsequent candidate warm run took 196.83 seconds, including
 69.17 seconds of test-package checking with no compile jobs. These observations
 did not qualify the later code or establish a stable complete-entry improvement.
 
-The final comparison on base =6701463= kept source, released SDK, six package
+The final comparison on base =6701463= kept source, released compiler, six package
 builds, workload and guards fixed. Each arm used a different newly created,
 empty standard =GERBIL_PATH=, then the ordinary =just check 2 1 4= entry. Only
 automatic forwarding selection differed. Both passed 149 modules, 1861 cases
@@ -295,7 +359,7 @@ required separately. The large raw log remains outside Git.
 * Incremental checks and package concurrency
 The 593.93-second receipt below includes source/dependency recompilation and first
 mapping of newly generated libraries. It is not the cost of an unchanged-source
-invocation. A 2026-10-28 follow-up held source =73cc87e=, the precompiled SDK,
+invocation. A 2026-10-28 follow-up held source =73cc87e=, the precompiled compiler,
 12-core setting, output prefix, full workload and guards fixed. Four complete
 =just check 2 1 4= runs used AB/BA order: A is three package builds with three
 backend slots each; B is six package builds with one backend slot each.
@@ -313,7 +377,7 @@ actual compiler jobs. The test-package column measures all 25 standard
 The phase still imports/expands sources and checks dependency freshness.
 =std/make= imports each source to identify its module before deciding whether to
 build it; its expander registry reuses that context within the invocation. The
-same SDK and library contexts must be initialized in separate build processes.
+same compiler and library contexts must be initialized in separate build processes.
 Its timestamp observations remain current, including dependencies rebuilt during
 the invocation. A retained POO value or a runtime module-cache hit cannot replace
 these checks.
@@ -1395,8 +1459,8 @@ partitions remain; =GERBIL_BUILD_CORES=12 still selects four-by-two locally.
 | Control | Scope | Observed result |
 |---------+-------+-----------------|
 | Common C-host protection, four-by-two | test preparation | 300.08 s, timeout |
-| Four extra SDK pass overrides, four-by-two | complete empty-prefix attempt | preparation timeout at 300.22 s |
-| Four extra SDK pass overrides, four-by-one | complete empty-prefix attempt | preparation timeout at 300.05 s |
+| Four extra compiler pass overrides, four-by-two | complete empty-prefix attempt | preparation timeout at 300.22 s |
+| Four extra compiler pass overrides, four-by-one | complete empty-prefix attempt | preparation timeout at 300.05 s |
 | Four-by-one with an already prepared root | isolated test compilation | 276.41 s, completed; not complete cold acceptance |
 | Single complete compiler context | dependency preparation | 2-GiB heap overflow at 36.58 s |
 | Three compiler contexts with two backend jobs | isolated compilation | timeout at 300.03 s |
@@ -1408,7 +1472,7 @@ The original parallel allocation, deadlines and heaps are unchanged. Failed
 whole-entry transcripts remain external diagnostic records, not admitted passes.
 After timeout, cwd/parent checks found no surviving project C compiler processes.
 
-The serial representative C-only control measured 47.59 seconds with the SDK
+The serial representative C-only control measured 47.59 seconds with the compiler
 pass set, versus 41.78 seconds after disabling four extra scheduling/IPA passes.
 These are component observations, not a landed optimization or a matched cold
 workflow claim. GCC's reported GC was 0.27/0.18 seconds in those controls; it must

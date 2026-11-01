@@ -46,6 +46,12 @@ start and completion prints its name and wall/user/system times. The root build
 uses the machine's standard `GERBIL_BUILD_CORES`; no new concurrency variable is
 introduced. See [build-summary.org](performance/build-summary.org) for qualified
 local observations; historical cohorts are not interchangeable.
+Test C uses the standard GCC `-Og` level and the existing 4096 host threshold;
+library and benchmark implementation levels remain unchanged. All test roots
+share this tracked policy. The source freshness fixtures qualify their first
+build through `gerbil build`, then reuse `std/make` for unchanged/revised input
+checks with the same backend limits. Root build progress is limited to compile
+commands so `meta/spec` retain their standard single-datum output protocol.
 The standard upload/download actions transfer artifacts within the current
 workflow run, using commit-specific names and their built-in digest verification.
 The shared library/program artifact uses an uncompressed tar in runner temporary

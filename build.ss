@@ -155,7 +155,7 @@
     "examples/property-products"
     "examples/property-numbers"
     "examples/property-filters"
-    "examples/property-scopes"
+    ,(property-build-spec "examples/property-scopes" [])
     "examples/property-sizes"
     "examples/property-traces"
     ,property-kernel-build-spec
@@ -259,6 +259,7 @@
     main))
 ;; Close the compiler's own executor if construction refuses before make returns.
 (def (main . options)
-  (displayln "BUILD-CONCURRENCY root-configured-cores=" (getenv "GERBIL_BUILD_CORES" "0"))
+  (when (or (null? options) (equal? (car options) "compile"))
+    (displayln "BUILD-CONCURRENCY root-configured-cores=" (getenv "GERBIL_BUILD_CORES" "0")))
   (call-with-build-jobs (lambda ()
     (apply build options))))

@@ -15,9 +15,13 @@
         execute-pending-compile-jobs!)
       (raise cause))))
 
+;; The C harness uses the standard debugging optimization level; library and
+;; benchmark optimization levels are unchanged. Gambit expansion and
+;; the shared host-size protection stay enabled for every test root.
+(def +test-cc-options+ "-Og -D___SINGLE_HOST_LIMIT=4096")
+
 ;; Adjacent fixture-free suites share runtime images and retain private helper
-;; scopes and export order. Modules with setup/cleanup remain separate. Gambit's
-;; existing host threshold bounds grouped C graphs without disabling inlining.
+;; scopes and export order. Modules with setup/cleanup remain separate.
 ;; One authoritative standard make declaration serves the complete graph and
 ;; existing isolated CI packages. These are declarations, not discovered inputs.
 ;; Fixture-free suites share runtime sections; Gambit's standard multiple-host
@@ -135,10 +139,10 @@
   (def (with-policy spec)
     (match spec
       ((? string?) [gxc: spec [extra-inputs: ["../build.ss"]]
-        "-cc-options" "-D___SINGLE_HOST_LIMIT=4096"])
+        "-cc-options" +test-cc-options+])
       ([gxc: file [extra-inputs: inputs] . options]
        [gxc: file [extra-inputs: (cons "../build.ss" inputs)]
-        "-cc-options" "-D___SINGLE_HOST_LIMIT=4096" options ...])
+        "-cc-options" +test-cc-options+ options ...])
       (else (error "unsupported test build declaration" group spec))))
   (if group
     (cond
