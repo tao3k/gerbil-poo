@@ -644,6 +644,57 @@ construction/admission still remain; vector-only storage is separate work.
 
 ## Standard runtime entries and shared dependency preparation
 
+### Cycle reports preserve the private recursion guard
+
+The old error path reversed its outer list but shared the receiver/slot entry
+pairs with active outer computations. The bounded negative regression caught an
+inner `CyclicSlot`, edited only its public report pair, and observed the live
+guard's receiver change to false. It stopped at that failed assertion, without
+attempting unbounded recursion. `compute-slot-value` now uses standard `for/fold`
+to create both owned pairs and the chronological spine in one pass, only after
+cycle detection. No second evaluator, guard stack, cache or namespace is added.
+
+`cycle-diagnostic-workflow` catches and edits a report while its outer slot is
+active, confirms a second cycle refusal, unwinds, repairs once, caches false and
+a Function, then revises a shared diamond parent and refuses obsolete provenance.
+Both its failure and success paths retain the caller's original dynamic frame.
+Actual source mutation during active computation remains refused; editing an
+owned public diagnostic no longer mutates that private computation state.
+
+`slot-cycle-report` compares borrowed versus owned report entries in one compiler
+context, charging exception construction/raise/catch and the SAME ordered-payload
+oracle for both strategies. `slot-cycle-workflow` compares the existing hash and
+vector stores through the complete corrected workflow. Neither side times
+diagnostic mutation against the unsafe former behavior as if results were equal.
+Existing preparation, fixed prefixes, AB/BA, A/A/B/B and natural/collected/post-GC
+observations remain visible. Report copies cost two list cells per entry;
+comparisons, exception objects, initial key/list construction, GC and physical
+allocation remain separate. Successful reads add no diagnostic copy.
+
+Lean reuses `guardSlot` in `Object/Instantiation`: disjoint diagnostic heap-cell
+identities plus diagnostic-only writes preserve the full active key list and
+cycle refusal. Examples include an aliasing counterexample, repeated-order report
+and error-only cell counts. Host allocation/copying, dynamic restoration,
+callback termination and compiler/runtime fidelity are premises, not proved by
+immutable-list equality. This is a concrete future-work protocol correction.
+
+The fixed-source empty-project-prefix `just check 2 1 4` passed naturally in
+596.36 s: library 122.08, program 18.42, four test compiler graphs 155.28,
+parallel tests 236.89, build regressions 13.35, collection study 18.42 and
+generation study 28.70. OS/compiler caches were not purged; this is not a
+matched whole-entry speedup claim. The diagnostic negative control previously
+failed finitely at its live-frame assertion and remains a failed receipt.
+
+At depth two, the report control observed +9216 allocation-counter bytes per
+64-report action, or +144/report, matching three additional pair cells under
+this runtime; that is not peak RSS or an allocator theorem. Timing remained
+inside noisy controls (natural A/A included -398.87 microseconds/action).
+The complete two-workflow hash/vector comparison had post-GC mean differences
+of +11.50 microseconds/action, including +12.50 non-GC CPU; its median difference
+was +36.00. Both use the corrected guard, so these numbers compare backends,
+not safety-fix overhead. They establish neither universal vector superiority
+nor stable tail latency. All raw data and generated products stay outside Git.
+
 ### Owned path handoff through diagnostics and retry
 
 The standard Gerbil loader reports a missing module with its supplied path as a

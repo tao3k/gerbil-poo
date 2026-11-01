@@ -1,11 +1,12 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
 (export entry-recovery-workflow)
+(export cycle-diagnostic-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
 (def (entry-arguments . arguments) (apply values arguments))
 (export shape-prune-workflow shape-growth-workflow value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
-(import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
+(import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads slot-read-key) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
         ../mop
         ../number
@@ -79,6 +80,46 @@
     (.call fun.Observation. .bind
       read
       (lambda (amount) (lambda (candidate) (consume candidate amount))))))
+
+;; Catch and edit a public cycle report while its outer guard is active. The
+;; same checked FUN action then repairs, caches false and a Function, and revises
+;; a shared parent. A finite attempt bound makes a broken guard fail, never loop.
+(def (cycle-diagnostic-workflow)
+  (def before (active-slot-computations))
+  (def attempts 0) (def repaired? #f)
+  (def site (make-slot-cache 'value shapes: 2))
+  (def recipe (.cc Service capacity: 2 tariff: 3))
+  (def owner (.o self: self inherit: [recipe] callback: identity
+    (value (begin
+      (set! attempts (1+ attempts))
+      (if repaired? #f
+        (begin
+          (when (> attempts 1) (error "cycle guard bypassed"))
+          (let (cause (with-catch identity (cut .ref/inline self site)))
+            (unless (CyclicSlot? cause) (error "missing cycle report"))
+            (for-each (lambda (entry) (set-car! entry #f) (set-cdr! entry 'edited))
+              (CyclicSlot-path cause))
+            (unless (CyclicSlot? (with-catch identity (cut .ref/inline self site)))
+              (error "cycle diagnostic damaged active guard"))
+            (raise cause))))))))
+  (def read (checked-field-action ValidService 'value
+    (lambda (self value) (vector value (.get self callback)))))
+  (unless (CyclicSlot? (with-catch identity (cut read owner)))
+    (error "cycle failure was replaced"))
+  (unless (eq? before (active-slot-computations)) (error "cycle failure leaked a frame"))
+  (set! repaired? #t)
+  (defvalues (recovered records) (%call-with-recorded-slot-reads (cut read owner)))
+  (def saved (car (filter (lambda (read) (eq? (slot-read-key read) 'value)) records)))
+  (unless (and (eq? (vector-ref recovered 0) #f) (eq? (vector-ref recovered 1) identity)
+               (eq? (.ref/inline owner site) #f) (= attempts 2))
+    (error "cycle repair cache oracle"))
+  (def first (.get owner total))
+  (.putslot! recipe 'tariff ($constant-slot-spec 4))
+  (when (object-read-current? saved) (error "cycle repair retained obsolete provenance"))
+  (def fresh (read owner))
+  (unless (and (eq? (vector-ref fresh 0) #f) (eq? (vector-ref fresh 1) identity)
+               (eq? before (active-slot-computations))) (error "cycle revision oracle"))
+  (vector attempts first (.get owner total) #t))
 
 ;; The service path retains full refinement before total demand or consumer effects.
 ;; Selected fields share the receiver's ordinary lazy value authority.

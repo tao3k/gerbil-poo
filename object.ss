@@ -353,7 +353,12 @@
   (def active (active-slot-computations))
   (def key (cons self slot))
   (when (any (lambda (entry) (and (eq? (car entry) self) (eq? (cdr entry) slot))) active)
-    (raise (CyclicSlot path: (reverse (cons key active)))))
+    ;; Diagnostics own their spine AND receiver/slot pairs. A handler may edit
+    ;; them while an outer computation is still active. One standard fold
+    ;; preserves chronological order; only the failure path pays for snapshots.
+    (raise (CyclicSlot path:
+      (for/fold (path []) (entry (cons key active))
+        (cons (cons (car entry) (cdr entry)) path)))))
   (parameterize ((active-slot-computations (cons key active))) (thunk)))
 ;; MOP read records live on the receiver and are cleared with its native cache.
 ;; A retained record may retain its receiver; no global registry retains either.

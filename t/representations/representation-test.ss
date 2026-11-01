@@ -449,6 +449,8 @@
           (check-equal? (prototype-map-list source) entries)
           (check-equal? (prototype-map-list (prototype-map-put removed 'new 9)) '((left . #f) (right . 7) (new . 9)))
           (check-equal? (prototype-map-policy removed) policy))))
+    (test-case "cycle diagnostics compose inline retry refinement and shared-source invalidation"
+      (check-equal? (service.cycle-diagnostic-workflow) '#(3 9 11 #t)))
     (test-case "module diagnostics cannot retarget retained actions during repair and FUN retry"
       (call-with-temporary-directory "poo-entry-path-" (lambda (directory)
         (def module (path-expand "service" directory))

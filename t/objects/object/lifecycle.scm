@@ -62,6 +62,25 @@
       (check-equal? calls 3)
       (check-exception ((lifecycle.revision-action 20 'revoked) service) true)
       (check-equal? (lifecycle.report service) '(10 4 eu 100)))
+    (test-case "cycle diagnostics cannot rewrite a still-active receiver and slot guard"
+      (def receiver (.o callback: identity))
+      (def escaped 0)
+      (check-eq? (compute-slot-value receiver 'value
+        (lambda ()
+          (def cause (with-catch identity
+            (lambda () (compute-slot-value receiver 'value (lambda () 'unreachable)))))
+          (check (CyclicSlot? cause) => #t)
+          ;; Edit only public diagnostic pairs. Fail before any repeated demand
+          ;; if they alias the live guard, so this control can never recurse forever.
+          (set-car! (car (CyclicSlot-path cause)) #f)
+          (set-cdr! (car (CyclicSlot-path cause)) 'edited)
+          (check-eq? (caar (active-slot-computations)) receiver)
+          (check-eq? (cdar (active-slot-computations)) 'value)
+          (check-exception (compute-slot-value receiver 'value
+            (lambda () (set! escaped (1+ escaped)) 'escaped)) CyclicSlot?)
+          #f)) #f)
+      (check-equal? escaped 0)
+      (check-equal? (active-slot-computations) []))
     (test-case "slot and delegation cycles fail finitely and unwind the active path"
       (def circular (.o (:: self []) (a (.@ self b)) (b (.@ self a))))
       (def cycle (try (.@ circular a) #f (catch (cause) cause)))

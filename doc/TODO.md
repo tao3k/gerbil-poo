@@ -4,6 +4,17 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Cycle reports now own their receiver/slot pairs as well as their outer spine.
+A bounded regression reproduced mutation of a still-active guard through the
+public `CyclicSlot-path` after catching an inner cycle. One standard fold copies
+only on refusal, preserving order, payload identities and ordinary error type.
+Checked FUN/inline repair, false/Function caching and shared-source invalidation
+exercise the same guard. Full diagnostic-cost and hash/vector workflow controls
+retain standard benchmark preparation, AB/BA, A/A/B/B and GC regimes. Finite Lean
+frame laws assume fresh host pair allocation and diagnostic-only writes; hot
+paths pay no diagnostic copying. Runtime/compiler or unrestricted concurrent
+mutation is not claimed. This advances the article's cache/representation future work.
+
 The dynamic-module client now hands a fresh path string to the standard loader
 after finite-row admission. A real `module not found` diagnostic previously
 exposed the retained action path: editing its public irritant retargeted later
