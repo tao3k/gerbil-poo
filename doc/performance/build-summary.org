@@ -1592,3 +1592,12 @@ or stable compilation improvement has been established in this work. The
 retained changes are the explicitly approved 2-GiB heaps and the functionally
 validated four-part runtime entry. All 25 isolated package scripts also use
 2-GiB shebangs: the parent's CLI heap does not override a script's own limit.
+
+After synchronizing upstream PR-branch commit =ef111cc= (standard =-Og= test
+harness compilation and property example host protection), the combined
+=cf69a5c= candidate was checked against another empty prefix. Root preparation
+completed in 159.49 seconds and startup in 7.84 seconds; test preparation still
+timed out at 300.10 seconds. Standard cleanup completed and the entry naturally
+returned 124 after 474.34 seconds. This is another failed cold admission, not a
+complete-entry speedup. The runtime-only 164.04-second result does not close
+this remaining compilation gate. No timeout was increased to turn it into a pass.
