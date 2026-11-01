@@ -133,6 +133,14 @@
       (check (map (cut hash-ref <> "arguments") (hash-ref entry "dependencies")) =>
         '(("contracts" ("variable" "action")) ("types" ("variable" "action"))
           ("prototypes" ("variable" "action")) ("collections" ("variable" "action"))))
+      ;; The parallel runner uses the identical declared partitions, with every
+      ;; existing suite exactly once and no independently maintained inventory.
+      (def tests (hash-ref recipes "_test-packages"))
+      (check (hash-ref tests "attributes") => '("parallel"))
+      (check (map (cut hash-ref <> "recipe") (hash-ref tests "dependencies")) =>
+        '("_test-groups" "_test-groups" "_test-groups" "_test-groups"))
+      (check (map (cut hash-ref <> "arguments") (hash-ref tests "dependencies")) =>
+        (map cdr (test-build-partitions)))
       (check (hash-key? recipes "_build-test-prototypes") => #f)
       (check (hash-key? recipes "_build-test-publication") => #f))
     (test-case "shared build cleanup retains values failure identity and single evaluation"

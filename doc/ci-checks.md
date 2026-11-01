@@ -33,6 +33,10 @@ The startup package retains `defbuild-script`'s backend parallelism through
 `GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
 disable concurrent backend object compilation. The 90-second startup-program
 gate remains separate from the 300-second root-library build.
+The default local entry uses four concurrent official test runners over the
+existing compiler partitions, capped by `GERBIL_BUILD_CORES`. CI retains all
+53 checks, including the complete single-process job. No upstream runner is
+modified and no test procedure is run concurrently inside a shared fixture.
 The complete local entry prints standard `/usr/bin/time -p` wall/user/system observations
 for shared preparation, startup preparation, test-package preparation, the whole
 test process and the collection study. Existing commands, progress and failure
@@ -75,9 +79,9 @@ CLI/make/runner validation; POO's compiler failure-drain support is imported as
 source during builds, not compiled into the runtime library.
 
 Limits remain 300 seconds per build/group stage, 90 seconds for focused checks,
-and 600 seconds for complete-suite imports plus execution. Runtime/test and
-isolated CI-package heaps remain 1 GiB; complete compiler contexts, root and
-backend heaps retain the approved 2 GiB ceiling. Compiler tracing and module/case/harness
+and 600 seconds for complete-suite imports plus execution. Runtime/test and package-frontend heaps now use the explicitly requested 2 GiB
+ceiling, matching the existing root/backend bound. Existing isolated-consumer
+negative controls retain their own declared limits. Compiler tracing and module/case/harness
 markers remain visible. All POO behavior checks run on cache hits too.
 Failures retain their actual build/test status; a queued job or a local pass is
 never reported as current-commit remote acceptance.
@@ -99,8 +103,8 @@ Gerbil compiler, operating system, artifact service or lower-level scheduler.
 ## Exact full-entry observations
 
 The existing standard-built `representation-startup` program also accepts one
-empty output-prefix argument to observe the unchanged `just check 2 1 4 600`
-entry. Build/test ownership remains with Gerbil and Just. Its parent forwards
+empty output-prefix argument to observe the explicit `just check-single-process 2 1 4 600`
+entry. Parallel output is not admitted as one ordered harness. Build/test ownership remains with Gerbil and Just. Its parent forwards
 real progress and records exact monotonic ticks at test invocation, HARNESS
 start/end, final OK, standard process-time output, EOF and successful child reap.
 A nonzero child exit, missing/nonmonotone boundary or incomplete case delivery

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S gxi -:max-heap=1G,debug=q
+#!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard build for the existing inference test responsibility.
 (import :std/build-script (only-in "../build.ss" call-with-build-jobs test-build-spec))
 ;; The official compiler inherits the unchanged backend heap bound.

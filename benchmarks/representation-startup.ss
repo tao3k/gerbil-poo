@@ -48,14 +48,15 @@
     (error "nonmonotone process counters"))
   (list (cons 'prepared prepared) (cons 'executed executed)))
 
-;; Observe `just check`, whose existing recipes invoke only gerbil build/test.
+;; Observe the explicit single-process entry, whose recipes invoke gerbil build/test.
 ;; Targets, deadlines, failure detection and cleanup remain owned by those tools.
 ;; No source discovery, loader or result cache is installed by this observer.
-(def (check-study prefix (entry "check"))
+(def (check-study prefix (entry "check-single-process"))
   (using ((prefix :~ string?) (entry :~ string?))
     ;; Prepared-artifact diagnostics use the existing complete check-built recipe.
+    ;; Parallel output cannot be treated as one ordered harness or one VM counter.
     ;; Whitelist public entries; this observer cannot become an arbitrary runner.
-    (unless (member entry '("check" "check-built"))
+    (unless (member entry '("check-single-process" "check-built"))
       (error "unknown complete check entry" entry))
     (def clock (make-u64vector 1 0))
     (def marks []) (def suite #f) (def trace [])

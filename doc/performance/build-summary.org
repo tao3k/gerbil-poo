@@ -1519,3 +1519,76 @@ allocation counters are not live-heap measurements. The 1-GiB compiled run
 completed naturally, while all-source expansion remains a refused negative
 control. The complete 870.56-second wall and narrow compiler margin remain
 material performance limits; no stable whole-entry speedup is claimed.
+
+* Parallel admission and explicitly approved 2-GiB heaps, 2026-11-01
+
+The user explicitly requested 2-GiB test heaps. This is a budget change from the
+historical 1-GiB rows, not a speedup under identical memory constraints. Root and
+backend heaps were already 2 GiB. All deadlines and every case remain required.
+The released =gxtest= has no parallel-thread option: =GERBIL_BUILD_CORES= controls
+standard compilation, not concurrent TestSuite execution. No upstream code or
+fixture procedure is changed to manufacture thread safety.
+
+The default =just test/check= uses Just's standard parallel dependency queue
+across the four existing functional partitions. It caps workers at the minimum
+of the configured standard core budget and four partitions; zero retains one
+worker. Each official runner has a 2-GiB heap ceiling. A single 600-second guard
+owns the whole parallel phase and its process group; the common result boundary
+refuses empty execution, nonzero runner status and error/overflow markers.
+There are no nested watchdog process groups in that phase. CI still requires
+all 53 checks, including the complete single-process =check-built= gate.
+
+The declaration regression compares the complete parallel partition arguments
+with =test-build-partitions=: the same 25 groups and 62 modules occur exactly
+once. The ordered single-process observer explicitly selects
+=check-single-process= or =check-built=. It must not treat interleaved parallel
+output, or one partition's counters, as a complete ordered trace or one VM's
+aggregate GC statistics.
+
+** Controls and rejected candidates
+
+| Control | Scope | Result |
+|---------+-------+--------|
+| Initial 2-GiB four-part candidate | empty-prefix complete attempt | root 283.05 s, startup 21.82 s, test preparation timeout 300.13 s; whole failed 610.14 s |
+| Twelve backend slots instead of eight | diagnostic with prepared root | test preparation timeout 300.10 s; whole failed 345.18 s |
+| Four-part 2-GiB official test | existing fully compiled prefix | 164.04 s, natural exit zero; 62 modules, 2,361 cases and four harnesses |
+
+The runtime-only row used previously admitted objects and therefore is not cold
+build admission. The earlier 335.20-second single-process row used another
+heap budget and observation context; their difference is not a matched causal
+speedup. The independent standard-library-only consumer retained its own
+1-GiB/60-second controls and delivered all 196 cases. No error/overflow marker
+occurred in the parallel runtime control. The twelve-slot candidate was
+withdrawn: more backend concurrency did not establish a successful complete
+workflow. The original four-by-two build allocation remains at twelve cores.
+
+A one-second root-frontend sample found expansion/compiler work and 43 GC-stack
+samples among 836 main-thread samples. This is a local stack observation, not a
+whole-phase GC percentage. A later types-frontend sample at roughly 216 seconds
+found =__select= in every sampled stack, with approximately 36 seconds of
+accumulated frontend CPU and a 29-MiB resident image. Its child C compiler was
+still working. That tail is not evidence of ongoing Scheme GC. Parent CPU after
+a killed compilation does not include every interrupted descendant's CPU.
+
+The completed root phase emitted 509 distinct compile-file paths in 509 requests.
+Dynamic and static products are different paths, not duplicate submissions.
+Only 56 test-preparation requests had been flushed before timeout; this partial
+log cannot certify absence of repetition for the whole failed phase.
+
+Remaining generated C units after interruption included descriptor inference
+(7,450,721 bytes), scalar inference (6,569,256), table validation (5,692,226), set
+algebra (4,971,273), table mapping (4,932,816), table indexing (4,671,452) and
+signature coverage (4,156,368). These are remaining-unit observations, not a
+ranking of every unit in a completed compilation. The next candidate submits
+their existing functional groups earlier to the standard FIFO backend queue.
+This changes declaration submission order only; it adds no scheduler, namespace,
+compiler option, generated manifest or extra build partition.
+
+The reordered-declaration candidate also failed: an empty-prefix root completed
+in 233.47 seconds, startup in 15.50 seconds, but test preparation timed out at
+300.07 seconds. Standard cleanup completed; the failed entry totaled 554.79
+seconds. Submission reordering is withdrawn as well. No complete cold acceptance
+or stable compilation improvement has been established in this work. The
+retained changes are the explicitly approved 2-GiB heaps and the functionally
+validated four-part runtime entry. All 25 isolated package scripts also use
+2-GiB shebangs: the parent's CLI heap does not override a script's own limit.

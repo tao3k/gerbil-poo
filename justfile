@@ -6,7 +6,7 @@ physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || 
 export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
 export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
 export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
-test-runtime-options := "-:max-heap=1G,debug=q"
+test-runtime-options := "-:max-heap=2G,debug=q"
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
 # Packaging assertions belong to task management, not runtime TestSuites.
@@ -78,7 +78,33 @@ build-group group:
 # Complete-suite time includes gxtest's eager import of every declared module.
 # Keep this explicit at the CLI; compilation, focused tests and heaps keep their bounds.
 test test-seconds='600': build
+    just _test-parallel {{test-seconds}}
+
+# Retain cross-module shared-state admission independently of parallel throughput.
+test-single-process test-seconds='600': build
     just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+
+# Reuse the four established compiler partitions. Just owns the queue; one
+# watchdog owns the whole process group, including every official test runner.
+_test-parallel test-seconds:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
+    workers=$((10#$GERBIL_BUILD_CORES))
+    if (( workers < 1 )); then workers=1; elif (( workers > 4 )); then workers=4; fi
+    printf 'TEST-CONCURRENCY cores=%s packages=%s heap=2G\n' "$GERBIL_BUILD_CORES" "$workers"
+    /usr/bin/time -p {{ timeout-executable }} --signal=TERM --kill-after=5s "$1"s just --jobs "$workers" _test-packages
+
+[parallel]
+_test-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion") (_test-groups "contracts" "methods" "signatures") (_test-groups "declarations" "inference" "representations" "scalars")
+
+# Select compiled interfaces only; fixtures and case execution remain in gxtest.
+_test-groups +groups:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    targets=()
+    for group in "$@"; do targets+=("$GERBIL_PATH/lib/clan/poo/t/$group/"*-test.ssi); done
+    just _test-run "${targets[@]}"
 
 test-file file:
     just _test 90 "$1"
@@ -98,9 +124,16 @@ _test max-seconds +targets:
     set -euo pipefail
     seconds="$1"
     shift
+    /usr/bin/time -p {{ timeout-executable }} --signal=TERM --kill-after=5s "${seconds}s" just _test-run "$@"
+
+# One common result boundary for serial and parallel official invocations. The
+# caller owns the watchdog, so nested timeout process groups cannot escape it.
+_test-run +targets:
+    #!/usr/bin/env bash
+    set -euo pipefail
     log="$(mktemp "${TMPDIR:-/tmp}/gerbil-poo-test.XXXXXX")"
     trap 'rm -f "$log"' EXIT
-    /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s "${seconds}s" gerbil {{ test-runtime-options }} test -v 5 "$@" 2>&1 | tee "$log"
+    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 "$@" 2>&1 | tee "$log"
     grep -q '^MODULE-OK ' "$log"
     grep -q '^CASE-OK ' "$log"
     grep -q '^HARNESS-OK ' "$log"
@@ -110,7 +143,16 @@ _test max-seconds +targets:
 test-source-file file: build-shared
     just _test 90 "$1"
 
-check width='2' samples='1' pairs='4' test-seconds='600': build (check-built width samples pairs test-seconds)
+check width='2' samples='1' pairs='4' test-seconds='600': build (check-parallel-built width samples pairs test-seconds)
+
+# CI keeps the whole shared-state harness; throughput does not replace this gate.
+check-single-process width='2' samples='1' pairs='4' test-seconds='600': build (check-built width samples pairs test-seconds)
+
+check-parallel-built width='2' samples='1' pairs='4' test-seconds='600': check-layout
+    just _test-parallel {{test-seconds}}
+    just _test 90 t/build-test.ss
+    just _run-collections "$1" "$2" "$3"
+    just _run-generators 8 2
 
 check-built width='2' samples='1' pairs='4' test-seconds='600': check-layout
     just _test {{test-seconds}} "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
