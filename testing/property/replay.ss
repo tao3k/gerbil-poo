@@ -1,7 +1,7 @@
 ;;; Portable counterexamples are data with application-owned codec identity.
 (export make-codec codec? write-counterexample read-counterexample)
 (import :std/error :std/iter (only-in :std/vector/vector vector-fold/index)
-        ../property (only-in ./generator with-sources with-generation-check))
+        ../property (only-in ./generator live? with-sources with-generation-check))
 ;; The codec owns format/specification/generator identity and bounded data admission.
 (defstruct replay-codec (identity encode decode current nodes depth) final: #t constructor: :init!)
 ;; Capture codec identity as finite data rather than retaining a mutable caller key.
@@ -57,10 +57,11 @@
 ;; Both codec and application provenance bracket each stage. Guards are the
 ;; existing pure Boolean observers; exceptions retain their original identity.
 (def (with-codec codec action (current (lambda () #t)))
-  ;; Preserve the codec refusal before observing the application context.
+  ;; The shared observer contract distinguishes malformed replies from retirement.
+  ;; Preserve codec-first refusal before observing the application context.
   (def (check)
-    (unless (eq? ((replay-codec-current codec)) #t) (error "stale replay codec"))
-    (unless (eq? (current) #t) (error "stale replay context")))
+    (unless (live? (replay-codec-current codec)) (error "stale replay codec"))
+    (unless (live? current) (error "stale replay context")))
   ;; Parent authority brackets the complete local stage, without being stored
   ;; in the codec. Ordinary callback exceptions bypass trailing checks unchanged.
   (with-sources []

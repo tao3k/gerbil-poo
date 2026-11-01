@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P76 closes portable replay's source-judgment inconsistency through the existing
+core live? operation. Malformed replies are errors; false stays stale; original
+observer/action causes, codec-first ordering and explicit retry remain intact.
+The same local authority reaches nested actions without another wrapper layer.
+See [P76](pbt-design-rfc.md#p76-shared-boolean-source-admission-during-portable-replay).
+
 P75 closes the joint constant-size/declared-cap request relation in the shared
 prepared-check owner. Known overflow refuses before named declarations or direct
 typed sampler metadata; FUN retains initial Reader ownership/configuration
