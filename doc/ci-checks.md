@@ -1,226 +1,276 @@
-# Standard compilation and complete CI acceptance
+# Public commands delegate to Gerbil; task recipes retain only deadlines and progress.
+set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments
+platform-env := if os() == "macos" { "env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin" } else { "env" }
+physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN` } else { `getconf _NPROCESSORS_ONLN` }
+export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
+export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
+export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
+test-context-limit := if os() == "macos" { "2" } else { "4" }
+test-context-recipe := if os() == "macos" { "_test-shared-packages" } else { "_test-packages" }
+test-runtime-options := "-:max-heap=2G,debug=q"
+timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
-The workflow uses a verified precompiled Gerbil release. It builds neither the
-compiler nor Bazel. Linux jobs run on `ubuntu-latest`; local macOS results are
-reported separately. The setup action uses `gerbil --version` and `pkg-config`
-for host dependency identity, without interpreting generated Scheme expressions.
+# Packaging assertions belong to task management, not runtime TestSuites.
+check-layout:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for module in testing/type.ss testing/function.ss testing/generation-graph.ss testing/recursive-generation.ss; do test -f "$module"; done
+    for retired in property-testing.ss function-testing.ss generation-graph.ss recursive-generation.ss; do test ! -e "$retired"; done
+    for module in testing/property.ss testing/property/{generator,model,replay,test}.ss; do test -f "$module"; done
+    test ! -e testing/core
+    printf 'LAYOUT-OK\n'
 
-The 25 declared test packages have separate compilation and semantic jobs. Along
-with the shared build, representation-entry and full single-process jobs, this
-retains 53 checks. Job enumeration lists package declarations; the project does
-not parse Scheme imports or reconstruct a dependency graph.
+build-core: check-layout
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil -:max-heap=2G,debug=q build; then
+        exit 0
+    else
+        build_status=$?
+        # Standard make may publish interface markers before a backend fails.
+        # Invalidate its declared outputs so retry cannot admit a partial build.
+        printf 'BUILD-CLEANUP root-preparation status=%s\n' "$build_status" >&2
+        if ! {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil -:max-heap=2G,debug=q clean; then
+            printf 'BUILD-CLEANUP root failed; standard clean is still required\n' >&2
+        fi
+        exit "$build_status"
+    fi
 
-Collection-delta and coordinator-recovery suites share their existing functional
-owners through standard multiple TestSuite exports. There are 62 declared functional test
-modules; the Suite names, cases and observed execution order are retained. The
-three collection include bodies are explicit `extra-inputs`, so standard make
-tracks their freshness. Package and compiler-partition boundaries are unchanged.
-This reduces loadable products; it is not a claim of stable wall-clock speedup.
+build-shared: build-core
+    cd benchmarks/representation-startup && /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
-The shared job runs `just build-shared`. The root package builds the shared
-libraries and `representation-main`; complete collection acceptance loads its
-ordinary module through that entry. The startup benchmark has its own small
-standard executable package. It does not relink the complete collection graph.
-On Darwin the root entry keeps its library declarations and the existing foundation
-executable in one standard make graph. The released Darwin compiler owns reuse
-of runtime machine objects for dynamic and static consumers. No project object
-cache or reconstructed dependency graph is installed.
-On other platforms the root graph contains libraries only. The existing startup
-program package declares both executable entries in one standard make graph,
-so their static preparation is restricted to their dependency closure. Both
-programs and all library declarations remain required by `build-shared`; its
-300-second root and 90-second program guards are unchanged. This platform
-candidate requires a fresh Linux CI pass; macOS timings do not admit it.
-GitHub's `hashFiles` and cache action
-own exact-source cross-run lookup; `std/make` owns local dependency freshness.
-Cache misses are not accepted as success and tests always execute. No project
-source-key files, cache admission executable or revision ledger are generated.
-The startup package retains `defbuild-script`'s backend parallelism through
-`GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
-disable concurrent backend object compilation. The 90-second startup-program
-gate remains separate from the 300-second root-library build.
-The default local entry shares the existing compiler partitions between two
-official test runners on Darwin and four elsewhere, capped by
-`GERBIL_BUILD_CORES`. CI retains all
-53 checks, including the complete single-process job. No upstream runner is
-modified and no test procedure is run concurrently inside a shared fixture.
-The complete local entry prints standard `/usr/bin/time -p` wall/user/system observations
-for shared preparation, startup preparation, test-package preparation, the whole
-test process and the collection study. Existing commands, progress and failure
-markers remain intact; phase CPU observations do not isolate GC or loader costs.
-The local test-package phase uses four compiler-only standard packages, whose
-specifications reuse the 25 public CI package declarations. At 12 physical cores,
-Just's existing parallel dependency queue admits four packages, each using two
-standard Gerbil backend jobs. This bounds retained compiler contexts without
-replacing make's dependency, freshness or backend scheduling. Each real package
-start and completion prints its name and wall/user/system times. The root build
-uses the machine's standard `GERBIL_BUILD_CORES`; no new concurrency variable is
-introduced. See [build-summary.org](performance/build-summary.org) for qualified
-local observations; historical cohorts are not interchangeable.
-Test C uses the standard GCC `-Og` level and the existing 4096 host threshold;
-library and benchmark implementation levels remain unchanged. All test roots
-share this tracked policy. The source freshness fixtures qualify their first
-build through `gerbil build`, then reuse `std/make` for unchanged/revised input
-checks with the same backend limits. Root build progress is limited to compile
-commands so `meta/spec` retain their standard single-datum output protocol.
-The standard upload/download actions transfer artifacts within the current
-workflow run, using commit-specific names and their built-in digest verification.
-The shared library/program artifact uses an uncompressed tar in runner temporary
-storage to retain executable permissions across ZIP transfer. No benchmark data
-or archive is committed. Consumers compare the producer's compiler/host identity
-and execute the prepared programs without rebuilding them.
+# Standalone studies use their ordinary compiler packages only when requested.
+build-benchmarks group: build-core
+    cd "benchmarks/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
-Each compilation job invokes `gerbil build` in its real test package. The
-namespace matches that directory. Its artifact contains that package's compiled
-interfaces and loadable bodies. Independent test jobs pass downloaded `*-test.ssi` interfaces to the official
-runner instead of re-expanding their source directories; the full job downloads all groups and passes all compiled interfaces
-to `gerbil test` in one process, then runs the complete collection paired study.
-The representation job runs the paired startup TestSuite, including both unknown
-request refusals and the runtime-loaded and linked entries.
+# Bounded standard compiler packages reuse imports without retaining every test
+# source in one heap. Just owns parallel dependencies; Gerbil owns each make graph.
+build: build-shared
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
+    cores=$((10#$GERBIL_BUILD_CORES))
+    workers=$((cores / 3))
+    if (( workers < 1 )); then workers=1; elif (( workers > 4 )); then workers=4; fi
+    backends=$((cores / workers - 1))
+    if (( backends < 1 )); then backends=1; fi
+    printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
+    # Zero disables only the aggregate wall deadline. GNU timeout still owns
+    # the process group and forwards cancellation, with the existing kill grace.
+    if /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 0 just --jobs "$workers" _build-test-packages; then
+        exit 0
+    else
+        build_status=$?
+        # Standard make's interface marker can survive an interrupted backend.
+        # Its clean action invalidates the same declared outputs before retry.
+        printf 'BUILD-CLEANUP failed-preparation status=%s\n' "$build_status" >&2
+        if ! env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 90s just --jobs "$workers" _build-test-packages clean; then
+            printf 'BUILD-CLEANUP failed; standard clean is still required\n' >&2
+        fi
+        exit "$build_status"
+    fi
 
-Static packaging checks run through `just check-layout` in the shared build and
-cached full acceptance. `t/tools` tests actual POO CLI/debug/metadata behavior;
-object lifecycle assertions belong to `t/objects`. There is no separate
-`tools/build` suite that launches Just or mirrors its recipe text. Gerbil owns
-CLI/make/runner validation; POO's compiler failure-drain support is imported as
-source during builds, not compiled into the runtime library.
+# Four standard make graphs reuse shared compiler contexts instead of launching
+# two additional frontends. Canonical runtime packages and every source stay fixed.
+[parallel]
+_build-test-packages action='build': (_build-test-package "contracts" action) (_build-test-package "types" action) (_build-test-package "prototypes" action) (_build-test-package "collections" action)
 
-Compilation retains its 300-second bound. Test imports and execution have no
-fixed project wall deadline. Runtime/test and package-frontend heaps now use the explicitly requested 2 GiB
-ceiling, matching the existing root/backend bound. Existing isolated-consumer
-negative controls retain their own declared limits. Compiler tracing and module/case/harness
-markers remain visible. All POO behavior checks run on cache hits too.
-Failures retain their actual build/test status; a queued job or a local pass is
-never reported as current-commit remote acceptance.
+# The outer signal supervisor owns the compiler process group without a wall
+# deadline; nested timeout groups must not outlive cancellation or failure.
+_build-test-package part action='build':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "t/build/$1"
+    printf 'BUILD-PACKAGE-START %s action=%s\n' "$1" "$2"
+    # Bash's built-in time labels each real completion without another watchdog.
+    TIMEFORMAT="BUILD-PACKAGE-TIME $1 real=%R user=%U sys=%S"
+    time {{ platform-env }} gerbil {{ test-runtime-options }} "$2"
 
-Cold macOS acceptance uses an initially empty standard `GERBIL_PATH`, followed
-by `just check 2 1 4`. It cannot borrow previously generated objects. In the
-installed release, `std/make` clean removes declared outputs but can retain
-numbered loadable objects; the loader selects the last contiguous numbered
-object. A changed interface beside an older higher-numbered body is therefore
-not a valid cache cohort. After an interrupted build or compiler/interface
-change, do not admit such a directory on the strength of a no-op build alone;
-use an empty output prefix for acceptance. Ordinary same-source warm builds
-remain owned by `std/make`, without project file scanners or a second loader.
+# CI has already prepared the shared package; no hidden rebuild or copied view.
+build-group group:
+    cd "t/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} build
 
-See [test execution](test-execution.md) for the public commands. These controls
-validate repository build and test behavior. They do not formally verify the
-Gerbil compiler, operating system, artifact service or lower-level scheduler.
+# Test execution runs to completion; compilation keeps its separate deadline.
+test: build
+    just _test-parallel
 
-## Exact full-entry observations
+# Retain cross-module shared-state admission independently of parallel throughput.
+test-single-process: build
+    just _test "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
 
-The existing standard-built `representation-startup` program also accepts one
-empty output-prefix argument to observe the explicit `just check-single-process 2 1 4 600`
-entry. Parallel output is not admitted as one ordered harness. Build/test ownership remains with Gerbil and Just. Its parent forwards
-real progress and records exact monotonic ticks at test invocation, HARNESS
-start/end, final OK, standard process-time output, EOF and successful child reap.
-A nonzero child exit, missing/nonmonotone boundary or incomplete case delivery
-refuses admission; an OK marker alone is insufficient. Prefixes used for cold
-comparisons must not already exist. The parent executable and compiler remain
-prepared; this is cold project output, not a purged operating-system cache.
+# Reuse the four established compiler partitions and Just's standard queue.
+_test-parallel:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
+    workers=$((10#$GERBIL_BUILD_CORES))
+    if (( workers < 1 )); then workers=1; elif (( workers > {{ test-context-limit }} )); then workers={{ test-context-limit }}; fi
+    printf 'TEST-CONCURRENCY cores=%s packages=%s heap=2G\n' "$GERBIL_BUILD_CORES" "$workers"
+    /usr/bin/time -p just --jobs "$workers" {{ test-context-recipe }}
 
-Preparation includes wrapper startup, imports, mappings and initialization.
-Execution can include deferred loads and independent consumer builds. The
-post-report window includes teardown, pipes and wrapper reaping, so these
-windows must not be labelled exclusive dyld or GC time. The ordered suite/case
-trace digest excludes module filenames to permit fixture-free suite regrouping,
-while retaining every suite, case and order. Raw logs and samples remain outside
-Git. `check-observation-test` covers missing/reversed boundaries and a real
-standard TestHarness with a failing middle case, original cause identity and
-continued later-case execution.
+[parallel]
+_test-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion") (_test-groups "contracts" "methods" "signatures") (_test-groups "declarations" "inference" "representations" "scalars")
 
-## Standard module initialization
+# Select compiled interfaces only; fixtures and case execution remain in gxtest.
+_test-groups +groups:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    targets=()
+    for group in "$@"; do targets+=("$GERBIL_PATH/lib/clan/poo/t/$group/"*-test.ssi); done
+    just _test-run "${targets[@]}"
 
-The released `gxtest` source calls `import-module file #f #t`: reload is false,
-evaluation is requested. Its module evaluator forces the context's existing
-promise. The standard runtime loader returns cached builtin/loaded states,
-waits for an in-progress load, and rethrows a cached original error until an
-explicit reload. This audit found no forced-reload loop in the test entry. It
-supports retaining those standard owners rather than adding a project loader
-or successful-initialization cache. These source mechanisms do not, by
-themselves, assign measured wall time to individual initializers or prove the
-compiler/runtime implementation.
+test-file file:
+    just _test "$1"
 
-## Fixture-free TestSuite composition
+# Use the group's prepared interfaces; loading the source directory repeats
+# expansion even when CI has already downloaded the complete compiler artifact.
+test-group group:
+    just _test "$GERBIL_PATH/lib/clan/poo/t/$1/"*-test.ssi
 
-The official runner evaluates each compiled test interface and loads its `~0`
-code image directly. Its generated loader stub is not a second test-image load.
-Adjacent suites without module fixtures now share 62 declared test roots instead
-of 144. Standard `let` scopes retain private helpers, each suite is constructed
-once, and exports retain the original suite/case order. Modules with setup or
-cleanup stay separate. `extra-inputs:` records every included source in the
-existing `std/make` declaration; no source scanner or alternate loader is used.
-Signature contracts share the existing contract/method build graph, balancing
-its work with the inference graph. The four-worker/standard-backend allocation
-and every deadline and heap ceiling remain unchanged.
+test-atomic name:
+    just _test "$GERBIL_PATH/lib/clan/poo/t/"*/"$1-test.ssi"
 
-Metadata report admission owns its source/dimension definition. The workload
-imports that definition; reading a report no longer imports or initializes the
-whole workload. The standard prepared-harness fixture refuses that dependency
-if it returns. This removes one additional image, not the entire business
-closure: other tests legitimately use those business modules.
+# The official runner owns discovery, fixtures, cases and failures. This boundary
+# retains its verbose progress and refuses empty or unsuccessful executions.
+_test +targets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /usr/bin/time -p just _test-run "$@"
 
-The finite Lean model already proves ordered fixture-free regrouping, retained
-refusal results and subsequent state (`observeSuiteCases_regroup_between`), and
-permutation invariance when repartitioning the resulting compile declarations. See
-[BuildPreparation](https://github.com/tao3k/lean-poo/blob/2652a2a531a6eec321f0d0665b5a5647d997cc07/LeanPoo/Prototype/BuildPreparation.lean#L140).
-Absence of hooks/context-sensitive effects is a model premise. Current fixture
-modules stay separate and the complete execution trace is checked; these finite
-observations do not establish independence of arbitrary callbacks. This does not verify GXC,
-Gambit, dyld or macOS library validation.
+# Serial and parallel official invocations share the same result boundary.
+_test-run +targets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log="$(mktemp "${TMPDIR:-/tmp}/gerbil-poo-test.XXXXXX")"
+    trap 'rm -f "$log"' EXIT
+    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 "$@" 2>&1 | tee "$log"
+    grep -q '^MODULE-OK ' "$log"
+    grep -q '^CASE-OK ' "$log"
+    grep -q '^HARNESS-OK ' "$log"
+    grep -qx 'OK' "$log"
+    if grep -Eq '^ERROR |\*\*\* ERROR|Heap overflow|Stack overflow' "$log"; then exit 1; fi
 
-## Frozen-source cold controls
+test-source-file file: build-shared
+    just _test "$1"
 
-The read-only 30-second `fs_usage` trace isolated 29.118 seconds in 281 `F_CHECK_LV` calls;
-55 calls longer than 10 ms accounted for 29.116 seconds. Compiled private type
-metadata and runtime code were among the actual paths. Same-file checks were
-usually fast after first validation; the standard module registry was already
-deduplicating loads. The changes therefore remove unnecessary physical images,
-not validation or loader failure handling. No system security setting changed.
+check width='2' samples='1' pairs='4': build (check-parallel-built width samples pairs)
 
-Two A/B controls used the same physical compiler closure (6,875 checked files),
-12 automatic cores, previously absent output prefixes, and the unchanged complete
-`just check 2 1 4 600` entry. OS/compiler caches were not purged. Temporary SRFI-27
-streams 0/1 and one state-restoration control made container inputs replayable in
-both variants; those controls were removed afterward. Production retains its
-original randomized checks. All completed controlled runs delivered 2,285
-cases with trace `cf948e090f0fc361cf09429f54714e022bab4e2c16dc4df9cf6dd59c1ceca7ae`.
+# CI keeps the whole shared-state harness; throughput does not replace this gate.
+check-single-process width='2' samples='1' pairs='4': build (check-built width samples pairs)
 
-| Trial | Result | Complete-entry wall seconds |
-| --- | --- | ---: |
-| Original A1 | test build hit its 300-second guard; standard clean completed | incomplete (591.09 spent) |
-| Candidate B1 | complete, natural exit | 738.84 |
-| Original A2 | complete, natural exit | 744.13 |
-| Candidate B2 | complete, natural exit | 646.90 |
+check-parallel-built width='2' samples='1' pairs='4': check-layout
+    just _test-parallel
+    just _test t/build-test.ss
+    just _run-collections "$1" "$2" "$3"
+    just _run-generators 8 2
 
-A2/B2 reduced wall time by 97.23 seconds (13.1%), including conversion/preparation,
-all test execution, independent consumer checks, both paired studies and reaping.
-Its preparation window fell from 227.09 to 158.92 seconds; observed dynamic module
-entries fell from 714 to 631. Test-package compilation increased from 153.28 to
-198.99 seconds, and total user CPU increased from 1,328.44 to 1,459.20 seconds.
-The CPU/compilation tradeoff is real; fewer images alone is not acceptance.
-The failed A1 remains a failure, not a latency sample or a discarded outlier.
-Two controls do not establish a tail percentile or a universal wall-time bound.
-Raw traces, patches, generated outputs and complete benchmark rows stay outside Git.
+check-built width='2' samples='1' pairs='4': check-layout
+    just _test "$GERBIL_PATH/lib/clan/poo/t/"*/*-test.ssi
+    just _test t/build-test.ss
+    just _run-collections "$1" "$2" "$3"
+    just _run-generators 8 2
 
-Production acceptance at merged source `089e0bd` restored randomized container
-checks and included the current PBT changes from `0d5964a`. The complete cold
-entry naturally exited in 709.57 seconds: library 171.41, program 8.36, test
-packages 202.53, main tests 255.74, declaration acceptance 21.82, collection study
-19.54 and generator study 27.89 seconds. The 2,356 main cases and eight declaration
-cases matched the current upstream CI's exact ordered suite/case tuples. Dynamic
-module entries remained 631 and preparation was 144.09 seconds. Subsequent owner
-assertions follow the five real retained test modules, covering all six original
-helper families rather than checking deleted module names.
+# Shared executable and module-action own loading; no new test or benchmark runner.
+benchmark-generators repetitions='20' pairs='4': build-shared
+    just _run-generators "$1" "$2"
 
-The 2026-11-01 test policy removes project wall deadlines from semantic runner
-jobs and public test recipes, as explicitly requested. Compiler deadlines and
-2-GiB heaps remain. Two internal inference fixture modules increase compilation
-units to 66 while retaining the same 62 discovered test roots and all 53 CI jobs.
+_run-generators repetitions pairs:
+    /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/generation-benchmark 'clan/poo/benchmarks/generation-benchmark#main' "$1" "$2"
 
-The seven property examples only register test suites. Their shared build
-declarations use the existing harness C policy (`-Og` and
-`___SINGLE_HOST_LIMIT=4096`) in both the root package and its independent-library
-consumer. Generic PBT modules and performance studies retain production compiler
-flags. The independent build still has its 60-second, 1-GiB guard; its semantic
-tests run to natural completion.
+_run-collections width samples pairs:
+    /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"
+
+clean:
+    printf '%s\0' t/build/*/gerbil.pkg benchmarks/*/gerbil.pkg gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
+
+benchmark-collections width='64' samples='10' pairs='6': build-shared (_run-collections width samples pairs)
+
+benchmark-class-proto width='1000' samples='3': (build-benchmarks "class-proto")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/class-proto-benchmark" {{ test-runtime-options }} "$1" "$2"
+
+benchmark-object-scale: (build-benchmarks "object-scale")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark" {{ test-runtime-options }}
+
+example-representation: build-shared
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 indexed
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 indexed
+
+benchmark-representation-startup: build-shared
+    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/representation-startup.ss
+
+benchmark-closure: (build-benchmarks "closure")
+    mkdir -p .build/closure
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/closure-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/closure-scale-benchmark" "{{ timeout-executable }}" .build/closure/closure-benchmarks.scm
+
+benchmark-closure-paired: (build-benchmarks "closure")
+    mkdir -p .build/closure
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/closure-paired-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/closure-paired-benchmark" "{{ timeout-executable }}" .build/closure/closure-paired.scm
+
+benchmark-closure-phases: (build-benchmarks "closure")
+    mkdir -p .build/closure
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s "$GERBIL_PATH/bin/closure-phases" {{ test-runtime-options }} .build/closure/closure-phases.scm
+
+benchmark-dispatch: (build-benchmarks "dispatch")
+    mkdir -p .build/dispatch
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s "$GERBIL_PATH/bin/dispatch-benchmark" {{ test-runtime-options }} .build/dispatch/dispatch-benchmarks.scm "$GERBIL_PATH/bin/dispatch-benchmark"
+
+benchmark-metadata: (build-benchmarks "metadata")
+    mkdir -p .build/metadata
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 20s "$GERBIL_PATH/bin/metadata-benchmark" {{ test-runtime-options }} .build/metadata/metadata-benchmarks.scm "$GERBIL_PATH/bin/metadata-benchmark"
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/metadata-report" {{ test-runtime-options }} .build/metadata/metadata-benchmarks.scm
+
+benchmark-metadata-paired: (build-benchmarks "metadata")
+    mkdir -p .build/metadata
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/metadata-paired-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/metadata-paired-benchmark" "{{ timeout-executable }}" .build/metadata/metadata-paired.scm
+
+benchmark-combination: (build-benchmarks "combination")
+    mkdir -p .build/combination
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/combination-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
+
+benchmark-scc: build
+    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
+
+# Standard test execution of the fixed higher-resolution offset study.
+benchmark-slot-offset: build-shared
+    just _test benchmarks/slot-offset-test.ss
+
+# Fixed indexed-deletion study through the ordinary runner and shared producer.
+benchmark-prototype-map: build-shared
+    just _test benchmarks/prototype-map-test.ss
+
+# Private traversal and immutable-map composition share the full standard sampler.
+benchmark-prototype-traversal: build-shared
+    just _test benchmarks/prototype-traversal-test.ss
+
+# Higher-resolution complete publication retains the same paired controls.
+benchmark-prototype-composition: build-shared
+    just _test benchmarks/prototype-composition-test.ss
+
+# Structural snapshots and private enumeration use the same standard test entry.
+benchmark-names: build-shared
+    just _test benchmarks/names-test.ss
+
+# Explicit and opaque SlotSpec encodings retain full construction and publication.
+benchmark-slot-construction: build-shared
+    just _test benchmarks/slot-construction-test.ss
+
+# Catalog capture, clone, reflection and checked module publication remain paired.
+benchmark-prototype-catalog: build-shared
+    just _test benchmarks/prototype-catalog-test.ss
+
+# Point metadata lookup includes cold preparation, observation and full workflows.
+benchmark-declaration-index: build-shared
+    just _test benchmarks/declaration-index-test.ss
+
+# Longer cold/full workflow confirmation retains the ordinary bounded test entry.
+benchmark-cold-query: build-shared
+    just _test benchmarks/cold-query-test.ss
+
+# Darwin shares common module initialization between existing partitions.
+# The official runner and each original fixture/case remain unchanged.
+[parallel]
+_test-shared-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools" "declarations" "inference" "representations" "scalars") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion" "contracts" "methods" "signatures")

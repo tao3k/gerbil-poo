@@ -57,7 +57,9 @@ build: build-shared
     backends=$((cores / workers - 1))
     if (( backends < 1 )); then backends=1; fi
     printf 'BUILD-CONCURRENCY cores=%s packages=%s backends=%s\n' "$cores" "$workers" "$backends"
-    if /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 300s just --jobs "$workers" _build-test-packages; then
+    # Zero disables only the aggregate wall deadline. GNU timeout still owns
+    # the process group and forwards cancellation, with the existing kill grace.
+    if /usr/bin/time -p env GERBIL_BUILD_CORES="$backends" {{ timeout-executable }} --signal=TERM --kill-after=3s 0 just --jobs "$workers" _build-test-packages; then
         exit 0
     else
         build_status=$?
@@ -75,8 +77,8 @@ build: build-shared
 [parallel]
 _build-test-packages action='build': (_build-test-package "contracts" action) (_build-test-package "types" action) (_build-test-package "prototypes" action) (_build-test-package "collections" action)
 
-# The outer 300-second phase owns every child process group; avoid nested
-# timeout groups that can outlive the task runner after a failure.
+# The outer signal supervisor owns the compiler process group without a wall
+# deadline; nested timeout groups must not outlive cancellation or failure.
 _build-test-package part action='build':
     #!/usr/bin/env bash
     set -euo pipefail
