@@ -215,4 +215,4 @@ helper families rather than checking deleted module names.
 The 2026-11-01 test policy removes project wall deadlines from semantic runner
 jobs and public test recipes, as explicitly requested. Compiler deadlines and
 2-GiB heaps remain. Two internal inference fixture modules increase compilation
-units to 64 while retaining the same 62 discovered test roots and all 53 CI jobs.
+units to 66 while retaining the same 62 discovered test roots and all 53 CI jobs.

@@ -90,7 +90,7 @@ program builds and workload-specific negative controls keep their own bounds.
 
 Descriptor intrinsic and scalar Union fixtures compile as ordinary internal
 modules. Their original aggregate modules re-export the same suites. There are
-64 declared compilation units and the same 62 discovered test roots. The two
+66 declared compilation units and the same 62 discovered test roots. The two
 private fixture scopes, every case and the aggregate export order are retained.
 These are standard module dependencies, with included source bodies explicitly
 tracked by `std/make`, rather than a new scheduler or test framework.

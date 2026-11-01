@@ -17,6 +17,7 @@
   (prefix-in :clan/poo/examples/service-collection service.)
   (only-in :clan/poo/fun Wrapper.)
   (only-in :clan/poo/t/table-testing alist-table))
+(import (only-in "table-index/revisions.ss" register-index-revision-tests!))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-group-join-test)

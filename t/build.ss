@@ -49,6 +49,7 @@
     (gxc: "table-style-test" (extra-inputs: ("table-style/set-style.scm" "table-style/table-receiver.scm" "table-style/cases.scm"))))
     ("collection-updates"
     "table-fold-test"
+    "table-index/revisions"
     (gxc: "table-index-test" (extra-inputs: ("table-index/table-group-join.scm" "table-index/table-index-equivalence.scm" "table-index/cases.scm")))
     (gxc: "table-mapping-test" (extra-inputs: ("table-mapping/composition.scm" "table-mapping/retraction.scm")))
     "table-merge-test")
@@ -98,6 +99,7 @@
     "collection-testing-test"
     "declaration-index-test"
     "function-signature-test"
+    "property-testing/preparation"
     (gxc: "property-testing-test" (extra-inputs: ("property-testing/samplers.scm")))
     "prototype-types-test"
     "recursive-generation-test"

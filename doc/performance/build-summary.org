@@ -1622,3 +1622,30 @@ in 7.21 seconds under the official runner.
 Per the user's updated instruction, public test execution has no fixed project
 wall deadline. Compilation retains its original guards and all VMs retain the
 approved 2-GiB ceiling. Workload-specific budgets/negative controls remain.
+
+* Standard suite registration and preparation factories, 2026-11-01
+
+The collection-update and typed-PBT partitions previously finished near the same
+244-second tail. Both now divide additional harness code into ordinary modules.
+Index revision cases use the official `test-case` dynamic registration mechanism
+through one named registration procedure, receiving the original private fixture
+procedures unchanged. Four PBT preparation suites use a factory receiving the
+original deterministic fixtures and returning the same ordered suite values.
+No TestCase body, export, fixture or production optimization policy is replaced.
+There are now 66 standard compilation units and the same 62 public test roots.
+
+Focused standard builds against admitted root objects completed collection
+updates in 67.92 seconds and representations in 34.12 seconds. Full affected
+suite/declaration runs passed (182 and 659 case receipts respectively, including
+the declaration regression in each run). These are component diagnostics, not
+cold whole-entry speed claims.
+
+Historical process counters showed one partition's pre-case 121.568-second wall
+with 0.150-second GC wall; the independent library build/test occupied roughly
+34 seconds. Those observations cannot be applied as exclusive timings for all
+four VMs. A fresh-process, already-built representation import-only diagnostic
+with no matching suite took 5.03 seconds; it is neither test acceptance nor cold
+loading evidence. The existing shared executable could not load the official
+gxtest tool module, so that diagnostic route was rejected. The official Gerbil
+CLI remains the runner. No loader substitution or artifact reuse is introduced
+into the independent-library check.
