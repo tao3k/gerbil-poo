@@ -3611,3 +3611,11 @@ they do not prove runtime memory safety or arbitrary callbacks. The paired
 `slot-layout-admission` phase charges the entire corrected workflow for both
 existing stores in natural/collected/post-GC regimes. It is not an unsafe former
 constructor baseline or a claimed speedup. See representation.md.
+
+P70 consolidates dependent declaration preparation into the report-producing
+`testing/property` macro; the standard test macro only delivers its report.
+Generation, parent-dependent shrinking and seeded/concrete replay reuse the same
+bind tree. Closed typed source guards own epoch pairs before metadata, reject
+noncallable present observers and cannot be renewed through caller snapshot edits.
+See [P70](pbt-design-rfc.md#p70-shared-dependent-declarations-and-closed-source-observers)
+for the finite laws, public syntax, regression controls and explicit premises.

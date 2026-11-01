@@ -93,18 +93,25 @@
   (with-source-stamps stamps
     (when sampler (generator-sources sampler retain! expected))
     (reverse stamps)))
+;; One pure epoch fold serves growing discovery ledgers and closed guards.
+;; It observes original owner identities and declared epochs without refreshing.
+(def (stamps-current? sources)
+  (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources))
 ;; Refuse result admission after any declared source changed, including callbacks.
 ;; A malformed observer is an error, rather than truthy authority or retirement.
 (def (current? sources (sampler #f))
-  (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
+  (and (stamps-current? sources)
        (or (not sampler) (not (.has? sampler .current?))
          (core.boolean-result (.call sampler .current?) "source observer must return a boolean"))))
-;; Prepare the optional hook once. Source revisions are still checked before
-;; every call, so a replaced/inherited hook cannot acquire fresh authority.
-(def (source-guard sources (sampler #f))
-  (def hook (and sampler (.has? sampler .current?) (.@ sampler .current?)))
-  (lambda () (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) sources)
-    (or (not hook) (core.live? hook)))))
+;; Bind a reusable guard from owned stamp pairs BEFORE any hook metadata. Copy
+;; declared epochs, never recapture them. Only absence omits the observer: a
+;; present value must be callable; its false/exception reply retains core semantics.
+(def (source-guard (sources :~ proper-list?) (sampler #f))
+  (def owned (map (lambda (entry) (cons (car entry) (cdr entry))) sources))
+  (def hook (and sampler (.has? sampler .current?)
+    (require-value (core.with-sources [] (.@ sampler .current?)) procedure?
+      (lambda () (error "source observer must be a procedure")))))
+  (lambda () (and (stamps-current? owned) (or (not hook) (core.live? hook)))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
 ;; factory are separate actions: an obsolete getter cannot invoke its result,
 ;; and an obsolete false factory result cannot enter the raw fallback.

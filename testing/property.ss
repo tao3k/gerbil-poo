@@ -9,7 +9,7 @@
         inspection-truncated? inspection-cause inspection-current?)
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order length=n?)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
-          sample-children sample-current rejected? proposal-sources generation-exhausted?
+          sample-children sample-current bind-generators rejected? proposal-sources generation-exhausted?
           stale-generation? boolean-result live? random-at with-generation-check with-sources))
 ;; Domain admission, measure and revision ownership remain explicit callbacks.
 (defstruct domain (accept measure current) final: #t)
@@ -424,15 +424,33 @@
 ;; no option parser, surrogate producer or second execution/PRNG owner.
 (def (check-property generator property specification . options)
   ((apply prepare-property-check options) generator property specification))
-;; Named properties remain ordinary callable Gerbil bindings inside :std/test.
-;; Generator/specification expressions run once per check; replay owns that run.
-(defrule (define-property (name value) generator specification body ...)
-  (def (name . options)
-    (def run (apply prepare-property-check name: 'name options))
-    (let-values (((domain generation)
-                   (call-with-specifications (list (lambda () specification))
-                     (lambda (domains) (values (car domains) generator)))))
-      (run generation (lambda (value) body ...) domain))))
+;; Named declarations return ordinary reports. Dependent bindings expand into
+;; the existing bind tree: parent shrinking rebuilds the suffix with its retained
+;; seed, and replay keeps that same tree. Fixed specifications are prepared once,
+;; in declaration order; they cannot refer to values which have not been drawn.
+;; The std/test boundary delegates here rather than owning a second declaration.
+(defrules define-property ()
+  ((_ name ((argument generation specification) ...) body ...)
+   (define-property name name: 'name ((argument generation specification) ...) body ...))
+  ;; Explicit diagnostic identity lets std/test use a hygienic local producer
+  ;; without capturing references to the user's public property binding.
+  ((_ name name: identity ((argument generation specification) ...) body ...)
+   (def (name . options)
+     (def run (apply prepare-property-check name: identity options))
+     (let-values (((domain production)
+                    (call-with-specifications (list (lambda () specification) ...)
+                      (lambda (domains)
+                        (values (make-product-specification domains)
+                          (bind-generators ((argument generation) ...) (list argument ...)))))))
+       (run production (lambda (arguments)
+         (apply (lambda (argument ...) body ...) arguments)) domain))))
+  ((_ (name value) generation specification body ...)
+   (def (name . options)
+     (def run (apply prepare-property-check name: 'name options))
+     (let-values (((domain production)
+                    (call-with-specifications (list (lambda () specification))
+                      (lambda (domains) (values (car domains) generation)))))
+       (run production (lambda (value) body ...) domain)))))
 ;; Seed replay observes the original run's entire visited provenance throughout
 ;; rerun, while its new report owns only that rerun's observations.
 (def (replay-property report)

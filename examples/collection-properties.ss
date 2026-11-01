@@ -186,6 +186,36 @@
         (let (report ((service-factory-action cell owner (recipe (lambda (_) 0)) deliver) config))
           (check-eq? (.get report status) 'passed)
           (check-equal? delivered 2))))
+    (test-case "dependent Record services retain owned epochs through FUN shrink replay and retry"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def stamps (snapshot #f (list owner)))
+      (def captured (source-guard stamps))
+      (def number-domain (property.make-specification exact-integer? abs))
+      (def cell-domain (property.make-specification (cut element? cell <>) (lambda (_) 0)))
+      ;; One declaration composes the count and its wrapped service. There is no
+      ;; second shrink loop or replay recipe in the application.
+      (property.define-property service-request
+        ((amount (core.make-generator (lambda (_r _s) 4) core.integer-shrinks current?: captured) number-domain)
+         (service (core.generator-unit (validate cell (make-instance cell amount: amount handler: abs))) cell-domain))
+        (and (= amount (.get service amount)) (= ((.@ service handler) -1) 0)))
+      (def (run seed) (service-request seed: seed cases: 1 size: 4 shrink-budget: 40))
+      (def action (.call fun.Observation. .map identity run))
+      (def report (action 42))
+      (check-eq? (property.report-status report) 'failed)
+      (check-equal? (car (property.report-counterexample report)) 0)
+      (check-exception ((.@ (cadr (property.report-counterexample report)) handler) 'bad) TypeError?)
+      (check (property.replay-counterexample report) => #f)
+      (check-eq? (property.report-status (property.replay-property report)) 'failed)
+      (.set! owner epoch 1)
+      ;; Editing the caller's old snapshot cannot renew the bound observer.
+      (set-cdr! (car stamps) (object-revision owner))
+      (check-exception (property.replay-property report) Error?)
+      (check-eq? (property.report-status (action 42)) 'stale)
+      (set! captured (source-guard (snapshot #f (list owner))))
+      (def retry (action 42))
+      (check-eq? (property.report-status retry) 'failed)
+      (check (property.replay-counterexample retry) => #f))
     (test-case "named service declarations compose Record Function FUN shrinking and fresh repair"
       (let* ((owner (make-instance (Record epoch: [UInt]) epoch: 0))
              (cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))

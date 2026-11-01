@@ -1,8 +1,7 @@
 ;;; Standard TestSuite checks over the existing property-report protocol.
 (export check-property define-property require-passed)
 (import :std/error (only-in :std/test do-check!) (only-in :std/test/base TestError)
-        (prefix-in ../property property.) (only-in ./generator with-sources with-generation-check)
-        (prefix-in ./generator generator.))
+        (prefix-in ../property property.) (only-in ./generator with-sources with-generation-check))
 
 ;; Both formatter fields and preparation receipts are finite symbolic alists.
 ;; This uses standard list admission before traversal, including cyclic rejection.
@@ -66,19 +65,15 @@
    (do-check! expression expression
      (require-passed expression diagnostics: (lambda (report) (formatter report))))))
 
-;; Named properties compose dependent generators through their existing bind tree.
-;; Specifications are prepared once per check; formatting names cannot change truth.
-(defrule (define-property name ((argument generator specification) ...) body ...)
+;; Standard checks add only TestResult delivery and binding diagnostics. The
+;; hygienic local producer keeps the user's diagnostic name without rebinding
+;; references to their public property. The enclosing callable is the test entry. Preparation, dependent
+;; shrinking and replay all belong to the shared report-producing declaration.
+(defrule (define-property name ((argument generation specification) ...) body ...)
   (def (name . options)
     (do-check! name name
-      (def run (apply property.prepare-property-check name: 'name options))
-      (let-values (((domain generation)
-                     (property.call-with-specifications (list (lambda () specification) ...)
-                       (lambda (domains)
-                         (values (property.make-product-specification domains)
-                           (generator.bind-generators ((argument generator) ...) (list argument ...)))))))
-        (require-passed
-          (run generation
-            (lambda (arguments) (apply (lambda (argument ...) body ...) arguments)) domain)
+      (let ()
+        (property.define-property produce name: 'name ((argument generation specification) ...) body ...)
+        (require-passed (apply produce options)
           diagnostics: (lambda (report)
             (property.report-diagnostics report bindings: '(argument ...))))))))

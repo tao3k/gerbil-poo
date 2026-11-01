@@ -25,6 +25,60 @@
 ;; Register these ordinary cases in the caller's current :std/test suite.
 ;; The standard runner still owns discovery, fixtures, assertions and results.
 (def (product-test-cases!)
+    (test-case "named dependent declarations share generation shrinking and both replay paths"
+      (def domain (property.make-specification exact-integer? abs))
+      (def row-domain (property.make-specification list? (lambda (_) 0)))
+      (def parent (generator.make-generator (lambda (_r _s) 4)
+        (lambda (n) (if (zero? n) [] (list 0 (quotient n 2) (1- n))))))
+      ;; A dependent fixed-length payload is regenerated after shrinking count.
+      ;; Its own coordinate shrinks remain lazy and cannot change the count.
+      (def (payload count)
+        (generator.generator-list (generator.generator-integer 0 9)
+          min-length: count max-length: count))
+      (property.define-property dependent-packet
+        ((count parent domain) (bytes (payload count) row-domain))
+        (and (= count (length bytes)) (< count 2)))
+      (def report (dependent-packet seed: 42 cases: 1 size: 4 shrink-budget: 80))
+      (def reference (property.check-property
+        (generator.bind-generators ((count parent) (bytes (payload count))) (list count bytes))
+        (lambda (row) (and (= (car row) (length (cadr row))) (< (car row) 2)))
+        (property.make-product-specification (list domain row-domain))
+        seed: 42 cases: 1 size: 4 shrink-budget: 80))
+      (check-eq? (property.report-status report) 'failed)
+      (check-equal? (property.report-name report) 'dependent-packet)
+      (check-equal? (property.report-counterexample report) (property.report-counterexample reference))
+      (check-equal? (property.report-attempts report) (property.report-attempts reference))
+      (check-equal? (car (property.report-counterexample report)) 2)
+      (check-equal? (length (cadr (property.report-counterexample report))) 2)
+      (check (property.replay-counterexample report) => #f)
+      (def replay (property.replay-property report))
+      (check-equal? (property.report-original replay) (property.report-original report))
+      (check-equal? (property.report-counterexample replay) (property.report-counterexample report))
+      (check-equal? (property.report-attempts replay) (property.report-attempts report)))
+    (test-case "dependent declarations admit options before domains and share standard test delivery"
+      (def declarations 0) (def draws 0)
+      (def (domain)
+        (set! declarations (1+ declarations))
+        (property.make-specification exact-integer? abs))
+      (def field (generator.make-generator (lambda (_r _s) (set! draws (1+ draws)) 3) (lambda (_) [])))
+      (property.define-property report-only
+        ((options field (domain)) (arguments (generator.generator-unit options) (domain)))
+        (= options arguments))
+      (check-exception (report-only cases: 0) Error?)
+      (check-equal? (list declarations draws) '(0 0))
+      (assertion.define-property checked
+        ((options field (domain)) (arguments (generator.generator-unit options) (domain)))
+        (= options arguments))
+      (checked seed: 7 cases: 1 size: 3)
+      (check-equal? (list declarations draws) '(2 1))
+      (check-eq? (property.report-status (report-only seed: 7 cases: 1 size: 3)) 'passed)
+      (check-equal? (list declarations draws) '(4 2))
+      (def public #f)
+      (assertion.define-property self-reference
+        ((value (generator.generator-unit 0) (domain)))
+        (and (= value 0) (eq? self-reference public)))
+      (set! public self-reference)
+      (self-reference cases: 1))
     (test-case "product topology contracts reject malformed spines before drawing"
       (def draws 0)
       (def field (generator.make-generator (lambda (_random _size) (set! draws (1+ draws)) 1) (lambda (_) [])))

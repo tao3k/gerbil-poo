@@ -314,6 +314,47 @@
 ;; only later value pulls. Every counter is sequenced at its observation point.
 (def bridge-preparation-test
   (test-suite "typed bridge and specification preparation"
+    (test-case "bound guards own stamp spines pairs and epochs before hook metadata"
+      (def owner (.o epoch: 0)) (def foreign (.o epoch: 0))
+      (def stamps (snapshot #f (list owner)))
+      (def prepared (source-guard stamps))
+      (.set! owner epoch 1)
+      (check (prepared) => #f)
+      (set-cdr! (car stamps) (object-revision owner))
+      (check (prepared) => #f)
+      (set-car! (car stamps) foreign) (set-cdr! stamps [])
+      (check (prepared) => #f)
+      (check ((source-guard (snapshot #f (list owner)))) => #t)
+      (def metadata-stamps (snapshot #f (list owner)))
+      (.set! owner epoch 2)
+      (def field (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs))
+      (.putslot! field '.current? ($self-slot-spec (lambda (_)
+        (set-cdr! (car metadata-stamps) (object-revision owner)) (lambda () #t))))
+      (check ((source-guard metadata-stamps field)) => #f)
+      ;; Contradictory duplicates cannot be deduplicated into fresh authority.
+      (check ((source-guard (list (cons owner 0) (cons owner (object-revision owner))))) => #f))
+    (test-case "present noncallable hooks cannot impersonate absence or authorize drawing"
+      (for (bad (list #f #t 0 'invalid [] (.o)))
+        (let* ((draws 0) (field (make-generator Integer
+          (lambda (_r _s) (set! draws (1+ draws)) 7) (lambda (_) []) abs)))
+          (.putslot! field '.current? ($constant-slot-spec bad))
+          (check-exception (source-guard [] field)
+            (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "source observer must be a procedure"))))
+          (check-exception (generator-core field) Error?)
+          (check-equal? draws 0))))
+    (test-case "bound observers retain false replies exact causes and epoch-first calls"
+      (def owner (.o epoch: 0)) (def calls 0) (def cause (cons 'observer 'cause))
+      (def field (make-generator Integer (lambda (_r _s) 7) (lambda (_) []) abs))
+      (.putslot! field '.current? ($constant-slot-spec (lambda () (set! calls (1+ calls)) #f)))
+      (def prepared (source-guard (snapshot #f (list owner)) field))
+      (check-equal? calls 0) (check (prepared) => #f) (check-equal? calls 1)
+      (.set! owner epoch 1)
+      (check (prepared) => #f) (check-equal? calls 1)
+      (for (original (list #f cause))
+        (.putslot! field '.current? ($constant-slot-spec (lambda () (raise original))))
+        (check-eq? (with-catch identity (source-guard [] field)) original))
+      (.putslot! field '.current? ($self-slot-spec (lambda (_) (raise cause))))
+      (check-eq? (with-catch identity (lambda () (source-guard [] field))) cause))
     (test-case "malformed owned factory results refuse before raw and hook metadata"
       (for (bad (list #t 17 'wrong (void) (lambda () #t)))
         (let ((raw 0) (hooks 0) (secondary (cons 'hook 'cause))
