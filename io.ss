@@ -37,7 +37,9 @@
         ;; across loading/lookup; payloads, including Function values, stay shared.
         (using (arguments :~ list?)
           (let (request (list-copy arguments))
-            (load-module path)
+            ;; Standard loader diagnostics may expose the supplied string.
+            ;; Hand off a copy so error inspection cannot retarget this action.
+            (load-module (string-copy path))
             (apply (eval binding) request)))))))
 
 ;;; Byte I/O

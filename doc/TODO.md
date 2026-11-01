@@ -4,6 +4,16 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+The dynamic-module client now hands a fresh path string to the standard loader
+after finite-row admission. A real `module not found` diagnostic previously
+exposed the retained action path: editing its public irritant retargeted later
+repair/retry. Copies isolate the retained request without replacing the original
+error, standard initialization cache, lookup or returned values. One-shot FUN
+repair and current-binding retries reuse the same action. This advances the
+article's finite future-work protocol, not loader/JIT/runtime verification.
+The paired full-call control charges path copying even on warm hits; immutable
+Lean path laws assume faithful host copying and count characters, not RSS/time.
+
 Dynamic module calls admit a finite argument row before standard initialization
 and shallow-copy its spine before loading/current-binding lookup. The existing
 `io.module-action` remains the sole boundary, without another loader or cache.

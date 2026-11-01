@@ -1,5 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
+(export entry-recovery-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
 (def (entry-arguments . arguments) (apply values arguments))
@@ -14,6 +15,15 @@
         (prefix-in ../object-contract contract.)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
+
+;; One explicit application repair resumes the SAME Reader action. FUN preserves
+;; every returned payload in a vector; repair/second-attempt errors propagate.
+;; This bounded example neither reloads modules nor loops on arbitrary failures.
+(def (entry-recovery-workflow action request repair)
+  (def observe (.call fun.Observation. .map (cut apply vector <>)
+    (lambda (arguments) (call-with-values (cut action arguments) list))))
+  (try (observe request)
+    (catch (cause) (repair cause) (observe request))))
 
 ;; One delegated receiver grows around a retained Function cell, retries an exact
 ;; refusal and rejects old provenance after a supported edit. The final service

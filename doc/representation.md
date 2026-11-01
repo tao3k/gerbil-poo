@@ -644,6 +644,46 @@ construction/admission still remain; vector-only storage is separate work.
 
 ## Standard runtime entries and shared dependency preparation
 
+### Owned path handoff through diagnostics and retry
+
+The standard Gerbil loader reports a missing module with its supplied path as a
+public error irritant. A regression edited that string and reproduced a retained
+`module-action` retry at `xvar/...` instead of the original target. The existing
+IO boundary now calls `load-module` with `string-copy` of its private path on each
+admitted invocation. Original errors are propagated untouched; no loader or
+initialization/error cache is reimplemented. Public loader-registry mutation and
+arbitrary callback/concurrent mutation remain outside this client protocol.
+
+`entry-recovery-workflow` uses the same Reader action, standard FUN map and one
+explicit application repair to return all results as a vector. Regressions edit
+two diagnostic strings, create the intended module, retry, preserve false and
+multiple values, and check that another call retains the standard load order.
+
+The complete-call paired study compares fresh handoff against retained-path
+handoff in ONE qualification factory/compiler context; BOTH sides validate and
+own the argument row. Untimed calls compare both steady strategies with the
+actual public action. The first probes omitted factory checks or mixed compiler
+contexts and are excluded from performance claims; their raw logs remain external.
+Action construction, path copying, load, current lookup and all-value delivery are timed,
+with AB/BA, A/A/B/B and natural/post-GC controls. This is a semantic isolation fix,
+not an asserted speedup: each admitted call pays for another full path copy.
+`enterModuleAt` composes the existing finite entry model; equality of text and
+independence of mutable host strings are separate premises. `pathHandoffCells`
+counts copied characters on admitted calls only, not allocator/OS/GC costs.
+
+The reproduced pre-fix regression failed after only editing a standard public
+error payload; the repaired regression and the full prepared-artifact
+`just check 2 1 4` naturally passed (508.43 s, including 222.89 s parallel tests,
+16.80 s build regressions and both collection/generator studies). This reused
+existing products and is not a cold-build comparison. The final same-context
+standard startup suite passed in 13.08 s, including all 48 path samples and the
+original complete-service entry pairs. For the 40-character path, all eight AB
+samples observed +336 allocation-counter bytes per call; this is not peak RSS
+or a physical allocation theorem. Mean wall differences were -0.002 microseconds
+(natural) and -0.156 (post-GC), within control noise (natural AA included -23.63).
+No speedup or stable-tail claim is made. Rejected probes and raw data remain
+outside Git; unchanged compiler/build/test entrypoints own reproducibility.
+
 Calls admit a finite list with Gerbil's `using`/`list?` before loading and use
 standard `list-copy` to own its spine across initialization/current lookup.
 Payloads remain shared. Invalid/cyclic rows cannot initialize an engine, and
