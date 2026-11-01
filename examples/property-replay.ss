@@ -45,6 +45,7 @@
       (def symbol (string->symbol name)) (def keyword (string->keyword name))
       (def value (vector symbol keyword (cons #f symbol)))
       (def domain (property.make-specification vector? (lambda (_) 0)))
+      ;; Falsity depends on the exact interned identities, not merely spelling.
       (def (property value) (not (and (eq? (vector-ref value 0) symbol)
         (eq? (vector-ref value 1) keyword) (eq? (cdr (vector-ref value 2)) symbol))))
       (def codec (replay.make-codec (vector symbol keyword) values values))
