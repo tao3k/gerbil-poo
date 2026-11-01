@@ -4,6 +4,16 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Dynamic module calls admit a finite argument row before standard initialization
+and shallow-copy its spine before loading/current-binding lookup. The existing
+`io.module-action` remains the sole boundary, without another loader or cache.
+Invalid/cyclic rows cannot initialize a module; initialization cannot rewrite an
+already captured call through caller-owned pairs. Function/false payloads retain
+identity, all return values and ordinary failure behavior. This finite future-work
+protocol assumes faithful standard copying, finite recognition and loader effects;
+it does not certify arbitrary callbacks or concurrent mutation during capture.
+Balanced complete-call controls retain natural/post-GC, AB/BA and A/A/B/B samples.
+
 P66 closes typed diagnostic request admission before computed sampler metadata,
 source observation and factory binding. Both layers share the existing generic
 configuration check; zero budgets and valid-request failure behavior remain.

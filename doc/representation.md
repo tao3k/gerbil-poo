@@ -644,6 +644,34 @@ construction/admission still remain; vector-only storage is separate work.
 
 ## Standard runtime entries and shared dependency preparation
 
+Calls admit a finite list with Gerbil's `using`/`list?` before loading and use
+standard `list-copy` to own its spine across initialization/current lookup.
+Payloads remain shared. Invalid/cyclic rows cannot initialize an engine, and
+initializers cannot rewrite an admitted call via caller-owned pairs. Tests use
+real standard source-module initialization, FUN, Function/false values, multiple
+returns and retry. This finite client discipline advances the article's future
+work; it does not implement another loader, registry or initialization cache.
+
+Admission/copying requires linear work and a fresh spine per call. The existing
+startup suite includes balanced AB/BA, A/A/B/B natural/post-GC complete-call
+controls against the preceding borrowed-row strategy on stable valid requests.
+Both sides charge action construction, path copying, loading, lookup and all-value
+delivery; malformed or initializer-mutated requests deliberately differ and are
+tested for safety, not timed as equivalent calls. No speedup is presumed.
+Lean's `admittedModuleEntry` composes the existing `enterModule` laws under faithful
+host finite-list recognition, shallow copying and loader premises; callbacks,
+concurrent mutation during copying and compiler/runtime correctness are not proved.
+
+The first fixed-source empty-artifact-prefix `just check 2 1 4` naturally passed
+in 630.62 s (root 134.23, program 16.17, test compilation 133.50, parallel tests
+250.39, build regressions 22.08, collection study 28.62, generation study 42.51).
+This is project-artifact cold admission, not an OS-cache purge or a matched
+whole-entry speedup. A separate standard startup suite passed all 48 row samples
+and the original complete-service pairs. For the three-element valid row,
+candidate-minus-borrowed wall differences averaged -0.002 microseconds/call
+(natural) and -0.018 (post-GC); A/A differences included a 23.77 microsecond/call
+outlier. No speedup or stable tail claim follows. Raw logs remain outside Git.
+
 The author source (`poof.scrbl`, checkout `9affa8f`, "Different instance
 representation" and the staged-computation future-work discussion) motivates
 sharing common preparation without replacing observable computation. This unit

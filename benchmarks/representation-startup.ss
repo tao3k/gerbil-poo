@@ -1,6 +1,7 @@
 ;;; Fresh-process downstream entry qualification through standard Gerbil commands.
 (export main representation-startup-test check-study check-observation-test)
 (import :std/test :std/iter :std/misc/process
+        (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module list-modules)
         (only-in :std/error Error?) (only-in :std/number/misc uint?)
         (only-in :std/test/base test-run! test-result-error? TestResultError? TestResultError
@@ -277,6 +278,29 @@
 ;; the existing 90-second/1-GiB bounds; the public recipe retains its outer guard.
 (def representation-startup-test
   (test-suite "standard-built dynamic module entry pairs"
+    (test-case "owned entry rows retain payloads in balanced complete-call controls"
+      (def module "clan/poo/examples/representation-service")
+      (def binding 'clan/poo/examples/representation-service#entry-arguments)
+      (load-module module)
+      (def row (list identity #f 'ready))
+      ;; Both sides include action construction, path copying, standard loading,
+      ;; current lookup, invocation and all-value delivery. Only admission/copy
+      ;; differ on this stable valid row; malformed/mutated rows have regressions.
+      (for* ((collect? '(#f #t)) (control '(ab aa bb)) (pair (in-range 4)))
+        (measure-pair (if (even? pair) '(a b) '(b a))
+          (lambda (side)
+            (def owned? (case control ((aa) #f) ((bb) #t) (else (eq? side 'b))))
+            (call-with-values
+              (lambda () (measure (lambda ()
+                (def action (if owned? (module-action module binding)
+                  (let (path (string-copy module))
+                    (lambda (arguments) (load-module path) (apply (eval binding) arguments)))))
+                (call-with-values (cut action row) list)) 1000 collect?))
+              (lambda (result metrics)
+                (check-eq? (car result) identity)
+                (check-equal? (cdr result) '(#f ready)) metrics)))
+          (lambda (results)
+            (write (list 'module-row-pair collect? control pair results)) (newline)))))
     (test-case "unknown compiled entry requests retain refusal"
       (for (request '(("unknown" "64" "symbolic") ("main" "64" "unknown")))
         (check-exception

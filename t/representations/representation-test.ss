@@ -449,6 +449,34 @@
           (check-equal? (prototype-map-list source) entries)
           (check-equal? (prototype-map-list (prototype-map-put removed 'new 9)) '((left . #f) (right . 7) (new . 9)))
           (check-equal? (prototype-map-policy removed) policy))))
+    (test-case "module requests own finite argument spines before initialization"
+      (call-with-temporary-directory "poo-owned-entry-" (lambda (directory)
+        (def module (path-expand "service" directory))
+        (def binding (make-symbol "poo-owned-entry-" (object->serial-number module)))
+        (def shared (make-symbol "poo-owned-row-" (object->serial-number module)))
+        (def action (module-action module binding))
+        (def cycle (list 'cycle))
+        (set-cdr! cycle cycle)
+        (for (bad (list #f '#() '(a . b) cycle))
+          (check-exception (action bad) contract-violation-error?)
+          (check (assoc module (list-modules)) => #f))
+        (def row (list identity #f))
+        ;; A procedure literal retains the caller closure. Quoted pair constants
+        ;; may be copied by eval and cannot witness mutation of the original row.
+        (eval (list 'define shared
+          (list 'quote (lambda () (set-car! row 'changed) (set-cdr! row '())))))
+        (call-with-output-file (string-append module ".scm")
+          (lambda (port)
+            (write `(begin (,shared)
+                      (define ,binding (lambda args (apply values args)))) port)))
+        (let (observe (.call fun.Observation. .map list
+          (lambda (request) (call-with-values (cut action request) list))))
+          (def result (car (observe row)))
+          (check-eq? (car result) identity)
+          (check-equal? (cdr result) '(#f)))
+        (check-equal? row '(changed))
+        ;; A later valid request uses the standard initialized module and fresh row.
+        (check-equal? (call-with-values (cut action '(retry #f)) list) '(retry #f)))))
     (test-case "module IO actions delay discovery preserve failures and resolve the current binding"
       (call-with-temporary-directory "poo-module-entry-" (lambda (directory)
         (def module (path-expand "service" directory))

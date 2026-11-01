@@ -33,8 +33,12 @@
   (using ((module :~ string?) (binding :~ symbol?))
     (let (path (string-copy module))
       (lambda (arguments)
-        (load-module path)
-        (apply (eval binding) arguments)))))
+        ;; Admit a finite call row before initialization effects. Own its spine
+        ;; across loading/lookup; payloads, including Function values, stay shared.
+        (using (arguments :~ list?)
+          (let (request (list-copy arguments))
+            (load-module path)
+            (apply (eval binding) request)))))))
 
 ;;; Byte I/O
 
