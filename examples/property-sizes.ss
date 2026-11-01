@@ -113,6 +113,48 @@
 
 ;; Register ordinary std/test cases alongside the existing size controls.
 (def (collection-source-test-cases!)
+  (test-case "prepared hash directories refuse malformed bounds and duplicate keys"
+    (for (keys (list '(left . tail) '(left left) (list "same" (string-copy "same"))))
+      (check-exception (generator.prepare-hash-generator keys) Error?))
+    (for (limit '(-1 0 1/2 #f))
+      (check-exception (generator.prepare-hash-generator '(left) domain-limit: limit) Error?))
+    (def empty (generator.prepare-hash-generator [] domain-limit: 0))
+    (check-equal? (hash-length (generator.sample-value
+      (generator.generate (empty (generator.generator-unit #f)) (lambda (_) 0) 0))) 0))
+  (test-case "prepared hash directories own topology and bind independent producers"
+    (def keys (list 'left 'right))
+    (def bind (generator.prepare-hash-generator keys domain-limit: 2))
+    (set-car! keys 'changed) (set-cdr! keys [])
+    (for (value '(#f 9))
+      (def table (generator.sample-value
+        (generator.generate (bind (generator.generator-unit value)) (lambda (_) 0) 2)))
+      (check-equal? (hash-length table) 2)
+      (check-equal? (hash-ref table 'left) value)
+      (check-equal? (hash-ref table 'right) value)
+      (check (hash-key? table 'changed) => #f)))
+  (test-case "prepared and direct hash workflows retain shrinking replay and source refusal"
+    (def live #t) (def draws 0)
+    (def values (generator.make-generator
+      (lambda (_random _size) (set! draws (1+ draws)) 4) generator.integer-shrinks))
+    (def bind (generator.prepare-hash-generator '(left right)))
+    (def domain (property.make-specification hash-table?
+      (lambda (table) (+ (hash-length table)
+        (hash-fold (lambda (_key value total) (+ total (abs value))) 0 table)))))
+    (def direct (generator.generator-hash '(left right) values current?: (lambda () live)))
+    (def prepared (bind values current?: (lambda () live)))
+    (def first (property.check-property direct (lambda (_) #f) domain cases: 1 seed: 23))
+    (def second (property.check-property prepared (lambda (_) #f) domain cases: 1 seed: 23))
+    (check-equal? (property.report-status second) 'failed)
+    (check-equal? (hash->list (property.report-counterexample first))
+      (hash->list (property.report-counterexample second)))
+    (check-equal? (property.report-attempts first) (property.report-attempts second))
+    (check (property.replay-counterexample second) => #f)
+    (check-equal? (property.report-status (property.replay-property second)) 'failed)
+    (set! live #f)
+    (let (before draws)
+      (check-exception (generator.generate prepared (lambda (_) 0) 2) generator.stale-generation?)
+      (check-exception (property.replay-counterexample second) Error?)
+      (check-equal? draws before)))
   (test-case "mandatory collection sources preflight before prefix and length work"
     (for (kind '(list string symbol))
       (def live #t) (def prefixes 0) (def randoms 0) (def draws 0)

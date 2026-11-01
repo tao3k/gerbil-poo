@@ -95,6 +95,34 @@
 ;; through gerbil test after the standard qualification build, without a new runner.
 (def collection-properties-test
   (test-suite "complex model-driven collection properties"
+    (test-case "finite service directory admission precedes FUN binding and fresh retry"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (Map Symbol -> cell))
+      (def reads 0) (def factories 0) (def delivered 0)
+      (.putslot! descriptor 'Key ($self-slot-spec (lambda (_self) (set! reads (1+ reads)) Symbol)))
+      (def field (service-value-generator cell owner void))
+      (.putslot! field 'generation ($self-slot-spec (lambda (_self)
+        (set! factories (1+ factories)) #f)))
+      (check-exception (map-generator descriptor '(left right) field domain-limit: 1) Error?)
+      (check-equal? (list reads factories delivered) '(0 0 0))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 3 shrink-budget: 40))
+      ;; Repair is an explicit fresh preparation. The normal Record boundary
+      ;; alone wraps Functions; FUN owns delivery and the retained tree shrinks.
+      (def (fresh)
+        (map-service-action descriptor cell owner void
+          (lambda (report) (set! delivered (1+ delivered)) report) sampler: field))
+      (def action (fresh))
+      (def report (action configuration))
+      (check-eq? (.get report status) 'failed)
+      (check (> (.get report steps) 0) => #t)
+      (check-exception ((.@ (hash-ref (.get report counterexample) 'left) handler) 'bad) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample report) Error?)
+      (check-eq? (.get ((fresh) configuration) status) 'failed)
+      (check-equal? delivered 2))
     (test-case "malformed deferred services refuse then freshly retry shrink and replay"
       (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
       (def cell (Record amount: [UInt] handler: [(Function [Integer] [Integer])]))

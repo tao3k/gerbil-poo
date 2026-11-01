@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P72 closes finite Hash/Map request admission before computed declaration and
+factory binding. One prepared generic directory constructor serves both layers;
+invalid limits/duplicates cannot execute later metadata, and valid requests keep
+Function wrapping, source refusal, shrinking and replay. Prepared declarations
+share keys, not generated states or source authority. See
+[P72](pbt-design-rfc.md#p72-prepared-finite-hash-directories-before-typed-declaration-binding).
+
 Cycle reports now own their receiver/slot pairs as well as their outer spine.
 A bounded regression reproduced mutation of a still-active guard through the
 public `CyclicSlot-path` after catching an inner cycle. One standard fold copies

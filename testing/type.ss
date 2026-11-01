@@ -214,6 +214,10 @@
   (unless (list? keys) (error "finite Map keys required"))
   (unless (and (list? dependencies) (every object? dependencies)) (error "Map sources required"))
   (def domain (list-copy keys)) (def declared (list-copy dependencies))
+  ;; Pure finite-domain admission precedes computed Types, sampler declarations
+  ;; and factories. The shared constructor owns key identity/order once; binding
+  ;; later retains the original Map authority and does not prepare keys again.
+  (def bind-hash (core.prepare-hash-generator domain domain-limit: limit))
   (def ledger (make-hash-table-eq))
   (def owners (retain-source-stamps! ledger (snapshot #f (append (list descriptor value-sampler) declared))))
   ;; Capture each newly discovered participant immediately, before a later getter.
@@ -258,7 +262,7 @@
       (def sources (append (list descriptor key-type value-type) declared))
       ;; Generic finite-domain admission precedes application key validators.
       (def generation (checked (lambda ()
-        (core.generator-hash domain (generator-core value-sampler) domain-limit: limit current?: guard))))
+        (bind-hash (generator-core value-sampler) current?: guard))))
       (for (key domain)
         (unless (eq? (checked validate key-type key) key)
           (error "finite Map key validation must preserve representation" key)))

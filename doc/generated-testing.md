@@ -104,6 +104,24 @@ after correction. `service-value-generator` and `service-batch-action` in
 shrinking, portable replay and fresh retry. No hidden dependency inference or deep
 payload snapshot is promised.
 
+Finite Hash key directories can be prepared before any value-generator binding:
+
+```scheme
+(import (prefix-in :clan/poo/testing/property/generator gen.))
+(def directory (gen.prepare-hash-generator '(left right) domain-limit: 2))
+(def integer-maps (directory (gen.generator-integer 0 20)))
+(def flag-maps (directory (gen.generator-elements '(#f #t))))
+```
+
+The constructor owns the finite key spine and checks uniqueness with Gerbil's
+HashTable equality. Reuse shares the declaration, never random state, generated
+values or source authority. The one-shot `generator-hash` uses the same path.
+Typed `map-generator` admits this directory before computed Key/Value/sampler
+metadata, then binds the values under its existing guard. Invalid limits and
+duplicate keys cannot execute later factories. Empty zero-budget directories
+remain valid and preserve typed source obligations. See the service-directory
+retry example in `examples/collection-properties.ss` and P72 in the RFC.
+
 Bridge and specification binding use the same captured stamp set. Metadata getters,
 owned recipes and fallback binding are checked before the next stage; a factory
 returning #f may use the raw path only while its sources remain current. A generic

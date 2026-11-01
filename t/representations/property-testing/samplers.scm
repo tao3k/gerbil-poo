@@ -2,6 +2,28 @@
 ;; observation. The standard CLI can focus this suite; full discovery is unchanged.
 (def sampler-scope-test
   (test-suite "typed sampler preparation and aggregate scopes"
+    (test-case "invalid finite Map directories refuse before computed declarations and factories"
+      (for (request (list (cons '(left) 0) (cons '(left) -1) (cons '(left) 1/2)
+                         (cons '(left left) 2) (cons '(left . tail) 2)))
+        (def reads 0) (def factories 0) (def hooks 0)
+        (def descriptor (Map Symbol -> Integer))
+        (.putslot! descriptor 'Key ($self-slot-spec (lambda (_self) (set! reads (1+ reads)) Symbol)))
+        (def supplied (generator Integer))
+        (.putslot! supplied 'generation ($self-slot-spec (lambda (_self)
+          (set! factories (1+ factories)) #f)))
+        (.putslot! supplied '.current? ($self-slot-spec (lambda (_self)
+          (set! hooks (1+ hooks)) (lambda () #t))))
+        (check-exception (map-generator descriptor (car request) supplied domain-limit: (cdr request)) Error?)
+        (check-equal? (list reads factories hooks) '(0 0 0))))
+    (test-case "empty zero-budget Maps still bind their declared value authority"
+      (def owner (.o epoch: 0))
+      (def supplied (make-generator Integer (lambda (_random _size) (error "unused draw"))
+        (lambda (_) []) abs dependencies: (list owner)))
+      (def maps (map-generator (Map Symbol -> Integer) [] supplied domain-limit: 0))
+      (def tree (core.generate (generator-core maps) (lambda (_) 0) 0))
+      (check-equal? (hash-length (core.sample-value tree)) 0)
+      (.set! owner epoch 1)
+      (check-exception (core.generate (generator-core maps) (lambda (_) 0) 0) core.stale-generation?))
     (test-case "Map captures Key before Value even when the finite domain is empty"
       (for (keys (list [] '(left right)))
         (def validations 0)
