@@ -4495,12 +4495,14 @@ additional revision/metadata protocol is this project's finite future-work
 extension. Advanced handwritten sample producers and consumer-owned source
 admission retain their existing contract; they are not redefined as this defect.
 
-P71 integration acceptance retained the first local preparation timeout: at
-fb80464 the standard types graph completed in 209 seconds and contracts/collections
-in 244/246 seconds, while the prototypes tail reached the original 300-second
-fence before semantic tests. Standard cleanup ran with exit 124. The existing
-feedback group now shares the lighter types compiler context; all four standard
-make graphs, every runtime package/source, backend flags, 2-GiB heaps and original
-phase fences remain unchanged. Existing exact-inventory/partition tests cover
-the relocation. This is declaration-level load balancing, not a new scheduler or
-a weakened test. Acceptance must still finish the complete standard entry.
+P71 local acceptance retains two preparation failures. At fb80464 the standard
+types graph completed in 209 seconds and contracts/collections in 244/246 seconds;
+prototypes still reached the unchanged 300-second fence, before semantic tests.
+A declaration-only experiment moved feedback into the types compiler context,
+but that clean-output run also reached 300 seconds before all graphs completed.
+The experiment did not establish an improvement and was reverted: original
+partitions, every test, backend flags, heaps and phase fences remain unchanged.
+Both runs exited 124 and performed standard cleanup; neither is a local complete
+pass. Focused protocol regressions, Lean acceptance, final-HEAD remote CI and local
+complete-entry qualification must be reported separately. No warm retry, upstream
+change or resource increase is used to turn these failures into acceptance.
