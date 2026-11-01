@@ -127,4 +127,3 @@
     (check (replay.read-counterexample codec (open-input-string (get-output-string output))
       domain (lambda (_) (set! properties (1+ properties)) #f)) => #f)
     (check-equal? (list decoded properties) '(1 1))))
-
