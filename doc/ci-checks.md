@@ -222,7 +222,7 @@ The seven property examples only register test suites. Their shared build
 declarations use the existing harness C policy (`-Og` and
 `___SINGLE_HOST_LIMIT=4096`) in both the root package and its independent-library
 consumer. Generic PBT modules and performance studies retain production compiler
-flags. The independent build still has its 60-second, 1-GiB guard; its semantic
+flags. The independent build retains its 1-GiB guard; its semantic
 tests run to natural completion.
 
 ### Aggregate compilation completion
@@ -236,3 +236,12 @@ POO checks, original root-library/isolated-build/program bounds and failure-time
 standard clean remain. This is not a speedup claim: complete-entry wall time and
 actual stage costs are reported separately. A TERM probe exited 143 with its
 child reaped; the disabled deadline does not disable cancellation.
+
+The same explicit authorization removes the isolated generic PBT library's
+60-second compilation deadline. It still starts from an empty package, inherits
+standard compiler concurrency, checks that no POO runtime is installed, and
+requires exactly 205 successful cases plus error-free standard harness markers.
+Its 1-GiB heap and signal-group supervision remain. The first uncapped aggregate
+run completed test preparation in 277.18 seconds but then failed this separate
+60-second compiler deadline (exit 124), so that 891.30-second entry is not a pass.
+A subsequent complete acceptance must use another empty artifact prefix.

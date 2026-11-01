@@ -77,15 +77,16 @@
     (def runtime-options (string-append "GAMBOPT=" options
       (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
     ;; Standard process arguments and std/build-script own this isolated build.
-    ;; Inherit machine concurrency; only compilation owns the unchanged 60-second
-    ;; watchdog. Test execution runs to completion; END requires natural exit.
+    ;; Inherit machine concurrency and wait for compilation's natural completion.
+    ;; Zero retains group signal forwarding without a compiler wall deadline;
+    ;; the isolated heap and full-case admission remain unchanged.
     (def (run . arguments)
       (displayln "PROPERTY-LIBRARY-START " (time->seconds (current-time)) " " arguments
         " cores=" (getenv "GERBIL_BUILD_CORES" "compiler-default") " directory=" project) (force-output)
       (def result
         (run-process ["/usr/bin/time" "-p"
           (if (equal? (car arguments) "build")
-            [timeout "--signal=TERM" "--kill-after=3s" "60s"] []) ...
+            [timeout "--signal=TERM" "--kill-after=3s" "0"] []) ...
           "env" (string-append "GERBIL_PATH=" package) runtime-options
           "gerbil" "-:max-heap=1G,debug=q" arguments ...] directory: project stderr-redirection: #t
           coprocess: (lambda (port)
