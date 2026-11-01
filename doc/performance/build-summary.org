@@ -1649,3 +1649,21 @@ loading evidence. The existing shared executable could not load the official
 gxtest tool module, so that diagnostic route was rejected. The official Gerbil
 CLI remains the runner. No loader substitution or artifact reuse is introduced
 into the independent-library check.
+
+The first complete candidate admitted root/startup preparation at 131.45/8.54
+seconds and all test compilation at 149.69 seconds. It then failed the isolated
+library's unchanged 60-second compilation guard; whole entry 600.37 seconds.
+That row is not complete acceptance. The standalone fixture still listed
+property-scopes as a plain module, unlike the root's shared property-build-spec.
+It now uses the identical tracked C-host protection. Only the independent test
+execution deadline is removed to match the user's policy; compilation retains
+60 seconds and all isolation checks. After correcting generated empty-list
+syntax, the original suite passed in 45.82 seconds: isolated cold build 22.78
+seconds and independent test 10.15 seconds, with all 196 cases retained.
+
+During the failed whole entry a one-second types-runner sample found 855 of 865
+stacks in dynamic loading, dominated by dyld image registration and atlas/property
+list handling. This is not a whole-phase allocation/GC measurement, nor proof
+that all delay is F_CHECK_LV. It identifies a remaining loader cost without
+changing the loader or security policy. No test or compilation failure is
+reclassified as successful based on completed harness markers alone.

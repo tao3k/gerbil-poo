@@ -62,7 +62,7 @@
       '((import :std/build-script)
         (include "testing/property/build.scm")
         (defbuild-script `("property/generator" "property" "property/model" "property/replay" "property/test"
-                          "examples/property-products" "examples/property-numbers" "examples/property-filters" "examples/property-scopes" "examples/property-sizes" "examples/property-traces" ,property-kernel-build-spec))))
+                          "examples/property-products" "examples/property-numbers" "examples/property-filters" ,(property-build-spec "examples/property-scopes" '()) "examples/property-sizes" "examples/property-traces" ,property-kernel-build-spec))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))
@@ -77,14 +77,16 @@
     (def runtime-options (string-append "GAMBOPT=" options
       (if (equal? options "") "" ",") "max-heap=1G,debug=q"))
     ;; Standard process arguments and std/build-script own this isolated build.
-    ;; Inherit machine concurrency, and report CPU/system/wall time even when
-    ;; the unchanged watchdog refuses it. END still requires natural child exit.
+    ;; Inherit machine concurrency; only compilation owns the unchanged 60-second
+    ;; watchdog. Test execution runs to completion; END requires natural exit.
     (def (run . arguments)
       (displayln "PROPERTY-LIBRARY-START " (time->seconds (current-time)) " " arguments
         " cores=" (getenv "GERBIL_BUILD_CORES" "compiler-default") " directory=" project) (force-output)
       (def result
-        (run-process ["/usr/bin/time" "-p" timeout "--signal=TERM" "--kill-after=3s" "60s" "env"
-          (string-append "GERBIL_PATH=" package) runtime-options
+        (run-process ["/usr/bin/time" "-p"
+          (if (equal? (car arguments) "build")
+            [timeout "--signal=TERM" "--kill-after=3s" "60s"] []) ...
+          "env" (string-append "GERBIL_PATH=" package) runtime-options
           "gerbil" "-:max-heap=1G,debug=q" arguments ...] directory: project stderr-redirection: #t
           coprocess: (lambda (port)
             (call-with-output-string
