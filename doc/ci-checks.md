@@ -28,9 +28,9 @@ cache or reconstructed dependency graph is installed.
 On other platforms the root graph contains libraries only. The existing startup
 program package declares both executable entries in one standard make graph,
 so their static preparation is restricted to their dependency closure. Both
-programs and all library declarations remain required by `build-shared`; its
-300-second root and 90-second program guards are unchanged. This platform
-candidate requires a fresh Linux CI pass; macOS timings do not admit it.
+programs and all library declarations remain required by `build-shared`. Root
+compilation runs to completion; the 90-second program-study guard remains.
+This platform candidate requires a fresh Linux CI pass; macOS timings do not admit it.
 GitHub's `hashFiles` and cache action
 own exact-source cross-run lookup; `std/make` owns local dependency freshness.
 Cache misses are not accepted as success and tests always execute. No project
@@ -38,7 +38,7 @@ source-key files, cache admission executable or revision ledger are generated.
 The startup package retains `defbuild-script`'s backend parallelism through
 `GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
 disable concurrent backend object compilation. The 90-second startup-program
-gate remains separate from the 300-second root-library build.
+gate remains separate from root-library compilation.
 The default local entry shares the existing compiler partitions between two
 official test runners on Darwin and four elsewhere, capped by
 `GERBIL_BUILD_CORES`. CI retains all
@@ -85,8 +85,9 @@ object lifecycle assertions belong to `t/objects`. There is no separate
 CLI/make/runner validation; POO's compiler failure-drain support is imported as
 source during builds, not compiled into the runtime library.
 
-Compilation retains its 300-second bound. Test imports and execution have no
-fixed project wall deadline. Runtime/test and package-frontend heaps now use the explicitly requested 2 GiB
+Library/test compilation, test imports and test execution run to completion
+without a fixed project wall deadline. Program studies retain their own limits.
+Runtime/test and package-frontend heaps use the explicitly requested 2 GiB
 ceiling, matching the existing root/backend bound. Existing isolated-consumer
 negative controls retain their own declared limits. Compiler tracing and module/case/harness
 markers remain visible. All POO behavior checks run on cache hits too.
@@ -214,8 +215,9 @@ assertions follow the five real retained test modules, covering all six original
 helper families rather than checking deleted module names.
 
 The 2026-11-01 test policy removes project wall deadlines from semantic runner
-jobs and public test recipes, as explicitly requested. Compiler deadlines and
-2-GiB heaps remain. Two internal inference fixture modules increase compilation
+jobs and public test recipes, as explicitly requested. The subsequent explicit
+compiler-completion policy below removes compiler wall fences as well; 2-GiB
+heaps remain. Two internal inference fixture modules increase compilation
 units to 66 while retaining the same 62 discovered test roots and all 53 CI jobs.
 
 The seven property examples only register test suites. Their shared build
@@ -227,8 +229,9 @@ tests run to natural completion.
 
 ### Aggregate compilation completion
 
-The user-authorized policy removes only the complete test-preparation phase's
-300-second wall deadline. Ordinary `gerbil build` owns completion; a long healthy
+The user-authorized policy removes the complete test-preparation phase's
+300-second wall deadline, followed by the same root/package compiler fences.
+Ordinary `gerbil build` owns completion; a long healthy
 build is not a timeout failure. `timeout --signal=TERM --kill-after=3s 0` uses
 GNU's documented disabled-deadline mode to retain process-group signal forwarding
 and cancellation cleanup. The existing 2-GiB heaps, standard concurrency, all
@@ -244,7 +247,7 @@ requires exactly 205 successful cases plus error-free standard harness markers.
 Its 1-GiB heap and signal-group supervision remain. The first uncapped aggregate
 run completed test preparation in 277.18 seconds but then failed this separate
 60-second compiler deadline (exit 124), so that 891.30-second entry is not a pass.
-A subsequent complete acceptance must use another empty artifact prefix.
+The subsequent complete acceptance below uses another empty artifact prefix.
 
 Root-library and individual test-package compiler invocations follow the same
 user-authorized completion policy: their remaining 300-second wall fences also
@@ -252,3 +255,50 @@ use signal-only zero duration. This avoids moving the same false timeout to an
 outer or inner compiler boundary. Program-study, cleanup, heap and CI job-level
 limits are unchanged. Genuine compiler errors retain their statuses and still
 trigger standard clean.
+
+### Empty-artifact acceptance after compiler deadline removal
+
+A fresh artifact prefix, standard clean/build/test, default verbosity 3 and the
+existing worker/heap limits completed naturally in **1,200.90 seconds**. The run
+compiled Scheme sources at `127f307`; subsequent changes only disabled the unused
+root/package supervisor deadlines and corrected this guide. Root compilation
+finished within its then-active 300-second fence. No compiled sources or check
+inventory changed during acceptance.
+
+| Phase | Wall seconds |
+| --- | ---: |
+| Root library and its standard executable | 268.11 |
+| Startup program package | 26.39 |
+| Test-package compilation | 213.94 |
+| Complete semantic tests | 495.31 |
+| Build-declaration acceptance | 70.08 |
+| Collection paired study | 79.26 |
+| Generator paired study | 45.61 |
+
+The error-free log contains 63 module, 2,408 case and three harness completion
+markers, plus both paired-study markers. The isolated PBT consumer compiled in
+81.49 seconds with its original 1-GiB heap and passed exactly 205 cases in 25.01
+seconds. The previous 60-second fence would have rejected this healthy build.
+This is successful functional acceptance, **not a measured performance improvement**.
+
+The preceding cold diagnostic's initial library/program/test preparation had
+289 compilation entries, all distinct. Fresh isolated consumers and deliberate
+changed-input rebuild controls are separate required work. On Darwin, Gerbil's
+standard compiler emits one runtime C source and reuses its object for the dynamic
+bundle and static executable; static output alone is not duplicate compilation.
+A false timeout followed by standard failure cleanup discards successful graph
+outputs and forces the next attempt to prepare them again. Genuine failure
+cleanup remains required.
+
+Two short startup samples spent most sampled ticks in dynamic loading through
+`dyld` segment mapping and `fcntl`; those windows do not attribute the complete
+phase or identify the `fcntl` command. The table C source has 20,116 labels, already
+above the existing 10,000 single-host limit. Lowering that limit cannot change
+its selected backend mode. A separate post-acceptance standard compiler diagnostic
+of that same C source took 32.20 seconds (31.02 user, 0.58 system), with 3.25 seconds
+parsing and 25.78 optimizing/generating in the compiler report. It used warm host
+state and timing instrumentation, so it is not a cold-entry comparison. The earlier
+85.33-second C-to-object timestamp span also includes waiting and I/O; it cannot
+be assigned entirely to optimization. No upstream compiler, system validation,
+compiler optimization policy or required POO check was changed. Raw logs and
+artifacts remain outside Git.
