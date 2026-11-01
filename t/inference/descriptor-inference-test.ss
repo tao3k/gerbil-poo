@@ -16,7 +16,7 @@
   (prefix-in :clan/poo/examples/signature-service signature.)
   (prefix-in :clan/poo/examples/polymorphic-services service.)
   :clan/poo/number)
-(import (only-in ./descriptor-inference/intrinsic descriptor-inference-test))
+(import (only-in "descriptor-inference/intrinsic.ss" descriptor-inference-test))
 
 
 
