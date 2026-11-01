@@ -65,9 +65,10 @@
         (def before (file-info-last-modification-time (file-info target)))
         (build)
         (check (time->seconds (file-info-last-modification-time (file-info target))) => (time->seconds before))
-        ;; Fast reuse may finish within a filesystem tick. Establish a strictly
-        ;; newer input instead of depending on compiler startup to consume time.
-        (thread-sleep! (seconds->time (+ 1 (time->seconds before))))
+        ;; Fast reuse may finish within a filesystem tick. Wait relatively:
+        ;; a filesystem timestamp is not an absolute VM sleep deadline. The
+        ;; strict timestamp assertion below still admits the actual ordering.
+        (thread-sleep! 1.1)
         (call-with-output-file (path-expand "testing/property/build.scm" project)
           (lambda (port) (display policy-source port) (display "\n;; changed compiler-policy source\n" port)))
         (check (> (time->seconds (file-info-last-modification-time
@@ -199,8 +200,9 @@
         (def before (time->seconds (file-info-last-modification-time (file-info target))))
         (build)
         (check-equal? (time->seconds (file-info-last-modification-time (file-info target))) before)
-        ;; Establish make's strict timestamp premise before revising the input.
-        (thread-sleep! (seconds->time (+ 1 before)))
+        ;; Cross a filesystem tick with a relative wait, then require make's
+        ;; strict timestamp premise instead of trusting the wait itself.
+        (thread-sleep! 1.1)
         (call-with-output-file [path: policy append: #t]
           (lambda (port) (display "\n;; changed shared test compiler policy\n" port)))
         (check (> (time->seconds (file-info-last-modification-time (file-info policy))) before) => #t)
