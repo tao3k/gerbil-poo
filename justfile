@@ -6,6 +6,8 @@ physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || 
 export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
 export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
 export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
+test-context-limit := if os() == "macos" { "2" } else { "4" }
+test-context-recipe := if os() == "macos" { "_test-shared-packages" } else { "_test-packages" }
 test-runtime-options := "-:max-heap=2G,debug=q"
 timeout-executable := if os() == "macos" { `command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || true` } else { `command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true` }
 
@@ -89,9 +91,9 @@ _test-parallel:
     set -euo pipefail
     [[ "$GERBIL_BUILD_CORES" =~ ^[0-9]+$ ]] || { echo "GERBIL_BUILD_CORES must be a nonnegative integer" >&2; exit 2; }
     workers=$((10#$GERBIL_BUILD_CORES))
-    if (( workers < 1 )); then workers=1; elif (( workers > 4 )); then workers=4; fi
+    if (( workers < 1 )); then workers=1; elif (( workers > {{ test-context-limit }} )); then workers={{ test-context-limit }}; fi
     printf 'TEST-CONCURRENCY cores=%s packages=%s heap=2G\n' "$GERBIL_BUILD_CORES" "$workers"
-    /usr/bin/time -p just --jobs "$workers" _test-packages
+    /usr/bin/time -p just --jobs "$workers" {{ test-context-recipe }}
 
 [parallel]
 _test-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion") (_test-groups "contracts" "methods" "signatures") (_test-groups "declarations" "inference" "representations" "scalars")
@@ -252,3 +254,8 @@ benchmark-declaration-index: build-shared
 # Longer cold/full workflow confirmation retains the ordinary bounded test entry.
 benchmark-cold-query: build-shared
     just _test benchmarks/cold-query-test.ss
+
+# Darwin shares common module initialization between existing partitions.
+# The official runner and each original fixture/case remain unchanged.
+[parallel]
+_test-shared-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools" "declarations" "inference" "representations" "scalars") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion" "contracts" "methods" "signatures")

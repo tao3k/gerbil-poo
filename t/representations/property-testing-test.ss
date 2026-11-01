@@ -62,7 +62,7 @@
       '((import :std/build-script)
         (include "testing/property/build.scm")
         (defbuild-script `("property/generator" "property" "property/model" "property/replay" "property/test"
-                          "examples/property-products" "examples/property-numbers" "examples/property-filters" ,(property-build-spec "examples/property-scopes" '()) "examples/property-sizes" "examples/property-traces" ,property-kernel-build-spec))))
+                          ,@property-example-build-specs ,property-kernel-build-spec))))
     ;; The package manager executes build.ss; the standard script owns its argv.
     (let (file (path-expand "build.ss" project))
       (def text (call-with-input-file file read-all-as-string))

@@ -152,12 +152,7 @@
     "examples/signature-service"
     "examples/collection-testing"
     "examples/collection-properties"
-    "examples/property-products"
-    "examples/property-numbers"
-    "examples/property-filters"
-    ,(property-build-spec "examples/property-scopes" [])
-    "examples/property-sizes"
-    "examples/property-traces"
+    ,@property-example-build-specs
     ,property-kernel-build-spec
     "examples/property-workflows"
     "examples/property-refusals"

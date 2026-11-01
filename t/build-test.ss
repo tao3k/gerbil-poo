@@ -150,6 +150,13 @@
         '("_test-groups" "_test-groups" "_test-groups" "_test-groups"))
       (check (map (cut hash-ref <> "arguments") (hash-ref tests "dependencies")) =>
         (map cdr (test-build-partitions)))
+      ;; Sharing import contexts changes no package membership or suite coverage.
+      (def shared (hash-ref recipes "_test-shared-packages"))
+      (check (hash-ref shared "attributes") => '("parallel"))
+      (check (map (cut hash-ref <> "arguments") (hash-ref shared "dependencies")) =>
+        (let (parts (map cdr (test-build-partitions)))
+          (list (append (list-ref parts 0) (list-ref parts 3))
+                (append (list-ref parts 1) (list-ref parts 2)))))
       (check (hash-key? recipes "_build-test-prototypes") => #f)
       (check (hash-key? recipes "_build-test-publication") => #f))
     (test-case "shared build cleanup retains values failure identity and single evaluation"

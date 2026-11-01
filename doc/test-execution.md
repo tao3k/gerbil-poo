@@ -17,14 +17,15 @@ one owning timeout.
 On compiler failure the small build boundary drains the compiler's public
 `execute-pending-compile-jobs!` executor; it does not track or signal PIDs itself.
 
-`just test` runs every compiled `*-test.ssi` through four concurrent official
-`gerbil test` invocations. These reuse the existing compiler partitions, rather
-than launching 25 separate module-loading contexts. `GERBIL_BUILD_CORES` is also
-the local test-worker budget, capped by the four existing partitions (8 GiB of
-aggregate Scheme heap ceilings). A zero budget retains one worker. Just owns
-the dependency queue; the released runner itself has no parallel-thread option.
-No TestCase, TestSuite or fixture procedure is replaced. The declaration check
-compares the Just partitions with the authoritative Scheme declarations.
+`just test` runs every compiled `*-test.ssi` through official `gerbil test`
+invocations. Darwin shares the four compiler partitions between two loading
+contexts; other platforms retain four contexts. `GERBIL_BUILD_CORES` caps the
+number of workers. Each VM retains its 2 GiB heap ceiling. A zero budget retains
+one worker. Just owns the dependency queue; the released runner itself has no
+parallel-thread option. No TestCase, TestSuite or fixture procedure is replaced.
+The declaration check compares both arrangements with the authoritative Scheme
+declarations. Two contexts reduce repeated Darwin initialization, but four were
+faster in a warm-artifact diagnostic; this is not a universal throughput claim.
 
 `just check` is the complete cold-build and parallel-test entry. It retains every
 suite, declaration regression, isolated-library acceptance and both paired

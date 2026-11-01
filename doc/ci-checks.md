@@ -39,8 +39,9 @@ The startup package retains `defbuild-script`'s backend parallelism through
 `GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
 disable concurrent backend object compilation. The 90-second startup-program
 gate remains separate from the 300-second root-library build.
-The default local entry uses four concurrent official test runners over the
-existing compiler partitions, capped by `GERBIL_BUILD_CORES`. CI retains all
+The default local entry shares the existing compiler partitions between two
+official test runners on Darwin and four elsewhere, capped by
+`GERBIL_BUILD_CORES`. CI retains all
 53 checks, including the complete single-process job. No upstream runner is
 modified and no test procedure is run concurrently inside a shared fixture.
 The complete local entry prints standard `/usr/bin/time -p` wall/user/system observations
@@ -216,3 +217,10 @@ The 2026-11-01 test policy removes project wall deadlines from semantic runner
 jobs and public test recipes, as explicitly requested. Compiler deadlines and
 2-GiB heaps remain. Two internal inference fixture modules increase compilation
 units to 66 while retaining the same 62 discovered test roots and all 53 CI jobs.
+
+The seven property examples only register test suites. Their shared build
+declarations use the existing harness C policy (`-Og` and
+`___SINGLE_HOST_LIMIT=4096`) in both the root package and its independent-library
+consumer. Generic PBT modules and performance studies retain production compiler
+flags. The independent build still has its 60-second, 1-GiB guard; its semantic
+tests run to natural completion.
