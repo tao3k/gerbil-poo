@@ -1,6 +1,6 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
-(export prepared-service-tests failure-preparation-test signature-preparation-test service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
-(import :std/test :std/error :std/iter
+(export inspection-request-test prepared-service-tests failure-preparation-test signature-preparation-test service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(import (prefix-in ../testing/property property.) :std/test :std/error :std/iter
         (only-in ../testing/generation-graph generation-refusal? refuse-generation)
         (prefix-in :clan/poo/testing/property/generator core.)
         ../object
@@ -411,3 +411,84 @@
       (def corrected ((prepared-service-tests owner prepare observe consume faulty?: #f) configuration))
       (check-eq? (.get corrected status) 'passed)
       (check-equal? (length deliveries) 3))))
+
+;; Diagnostics admit static requests before computed samplers. These executable
+;; examples share the same FunctionArguments, checked service and FUN workflow.
+(def inspection-request-test
+  (test-suite "typed diagnostic request admission"
+    (test-case "all numeric controls refuse before computed declarations or observers"
+      (def entered 0) (def observed 0)
+      (def base (make-generator Integer (lambda (_r _s) (error "must not draw"))
+        (lambda (_) []) abs))
+      (def sampler (.o bind-these: #f inherit: [base]
+        descriptor: (begin (set! entered (1+ entered)) Integer)
+        generation: (begin (set! entered (1+ entered)) (error "must not prepare"))
+        .current?: (lambda () (set! observed (1+ observed)) #t)))
+      (for* ((key '(seed: count: size: depth: proposal-budget:))
+             (bad (list -1 1/2 1.0 #f 'invalid)))
+        (check-exception (apply inspect-generator sampler (list key bad))
+          (lambda (cause) (and (Error? cause)
+            (equal? (Error-message cause) "invalid generator inspection configuration")))))
+      (check-equal? (list entered observed) '(0 0)))
+    (test-case "malformed labels share generic refusal and never enter typed factories"
+      (def entered 0)
+      (def sampler (.o bind-these: #f generation: (begin (set! entered (1+ entered)) #f)))
+      (def generation (core.generator-integer 0 2))
+      (def domain (property.make-specification integer? abs))
+      (for (bad (list #f 1 'labels []))
+        (check-exception (inspect-generator sampler labels: bad) Error?)
+        (check-exception (property.inspect-generator generation domain labels: bad) Error?))
+      (check-equal? entered 0))
+    (test-case "valid zero controls prepare once without sampling or forcing labels"
+      (def prepared 0) (def draws 0) (def labels 0)
+      (def base (make-generator Integer (lambda (_r _s) (set! draws (1+ draws)) 0)
+        (lambda (_) []) abs))
+      (def sampler (.cc base generation: (lambda (_owner) (set! prepared (1+ prepared)) #f)))
+      (def result (inspect-generator sampler seed: (expt 2 100) count: 0 size: 0 depth: 0
+        proposal-budget: 0 labels: (lambda (_) (set! labels (1+ labels)) [])))
+      (check-eq? (property.inspection-status result) 'complete)
+      (check-equal? (property.inspection-events result) [])
+      (check-equal? (list prepared draws labels) '(1 0 0)))
+    (test-case "valid metadata causes stay exact and an invalid request cannot mask itself as stale"
+      (for (primary (list #f (cons 'preparation 'fault)))
+        (def entered 0)
+        (def sampler (.o bind-these: #f inherit: [(generator Integer)]
+          generation: (begin (set! entered (1+ entered)) (raise primary))))
+        (check-exception (inspect-generator sampler count: -1) Error?)
+        (check-equal? entered 0)
+        (check-eq? (with-catch identity (lambda () (inspect-generator sampler count: 0) 'missed)) primary)
+        (check-equal? entered 1))
+      (def descriptor (List Integer)) (def sampler (generator descriptor))
+      (.put! descriptor 'revision 1)
+      (check-exception (inspect-generator sampler depth: -1)
+        (lambda (cause) (and (Error? cause)
+          (equal? (Error-message cause) "invalid generator inspection configuration"))))
+      (check-eq? (property.inspection-status (inspect-generator sampler count: 0)) 'stale))
+    (test-case "bounded nested service observations compose with shrinking replay and fresh correction"
+      (def owner (.o epoch: 0))
+      (def descriptor (FunctionArguments ServiceSignature))
+      (def sampler (generator descriptor))
+      (def supplied (.cc sampler sources: (cons owner (.get sampler sources))))
+      (def labels 0)
+      (def diagnostic (inspect-generator supplied seed: 42 count: 4 size: 4 depth: 1
+        proposal-budget: 12 labels: (lambda (arguments)
+          (set! labels (1+ labels))
+          (unless (service-property arguments) (error "wrapped call disagrees")) '(service))))
+      (check-eq? (property.inspection-status diagnostic) 'complete)
+      (check-equal? (property.inspection-draws diagnostic) 4)
+      (check (<= (property.inspection-attempts diagnostic) 12) => #t)
+      (check (> labels 0) => #t)
+      (def delivered #f)
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 4))
+      (def action (property-action descriptor (lambda (arguments) (not (service-property arguments)))
+        (lambda (report) (set! delivered report)) sampler: supplied))
+      (action configuration)
+      (check-eq? (.get delivered status) 'failed)
+      (check-eq? (.get (replay-property delivered) status) 'failed)
+      (check (replay-counterexample delivered) => #f)
+      (.set! owner epoch 1)
+      (check (property.inspection-current? diagnostic) => #f)
+      (check-exception (replay-property delivered) Error?)
+      (def fresh (check-property descriptor service-property sampler: (generator descriptor)
+        cases: 4 seed: 42 size: 4))
+      (check-eq? (.get fresh status) 'passed))))

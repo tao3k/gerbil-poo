@@ -364,10 +364,12 @@
          (specification (property-specification sampler sources)))
     (values generation specification)))
 ;; Typed diagnostics reuse the existing sampler bridge and captured Type sources.
-;; Preparation errors remain ordinary Type errors; execution refusals retain the
+;; Static requests are admitted before metadata; preparation errors remain
+;; ordinary Type errors. Execution refusals retain the
 ;; generic inspection status/cause. No property, assertion or coverage is run.
 (def (inspect-generator sampler seed: (seed 0) count: (count 10) size: (size 20)
                        depth: (depth 0) proposal-budget: (budget 0) labels: (labels (lambda (_) [])))
+  (testing.check-inspection-request seed count size depth budget labels generation-status)
   (def sources (snapshot sampler []))
   (let-values (((generation specification) (prepare-sampler sampler sources)))
     (testing.inspect-generator generation specification

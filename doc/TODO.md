@@ -4,6 +4,11 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P66 closes typed diagnostic request admission before computed sampler metadata,
+source observation and factory binding. Both layers share the existing generic
+configuration check; zero budgets and valid-request failure behavior remain.
+See [P66](pbt-design-rfc.md#p66-diagnostic-request-admission-before-typed-preparation).
+
 P65 closes typed initialization failure reporting with the existing generic
 classifier. Secondary observation cannot replace the primary cause; confirmed
 retirement stays stale, unfinished execution stays non-replayable, and FUN consumer

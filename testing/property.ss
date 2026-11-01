@@ -1,5 +1,5 @@
 ;;; Independent property execution and replay; only generic generators and stdlib.
-(export failure-status make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
+(export check-inspection-request failure-status make-specification specification? check-property replay-property replay-counterexample check-counterexample define-property
         call-with-specifications report? report-status report-generator report-property report-specification
         report-seed report-cases report-size report-shrink-budget report-trial report-original
         report-counterexample report-attempts report-steps report-minimal? report-cause report-trial-size report-size-limit report-name report-accepted report-discarded report-labels
@@ -242,15 +242,21 @@
 ;; Delayed consumers can refuse diagnostics whose visited sources have changed.
 (def (inspection-current? inspection)
   (current? (inspection-specification inspection) (inspection-generator inspection) (inspection-sources inspection)))
+;; Static diagnostic admission is shared with typed preparation. It observes
+;; no generator, descriptor or source, and preserves the existing request error.
+(def (check-inspection-request seed count size depth budget labels classify)
+  (unless (and (procedure? labels) (procedure? classify)
+    (every (lambda (n) (and (exact-integer? n) (>= n 0))) (list seed count size depth budget)))
+    (error "invalid generator inspection configuration")))
 ;; One finite observer handles sampling (depth/budget zero) and depth-first shrink
 ;; exploration. Paths are [draw-index child-index ...]; tombstones are charged.
 ;; Depth and exhausted fuel never force children merely to discover an EOF.
 (def (inspect-generator generator specification seed: (seed 0) count: (count 10)
                        size: (size 20) depth: (depth 0) proposal-budget: (budget 0)
                        labels: (labels (lambda (_) [])) classify-error: (classify (lambda (_) 'error)))
-  (unless (and (generator? generator) (specification? specification) (procedure? labels) (procedure? classify)
-    (every (lambda (n) (and (exact-integer? n) (>= n 0))) (list seed count size depth budget)))
+  (unless (and (generator? generator) (specification? specification))
     (error "invalid generator inspection configuration"))
+  (check-inspection-request seed count size depth budget labels classify)
   (def state (make-progress #f 0 0))
   (def sources []) (def seen (make-hash-table-eq))
   (def events []) (def counts (make-hash-table-eq))
