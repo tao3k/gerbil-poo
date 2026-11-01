@@ -42,56 +42,65 @@
 ;; precedes reuse, so additions/removals still canonicalize through the weak table.
 ;; Reusing its ordered names skips sorting/interning, never current value seeding.
 (def (make-slot-layout names initial missing previous: (previous #f))
-  ;; The standard deduplicator already builds this membership table. Retain it
-  ;; only during construction, so narrowing needs no second set or value cache.
-  (def members (make-hash-table-eq))
-  (def unique (delete-duplicates/hash names table: members))
-  (def hint (and previous (slot-layout-shape previous)))
-  ;; Count each hinted directory once; unhinted construction pays neither scan.
-  (def width (and hint (length unique)))
-  (def prior-width (and hint (length (shape-names hint))))
-  (def canonical
-    (cond
-      ((and hint (= width prior-width)
-            (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint)
-      ;; A certified subset keeps the old canonical identity order. No values
-      ;; are copied from the hint; replacement keys must take the general path.
-      ((and hint (< width prior-width)
-            (andmap (cut hash-key? (shape-indices hint) <>) unique))
-        (intern-ordered-shape
-          (if (null? unique) [] (filter (cut hash-key? members <>) (shape-names hint)))))
-      ;; Cardinality plus exactly one unknown certifies a strict extension.
-      ;; Replacements/removals retain complete canonicalization, not this hint.
-      ((and hint (= width (1+ prior-width)))
-        (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
-          (if (and (pair? added) (null? (cdr added))) (extend-shape hint (car added))
-            (intern-shape unique))))
-      (else (intern-shape unique))))
-  (def keys (shape-names canonical))
-  ;; Fill the final vector through the same presence boundary as ordinary writes.
-  ;; No intermediate value list, list-to-vector copy or second count scan exists.
-  ;; A refused seed leaves this unpublished receiver local to this constructor.
-  (def result (make-layout canonical (make-vector (length keys) missing) missing 0))
-  (when initial
-    (for ((name keys) (index (in-range (length keys))))
-      (slot-layout-set! result index (hash-ref initial name missing))))
-  result)
+  (using (names :~ list?)
+    ;; Reject improper/cyclic input before iteration; check every key through the
+    ;; deduplicator before it can reach the compiler's unchecked symbolic hash.
+    ;; The standard deduplicator already builds this membership table. Retain it
+    ;; only during construction, so narrowing needs no second set or value cache.
+    (def members (make-hash-table-eq))
+    (def unique (delete-duplicates/hash names table: members
+      key: (lambda (name) (using (name :~ symbol?) name))))
+    (def hint (and previous (slot-layout-shape previous)))
+    ;; Count each hinted directory once; unhinted construction pays neither scan.
+    (def width (and hint (length unique)))
+    (def prior-width (and hint (length (shape-names hint))))
+    (def canonical
+      (cond
+        ((and hint (= width prior-width)
+              (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint)
+        ;; A certified subset keeps the old canonical identity order. No values
+        ;; are copied from the hint; replacement keys must take the general path.
+        ((and hint (< width prior-width)
+              (andmap (cut hash-key? (shape-indices hint) <>) unique))
+          (intern-ordered-shape
+            (if (null? unique) [] (filter (cut hash-key? members <>) (shape-names hint)))))
+        ;; Cardinality plus exactly one unknown certifies a strict extension.
+        ;; Replacements/removals retain complete canonicalization, not this hint.
+        ((and hint (= width (1+ prior-width)))
+          (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
+            (if (and (pair? added) (null? (cdr added))) (extend-shape hint (car added))
+              (intern-shape unique))))
+        (else (intern-shape unique))))
+    (def keys (shape-names canonical))
+    ;; Fill the final vector through the same presence boundary as ordinary writes.
+    ;; No intermediate value list, list-to-vector copy or second count scan exists.
+    ;; A refused seed leaves this unpublished receiver local to this constructor.
+    (def result (make-layout canonical (make-vector (length keys) missing) missing 0))
+    (when initial
+      (for ((name keys) (index (in-range (length keys))))
+        (slot-layout-set! result index (hash-ref initial name missing))))
+    result))
 ;; Explicit backend qualification uses the same evaluator and resource limits.
 ;; The default owns all computed values in one vector; hash is a measured control.
 (def slot-value-storage (make-parameter 'vector))
 ;; Build the sole instance value store before publishing any read credentials.
 ;; Symbolic shapes describe uncomputed cells, so construction runs no slot body.
 (def (make-slot-values names initial entries missing previous: (previous #f))
-  (def values
-    (case (slot-value-storage)
-      ((vector) (HashTable (make-slot-layout
-        (append names (if initial (hash-keys initial) []) (map car entries))
-        #f missing previous: previous)))
-      ((hash) (make-hash-table-symbolic))
-      (else (error "unknown slot value storage" (slot-value-storage)))))
-  (when initial (hash-for-each (lambda (key value) (hash-put! values key value)) initial))
-  (for (([key . value] entries)) (hash-put! values key value))
-  values)
+  ;; Admit both spines before append/map; layout construction owns key admission.
+  (using ((names :~ list?) (entries :~ list?))
+    (def keys (append names (if initial (hash-keys initial) []) (map car entries)))
+    (def values
+      (case (slot-value-storage)
+        ((vector) (HashTable (make-slot-layout
+          keys #f missing previous: previous)))
+        ((hash)
+          ;; The qualification backend has the same admission, before any seed writes.
+          (for-each (lambda (key) (using (key :~ symbol?) (void))) keys)
+          (make-hash-table-symbolic))
+        (else (error "unknown slot value storage" (slot-value-storage)))))
+    (when initial (hash-for-each (lambda (key value) (hash-put! values key value)) initial))
+    (for (([key . value] entries)) (hash-put! values key value))
+    values))
 ;; Unwrap the standard interface once when exposing its existing value layout.
 ;; There is no value copy, promotion, lineage alias or auxiliary cache.
 (def (slot-values-layout table)

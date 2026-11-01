@@ -3585,3 +3585,24 @@ Machine-derived build concurrency and the independent package's original limits
 remain unchanged. Full-context versus isolated build timing is reported separately;
 neither a warm pass nor fewer images establishes cold-loading tail improvement.
 See [the scope and measured receipt](representation.md#suite-local-syntax-and-standard-preparation-recovery).
+
+### Finite symbolic Slot construction admission
+
+Closed a reproduced public-constructor failure: `make-slot-layout '(17)` reached
+an unchecked symbolic hash and terminated the official test process with signal
+11 (exit 139). Standard `using` now admits finite spines before list traversal;
+the existing standard deduplicator's key projection checks Symbol leaves before
+canonical shape/index construction. `make-slot-values` admits both source spines
+before append/map and includes declared, seed and override keys in admission.
+The measured hash backend has the same key refusal before seed installation.
+No replacement list recognizer, index, registry, namespace or read wrapper exists.
+
+Improper/cyclic rows, non-symbol leaves, malformed entries, bad seed keys and both
+stores have controls. `layout-admission-workflow` composes a warm diamond service,
+FUN/refinement, unchanged evidence on refusal, exact false/Function retry, shared
+canonical shapes and parent revision. Finite Lean decoder/preparation/frame laws
+require faithful host list/Symbol recognition and standard collection execution;
+they do not prove runtime memory safety or arbitrary callbacks. The paired
+`slot-layout-admission` phase charges the entire corrected workflow for both
+existing stores in natural/collected/post-GC regimes. It is not an unsafe former
+constructor baseline or a claimed speedup. See representation.md.

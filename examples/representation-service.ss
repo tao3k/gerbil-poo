@@ -1,7 +1,7 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
 (export entry-recovery-workflow)
-(export cycle-diagnostic-workflow)
+(export cycle-diagnostic-workflow layout-admission-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
 (def (entry-arguments . arguments) (apply values arguments))
@@ -120,6 +120,37 @@
   (unless (and (eq? (vector-ref fresh 0) #f) (eq? (vector-ref fresh 1) identity)
                (eq? before (active-slot-computations))) (error "cycle revision oracle"))
   (vector attempts first (.get owner total) #t))
+
+;; Reject malformed layout rows without touching an already warm shared service.
+;; Retry retains exact false/Function values and canonical shape identity, then
+;; a supported parent revision invalidates the original observed credential.
+(def (layout-admission-workflow)
+  (def recipe (.cc Service capacity: 2 tariff: 3))
+  (def owner (.mix (.mix recipe) (.mix recipe)))
+  (def site (make-slot-cache 'total shapes: 2))
+  (def read (checked-total-action (lambda (_ total) total)))
+  (defvalues (first records) (%call-with-recorded-slot-reads (cut read owner)))
+  (def saved (car (filter (lambda (read) (eq? (slot-read-key read) 'total)) records)))
+  (def layout (object-layout owner))
+  (def cyclic (list 'callback)) (set-cdr! cyclic cyclic)
+  (def refused 0)
+  (for (bad (list '(17) '(#f) '("callback") '(callback . tail) cyclic))
+    (unless (contract-violation-error? (with-catch identity
+              (cut make-slot-layout bad #f absent-value previous: layout)))
+      (error "layout grammar did not refuse"))
+    (set! refused (1+ refused))
+    (unless (and (eq? layout (object-layout owner)) (object-read-current? saved)
+                 (= (.ref/inline owner site) first)) (error "layout refusal changed live state")))
+  (def retry (make-slot-values '(callback disabled) #f
+    (list (cons 'callback identity) (cons 'disabled #f)) absent-value))
+  (def sibling (make-slot-layout '(disabled callback) #f absent-value))
+  (def retry-layout (slot-values-layout retry))
+  (unless (and (eq? (hash-ref retry 'callback) identity) (eq? (hash-ref retry 'disabled) #f)
+               (or (not retry-layout) (eq? (slot-layout-shape retry-layout) (slot-layout-shape sibling))))
+    (error "layout retry lost payload or canonical shape"))
+  (.putslot! recipe 'tariff ($constant-slot-spec 4))
+  (when (object-read-current? saved) (error "layout workflow retained obsolete evidence"))
+  (vector refused first (read owner) #t))
 
 ;; The service path retains full refinement before total demand or consumer effects.
 ;; Selected fields share the receiver's ordinary lazy value authority.

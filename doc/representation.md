@@ -2033,3 +2033,63 @@ acquisition, admission, filtering and common work; benefit requires these costs
 to fit the avoided sort. This is not a hash-complexity, allocator, GC, concurrent
 mutation, compiler or wall-clock proof. Symbol serial injectivity, standard
 container behavior and serialized registered edits remain host premises.
+
+### Finite symbolic layout admission
+
+The public `make-slot-layout` constructor previously accepted a numeric name far
+enough to reach the compiler's unchecked symbolic hash. A bounded regression with
+`(list 17)` in the standard `gerbil test` process terminated with signal 11 / exit
+139; the negative log stays outside Git. This is a missing supported constructor
+boundary, not a claim about arbitrary mutation of runtime-private fields.
+
+Standard `using`/`list?` now checks finite shape grammar before deduplication.
+The existing `delete-duplicates/hash` key projection checks Symbol leaves before
+any canonical index insertion. It retains the standard order/deduplication and
+shape-hint algorithms. `make-slot-values` admits names and entry spines before
+append/map, then checks the combined declared/seed/override key domain. The hash
+qualification applies the same admission before writes. Malformed entry pairs
+retain the standard selector exception; improper/cyclic spines and non-symbolic
+keys produce contract refusal. Earlier host argument/callback effects are not
+rolled back. Seed traversal, list admission, per-leaf checks, sort/index work,
+allocation and GC remain real preparation costs; successful reads add no checks.
+
+The existing service module exports `layout-admission-workflow`: five malformed
+rows cannot change an already warm shared diamond receiver or its observed
+credential. Valid retry preserves exact false and Function identity, and vector
+retry shares the canonical shape of an independently ordered sibling. Supported
+parent revision then retires old evidence and delivers the recomputed total via
+FUN/refinement. The existing representation suite also covers seed keys, entry
+keys and both value backends.
+
+`RepresentationIndex` models finite leaf decoding before preparation. Six laws
+and two examples cover valid rows with duplicates, invalid leaves after valid
+prefixes, row refusal, exact delegation and the old published-state frame. Host
+finite-list/Symbol recognition, identity interpretation and correct standard
+HashTable execution are premises. This neither verifies the compiler/runtime nor
+extends the author's original mutable protocol into an unrestricted proof: the
+author's `poof.scrbl` mutable instance construction (1495–1523) motivates keeping
+one storage authority; staged cache/representation optimization (1826–1829) remains
+explicit future work.
+
+The fair `slot-layout-admission` study compares hash/vector through the SAME
+corrected complete workflow, including failure construction, warm reads, retry
+and shared revision. Existing AB/BA, A/A/B/B and natural/collected/post-GC controls
+remain unchanged. Both sides refuse malformed inputs; the unsafe old constructor
+is only a negative correctness control and is never a timed equivalent result.
+
+Validation receipt for this unit: the old numeric-key negative process exited
+139. Corrected representation source regression passed naturally in 31.29 s;
+the complete collection paired matrix passed in 21.55 s (`2 1 4`). These are
+prepared-artifact runs, not cold-build evidence. The local complete command first
+hit the unchanged root 300 s deadline (301.71 s), then standard incremental resume
+hit the unchanged test-compiler 300 s deadline; standard failure cleanup ran.
+Neither failed full command is reported as a local complete pass.
+
+For the new two-workflow action, hash/vector AB had post-GC batch mean +27.00 us,
+maximum/p90 +32.90 us (four pairs). Collected mean was +31.65 us; natural mean
++393.63 us, maximum +561.95 us. Inclusive post-GC mean was +32.66 us; disjoint
+batch/first/forced-GC contributions were +13.50/+19.52/-0.36 us. This does not
+establish a latency win or isolate admission's cost: both sides use the fix and
+only the existing store differs. A/A and B/B remain in the complete output; raw
+logs are external. Current-head remote build, all groups and the single-process
+whole-suite gate remain required acceptance, with all limits unchanged.

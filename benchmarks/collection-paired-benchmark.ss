@@ -35,7 +35,7 @@
 (def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
     slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire
-    slot-cycle-report slot-cycle-workflow) +slot-offset-phases+))
+    slot-cycle-report slot-cycle-workflow slot-layout-admission) +slot-offset-phases+))
 
 ;; Compare indexed deletion against the supported complete-specification rebuild.
 ;; Construction and snapshot observation are charged in the cold/full paths.
@@ -248,6 +248,18 @@
         (unless (equal? (parameterize ((slot-value-storage storage))
                          (service.cycle-diagnostic-workflow)) '#(3 9 11 #t))
           (error "cycle workflow oracle"))) #t))
+  (values (action 'hash) (action 'vector)))
+
+;; Both complete workflows admit malformed rows, retain warm state, retry with
+;; false/Function seeds and revise a shared parent. Only the existing value store
+;; differs; construction and failed preparation stay inside both timed actions.
+(def (layout-admission-workload size)
+  (def (action storage)
+    (lambda ()
+      (for (_ (in-range size))
+        (unless (equal? (parameterize ((slot-value-storage storage))
+                         (service.layout-admission-workflow)) '#(5 9 11 #t))
+          (error "layout admission workflow oracle"))) #t))
   (values (action 'hash) (action 'vector)))
 
 ;; Compare the same current layout constructor with/without an old shape hint.
@@ -789,7 +801,7 @@
   (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
   (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cycle-report slot-cycle-workflow slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cycle-report slot-cycle-workflow slot-layout-admission slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -824,6 +836,7 @@
             ((memq scenario +slot-value-phases+) (cut slot-values-workload n scenario))
             ((eq? scenario 'slot-cycle-report) (cut cycle-report-workload n))
             ((eq? scenario 'slot-cycle-workflow) (cut cycle-workflow n))
+            ((eq? scenario 'slot-layout-admission) (cut layout-admission-workload n))
             ((memq scenario +slot-phases+) (cut slot-workload n scenario))
             (else (cut workload n scenario))) vector)) 1 #f
           (lambda (before after elapsed) (set! setup-history (measurement-history before after elapsed)))))
