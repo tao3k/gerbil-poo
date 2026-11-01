@@ -21,10 +21,16 @@ The shared job runs `just build-shared`. The root package builds the shared
 libraries and `representation-main`; complete collection acceptance loads its
 ordinary module through that entry. The startup benchmark has its own small
 standard executable package. It does not relink the complete collection graph.
-The root entry keeps its library declarations and the existing foundation
+On Darwin the root entry keeps its library declarations and the existing foundation
 executable in one standard make graph. The released Darwin compiler owns reuse
 of runtime machine objects for dynamic and static consumers. No project object
 cache or reconstructed dependency graph is installed.
+On other platforms the root graph contains libraries only. The existing startup
+program package declares both executable entries in one standard make graph,
+so their static preparation is restricted to their dependency closure. Both
+programs and all library declarations remain required by `build-shared`; its
+300-second root and 90-second program guards are unchanged. This platform
+candidate requires a fresh Linux CI pass; macOS timings do not admit it.
 GitHub's `hashFiles` and cache action
 own exact-source cross-run lookup; `std/make` owns local dependency freshness.
 Cache misses are not accepted as success and tests always execute. No project

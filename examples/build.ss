@@ -5,10 +5,10 @@
         (only-in :std/make pkg-config-libs)
         (only-in "../t/build.ss" call-with-build-jobs))
 ;; Only this program's dependency closure needs static runtime objects.
-(def (representation-build-spec (entry "representation-main"))
+(def (representation-build-spec (entry "representation-main") (links (pkg-config-libs "openssl")))
   `((exe: ,entry bin: "representation-main"
      "-cc-options" "-D___SINGLE_HOST_LIMIT=10000"
-     "-ld-options" ,(pkg-config-libs "openssl"))))
+     "-ld-options" ,links)))
 (def build
   (let ()
     (defbuild-script (representation-build-spec))

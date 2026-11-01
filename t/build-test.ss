@@ -86,7 +86,13 @@
             (check (eof-object? (read port)) => #t)
             value)))
       (check-equal? (metadata "meta") '("spec" "compile" "clean"))
-      (check (list? (metadata "spec")) => #t))
+      (def spec (metadata "spec"))
+      (check (list? spec) => #t)
+      ;; Executables make standard make request static objects for the whole
+      ;; graph. Only Darwin's shared-object path belongs in this library graph.
+      (check (length (filter (lambda (entry)
+        (and (pair? entry) (eq? (car entry) exe:))) spec))
+        => (cond-expand (darwin 1) (else 0))))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"

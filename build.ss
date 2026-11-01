@@ -249,13 +249,15 @@
     "benchmarks/representation-startup"
 ))
 ;; Standard make and its backend executor both use GERBIL_BUILD_CORES.
-;; One standard make graph sees the executable and its library closure together.
-;; The compiler reuses runtime C for dynamic and static consumers.
+;; Darwin reuses a static object for its dynamic bundle. Other platforms keep
+;; libraries dynamic here; the program package owns their required static closure.
 (def build
   (let ()
     (defbuild-script
-      (append +gerbil-poo-build-spec+
-              (entry-build.representation-build-spec "examples/representation-main")))
+      (cond-expand
+        (darwin (append +gerbil-poo-build-spec+
+                   (entry-build.representation-build-spec "examples/representation-main")))
+        (else +gerbil-poo-build-spec+)))
     main))
 ;; Close the compiler's own executor if construction refuses before make returns.
 (def (main . options)
