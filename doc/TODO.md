@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P79 closes known Tuple/Union/Or directory ownership before edge observation.
+Complete occurrence width is admitted before copying; known Types retain their
+first epochs before inherited checks. Branch order, sharing, per-edge fuel,
+exact callback causes and explicit fresh retries use the existing graph owner.
+See [P79](pbt-design-rfc.md#p79-bounded-known-carrier-directories-before-edge-observation).
+
 P78 closes finite Function call-request ownership. Direct calls admit and capture
 finite argument spines before observers; ordinary procedures pass their owned
 rest rows to the same guarded lookup without a second request copy. Exact rows,

@@ -1,6 +1,8 @@
 ;;; Automatic mutually recursive descriptors, shared children and checked FUN use.
-(export observer-tree-tests opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
-(import ../object
+(export carrier-tree-test observer-tree-tests opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
+(import :std/test :std/error :std/iter
+        (prefix-in :clan/poo/testing/property/generator core.)
+        ../object
         ../mop
         ../type
         ../number
@@ -160,3 +162,53 @@
   (property-action (Tuple Leaf (List Leaf) (Pair Tail Leaf)) (lambda (value)
     (trigger 'property)
     (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) consume))
+
+;; Shared Record/Function leaves cross Tuple, Pair, Union and List directories.
+;; The fault is injected at an inherited checked edge, never by a second runner.
+(def carrier-tree-test
+  (test-suite "known recursive carrier declarations through FUN"
+    (test-case "carrier capture rejects sibling revision then shrinks replays and freshly retries"
+      (for (fault '(directory revision))
+        (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def factories 0) (def faulty? #t)
+        (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+        (def Leaf (.cc schema epoch: 0 .element?: (cut element? schema <>) .generator: (lambda ()
+          (set! factories (1+ factories))
+          (make-generator Leaf (lambda (_r _s) (make-instance schema key: 2 handler: abs))
+            (lambda (value) (if (zero? (.get value key)) [] [(.cc value key: 0)]))
+            (cut .get <> key) dependencies: (list owner)))))
+        (def PairType (Pair Leaf UInt))
+        (def Choice (Union Leaf (List Leaf)))
+        (def descriptor (Tuple Leaf PairType Choice))
+        (def declared (list Leaf PairType Choice))
+        (.putslot! descriptor 'type-list ($self-slot-spec (lambda (_) (set! armed #t) declared)))
+        (def action (property-action descriptor (lambda (value)
+          (= ((.@ (vector-ref value 0) handler) -1) (if faulty? 0 1))) identity))
+        (def configuration (make-instance PropertyConfiguration seed: 37 cases: 1 size: 3 shrink-budget: 60))
+        (def first (core.with-generation-check (lambda ()
+          (when (and armed (not changed))
+            (set! changed #t)
+            (case fault ((directory) (set-car! (cdr declared) UInt)) ((revision) (.set! Leaf epoch 1)))))
+          (action configuration)))
+        (check changed => #t)
+        (if (eq? fault 'revision)
+          (begin (check-eq? (.get first status) 'stale)
+            (check-eq? (.get first replayable?) #f) (check-equal? factories 0))
+          (begin (check-eq? (.get first status) 'failed) (check-equal? factories 1)
+            (check (element? descriptor (.get first counterexample)) => #t)
+            (check (pair? (vector-ref (.get first counterexample) 1)) => #t)
+            (check (replay-counterexample first) => #f)))
+        ;; Publish a fresh declaration epoch explicitly; the private captured
+        ;; directory cannot renew an old report when the source is corrected.
+        (.putslot! descriptor 'type-list ($constant-slot-spec (list Leaf PairType Choice)))
+        (def fresh (action configuration))
+        (check-eq? (.get fresh status) 'failed)
+        (check (element? descriptor (.get fresh counterexample)) => #t)
+        (check (> (.get fresh steps) 0) => #t)
+        (check-equal? (.get (vector-ref (.get fresh counterexample) 0) key) 0)
+        (check-exception ((.@ (vector-ref (.get fresh counterexample) 0) handler) 'bad) TypeError?)
+        (check (replay-counterexample fresh) => #f)
+        (check-eq? (.get (replay-property fresh) status) 'failed)
+        (check-exception (replay-property first) Error?)
+        (.set! owner epoch 1) (set! faulty? #f)
+        (check-exception (replay-counterexample fresh) Error?)
+        (check-eq? (.get (action configuration) status) 'passed)))))

@@ -1,6 +1,7 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
-(export recursive-generation-test discovery-test)
-(import (only-in :std/list/list take drop) (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
+(export recursive-generation-test discovery-test carrier-tree-test)
+(import (only-in :clan/poo/examples/recursive-trees carrier-tree-test)
+        (only-in :std/list/list take drop) (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/generation-graph :clan/poo/testing/type
         (prefix-in :clan/poo/examples/recursive-trees trees.)
         (prefix-in :clan/poo/testing/property/replay corpus.))
@@ -8,6 +9,13 @@
 ;; Match only a controlled refusal and its precise resource tag.
 (def (limited? kind)
   (lambda (cause) (and (generation-refusal? cause) (eq? (generation-refusal-kind cause) kind))))
+;; One fixture exposes the same finite directory protocol for all known carriers.
+;; Getter timing is explicit so tests can perturb the following edge boundary.
+(def (carrier-descriptor kind children observed)
+  (def descriptor (apply (case kind ((tuple) Tuple) ((union) Union) (else Or)) children))
+  (.putslot! descriptor (if (eq? kind 'tuple) 'type-list 'types)
+    ($self-slot-spec (lambda (_) (observed) children)))
+  descriptor)
 ;; Inspect recorded resource refusals rather than accepting unrelated errors.
 (def (reason report)
   (and (generation-refusal? (.get report cause)) (generation-refusal-kind (.get report cause))))
@@ -685,6 +693,73 @@
 ;; inherited scope and its immutable, deduplicated runtime revision ledger.
 (def discovery-test
   (test-suite "recursive graph discovery snapshots"
+    (test-case "known carrier directories retain order across inherited checker edits"
+      (for* ((kind '(tuple union or)) (edit '(replace improper cycle)))
+        (def First (.cc Integer)) (def Original (.cc Integer)) (def Foreign (.cc Integer))
+        (def declared (list First Original)) (def armed #f) (def changed #f)
+        (def descriptor (carrier-descriptor kind declared (lambda () (set! armed #t))))
+        (def graph (core.with-generation-check (lambda ()
+          (when (and armed (not changed))
+            (set! changed #t)
+            (case edit ((replace) (set-car! (cdr declared) Foreign))
+                       ((improper) (set-cdr! declared 'tail)) ((cycle) (set-cdr! declared declared)))))
+          (compile-graph descriptor 4 16 32 64
+            (lambda (type) (make-generator type (lambda (_r _s) 0) (lambda (_) []) abs)))))
+        (check changed => #t)
+        (def nodes (graph-nodes graph))
+        (def observed (map (lambda (index) (node-descriptor (vector-ref nodes index)))
+          (node-children (vector-ref nodes 0))))
+        (check-equal? (length observed) 2)
+        (check (andmap eq? observed (list First Original)) => #t)))
+    (test-case "known carrier siblings own their first epoch before edge checking"
+      (for (kind '(tuple union or))
+        (def First (.cc Integer)) (def Original (.cc Integer epoch: 0))
+        (def armed #f) (def changed #f) (def factories 0)
+        (def descriptor (carrier-descriptor kind (list First Original) (lambda () (set! armed #t))))
+        (check-exception (core.with-generation-check (lambda ()
+          (when (and armed (not changed)) (set! changed #t) (.set! Original epoch 1)))
+          (compile-graph descriptor 4 16 32 64 (lambda (type)
+            (set! factories (1+ factories))
+            (make-generator type (lambda (_r _s) 0) (lambda (_) []) abs)))) (limited? 'stale))
+        (check-equal? factories 0)))
+    (test-case "known directory occurrence fuel precedes callbacks and keeps shared edges"
+      (for (fuel '(3 4))
+        (def Leaf (.cc Integer)) (def armed #f) (def checks 0) (def factories 0)
+        (def descriptor (carrier-descriptor 'tuple (list Leaf Leaf Leaf) (lambda () (set! armed #t))))
+        ;; Use the same visitor for insufficient and exact occurrence budgets.
+        (def (compile)
+          (core.with-generation-check (lambda () (when armed (set! checks (1+ checks))))
+            (compile-graph descriptor 4 16 fuel 64 (lambda (type)
+              (set! factories (1+ factories))
+              (make-generator type (lambda (_r _s) 0) (lambda (_) []) abs)))))
+        (if (= fuel 3)
+          (begin (check-exception (compile) (limited? 'descriptors))
+            (check-equal? (list checks factories) '(0 0)))
+          (let (nodes (graph-nodes (compile)))
+            (check-equal? (vector-length nodes) 2)
+            (check-equal? (node-children (vector-ref nodes 0)) '(1 1 1))
+            (check-equal? factories 1)))))
+    (test-case "empty known tuple directories need no child occurrence credits"
+      (def graph (compile-graph (Tuple) 1 1 1 64 (lambda (_)
+        (error "empty tuple must not bind a scalar"))))
+      (check-equal? (vector-length (graph-nodes graph)) 1)
+      (check-equal? (node-children (vector-ref (graph-nodes graph) 0)) []))
+    (test-case "known directories retain malformed-input and exact callback failures"
+      (def Leaf (.cc Integer)) (def factories 0)
+      (def cycle (list Leaf)) (set-cdr! cycle cycle)
+      (for (children (list #f (cons Leaf 'tail) cycle))
+        (def descriptor (Tuple Leaf))
+        (.putslot! descriptor 'type-list ($constant-slot-spec children))
+        (check-exception (compile-graph descriptor 4 16 32 64 (lambda (_)
+          (set! factories (1+ factories)) (error "must not bind"))) Error?))
+      (for (cause (list #f (cons 'checker 'cause)))
+        (def armed #f)
+        (def descriptor (carrier-descriptor 'tuple (list Leaf) (lambda () (set! armed #t))))
+        (check-eq? (with-catch values (lambda ()
+          (core.with-generation-check (lambda () (when armed (raise cause)))
+            (compile-graph descriptor 4 16 32 64 (lambda (_)
+              (set! factories (1+ factories)) (error "must not bind")))))) cause))
+      (check-equal? factories 0))
     (test-case "known unvisited descriptor revisions refuse rather than refresh preparation"
       (for (entry '(direct report))
         (def first 0) (def later 0)

@@ -54,7 +54,7 @@
     (require-value search (in-range-inclusive? 1 1048576) refuse)))
 ;; Classify standard carrier constructors; explicit .generator overrides remain
 ;; opaque leaves with declared callback dependencies. Container semantics are reused.
-(def (describe descriptor scalar capture! discover)
+(def (describe descriptor scalar capture! discover declare-children)
   (validate Type descriptor)
   (def ancestors (compute-precedence-list! descriptor))
   ;; Explicit finite-empty samplers must not poison an otherwise viable Union.
@@ -67,8 +67,7 @@
   ;; One edge-discovery action owns quota, source admission and first observation.
   ;; Metadata callbacks cannot run ahead of the captured earlier child epochs.
   (def (carrier kind children)
-    (unless (list? children) (error "proper descriptor child list required"))
-    (values kind (map-in-order (lambda (child) (discover (lambda () child))) children) #f #f))
+    (values kind (declare-children children) #f #f))
   ;; Fixed named edges use the same quota/observation action as Sum branches.
   ;; Capture each returned Type before another computed field can revise it.
   (def (fields kind names)
@@ -183,12 +182,21 @@
   (def (discover read)
     (when (zero? remaining) (refuse-generation 'descriptors))
     (intern (with-sources [] (read))))
+  ;; Known carrier directories are admitted and owned before per-edge checks.
+  ;; Reserve no extra fuel: intern still charges every shared occurrence. Capture
+  ;; all known epochs first so an earlier checker cannot refresh a later sibling.
+  (def (declare-children children)
+    (unless (list? children) (error "proper descriptor child list required"))
+    (when (> (length children) remaining) (refuse-generation 'descriptors))
+    (def owned (list-copy children))
+    (for-each capture! owned)
+    (map-in-order (lambda (child) (discover (lambda () child))) owned))
   (intern root)
   (with-generation-check check!
   (let loop ((index 0))
     (when (< index count)
       (let (type (vector-ref types index))
-        (let-values (((kind children sampler tags) (with-sources [] (describe type scalar capture! discover))))
+        (let-values (((kind children sampler tags) (with-sources [] (describe type scalar capture! discover declare-children))))
           (vector-set! rows index (make-node type kind children sampler
             (if (memq kind '(union sum)) (map cons (or tags (make-list (length children) #f)) children) [])))
           (when sampler (set! samplers (cons sampler samplers)))
