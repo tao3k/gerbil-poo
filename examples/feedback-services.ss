@@ -14,7 +14,7 @@
         (prefix-in (only-in ../method-combination around prepare-standard primary) combination.))
 ;; Comparable raw data stores three allocations, joint approval and an audit frame.
 (def base (vector (vector 0 0 0) #f 'audit))
-;; Nested native lenses reuse functional vector replacement and composition.
+;; Nested Gerbil lenses reuse functional vector replacement and composition.
 (def allocation-focus (product.vector-focus 0))
 ;; Each focus denotes one COMPLETE component equation, not an incremental method.
 (def a-focus (.call Lens .compose allocation-focus (product.vector-focus 0)))

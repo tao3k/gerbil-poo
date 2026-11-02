@@ -1,4 +1,4 @@
-;;; Several native joint candidates share ONE proposed approval object and source.
+;;; Several Gerbil joint candidates share ONE proposed approval object and source.
 (export approve-revisions)
 (import ../object
         ../mop

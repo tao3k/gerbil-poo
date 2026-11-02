@@ -1,4 +1,4 @@
-;;; ConstructionWorkflow's shared settlement graph, using native computations.
+;;; ConstructionWorkflow's shared settlement graph, using Gerbil computations.
 (export graph model start revise value)
 (import :std/iter
         ../object

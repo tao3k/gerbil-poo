@@ -10,7 +10,7 @@
         (prefix-in (only-in ../generalized-prototype cook-fields) gp.)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination around prepare-standard primary) combination.))
-;; A functional native vector lens copies before update, preserving caller storage.
+;; A functional Gerbil vector lens copies before update, preserving caller storage.
 (def (vector-focus index)
   (lens-of-get-set (cut vector-ref <> index)
     (lambda (value raw) (def result (vector-copy raw)) (vector-set! result index value) result)))

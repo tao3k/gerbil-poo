@@ -31,6 +31,6 @@
 (def (report service)
   (list (.call (.lens account capacity) .get service) (.@ (.@ service account) used)
     (.@ service tenant) ((.@ service quota) (.@ service tenant))))
-;; Native Reader/FUN composition stops before report/delegation on any revision error.
+;; Gerbil Reader/FUN composition stops before report/delegation on any revision error.
 (def (revision-action capacity tenant)
   (.call fun.Observation. .map report (lambda (service) (revise-service service capacity tenant))))

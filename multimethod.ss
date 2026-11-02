@@ -64,7 +64,7 @@
     arity combination.standard-contribution?))
 ;; Construct nonstandard simple combination with items and around qualifiers.
 ;; The policy controls short-circuiting/empty/finalization; output still passes
-;; the generic's native Type validator. Invalid qualifier bodies fail registration.
+;; the generic's Gerbil Type validator. Invalid qualifier bodies fail registration.
 (def (simple inputs output precedence policy (arity (length inputs)))
   (make inputs output precedence
     (lambda (methods args) (combination.simple-effective policy methods args))
@@ -83,7 +83,7 @@
 (def (inner inputs output precedence terminal (arity (length inputs)))
   (make inputs output precedence
     (lambda (methods args) (combination.inner-chain methods args terminal)) arity))
-;; Simula automatic-inner combination returns the native Unit value. Prefix/suffix
+;; Simula automatic-inner combination returns the Gerbil Unit value. Prefix/suffix
 ;; parts share typed arguments; cache and negative watches retain body data only.
 (def (simula inputs precedence (arity (length inputs)))
   (make inputs Unit precedence combination.simula-effective arity combination.simula-body?))
@@ -98,7 +98,7 @@
   (for (order shape)
     (unless (and (list? order) (andmap symbol? order)) (error "invalid dispatch precedence" order)))
   shape)
-;; Validate fixed input row length and each native Type before any candidate/body runs.
+;; Validate fixed input row length and each Gerbil Type before any candidate/body runs.
 (def (arguments! generic args)
   (def descriptor (multimethod-signature generic))
   (if descriptor
@@ -141,7 +141,7 @@
     (alter (multimethod-index generic) (map specializer-name path)
       (lambda (old) (if candidate (cons candidate (if replace? [] old)) []))) [] (multimethod-invocation generic) (multimethod-signature generic)))
 ;; Validate the generic's actual method carrier before registration. Ordinary
-;; generics require procedures; qualified constructors admit native contributions.
+;; generics require procedures; qualified constructors admit Gerbil contributions.
 ;; The predicate validates data only and must return Boolean, never execute a body.
 (def (method! generic method)
   (def accepted ((multimethod-method-type generic) method))
@@ -192,7 +192,7 @@
 ;; Private typed, immutable invocation context; callers cannot fabricate its tag.
 ;; Unlike a nested child it contains no evolving cache, method index or certificate.
 (defstruct context-state (type value) final: #t)
-;; Open native invoker descriptor, specialized at construction like FUN/IO wrapper
+;; Open Gerbil invoker descriptor, specialized at construction like FUN/IO wrapper
 ;; methods. The two shared descriptors below own calling conventions; runtime
 ;; successors carry only compiled callbacks and explicit state, not lazy slot maps.
 (define-type (Invocation. @ [] invoke)
@@ -275,7 +275,7 @@
 (def (prepared-standard inputs output precedence
                         (on-missing (lambda (_) (fail 'no-applicable-method #f #f))) (arity (length inputs)))
   (prepared (standard inputs output precedence on-missing arity) (cut combination.prepare-standard <> on-missing)))
-;; Specialize the native simple policy once per unconditional shape.
+;; Specialize the Gerbil simple policy once per unconditional shape.
 (def (prepared-simple inputs output precedence policy (arity (length inputs)))
   (prepared (simple inputs output precedence policy arity) (cut combination.prepare-simple policy <>)))
 ;; Forwarding preparation retains initial dispatch and validates every replacement.
@@ -291,7 +291,7 @@
   (prepared (simula inputs precedence arity) combination.prepare-simula))
 ;; A nested generic owns ONE child generic, which can itself own a child. Methods
 ;; receive (child . current-args), return result/child-successor, and may compose
-;; arbitrary native calls with let-values. Only cache transport is accepted: a
+;; arbitrary Gerbil calls with let-values. Only cache transport is accepted: a
 ;; method edit to the child must instead pass the ordinary checked publication.
 ;; This is an explicit stateful invoker, not a standard side-method combiner.
 (def (nested inputs output precedence child (arity (length inputs)))

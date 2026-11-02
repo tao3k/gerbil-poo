@@ -21,7 +21,7 @@
     (unless (equal? produced (put (get raw) base))
       (raise (make-feedback-equation-failure name))))
     (fragment-names prepared) (fragment-descriptors prepared)))
-;; Native FUN Reader closes one whole feedback state using the existing bounded
+;; Gerbil FUN Reader closes one whole feedback state using the existing bounded
 ;; raw search, then checks EVERY component residual before exposing its receipt.
 ;; Each fragment denotes a complete component equation; intentional same-focus
 ;; incremental method contributions belong INSIDE one component or its cooking.

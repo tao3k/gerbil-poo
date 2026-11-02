@@ -2,7 +2,7 @@
 (export start stage submit-current! value)
 (import (prefix-in ../component-publication publication.) (prefix-in ./component-requests service.))
 ;; Each service keeps its own local policy and head, but observes the identical
-;; shared approval object. Map reuses native construction and standard list order.
+;; shared approval object. Map reuses Gerbil construction and standard list order.
 ;; Shared/local objects remain guarded; policy-management writes use these owners.
 (def (start shared locals)
   (def domain (publication.approval-domain))

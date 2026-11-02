@@ -1,4 +1,4 @@
-;;; Executable finite-domain get-put, put-get and put-put controls for native lenses.
+;;; Executable finite-domain get-put, put-get and put-put controls for Gerbil lenses.
 (export check-lens-laws lens-check lens-check? lens-check-focus run-lens-check with-lens-checks
         lens-law-failure? lens-law-failure-law)
 (import :std/iter ./object ./mop)
@@ -27,7 +27,7 @@
 ;; Inspect the captured lens for focused computation; dependency/version storage
 ;; stays private and every use must remain inside with-lens-checks.
 (def lens-check-focus law-check-focus)
-;; Register the native lens plus explicit dependencies; domain points are immutable
+;; Register the Gerbil lens plus explicit dependencies; domain points are immutable
 ;; caller inputs. Empty value domains cannot exercise either put law and refuse.
 (def (lens-check focus values sources: (sources []))
   (unless (and (object? focus) (list? values) (pair? values) (list? sources) (andmap object? sources))

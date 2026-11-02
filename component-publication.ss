@@ -25,7 +25,7 @@
   (unless (publication? owner) (error "component publication required"))
   (with-lock (%approval-domain-lock (%publication-domain owner)) (lambda () (%publication-head owner))))
 ;; Serialize a registered policy write with final installation. This is one
-;; ordinary native object slot update, not rollback or a multi-object transaction.
+;; ordinary Gerbil object slot update, not rollback or a multi-object transaction.
 ;; Concurrent writes to shared approval objects must use endpoints in the SAME
 ;; explicit domain; foreign-domain/raw writes and reentrant custom hooks are outside
 ;; this protocol. Existing object revisions invalidate every old captured guard.

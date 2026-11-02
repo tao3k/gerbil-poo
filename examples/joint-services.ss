@@ -9,7 +9,7 @@
         (runtime: :clan/poo/examples/component-membership)
         (prefix-in (only-in ./component-membership publish) initial.)
         (prefix-in ./component-rounds service.))
-;; Immutable-in-practice native approval objects are replaced, never edited in place.
+;; Immutable-in-practice Gerbil approval objects are replaced, never edited in place.
 (def (policy ceiling (permit #t)) (.o (limit ceiling) (allowed permit)))
 ;; Observe an endpoint from ONE captured joint snapshot.
 (def (value snapshot key) (service.value (joint.head snapshot key) 'settlement))
@@ -24,12 +24,12 @@
     (lambda (_) service.build-group)
     (lambda (lookup key old next) ((service.admit [(lookup 'shared) (lookup key)]) old next))
     (lambda (old next) (and (= (value next 'a) (value next 'b)) (extra-joint old next)))))
-;; Stage both endpoint edits and native policy replacements before construction.
+;; Stage both endpoint edits and Gerbil policy replacements before construction.
 ;; Empty per-endpoint edits remain available through the general joint API.
 (def (stage owner phase policies builder)
   (joint.stage owner policies (map (lambda (key) (cons key (service.contributions phase))) '(a b)) builder: builder))
 
-;; Reprepare a shared policy from the actual current native object, retaining its
+;; Reprepare a shared policy from the actual current Gerbil object, retaining its
 ;; other fields, and stage both service phases against that SAME bundle. The caller
 ;; explicitly chooses the phase after a refusal or competing publication.
 (def (stage-current owner phase ceiling builder)

@@ -12,11 +12,11 @@
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in ../generalized-prototype cook-fields) gp.))
 ;; Custom vector getters/setters use functional copying; their product analogues
-;; have universal Lean laws, while native checks cover supplied immutable points.
+;; have universal Lean laws, while Gerbil checks cover supplied immutable points.
 (def (vector-focus index)
   (lens-of-get-set (cut vector-ref <> index) (lambda (value raw)
     (def copy (vector-copy raw)) (vector-set! copy index value) copy)))
-;; Native Lens.compose preserves the outside audit frame through nested storage.
+;; Gerbil Lens.compose preserves the outside audit frame through nested storage.
 (def outer-focus (vector-focus 0))
 ;; The root rate feeds a two-edge dependent chain through cooked final self.
 (def rate-focus (.call Lens .compose outer-focus (vector-focus 0)))

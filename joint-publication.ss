@@ -27,9 +27,9 @@
   (with-lock (%publication-lock owner) (lambda () (%publication-snapshot owner))))
 ;; Inspect a selected graph in an already captured consistent bundle.
 (def (head snapshot key) (lookup (%snapshot-heads snapshot) key))
-;; Approval values are native POO objects, immutable for the bundle's lifetime.
+;; Approval values are Gerbil POO objects, immutable for the bundle's lifetime.
 (def (approval snapshot key) (lookup (%snapshot-approvals snapshot) key))
-;; Capture all registered old/proposed native approval revisions and explicit
+;; Capture all registered old/proposed Gerbil approval revisions and explicit
 ;; extra metadata guards. Hidden callback dependencies remain caller premises.
 (def (guards-for approvals guards)
   (append guards (map (lambda (entry)

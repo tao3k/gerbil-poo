@@ -120,9 +120,9 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 66)
-        ;; Internal compilation units keep the same 62 public test roots.
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 62)
+        (check (length all) => 68)
+        ;; Retain the 62 original roots plus the byte-I/O and FUN acceptance roots.
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 64)
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
           (check-equal? (drop spec 3)

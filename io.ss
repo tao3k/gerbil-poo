@@ -3,6 +3,8 @@
 (import
   (only-in :gerbil/runtime/loader load-module)
   :std/assert
+  (only-in :std/error raise-premature-end-of-input)
+  (only-in :std/io/interface/base Reader Reader-read Writer Writer-write)
   :std/format
   (only-in :std/func compose)
   :std/iter
@@ -44,46 +46,56 @@
 
 ;;; Byte I/O
 
-;; gf to effectfully read a byte from a stream or stream-like object.
-;; Byte <- In
-(.defgeneric (object-read-byte in)
-  default:
-  (λ (in)
-    (if (input-port? in) (read-u8 in)
-        (error "Trying to read-u8 from unsupported object" in))))
+;; Read one byte from a standard port or Reader; EOF remains the standard object.
+;; The port path allocates no temporary buffer and never creates a buffered wrapper.
+(def (object-read-byte input)
+  (if (input-port? input) (read-u8 input)
+    (let (byte (make-u8vector 1))
+      (if (zero? (read-bytes-into byte input)) #!eof (u8vector-ref byte 0)))))
 
-;; gf to effectfully write a byte to a stream or stream-like object.
-;; Unit <- Byte Out
-(.defgeneric (object-write-byte byte out))
+;; Write one byte through the standard port/Writer protocol, retaining its errors.
+;; Closing/flushing and recovery of partially completed I/O belong to the caller.
+(def (object-write-byte byte output)
+  (if (output-port? output) (write-u8 byte output)
+    (object-write-bytes (u8vector byte) output)))
 
-;; gf to effectfully read bytes from a stream or stream-like object into a u8vector
-;; Unit <- In Bytes ?offset: UInt ?length: UInt
-(.defgeneric (read-bytes-into bs in offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
-  default:
-  (λ (in l)
-    (for (i (in-range length))
-      (let ((b (read-u8 in))) ;; TODO: handle EOF, return number of bytes read???
-        (u8vector-set! bs (+ i offset) b)))))
+;; One admission boundary translates offset/length/need to Reader's start/end/need.
+;; A positive request attempts a read; zero bytes mean EOF. A short required read
+;; raises the standard I/O error. Zero-length requests admit the source interface
+;; but perform no read. Caller buffers may retain a prefix after an I/O failure.
+(def (read-bytes-into (bytes : :u8vector) input
+       offset: (offset 0) length: (length (- (u8vector-length bytes) offset))
+       need: (need 0))
+  (using ((offset :~ (in-range-inclusive? 0 (u8vector-length bytes)))
+          (length :~ (in-range-inclusive? 0 (- (u8vector-length bytes) offset)))
+          (need :~ (in-range-inclusive? 0 length)))
+    (def end (+ offset length))
+    (if (input-port? input)
+      (if (zero? length) 0
+        (let (read (read-subu8vector bytes offset end input (max 1 need)))
+          (when (< read need) (raise-premature-end-of-input read-bytes-into)) read))
+      (using (reader input : Reader)
+        (if (zero? length) 0 (reader.read bytes offset end need))))))
 
-;; gf to effectfully read bytes from a stream or stream-like object into a new u8vector
-;; Bytes <- In UInt
-(.defgeneric (object-read-bytes length in)
-  default:
-  (λ (in length)
-    (def bs (make-u8vector length))
-    (if (input-port? in)
-      (let ((n (read-u8vector* bs in))) (assert! (= n length)))
-      (read-bytes-into bs in length: length))
-    bs))
+;; Return exactly count fresh bytes, or propagate premature EOF without exposing
+;; the private partial buffer. The input's consumed prefix is not rolled back.
+(def (object-read-bytes (count :~ nonnegative-fixnum?) input)
+  (def bytes (make-u8vector count))
+  (read-bytes-into bytes input need: count)
+  bytes)
 
-;; gf to effectfully write bytes to a stream or stream-like object from a u8vector
-;; Unit <- Bytes Out ?offset: UInt ?length: UInt
-(.defgeneric (object-write-bytes bs out offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
-  default:
-  (λ (out bs offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
-    (for (i (in-range length))
-      (write-u8 (u8vector-ref bs (+ i offset)) out))))
-
+;; Write the requested span with standard bulk I/O rather than a byte loop.
+;; Range admission precedes output effects; a successful operation returns Unit.
+(def (object-write-bytes (bytes : :u8vector) output
+       offset: (offset 0) length: (length (- (u8vector-length bytes) offset)))
+  (using ((offset :~ (in-range-inclusive? 0 (u8vector-length bytes)))
+          (length :~ (in-range-inclusive? 0 (- (u8vector-length bytes) offset))))
+    (def end (+ offset length))
+    (if (output-port? output)
+      (unless (zero? length) (write-subu8vector bytes offset end output))
+      (using (writer output : Writer)
+        (unless (zero? length) (writer.write bytes offset end))))
+    (void)))
 
 ;;; Printing objects as per std/misc/repr
 

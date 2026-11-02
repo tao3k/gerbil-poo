@@ -90,7 +90,7 @@
 (def (step-fragments prepared final base)
   (with-fragment-sources prepared
     (lambda () (gp.step (prepared-fragments-snapshot prepared) final base))))
-;; Bind as native FUN Reader, reusing the existing observer and checking current
+;; Bind as Gerbil FUN Reader, reusing the existing observer and checking current
 ;; registered source versions on EACH seed; no result/approval is cached across calls.
 (def (bind-fragments prepared base depth)
   (unless (prepared-fragments? prepared) (error "prepared fragment source required"))

@@ -100,3 +100,24 @@ See [test execution](doc/test-execution.md) and [CI checks](doc/ci-checks.md).
 Standalone executables use `pkg-config --libs openssl` through `std/make`.
 Configure the toolchain’s standard pkg-config search path for your installation;
 no platform-specific OpenSSL prefix is embedded.
+
+### v0.1.2 scope
+
+The Scheme library and companion [LeanPoo](https://github.com/tao3k/lean-poo)
+use the same `v0.1.2` release tag. This release includes finite prototype/MOP,
+checked declaration and type protocols, source-aware caches, incremental
+collections, and bounded generated testing with shrinking/replay. It advances the
+article's future-work constructions; it does not declare every research TODO done.
+See the [standard-mechanism follow-up audit](doc/gerbil-mechanisms.md#post-v012-abstraction-audit).
+
+### Unreleased I/O follow-up
+
+The following changes are not part of the published v0.1.2 tag.
+Byte helpers in `io` accept standard ports and Gerbil Reader/Writer endpoints:
+`read-bytes-into` returns the actual count (with optional `need:`),
+`object-read-bytes` returns exactly the requested count or raises premature EOF,
+and byte/bulk output returns Unit. Offset/length admission precedes stream effects;
+callers retain closing/flushing and partial-I/O recovery responsibility.
+The [bounded FUN transfer example](examples/byte-io.ss) composes these operations
+without another I/O interpreter. Build and test through `gerbil build` and
+`gerbil test`; `just check` retains the full project acceptance.

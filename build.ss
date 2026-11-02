@@ -146,6 +146,7 @@
     "examples/recursive-submissions"
     "examples/recursive-recovery"
     "examples/recursive-coordination"
+    "examples/byte-io"
     "examples/lifecycle"
     "examples/parameter-service"
     "examples/representation-service"

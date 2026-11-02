@@ -77,7 +77,7 @@
 (def (publish old spec policy builder)
   (publish-feedback-graph old spec build-group (admit policy)
     guards: [(lens-check (.lens) [policy] sources: [policy])] builder: builder))
-;; Native FUN bind runs revision from the current source, then closes/approves the
+;; Gerbil FUN bind runs revision from the current source, then closes/approves the
 ;; final graph with the same old publication. Preparation exceptions stop suffixes.
 (def (revision-action migrated? inputs policy builder)
   (feedback-graph-revision-action (lambda (spec) (revise spec migrated? inputs)) build-group (admit policy)

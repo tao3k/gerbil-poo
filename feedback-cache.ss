@@ -43,7 +43,7 @@
       (def candidate (if old (cache.refresh old source builder) (cache.start source builder)))
       (def groups (map (cut feedback-cache-ref candidate <>) keys))
       (with-feedback-groups groups (lambda ()
-        ;; The same native FUN Reader chain performs final approval. No approval
+        ;; The same Gerbil FUN Reader chain performs final approval. No approval
         ;; result is retained, including when every construction slot was reused.
         ((.call fun.Observation. .map (lambda (next)
           (unless (eq? (admit old next) #t) (error "joint feedback cache approval refused")) next)

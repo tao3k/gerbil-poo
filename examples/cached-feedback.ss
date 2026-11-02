@@ -23,7 +23,7 @@
 (def (allocation group) ((closed-view group) 'a))
 ;; Keep all service observation behind the existing group's closed interface.
 (def (closed-view group)
-  ;; group-closed is a native receipt, not a new interpreted method representation.
+  ;; group-closed is a Gerbil receipt, not a new interpreted method representation.
   (closed-interface (group-closed group)))
 ;; Both groups read quota; right also reads left, so a left edit invalidates right.
 (def left-code (code.need 'quota build-group))

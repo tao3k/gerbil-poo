@@ -31,10 +31,12 @@
   .ap ;; : (forall a (Fun (.tap a) <- a)) ;; the code does NOT depend on the input type!
   .map)) ;; : (forall a b (Fun Fun (.tap a) <- (.tap b)) (Fun a <- b))) ;; the code does NOT depend on the input type!
 
+;; Concrete function functors use the same tupled map(transform, value) protocol
+;; as Wrapper. and Observation.; bind still returns all values of its callback.
 (define-type (Identity @ ParametricFunctor.) ;; also a monad
   .tap: identity
   .ap: identity
-  .map: identity
+  .map: (lambda (transform value) (transform value))
   .unap: identity ;; this functor also has an inverse, itself
   .Log: Unit
   .bind: (lambda (x f) (f x)))
@@ -58,15 +60,26 @@
        Wrapper ;; : Functor. ;; @ = (Wrapper T)
        .wrap?) ;; : Bool <- Any
   .element?: (lambda (x) (and (.wrap? x) (.call T .element? (.unwrap x))))
+  ;; Keep outer admission before callbacks, normalize once through the underlying
+  ;; Type, and re-admit the final carrier. Unchanged payloads retain their wrapper
+  ;; identity; changed Functions retain their checked invocation wrapper.
+  .validate: (lambda (value)
+    (unless (.element? value) (raise-type-error (TV Type @) value))
+    (def original (.unwrap value))
+    (def checked (validate T original))
+    (def result (if (eq? checked original) value (.wrap checked)))
+    (unless (.element? result) (raise-type-error (TV Type @) result))
+    result)
   .wrap: (.@ Wrapper .ap)
   .unwrap: (.@ Wrapper .unap)
   .bind/wrap: (.@ Wrapper .bind)
   .map/wrap: (.@ Wrapper .map))
 
-;; TODO: pass-through methods for marshalling, etc.
+;; Identity adds no carrier layer. Underlying T still owns value admission and
+;; normalization; inherited methods.io<-wrap already supplies all codec forwarding.
 (define-type (IdWrap @ Wrap. T)
   Wrapper: Identity
-  )
+  .wrap?: (lambda (_) #t))
 
 ;; Dependent variant of Functor, taking explicit type parameters at runtime
 (define-type (Functor^. @ []

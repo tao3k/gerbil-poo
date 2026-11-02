@@ -186,7 +186,7 @@
     ((bootstrap-anchor self name) => (lambda (entry) (apply (cdr entry) self next args)))
     ((and protocol (.slot? protocol name)) (apply (.ref protocol name) self next args))
     (else (next))))
-;; Instantiate atomically with respect to native exceptions. Mutating callbacks and
+;; Instantiate atomically with respect to Gerbil exceptions. Mutating callbacks and
 ;; concurrent reads/writes are outside the sequential protocol, and are rejected
 ;; for actively evaluated receivers rather than returning a partially built value.
 (def (instantiate-object! self previous: (previous #f))

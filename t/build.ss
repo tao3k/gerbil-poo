@@ -103,7 +103,7 @@
     (gxc: "property-testing-test" (extra-inputs: ("property-testing/samplers.scm")))
     "prototype-types-test"
     "recursive-generation-test"
-    (gxc: "representation-test" (extra-inputs: ("representation/growth.scm")))
+    (gxc: "representation-test" (extra-inputs: ("representation/growth.scm" "representation/admission.scm")))
     "row-types-test"
     (gxc: "type-test" (extra-inputs: ("type/tuple-json-performance.scm" "type/tuple-unmarshal-performance.scm" "type/type-performance.scm" "type/cases.scm"))))
     ("revisions"
@@ -117,6 +117,8 @@
     (gxc: "function-coverage-test" (extra-inputs: ("function-coverage/cases.scm" "function-coverage/function-options.scm" "function-coverage/keyword-coverage.scm" "function-coverage/keyword-prefix.scm" "function-coverage/keyword-rest.scm" "function-coverage/keyword-values.scm"))))
     ("tools"
     "cli-test"
+    "io-test"
+    "fun-test"
     "debug-test"
     "metadata-paired-test"
     "metadata-report-test")

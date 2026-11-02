@@ -322,21 +322,19 @@ automatic layout policy or arbitrary cold-loading performance; see
 [representation.md](representation.md#incremental-canonical-shape-extension).
 
 This design TODO is not a declaration that the whole paper or every Lean model
-has been implemented. `alignment.md` maps executable native counterparts separately
+has been implemented. `alignment.md` maps executable Gerbil counterparts separately
 from proofs. Multiple inheritance and the listed method combinations are available,
-but the unified extensible MOP remains future work. Bounded explicit recursive requests and program-owned memo now have native
-implementations, current Type admission and attested cyclic publication. Their
+but the unified extensible MOP remains future work. Bounded explicit recursive requests and program-owned memo now have Gerbil implementations, current Type admission and attested cyclic publication. Their
 purity/immutability/local termination premises and Lean-only evaluation proofs
-are explicit in alignment.md; a literal seed API alone is not the attestation path. Checked inherited C3/slot hooks and registered-source invalidation now have native
-controls. Unrestricted inheritance-hook equivalence, arbitrary lens
-adapters and cross-type migration also need further native coverage. Finite DAG,
+are explicit in alignment.md; a literal seed API alone is not the attestation path. Checked inherited C3/slot hooks and registered-source invalidation now have Gerbil controls. Unrestricted inheritance-hook equivalence, arbitrary lens
+adapters and cross-type migration also need further Gerbil coverage. Finite DAG,
 metadata, invalidation and joint-publication examples do not close these general
 items. Storage/binding performance progress below does not change their status.
 
 ## Functional completion audit (2026-10-17)
 
 **No: this TODO is not fully implemented.** Performance studies below establish
-neither feature completion nor native implementation of every Lean abstraction.
+neither feature completion nor Gerbil implementation of every Lean abstraction.
 The following ledger takes priority over the historical optimization notes.
 “Implemented” means the concrete API in the stated scope; “partial” and “open”
 remain work to do. Proposed language/library projects are not silently removed
@@ -666,8 +664,7 @@ This audit does not mark the open type/library/interpreter projects complete.
 
 **The original TODO is still incomplete.** New graph topologies or timing reports
 must not be used to mark an original feature complete. Each feature needs one
-public composable protocol, refusal/retry behavior, an integrated example, native
-regressions and corresponding Lean laws with explicit premises. The original
+public composable protocol, refusal/retry behavior, an integrated example, Gerbil regressions and corresponding Lean laws with explicit premises. The original
 specifications below are retained; interpreter/library projects remain open.
 
 The recursive publication lifecycle now has one integrated acceptance chain:
@@ -706,16 +703,16 @@ optimization studies to claim functional closure.
 The first four rows form one tested functional chain in `examples/lifecycle.ss`:
 checked nested Account construction → persistent focused revision → fresh
 constraint admission → current-tenant Reader/FUN observation → lazy delegate.
-`doc/alignment.md` records the Racket/Lean/native correspondence and proof limits.
+`doc/alignment.md` records the Racket/Lean/Gerbil correspondence and proof limits.
 The Lean model proves input refusal, successful output admission, absence versus
-stored values and active-key cycle selection; native tests separately check
+stored values and active-key cycle selection; Gerbil tests separately check
 receiver sharing, dynamic unwinding and callback behavior.
 
 All generalized MOP extensions here advance the paper's **future work**. They
 are not claims that the paper's Racket implementation already specifies this
 complete class lifecycle, nor proofs of the Scheme compiler or runtime.
 The concrete inherited-hook → invalidating source revision → declared reflection
-chain now has implementation, native controls and Lean laws (see
+chain now has implementation, Gerbil controls and Lean laws (see
 [inheritance-hooks.md](inheritance-hooks.md)). Constant-base self-hosting and nonlocal declaration protocols are now implemented
 (see [meta-prototype.md](meta-prototype.md)). Remaining work includes unrestricted
 meta fixed points beyond finite positive Boolean equations, alternative-order certification, global security policy and
@@ -758,7 +755,7 @@ as `.declare`, then admits and prepares the complete non-record fragment stream.
 Labels identify contributions, while lenses may target overlapping raw components.
 
 The concrete example combines heterogeneous scalar and method-group foci through
-native Lens composition on nested vectors, cooked final-self dependency, existing
+Gerbil Lens composition on nested vectors, cooked final-self dependency, existing
 standard method combination and an independent audit frame. The same protocol and
 macro also construct a procedure carrier. Source versions and registered callback
 metadata are checked even for zero-depth/cooking observations. Changed source
@@ -777,7 +774,7 @@ callback/lens correctness follows. See [generalized-declarations.md](generalized
 adjacent raw states compare equal, within a fixed raw-step budget. It reuses the
 existing source-guarded step/cook operations and returns a receipt bound to its
 prepared owner/base. Budget, finite law and source/cooking refusals expose no
-partial candidate; publication retains the exact old receipt. A native Reader/FUN
+partial candidate; publication retains the exact old receipt. A Gerbil Reader/FUN
 action composes successful closure with downstream observation.
 
 `lens-laws.ss` checks get-put, put-get and put-put on supplied immutable states
@@ -800,7 +797,7 @@ remains inconclusive about divergence. See [controlled-closure.md](controlled-cl
 `focused-closure.ss` now closes narrow components inside a wider non-record raw
 carrier, using captured outer lens checks and the existing bounded local closure.
 Actual old/new child values extend the finite law domain. Ordered stages compose
-with native FUN Reader `.map` and standard `foldr`; every source stays guarded
+with Gerbil FUN Reader `.map` and standard `foldr`; every source stays guarded
 through the whole chain, final equation validation and family cooking.
 All final projected equations are checked again: separate lawful lenses need not
 be independent. Conflicting overlap refuses the complete publication; compatible
@@ -808,7 +805,7 @@ overlap can pass. Every final check costs one extra raw step beyond local search
 
 `examples/focused-services.ss` closes two nested-vector services with distinct
 policies and existing primary/around methods, preserving sibling/shared audit
-data. Native controls cover actual replacement laws, overlap, budget, stale
+data. Gerbil controls cover actual replacement laws, overlap, budget, stale
 metadata, later source mutation, final cooking and Reader suffix suppression.
 Lean proves focused fixedness/frame preservation, final admission soundness,
 independent lens pairing and concrete family results. See
@@ -835,7 +832,7 @@ The capped three-service ring combines cyclic allocations, joint approval,
 primary/around methods and an independent audit. Lean proves concrete convergence
 and acceptance from every typed seed within five raw steps at cap=3, as well as
 generic conditional completeness, provenance, fixedness, component residuals,
-frame preservation and budget bounds. Native controls cover oscillation,
+frame preservation and budget bounds. Gerbil controls cover oscillation,
 cancellation, refusal/old publication, stale sources and nonlocal finalizer reuse.
 See [feedback-closure.md](feedback-closure.md) for API, residual costs and premises.
 
@@ -854,7 +851,7 @@ publication retention cover closure, source, residual and callback failures.
 `examples/shared-feedback.ss` connects one shared quota node to two nested service
 branches in a four-node feedback ring, joint readiness, primary/around methods
 and current cross-service commitment/permission checks. Quota increases/decreases,
-approval rejection/retry and old snapshots have native controls and paired Lean
+approval rejection/retry and old snapshots have Gerbil controls and paired Lean
 examples. `reviseFeedback` proves new closure, exact-candidate approval, component
 equations, seed provenance and budget bounds; `admitted_joint` proves current
 permission/coherence/commitment for any accepted example revision. Product lens
@@ -878,7 +875,7 @@ through ALWAYS-fresh joint approval. Failed candidates never become reuse bases.
 `examples/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
 edge, an independent feedback group, source increases/decreases, joint refusal/
 retry and permission-only edits. Refusing builders and identity checks verify
-skipping. Native negative controls include removed inputs, illegal inter-group
+skipping. Gerbil negative controls include removed inputs, illegal inter-group
 cycles, stale retained metadata, source writes and FUN suffix suppression.
 Lean `Functional.FeedbackCache` reuses ranked cache invalidation, proves retained
 reference equality/current approval and packages actual closed group equations.
@@ -890,11 +887,11 @@ Automatic SCC grouping and merge/split invalidation are now implemented in
 `strong-components.ss` / `feedback-graph.ss`. Shared quota, two services, final
 settlement, an independent loop and current joint approval cover graph revisions
 through existing whole-group closure and DAG caching. See
-[strong-components.md](strong-components.md) for the Racket/Lean/native mapping,
+[strong-components.md](strong-components.md) for the Racket/Lean/Gerbil mapping,
 accepted-certificate proof scope and executable controls.
 
 Simultaneous split/merge, shared-input migration and cross-service joint batches
-now compose through `generalized-graph.revise`, native FUN revision bind and the
+now compose through `generalized-graph.revise`, Gerbil FUN revision bind and the
 reusable lens-based `component-closure` builder. The twelve-node service example
 checks unchanged monitors, equal-value migration, detached old inputs, new-source
 invalidation, current joint approval and retry after partial failure. See
@@ -935,20 +932,20 @@ one authoritative current head. Final installation rechecks expected identity,
 refusing late candidates and returning current rival state rather than restoring
 a stale predecessor. Current-policy retry and fresh staging after topology changes
 reuse existing FUN revision/closure/approval. See
-[component-publication.md](component-publication.md) for native bounded-thread and
+[component-publication.md](component-publication.md) for Gerbil bounded-thread and
 interleaving controls, abstract Lean installation laws and explicit concurrency
 premises. This does not claim arbitrary mutable-object thread safety or rollback.
 
 Approval metadata invalidation is now serialized with final installation via
 `component-publication.revise-approval!` and guard validation inside the same lock.
 Several paused requests, policy change-back, metadata-only drift and six rounds
-of fresh restaging compose with existing service closure and native versions.
+of fresh restaging compose with existing service closure and Gerbil versions.
 See [approval-revision.md](approval-revision.md) for same-coordinator write premises,
 abstract revision laws and bounded thread controls. Foreign-domain/raw metadata
 writes and arbitrary mutable-object transactions remain outside this protocol.
 
 Multiple endpoints can now share an explicit `approval-domain` while retaining
-independent graph heads and request ownership. Shared native object revisions
+independent graph heads and request ownership. Shared Gerbil object revisions
 invalidate all observing guards; local-only policy changes remain selective.
 Related shared/local revisions, two paused owners, independent domains and fresh
 restaging on different topologies are covered in
@@ -960,9 +957,9 @@ Atomic shared policy replacement and consistent endpoint publication now use
 `joint-publication`: one immutable authoritative snapshot, all endpoint closure
 and approval, final joint consistency and one guarded pointer installation.
 Refusal preserves all old fields; stale work returns the current whole winner;
-fresh restaging reuses current graphs and proposed native policies. See
+fresh restaging reuses current graphs and proposed Gerbil policies. See
 [joint-publication.md](joint-publication.md) for heterogeneous Lean bundle laws,
-real native closure/thread controls and reader/immutability premises. This is a
+real Gerbil closure/thread controls and reader/immutability premises. This is a
 joint snapshot interface, not atomic mutation of old independent coordinator handles.
 
 Multiple atomic joint requests now interleave across merge/split/restore rounds.
@@ -970,13 +967,13 @@ Multiple atomic joint requests now interleave across merge/split/restore rounds.
 prepares contributions from one captured current snapshot without silent rebasing.
 Old batches remain stale after field-value round trips; fresh preparation after
 failure or a rival publication reuses current source and policy objects. See
-[joint-rounds.md](joint-rounds.md) for bounded native competing workers, six-round
+[joint-rounds.md](joint-rounds.md) for bounded Gerbil competing workers, six-round
 retry controls, arbitrary stale-batch and finite validity-preservation proofs.
 
 Atomic joint revisions now allow asymmetric endpoint phases: insertion/deletion,
 SCC merge/split and shared input migration at different services in the same
 bundle, with a shared total-budget policy instead of equal-settlement assumptions.
-Seven native rounds preserve independent cache receipts and reject old siblings;
+Seven Gerbil rounds preserve independent cache receipts and reject old siblings;
 failed total budgets require explicit fresh preparation. Dependent universe-
 polymorphic Lean replacements retain actual sources/graph/closure receipts. See
 [joint-topology.md](joint-topology.md) for exact scenarios and proof scope.
@@ -990,17 +987,16 @@ composable admission and refusal-prefix laws with actual certified topology head
 See [joint-admission.md](joint-admission.md); this remains generalized-prototype
 future work with explicit finite/purity/identity premises.
 
-Post-admission installation now has an explicit native `approve` / `install!`
+Post-admission installation now has an explicit Gerbil `approve` / `install!`
 boundary with private receipts; `submit!` composes both. Competing approved SCC
 changes, shared proposed-policy revision drift, equal-value revision round trips
 and their combination refuse before installation, then explicitly restage from the
 actual winner. Whole typed bundles reuse the Lean checked-installation laws. See
-[joint-installation.md](joint-installation.md) for native lifecycle controls,
+[joint-installation.md](joint-installation.md) for Gerbil lifecycle controls,
 exact API failure conventions and the immutable-installed-policy boundary.
 
 Multiple already-approved receipts now compose through `install-sequence!`, with
-ordered per-attempt outcomes and independent guarded installations. Six native
-merge/delete/split/restore rounds invalidate two receipts sharing one proposed
+ordered per-attempt outcomes and independent guarded installations. Six Gerbil merge/delete/split/restore rounds invalidate two receipts sharing one proposed
 policy, allow an independent same-round winner, then replay all older receipts.
 Fresh approvals, equal-valued revision round trips, component erasure and stable
 feedback reuse are covered. Lean adds certified receipt traces, arbitrary-order
@@ -1018,13 +1014,13 @@ See [joint-concurrency.md](joint-concurrency.md) for the native/formal bridge pr
 
 Mixed-generation waves now release all historical and current approved receipts
 together, preserving receipt identity with a pure higher-order `report:` mapping.
-Six native SCC rounds directly reject each historical receipt while one independent
+Six Gerbil SCC rounds directly reject each historical receipt while one independent
 current receipt wins; an entirely refused asymmetric wave explicitly restages and
 continues component deletion/restore. Lean adds mixed-head/guard refusal and winner
 laws plus all-order certified controls with historical receipts. See
 [joint-generations.md](joint-generations.md) for exact scenarios and premises.
 
-Cross-round preparation can now continue inside one scoped native worker group,
+Cross-round preparation can now continue inside one scoped Gerbil worker group,
 while older approved receipts remain waiting. Six SCC phases retain a late worker
 across next-phase admission, shared-policy drift refusal and explicit restaging;
 old/new workers then install in either order before the next pending generation.
@@ -1033,7 +1029,7 @@ Unobserved results, escaped operations and duplicate release refuse. Lean binds
 successful new preparation to the observed prefix head and proves late-attempt
 preservation. See [joint-restaging.md](joint-restaging.md) for precise boundaries.
 
-Independent native coordinators now own separate continuing worker scopes while
+Independent Gerbil coordinators now own separate continuing worker scopes while
 concurrently preparing and publishing through one owner. Standard thread groups
 supervise both coordinators and their nested workers. Six SCC phases share a
 proposal, refuse its revision drift, then concurrently restage independent valid
@@ -1058,7 +1054,7 @@ replacements replay/refuse old receipts, then freshly capture/construct/approve.
 Old replies cannot reach a replacement, unhandled errors prevent restart and final
 joins cannot launch unsupervised work. Lean records no-write rejoining, current-head
 preparation and head/guard-stale receipt rejection. See
-[coordinator-rejoining.md](coordinator-rejoining.md) for premises and native controls.
+[coordinator-rejoining.md](coordinator-rejoining.md) for premises and Gerbil controls.
 
 Named recovery decisions now compose through `call-with-rejoining-coordinators`.
 Two failed names interleave five recoveries across six SCC phases, including both
@@ -1201,7 +1197,7 @@ as missing generic slots. No result or approval is cached by this bridge.
 `examples/declared-methods.ss` composes a shared base, two service branches,
 before/primary/after/around fragments and current-context Reader observation.
 Lean's `MethodDeclarations` proves source collection, coalescing, inherited block
-composition and equivalence to standard generic invocation. Native tests cover
+composition and equivalence to standard generic invocation. Gerbil tests cover
 all adapters, descriptor edits, recursion, zero/rest arguments and failure effects.
 See [method-declarations.md](method-declarations.md). This concrete integration
 advances generalized-prototype future work; functional completion precedes tuning.

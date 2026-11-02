@@ -58,7 +58,7 @@
                (eq? (.call source .base node) (.call old-source .base node)))) members)))
       (cons key (if same? (.call (cache.cache-source (graph-cache-values old)) .code key)
         (group-code partition members source build)))) (scc.partition-groups partition))))
-;; Native FUN Reader composes partition, whole-group reconstruction and current
+;; Gerbil FUN Reader composes partition, whole-group reconstruction and current
 ;; cross-service approval. Guard admission spans preparation through publication.
 ;; build is pure/locally total and must honor the declared component equations;
 ;; automatic dependency discovery inside arbitrary Scheme closures is out of scope.
