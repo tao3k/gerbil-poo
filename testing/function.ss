@@ -38,34 +38,47 @@
   (def ledger (make-hash-table-eq))
   (def stamps (retain-source-stamps! ledger (snapshot #f (list function))))
   (with-source-stamps stamps
-    ;; Register returned declarations immediately, before another field callback.
+    ;; Validate the complete source row before publishing any new stamp. This
+    ;; is pure first-version bookkeeping; checked metadata reads own observers.
     (def (retain! owners)
-      (def added (retain-source-stamps! ledger (snapshot #f owners)))
+      (for-each (lambda (owner) (unless (object? owner) (validate Object owner))) owners)
+      (def added (retain-source-stamps! ledger
+        (map (lambda (owner) (cons owner (object-revision owner))) owners)))
       (unless (null? added) (set! stamps (append stamps added))))
-    ;; Only metadata acquisition is bracketed here; user callback exceptions keep
-    ;; their exact identity, and no input generator or target procedure is run.
-    (def (read owner name) (core.with-sources [] (.ref owner name)))
-    ;; Each finite row owns its spine before later metadata can edit caller pairs.
-    (def (row owner name)
-      (using (values (read owner name) :~ proper-list?) (list-copy values)))
-    ;; Keep Type discovery separate from derivation: shadowed/omitted children
-    ;; remain promises, but their already observed Type identities own epochs.
+    ;; Raw getter exceptions bypass post-checks unchanged. Pure declaration
+    ;; capture happens before returning observers, but its failures remain stored
+    ;; until those original source checks finish. False is a legitimate cause.
+    (def (read owner name (capture identity))
+      (let-values (((value refused? cause)
+        (core.with-sources []
+          (def returned (.ref owner name))
+          (with-catch (lambda (cause) (values #f #t cause))
+            (lambda () (values (capture returned) #f #f))))))
+        (when refused? (raise cause))
+        value))
+    ;; Finite declaration rows own their spines, without deriving child samplers.
     (def (inputs owner name)
-      (def values (row owner name)) (retain! values) values)
-    ;; Keyword entries also own their pairs; their Types are retained immediately.
+      (read owner name (lambda (row)
+        (using (row :~ proper-list?)
+          (def owned (list-copy row)) (retain! owned) owned))))
+    ;; Keyword pairs and their returned Types are captured in the same action.
+    ;; map itself builds the owned outer spine; no preceding row copy is needed.
     (def (keywords owner)
-      (def entries (map (lambda (entry) (cons (car entry) (cdr entry))) (row owner 'keywords)))
-      (retain! (map cdr entries)) entries)
-    (def signatures (row function 'signatures))
-    (retain! signatures)
+      (read owner 'keywords (lambda (entries)
+        (using (entries :~ proper-list?)
+          (def owned (map (lambda (entry) (cons (car entry) (cdr entry))) entries))
+          (retain! (map cdr owned)) owned))))
+    ;; Rest absence is false, while a present Type acquires its first epoch now.
+    (def (source owner name)
+      (read owner name (lambda (value) (when value (retain! (list value))) value)))
+    (def signatures (inputs function 'signatures))
     ;; Preserve the existing early keyword-mode pass and metadata read order.
     (def keyword-mode (keyword-mode? signatures (lambda (owner _name) (keywords owner))))
     (def types (delete-duplicates/hash (apply append (map-in-order (lambda (signature)
       (let* ((required (inputs signature 'inputs)) (optional (inputs signature 'optional))
-             (keys (keywords signature)) (rest (read signature 'rest)))
-        (when rest (retain! (list rest)))
+             (keys (keywords signature)) (rest (source signature 'rest)))
         (append required optional (map cdr keys)
-          (if rest (let (tail (read signature 'rest)) (retain! (list tail)) (list tail)) [])))) signatures))))
+          (if rest (list (source signature 'rest)) [])))) signatures))))
     ;; One retained observer protects every later shape/cache/promise operation.
     ;; It closes over the completed epoch list, never over a mutable registry.
     (def guard (source-guard stamps))

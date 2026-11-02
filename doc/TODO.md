@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P85 closes first-return source ownership for FunctionArguments declarations.
+Clause/input/keyword/rest epochs are registered before returning observers; pure
+capture errors retain the original source/cause priority. Promises, ordered clause
+selection, layout LRU and replay reuse the same owners. The independent kernel
+remains unchanged at 239 cases.
+See [P85](pbt-design-rfc.md#p85-first-return-ownership-of-function-call-declarations).
+
 P84 closes lazy dependency-trace parameter ownership through the SAME generic
 finite-shrink-children boundary used by data-list-shrinks. Structural-first demand,
 once-per-returned-proposal repair, failure charges and source priority remain with
