@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P78 closes finite Function call-request ownership. Direct calls admit and capture
+finite argument spines before observers; ordinary procedures pass their owned
+rest rows to the same guarded lookup without a second request copy. Exact rows,
+payload identity, original exceptions, stale refusal and retry remain intact.
+See [P78](pbt-design-rfc.md#p78-captured-finite-function-call-requests).
+
 P77 closes fallback diagnostic ownership at the existing standard assertion
 boundary. Preparation fields and entry pairs are captured before rendering;
 corrupted caller fields cannot hide the original cause or rendering fault.

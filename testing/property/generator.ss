@@ -565,16 +565,21 @@
 (def (function-domain value)
   (with-function value
     (map (lambda (entry) (map identity (car entry))) (function-value-entries value))))
-;; Unknown rows are refused explicitly; repeated equal rows select the same tuple.
-(def (function-apply value arguments)
+;; Resolve an already owned finite request under the existing table/caller
+;; authority. Lookup and result copying have one owner for both public entries.
+(def (function-results value arguments)
   (with-function value
     (def entry (assoc arguments (function-value-entries value)))
     (unless entry (error "arguments outside finite function domain" arguments))
     (map identity (cdr entry))))
-;; Gerbil owns keyword forwarding and multiple-value delivery; Function contracts
-;; may wrap this ordinary rest procedure without changing its finite table.
+;; Admit and capture the caller's row before any source callback can retarget
+;; it. Payloads remain shared; unknown rows retain the ordinary lookup error.
+(def (function-apply value arguments)
+  (using (arguments :~ proper-list?) (function-results value (list-copy arguments))))
+;; Gerbil owns this fresh rest row, keyword forwarding and multiple-value
+;; delivery. Reuse lookup directly: no second row copy or validation wrapper.
 (def (function-procedure value)
-  (lambda arguments (apply values (function-apply value arguments))))
+  (lambda arguments (apply values (function-results value arguments))))
 ;; Admit and own each returned tuple before another row producer can execute.
 ;; This snapshots only the protocol spine; payloads and hidden preimage trees
 ;; retain their existing caller-owned/source laws. Use the ordinary error kind.

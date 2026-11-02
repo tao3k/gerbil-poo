@@ -125,8 +125,15 @@
           (lambda (record) (validate wire (vector (.get record first) (.get record second))))
           (lambda (datum)
             (def row (validate wire datum))
-            (service (core.function-from-table
-              (map cons '((-1) (1)) (map list (vector->list row))) current?: guard))) current?: guard))
+            ;; The retained first call must survive an observer rewriting its
+            ;; caller-owned row. The ordinary procedure still owns fresh rest rows.
+            (def request (list -1))
+            (def function (core.function-from-table
+              (map cons '((-1) (1)) (map list (vector->list row)))
+              current?: (lambda () (set-car! request 1) (guard))))
+            (check-equal? (core.function-apply function request) (list (vector-ref row 0)))
+            (check (not (= (vector-ref row 0) (vector-ref row 1))) => #t)
+            (service function)) current?: guard))
       (def configuration (make-instance PropertyConfiguration seed: 17 cases: 1 shrink-budget: 40))
       (def refused ((fresh) configuration))
       (check-eq? (.get refused status) 'error)

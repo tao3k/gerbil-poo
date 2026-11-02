@@ -1,5 +1,5 @@
 ;;; Fixed-product generation, domain observation and source-refusal examples.
-(export diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
+(export function-request-test-cases! diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
@@ -318,3 +318,54 @@
     (check-eq? (cdr (assq 'cause (property.report-diagnostics broken))) cause)
     (check-equal? (cdr (assq 'original ((property.prepare-report-diagnostics '(a b)) failed))) '(#f))
     (check-equal? (cdr (assq 'original (property.report-diagnostics failed))) '(#f))))
+
+;; Finite call rows are protocol spines, distinct from shared argument payloads.
+;; Both entrypoints use the same guarded lookup and ordinary tuple delivery.
+(def (function-request-test-cases!)
+  (test-case "finite direct calls capture request rows before source observation"
+    (for (mutate (list (lambda (row) (set-car! row 'retargeted))
+                      (lambda (row) (set-cdr! row 'improper))
+                      (lambda (row) (set-cdr! row row))))
+      (def arguments (list 'declared scale: 2))
+      (def function (generator.function-from-table
+        '(((declared scale: 2) #f 8) ((retargeted scale: 2) 99))
+        current?: (lambda () (mutate arguments) #t)))
+      (check-equal? (generator.function-apply function arguments) '(#f 8))))
+  (test-case "finite malformed call rows refuse before table or inherited observers"
+    (def cycle (list 'declared)) (set-cdr! cycle cycle)
+    (def calls 0)
+    (def function (generator.function-from-table '(((declared) 1))
+      current?: (lambda () (set! calls (1+ calls)) (error "must not observe table"))))
+    (for (row (list #f '#(declared) '(declared . tail) cycle))
+      (check-exception (generator.with-generation-check (lambda ()
+        (set! calls (1+ calls)) (error "must not observe caller"))
+        (generator.function-apply function row)) Error?))
+    (check-equal? calls 0))
+  (test-case "finite unknown calls retain captured diagnostics and payload identity"
+    (def payload (vector #f values)) (def arguments (list payload))
+    (def function (generator.function-from-table []
+      current?: (lambda () (set-car! arguments 'retargeted) #t)))
+    (def failure (with-catch values (lambda () (generator.function-apply function arguments))))
+    (check (Error? failure) => #t)
+    (check-equal? (Error-message failure) "arguments outside finite function domain")
+    (def captured (car (Error-irritants failure)))
+    (check-eq? (car captured) payload)
+    (check-equal? (length captured) 1)
+    (set-cdr! arguments 'damaged)
+    (check-eq? (car captured) payload)
+    (check-eq? (vector-ref (car captured) 1) values))
+  (test-case "owned finite procedure calls retain keywords values causes and stale refusal"
+    (def live #t)
+    (def function (generator.function-from-table '((() . ()) ((request scale: 2) #f 7))
+      current?: (lambda () live)))
+    (def invoke (generator.function-procedure function))
+    (check-equal? (call-with-values invoke list) [])
+    (check-equal? (call-with-values (cut invoke 'request scale: 2) list) '(#f 7))
+    (check-equal? (generator.function-apply function '(request scale: 2)) '(#f 7))
+    (for (cause (list #f (cons 'observer 'cause)))
+      (def throwing (generator.function-from-table '((() 1)) current?: (lambda () (raise cause))))
+      (check-eq? (with-catch values (lambda () (generator.function-apply throwing []))) cause)
+      (check-eq? (with-catch values (generator.function-procedure throwing)) cause))
+    (set! live #f)
+    (check-exception (invoke) generator.stale-generation?)
+    (check-exception (generator.function-apply function []) generator.stale-generation?)))
