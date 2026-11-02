@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P80 closes first-observed Sum metadata ownership. The returned variants epoch
+and bounded distinct tag spine are owned before returning source observers;
+ordered dynamic payload getters, occurrence fuel, exact causes and fresh retries
+reuse the existing graph owner. Shared Record/Function shrink/replay acceptance
+is integrated into the existing complex suite.
+See [P80](pbt-design-rfc.md#p80-first-observed-sum-metadata-and-bounded-tag-directories).
+
 P79 closes known Tuple/Union/Or directory ownership before edge observation.
 Complete occurrence width is admitted before copying; known Types retain their
 first epochs before inherited checks. Branch order, sharing, per-edge fuel,

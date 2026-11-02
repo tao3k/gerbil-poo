@@ -167,6 +167,42 @@
 ;; The fault is injected at an inherited checked edge, never by a second runner.
 (def carrier-tree-test
   (test-suite "known recursive carrier declarations through FUN"
+    (test-case "tagged shared service rejects metadata revision then shrinks replays and retries"
+      (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def factories 0) (def faulty? #t)
+      (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def Leaf (.cc schema .element?: (cut element? schema <>) .generator: (lambda ()
+        (set! factories (1+ factories))
+        (make-generator Leaf (lambda (_r _s) (make-instance schema key: 2 handler: abs))
+          (lambda (value) (if (zero? (.get value key)) [] [(.cc value key: 0)]))
+          (cut .get <> key) dependencies: [owner]))))
+      (def descriptor (Sum primary: Leaf backup: Leaf))
+      (def directory (.get descriptor variants))
+      (.putslot! descriptor 'variants ($self-slot-spec (lambda (_) (set! armed #t) directory)))
+      (def action (property-action descriptor (lambda (value)
+        (= ((.@ (.get value value) handler) -1) (if faulty? 0 1))) identity))
+      (def configuration (make-instance PropertyConfiguration seed: 37 cases: 1 size: 3 shrink-budget: 60))
+      (def refused (core.with-generation-check (lambda ()
+        (when (and armed (not changed))
+          (set! changed #t) (.putslot! directory 'primary ($constant-slot-spec Leaf))))
+        (action configuration)))
+      (check-eq? (.get refused status) 'stale)
+      (check-eq? (.get refused replayable?) #f) (check-equal? factories 0)
+      ;; Explicit fresh publication owns the revised directory; reports never
+      ;; renew themselves merely because the application's declaration is repaired.
+      (.putslot! descriptor 'variants ($constant-slot-spec directory))
+      (def fresh (action configuration))
+      (check-eq? (.get fresh status) 'failed) (check-equal? factories 1)
+      (check (element? descriptor (.get fresh counterexample)) => #t)
+      (check (> (.get fresh steps) 0) => #t)
+      (def payload (.get (.get fresh counterexample) value))
+      (check-equal? (.get payload key) 0)
+      (check-exception ((.@ payload handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-exception (replay-property refused) Error?)
+      (.set! owner epoch 1) (set! faulty? #f)
+      (check-exception (replay-counterexample fresh) Error?)
+      (check-eq? (.get (action configuration) status) 'passed))
     (test-case "carrier capture rejects sibling revision then shrinks replays and freshly retries"
       (for (fault '(directory revision))
         (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def factories 0) (def faulty? #t)
