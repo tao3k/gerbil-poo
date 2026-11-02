@@ -49,7 +49,8 @@
 
 ;; Compile only a finite descriptor graph. Bounds apply to grammar visits and
 ;; emitted grammar nodes; primitive callbacks retain their own cost obligations.
-(def (recursive-generator descriptor depth budget descriptor-budget search make-generator scalar to-core)
+;; The caller supplies its finite shrink admission, shared with bridges/products.
+(def (recursive-generator descriptor depth budget descriptor-budget search make-generator scalar to-core shrink-children)
   (def graph (compile-graph descriptor depth budget descriptor-budget search scalar))
   (def nodes (graph-nodes graph))
   ;; Discovery already owns every descriptor/sampler/dependency epoch. Retaking
@@ -190,7 +191,7 @@
     (def children (derivation-children witness))
     (def value (derivation-value witness))
     (if (eq? (node-kind node) 'leaf)
-      (recursive.value (make-answer (core.with-sources [] (.call (node-sampler node) shrink value)) (- remaining 1)))
+      (recursive.value (make-answer (shrink-children (node-sampler node) value) (- remaining 1)))
       (let (structural-count (if (eq? (node-kind node) 'list)
                               (core.list-deletion-count (length value) 0) 0))
         ;; Reserve the whole structural batch before invoking coordinate callbacks.
@@ -205,7 +206,6 @@
             (recursive.value (make-answer (append structural out) left)))
           (recursive.bind (recursive.request (list 'shrink 0 0 left 0 (car rest)))
             (lambda (candidates)
-              (unless (list? (answer-value candidates)) (error "shrinker must return a finite proper list"))
               (loop (cdr rest) (cons (derivation-value (car rest)) before) (answer-remaining candidates)
                 (append out (map (lambda (smaller)
                   (pack node (append (reverse before) (cons smaller (map derivation-value (cdr rest)))) (derivation-tag witness)))

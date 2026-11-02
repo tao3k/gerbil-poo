@@ -151,7 +151,7 @@
           ;; A packer may consume its temporary row. Fresh prefix AND suffix
           ;; pairs keep that mutation away from the remaining coordinates.
           (call pack (foldl cons (cons smaller (list-copy (cdr values))) before)))
-          (finite-shrink-children (call (.@ (car children) shrink) (car values))))
+          (sampler-children (car children) (car values) call))
         (loop (cdr children) (cdr values) (cons (car values) before))))))
 ;; Identity sharing retains first-observation stamps. Product and Map factories
 ;; use the same standard hash policy; rediscovery never refreshes old authority.
@@ -364,7 +364,7 @@
 (def (generator descriptor (depth 32) node-budget: (nodes 256)
                 descriptor-budget: (descriptors 256) search-budget: (search 8192))
   (validate Type descriptor)
-  (recursive-generator descriptor depth nodes descriptors search make-generator scalar-generator generator-core))
+  (recursive-generator descriptor depth nodes descriptors search make-generator scalar-generator generator-core sampler-children))
 
 ;; Recognition uses the sampler's bounded grammar when present, avoiding an unbounded
 ;; recursive Type predicate on cyclic carriers or unguarded descriptor aliases.
@@ -404,16 +404,22 @@
   (cond ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'stale)) 'stale)
         ((and (generation-refusal? cause) (eq? (generation-refusal-kind cause) 'unguarded)) 'unsupported)
         ((generation-refusal? cause) 'exhausted) (else 'error)))
-;; One finite data boundary is shared by direct products and raw sampler
-;; lifting. Whole-spine admission precedes copying or any candidate callback.
-(def (finite-shrink-children children)
-  (list-copy (require-value children list?
-    (lambda () (error "shrinker must return a finite proper list")))))
-;; Invoke under the caller's source scope before admitting the returned spine.
-;; Direct products use their existing checked call, then the same data boundary.
-;; Generic callbacks retain their independent Iterator protocol.
-(def (sampler-children sampler value)
-  (finite-shrink-children (core.with-sources [] (.call sampler shrink value))))
+;; One shared finite-shrink action captures topology before returning observers.
+;; Invalid shape is remembered as false and reported only AFTER the existing gate,
+;; preserving stale/observer-cause priority. Empty lists and false payloads are data.
+;; Products supply their checked pack/source action; bridges and recursive leaves
+;; use the inherited source scope. No generic Iterator is made eager here.
+(def (sampler-children sampler value (call #f))
+  ;; Product lookup keeps its established position before checked invocation:
+  ;; a computed method that retires an owner cannot run its returned procedure.
+  (def shrink (and call (.@ sampler shrink)))
+  ;; Registration-free shallow capture runs once before any returning observer;
+  ;; payloads keep identity, and no invalid prefix can reach a packer.
+  (def (capture)
+    (def returned (if call (shrink value) (.call sampler shrink value)))
+    (and (list? returned) (list-copy returned)))
+  (def captured (if call (call capture) (core.with-sources [] (capture))))
+  (or captured (error "shrinker must return a finite proper list")))
 ;; This layer owns Type compilation and the POO report projection. Trial execution,
 ;; PRNG ownership, bounded shrinking and both replay algorithms have one generic owner.
 (def (check-property descriptor property . options)

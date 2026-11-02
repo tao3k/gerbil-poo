@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P82 closes finite POO shrink-neighborhood ownership across raw bridges, product
+coordinates and recursive leaves. The existing sampler-children action captures
+shape/topology before returning observers, while reporting malformed output only
+after the original source checks. Iterator and generic data-list callback protocols
+remain separate; this does not claim those return-ownership audits are complete.
+See [P82](pbt-design-rfc.md#p82-finite-poo-shrink-neighborhoods-captured-before-returning-checks).
+
 P81 closes shared sampler metadata ownership before returning observers.
 The existing generator-sources boundary retains returned Type identities and
 copies/registers dependency rows before source checks, serving explicit bridges,

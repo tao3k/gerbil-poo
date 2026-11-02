@@ -92,6 +92,35 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "finite service shrink neighborhoods compose through FUN and fresh owner retry"
+      (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def faulty? #t)
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def original (make-instance schema count: 0 handler: abs))
+      (def foreign (make-instance schema count: 1 handler: abs))
+      (def row (list original))
+      (def sampler (make-generator schema
+        (lambda (_r _s) (make-instance schema count: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value count)) [] (begin (set! armed #t) row)))
+        (cut .get <> count) dependencies: [owner]))
+      (def action (property-action schema (lambda (value)
+        (= ((.@ value handler) -1) (if faulty? 0 1))) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 37 cases: 1 size: 3 shrink-budget: 60))
+      (def report (core.with-generation-check (lambda ()
+        (when (and armed (not changed)) (set! changed #t) (set-car! row foreign)))
+        (action configuration)))
+      (check changed => #t) (check-eq? (.get report status) 'failed)
+      (check-eq? (.get report counterexample) original)
+      (check (> (.get report steps) 0) => #t)
+      (check-exception ((.@ (.get report counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample report) => #f)
+      ;; Explicitly repair callback data before seed replay; a report keeps its
+      ;; concrete witness and does not claim to freeze arbitrary closure state.
+      (set! row (list original))
+      (check-equal? (.get (.get (replay-property report) counterexample) count) 0)
+      (.set! owner epoch 1) (set! faulty? #f)
+      (check-exception (replay-property report) Error?)
+      (check-exception (replay-counterexample report) Error?)
+      (check-eq? (.get (action configuration) status) 'passed))
     (test-case "keyword routing preserves empty values wrappers corpus and fresh FUN repair"
       (def descriptor (Record selector: [Keyword] aliases: [(List Keyword)]
         handler: [(Function [String] [Keyword])]))
