@@ -1,6 +1,6 @@
 ;;; Runnable model-driven collection properties; use the ordinary std/test runner.
 (export collection-request-action service-factory-action service-value-generator service-batch-action map-service-action map-service-tests handoff rolling-upgrade optimistic-aba collection-properties-test)
-(import (prefix-in (only-in ../fun Observation.) fun.)
+(import (only-in ./property-products make-prepared-children) (prefix-in (only-in ../fun Observation.) fun.)
         (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter (only-in :std/list/list take delete-duplicates/hash)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/replay replay.)
@@ -95,6 +95,60 @@
 ;; through gerbil test after the standard qualification build, without a new runner.
 (def collection-properties-test
   (test-suite "complex model-driven collection properties"
+    (test-case "scoped Iterable preparation retains dependency repair FUN replay and fresh retry"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def commands (.get handoff commands))
+      (def selected (collection-model commands))
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1
+        size: (length commands) shrink-budget: 96))
+      (def forbidden 0) (def delivered 0) (def preparations 0)
+      (def nested (core.make-generator (lambda (_r _s) (set! forbidden (1+ forbidden)) 0) (lambda (_) [])))
+      ;; Keep the real model's retained trace tree. Only standard Iterable setup
+      ;; is supplied by this downstream service; repair, deltas and replay stay shared.
+      (def (prepare-action retire? fault)
+        (def base (trace-generator Command selected steps: (length commands) dependencies: (list owner)))
+        (def generation (generator-core base))
+        (def wrapped (core.make-tree-generator (lambda (random size)
+          (def tree (core.generate generation random size))
+          (core.make-sample (core.sample-value tree) (lambda ()
+            (make-prepared-children (lambda ()
+              (set! preparations (1+ preparations))
+              (when retire?
+                (.set! owner epoch (1+ (.get owner epoch)))
+                (core.generate nested (core.random-at 7) 0))
+              (iter ((core.sample-children tree)))))) sources: (core.sample-sources tree)))))
+        (property-action (.get base descriptor) (property-for selected 'rationaldict fault)
+          (lambda (report) (set! delivered (1+ delivered)) report)
+          sampler: (.cc base generation: (lambda (_) wrapped))))
+      (def obsolete ((prepare-action #t 'atomic) configuration))
+      (check-eq? (.get obsolete status) 'stale)
+      (check-equal? (list forbidden delivered preparations (.get obsolete attempts) (.get obsolete steps))
+        '(0 1 1 0 0))
+      (check-exception (replay-counterexample obsolete) Error?)
+      (check-exception (replay-property obsolete) Error?)
+      ;; Fresh preparation finds the actual unique-index atomicity fault, with
+      ;; state-dependent repair retaining producers needed by surviving consumers.
+      (def failed ((prepare-action #f 'atomic) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check (< (length (.get failed counterexample)) (length (.get failed original))) => #t)
+      (check (.call (trace-generator Command selected) .accept? (.get failed counterexample)) => #t)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (def epoch (.get owner epoch))
+      (def codec (replay.make-codec (list 'indexed-iterator 1 epoch) values values
+        current?: (lambda () (= (.get owner epoch) epoch))))
+      (def output (open-output-string))
+      (replay.write-counterexample (.get failed execution) codec output)
+      (check (replay.read-counterexample codec (open-input-string (get-output-string output))
+        (property.make-specification (lambda (trace) (.call (trace-generator Command selected) .accept? trace)) length)
+        (property-for selected 'rationaldict 'atomic)) => #f)
+      (.set! owner epoch (1+ (.get owner epoch)))
+      (check-exception (replay-property failed) Error?)
+      (check-exception (replay.read-counterexample codec (open-input-string (get-output-string output))
+        (property.make-specification list? length) (lambda (_) (error "must not replay retired owner"))) Error?)
+      (def corrected ((prepare-action #f 'none) configuration))
+      (check-eq? (.get corrected status) 'passed)
+      (check-equal? (list forbidden delivered) '(0 3)))
     (test-case "finite service functions reject first bad tuples then shrink replay and freshly retry"
       (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
       (def cell (Record amount: [UInt] first: [UInt] second: [UInt]

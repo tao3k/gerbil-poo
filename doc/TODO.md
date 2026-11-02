@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Source-owned Iterable preparation now covers child creation, standard Iterator
+conversion and nested actions across execution, inspection and generator algebra.
+Factory-return checks remain distinct; conversion does not charge a proposal.
+Generic regressions and the indexed Record/FUN repair/replay/retry workflow cover
+this boundary; the isolated kernel requires 243 cases. See
+[Source-owned Iterable preparation](pbt/shrinking.md#source-owned-iterable-preparation).
+
 First-return ownership of Function call declarations closes first-return source ownership for FunctionArguments declarations.
 Clause/input/keyword/rest epochs are registered before returning observers; pure
 capture errors retain the original source/cause priority. Promises, ordered clause

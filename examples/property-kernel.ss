@@ -4,7 +4,7 @@
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.)
         (prefix-in :clan/poo/testing/property/model model.)
-        (only-in ./property-products function-request-test-cases! diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
+        (only-in ./property-products iterator-preparation-test-cases! function-request-test-cases! diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
         (only-in ./property-numbers rational-test-cases! integer-range-test-cases!)
         (only-in ./property-filters filter-test-cases! proposal-test-cases!)
         (only-in ./property-scopes handoff-test-cases! declaration-test-cases! function-test-cases! assertion-test-cases! scope-test-cases! nested-scope-test-cases! classification-test-cases! codec-scope-test-cases!)
@@ -74,6 +74,7 @@
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.
 (def property-kernel-test
   (test-suite "independent Gerbil property kernel"
+    (iterator-preparation-test-cases!)
     (product-row-test-cases!)
     (product-test-cases!)
     (rational-test-cases!)

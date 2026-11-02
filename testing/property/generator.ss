@@ -101,11 +101,14 @@
     ;; With neither retained leaves nor a run check there is nothing to recheck.
     ;; Keep the standard loop for that scope-free immutable-data path.
     (if (and (null? owned) (null? (current-generation-checks))) (for (value sequence) body ...)
-      (using (children (iter (with-sources owned sequence)) :- Iterator)
-        (let next ()
-          (let (value (with-sources owned (children.next!)))
-            (unless (eq? value #!eof)
-              (let () body ...) (next))))))))
+      (let (returned (with-sources owned sequence))
+        ;; Standard Iterable conversion has its own inherited source scope. The
+        ;; earlier factory gate remains intact before this user callback begins.
+        (using (children (with-sources owned (iter returned)) :- Iterator)
+          (let next ()
+            (let (value (with-sources owned (children.next!)))
+              (unless (eq? value #!eof)
+                (let () body ...) (next)))))))))
 ;; Public source lists are copies, so a downstream consumer cannot edit node ownership.
 (def (sample-sources tree) (map identity (sample-node-sources tree)))
 ;; Each node exposes an ordinary callback for consumers outside the core algebra.

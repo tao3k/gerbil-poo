@@ -1,6 +1,6 @@
 ;;; Fixed-product generation, domain observation and source-refusal examples.
-(export function-request-test-cases! diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
-(import :std/test :std/error :std/iter
+(export make-prepared-children iterator-preparation-test-cases! function-request-test-cases! diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
+(import :std/test :std/error :std/iter :std/interface
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -425,3 +425,89 @@
     (set! live #f)
     (check-exception (invoke) generator.stale-generation?)
     (check-exception (generator.function-apply function []) generator.stale-generation?)))
+
+
+;; An ordinary downstream Iterable may prepare its Iterator with user effects.
+;; This fixture exercises the standard interface, without replacing next! or for.
+(defstruct prepared-children (prepare) final: #t)
+;; The method returns the standard Iterator supplied by the application action.
+(implement Iterable prepared-children
+  (iter (lambda (self) (Iterator ((prepared-children-prepare self))))))
+
+;; All consumers must own both child creation and standard Iterable conversion.
+;; These cases share the generic suite and its isolated standard-library build.
+(def (iterator-preparation-test-cases!)
+  (test-case "iterator preparation retains execution authority before nested effects"
+    (def live #t) (def effects 0) (def opens 0)
+    (def nested (generator.make-generator (lambda (_r _s) (set! effects (1+ effects)) 0) (lambda (_) [])))
+    (def input (generator.make-tree-generator (lambda (_r _s)
+      (generator.make-sample 2 (lambda () (make-prepared-children (lambda ()
+        (set! opens (1+ opens)) (set! live #f)
+        (generator.generate nested (generator.random-at 1) 0) (in-list []))))))
+      current?: (lambda () live)))
+    (def report (property.check-property input (lambda (_) #f)
+      (property.make-specification exact-integer? abs) cases: 1 shrink-budget: 1))
+    (check-eq? (property.report-status report) 'stale)
+    (check-equal? (list effects opens (property.report-attempts report)
+      (property.report-steps report) (property.report-counterexample report)) '(0 1 0 0 2)))
+  (test-case "bounded inspection owns standard iterator preparation without charging a proposal"
+    (def live #t) (def effects 0) (def opens 0)
+    (def nested (generator.make-generator (lambda (_r _s) (set! effects (1+ effects)) 0) (lambda (_) [])))
+    (def input (generator.make-tree-generator (lambda (_r _s)
+      (generator.make-sample 2 (lambda () (make-prepared-children (lambda ()
+        (set! opens (1+ opens)) (set! live #f)
+        (generator.generate nested (generator.random-at 1) 0) (in-list []))))))
+      current?: (lambda () live)))
+    (def inspected (property.inspect-generator input (property.make-specification exact-integer? abs)
+      count: 1 depth: 1 proposal-budget: 1))
+    (check-eq? (property.inspection-status inspected) 'stale)
+    (check-equal? (list effects opens (property.inspection-draws inspected)
+      (property.inspection-attempts inspected)) '(0 1 1 0)))
+  (test-case "map bind and fixed products retain authority during direct iterable conversion"
+    (for (compose (list (lambda (input) (generator.generator-map input (lambda (value) value)))
+                       (lambda (input) (generator.generator-bind input generator.generator-unit))
+                       (lambda (input) (generator.generator-sequence (list input)))))
+      (def live #t) (def effects 0) (def opens 0)
+      (def nested (generator.make-generator (lambda (_r _s) (set! effects (1+ effects)) 0) (lambda (_) [])))
+      (def input (generator.make-tree-generator (lambda (_r _s)
+        (generator.make-sample 2 (lambda () (make-prepared-children (lambda ()
+          (set! opens (1+ opens)) (set! live #f)
+          (generator.generate nested (generator.random-at 1) 0) (in-list []))))))
+        current?: (lambda () live)))
+      (def tree (generator.generate (compose input) (generator.random-at 4) 0))
+      (check-exception (using (cursor (iter ((generator.sample-children tree))) :- Iterator)
+        (cursor.next!)) generator.stale-generation?)
+      (check-equal? (list effects opens) '(0 1))))
+  (test-case "iterator preparation preserves factory priority exact causes zero demand and EOF"
+    (for (mode '(zero factory conversion malformed stable))
+      (def live #t) (def factories 0) (def opens 0)
+      (def cause (cons 'iterator 'preparation))
+      (def input (generator.make-tree-generator (lambda (_r _s)
+        (generator.make-sample 2 (lambda ()
+          (set! factories (1+ factories))
+          (when (eq? mode 'factory) (set! live #f))
+          (if (eq? mode 'malformed) 7
+            (make-prepared-children (lambda ()
+              (set! opens (1+ opens))
+              (if (eq? mode 'conversion) (raise cause)
+                (in-list (list (generator.make-sample 0 (lambda () [])))))))))))
+        current?: (lambda () live)))
+      (def report (property.check-property input (lambda (_) #f)
+        (property.make-specification exact-integer? abs) cases: 1 shrink-budget: (if (eq? mode 'zero) 0 2)))
+      (check-eq? (property.report-status report)
+        (case mode ((factory) 'stale) ((conversion malformed) 'error) (else 'failed)))
+      (check-equal? (list factories opens (property.report-attempts report) (property.report-steps report))
+        (case mode ((zero) '(0 0 0 0)) ((factory malformed) '(1 0 0 0))
+          ((conversion) '(1 1 0 0)) (else '(1 1 1 1))))
+      (when (eq? mode 'conversion) (check-eq? (property.report-cause report) cause))
+      (when (eq? mode 'stable)
+        (check-equal? (property.report-counterexample report) 0)
+        (check (property.report-minimal? report) => #t)))
+    ;; A thrown false is a present callback cause, never normal EOF or stale.
+    (def input (generator.make-tree-generator (lambda (_r _s)
+      (generator.make-sample 1 (lambda () (make-prepared-children (lambda () (raise #f))))))))
+    (def report (property.check-property input (lambda (_) #f)
+      (property.make-specification exact-integer? abs) cases: 1 shrink-budget: 1))
+    (check-eq? (property.report-status report) 'error)
+    (check-eq? (property.report-cause report) #f)
+    (check-equal? (property.report-attempts report) 0)))

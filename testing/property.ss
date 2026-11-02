@@ -205,7 +205,10 @@
 (def (scan specification property state fuel finish current observe)
   (def best (progress-best state))
   (let/cc smaller
-    (using (children (iter (with-current current finish ((sample-children best)))) :- Iterator)
+    ;; Iterable.iter is a user callback too. Keep the factory return gate before
+    ;; its separate checked conversion, so neither stage can enter stale effects.
+    (def returned (with-current current finish ((sample-children best))))
+    (using (children (with-current current finish (iter returned)) :- Iterator)
       (for (_ (in-range fuel))
         (def child (next-proposal children state current finish))
         (when (eq? child #!eof) (finish 'failed #t))
@@ -308,7 +311,10 @@
           ;; Child pulls share next-proposal with the real shrinker: returned
           ;; tombstones count, EOF/throws do not, and unused tails remain untouched.
           (def (children! tree path remaining cost)
-            (using (children (iter (with-current current stop ((sample-children tree)))) :- Iterator)
+            ;; Share execution's two-stage ownership: a returned Iterable is not
+            ;; yet an admitted Iterator, and conversion can invoke nested actions.
+            (def returned (with-current current stop ((sample-children tree))))
+            (using (children (with-current current stop (iter returned)) :- Iterator)
               (let next ((index 0))
                 (if (= (progress-attempts state) budget) (set! truncated? #t)
                   (let (child (next-proposal children state current stop))

@@ -8,6 +8,14 @@ This object model is directly inspired by that of Nix, isomorphic to that of Jso
 Copyright 2020 François-René Rideau
 Gerbil-POO is distributed under the Apache License, version 2.0. See the file [LICENSE](LICENSE).
 
+### Release scope
+
+Version 0.1.2 includes finite typed contracts, incremental collections and the
+source-checked property-testing protocols. Generalized MOP work extends the
+original paper's future-work direction; this is not a claim that every research
+boundary is solved. See the [abstraction and release review](doc/pbt/architecture.md#release-readiness-and-abstraction-review)
+for checked mechanisms, executable evidence and explicit premises.
+
 ### Documentation
 
 The [Scheme Workshop 2021 video](https://youtu.be/2szKoUQoNm8) and the
