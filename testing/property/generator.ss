@@ -457,16 +457,27 @@
 ;; Both structural and coordinate phases read that snapshot, even if a callback
 ;; edits the caller's list. Parameter lists still require whole-spine admission;
 ;; no partial batch escapes on refusal, and arbitrary payloads are not copied.
-(def (data-list-shrinks values (shrink : :procedure) minimum)
-  (using (values :~ proper-list?)
-    (def owned (list-copy values))
+;; Returned coordinate neighborhoods are captured before observers; malformed
+;; output keeps the standard using exception AFTER the original source gate.
+(def (data-list-shrinks items (shrink : :procedure) minimum)
+  (using (items :~ proper-list?)
+    (def owned (list-copy items))
     (def structural (for/collect (candidate (sequence-deletions owned minimum)) candidate))
     (append structural
       (let coordinates ((tail owned) (before []))
         (if (null? tail) []
-          (using (children (with-sources [] (shrink (car tail))) :~ proper-list?)
+          (let-values (((children refused)
+            (with-sources []
+              (def returned (shrink (car tail)))
+              ;; Multiple values retain the original contract exception without
+              ;; raising it before the existing returning source checks.
+              (if (list? returned) (values (list-copy returned) #f)
+                (values #f (with-catch values (lambda ()
+                  (using (returned :~ proper-list?) returned))))))))
+            (unless children (raise refused))
             (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) children)
               (coordinates (cdr tail) (cons (car tail) before)))))))))
+
 ;; Compose retained element trees without drawing again. Every descendant keeps
 ;; all previously observed leaves, including sources of structurally removed nodes.
 (def (sample-sequence samples (pack identity) min-length: (minimum 0)

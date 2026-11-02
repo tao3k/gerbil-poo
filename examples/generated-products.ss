@@ -92,6 +92,43 @@
 ;; The standard suite owns registration; every case uses ordinary public actions.
 (def generated-products-test
   (test-suite "nested typed product admission"
+    (test-case "data list service batches retain finite witnesses through FUN shrinking and replay"
+      (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def faulty? #t)
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def descriptor (List schema))
+      (def original (make-instance schema count: 0 handler: abs))
+      (def foreign (make-instance schema count: 1 handler: abs))
+      (def row (list original))
+      (def sampler (make-generator descriptor
+        (lambda (_r _s) (list (make-instance schema count: 2 handler: abs)
+          (make-instance schema count: 2 handler: abs)))
+        (lambda (items)
+          ;; Each finite call owns a fresh producer spine; captured candidates
+          ;; do not promise to restore mutable closure data on the next call.
+          (set! row (list original))
+          (core.data-list-shrinks items (lambda (item)
+          (if (zero? (.get item count)) [] (begin (set! armed #t) row))) 1))
+        (lambda (items) (+ (length items) (apply + (map (cut .get <> count) items)))) dependencies: [owner]))
+      (def action (property-action descriptor (lambda (items)
+        (= ((.@ (car items) handler) -1) (if faulty? 0 1))) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 37 cases: 1 size: 3 shrink-budget: 60))
+      (def report (core.with-generation-check (lambda ()
+        (when armed (set! armed #f) (set! changed #t) (set-car! row foreign)))
+        (action configuration)))
+      (check changed => #t) (check-eq? (.get report status) 'failed)
+      (check-equal? (length (.get report counterexample)) 1)
+      (check-eq? (car (.get report counterexample)) original)
+      (check (> (.get report steps) 0) => #t)
+      (check-exception ((.@ (car (.get report counterexample)) handler) 'invalid) TypeError?)
+      (check (replay-counterexample report) => #f)
+      ;; Closure data is explicitly restored before seed replay; only declared
+      ;; owner revisions authorize reports, never a deep snapshot of the callback.
+      (set! row (list original))
+      (check-equal? (.get (car (.get (replay-property report) counterexample)) count) 0)
+      (.set! owner epoch 1) (set! faulty? #f)
+      (check-exception (replay-property report) Error?)
+      (check-exception (replay-counterexample report) Error?)
+      (check-eq? (.get (action configuration) status) 'passed))
     (test-case "finite service shrink neighborhoods compose through FUN and fresh owner retry"
       (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def faulty? #t)
       (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))

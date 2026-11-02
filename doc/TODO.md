@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P83 closes the generic data-list-shrinks return-ownership gap left by P82.
+Finite coordinate rows are captured inside the existing source action; malformed
+output retains its standard using contract exception until source checks complete.
+Generic Iterator laziness, proposal counters and failure priority remain unchanged.
+The independent standard-library suite now contains 235 cases.
+See [P83](pbt-design-rfc.md#p83-generic-data-list-candidate-capture-with-contract-failure-precedence).
+
 P82 closes finite POO shrink-neighborhood ownership across raw bridges, product
 coordinates and recursive leaves. The existing sampler-children action captures
 shape/topology before returning observers, while reporting malformed output only
