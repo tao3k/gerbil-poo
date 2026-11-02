@@ -102,7 +102,8 @@
 (def (current? sources (sampler #f))
   (and (stamps-current? sources)
        (or (not sampler) (not (.has? sampler .current?))
-         (core.boolean-result (.call sampler .current?) "source observer must return a boolean"))))
+         (and (core.boolean-result (.call sampler .current?) "source observer must return a boolean")
+              (stamps-current? sources)))))
 ;; Read optional observer metadata once at the existing checked action boundary.
 ;; Absence alone is opt-out; present values must be callable before any later
 ;; declaration getter. This returns the original procedure, not a wrapper/cache.
@@ -120,7 +121,10 @@
 (def (source-guard (sources :~ proper-list?) (sampler #f))
   (def owned (copy-source-stamps sources))
   (def hook (source-observer sampler))
-  (lambda () (and (stamps-current? owned) (or (not hook) (core.live? hook)))))
+  ;; The hook is an action between pure epoch reads. A true reply cannot renew
+  ;; an owner retired by that action; false/malformed/thrown replies keep priority.
+  (lambda () (and (stamps-current? owned)
+    (or (not hook) (and (core.live? hook) (stamps-current? owned))))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
 ;; factory are separate actions: an obsolete getter cannot invoke its result,
 ;; and an obsolete false factory result cannot enter the raw fallback.
@@ -529,10 +533,15 @@
   (def sources []) (def hook #f) (def sampler-stamp #f)
   ;; Report revision is invocation-only; it is not added to returned source rows.
   ;; Repeated replay therefore neither renews epochs nor grows a report chain.
-  (def (current)
+  ;; Observe every invocation-only epoch before AND after the optional hook.
+  ;; This includes a derived sampler absent from the report's persistent row.
+  (def (epochs-current?)
     (and (= epoch (object-revision report)) (stamps-current? sources)
-      (or (not sampler-stamp) (= (cdr sampler-stamp) (object-revision (car sampler-stamp))))
-      (or (not hook) (core.live? hook))))
+      (or (not sampler-stamp) (= (cdr sampler-stamp) (object-revision (car sampler-stamp))))))
+  ;; Reuse the same predicate throughout runner/codec stages, without recapturing
+  ;; epochs or retaining another observer wrapper in the published report.
+  (def (current)
+    (and (epochs-current?) (or (not hook) (and (core.live? hook) (epochs-current?)))))
   ;; Metadata refusals keep the public replay error and raw getter exceptions.
   (def (check!) (unless (current) (error "stale property replay")))
   (let-values (((execution sampler)

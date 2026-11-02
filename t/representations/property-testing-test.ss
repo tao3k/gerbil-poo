@@ -8,7 +8,7 @@
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines read-all-as-string) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/testing/function
         (only-in :clan/poo/function-signature encode-arguments)
-        (only-in :clan/poo/testing/generation-graph generation-refusal? generation-refusal-kind)
+        (only-in :clan/poo/testing/generation-graph generation-refusal? generation-refusal-kind graph-sources-current?)
         (only-in :clan/poo/support/option some)
         (only-in :clan/poo/examples/signature-service signature-preparation-test failure-preparation-test inspection-request-test)
         (prefix-in :clan/poo/examples/signature-service service.)
@@ -209,6 +209,31 @@
       (.set! owner epoch 1)
       (check-exception (replay-property again) Error?)
       (check-exception (replay-counterexample again) Error?))
+    (test-case "portable import rejects a retiring true hook before consuming caller input"
+      (def owner (.o epoch: 0)) (def decoded 0) (def properties 0)
+      (def sampler (.cc (make-generator UInt (lambda (_r _s) 4) (lambda (_) []) identity dependencies: [owner])
+        .current?: (lambda () (.set! owner epoch 1) #t)))
+      (def codec (replay.make-codec 'v1 values (lambda (value) (set! decoded (1+ decoded)) value)))
+      (def input (open-input-string "#(property-counterexample 1 v1 4)"))
+      (check-exception (read-counterexample sampler codec input
+        (lambda (_) (set! properties (1+ properties)) #f)) Error?)
+      (check-eq? (peek-char input) #\#)
+      (check-equal? (list decoded properties) '(0 0)))
+    (test-case "typed replay hooks retain invocation report and sampler epochs before output"
+      (for* ((operation '(seed concrete export)) (retired '(report sampler dependency)))
+        (def owner (.o epoch: 0)) (def armed #f) (def calls 0) (def encoded 0) (def view #f)
+        (def sampler (.cc (make-generator UInt (lambda (_r _s) 4) (lambda (_) []) identity dependencies: [owner])
+          .current?: (lambda () (when armed (set! armed #f)
+            (.set! (case retired ((report) view) ((sampler) sampler) (else owner)) epoch 1)) #t)))
+        (def report (check-property UInt (lambda (_) (set! calls (1+ calls)) #f)
+          sampler: sampler cases: 1 shrink-budget: 0))
+        (set! view (.cc report))
+        (def codec (replay.make-codec 'v1 (lambda (v) (set! encoded (1+ encoded)) v) values))
+        (def output (open-output-string))
+        (def before calls) (set! armed #t)
+        (check-exception (case operation ((seed) (replay-property view))
+          ((concrete) (replay-counterexample view)) (else (write-counterexample view codec output))) Error?)
+        (check-equal? (list calls encoded (get-output-string output)) (list before 0 ""))))
     (test-case "finite shrink batches are owned before returning observers across typed paths"
       (for* ((path '(bridge product recursive)) (edit '(replace improper cycle)))
         (def Leaf (.cc UInt)) (def row (list 0)) (def armed #f) (def changed #f)

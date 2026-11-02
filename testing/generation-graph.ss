@@ -22,10 +22,15 @@
 ;; Callers prepare the sampler spine once; checking never rebuilds a node list.
 ;; Every present hook uses the core Boolean contract before the next participant.
 (def (graph-sources-current? stamps samplers)
-  (and (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) stamps)
+  ;; Keep epoch reads pure and separate from observer actions. Recheck after
+  ;; each true reply, so a revised participant cannot reach the next hook.
+  (def (epochs-current?)
+    (every (lambda (entry) (= (cdr entry) (object-revision (car entry)))) stamps))
+  (and (epochs-current?)
     (every (lambda (sampler)
       (or (not (.has? sampler .current?))
-        (boolean-result (.call sampler .current?) "source observer must return a boolean"))) samplers)))
+        (and (boolean-result (.call sampler .current?) "source observer must return a boolean")
+             (epochs-current?)))) samplers)))
 
 ;; One preparation boundary owns the constructor's declaration binding. Retarget
 ;; through a fresh constructor, never by inheriting a different Type's parser/tree.
