@@ -198,13 +198,18 @@
       ;; Raw shrinking shares the finite row contract with generic product
       ;; measurement. Shape and width precede any child or packing callback.
       (def width (length children))
+      ;; Capture shape and spine inside the existing action, before returning
+      ;; observers can edit decoder staging. Delay shape refusal until that action
+      ;; has returned so stale/observer errors retain their established priority.
       (def (unpack-row value)
-        (def row (checked unpack value))
-        (unless (and (list? row) (length=n? row width)) (error "invalid product value row"))
-        (list-copy row))
+        (def row (checked (lambda ()
+          (let (returned (unpack value))
+            (and (list? returned) (length=n? returned width) (list-copy returned))))))
+        (unless row (error "invalid product value row"))
+        row)
       (.cc (from-generator descriptor
         (core.generator-map (core.generator-sequence (map-in-order generator-core children)) pack current?: current)
-        (lambda (value) (testing.specification-weight domain (checked unpack value)))
+        (lambda (value) (testing.specification-weight domain (unpack-row value)))
         shrink: (lambda (value) (coordinate-shrinks children (unpack-row value) pack checked))
         dependencies: (apply append (map generator-sources children))) .current?: current))))
 

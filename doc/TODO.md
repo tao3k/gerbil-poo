@@ -3784,3 +3784,5 @@ finite Lean laws in ValueStorage prove refusal-state preservation, unchanged val
 delegation, ordinary/indexed congruence and successful admission witnesses. This
 fix does not add a loader/cache or claim pervasive mutation tracking, JIT or host
 hash/compiler verification; the author's purity-default boundary remains intact.
+
+Fixed-width product decomposition now captures shape and its shallow spine before returning source observers. Measurement and value-only shrinking share the existing unpack-row boundary; malformed/width decisions cannot be repaired after return. See [Captured fixed-width product decomposition](pbt/shrinking.md#captured-fixed-width-product-decomposition) for controls, laws and host premises.
