@@ -113,11 +113,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 246)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 251)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 246 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 251 cases; isolated stdlib-only compiled modules"))))
 
 ;; Keep the public replay variants in one small test dispatcher; each API still
 ;; owns its actual admission/error semantics and return shape.

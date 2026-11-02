@@ -9,7 +9,7 @@ are not duplicated here.
 - Layering: generic modules under `testing/property` use Gerbil standard
   mechanisms; POO owns Type/Record derivation, validation and FUN/IO integration.
 - Status: The documented finite protocols are implemented within their stated domains.
-  Historical counts do not certify a new revision; both PR #13 heads require CI.
+  Historical counts do not certify a new revision; both active PR heads require CI.
 - Boundaries: callback termination, faithful codecs, truthful revision clocks
   and fixture/model correspondence remain explicit premises. This does not claim
   unrestricted inference, arbitrary cyclic evaluation or compiler/runtime proofs.

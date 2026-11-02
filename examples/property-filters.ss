@@ -1,5 +1,5 @@
 ;;; Bounded rejection sampling and retained source ownership through retries.
-(export filter-test-cases! proposal-test-cases!)
+(export filter-test-cases! proposal-test-cases! delay-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -242,3 +242,86 @@
       (check (property.report-current? report) => (not stale?))
       (set! first-live #f)
       (check (property.report-current? report) => #f))))
+
+;; A parent reduction selects a previously unused delayed branch. Its constructor
+;; belongs to the outer delay even when the retained tree is consumed later.
+(def (dependent-delay depth force (current (lambda () #t)))
+  (generator.generator-delay (lambda ()
+    (generator.generator-bind
+      (generator.make-generator (lambda (_random _size) 1) generator.integer-shrinks)
+      (lambda (value) (if (positive? value) (generator.generator-unit value)
+        (generator.generator-delay (lambda () (force) (generator.generator-unit value)) depth: 1)))))
+    depth: depth current?: current))
+
+;; Register controls in the same standard suite and independent library build.
+(def (delay-test-cases!)
+  (test-case "retained dependency shrinking cannot renew exhausted delay depth"
+    (def forces 0)
+    (def generation (dependent-delay 1 (lambda () (set! forces (1+ forces)))))
+    (def domain (property.make-specification exact-integer? abs))
+    (def report (property.check-property generation (lambda (_) #f) domain cases: 1 shrink-budget: 8))
+    (check-equal? (list (property.report-status report) (property.report-counterexample report)
+      (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))
+      '(exhausted 1 0 0 #f))
+    (check (generator.generation-exhausted? (property.report-cause report)) => #t)
+    (check-equal? forces 0)
+    (check-eq? (property.report-status (property.replay-property report)) 'exhausted)
+    (check-exception (property.replay-counterexample report) Error?)
+    (let (inspection (property.inspect-generator generation domain count: 1 depth: 1 proposal-budget: 1))
+      (check-eq? (property.inspection-status inspection) 'exhausted)
+      (check-equal? (property.inspection-attempts inspection) 0))
+    (check-equal? forces 0))
+  (test-case "sufficient retained delay depth preserves reduction and both replay modes"
+    (def forces 0)
+    (def generation (dependent-delay 2 (lambda () (set! forces (1+ forces)))))
+    (def report (property.check-property generation (lambda (_) #f)
+      (property.make-specification exact-integer? abs) seed: 17 cases: 1 shrink-budget: 8))
+    (check-equal? (list (property.report-status report) (property.report-counterexample report)
+      (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))
+      '(failed 0 1 1 #t))
+    (check-equal? forces 1)
+    (check-equal? (property.report-counterexample (property.replay-property report)) 0)
+    (check (property.replay-counterexample report) => #f)
+    (check-equal? forces 2))
+  (test-case "a stricter consuming delay remains owned by further retained descendants"
+    (def forces 0)
+    ;; Two later constructors need two credits; the consuming scope supplies one.
+    (def generation (generator.generator-delay (lambda ()
+      (generator.generator-bind
+        (generator.make-generator (lambda (_r _s) 2) (lambda (v) (if (positive? v) (list (1- v)) [])))
+        (lambda (value) (if (positive? value) (generator.generator-unit value)
+          (generator.generator-delay (lambda () (set! forces (1+ forces))
+            (generator.generator-delay (lambda () (set! forces (1+ forces))
+              (generator.generator-unit 0)) depth: 2)) depth: 2))))) depth: 4))
+    (def root (generator.generate generation (generator.random-at 17) 0))
+    (def ambient (generator.generator-delay (lambda ()
+      (generator.generator-unit (car (for/collect (child ((generator.sample-children root))) child)))) depth: 2))
+    (def smaller (generator.sample-value (generator.generate ambient (generator.random-at 17) 0)))
+    (check-equal? (generator.sample-value smaller) 1)
+    (check-exception (for/collect (child ((generator.sample-children smaller))) child) generator.generation-exhausted?)
+    (check-equal? forces 1))
+  (test-case "delay restoration retains source and raw-cause precedence and unwinds"
+    (def live #t) (def forces 0)
+    (def generation (dependent-delay 1 (lambda () (set! forces (1+ forces))) (lambda () live)))
+    (def root (generator.generate generation (generator.random-at 17) 0))
+    (set! live #f)
+    (check-exception (for/collect (child ((generator.sample-children root))) child) generator.stale-generation?)
+    (check-equal? forces 0)
+    (for (cause (list #f (cons 'constructor 'cause)))
+      (let* ((source (dependent-delay 2 (lambda () (raise cause))))
+             (tree (generator.generate source (generator.random-at 17) 0)))
+        (check-eq? (with-catch values (lambda ()
+          (for/collect (child ((generator.sample-children tree))) child) 'unexpected)) cause)
+        (check-equal? (generator.sample-value (generator.generate
+          (generator.generator-delay (lambda () (generator.generator-unit 9)) depth: 1)
+          (generator.random-at 17) 0)) 9))))
+  (test-case "unbounded dependency roots retain fresh independent delayed children"
+    (def forces 0)
+    (def generation (generator.generator-bind
+      (generator.make-generator (lambda (_r _s) 1) generator.integer-shrinks)
+      (lambda (value) (if (positive? value) (generator.generator-unit value)
+        (generator.generator-delay (lambda () (set! forces (1+ forces))
+          (generator.generator-unit 0)) depth: 1)))))
+    (def root (generator.generate generation (generator.random-at 17) 0))
+    (check-equal? (for/collect (child ((generator.sample-children root))) (generator.sample-value child)) '(0))
+    (check-equal? forces 1)))

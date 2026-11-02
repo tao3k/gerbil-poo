@@ -199,7 +199,7 @@
   (make-generation (lambda (random size) (map-sample (generate generator random size) transform sources)) sources))
 ;; Parent shrinks regenerate the dependent child using its captured seed. A rejected
 ;; parent never invokes selection; source leaves are unioned rather than rewrapped.
-(def (bind-sample parent select seed size sources states)
+(def (bind-sample parent select seed size sources states allowance)
   (def observed (merge-sources sources (proposal-owned-sources parent)))
   (require-sources! observed)
   (if (rejected? parent) (make-rejected observed)
@@ -214,7 +214,12 @@
       (make-sample-node (sample-value child)
         (lambda () (in-coroutine (lambda (yield)
           (for-sources (smaller ((sample-children parent)) owned)
-            (yield (bind-sample smaller select seed size owned states)))
+            ;; Only regeneration restores a captured delayed-construction scope.
+            ;; Unbounded trees use the active caller directly, without a frame.
+            (yield (if allowance
+              (parameterize ((current-delay-budget (delay-allowance allowance)))
+                (bind-sample smaller select seed size owned states (current-delay-budget)))
+              (bind-sample smaller select seed size owned states (current-delay-budget)))))
           (for-sources (smaller ((sample-children child)) owned)
             (yield (map-sample smaller identity owned)))))) owned))))
 ;; Bind owns no output-value cache or second PRNG owner.
@@ -224,7 +229,8 @@
     (def states (or (current-random-states) (make-hash-table-eqv)))
     (parameterize ((current-random-states states))
       (def parent-seed (split-seed random)) (def child-seed (split-seed random))
-      (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states))) sources))
+      (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states
+        (current-delay-budget)))) sources))
 ;; Admit finite topology before mapping or source discovery, then own its spine.
 ;; Retain the established bind/map checkpoint owner and split schedule: a direct
 ;; iterative draw candidate did not pass the full-workflow GC cost acceptance.
@@ -293,6 +299,11 @@
     current?: current sources: (generation-sources generator)))
 ;; Delay quota is invocation-local and shared by nested delayed constructors.
 (def current-delay-budget (make-parameter #f))
+;; False is unbounded, not zero. Meet original and active allowances so a retained
+;; child cannot renew its constructor depth or relax a stricter caller's scope.
+(def (delay-allowance retained)
+  (def active (current-delay-budget))
+  (if (and retained active) (min retained active) (or retained active)))
 ;; Each force spends a token before invoking its constructor; callback termination
 ;; itself remains subject to the unchanged process guard, not a universal theorem.
 (def (generator-delay (construct : :procedure) depth: (depth 32) current?: (current immutable-current))
@@ -300,7 +311,7 @@
   (def sources (observer-sources current []))
   (make-generation (lambda (random size)
     (require-sources! sources)
-    (def fuel (min depth (or (current-delay-budget) depth)))
+    (def fuel (delay-allowance depth))
     (when (zero? fuel) (raise (make-generation-exhausted)))
     (parameterize ((current-delay-budget (1- fuel))) (selected-sample (with-sources sources (construct)) random size sources))) sources))
 ;; Prune rejected branches, yielding a charged tombstone rather than searching
