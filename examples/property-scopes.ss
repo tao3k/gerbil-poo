@@ -859,7 +859,12 @@
       (check-equal? (list specifications factories dependent produced trials) '(2 1 0 0 0))
       (set! retire? #f)
       (balanced cases: 3)
-      (check-equal? (list specifications factories dependent produced trials) '(4 2 3 1 3))))
+      (check-equal? (list specifications factories dependent produced trials) '(4 2 3 1 3))
+      ;; Hoisting the callable must never hoist its mutable domain preparation.
+      ;; A later epoch still gets a fresh pair of domains and the same trials.
+      (set! epoch (1+ epoch))
+      (balanced cases: 3)
+      (check-equal? (list specifications factories dependent produced trials) '(6 3 6 2 6))))
   (test-case "a later named domain refuses before any generator construction"
     (let ((alive #t) (factories 0))
       (def first (property.make-specification integer? abs current?: (lambda () alive)))

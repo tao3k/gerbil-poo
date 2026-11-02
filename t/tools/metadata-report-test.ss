@@ -20,7 +20,7 @@
     (length (filter (lambda (entry) (string? (cdr entry))) modules)) " "
     (length (filter (lambda (owner) (assoc (string-append owner "~1") modules)) private-helper-owners)))
   (force-output)
-  (report-process-counters 'prepared))
+  (report-process-counters 'metadata-setup))
 (def (study rows)
   `(metadata-benchmarks (status complete) (sources ,@(source-digests benchmark.sources))
      (rounds ,benchmark.rounds) (phases ,@benchmark.phases) (rows ,@rows)))

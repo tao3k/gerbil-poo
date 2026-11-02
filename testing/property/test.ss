@@ -68,15 +68,14 @@
    (do-check! expression expression
      (require-passed expression diagnostics: (lambda (report) (formatter report))))))
 
-;; Standard checks add only TestResult delivery and binding diagnostics. The
-;; hygienic local producer keeps the user's diagnostic name without rebinding
-;; references to their public property. The enclosing callable is the test entry. Preparation, dependent
-;; shrinking and replay all belong to the shared report-producing declaration.
+;; Argument names are fixed by the declaration. Reuse the existing prepared
+;; formatter for those names; domain/generator construction and all report/source
+;; checks remain per invocation. No execution result or authority is retained.
 (defrule (define-property name ((argument generation specification) ...) body ...)
-  (def (name . options)
-    (do-check! name name
-      (let ()
-        (property.define-property produce name: 'name ((argument generation specification) ...) body ...)
-        (require-passed (apply produce options)
-          diagnostics: (lambda (report)
-            (property.report-diagnostics report bindings: '(argument ...))))))))
+  (begin
+    (def formatter (property.prepare-report-diagnostics '(argument ...)))
+    (def (name . options)
+      (do-check! name name
+        (let ()
+          (property.define-property produce name: 'name ((argument generation specification) ...) body ...)
+          (require-passed (apply produce options) diagnostics: formatter))))))

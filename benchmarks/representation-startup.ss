@@ -25,7 +25,9 @@
   (map cons '(build prepare tests report cleanup studies reap)
     (map - (cdr points) (drop-right points 1))))
 
-;; Admit cumulative VM statistics only at the actual first/last case boundaries.
+;; This single-process study additionally requires these module checkpoints to
+;; coincide with zero/all completed cases. Parallel-group logs have different
+;; preceding work and must never be admitted as this single-VM load interval.
 ;; CPU includes GC; allocation is raw/signed. Counter differences never stand for
 ;; an exclusive dyld, dependency discovery or initializer attribution.
 (def (check-process-summary snapshots cases)
@@ -40,14 +42,14 @@
           (<= 0 (vector-ref stats 3) (vector-ref stats 1))
           (<= 0 (vector-ref stats 4)))
           (error "misordered or invalid process counters" phase counts stats)) stats)))
-  (def prepared (snapshot 'prepared '(0 0)))
-  (def executed (snapshot 'executed (list cases cases)))
+  (def prepared (snapshot 'metadata-setup '(0 0)))
+  (def executed (snapshot 'fq-cleanup (list cases cases)))
   (unless (and (> cases 0)
     (andmap (lambda (index) (<= (vector-ref prepared index) (vector-ref executed index))) '(0 1 2 3 4))
     (<= (- (vector-ref prepared 0) (vector-ref prepared 2))
         (- (vector-ref executed 0) (vector-ref executed 2))))
     (error "nonmonotone process counters"))
-  (list (cons 'prepared prepared) (cons 'executed executed)))
+  (list (cons 'metadata-setup prepared) (cons 'fq-cleanup executed)))
 
 ;; Observe the explicit single-process entry, whose recipes invoke gerbil build/test.
 ;; Targets, deadlines, failure detection and cleanup remain owned by those tools.
@@ -120,14 +122,14 @@
           (cleanup . 10) (studies . 10) (reap . 10))))
     (test-case "cumulative VM counters retain case boundaries and signed allocation"
       (check (check-process-summary
-        '((prepared (0 0) #(2 40 1 1 3 -9)) (executed (8 8) #(6 50 2 2 5 -20))) 8) =>
-        '((prepared . #(2 40 1 1 3 -9)) (executed . #(6 50 2 2 5 -20))))
-      (for (bad '(((prepared (1 1) #(2 40 1 1 3 0)) (executed (8 8) #(6 50 2 2 5 0)))
-                  ((prepared (0 0) #(2 40 3 1 3 0)) (executed (8 8) #(6 50 2 2 5 0)))
-                  ((prepared (0 0) #(2 40 1 1 3 0)) (executed (7 7) #(6 50 2 2 5 0)))
-                  ((prepared (0 0) #(2 40 1 1 3 0)) (executed (8 8) #(1 50 2 2 5 0)))
-                  ((prepared (0 0) #(2 40 1 1 3 0)) (executed (8 8) #(3 50 3 2 5 0)))
-                  ((prepared (0 0) #(2 40 1 1 3 0)))))
+        '((metadata-setup (0 0) #(2 40 1 1 3 -9)) (fq-cleanup (8 8) #(6 50 2 2 5 -20))) 8) =>
+        '((metadata-setup . #(2 40 1 1 3 -9)) (fq-cleanup . #(6 50 2 2 5 -20))))
+      (for (bad '(((metadata-setup (1 1) #(2 40 1 1 3 0)) (fq-cleanup (8 8) #(6 50 2 2 5 0)))
+                  ((metadata-setup (0 0) #(2 40 3 1 3 0)) (fq-cleanup (8 8) #(6 50 2 2 5 0)))
+                  ((metadata-setup (0 0) #(2 40 1 1 3 0)) (fq-cleanup (7 7) #(6 50 2 2 5 0)))
+                  ((metadata-setup (0 0) #(2 40 1 1 3 0)) (fq-cleanup (8 8) #(1 50 2 2 5 0)))
+                  ((metadata-setup (0 0) #(2 40 1 1 3 0)) (fq-cleanup (8 8) #(3 50 3 2 5 0)))
+                  ((metadata-setup (0 0) #(2 40 1 1 3 0)))))
         (check-exception (check-process-summary bad 8) Error?)))
     (test-case "missing nonmonotone and incomplete observations refuse"
       (check-exception (check-study "unused" "unknown") Error?)

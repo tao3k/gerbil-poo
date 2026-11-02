@@ -103,4 +103,4 @@
 
 ;; The official complete harness executes this final module's ordinary cleanup.
 ;; Report before normal process shutdown; EOF and natural exit remain mandatory.
-(def (test-cleanup!) (report-process-counters 'executed))
+(def (test-cleanup!) (report-process-counters 'fq-cleanup))

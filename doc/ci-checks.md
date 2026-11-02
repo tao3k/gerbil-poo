@@ -335,3 +335,16 @@ compilation is therefore not established as that cached-root delay's cause.
 Actual preparation/runtime waiting remains unresolved. Original failures and
 all qualification runs are retained outside Git; the Slot workflow's poor final
 repeat is recorded in representation.md rather than presenting only earlier wins.
+
+## Cumulative module checkpoints
+
+`CHECK-PROCESS metadata-setup` is emitted by the metadata-report module's setup;
+`fq-cleanup` is emitted by the Fq module's cleanup. Both are cumulative process
+statistics. The parallel harness can execute other modules before metadata setup,
+so that total includes preceding cases as well as VM startup and module loading.
+It is not a measurement of loading, dependency preparation, or dyld alone.
+The single-process startup study additionally requires zero/all completed cases
+at these checkpoints; its counters cannot be substituted for parallel-run phases.
+Full-entry wall time and separately timed public build/test invocations remain the
+acceptance measurements. Historical `prepared` totals keep their raw values but
+must not be cited as exclusive load durations.

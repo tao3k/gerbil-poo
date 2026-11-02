@@ -175,8 +175,12 @@
       (cons 'minimal? (report-minimal? report)) (cons 'cause (report-cause report)))))
 ;; Direct rendering uses the same prepared formatter and preserves the report's
 ;; original cause; only a passing report performs currentness observation.
+;; The empty symbolic directory is immutable. Reuse its prepared formatter,
+;; not reports or currentness: every rendering still reads the supplied report
+;; and rechecks passing authority, returning fresh diagnostic field pairs.
+(def empty-report-formatter (prepare-report-diagnostics))
 (def (report-diagnostics report bindings: (names []))
-  ((prepare-report-diagnostics names) report))
+  ((if (null? names) empty-report-formatter (prepare-report-diagnostics names)) report))
 ;; One invocation owns the latest confirmed witness and consumed proposals.
 ;; A callback error never installs its in-flight candidate as a false witness.
 (defstruct progress (best attempts steps) final: #t)

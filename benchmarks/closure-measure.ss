@@ -38,11 +38,12 @@
           (/ (- (u64vector-ref clock 1) (u64vector-ref clock 0)) monotonic-frequency)))
         (values result metrics)))))
 
-;; Standard TestModule fixtures mark completed preparation and case execution.
-;; These cumulative Gambit counters include VM bootstrap and loading; they are
-;; not an exclusive dyld timer. Raw allocation may be signed and is not a cost.
+;; Named TestModule fixtures report cumulative VM counters at their own setup
+;; and cleanup, not at universal load/execute boundaries. Earlier modules may
+;; already have executed: never attribute the setup total to loading or dyld.
+;; Raw allocation may be signed and is not a cost.
 (def (report-process-counters phase)
-  (unless (memq phase '(prepared executed)) (error "unknown process counter phase" phase))
+  (unless (memq phase '(metadata-setup fq-cleanup)) (error "unknown process counter phase" phase))
   (let (stats (##process-statistics))
     (unless (= (f64vector-length stats) 20) (error "unsupported process statistics layout"))
     (display "CHECK-PROCESS ")
