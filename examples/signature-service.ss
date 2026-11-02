@@ -1,0 +1,655 @@
+;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
+(export inspection-request-test prepared-service-tests failure-preparation-test signature-preparation-test service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
+(import (only-in ../function-signature decode-arguments) (prefix-in ../testing/property property.) :std/test :std/error :std/iter
+        (only-in ../testing/generation-graph generation-refusal? refuse-generation)
+        (prefix-in :clan/poo/testing/property/generator core.)
+        ../object
+        ../mop
+        ../type
+        ../number
+        ../testing/function
+        ../testing/type
+        (only-in ../types/relation expression-type)
+        (only-in ../prototype-types prototype-type specialize-prototype-type)
+        ../method-declaration
+        ../declaration
+        ../object-contract
+        (runtime: :clan/poo/multimethod)
+        (prefix-in (only-in ../multimethod prototype) dispatch.)
+        (runtime: :clan/poo/method-combination)
+        (prefix-in (only-in ../method-combination primary standard-contribution?) combination.)
+        (runtime: :clan/poo/declarative-metadata)
+        (prefix-in (only-in ../declarative-metadata contract predicate replace truth) metadata.)
+        (runtime: :clan/poo/fun)
+        (prefix-in ./contract-publication publication.)
+        (runtime: :clan/poo/examples/polymorphic-services)
+        (prefix-in (only-in ./polymorphic-services DescriptorServiceType
+                   descriptor-service-action signature-request-action
+                   signature-service-declarations) service.)
+        (prefix-in (only-in :clan/poo/fun Observation.) fun.))
+
+;; Function values require explicit semantic generation: arbitrary procedures
+;; cannot be synthesized from recognition alone. This fixture generates identity.
+(def Callback
+  (.o self: callback inherit: [(Function [Integer] [Integer])]
+      .generator: (lambda () (make-generator callback
+        (lambda (_random _size) identity) (lambda (_value) []) (lambda (_value) 0)
+        dependencies: [Integer]))))
+;; The container's callbacks acquire recursive wrappers before target execution.
+(def ServiceSignature
+  (Function [Integer] [Integer] optional: [(List Callback)]
+            keywords: (list (cons scale: Integer) (cons offset: Integer))))
+;; Omitted callbacks and keywords retain the host's ordinary default semantics.
+(def (service value (callbacks []) scale: (scale 1) offset: (offset 0))
+  (+ (* scale (foldl (lambda (callback result) (callback result)) value callbacks)) offset))
+;; The same descriptor used for generated calls also checks actual invocations.
+(def checked-service (validate ServiceSignature service))
+;; Compare wrapped calls against the original at every generated supplied shape.
+(def (service-property arguments)
+  (= (apply checked-service arguments) (apply service arguments)))
+;; One Reader/FUN chain runs the property and passes its report to an IO consumer.
+(def (service-tests consume)
+  (property-action (FunctionArguments ServiceSignature) service-property consume))
+
+;; Compile both explicit Object methods through the same finite declaration
+;; factory. The caller may reuse the run-path buffer while computed parameters
+;; are refreshed: its ORIGINAL field selection must own the resulting signature.
+;; No method body runs while this nested catalog is assembled/admitted.
+(def (selected-declarations instance run-path operation)
+  (using (operation :~ procedure?)
+    ;; Share the established typed fragment/standard combination pipeline.
+    (def (fragment name path body)
+      (def signature (instance-signature instance (lambda (_) [['Service]]) []
+        standard-combination combination.standard-contribution? #f 8192 1 path))
+      (typed-method-fragment name signature
+        [(metadata.replace (symbol->string name) [(dispatch.prototype 'Service)]
+          (combination.primary (lambda (_next value) (body value))))]))
+    (def api (object<-declaration-forms MethodDeclaration. instance
+      [(fragment 'run run-path operation) (fragment 'audit '(api audit) not)]))
+    [(declaration-form 'public 'api (.o (constant api)))]))
+
+;; FUN sequences current approval and both installed methods. Refine checks the
+;; whole result after recursive callback wrapping, then the existing publisher
+;; binds exact subject/descriptor/context evidence before the IO consumer.
+;; Body effects before a later policy refusal are observable, never rolled back.
+(def (selected-action instance input context consume (maximum 20))
+  (def contract (refine (.cc ObjectContract. responsibilities:
+    (.o answer: UInt callback: Callback audit: Bool))
+    (lambda (subject location)
+      (if (<= (.get subject answer) maximum) []
+        [(.o bind-these: #f kind: 'service-limit path: location)]))))
+  (def invocation (metadata.contract (metadata.predicate "subject" object?)
+    (metadata.predicate "evidence" object?) (lambda _ #t) metadata.truth))
+  (def publish (publication.publication-action contract invocation context
+    (lambda (subject)
+      (consume subject)
+      (values (.o bind-these: #f subject: subject descriptor: contract context: context) context))))
+  (.call fun.Observation. .bind
+    (lambda (_)
+      (unless (eq? (.get context approved) #t) (error "service approval refused"))
+      (.get instance prototype api))
+    (lambda (api) (lambda (_)
+      (defvalues (answer callback _run-owner) (invoke-declared (.get api run) (list input)))
+      (defvalues (audit _audit-owner) (invoke-declared (.get api audit) [#f]))
+      (publish (.o bind-these: #f answer: answer callback: callback audit: audit))))))
+
+;; Prepare one persistent Type prefix, infer the remaining shared assignment
+;; from Reader-supplied constraints, then reuse the whole qualified declaration
+;; and descriptor/refine/evidence/IO chain. This application requires a unique
+;; result; an ambiguous/no-solution report is retained as the error irritant,
+;; never coerced to a Type or sent to a method/consumer. Source effects before
+;; refusal are observable; retry uses a fresh request after repairing metadata.
+(def (specialized-action schema prefix candidates requests operation input context consume (allowed? #t))
+  (.call fun.Observation. .bind
+    (service.signature-request-action schema prefix candidates requests operation)
+    (lambda (report)
+      (unless (eq? (.get report status) 'unique)
+        (error "service request requires unique type inference" report))
+      (service.descriptor-service-action (.get report instance) input context consume allowed?))))
+
+;; A residual DescriptorServiceType retains its already bound Input Function.
+;; Two finite inequalities select an equivalent Output without guessing Types.
+;; Reuse the whole declaration/refine/evidence/FUN/IO chain. Stale retained
+;; descriptors require a fresh residual; revision counters are never reset.
+(def (callback-service-action residual target candidates operation input context consume (allowed? #t))
+  (specialized-action residual [] candidates
+    (lambda (_context) `((Output ,target) (,target Output)))
+    operation input context consume allowed?))
+
+;; Compile an explicit boundary contract before preparing the inferred service.
+;; Live directory observers may edit the caller's syntax during admission; the
+;; public compiler owns its complete input first. Reuse recursive Function
+;; wrapping, the existing declaration factory and its refine/evidence/FUN/IO chain.
+(def (checked-operation-action expression schema prefix candidates requests operation input context consume (allowed? #t))
+  (def checked (validate (expression-type expression) operation))
+  (specialized-action schema prefix candidates requests checked input context consume allowed?))
+
+;; Policy is retained configuration Type metadata, independently of the callable
+;; Input/Output signature. It must stay current even after prefix substitution
+;; removes it from the remaining inference problem. No approval is cached here.
+(def CatalogServiceType
+  (prototype-type (.o .parameters: '(Policy Input Output)) '(Policy Input Output)
+    (.get service.DescriptorServiceType expression) (.get service.DescriptorServiceType bounds)))
+;; Bind an explicit catalog token and input through the ordinary prefix factory.
+;; Callers reuse specialized-action for inference/declarations/FUN publication;
+;; revised directories require recapture and a fresh residual, never reset stamps.
+(def (catalog-service-type policy input)
+  (specialize-prototype-type CatalogServiceType (list policy input)))
+
+;; Stage explicit external metadata during the existing declaration callback.
+;; Even candidate/query directories absent from the selected callable signature
+;; must remain current until the whole solve/build returns. Reuse Reader/FUN,
+;; qualified methods and the original refine/evidence/IO service consumer.
+(def (staged-service-action residual candidates queries operation stage input context consume (allowed? #t))
+  (.call fun.Observation. .bind
+    (lambda (_context)
+      (infer-declared residual candidates queries
+        (lambda (instance)
+          (stage instance)
+          (service.signature-service-declarations instance operation void))))
+    (lambda (report)
+      (unless (eq? (.get report status) 'unique)
+        (error "staged service requires unique type inference" report))
+      (service.descriptor-service-action (.get report instance) input context consume allowed?))))
+
+;; Reserved callback positions remain structurally declared but cannot be invoked:
+;; the one-argument clause has an impossible product, and optional/rest extensions
+;; must supply Never before reaching rest. Zero and two inputs remain live.
+(def (retired-call-target value)
+  `(CaseFunction (Function (,value) ())
+    (Function (String) ((Pair Never (Function (,value) (,value)))))
+    (Function (,value) (,value ,value) optional: (Never) rest: ,value)))
+;; Nested handler tables and refresh results share the exact same callback Type.
+;; The directory remains a closed readable object, not a projection or codec cast.
+(def (retired-call-view value callback)
+  `(Object ((handlers (Map ,callback <- UInt)) (refresh (Function (,callback) (,value)))) closed))
+;; Value is specialized first; one complete Callback assignment then serves every
+;; nested field and the original declared bound. No independent child solve runs.
+(def RetiredCallServiceType
+  (prototype-type (.o .parameters: '(Value Callback)) '(Value Callback)
+    `(Function (Value ,(retired-call-view 'Value 'Callback)) (Value))
+    (list (list 'Callback (retired-call-target 'Value)))))
+;; Gerbil's case-lambda supplies actual zero/two-argument dispatch. Contract
+;; inference does not add arities or execute a retired clause/default.
+(def (retired-call-callback seed)
+  (case-lambda (() seed) ((left right) (+ seed left right))))
+;; Reuse Reader/FUN specialization, complete typed declaration and the existing
+;; recursive refine/evidence publication. A refreshed callback keeps its wrappers;
+;; policy refusal remains observable and a new action can retry independently.
+(def (retired-call-action candidates seed context consume (allowed? #t))
+  (specialized-action RetiredCallServiceType '(UInt) candidates (lambda (_) [])
+    (lambda (value)
+      (values value (.o handlers: (hash (0 (retired-call-callback value)))
+        refresh: retired-call-callback)))
+    seed context consume allowed?))
+
+;; Specialize the supplied input domains while retaining the real service's
+;; optional/keyword defaults and nested callback wrapping. FUN passes either the
+;; checked equivalence evidence or a shrinkable target discrepancy to consume.
+(def (service-admission-tests input callbacks coefficient target consume)
+  (def signature (Function [Integer] (list input) optional: (list callbacks)
+    keywords: (list (cons scale: coefficient) (cons offset: Integer))))
+  (def checked (validate signature target))
+  (property-action (FunctionArguments signature)
+    (lambda (arguments) (= (apply checked arguments) (apply service arguments))) consume))
+
+;; These controls use delayed declaration fields: constructing the public
+;; FunctionArguments Type has no effects; preparation owns the first observation.
+(def signature-preparation-test
+  (test-suite "Function call declaration preparation"
+    (test-case "returned call declarations own epochs before their first observer"
+      (for (field '(signatures inputs optional keywords rest))
+        (def factories 0) (def armed #f) (def changed #f)
+        (def input (.cc UInt epoch: 0 .generator: (lambda ()
+          (set! factories (1+ factories)) (error "unvisited factory"))))
+        (def base (Function [UInt] [UInt]))
+        (def clause (.cc base epoch: 0))
+        (def subject (.o inherit: [base] signatures: [clause] sexp: 'first-return))
+        (def request (FunctionArguments subject))
+        (def returned (case field ((signatures) [clause]) ((keywords) (list (cons scale: input)))
+          ((rest) input) (else [input])))
+        (.putslot! (if (eq? field 'signatures) subject clause) field
+          ($self-slot-spec (lambda (_) (set! armed #t) returned)))
+        (check-exception (core.with-generation-check (lambda ()
+          (when (and armed (not changed))
+            (set! changed #t) (.set! (if (eq? field 'signatures) clause input) epoch 1)))
+          (generator request)) generation-refusal?)
+        (check changed => #t) (check-equal? factories 0)))
+    (test-case "call declaration capture retains getter and observer false causes"
+      (for* ((phase '(getter observer)) (cause (list #f (cons 'metadata 'cause))))
+        (def armed #f) (def observed 0)
+        (def base (Function [UInt] [UInt])) (def clause (.cc base))
+        (def subject (.o inherit: [base] signatures: [clause] sexp: 'failure-order))
+        (def request (FunctionArguments subject))
+        (.putslot! clause 'inputs ($self-slot-spec (lambda (_)
+          (set! armed #t) (if (eq? phase 'getter) (raise cause) '(bad . tail)))))
+        (check-eq? (with-catch values (lambda ()
+          (core.with-generation-check (lambda ()
+            (when armed (set! armed #f) (set! observed (1+ observed)) (raise cause)))
+            (generator request)))) cause)
+        (check-equal? observed (if (eq? phase 'getter) 0 1))))
+    (test-case "invalid declaration members retain Object admission before later fields"
+      (for (field '(inputs keywords rest))
+        (def later 0) (def armed #f) (def observed 0)
+        (def base (Function [UInt] [UInt])) (def clause (.cc base))
+        (def request (FunctionArguments (.o inherit: [base] signatures: [clause] sexp: 'bad-member)))
+        (.putslot! clause 'optional ($self-slot-spec (lambda (_) (set! later (1+ later)) [])))
+        (.putslot! clause field ($self-slot-spec (lambda (_)
+          (set! armed #t) (case field ((inputs) [7]) ((keywords) (list (cons scale: 7))) (else 7)))))
+        (check-exception (core.with-generation-check (lambda ()
+          (when armed (set! armed #f) (set! observed (1+ observed)))) (generator request)) TypeError?)
+        (check-equal? observed 1)
+        (when (memq field '(inputs keywords)) (check-equal? later 0))))
+    (test-case "shared call inputs preserve one promised factory across optional rest and keywords"
+      (def factories 0)
+      (def input (.cc UInt .generator: (lambda ()
+        (set! factories (1+ factories))
+        (make-generator input (lambda (_r _s) 2) (lambda (value) (if (zero? value) [] [0])) identity))))
+      (def signature (Function [UInt] [input input] optional: [input] rest: input
+        keywords: (list (cons scale: input))))
+      (def request (FunctionArguments signature)) (def sampler (generator request))
+      (check-equal? factories 0)
+      (def tree (core.generate (generator-core sampler) (core.random-at 17) 2))
+      (check (element? request (core.sample-value tree)) => #t)
+      (check-equal? factories 1))
+    (test-case "first-return refusal composes ordered calls callbacks FUN replay and fresh epochs"
+      (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def factories 0)
+      (def dormant 0) (def properties 0) (def defaults 0) (def faulty? #t)
+      (def input (.cc UInt epoch: 0 .generator: (lambda ()
+        (set! factories (1+ factories))
+        (make-generator input (lambda (_r _s) 2) (lambda (value) (if (zero? value) [] [0])) identity
+          dependencies: [owner]))))
+      (def NeverForced (.cc UInt .generator: (lambda () (set! dormant (1+ dormant)) (error "shadowed"))))
+      (def clause (Function [Integer] [input] optional: [(List Callback)]
+        keywords: (list (cons scale: Integer) (cons offset: Integer))))
+      (def subject (CaseFunction clause (Function [Integer] [NeverForced])))
+      (def request (FunctionArguments subject))
+      ;; Host defaults remain effects of actual invocation, never call generation.
+      (def (target value (callbacks (begin (set! defaults (1+ defaults)) [])) scale: (scale 1) offset: (offset 0))
+        (+ (service value callbacks scale: scale offset: offset) (if faulty? 1 0)))
+      (def checked #f)
+      ;; Bind one current wrapper per action, retaining the ordinary Function API.
+      (def (prepare)
+        (set! checked (validate subject target))
+        (property-action request (lambda (arguments)
+          (set! properties (1+ properties)) (= (apply checked arguments) (apply service arguments))) identity))
+      (def action (prepare))
+      (.putslot! clause 'inputs ($self-slot-spec (lambda (_) (set! armed #t) [input])))
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 3 shrink-budget: 80))
+      (def refused (core.with-generation-check (lambda ()
+        (when (and armed (not changed)) (set! changed #t) (.set! input epoch 1))) (action configuration)))
+      (check-eq? (.get refused status) 'stale)
+      (check-equal? (list factories dormant properties defaults (.get refused attempts)) '(0 0 0 0 0))
+      (def fresh ((prepare) configuration))
+      (check-eq? (.get fresh status) 'failed) (check (> (.get fresh steps) 0) => #t)
+      (check-equal? (car (car (decode-arguments (.get fresh counterexample) #t))) 0)
+      (check-equal? factories 1) (check-equal? dormant 0)
+      (check-exception (checked 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-exception (replay-property refused) Error?)
+      (.set! owner epoch 1) (set! faulty? #f)
+      (check-exception (replay-counterexample fresh) Error?)
+      (check-eq? (.get ((prepare) configuration) status) 'passed)
+      (check-equal? dormant 0))
+    (test-case "nested keyword discovery cannot renew the Function or clause"
+      (for (owner '(function clause))
+        (def armed #f) (def reads 0) (def later 0)
+        (def base (Function [Integer] [Integer]))
+        (def clause (.o bind-these: #f inherit: [base]
+          keywords: (begin (set! reads (1+ reads))
+            (when armed (.set! (if (eq? owner 'function) subject clause) epoch 1)) [])
+          inputs: (begin (set! later (1+ later)) [Integer])))
+        (def subject (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'service-inputs))
+        (def request (FunctionArguments subject))
+        (check-equal? (list reads later) '(0 0))
+        (set! armed #t)
+        (check-exception (generator request)
+          (lambda (cause) (if (eq? owner 'function) (generation-refusal? cause)
+            (and (Error? cause) (equal? (Error-message cause) "object mutation during computation")))))
+        (check-equal? (list reads later) '(1 0))))
+    (test-case "later positional metadata cannot retire an already observed input Type"
+      (def input (.cc Integer epoch: 0)) (def later 0)
+      (def base (Function [Integer] [Integer]))
+      (def clause (.o bind-these: #f inherit: [base] inputs: [input]
+        optional: (begin (.set! input epoch 1) [])
+        rest: (begin (set! later (1+ later)) #f)))
+      (def request (FunctionArguments (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'inputs)))
+      (check-equal? (object-revision input) 0)
+      (check-exception (generator request) generation-refusal?)
+      (check-equal? later 0))
+    (test-case "early keyword Types remain owned before positional discovery"
+      (def input (.cc Integer epoch: 0)) (def later 0)
+      (def base (Function [Integer] [Integer]))
+      (def clause (.o bind-these: #f inherit: [base] keywords: (list (cons scale: input))
+        inputs: (begin (.set! input epoch 1) [Integer])
+        optional: (begin (set! later (1+ later)) [])))
+      (def request (FunctionArguments (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'keys)))
+      (check-equal? (object-revision input) 0)
+      (check-exception (generator request) generation-refusal?)
+      (check-equal? later 0))
+    (test-case "metadata exceptions including false survive retirement exactly"
+      (for (cause (list #f (cons 'metadata 'fault)))
+        (def base (Function [Integer] [Integer]))
+        (def clause (.o bind-these: #f inherit: [base]
+          keywords: (begin (.set! subject epoch 1) (raise cause))))
+        (def subject (.o bind-these: #f inherit: [base] signatures: [clause] sexp: 'throwing))
+        (def request (FunctionArguments subject))
+        (def outcome (with-catch (lambda (value) (cons 'caught value))
+          (lambda () (generator request) 'unexpected)))
+        (check-eq? (car outcome) 'caught)
+        (check-eq? (cdr outcome) cause))
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 0) 0)) 7))
+
+    (test-case "cached layouts retain dormant Types and cannot erase their source guard"
+      (def factories 0)
+      (def dormant (.cc Integer epoch: 0 .generator: (lambda ()
+        (set! factories (1+ factories)) (generator Integer))))
+      (def first (Function [Integer] [Integer]))
+      (def shadowed (Function [Integer] [dormant]))
+      (def subject (.o inherit: [first] signatures: [first shadowed] sexp: 'ordered))
+      (def request (FunctionArguments subject))
+      (def sampler (generator request))
+      (def generation (generator-core (.cc sampler sources: [])))
+      ;; Both proposals select the first clause; no shadowed generator is forced.
+      (core.generate generation (core.random-at 1) 0)
+      (core.generate generation (core.random-at 2) 0)
+      (check-equal? factories 0)
+      (.set! dormant epoch 1)
+      (check-exception (core.generate generation (core.random-at 3) 0) core.stale-generation?)
+      (check-equal? factories 0)
+      ;; Explicit renewed construction succeeds; the obsolete cached graph stays stale.
+      (def fresh (generator request))
+      (core.generate (generator-core fresh) (core.random-at 4) 0)
+      (check-exception (core.generate generation (core.random-at 5) 0) core.stale-generation?)
+      (check-equal? factories 0))
+    (test-case "nested callback services keep FUN failure shrinking replay and explicit retry"
+      (def configuration (make-instance PropertyConfiguration seed: 43 cases: 20 size: 5 shrink-budget: 60))
+      (def signature (.cc ServiceSignature epoch: 0))
+      (def request (FunctionArguments signature))
+      (def sampler (generator request))
+      (def action (property-action request (lambda (arguments) (not (service-property arguments)))
+        identity sampler: sampler))
+      (def failed (action configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (.set! signature epoch 1)
+      (check-exception (replay-property failed) Error?)
+      (def stale (action configuration))
+      (check-eq? (.get stale status) 'stale)
+      (check-eq? (.get ((property-action request service-property identity) configuration) status) 'passed))))
+
+;; Reuse the service's nested Function/List, optional and keyword declarations.
+;; Only the owned binding step is injected: no draw occurs until it succeeds.
+;; The caller supplies observation, preparation and consumer IO through FUN.
+(def (prepared-service-tests owner prepare observe consume faulty?: (faulty? #t))
+  (def descriptor (FunctionArguments ServiceSignature))
+  (def base (generator descriptor))
+  (def generation (generator-core base))
+  (def sampler (.cc base sources: (cons owner (.get base sources))
+    generation: (lambda (_owner) (prepare) generation) .current?: observe))
+  (def checked-target (validate ServiceSignature
+    (lambda (value (callbacks []) scale: (scale 1) offset: (offset 0))
+      (def result (service value callbacks scale: scale offset: offset))
+      (if faulty? (1+ result) result))))
+  (property-action descriptor
+    (lambda (arguments) (= (apply checked-target arguments) (apply service arguments)))
+    consume sampler: sampler))
+
+;; Preparation reports reuse the generic classifier; secondary observation can
+;; never replace the original cause or pull draw/property work into this phase.
+(def failure-preparation-test
+  (test-suite "typed preparation failure ownership"
+    (test-case "metadata and owned factory errors survive secondary observer exceptions"
+      (for* ((stage '(metadata factory)) (primary (list #f (cons 'primary 'fault)))
+             (secondary (list #f (cons 'secondary 'fault))))
+        (def ready #t) (def entered 0) (def draws 0) (def properties 0)
+        (def base (make-generator Integer (lambda (_random _size) (set! draws (1+ draws)) 1)
+          (lambda (_) []) abs))
+        ;; Delayed fields distinguish API preparation from object initialization.
+        (def (fail) (set! entered (1+ entered)) (set! ready #f) (raise primary))
+        (def sampler (if (eq? stage 'metadata)
+          (.o bind-these: #f inherit: [base] generation: (fail)
+            .current?: (lambda () (if ready #t (raise secondary))))
+          (.cc base generation: (lambda (_owner) (fail))
+            .current?: (lambda () (if ready #t (raise secondary))))))
+        (check-equal? entered 0)
+        (def report (check-property Integer (lambda (_) (set! properties (1+ properties)) #f)
+          sampler: sampler cases: 1))
+        (check-eq? (.get report status) 'error)
+        (check-eq? (.get report cause) primary)
+        (check (.has? report cause) => #t)
+        (check (.get report replayable?) => #f)
+        (check-equal? (list entered draws properties (.get report attempts) (.get report steps)) '(1 0 0 0 0))
+        (check-exception (replay-property report) Error?)))
+    (test-case "malformed secondary replies preserve the first cause without becoming stale"
+      (for (bad (list 0 'truthy [] (.o)))
+        (def ready #t) (def primary (cons 'factory 'fault))
+        (def sampler (.cc (make-generator Integer (lambda (_random _size) (error "must not draw"))
+          (lambda (_) []) abs)
+          generation: (lambda (_owner) (set! ready #f) (raise primary))
+          .current?: (lambda () (if ready #t bad))))
+        (def report (check-property Integer (lambda (_) (error "must not check")) sampler: sampler cases: 1))
+        (check-eq? (.get report status) 'error)
+        (check-eq? (.get report cause) primary)
+        (check (.get report replayable?) => #f)))
+    (test-case "confirmed false and epoch retirement keep stale precedence and primary cause"
+      (for (mode '(hook epoch))
+        (def owner (.o epoch: 0)) (def ready #t) (def observations 0) (def primary (cons mode 'primary))
+        (def sampler (.cc (make-generator Integer (lambda (_random _size) 1) (lambda (_) []) abs dependencies: [owner])
+          generation: (lambda (_owner) (set! ready #f)
+            (when (eq? mode 'epoch) (.set! owner epoch 1)) (raise primary))
+          .current?: (lambda () (set! observations (1+ observations)) (and ready #t))))
+        (def report (check-property Integer (lambda (_) #f) sampler: sampler cases: 1))
+        (check-eq? (.get report status) 'stale)
+        (check-eq? (.get report cause) primary)
+        (when (eq? mode 'epoch) (check-equal? observations 0))
+        (check (.get report replayable?) => #f)))
+    (test-case "stable observation keeps existing controlled status vocabulary"
+      (for (kind '(search unguarded stale))
+        (def primary (with-catch identity (lambda () (refuse-generation kind))))
+        (def sampler (.cc (make-generator Integer (lambda (_random _size) 1) (lambda (_) []) abs)
+          generation: (lambda (_owner) (raise primary)) .current?: (lambda () #t)))
+        (def report (check-property Integer (lambda (_) #f) sampler: sampler cases: 1))
+        (check-eq? (.get report status) (case kind ((search) 'exhausted) ((unguarded) 'unsupported) (else kind)))
+        (check-eq? (.get report cause) primary)
+        (check (.get report replayable?) => #f))
+      ;; An existing core interruption wins without entering a broken observer.
+      (def primary (with-catch identity (lambda ()
+        (core.generate (core.make-generator (lambda (_random _size) (error "must not draw"))
+          (lambda (_) []) current?: (lambda () #f)) (core.random-at 0) 0))))
+      (def observations 0)
+      (def sampler (.cc (make-generator Integer (lambda (_random _size) 1) (lambda (_) []) abs)
+        generation: (lambda (_owner) (raise primary))
+        .current?: (lambda () (set! observations (1+ observations)) (error "must not observe"))))
+      (def report (check-property Integer (lambda (_) #f) sampler: sampler cases: 1))
+      (check-eq? (.get report status) 'stale) (check-eq? (.get report cause) primary)
+      (check-equal? observations 0))
+    (test-case "FUN delivers one primary failure and consumer exceptions remain outside classification"
+      (def ready #t) (def delivered 0) (def received #f)
+      (def primary (cons 'prepare 'fault)) (def secondary (cons 'observer 'fault)) (def consumer (cons 'consumer 'fault))
+      (def sampler (.cc (make-generator Integer (lambda (_random _size) 1) (lambda (_) []) abs)
+        generation: (lambda (_owner) (set! ready #f) (raise primary))
+        .current?: (lambda () (if ready #t (raise secondary)))))
+      (def action (property-action Integer (lambda (_) #f) (lambda (report)
+        (set! delivered (1+ delivered)) (set! received report) (raise consumer)) sampler: sampler))
+      (def result (with-catch identity (lambda () (action (make-instance PropertyConfiguration cases: 1)))))
+      (check-eq? result consumer) (check-equal? delivered 1)
+      (check-eq? (.get received status) 'error) (check-eq? (.get received cause) primary)
+      (check (.get received replayable?) => #f)
+      (check-equal? (core.sample-value (core.generate (core.generator-unit 7) (core.random-at 0) 0)) 7))
+    (test-case "prepared callback service retries shrinks replays and keeps prior failure receipts"
+      (def owner (.o epoch: 0)) (def ready #t) (def faulty-preparation? #t) (def deliveries []) (def bindings 0)
+      (def primary (cons 'binding 'primary)) (def secondary (cons 'observer 'secondary))
+      ;; External observation is pure; preparation alone changes the test state.
+      (def (observe) (if ready #t (raise secondary)))
+      (def (prepare) (set! bindings (1+ bindings))
+        (when faulty-preparation? (set! ready #f) (raise primary)))
+      (def (consume report) (set! deliveries (cons report deliveries)) report)
+      (def action (prepared-service-tests owner prepare observe consume))
+      (def configuration (make-instance PropertyConfiguration seed: 43 cases: 10 size: 5 shrink-budget: 60))
+      (def old (action configuration))
+      (check-eq? (.get old status) 'error) (check-eq? (.get old cause) primary)
+      (check (.get old replayable?) => #f) (check-equal? bindings 1)
+      (set! ready #t) (set! faulty-preparation? #f)
+      (def fresh (action configuration))
+      (check-eq? (.get fresh status) 'failed)
+      (check (element? (.get fresh descriptor) (.get fresh counterexample)) => #t)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-exception (checked-service 'invalid) TypeError?)
+      (check-equal? (length deliveries) 2)
+      (check-eq? (.get old cause) primary)
+      (check-exception (replay-property old) Error?)
+      (.set! owner epoch 1) (check-exception (replay-property fresh) Error?)
+      (def corrected ((prepared-service-tests owner prepare observe consume faulty?: #f) configuration))
+      (check-eq? (.get corrected status) 'passed)
+      (check-equal? (length deliveries) 3))))
+
+;; Diagnostics admit static requests before computed samplers. These executable
+;; examples share the same FunctionArguments, checked service and FUN workflow.
+(def inspection-request-test
+  (test-suite "typed diagnostic request admission"
+    (test-case "typed static requests refuse before sampler metadata and source callbacks"
+      (def entered 0) (def observed 0)
+      (def base (make-generator Integer (lambda (_r _s) 1) (lambda (_) []) abs))
+      (def sampler (.o bind-these: #f inherit: [base]
+        generation: (begin (set! entered (1+ entered)) (error "must not prepare"))
+        limits: (begin (set! entered (1+ entered)) (error "must not inspect limits"))
+        .current?: (lambda () (set! observed (1+ observed)) #t)))
+      (for (request (list (list size-limit: -1) (list size: values) (list size: 2 size-limit: 1)
+                         (list policy: #f) (list name: #t)))
+        (def refused (apply check-property Integer (lambda (_) #t) sampler: sampler request))
+        (check-eq? (.get refused status) 'error)
+        (check-eq? (.get refused replayable?) #f)
+        (check-eq? (.get refused limits) #f)
+        (check (Error? (.get refused cause)) => #t))
+      (check-equal? (list entered observed) '(0 0)))
+    (test-case "FUN rejects impossible size envelopes then freshly prepares nested service replay"
+      (def owner (.o epoch: 0)) (def bindings 0)
+      (def (prepare) (set! bindings (1+ bindings)))
+      (def action (prepared-service-tests owner prepare (lambda () #t) identity))
+      (for (invalid (list (make-instance PropertyConfiguration cases: 1 size: values)
+                         (make-instance PropertyConfiguration cases: 1 size: 1 size-limit: 0)))
+        (def refused (action invalid))
+        (check-eq? (.get refused status) 'error)
+        (check-eq? (.get refused replayable?) #f))
+      (check-equal? bindings 0)
+      (def valid (make-instance PropertyConfiguration cases: 1 seed: 42 size: 1 size-limit: 1))
+      (def failed (action valid))
+      (check-eq? (.get failed status) 'failed)
+      (check-equal? bindings 1)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (def scheduled (.cc valid size: (lambda (trial) (min 4 trial)) size-limit: 4))
+      (check-eq? (.get (action scheduled) status) 'failed)
+      (check-equal? bindings 2)
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample failed) Error?)
+      (def corrected (prepared-service-tests owner prepare (lambda () #t) identity faulty?: #f))
+      (check-eq? (.get (corrected scheduled) status) 'passed))
+    (test-case "typed diagnostic names are admitted before computed report metadata"
+      (def reads 0)
+      (def report (.o execution: (begin (set! reads (1+ reads)) (error "must not read execution"))))
+      (check-exception (report-diagnostics report bindings: '(same same)) Error?)
+      (check-exception (report-diagnostics report bindings: '(4)) Error?)
+      (check-equal? reads 0))
+    (test-case "named FUN service diagnostics keep inherited getter edits outside their directory"
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 4))
+      (def descriptor (FunctionArguments ServiceSignature))
+      (def action (property-action descriptor service-property identity))
+      (def passed (action configuration))
+      (check-eq? (.get passed status) 'passed)
+      (def row (.get passed original))
+      (def names (map (lambda (index) (string->symbol (string-append "input-" (number->string index)))) (iota (length row))))
+      (def expected (map cons names row))
+      (def inherited (.o bind-these: #f inherit: [passed]
+        execution: (begin (set-car! names 'retargeted) (set-cdr! names names) (.get passed execution))))
+      (def fields (report-diagnostics inherited bindings: names))
+      (check-eq? (cdr (assq 'status fields)) 'passed)
+      (check-equal? (cdr (assq 'original fields)) expected)
+      ;; Reuse the same captured formatter through the official assertion boundary;
+      ;; it still refuses a real counterexample and cannot replace report truth.
+      (def render (property.prepare-report-diagnostics (map car expected)))
+      (def failed ((property-action descriptor (lambda (_) #f) identity) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check (replay-counterexample failed) => #f)
+      (check-eq? (.get (replay-property failed) status) 'failed)
+      (check-eq? (cdr (assq 'status (render (.get failed execution)))) 'failed))
+    (test-case "all numeric controls refuse before computed declarations or observers"
+      (def entered 0) (def observed 0)
+      (def base (make-generator Integer (lambda (_r _s) (error "must not draw"))
+        (lambda (_) []) abs))
+      (def sampler (.o bind-these: #f inherit: [base]
+        descriptor: (begin (set! entered (1+ entered)) Integer)
+        generation: (begin (set! entered (1+ entered)) (error "must not prepare"))
+        .current?: (lambda () (set! observed (1+ observed)) #t)))
+      (for* ((key '(seed: count: size: depth: proposal-budget:))
+             (bad (list -1 1/2 1.0 #f 'invalid)))
+        (check-exception (apply inspect-generator sampler (list key bad))
+          (lambda (cause) (and (Error? cause)
+            (equal? (Error-message cause) "invalid generator inspection configuration")))))
+      (check-equal? (list entered observed) '(0 0)))
+    (test-case "malformed labels share generic refusal and never enter typed factories"
+      (def entered 0)
+      (def sampler (.o bind-these: #f generation: (begin (set! entered (1+ entered)) #f)))
+      (def generation (core.generator-integer 0 2))
+      (def domain (property.make-specification integer? abs))
+      (for (bad (list #f 1 'labels []))
+        (check-exception (inspect-generator sampler labels: bad) Error?)
+        (check-exception (property.inspect-generator generation domain labels: bad) Error?))
+      (check-equal? entered 0))
+    (test-case "valid zero controls prepare once without sampling or forcing labels"
+      (def prepared 0) (def draws 0) (def labels 0)
+      (def base (make-generator Integer (lambda (_r _s) (set! draws (1+ draws)) 0)
+        (lambda (_) []) abs))
+      (def sampler (.cc base generation: (lambda (_owner) (set! prepared (1+ prepared)) #f)))
+      (def result (inspect-generator sampler seed: (expt 2 100) count: 0 size: 0 depth: 0
+        proposal-budget: 0 labels: (lambda (_) (set! labels (1+ labels)) [])))
+      (check-eq? (property.inspection-status result) 'complete)
+      (check-equal? (property.inspection-events result) [])
+      (check-equal? (list prepared draws labels) '(1 0 0)))
+    (test-case "valid metadata causes stay exact and an invalid request cannot mask itself as stale"
+      (for (primary (list #f (cons 'preparation 'fault)))
+        (def entered 0)
+        (def sampler (.o bind-these: #f inherit: [(generator Integer)]
+          generation: (begin (set! entered (1+ entered)) (raise primary))))
+        (check-exception (inspect-generator sampler count: -1) Error?)
+        (check-equal? entered 0)
+        (check-eq? (with-catch identity (lambda () (inspect-generator sampler count: 0) 'missed)) primary)
+        (check-equal? entered 1))
+      (def descriptor (List Integer)) (def sampler (generator descriptor))
+      (.put! descriptor 'revision 1)
+      (check-exception (inspect-generator sampler depth: -1)
+        (lambda (cause) (and (Error? cause)
+          (equal? (Error-message cause) "invalid generator inspection configuration"))))
+      (check-eq? (property.inspection-status (inspect-generator sampler count: 0)) 'stale))
+    (test-case "bounded nested service observations compose with shrinking replay and fresh correction"
+      (def owner (.o epoch: 0))
+      (def descriptor (FunctionArguments ServiceSignature))
+      (def sampler (generator descriptor))
+      (def supplied (.cc sampler sources: (cons owner (.get sampler sources))))
+      (def labels 0)
+      (def diagnostic (inspect-generator supplied seed: 42 count: 4 size: 4 depth: 1
+        proposal-budget: 12 labels: (lambda (arguments)
+          (set! labels (1+ labels))
+          (unless (service-property arguments) (error "wrapped call disagrees")) '(service))))
+      (check-eq? (property.inspection-status diagnostic) 'complete)
+      (check-equal? (property.inspection-draws diagnostic) 4)
+      (check (<= (property.inspection-attempts diagnostic) 12) => #t)
+      (check (> labels 0) => #t)
+      (def delivered #f)
+      (def configuration (make-instance PropertyConfiguration seed: 42 cases: 1 size: 4))
+      (def action (property-action descriptor (lambda (arguments) (not (service-property arguments)))
+        (lambda (report) (set! delivered report)) sampler: supplied))
+      (action configuration)
+      (check-eq? (.get delivered status) 'failed)
+      (check-eq? (.get (replay-property delivered) status) 'failed)
+      (check (replay-counterexample delivered) => #f)
+      (.set! owner epoch 1)
+      (check (property.inspection-current? diagnostic) => #f)
+      (check-exception (replay-property delivered) Error?)
+      (def fresh (check-property descriptor service-property sampler: (generator descriptor)
+        cases: 4 seed: 42 size: 4))
+      (check-eq? (.get fresh status) 'passed))))

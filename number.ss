@@ -76,7 +76,10 @@
   .succ: 1+
   .pred: 1-)
 
+;; Unsigned values must satisfy recognition as well as representation metadata.
+;; Function/container validation uses this predicate before marshal arithmetic.
 (define-type (UInt @ Integer)
+  .element?: (lambda (value) (and (exact-integer? value) (>= value 0)))
   .marshal: write-varuint
   .unmarshal: read-varuint
   .bytes<-: uint->u8vector ;; note: encoding shorter (and thus different) from the marshalling

@@ -1,0 +1,5 @@
+(export main)
+(import (only-in "closure-suite.ss" read-study))
+(def (main path)
+  (defvalues (header rows) (read-study path))
+  (displayln "CLOSURE-NATIVE-STUDY-OK rows=" (length rows)))

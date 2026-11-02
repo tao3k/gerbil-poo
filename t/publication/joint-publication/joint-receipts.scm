@@ -1,0 +1,79 @@
+;; Independent feedback must survive every approved topology alternative unchanged.
+(def builder (.cc cache.Builder. allow: (lambda (key) (not (eq? key 'stable)))))
+;; All alternatives use existing endpoint phase declarations and POO values.
+(def (changes phase) (map (lambda (key) (cons key (.cc joint-receipts.service.Change. phase: phase))) '(a b)))
+;; Capture a replacement without changing the installed shared policy.
+(def (policy snapshot ceiling budget)
+  (.cc (joint.approval snapshot 'shared) limit: ceiling budget: budget))
+;; Keep failures in input order; a valid sibling is never skipped after refusal.
+(def (failures outcomes) (map (lambda (entry) (not (not (cdr entry)))) outcomes))
+;; Real admitted receipts exercise shared guard identity, whole snapshot identity,
+;; component support changes and explicit fresh preparation in one workflow.
+(def joint-receipts-test
+  (test-suite "multiple approved receipts through shared drift and six SCC rounds"
+    (test-case "shared failed approvals leave independent siblings fresh across two topology cycles"
+      ;; Only diagnostic counting mutates; the production family relation is pure.
+      (def checks 0)
+      (def owner (joint-receipts.service.start joint: (lambda (snapshot)
+        (set! checks (+ checks 1)) (joint-receipts.service.joint-approved? snapshot))))
+      (def original (joint.current owner))
+      (def rows '((merge 24 48 24) (replace 16 32 16) (restore 12 24 12)
+                  (merge 24 48 24) (replace 16 32 16) (restore 12 24 12)))
+      (def history (foldl (lambda (row previous)
+        (def before (joint.current owner))
+        (def phase (car row)) (def ceiling (cadr row)) (def budget (caddr row))
+        (def edits (changes phase)) (def shared (policy before ceiling budget))
+        (def pending (receipts.approve-revisions owner [edits edits] shared builder))
+        (def independent (car (receipts.approve-revisions owner [edits] (policy before ceiling budget) builder)))
+        (check (eq? before (joint.current owner)) => #t)
+        ;; Observe completed approvals before any installation/replay effects.
+        (let ((approved-count checks))
+          ;; Both still-admissible values invalidate the SAME two pending receipts.
+          (.putslot! shared 'budget ($constant-slot-spec (+ budget 1)))
+          (def denied (joint.install-sequence! owner pending))
+          (check-equal? (failures denied) '(#t #t))
+          (for-each (lambda (entry) (check (eq? (car entry) before) => #t)) denied)
+          (.putslot! shared 'budget ($constant-slot-spec budget))
+          (def outcomes (joint.install-sequence! owner [(cadr pending) independent (car pending) independent]))
+          (check-equal? (failures outcomes) '(#t #f #t #t))
+          (def winner (car (cadr outcomes)))
+          (check (eq? (caar outcomes) before) => #t)
+          (for-each (lambda (entry) (check (eq? (car entry) winner) => #t)) (cdr outcomes))
+          (check-equal? checks approved-count)
+          (def replays (joint.install-sequence! owner previous))
+          (check (andmap identity (failures replays)) => #t)
+          (for-each (lambda (entry) (check (eq? (car entry) winner) => #t)) replays)
+          (for-each (lambda (key)
+            (check-equal? (joint-receipts.service.value winner key) (list-ref row 3))
+            (check (eq? (graph-cache-ref (joint.head original key) 'stable)
+                        (graph-cache-ref (joint.head winner key) 'stable)) => #t)
+            (case phase
+              ((replace) (check-exception (graph-cache-ref (joint.head winner key) 'b) true))
+              ((restore) (for-each (lambda (removed)
+                (check-exception (graph-cache-ref (joint.head winner key) removed) true)
+                (check-equal? (.call (graph-cache-source (joint.head winner key)) .code removed) #f)
+                (check-equal? (.call (graph-cache-source (joint.head winner key)) .base removed) #f)) '(e f))))) '(a b))
+          (append previous pending [independent]))) [] rows))
+      ;; Replaying must preserve the count observed after all completed rounds.
+      (let* ((final (joint.current owner)) (approved-count checks)
+             (replay (joint.install-sequence! owner history)))
+        (check (andmap identity (failures replay)) => #t)
+        (for-each (lambda (entry) (check (eq? (car entry) final) => #t)) replay)
+        (check-equal? checks approved-count)
+        (check-equal? (joint-receipts.service.value final 'a) 12)
+        (check-equal? (.@ (joint.approval final 'shared) budget) 24)))
+    (test-case "invalid and foreign receipts retain ordered outcomes without suppressing a valid sibling"
+      (def owner (joint-receipts.service.start)) (def other (joint-receipts.service.start)) (def before (joint.current owner))
+      (def edits (changes 'merge))
+      (def valid (car (receipts.approve-revisions owner [edits] (policy before 24 48) builder)))
+      (def foreign (car (receipts.approve-revisions other [edits] (policy (joint.current other) 24 48) builder)))
+      (check-exception (joint.install-sequence! owner (cons valid 'improper)) true)
+      (check (eq? before (joint.current owner)) => #t)
+      (check-equal? (joint.install-sequence! owner []) [])
+      (def outcomes (joint.install-sequence! owner [#f foreign valid valid]))
+      (check-equal? (failures outcomes) '(#t #t #f #t))
+      (check (eq? (car (caddr outcomes)) (car (cadddr outcomes))) => #t)
+      (defvalues (_ failure) (joint.install! other foreign)) (check-equal? failure #f))))
+
+;; Return the original suites from this lexical scope.
+(values joint-receipts-test)

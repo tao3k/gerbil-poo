@@ -1,0 +1,570 @@
+#+TITLE: Fresh-process preparation selector controls
+
+* Scope and reproducibility
+The command now runs the expanded study documented in
+[[file:expansion-summary.org][shared-expansion controls]]; the 192-child observations below bind the
+recorded older sources.
+
+This is local native Gerbil/Gambit evidence for generalized prototype protocol
+future work. Reproduce with =GERBIL_PATH="$PWD/.build/env" just benchmark-metadata-paired=
+after installing this package in a suitable isolated Gerbil environment. No Lean
+checkout, Python timing driver, checked-in raw matrix or compressed archive is
+required. Outputs stay under ignored =.build/metadata/=. The driver validates
+current source and binary digests, complete coverage and metric admission.
+
+The historical recorded study contains 192 fresh native child processes: four scenarios,
+natural/collected regimes, four rounds and three adjacent comparison pairs.
+Each process constructs all controls in the same order and executes four fixed
+warmup passes. Side order is ABBA and pair positions rotate. Natural does not
+force a collection; collected explicitly collects immediately before sampling.
+Children are capped at 20 seconds and 1 GiB; compilation and the aggregate
+study each have a separate 90-second bound. No local test/build ran during timing.
+
+Controls are independent preparation, uncaptured selection (the previous
+per-call generic lookup, retained only in the benchmark), captured dynamic
+selection and a reusable immutable preparation cache. Selector-only samples use
+4096 repetitions; family, joint publication and 15-node workflow samples use 128.
+Semantic checks include descriptor/binding reuse, current-snapshot invocation,
+atomic budget refusal, shared dependencies and selective rebuilding.
+
+* SelectionCache measurement at revision 6c60cef
+These observations bind source revision =6c60cef=. Subsequent changes add
+definition comments only; native reader-form equality is checked separately.
+The raw receipt keeps its measured hashes and is not re-labelled as a later
+source admission.
+
+After the terminology correction, the same protocol completed another 192
+children / 96 pairs against the renamed source. No local build/test overlapped
+timing. Prefix collection counts again match every pair; full prefix counter
+vectors differ in 11 pairs. These are not identical-heap controls.
+
+Natural selector-only capture saves 0.047 us and cache lookup saves another
+0.184 us per call. Whole-operation results remain variable: the joint cache
+comparison now has -0.430 us natural / -0.289 us collected CPU deltas, while the
+collected workflow cache comparison regresses +1.570 us. The earlier adverse
+joint result below is retained. This second run does not establish a stable
+end-to-end gain, and does not change the optional/default strategy decision.
+
+Selected paired deltas (us/op), each a separate median over four pairs:
+
+| Scenario | Regime | First -> second | CPU delta | GC CPU delta | CPU-GC delta |
+|----------+--------+-----------------+-----------+--------------+--------------|
+| selector | natural | uncaptured -> dynamic | -0.047 | 0.000 | -0.047 |
+| selector | natural | dynamic -> cached | -0.184 | 0.000 | -0.184 |
+| selector | collected | uncaptured -> dynamic | -0.056 | 0.000 | -0.056 |
+| selector | collected | dynamic -> cached | -0.178 | 0.000 | -0.178 |
+| family | natural | dynamic -> cached | +1.430 | +1.078 | +0.320 |
+| family | collected | dynamic -> cached | -2.813 | -1.695 | -1.098 |
+| joint | natural | independent -> uncaptured | -4.762 | -4.375 | -0.387 |
+| joint | natural | uncaptured -> dynamic | +8.223 | +4.438 | +3.051 |
+| joint | natural | dynamic -> cached | -0.430 | -1.145 | +0.105 |
+| joint | collected | uncaptured -> dynamic | -7.145 | -3.984 | -3.160 |
+| joint | collected | dynamic -> cached | -0.289 | -0.105 | -0.184 |
+| workflow | natural | dynamic -> cached | -4.418 | -2.406 | -2.012 |
+| workflow | collected | dynamic -> cached | +1.570 | +0.844 | +0.727 |
+
+Measured-source SHA-256:
+- =contract-family.ss=: =38e7f9f3caa73ba914dc139a67360f02c17ea20f27ec5fd4662406df27d9950e=
+- Native binary: =5fe6e12560c13d17d9c37068609f115955705ca78e3ddf23d8753f14351dd298=
+- Complete raw study: =905595e6edeb9938e8d369a209d0e11b7e13c7ae07f2541e93debc9c16c56685=
+
+* Pre-rename diagnosis
+The following historical measurements bind the pre-rename source hashes at the
+end, not the current source. Tables normalize the reusable-choice variant label
+to =cached=; no numerical observations or old negative results are discarded.
+
+The historical [[file:selective-summary.org][single-process result]] had natural CPU medians of 255.750
+versus 222.422 microseconds (about 15%). Incoming GC history was uncontrolled;
+its per-round selector/independent collection counts were 1/0, 21/0, 31/31 and
+24/32. That comparison cannot isolate selector dispatch overhead.
+
+The fresh-process natural joint comparison independent -> uncaptured has a
+median paired CPU difference of -0.172 microseconds; the old 15% regression is
+not reproduced. Prefix collection counts match in all 96 pairs, while the full
+three-field prefix counters differ in 17 pairs. Equal collection counts do not
+establish identical heap contents or allocation history. The measurements do
+not prove that GC alone caused the historical difference.
+
+Selector-only natural marginal CPU medians are approximately 0.301 us for the
+uncaptured function, 0.252 us with its immutable callback captured using
+=:std/func compose1=, and 0.064 us with the cache callback. Capturing removes
+about 0.053 us per selector call in this local paired comparison. This does not
+imply an equivalent whole-publication speedup.
+
+* Pre-rename paired results
+All numbers below are microseconds per operation. Negative means the second
+strategy is faster. Columns are separate medians of per-pair differences;
+independently computed medians must NOT be added. CPU minus GC CPU is an
+observed accounting residual, not a collector-independent instruction count.
+Each row has four pairs; these are finite local controls, not significance or
+universal performance claims.
+
+| Scenario | Regime | First -> second | CPU delta | GC CPU delta | CPU-GC delta |
+|----------+--------+-----------------+-----------+--------------+--------------|
+| selector | natural | uncaptured -> dynamic | -0.053 | 0.000 | -0.053 |
+| selector | natural | dynamic -> cached | -0.176 | 0.000 | -0.176 |
+| selector | collected | uncaptured -> dynamic | -0.046 | 0.000 | -0.046 |
+| selector | collected | dynamic -> cached | -0.177 | 0.000 | -0.177 |
+| family | natural | independent -> uncaptured | -4.676 | -3.594 | -1.082 |
+| family | natural | uncaptured -> dynamic | -1.184 | -0.660 | -0.602 |
+| family | natural | dynamic -> cached | -0.969 | -0.535 | -0.391 |
+| family | collected | independent -> uncaptured | -2.211 | -0.965 | -1.383 |
+| family | collected | uncaptured -> dynamic | -0.703 | -0.516 | -0.242 |
+| family | collected | dynamic -> cached | -0.316 | -0.078 | -0.238 |
+| joint | natural | independent -> uncaptured | -0.172 | -2.441 | +2.270 |
+| joint | natural | uncaptured -> dynamic | +0.027 | -0.090 | +0.117 |
+| joint | natural | dynamic -> cached | +7.055 | +3.809 | +3.246 |
+| joint | collected | independent -> uncaptured | -1.094 | -0.414 | -0.680 |
+| joint | collected | uncaptured -> dynamic | -6.492 | -3.254 | -2.840 |
+| joint | collected | dynamic -> cached | +3.891 | +2.070 | +1.820 |
+| workflow | natural | independent -> uncaptured | -0.480 | +0.609 | -1.090 |
+| workflow | natural | uncaptured -> dynamic | +2.781 | +1.191 | +1.129 |
+| workflow | natural | dynamic -> cached | -4.609 | -1.914 | -2.215 |
+| workflow | collected | independent -> uncaptured | -1.867 | -1.184 | -1.156 |
+| workflow | collected | uncaptured -> dynamic | -0.973 | +0.063 | -1.035 |
+| workflow | collected | dynamic -> cached | -6.758 | -3.125 | -3.633 |
+
+The cache remains optional. Joint publication still regresses versus captured
+dynamic selection in both regimes despite the selector microbenchmark saving;
+the larger workflow improves locally. The existing always-shared example
+source remains its default. Choose a cache only under stable immutable prices
+and measured workload/support; changed arity takes the ordinary selection path.
+Changed costs require a new cache. Existing source/support/approval checks apply.
+
+Lean proves selection equivalence, hit/fallback counts and conditional
+amortization including cold setup, first selection and every support guard.
+It also proves per-pair CPU/GC decomposition and cancellation of an additive
+ABBA position term. It does not prove a concrete compiler/collector cost model,
+identical heaps, arbitrary drift cancellation or an end-to-end speedup.
+
+* Pre-rename local identities
+Gerbil =1cfb032=, Gambit =ea114fc=. Raw signed allocation counters are retained;
+allocation is unavailable when collection occurs or the delta is negative.
+An initial 128-child pre-capture study is also retained locally, including its
+adverse whole-joint cache result; it is historical and not current-source admission.
+
+SHA-256:
+- Runtime =contract-family.ss=: =544dba3464b7d07e70de7338d3744aa5f281948867390f09ae350abeec37834c=
+- Native binary: =051e689652763744133c04bb0cb6b2bea060966ba2259f0e36ef1b637f3ffa67=
+- Complete raw study: =05814ca49d97a9e043c9d37cd3bb5cbbf1addab4328f3825cea3fae581233cdb=
+The local native header records the remaining source digests. This summary is
+bounded evidence, not a portable guarantee of the same numerical results.
+
+* Direct combined-generic transport (2026-10-18)
+
+The final source-bound ~benchmark-combination~ study passed 480 fresh children:
+ten scenarios, natural/collected GC, four ABBA rounds, and exact A/A controls.
+Both full-workflow sides use named factories and the same native FUN expansion;
+all nine method events and the complete keyword/rest result are demanded. The
+initial inline-versus-named construction comparison was rejected and retained
+locally; a later named comparison also had adverse natural-GC construction
+samples. Neither is replaced with a claimed historical speedup.
+
+The strict receipt replayer admitted the current source and binary identities,
+complete coverage/order/EOF, then checked every adjacent allocation pair:
+
+| Single-operation scope | Production minus reference bytes | Admitted pairs |
+|------------------------+---------------------------------+----------------|
+| Complete generic row transport | -48 | 8/8, no GC |
+| Action factory alone | 0 | 8/8, no GC |
+| Factory plus Reader/reflection/C3 invocation | -64 | 8/8, no GC |
+
+These are allocated work in this fixture, not retained-heap bounds or a compiler
+allocation theorem. The model in Lean proves monadic relay equivalence and a
+nonnegative weighted source-operation saving, not these host byte constants.
+
+Final paired CPU differences below are production minus reference, in us/op.
+Negative is faster. Separate medians of CPU and GC/residual deltas need not add.
+
+| Scope | Natural CPU | Collected CPU | Latency admission |
+|-------+-------------+---------------+-------------------|
+| Hot generic calls | +0.06855 | -0.02539 | Inconclusive; A/A median magnitudes reach 0.08834/0.04393 |
+| Retained complete workflow | +2.90430 | -13.06836 | Inconclusive; A/A deltas include -9.90625 and +16.20703 |
+| Factory plus complete invocation | -0.75195 | -4.26367 | Inconclusive; A/A magnitudes exceed both apparent gains |
+
+Natural hot/workflow regressions and earlier adverse construction samples remain
+reported. Prefix counters match, but this does not establish identical heap
+contents or GC histories; no causal attribution or stable end-to-end speedup is
+admitted. The final host snapshot also contained an external Lean compiler;
+no claim of host isolation is made. Throughput allocation deltas are unavailable across collection and are
+not converted into savings. The allocation improvement is accepted at the three
+measured boundaries; latency remains a separate measurement problem.
+
+Raw receipts for all three studies and the current measurement binary remain
+ignored local artifacts. No complete benchmark data or compressed archive is committed. The
+shared measurement entry now lives in ~benchmarks/closure-measure.ss~, so six consumers
+avoid importing the unrelated metadata publication workload solely to measure.
+The standard ~std/make~ executable scope passed within the unchanged 90-second
+fence after that dependency closure was reduced; failed builds remain failures.
+
+* Fixed-prefix generic assembly and complete controls
+
+The immediately preceding combined generic used ~apply list~ to construct its
+resolved row. The candidate emits the statically known prefix with core ~cons~
+and copies the rest spine with standard ~append~ and an empty final argument.
+Combiner selection, fragment lookup and procedure admission remain in order;
+callbacks own the complete row. Tail mutation and replay are regression-tested.
+
+The final source/binary-bound study completed and replayed all 720 fresh children:
+15 scopes, both GC regimes, four ABBA rounds and two exact A/A comparisons.
+Hot/transport scopes use 131,072 operations; complete workflow scopes use 1,024;
+the separate factory-only scope uses 16,384. Conditioned scopes execute both
+controls 128 times before the common all-control prefix. Single-operation
+allocation controls remain separate and unchanged. Every child retains its 20s
+and 1GiB fences; the complete study retains 300s. Real progress is emitted after
+each 24 completed children, outside measurement.
+
+Both summary and charge in the full-chain reference use the immediately previous
+lowering. Both named factories share the same native FUN Reader macro; its explicit
+charging-generic form keeps core callees statically known. Family/C3 assembly is
+outside these timed scopes. The earlier 672-child study is retained separately:
+its workflow reference changed only summary transport, so it is not substituted
+for the final complete-chain comparison.
+
+All deltas below are *production minus reference*, CPU microseconds/operation.
+GC and residual columns are medians of paired differences; their independent
+medians need not sum to the CPU median. Residual is CPU minus reported GC CPU,
+not an attribution to a particular instruction or module.
+
+| Scope | Regime | CPU delta | GC delta | Residual delta |
+|-------+--------+-----------+----------+----------------|
+| Isolated transport | natural | -0.18120 | -0.13464 | -0.04599 |
+| Isolated transport | collected | -0.14244 | -0.10789 | -0.03454 |
+| Hot generic | natural | -0.10335 | -0.07880 | -0.02538 |
+| Hot generic | collected | -0.22040 | -0.17176 | -0.05183 |
+| Retained workflow | natural | -6.25293 | -2.22412 | -4.02881 |
+| Retained workflow | collected | -6.13477 | -1.43018 | -4.70459 |
+| Factory plus invocation | natural | -0.05859 | -1.10596 | +1.04736 |
+| Factory plus invocation | collected | +7.73291 | +2.08203 | +5.65088 |
+| Conditioned hot | natural | -0.18984 | -0.13946 | -0.05038 |
+| Conditioned hot | collected | -0.22066 | -0.16112 | -0.05181 |
+| Conditioned retained workflow | natural | -5.09570 | -2.22314 | -2.87256 |
+| Conditioned retained workflow | collected | -1.01904 | -0.25293 | -0.76611 |
+| Conditioned factory plus invocation | natural | +4.79199 | +0.16748 | +4.62451 |
+| Conditioned factory plus invocation | collected | -3.95410 | -3.36133 | -1.32471 |
+
+The isolated transport improved in all eight main pairs; its smallest CPU gain
+(0.09711us) exceeds the largest absolute corresponding A/A observation (0.08871us).
+This is local CPU evidence beyond allocation alone. Unconditioned hot calls also
+improved in all eight main pairs, but individual hot A/A observations overlap the
+main spread; conditioned natural hot calls retain one adverse pair. No universal
+latency guarantee is admitted.
+
+Complete-workflow A/A medians reach 10.87988us (retained) and 11.77588us
+(factory plus invocation), comparable to or larger than the apparent differences.
+The collected construction regression includes 5.65088us of residual CPU: it
+cannot be explained by subtracting GC alone. Conditioning changes the direction
+of construction differences, but does not establish identical heaps or causality.
+Factory-only production CPU is 0.22311/0.23734us in natural/collected mode, versus
+roughly 98--116us for the complete scopes. Its paired differences are inconclusive;
+these independently measured medians must not be subtracted to invent a precise
+construction/body split. End-to-end regression closure remains unadmitted.
+
+Collection-free allocation controls report 480 fewer bytes for the generic row,
+zero factory-only difference and 576 fewer bytes for construction plus invocation.
+Batch allocation crossing collection stays unavailable. Source-level Lean laws
+prove complete-row equality and arbitrary-monad substitution; the cost threshold
+prices rest copying, apply/list redistribution, setup and GC separately. They do
+not establish Gambit allocation, collector behavior or compiler/CPU correctness.
+
+Earlier failed dynamic keyword forwarding and stale numbered AOT runs remain
+failures. Interrupted builds also left four unowned object locks: repeated waits
+were traced to the release compiler's lock loop, checked with process inspection
+and lsof, then the four locks/partial objects were moved locally and regenerated.
+The same 90s build fence then passed. The unrelated older lock was left alone.
+Full raw studies, generated objects and temporary diagnostics remain outside Git;
+no versioned JSON, full benchmark dataset or compressed archive is added.
+
+Host snapshots still showed external compiler activity before and after the final
+study (four/three active compilers, aggregate 79.6/144.4 percent CPU at those two
+snapshots). Our own compilation was stopped for the timed study. These endpoint
+snapshots do not reconstruct the intervening load, so no isolated-host claim is
+made and the A/A spread remains part of the reported evidence.
+
+Functional acceptance for this change: all 17 compilation groups completed under
+the original per-group bounds. The contracts group first hit 180s near its final
+module; its completed AOT work was retained, audited, then the complete group
+returned normally on the bounded resume. The original batch failure marker remains
+in the local receipt. Final AOT admission found 651 generated intermediates with
+no missing current objects; the remaining older numbered example object was moved
+locally before loading. The single-process full suite then exited naturally with
+103 unique modules, 748 cases, zero errors/warnings, wall 206.11s (user 21.52s,
+system 2.63s), within 300s/1GiB. All 306 tracked Scheme source hashes remained frozen.
+Payload values retain their identities; argument spines are copied. Earlier
+summary callback effects remain visible if a later replay admission fails, while
+charging runs only after every summary succeeds. This is not a transaction claim.
+
+* Historical strict-summary candidate (rejected)
+
+The following 816-child receipt belongs to commit 277dbec. A later independent
+legacy control found that its explicit call/values consumer rejected additional
+summary results that standard compose projects in ordinary single-value context.
+That extra implicit result check is outside the selected FUN result protocol.
+The candidate is not adopted; its complete performance data and adverse
+observations remain historical evidence, not current production results.
+
+The standard summary Reader now fuses its environment-independent continuation
+through FUN map. Current reflection still precedes summary and charge. The
+reference retains the preceding bind/nested-map chain but uses the SAME current
+generic/contract/row code as production. This comparison isolates the Reader
+change; transport and generic-hot scopes separately retain their apply/list row
+reference. No workflow speedup is inferred transitively from those microbenchmarks.
+
+The complete source/binary-bound study completed and strictly replayed 816 fresh
+children: 17 scopes, natural/collected GC, four ABBA rounds, and both exact A/A
+pairs. Fixed all-control prefixes, conditioned history, result oracles, 20s/1GiB
+child fences and the 300s study fence remain. All 306 tracked Scheme source hashes
+were unchanged through timing and replay. Full raw observations stay ignored.
+
+Deltas are production minus the adjacent reference, CPU microseconds/operation.
+GC and residual are independent medians of per-pair differences and need not add.
+AA max is the largest absolute individual same-action difference, not a confidence
+interval and not a quantity subtracted to repair a regression.
+
+| Scope | GC regime | CPU delta | GC delta | Residual delta | Adverse / 4 | AA max |
+|-------+-----------+-----------+----------+----------------+-------------+--------|
+| Transport | natural | -0.14631 | -0.11222 | -0.03399 | 0 | 0.01025 |
+| Transport | collected | -0.14244 | -0.10928 | -0.03404 | 0 | 0.01441 |
+| Hot generic | natural | -0.27401 | -0.17989 | -0.09412 | 0 | 0.45667 |
+| Hot generic | collected | -0.16110 | -0.11711 | -0.04166 | 0 | 0.11430 |
+| Conditioned hot | natural | -0.16998 | -0.12077 | -0.04921 | 0 | 0.02753 |
+| Conditioned hot | collected | -0.15914 | -0.11261 | -0.04601 | 0 | 0.01183 |
+| Retained workflow | natural | -1.77930 | -0.29395 | -1.48535 | 1 | 50.46777 |
+| Retained workflow | collected | -2.99609 | -0.99463 | -1.95117 | 0 | 3.74414 |
+| Factory plus invocation | natural | +0.16064 | -0.15283 | +0.11768 | 2 | 2.97070 |
+| Factory plus invocation | collected | +0.18213 | -0.07910 | +0.26123 | 2 | 2.41211 |
+| Conditioned retained workflow | natural | +0.03662 | +0.31689 | -0.28027 | 2 | 2.75098 |
+| Conditioned retained workflow | collected | -2.81396 | -1.06982 | -1.74414 | 1 | 89.47461 |
+| Conditioned factory plus invocation | natural | -0.53418 | -0.09961 | -0.43457 | 1 | 2.83691 |
+| Conditioned factory plus invocation | collected | -2.37695 | -0.93994 | -1.35498 | 0 | 5.27246 |
+
+Conditioned hot-call gains exceed their corresponding individual A/A ranges:
+the smallest gains are 0.16593/0.14927us (natural/collected). Unconditioned hot
+calls remain sensitive to history. This repeats local CPU evidence for the row
+lowering already present in the preceding revision, not a new Reader-only gain.
+
+Action-factory production medians are 0.22311/0.21182us (natural/collected), with
+zero one-operation allocation difference. A separate identical-action control
+measures receiver construction PLUS first type/rate field reads: 15.41943/14.54053us.
+This is not a changed receiver constructor or an exact additive decomposition of
+the 93--99us complete production scopes. Family/C3 source assembly remains outside
+these timed scopes. No independent phase medians are subtracted to invent a cost.
+
+Collection-free single-operation controls consistently save 80 bytes in retained
+workflow and factory-plus-invocation, in all eight pairs each. Row-only controls
+still save 480 bytes against apply/list; these are different comparisons and must
+not be added. Batch byte counts crossing collection remain unavailable. The full
+workflow has both improvements and adverse CPU pairs, so end-to-end regression
+closure remains unadmitted despite the allocation reduction and semantic proof.
+
+The largest natural retained-workflow A/A discrepancy is 50.46777us: 19.79004us
+GC and 30.67773us residual. The conditioned collected A/A discrepancy is 89.47461us:
+29.46973us GC and 60.00488us residual. Each pair has 90 measured collections on
+both sides and identical recorded prefix counters. Equal counters do NOT mean
+identical heaps, collector cost, locality or CPU scheduling; GC count/history
+alone cannot explain these residual differences. External compiler snapshots
+show ten compiler/tool processes totalling 103.8 percent CPU before timing and
+none at the endpoint. This does not reconstruct the intervening load, so no
+isolated-host or causal attribution is claimed.
+
+Acceptance: current AOT admission found 651 intermediates, no missing objects and
+no numbered-object shadowing. All 103 modules/750 test cases passed in one bounded
+process with natural exit zero, no errors/warnings (31.21s wall, 19.78s user, 1.81s
+system). The first 90s executable build and its first bounded resume timed out;
+four new unowned object locks and the older missing-object cyclic-access lock
+were diagnosed and retained outside Git. After verified inactive locks were moved,
+the same 90s route passed. Failures are not relabelled as successful builds.
+
+Lean's four general Reader laws prove arbitrary-monad fusion, source refusal,
+current-value retry and a conditional complete-budget threshold. Top-level examples
+cover nested forecast traces, refusal/retry and review failure. These do not prove
+native multiple-value ABI, mutable receiver identity, actual allocation, GC or CPU
+behavior. The integrated Reader/reflection MOP use remains article future work.
+
+* Current FUN Observation design
+
+The production workflow uses one standard FUN map, ordinary Gerbil result context
+and current method reflection. Functional tests specify result contents directly
+through core ~values->list~ for zero/single/multiple results and false data, with
+one charging effect. They contain no previous-chain implementation. The previous
+algorithm exists only in this paired measurement control. Production APIs have
+one implementation; comments name Gerbil core, FUN Observation and the actual
+method-combination module rather than an extra execution-category namespace.
+
+The final source/binary-bound run completed and strictly replayed all 816 fresh
+children with unchanged 306 tracked Scheme source hashes. The 17 scopes, fixed
+ABBA order, both A/A pairs, natural/collected modes, conditioned prefixes, 20s/1GiB
+children and 300s study fence are unchanged. This new receipt supersedes the
+strict-result candidate above; its allocation and timing values are not pooled.
+
+The following CPU microsecond deltas are production minus the adjacent reference.
+GC/residual columns are independently computed paired medians and need not add.
+AA max retains the largest individual identical-action CPU difference. Full
+workflow controls share the SAME current generic, contract and argument-row code;
+hot/transport controls separately compare the already implemented row lowering.
+
+| Scope | GC regime | CPU delta | GC delta | Residual delta | Adverse / 4 | AA max |
+|-------+-----------+-----------+----------+----------------+-------------+--------|
+| Transport | natural | -0.15289 | -0.11709 | -0.03578 | 0 | 0.03814 |
+| Transport | collected | -0.15563 | -0.11980 | -0.03582 | 0 | 0.01250 |
+| Hot generic | natural | -0.15441 | -0.11008 | -0.04471 | 0 | 0.25603 |
+| Hot generic | collected | -0.16993 | -0.12137 | -0.04856 | 0 | 0.04671 |
+| Conditioned hot | natural | -0.17143 | -0.12383 | -0.04767 | 0 | 0.03194 |
+| Conditioned hot | collected | -0.16655 | -0.12204 | -0.04429 | 0 | 0.06928 |
+| Retained workflow | natural | -2.47754 | -0.95312 | -1.36719 | 0 | 5.27441 |
+| Retained workflow | collected | +1.56543 | +1.21924 | +0.48096 | 4 | 13.76465 |
+| Factory plus invocation | natural | +1.49902 | +1.24658 | +0.23535 | 3 | 4.88184 |
+| Factory plus invocation | collected | -0.41064 | +0.17334 | -0.58398 | 2 | 7.32520 |
+| Conditioned retained workflow | natural | +0.63379 | +0.53711 | +0.08398 | 3 | 15.06250 |
+| Conditioned retained workflow | collected | -2.46875 | -0.82373 | -1.43750 | 1 | 12.55273 |
+| Conditioned factory plus invocation | natural | +1.27441 | +0.79297 | +0.50293 | 2 | 61.39355 |
+| Conditioned factory plus invocation | collected | +1.48193 | +0.82227 | +0.65967 | 3 | 7.53809 |
+
+Conditioned hot calls improve in every main pair; minimum gains are
+0.13664/0.15665us (natural/collected), above their corresponding individual A/A
+ranges. Collected unconditioned hot calls also exceed their A/A range; natural
+unconditioned hot calls still overlap history noise. These are local CPU results
+for row transport, not a new claim about the complete Reader workflow.
+
+Current action-factory CPU medians are 0.22607us in each GC mode, with zero
+single-operation allocation change. Receiver construction plus first type/rate
+reads has identical-action medians of 16.56445/15.97510us. These separately measured
+scopes do not establish an additive split of the 92--97us complete production
+workflows. Family/C3 source assembly stays outside these timing boundaries.
+
+Collection-free one-operation controls save 208 bytes in both retained workflow
+and factory-plus-invocation, in all eight pairs each. Row-only controls save 480
+bytes against their separate apply/list reference. Cross-collection batch bytes
+stay unavailable, and one-operation CPU is not admitted as a latency improvement.
+Complete-workflow CPU still has adverse pairs; regression closure remains open.
+
+The largest collected retained-workflow main discrepancy is +111.71777us:
+31.72070us GC and 79.99707us residual. Both sides record 90 collections and identical
+prefix counters. A conditioned natural construction A/A pair differs by 61.39355us,
+including 18.12109us GC and 43.27246us residual, again at 90/90 collections and equal
+recorded prefixes. These observations cannot be attributed to collection count
+alone. The endpoint snapshots show ten/seven external compiler/tool processes,
+125.3/93.6 percent aggregate CPU; they do not reconstruct the intervening load.
+No isolated-host or causal instruction-cost claim is made, and no adverse sample
+is removed to qualify a speedup.
+
+Final complete Scheme check: 651 current AOT intermediates, zero missing or shadowed
+objects; 103 modules/750 test cases, zero errors/warnings, natural exit zero,
+22.57s wall (18.82s user, 1.54s system), under the existing 300s/1GiB fence. The
+final executable and methods rebuilds retain their original 90s/180s bounds.
+Lean's full regular/stress gate after current-design naming cleanup passed all
+340 units/eight phases in 134.943s with automatic 14 jobs. Its laws remain finite
+semantic/cost-model results, not Gerbil runtime or compiler proofs.
+
+* Revision-checked contribution admission (2026-10-18)
+
+** Change and comparison boundary
+
+The default ~contribution~ constructor records only a revision and finite qualifier
+symbol in a standard weak-key table. A hit requires the unchanged Contribution
+Type and receiver revisions. Descriptor/prototype/Type edits use current validation;
+callback grouping, rest rows, FUN composition and current reflection are unchanged.
+Evidence contains neither key nor body, avoiding a weak-key/value retention cycle.
+Only the original constructor/Type protocol can register evidence. Arbitrary custom
+Type effects or computed fields are not memoized. This is MOP future-work integration.
+
+Workflow controls now use the *same current* ~typed-summary-action~, generic calls,
+contracts and declaration family. The control supplies the ordinary descriptor
+constructor without registration evidence; it is benchmark-only. Earlier Reader,
+apply/list and compose1 comparisons remain historical/separate scopes and are not
+pooled with the admission comparison. The shared higher-order builder spans the C3
+base, both branches and summary item. Audited registration, current visibility
+refusal/retry and post-success review are executable controls.
+
+** Protocol and admitted observations
+
+One source-frozen study: 21 scopes, natural/collected regimes, four ABBA rounds,
+main and two duplicate A/A pairs, 1008 fresh children. All result oracles passed.
+Each child retains the fixed all-control prefix, 20-second deadline and 1-GiB heap;
+the parent retains its 300-second fence. Strict replay validated complete coverage,
+order, finite/signed counters, EOF, source/binary identities and admitted bytes.
+All 306 tracked Scheme sources remained byte-identical across timing.
+
+Gerbil 1cfb032 / Gambit ea114fc, installed compiled release. Binary SHA-256:
+~6a7adb7bd34abf552ff5d5bc6daba4ce9f4fc92011705a6c99e48c111fff50a6~.
+The 306-source manifest SHA-256 is
+~88ef809fe52a53170ec7d3a8108571141879435bbf42936034fa0280db3d2fe7~.
+Raw rows remain ignored under ~.build/combination/contribution-results.scm~;
+complete data, generated objects, JSON receipts and archives are not committed.
+
+No own Lean/Scheme build ran during timing. Endpoint snapshots showed no compiler
+workers; the first snapshot had one other gxi process and the last had none.
+These endpoints do not establish continuous host isolation. Module loading and
+global table initialization precede measurement. A fresh-family scope measures
+first realization/invocation of each new family after the fixed warm-module prefix,
+not complete application process startup.
+
+Selected CPU deltas below are *production minus control*, microseconds per operation;
+negative is improvement. CPU, GC and non-GC columns are medians of each pair's own
+difference. Their separately computed medians need not add exactly. A/A is the
+maximum absolute CPU difference across both duplicate pairs, not a correction.
+
+| Scope / regime | CPU delta | GC delta | non-GC delta | max A/A | slower rounds |
+|----------------+-----------+----------+--------------+---------+---------------|
+| eight descriptor admissions / natural | -16.337 | -3.567 | -12.770 | 0.114 | 0/4 |
+| one descriptor construction / natural | +0.503 | +0.104 | +0.398 | 0.479 | 4/4 |
+| fresh realized family / natural | -220.227 | -111.289 | -108.938 | 92.906 | 0/4 |
+| fresh family + full call / natural | -68.180 | +15.086 | -84.406 | 54.078 | 0/4 |
+| fresh family + full call / collected | -53.102 | +25.734 | -80.453 | 125.500 | 0/4 |
+| retained complete workflow / natural | -7.997 | +5.108 | -13.390 | 2.633 | 0/4 |
+| retained complete workflow / collected | -7.349 | +5.975 | -13.324 | 3.410 | 1/4 |
+| action construction + workflow / natural | -9.014 | +5.269 | -14.282 | 18.852 | 0/4 |
+| conditioned retained workflow / natural | -4.993 | +6.401 | -11.349 | 6.401 | 1/4 |
+| conditioned action + workflow / natural | -8.427 | +5.598 | -13.901 | 23.354 | 1/4 |
+
+The retained natural workflow's median CPU was 70.598 versus 78.595 us (~10.2%
+lower). All four paired deltas (-9.037 to -7.893 us) exceeded the duplicate noise
+in this study. Independent admission work also improved; the parameter-transport
+code is identical across these workflow controls. It is incorrect to attribute
+this gain to another forwarding/Reader optimization or to allocation alone.
+
+** Remaining regressions and GC attribution
+
+Registration has a real construction charge: +0.503 us natural and +0.403 us
+collected for one fresh descriptor. Realized-family and full fresh-family results
+include this setup rather than hiding it in a retained-family microbenchmark.
+Cold/full and conditioned A/A differences are sometimes larger than median gains;
+no universal cold or complete-workflow speedup is established.
+
+In the collected retained workflow, round 2 regressed +32.621 us: +20.281 us GC
+and +12.340 us non-GC, with 64 versus 51 collections. Both starting prefix counters
+were identical, so this cannot be described solely as unequal starting GC counts;
+those counters also do not identify complete heaps. The conditioned natural
+workflow's adverse round was +13.133 us: +12.854 us GC and +0.278 us non-GC,
+65 versus 52 collections. An identical-action A/A round also differed +18.852 us
+(+4.818 GC, +14.033 non-GC), despite identical prefix counters and collection counts.
+Consequently neither all residual variation nor the collected outlier can be
+assigned to GC alone. Weak-table/heap-policy effects remain a separate investigation;
+no specific collector cause is proved by these observations.
+
+Collection-free single-operation controls admitted exactly 14,592 fewer bytes for
+workflow invocation on every round in both regimes. Action factory bytes were
+unchanged, and identical receiver construction had no admitted CPU improvement.
+One-shot timings and noisy A/A values are not end-to-end acceptance. Allocation
+reduction therefore supports the mechanism but does not discharge the remaining
+GC/worst-round gate. Phase medians must not be subtracted to invent an exact split
+of one complete invocation.
+
+** Semantic and complete-check receipts
+
+Current-body/qualifier edits, before-to-primary replacement during invocation,
+Type predicate effects, unknown qualifiers, false values, C3 shared-base effect
+count, current reflection refusal and retry passed. Final AOT admission covered
+652 intermediates with zero missing/stale/shadow outputs. An earlier local test
+misused ~.slots~; it was corrected to the existing ~reflect-slots~ protocol, and
+the failed run remains in /tmp. The final complete single-process gate passed all
+103 modules / 753 cases, zero errors/warnings, natural exit 0, real 19.28 seconds.
+No checks or resource limits were removed. Complete Lean gate: 340 units / eight
+phases / 14 workers, 146.550 seconds, every phase exit 0.
+
+Lean proves admission substitution, revision miss, ordered results and unchanged
+subsequent effects under constructor/revision-stability premises. Its cost law
+keeps setup, guard/check costs and supplied GC history separate. It does not prove
+weak-table GC, host mutation, compiler behavior or machine timing. Restoring old
+field values cannot re-enable an old revision. No previous call chain compatibility
+path is added to production.

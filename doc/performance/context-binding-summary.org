@@ -1,0 +1,235 @@
+#+title: Current-context observers and independent binding costs
+
+* Scope and construction
+This advances Appendix B's generalized-prototype FUTURE WORK. Racket reference:
+fare/poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl,
+=generalized_prototype_combination= / =$lens-gen=. The reference separates
+raw construction, cooked self and wrappers; it does not prescribe this binding
+strategy or prove a native allocator/GC bound. Lean laws are documented in
+alignment.md. Scheme has no Lean checkout dependency.
+
+Native =Observation..map= now uses standard =:std/func compose= instead of
+bind/pure. One-off =observe= directly runs the common interpreter. A reusable
+=bind-context-observer= retains compiled hooks and reads current base AND seed.
+For two known standard identity selectors it omits captures/callbacks. Arbitrary
+selectors take the general path; pure immutable-source premises remain explicit.
+=bind-envelope-report= composes that Reader with the public result projection.
+It is code reuse, never cached approval, cooked values or observed results.
+
+* Fixed controls and evidence boundary
+Three complete final-source runs were fixed before measurement; each admits
+576 children (12 phases, two GC regimes, four rounds, three pairs, two positions).
+Fresh child per side, common setup and four warmups of all four controls, ABBA
+side order and exact duplicate A/A procedures. No local build/test overlaps these
+measurements. Bounds: 90s AOT, 90s each study, 20s and 1GiB per child, unchanged.
+The existing native paired I/O and Gambit statistics implementation is shared.
+
+Reference controls retain the parent Reader bind/pure algorithm and public
+=bind-observer= (unchanged); no forced synthetic allocation is introduced.
+Both nested controls already have a prepared snapshot and fixed-base reader.
+Revision compares a reusable current-context reader against a new fixed-base
+reader for EACH of eu/us, using the SAME precompiled graph. One action observes
+two contexts. Factory includes a fresh prepared snapshot and reader plus the
+actual public observation. Preparation uses exactly the SAME action on both
+sides and isolates fresh descriptors/slot-cache setup over a common already
+warm declaration graph. It does not measure first module load or cold C3 nodes.
+
+=nested-history= performs 64 real reference observations before the common
+warmups; no forced GC in natural mode. Collected performs one premeasurement GC;
+it cannot equalize heap shape, finalizers, page residency or all runtime history.
+Signed byte deltas are admitted only when BOTH paired intervals have no GC and
+nonnegative counters. A missing allocation pair is not zero allocation. A/A
+variation and prefix mismatches remain diagnostics; they do not establish a
+cause. CPU minus measured GC CPU still includes allocator/memory effects.
+
+* Final-source CPU results
+All values below are medians of the FOUR paired differences, optimized minus
+reference, microseconds PER ACTION; N/C means natural/collected. Independently
+computed CPU/GC/residual medians need not add. No best-run selection or pooling.
+
+| Phase | Run one N / C | Run two N / C | Run three N / C |
+|-------+---------------+---------------+-----------------|
+| map | -0.046 / -0.050 | -0.047 / -0.046 | -0.048 / -0.049 |
+| map-allocation | -0.047 / -0.039 | -0.047 / -0.070 | -0.047 / -0.070 |
+| binding | -0.054 / -0.032 | -0.055 / -0.030 | -0.054 / -0.032 |
+| binding-allocation | -6.234 / -0.016 | -6.063 / -0.008 | -6.141 / -0.016 |
+| nested | -10.578 / -1.648 | -2.016 / -2.203 | +1.531 / -3.258 |
+| nested-history | -0.391 / -5.109 | +0.070 / -5.648 | -49.195 / +0.422 |
+| revision | -2.602 / +4.234 | -9.352 / +4.086 | +1.461 / -5.469 |
+| factory | +84.156 / -2.469 | +2.906 / +2.062 | -0.781 / -2.969 |
+| preparation | +0.000 / +0.281 | +0.031 / -0.031 | +0.000 / -0.031 |
+| nested-allocation | +0.000 / -1.500 | +0.500 / +0.000 | -1.000 / -0.500 |
+| revision-allocation | +5.000 / -2.500 | -22.500 / -2.000 | -7.000 / +3.000 |
+| factory-allocation | -1.500 / -1.000 | -0.500 / -2.500 | -1.000 / -0.500 |
+
+* Allocation and GC interpretation
+GC-free collected per-action byte deltas across all three runs:
+
+| Phase | Run one | Run two | Run three |
+|-------+---------+---------+-----------|
+| map-allocation | 0 (4 pairs) | 0 (4 pairs) | 0 (4 pairs) |
+| binding-allocation | -96 (4 pairs) | -96 (4 pairs) | -96 (4 pairs) |
+| nested-allocation | 0 (4 pairs) | 0 (4 pairs) | 0 (4 pairs) |
+| revision-allocation | -192 (4 pairs) | -192 (4 pairs) | -192 (4 pairs) |
+| factory-allocation | -16 (4 pairs) | -16 (4 pairs) | -16 (4 pairs) |
+| preparation | 0 (4 pairs) | 0 (4 pairs) | 0 (4 pairs) |
+
+Reader map's zero byte difference prevents attributing its speedup to less native
+allocation: AOT can eliminate the temporary pure reader. Temporary observation
+binding has its own admitted byte/control evidence; the map and binding claims
+must not be conflated. Full nested cooking/construction is unchanged by map.
+Revision excludes declaration preparation on BOTH sides; it does not claim to
+measure a saved factory. The logical amortization law retains every observation
+charge and requires a fixed declaration graph/callbacks.
+
+Selected natural full-workflow decomposition, CPU / GC CPU / residual delta us:
+
+| Phase | Run one | Run two | Run three |
+|-------+---------+---------+-----------|
+| nested | -10.578 / -6.148 / -4.430 | -2.016 / -1.664 / -0.352 | +1.531 / +1.648 / -0.117 |
+| nested-history | -0.391 / -0.047 / -0.281 | +0.070 / +0.055 / +0.008 | -49.195 / -15.898 / -32.148 |
+| revision | -2.602 / -1.719 / -0.883 | -9.352 / -4.594 / -4.758 | +1.461 / +1.141 / +0.320 |
+| factory | +84.156 / +23.594 / +60.563 | +2.906 / +2.062 / +1.031 | -0.781 / +0.469 / -0.000 |
+
+Final natural A/A median ranges across the two duplicate pairs and three runs:
+
+- map: -0.001 to +0.001 us.
+- binding: -0.002 to +0.002 us.
+- nested: -1.758 to +14.688 us.
+- nested-history: -4.273 to +2.664 us.
+- revision: -9.063 to +9.969 us.
+- factory: -24.531 to +12.562 us.
+- preparation: -0.063 to +0.063 us.
+
+These controls do not establish stable full-workflow acceleration. Adverse phases
+and both signs remain visible above. GC histories and substantial construction
+cost can dominate a submicrosecond local binding change; neither natural nor
+collected alone proves that GC history explains a particular slow sample.
+
+The final fair worker still has a natural factory outlier: run one paired CPU
++84.156us, measured GC +23.594us and residual +60.563us. Both allocation savings
+and this regression are retained. Equal GC counts do not explain it away; these
+controls do NOT identify the residual cause or close the full-factory fallback.
+The small-batch binding natural improvement also depends on where GC falls;
+its much smaller collected time and separately admitted -96 bytes are distinct.
+One-off callers use direct =envelope-report=; retaining a context factory is an
+explicit API choice for repeated revisions of a fixed source.
+
+* Source identity and local verification
+Lean companion laws: =bindContextObserver_eq=, =bindContextObserver_identity=,
+=mapContextObserver_eq=, =readerMap_eq_bindPure=, =contextReuseWork_le=.
+They cover finite pure semantics and supplied logical prices, not generated C,
+host exceptions, physical object ancestry, native bytes or predicted elapsed time.
+Gerbil's 34-module suite passes, including current/stale approval separation,
+malformed policy rejection, refusal/recovery, one compilation per reader,
+independent base/seed selection, exactly-once mapping and action-error propagation.
+Lean build, examples, frozen local audit and mandatory full commit checks pass;
+remote exact-head CI is recorded separately in PR #13.
+
+Full local data remain ignored under =.build/=; no raw records, JSON or archives
+are committed. Final runtime/descriptor SHA256:
+- =generalized-prototype.ss=: =2e6cdb62a50789de6506e1e48e8db6f5ebee19530be59321794f3686737dd778=
+- =examples/generalized-checkout.ss=: =bffb75dc438720689fcbc458b1aec039184dbe8f1c472961646c02dc03d03fb3=
+- =benchmarks/binding-cases.ss=: =4fe6bfe1d38990d142d071004e2e1fa12dbdd3b8162550384b75ae435a6fd99f=
+- =benchmarks/binding-benchmark.ss=: =4b9dc98b34c63f1a81ab1de87e8a8043933ba93a8c9b10d5cef4c3f10e0fde45=
+- =benchmarks/binding-suite.ss=: =970cd5967fbdcdad2bcc6175eb9ac709826943eb5d5805a94cc7cfeb32f4a9f0=
+
+Executable SHA256: =eb73cdd2316f519ba30ca3cb86dbeb3c5b9034f1592d1962983dbada1d34fee4=.
+- one: =65e91add8bf948f0a1bce66f4c3f05b5730ad43e78f7a0ba710ae2fb19ff9d92=
+- two: =4ba79297a4b0db9f6ff77016c50df278c8571507be162e4ad92b30583da0f07e=
+- three: =9323da466cf250f6c81305c7160aa3f0b650150f2b878631427333023a051e87=
+
+* Historical iterations, retained separately
+The first study had nine phases and 432 children per complete run. All three
+completed before allocation controls were added. The runtime used general
+context selectors, before the identity specialization. These records are
+historical, not admitted against current source. CPU deltas us N/C:
+
+| Phase | Run one N / C | Run two N / C | Run three N / C |
+|-------+---------------+---------------+-----------------|
+| map | -0.047 / -0.048 | -0.048 / -0.047 | -0.049 / -0.078 |
+| map-allocation | -0.047 / -0.055 | -0.031 / -0.047 | -0.039 / -0.047 |
+| binding | -0.056 / -0.030 | -0.053 / -0.032 | -0.055 / -0.030 |
+| binding-allocation | -6.219 / -0.008 | -6.430 / -0.016 | -6.453 / -0.000 |
+| nested | +9.516 / +0.648 | -4.039 / -4.000 | +1.812 / -4.102 |
+| nested-history | +1.031 / -1.719 | -5.430 / -0.195 | +0.836 / -2.047 |
+| revision | +1.508 / -1.336 | +1.375 / +5.125 | +0.344 / -5.797 |
+| factory | +0.125 / -1.156 | -2.719 / +98.781 | -1.875 / +1.781 |
+| preparation | +0.062 / +0.063 | +0.031 / -0.063 | +0.000 / +0.094 |
+
+Executable SHA256: =d3a4cbe3ece19eb73fbd480fbd8ec7e779811092790d968875f7b97efa029e5f=.
+- one: =e5a14e8ba4c5b18134dc4888224376e4039854860e53b49782673a22f6e2bdf0=
+- two: =59443d35d92f9707b534c76e58d8bf1a6c0ba0cfef2a87725ae5ff9798fe9d83=
+- three: =a46c032106a5641a1fa1605031809b233bad6f6282629eef8c8bddb4dd5a891e=
+
+The next descriptor added three one-shot allocation phases; three complete
+576-child runs exposed +16 bytes for the first context factory in EVERY natural
+and collected direct comparison. Two retained selectors were then removed from
+the standard-identity binding path. Those source identities also remain historical.
+CPU deltas us N/C, before that specialization:
+
+| Phase | Run one N / C | Run two N / C | Run three N / C |
+|-------+---------------+---------------+-----------------|
+| map | -0.050 / -0.051 | -0.050 / -0.046 | -0.056 / -0.048 |
+| map-allocation | -0.047 / -0.039 | -0.047 / -0.063 | -0.055 / -0.055 |
+| binding | -0.061 / -0.029 | -0.057 / -0.031 | -0.060 / -0.030 |
+| binding-allocation | -6.477 / -0.008 | -6.547 / -0.000 | -6.547 / -0.000 |
+| nested | -2.742 / -1.023 | +14.281 / -0.063 | -2.883 / +0.305 |
+| nested-history | +1.281 / -2.922 | +11.461 / -0.727 | +2.273 / +0.609 |
+| revision | +0.547 / -23.570 | +29.609 / +4.500 | +5.375 / -0.031 |
+| factory | +0.625 / +4.750 | -0.625 / +0.063 | +0.438 / +0.125 |
+| preparation | -0.000 / -0.344 | +0.031 / +0.313 | -0.063 / -0.156 |
+| nested-allocation | +3.000 / +1.500 | -0.500 / +0.000 | +0.000 / -1.500 |
+| revision-allocation | +2.500 / -0.500 | +10.500 / +4.500 | +9.000 / -2.500 |
+| factory-allocation | -1.500 / -0.000 | +0.000 / -4.500 | +0.500 / -1.500 |
+
+Executable SHA256: =88454134fd386ee8b1a50b9b2f756083eb51822d65c4d6f6a954a0d195af8e4d=.
+- one: =90e161c7aee7e702122b069b2ddf5bfa4f27e2b4f9b8a5e4d7509c8a0f51da3d=
+- two: =a9edf392733774f8ba960bf1e4cfaf68d8f90a72f00313bedc6b34a493108be8=
+- three: =73584593145158779824d68897facbb9b5b9dfe33529c9f942b9b21f039863a1=
+
+A further three 576-child identity-specialized runs used a generic =map=
+field projector in the test control. Publication review found the parent used
+fixed-field =list= projection. Though results/list shape and allocation counts
+matched, the final worker now uses the identical parent projection on both sides;
+these older CPU controls are not treated as the final factory comparison.
+Historical direct CPU N/C for the full-workflow phases:
+
+| Phase | Run one N / C | Run two N / C | Run three N / C |
+|-------+---------------+---------------+-----------------|
+| map | -0.050 / -0.050 | -0.050 / -0.050 | -0.043 / -0.047 |
+| binding | -0.055 / -0.030 | -0.055 / -0.030 | -0.054 / -0.030 |
+| nested | +1.055 / -0.656 | +2.594 / +7.219 | +0.328 / +0.641 |
+| nested-history | +0.930 / -0.469 | -0.234 / +3.406 | -6.328 / +4.734 |
+| revision | +0.875 / +3.609 | -2.102 / +7.242 | +0.234 / +0.281 |
+| factory | -5.719 / -0.250 | -4.844 / +0.719 | -2.125 / +0.562 |
+
+Executable SHA256: =4ce64ec950b3266001fd89f64e1e350d6669647f72d0ed6d863cdade5bd3f4b8=.
+- one: =ef6fe9021da865d7b09997dd4219312f984d19cd1fd5592b7a6b0ad26a5163a1=
+- two: =bc1401e4b6783657d9b5a9a8f8426fed66e92f1e539494fd24bd92cbfe0f7565=
+- three: =f581976f20f76416766a9c2ca281cb76d35a40a6c271d6f605409e51d80faf7b=
+
+The first nine-phase run two retained a collected factory median +98.781us
+(CPU +33.969us GC / +64.813us residual); it is not silently deleted or declared
+a proven GC-history artifact. All earlier focused/observation-reuse studies keep
+their original source identities in their existing summaries. None are pooled.
+
+* Standalone native reproduction
+Run from this Gerbil checkout with Homebrew Gerbil, GNU timeout and OpenSSL 3;
+no Lean installation or checkout is used. AOT output must be fresh:
+
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
+
+Recheck source and executable identity using =binding-suite.read-study= before
+interpreting any receipt after a source change. Binary hashes need not reproduce
+across toolchains; each local study binds its own executable and source digests.
+Automatic mutable-source invalidation, general reflection, arbitrary migration
+and whole-program compiler/allocator verification remain outside this increment.
+
+* Source succession: homogeneous item factories
+The item-factory revision changes method-combination.ss and the checkout cooking
+adapters. Every receipt above keeps its original source/binary identity, including
+the +84.156us factory and +60.563us residual. They are historical, not admitted
+against the new source. See item-factory-summary.org for current phase controls.

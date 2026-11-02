@@ -10,10 +10,10 @@ not mixed with this checkout:
 bench_path=$(mktemp -d /tmp/poo-v19-runtime.XXXXXX)
 GERBIL_PATH="$bench_path" just build
 GERBIL_PATH="$bench_path" just test
-GERBIL_PATH="$bench_path" gxc -d "$bench_path" -exe -o "$bench_path/object-scale" t/object-scale-benchmark.ss
-GERBIL_PATH="$bench_path" gxc -d "$bench_path" -exe -o "$bench_path/count-scale" t/count-performance-benchmark.ss
-"$bench_path/object-scale"
-"$bench_path/count-scale"
+GERBIL_PATH="$bench_path" just build-benchmarks object-scale
+GERBIL_PATH="$bench_path" just build-benchmarks performance
+"$bench_path/bin/object-scale-benchmark" -:max-heap=1G,debug=q
+"$bench_path/bin/count-performance-benchmark" -:max-heap=1G,debug=q
 ```
 
 Check that the test output ends with `OK`; this V19 `gerbil test` command has
@@ -52,7 +52,7 @@ The helper now retains its sequence-level call site, using V19's
 right-to-left, so it cannot be used for stateful port reads. The unused
 variadic mapping machinery has been removed.
 
-`t/tuple-unmarshal-performance-test.ss` checks a 256-field byte round trip and
+`t/representations/tuple-unmarshal-performance-test.ss` checks a 256-field byte round trip and
 measures 1,000 decodes per sample, five samples per run. The original medians
 were 0.148 and 0.153 CPU seconds in the two baseline runs. The concise
 ordered mapper measured 0.119 and 0.120 seconds in two follow-up runs, roughly
@@ -61,7 +61,7 @@ ordered mapper measured 0.119 and 0.120 seconds in two follow-up runs, roughly
 lowering the call site's abstraction level. A direct `vector-unfold` expression
 measured 0.138 and 0.134 seconds; it was shorter but slower. These are not
 general or cross-platform speed claims; Tuple semantics and callback order are
-covered by `t/type-test.ss`.
+covered by `t/representations/type-test.ss`.
 
 ## Tuple JSON: ordered two-vector mapping
 
@@ -71,14 +71,14 @@ shorter vector. Tuple S-expression and JSON conversion now use a small
 `vector-map2-in-order` combinator based on `vector-unfold`: it keeps the
 sequence-level expression, evaluates left to right, and rejects arity mismatch.
 
-`t/tuple-json-performance-test.ss` measures a 256-field UInt8 Tuple, with
+`t/representations/tuple-json-performance-test.ss` measures a 256-field UInt8 Tuple, with
 10,000 real `.json<-` and `.<-json` calls per sample and five samples per run.
 Two baseline runs had encode medians of 0.384 and 0.403 CPU seconds and decode
 medians of 0.347 and 0.354 seconds. Three candidate runs had encode medians of
 0.219, 0.218, and 0.219 seconds and decode medians of 0.183, 0.205, and 0.199
 seconds: about 1.7–1.8× on this fixture. The builds were alternated under the
 same isolated Gerbil V19 path. The receipt does not establish a general or
-cross-platform gain. `t/type-test.ss` covers ordering and short/long inputs.
+cross-platform gain. `t/representations/type-test.ss` covers ordering and short/long inputs.
 
 ## Table count
 

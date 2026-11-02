@@ -7,8 +7,55 @@
   :std/func
   :std/test
   :std/debug/DBG
-  ../support/base ../support/debug ../support/option ../support/testing
-  ../object ../mop)
+  :clan/poo/support/base :clan/poo/support/debug :clan/poo/support/option :clan/poo/support/testing
+  (only-in :std/list/alist aset arem alist?)
+  (only-in :clan/poo/table methods.table table-wrapper)
+  (only-in :clan/poo/fun Wrapper.)
+  :clan/poo/object :clan/poo/mop)
+
+
+;; One provider cache may serve multiple typed instances. Each lookup is correct
+;; when returned; consumers must capture it before another query reuses the shell.
+(def (borrowing-table base (shell (some #f)))
+  (.cc base .ref/opt: (lambda (root key)
+    (def found (.call base .ref/opt root key))
+    (if (some? found)
+      (begin (some-value-set! shell (some-value found)) shell) #f))
+    .key-table: (lambda (value) (borrowing-table (.call base .key-table value) shell))))
+
+;; Compile shared fixtures once with the existing support module, not as imports
+;; of complete test-suite roots in each isolated compiler group.
+;; A public persistent alist backend exercises arbitrary keys through methods.table,
+;; using Gerbil's association operations, not a new collection implementation.
+(def (alist-table key value)
+  (.cc methods.table Key: key Value: value .empty: []
+    ;; The association backend's equality is independent of its row payload.
+    .key-table: (lambda (payload) (alist-table key payload))
+    .validate-shape: (lambda (source)
+      (unless (alist? source) (raise-type-error 'alist-table source)) source)
+    .ref: (lambda (source key (missing (lambda () (error "missing key"))))
+            (cond ((assoc key source) => cdr) (else (missing))))
+    .acons: (lambda (key value source) (aset source key value))
+    .remove: (lambda (source key) (arem key source))
+    .foldl: (lambda (f seed source)
+              (foldl (lambda (entry acc) (f (car entry) (cdr entry) acc)) seed source))
+    .foldr: (lambda (f seed source)
+              (foldr (lambda (entry acc) (f (car entry) (cdr entry) acc)) seed source))))
+
+;; Official host records supply a raw carrier with no table operations of its own.
+(defstruct boxed-table (raw) transparent: #t final: #t)
+
+;; Derive only the table protocol; raw target recognition does not pretend to
+;; establish child membership or any inverse law automatically.
+(def (box-table source (ap make-boxed-table) (unap boxed-table-raw)
+                key: (key-wrapper #f) value: (value-wrapper #f))
+  (def target (.cc Type. Key: (.@ source Key) Value: (.@ source Value) .element?: boxed-table?))
+  (def carrier (.cc Wrapper. Domain: source Codomain: target .ap: ap .unap: unap))
+  (def keys (or key-wrapper
+    (.cc Wrapper. Domain: (.@ source Key) Codomain: (.@ source Key) .ap: - .unap: -)))
+  (def payloads (or value-wrapper
+    (.cc Wrapper. Domain: (.@ source Value) Codomain: (.@ source Value) .ap: identity .unap: identity)))
+  (values (table-wrapper source carrier keys payloads) carrier keys))
 
 ;; TODO: systematically write function properties and make more property-based tests?
 ;; TODO: support multimethods / externally defined methods / monkey patching / whatever

@@ -1,0 +1,27 @@
+#+TITLE: Native benchmark output policy
+
+Run ~just benchmark-metadata~ (or another native ~just benchmark-*~ recipe)
+from this package. No Lean checkout is required.
+
+Executables, complete measurements, escaped stdout and failure diagnostics stay
+in ignored ~.build/~ output. Do not commit raw JSON/Scheme matrices, compressed
+archives or binary benchmark artifacts. Documentation contains only concise
+source-bound summaries, reproduction commands, dimensions and claim limits.
+
+Current Scheme data records common field/case definitions once and one
+observation per line. Allocation crossing collection or a negative native
+counter delta is unavailable. Source and binary digests bind a study to the run;
+old observations cannot qualify changed source. Reproduce results with the
+native toolchain and the unchanged timeout/heap bounds.
+
+The historical single-process study is summarized in [[file:selective-summary.org]].
+Fresh-process selector controls are summarized in [[file:paired-summary.org]];
+reproduce with ~just benchmark-metadata-paired~. Child and aggregate bounds are
+separate. Keep every paired difference and incoming GC counter, even when a
+strategy regresses or process histories do not match.
+
+* Shared generic expansion and isolated publication stages
+
+[[file:expansion-summary.org][Native paired stage and full-publication controls]] extend the earlier selector
+study with construction, binding, approval, A/A spread and optional shared
+closed generic reconstruction. Raw matrices and binaries remain local/ignored.

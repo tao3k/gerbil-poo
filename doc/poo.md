@@ -729,7 +729,7 @@ A slot defined by conditionally using the inherited computation:
 
 ### Further examples
 
-There are more examples are in the file [`object-test.ss`](../t/object-test.ss).
+There are more examples are in the file [`object-test.ss`](../t/objects/object-test.ss).
 
 ## Future Features
 

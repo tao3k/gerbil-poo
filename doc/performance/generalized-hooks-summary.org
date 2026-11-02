@@ -1,0 +1,269 @@
+#+title: Generalized prototype hooks: finite future-work bridge
+
+* Current follow-up
+Focused assembly now has a separate source-bound three-run 576-child study in
+focused-assembly-summary.org. Everything below belongs to its recorded historical
+source; old records are not re-admitted or pooled as current measurements.
+
+* Historical c141bf8 direct reuse control and bounded repeats
+The final source adds an explicit SAME-NEW-IMPLEMENTATION reuse scenario: bound
+compiled reuse versus fresh compilation/preparation/one-off observation, with the
+same demand cook and actual price 33. This directly revisits the earlier
++0.512/+0.789us reuse regression, separately from comparing new/old cooking.
+The runtime optimization itself is unchanged from the initial 480-child study.
+The eleven-scenario descriptor and binary identity differ; records are not pooled.
+
+The first final-source run admitted 528 children. It showed a +73.313us natural
+nested regression and large A/A excursions. Two MORE COMPLETE runs were fixed
+before executing either, to investigate this concrete remaining variance. All
+three same-source runs admitted 528 children each, under the unchanged caps.
+No favorable run is selected; all results below remain separate.
+
+CPU paired deltas, optimized minus reference, us; N/C means natural/collected:
+
+| Same-source run | Old/new full observation N/C | New reuse/reprepare N/C | New reuse faster pairs N/C | Nested old/new N/C |
+|-----------------+-----------------------------+-------------------------+----------------------------+-------------------|
+| Initial 528 | -25.172 / -28.344 | -5.457 / -4.605 | 4/4 / 4/4 | +73.313 / -32.391 |
+| Fixed repeat one | -25.598 / -27.992 | -3.605 / -3.258 | 3/4 / 3/4 | -25.922 / -18.203 |
+| Fixed repeat two | -27.391 / -29.961 | -5.008 / -2.727 | 4/4 / 4/4 | -34.703 / -23.844 |
+
+Every old/new full-observation pair is faster (4/4 in each regime/run). Reuse has
+positive individual pairs in repeat one: maxima +8.297/+8.172us, which remain
+visible despite negative medians. First-run reuse GC CPU -3.820/-3.703 and
+residual -1.637/-0.902us; optimized A/A -1.813/+0.113 and reference A/A
++2.926/-2.086us. Source-bound phase evidence supports reduced rebuilding cost,
+not a universal per-call speed guarantee.
+
+First-run remaining ablations (CPU N/C; GC N/C; residual N/C, us):
+
+| Phase | CPU | GC | Residual | Faster pairs N/C |
+|-------+-----+----+----------+------------------|
+| Cold | -23.734 / -23.984 | -10.625 / -11.344 | -12.703 / -11.875 | 4/4 / 4/4 |
+| Field cooking | -16.895 / -47.484 | -10.363 / -24.426 | -6.531 / -23.059 | 3/4 / 4/4 |
+| Binding | -0.551 / +0.180 | -0.434 / +0.074 | -0.117 / +0.105 | 2/4 / 1/4 |
+| Raw hook, no self | +1.246 / +2.895 | +1.109 / +3.012 | +0.199 / -0.141 | 2/4 / 1/4 |
+| Self sharing/handling | +2.359 / -4.602 | +2.547 / -1.887 | -0.727 / -2.715 | 1/4 / 4/4 |
+
+The +73.313us nested natural regression includes +37.359 GC CPU AND +35.953
+residual; GC alone does not explain it. Its optimized A/A is -13.000 (range
+-165.656..+11.375); reference A/A +17.750 (range -190.094..+98.875). It did not
+recur in the two fixed repeats, but remains an unresolved stability limitation.
+Do not promote a stable nested-natural speedup or cancel it with later wins.
+Binding alone still has no reliable isolated speedup; self-sharing natural also
+regresses, with optimized A/A +2.969/+1.742us. Raw-hook collected has four
+GC-excess pairs. The demand-field reduction is the concrete structural saving;
+these ablations are not added/subtracted to invent causal percentages.
+
+All three final-source studies admit four GC-free one-operation direct pairs in
+each regime: cold -56720/-56720 bytes, observation -56832/-56832, nested
+-44128/-43488. Allocation A/A deltas remain zero. Natural/collected nested byte
+counts differ; neither are a kernel allocation theorem. Batch deltas across GC
+remain unavailable. All prefix counters match but do not prove identical heaps.
+
+Final binary SHA256: 919f2cd6c9400ded89d135007786c42340500dc9b84665de90b9166ee8ea27c9
+Receipt SHA256, initial: fb57b31e012455e92c87e73dc0efcd0a9562e771511059beb43aa21f9bc877a6
+Receipt SHA256, repeat one: 5dab7cec6a75b6ec63dee28ceaa9026d9358596fbefa3b605d15cb86be7350dc
+Receipt SHA256, repeat two: caf6f95e8adbf6593ce1d409447fa3d81762951b8d7677c820bd55813a6cf0ac
+Ignored directory .build/observation-reuse holds the binary and all three complete
+receipts; initial 480-child data remain in .build/observation-demand. No complete
+records, archives or versioned JSON are committed. Each final receipt is admitted
+again against committed source. Reproduction below uses current descriptor:
+eleven scenarios, success GENERALIZED-PAIRED-OK children=528 for each full study.
+
+* Initial demand-cooking study (5f0447d)
+This advances the same explicitly deferred generalized-prototype future work.
+The previous 144-child result below is historical, not pooled with this study.
+The source changed, including mop.ss; prior native receipts do not re-admit it.
+
+** Implementation and concrete TODO closure
+The existing native Lens.compose getter omitted .get. It is corrected and tested
+through nested get/set and persistent service metadata preservation. The new
+lens-of-get-set constructor reuses Lens; focus-compiler consumes that SAME lens
+representation, corresponding to Lean MonoLens.ofGetSet/lensCompiler. This closes
+a concrete missing functional-lens path, not all automatic accessor syntax.
+
+cook-fields composes named raw-to-field preparations with standard map/assq and
+Scheme delay/force. Only demanded field preparation runs; #f is memoized too.
+step shares one lazy cooked-self promise per raw stage. bind-observer captures
+compiler/cook/base/depth once but accepts a fresh seed every invocation; it never
+caches observations across seeds or source revisions. Existing FUN bind/map
+compose those reader actions, and native I/O remains in the shared benchmark
+harness. No new object engine, interpreter or mutable global cache is introduced.
+
+The nested billing example composes an object slot lens with two checkout lenses,
+a shared-ancestor diamond, three final-self rebate reads, existing sum methods,
+FUN observations, and two preserved audit/metadata frames. Total is 39, rebate 3,
+service billing; the original flat checkout remains 33. This partially implements
+the TODO's direct subcomponent computation: unused effective-method groups are
+not prepared. Raw fragment assembly still runs; arbitrary projection elimination,
+reflective bootstrapping, automatic (.lens foo) syntax and migration remain open.
+
+** Semantic evidence and scope
+Untimed source instrumentation counts actual operations (not elapsed-time inference):
+
+| Case | Compilations old/new | Raw hooks old/new | Cook interfaces old/new | Effective groups old/new |
+|------+----------------------+-------------------+-------------------------+--------------------------|
+| Flat checkout | 4 / 4 | 8 / 8 | 2 / 2 | 4 / 2 |
+| Nested billing | 4 / 4 | 8 / 8 | 4 / 2 | 8 / 2 |
+
+Instrumentation is effectful and outside timed children. It is not a kernel proof
+of Scheme operation counts or an allocator model. Native tests cover each count,
+unknown/duplicate fields, delayed unused failure, #f sharing, per-stage self
+sharing, different seeds on one binder, C3 refusal and nested functional lens laws.
+The 32-module suite and the final focused benchmark/count tests pass.
+
+Lean PreparedHooks.bindObserver_eq quantifies over every seed/depth;
+Protocol.stepShared_eq gives pure shared-self semantics; observe_withCook requires
+an extensional equality of cooked interfaces, including their use by intermediate
+stages. ObservationWork.cost_mono separates binding/cook/field/hook prices under
+explicit operation-count bounds. Promise allocation/forcing is not priced zero:
+caller-supplied frame/binding bounds must include it. No theorem predicts native
+GC, elapsed time or bytes. Native callbacks/values/descriptors must be immutable,
+pure and locally terminating for this source correspondence. Changing fields or
+protocol requires fresh preparation, not reuse of an old observed answer.
+Demand cooking delays field failures until selection; it does not preserve the
+execution timing of arbitrary eager callback exceptions/effects. The total
+functional law is conditional; unused errors are tested as demanded semantics.
+
+** Fair native phase study
+480 fresh children, ten fixed scenarios, natural/collected GC, three direct/A-A
+pairs, four ABBA rounds. All children warm all controls in identical order. Every
+result is checked against its actual oracle. Full coverage, complete EOF,
+source/binary identity, signed GC-free allocation and prefix counters are admitted.
+No build/test overlapped timing. Fixed caps remain compiler/study 90s, child20s,
+heap1GiB. Fresh output directory: .build/observation-demand (ignored).
+
+Reference code is test-only generalized-observation-reference.ss: the preceding
+b14c15d three-field snapshot, eager two-family cook and per-demand self thunk.
+It uses the unchanged shared assembler/compiler and native C3; no synthetic delay
+or Lean dependency. The nested eager control applies that algorithm to the NEW
+nested carrier, not a falsely claimed historical nested implementation.
+Cold includes declaration capture, compilation, binding, construction and price
+observation of an existing C3-cached graph. Initial graph/module construction is
+outside this study. Observation retains prepared snapshots; construction still
+runs per call. Field-cooking changes only eager/demand field preparation in the
+new observer. Binding compares a prebound action with one-off observe of the
+same snapshot. Hook measures one raw step without demanding self. Self-sharing
+compares lazy-field nested observers with old per-demand self/descriptor handling;
+it includes that handling difference, not just an isolated force primitive.
+Nested includes three self reads, price/rebate and metadata observations.
+
+Delta is optimized minus reference, median of within-pair microseconds; N/C
+means natural/collected. GC is recorded GC CPU, residual is CPU minus recorded GC.
+
+| Phase | CPU N/C | GC CPU N/C | Residual N/C | Faster pairs N/C |
+|-------+---------+------------+--------------+------------------|
+| Cold snapshot + observation | -23.344 / -26.531 | -11.047 / -13.750 | -12.297 / -12.891 | 4/4 / 4/4 |
+| Repeated observation | -26.676 / -25.449 | -14.414 / -13.383 | -12.336 / -12.066 | 4/4 / 4/4 |
+| Field cooking ablation | -38.445 / -27.258 | -18.730 / -14.441 | -19.715 / -12.812 | 4/4 / 4/4 |
+| Binding alone | +1.062 / +1.477 | +0.090 / +1.086 | +0.973 / +0.391 | 1/4 / 2/4 |
+| Raw hook without self demand | -0.098 / +2.762 | -0.039 / +3.023 | -0.066 / -0.117 | 4/4 / 0/4 |
+| Nested self sharing/handling | -1.480 / -4.000 | -0.016 / -2.098 | -1.582 / -1.902 | 3/4 / 3/4 |
+| Complete nested observation | -19.344 / -26.156 | -8.906 / -12.703 | -11.469 / -13.578 | 4/4 / 4/4 |
+
+Repeated observation direct ranges are -28.938..-24.000 and -26.977..-23.070;
+optimized A/A +0.078/+0.523 us. Raw hook collected has four GC-excess pairs;
+its negative residual does NOT erase the adverse +2.762 total. Binding remains
+adverse and its optimized A/A is -0.609/-4.055; there is no isolated binder speed
+claim. Self-sharing optimized A/A +3.773/+0.273 (natural range +0.406..+7.172)
+is comparable to its direct effect; do not claim a stable isolated acceleration.
+The full path's field preparation reduction is the supported structural saving.
+
+Fixed one-operation allocation controls, all four direct pairs GC-free:
+
+| Phase | Bytes N/C | CPU us N/C |
+|-------+-----------+-------------|
+| Cold | -56720 / -56720 | -12.000 / -12.000 |
+| Observation | -56832 / -56832 | -11.500 / -12.500 |
+| Nested | -44128 / -43488 | -11.500 / -11.500 |
+
+Nested byte deltas differ by 640 between regimes; retain both, not an invented
+universal per-operation allocation theorem. All allocation A/A byte deltas are
+zero. Batch-phase allocation deltas are unavailable across GC, not zero. Small
+one-operation CPU samples include timer granularity; nested reference A/A has a
++200us outlier. Separately aggregated medians do not add, A/A is not subtracted,
+and matching prefixes do not establish identical heaps. This is local phase
+measurement, not universal Scheme service throughput or C++ runtime validation.
+
+Binary SHA256: e8e39a28fc0f5fdec3d58e5a72420b4511d4a4bc2f0b109360aea673bd77397a
+Receipt SHA256: 45c6d26c14ea10f2d12df3642887503c18981b1eeb7cc51cd8743e08c0af68f3
+Full records/binaries stay ignored; only this concise summary is committed.
+Reproduce with the same commands below, using a FRESH output directory and the
+current ten-scenario descriptor; success is GENERALIZED-PAIRED-OK children=480.
+
+* Three-way scope
+Racket poof 9affa8fbbb4f12cbd98cb97f8b8b84474fc39429, poof.scrbl
+2098–2134 explicitly calls generalized prototypes future work. Its lens getter,
+setter, wrapper and cooked self correspond to Lean Generalized.Protocol and
+lensCompiler, and now to native generalized-prototype.ss. Native C3, existing
+prepared method combinations and FUN are reused. This is not unrestricted MOP
+reflection or a proof that arbitrary callbacks terminate/close.
+
+PreparedHooks.step_eq / iterate_eq prove prepared assembly preserves every finite
+observation, conditional on the exact assembly equation. Compatible self
+adaptation requires its explicit view/cook law. HookCosts.shared_le_repeated is
+an additive supplied-cost bound for positive demand, not a GC/time prediction.
+Neither native module nor benchmark reads a Lean checkout or proof output.
+
+* Historical b14c15d native matched study
+144 independent bounded children: three scenarios, natural/collected GC, direct
+pair and two A/A pairs, four balanced ABBA rounds. Every child warms all four
+actions in the same order, validates the actual price 33, and admits current
+source/binary identities and complete EOF. No build/test ran during measurement.
+
+Cold means a fresh snapshot and two-stage observation of an ALREADY EXISTING,
+C3-cached diamond. Module/graph creation and initial C3 cold linearization are
+outside this study. Both cold sides intentionally execute the same function.
+Observation compares a reused compiled snapshot with fresh snapshot preparation
+before each finite observation. Hot compares a retained cooked callable with
+repeated cooking/observation before a price call. Reused setup is outside these
+phase timings; cold is reported separately, not silently amortized away. These
+are phase controls, not an end-to-end service throughput claim.
+
+Delta is hoisted minus fresh, median of within-pair microseconds. N/C denotes
+natural/collected. Residual subtracts recorded GC CPU, not inferred GC causes.
+
+| Scenario | CPU N/C | GC CPU N/C | Residual N/C | Faster pairs N/C |
+|----------+---------+------------+--------------+------------------|
+| Cold snapshot + observation | -3.609 / +4.578 | -2.469 / +2.844 | -3.516 / +1.734 | 4/4 / 1/4 |
+| Repeated finite observation | +0.512 / +0.789 | +1.027 / +0.906 | -0.301 / +0.023 | 2/4 / 1/4 |
+| Retained cooked call | -74.164 / -74.996 | -39.504 / -40.027 | -34.660 / -34.969 | 4/4 / 4/4 |
+
+Cold identical-code A/A deltas are +32.141/+5.391 (hoisted) and -1.938/+3.875
+(fresh); cold direct collected range is -92.219..+11.750. This is pronounced
+runtime/GC-history variation, not evidence that identical cold implementations
+have different algorithmic cost. Observation remains adverse: direct ranges
+-0.766..+3.844 and -0.320..+8.063; hoisted A/A +0.926/-7.688, fresh A/A
+-0.703/+0.996. Hoisting compilation alone has no demonstrated timing gain here.
+Do not subtract A/A or GC to manufacture a speedup.
+
+Hot direct ranges are -76.086..-70.859 and -89.016..-70.953; hoisted A/A
++0.016/-0.012, fresh A/A +0.668/-0.648. The retained cooked interface avoids
+reconstruction under immutable source/seed assumptions; this does not authorize
+reuse after a source, seed or protocol revision. No direct allocation delta is
+admitted (GC occurred); hoisted hot A/A has four GC-free pairs and zero byte
+delta in each regime. Unavailable bytes are not zero. All prefix counters match,
+which does not prove equal heaps. Separately aggregated medians need not sum.
+
+Binary SHA256: 8c873a2d4b3b8b11c61851d3ccf216f01d4d0e0ecb015a9a7369504768a469ef
+Receipt SHA256: af6656a7fecbfac994760e8fa0f099e263f4e0eccf09666ffc5392a841e216c8
+Ignored local directory: .build/generalized-hooks; complete records are not committed.
+
+* Reproduction
+Build with GERBIL_PATH="$PWD/.build/env" just build and run just test in that
+environment. The complete native suite has 32 modules, including hooks and all
+benchmark-control oracles. Use a FRESH executable output directory, compiler
+cap 90s, full study cap 90s, each child cap 20s and heap 1GiB; no widened caps.
+
+The former interpreter/compiler command sequence is retired. Use the standard
+package commands in [[file:../test-execution.md][test execution]]; measurements below retain
+their original source cohort and do not qualify the new entrypoints.
+
+Use the platform's timeout/linker equivalent on Linux. Final success must include
+GENERALIZED-PAIRED-OK children=528 for current sources (480/144 for historical descriptors); exit zero alone is insufficient. Re-admit with
+read-study after committing to bind the measurement to the committed source.
+
+* Source succession: current-context observers
+Subsequent Reader/context binding changes have a separate fixed native paired
+study in context-binding-summary.org. Older rows above keep their original
+source/binary identities and are not current-source admission.
