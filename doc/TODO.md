@@ -3765,3 +3765,22 @@ Lean proves identical edge/path/cache/revision observations and a non-increasing
 logical write count. The existing paired engine measures capture, second-pass
 validation and duplicate registration separately from the complete workflow;
 these diagnostics do not justify removing safety checks or a new cache layer.
+
+### Runtime symbolic Slot lookup admission
+
+Closed a reproduced process crash: a numeric runtime name reached the optimized
+symbolic hash through `slot-layout-index`. Construction admission alone did not
+protect later public lookup. Ordinary/cached object reads now admit `symbol?`
+before observation/bootstrap/preparation; the layout's existing named-index
+boundary supplies the same standard contract for HashTable ref/key/update/delete.
+The write path reuses that boundary instead of repeating admission. Shape-hit
+inline reads and valid symbolic identities keep their existing routes.
+
+Regression covers both value backends and map policies, rejected update callbacks,
+unchanged cardinality/shape, false/Function identity, untouched observation scopes,
+loaded FUN service, retained warm credentials and explicit receiver override retry.
+Parent declaration snapshots retain their original composition semantics. Four
+finite Lean laws in ValueStorage prove refusal-state preservation, unchanged valid
+delegation, ordinary/indexed congruence and successful admission witnesses. This
+fix does not add a loader/cache or claim pervasive mutation tracking, JIT or host
+hash/compiler verification; the author's purity-default boundary remains intact.

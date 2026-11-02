@@ -115,24 +115,23 @@
 ;; Unknown successful delegation grows the SAME store, after preparing all new
 ;; metadata/cells. Existing sites retain an immutable shape stamp and must rebind.
 (def (layout-store! self key value)
-  (using (key :~ symbol?)
-    (let (index (slot-layout-index self key))
-      (if index (slot-layout-set! self index value)
-        (let* ((canonical (extend-shape (layout-shape self) key))
-               (at (hash-ref (shape-indices canonical) key))
-               (old (layout-cells self))
-               (cells (make-vector (1+ (vector-length old)) (layout-missing self)))
-               (next (make-layout canonical cells (layout-missing self) (layout-count self))))
-          ;; The admitted key is absent. Canonical order inserts exactly one cell;
-          ;; standard bulk copies preserve false, functions and uncomputed cells.
-          ;; Finish the private candidate before replacing the authoritative store.
-          (vector-copy! cells 0 old 0 at)
-          (vector-copy! cells (1+ at) old at (vector-length old))
-          (slot-layout-set! next at value)
-          (set! (layout-shape self) (layout-shape next))
-          (set! (layout-cells self) (layout-cells next))
-          (set! (layout-count self) (layout-count next)))))
-    (void)))
+  (let (index (slot-layout-index self key))
+    (if index (slot-layout-set! self index value)
+      (let* ((canonical (extend-shape (layout-shape self) key))
+             (at (hash-ref (shape-indices canonical) key))
+             (old (layout-cells self))
+             (cells (make-vector (1+ (vector-length old)) (layout-missing self)))
+             (next (make-layout canonical cells (layout-missing self) (layout-count self))))
+        ;; The admitted key is absent. Canonical order inserts exactly one cell;
+        ;; standard bulk copies preserve false, functions and uncomputed cells.
+        ;; Finish the private candidate before replacing the authoritative store.
+        (vector-copy! cells 0 old 0 at)
+        (vector-copy! cells (1+ at) old at (vector-length old))
+        (slot-layout-set! next at value)
+        (set! (layout-shape self) (layout-shape next))
+        (set! (layout-cells self) (layout-cells next))
+        (set! (layout-count self) (layout-count next)))))
+  (void))
 ;; Reuse the compiler's HashTable interface for printers, reflection and clients.
 ;; Only computed cells participate; deletion/clear never evaluate a slot body.
 (bind-method! layout::t 'HashTable::ref layout-value)
@@ -160,8 +159,10 @@
   (lambda (self)
     (vector-fill! (layout-cells self) (layout-missing self))
     (set! (layout-count self) 0)))
-;; Absence is false; zero is a valid index in Scheme.
-(def (slot-layout-index layout name) (hash-get (shape-indices (slot-layout-shape layout)) name))
+;; Admit the key once at the common named lookup boundary, before symbolic hash.
+;; HashTable ref/update/delete share it; absence is false and zero is a valid index.
+(def (slot-layout-index layout (name :~ symbol?))
+  (hash-get (shape-indices (slot-layout-shape layout)) name))
 ;; Only the guarded object access path consumes an index obtained from this shape.
 (def (slot-layout-ref layout index) (vector-ref (layout-cells layout) index))
 ;; All indexed/named writes share this boundary. Check the current cell first;

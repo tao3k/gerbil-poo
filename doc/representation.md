@@ -2279,3 +2279,32 @@ signed wall residual +24,193.33 us. This repeat is retained, not discarded as
 noise. Fewer allocation/registration operations and earlier lower policy gaps
 do NOT establish stable full-workflow wall/tail improvement. That acceptance
 remains unresolved; functional acceptance and both current-head CIs passed.
+
+Runtime names and symbolic hash admission
+----------------------------------------
+
+Slot identifiers are symbols in this implementation. A string or keyword with the
+same spelling is not that identifier. Gerbil's `symbolic-hash` calls the unchecked
+`##symbol-hash`; public runtime names therefore need standard contract admission
+before it. `.ref` and `.ref/cached` admit before observers, bootstrap and preparation.
+`slot-layout-index` is the shared named boundary for the vector store's standard
+HashTable operations, so invalid update keys cannot invoke user code or publish a
+new shape. Store insertion reuses it; there is no per-operation wrapper family.
+The immutable-shape hit route does not perform an additional named lookup.
+
+The original paper's cache-invalidation discussion chooses purity-default caching
+and explicit mutable cells/invalidations, and treats pervasive tracking separately
+(`poof.scrbl`, cache invalidation subsection). This repair preserves that policy:
+invalid names have no preparation/registration effect; admitted names still use
+current receiver-local values and existing missing-name/error semantics. Ordinary
+prototype composition retains its inherited declaration snapshot; the FUN recovery
+example uses an explicit receiver override rather than pretending parent edits
+recompose the child automatically.
+
+`Prototype.Representation.withAdmittedName` models the contract gate over explicit
+receiver/cache/observation state. Its four laws preserve original refusal causes,
+valid operation outcomes and ordinary/indexed agreement. `Examples/CheckedTransfer`
+includes numeric/text/keyword refusal and false at offset zero. These are bounded
+protocol laws assuming faithful symbol-identity interpretation, not a proof of the
+compiler primitive or arbitrary direct mutation of internal storage. Host tests
+exercise actual HashTable methods and loader-selected FUN service execution.

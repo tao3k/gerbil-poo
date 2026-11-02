@@ -363,8 +363,9 @@
 ;; Receiver-bound observations share this module's object/Slot authority.
 (include "object/observation.scm")
 
+;; Admit runtime names before recording reads, bootstrap lookup or preparation.
 ;; Read a cached slot or compute it through the original cycle-aware protocol.
-(def (.ref self slot)
+(def (.ref self (slot :~ symbol?))
   (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
   (if anchor (object-read-bootstrap self slot anchor)
@@ -418,7 +419,7 @@
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
 ;; Get an existing cached slot value from an object
-(def (.ref/cached self slot (default false))
+(def (.ref/cached self (slot :~ symbol?) (default false))
   (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
   (if anchor (object-read-bootstrap self slot anchor)

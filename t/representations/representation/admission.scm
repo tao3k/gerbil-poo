@@ -115,3 +115,65 @@
     (test-case "catalog composition uses shared module refinement FUN binding and refusal retry"
       (for* ((policy '(tree compact)) (recapture? '(#f #t)))
         (check-equal? (service.catalog-workflow 9 recapture?: recapture? policy: policy) '#(24 30 36 6))))
+
+    (test-case "static value HashTable admits symbolic keys before every named operation"
+      (def callback (lambda () 7))
+      (def values (make-slot-values '(value callback) #f
+        (list (cons 'value #f) (cons 'callback callback)) absent-value))
+      (def layout (slot-values-layout values)) (def shape (slot-layout-shape layout))
+      (def calls 0)
+      (for (bad (list 17 #f "value" [] '#() 'value:))
+        (for (work (list (lambda () (slot-layout-index layout bad))
+                        (lambda () (hash-ref values bad 'missing))
+                        (lambda () (hash-key? values bad))
+                        (lambda () (hash-put! values bad 9))
+                        (lambda () (hash-update! values bad
+                          (lambda (_) (set! calls (1+ calls)) 9) 'missing))
+                        (lambda () (hash-remove! values bad))))
+          (check-exception (work) contract-violation-error?)
+          (check-equal? calls 0)
+          (check-eq? (slot-layout-shape layout) shape)
+          (check-equal? (hash-length values) 2)
+          (check-eq? (hash-ref values 'callback) callback)
+          (check (hash-ref values 'value) => #f)))
+      (hash-update! values 'value not)
+      (check (hash-ref values 'value) => #t)
+      (hash-remove! values 'value)
+      (check (hash-ref values 'value 'missing) => 'missing))
+    (test-case "runtime Slot name refusal precedes preparation observation and fallback"
+      (for* ((storage '(vector hash)) (policy '(tree compact)))
+        (parameterize ((slot-value-storage storage))
+          (def calls 0) (def defaults 0)
+          (def owner (make-object slots: (prototype-map
+            (list (cons 'value ($thunk-slot-spec (lambda () (set! calls (1+ calls)) 7))))
+            policy: policy)))
+          (def revision (object-revision owner))
+          (for (bad (list 17 #f "value" [] '#() 'value:))
+            (check-exception (.ref owner bad) contract-violation-error?)
+            (check-exception (.ref/cached owner bad
+              (lambda () (set! defaults (1+ defaults)) #f)) contract-violation-error?)
+            (check-equal? (list calls defaults) '(0 0))
+            (check (object-%instance owner) => #f)
+            (check (object-%layout owner) => #f)
+            (check-equal? (object-revision owner) revision))
+          (check-equal? (.ref owner 'value) 7)
+          (check-equal? (.ref/inline owner (make-slot-cache 'value shapes: 2)) 7)
+          (check-equal? calls 1)
+          (check (.ref/cached owner 'missing (lambda () (set! defaults (1+ defaults)) #f)) => #f)
+          (check-equal? defaults 1))))
+    (test-case "loaded FUN service retains warm guards across invalid runtime names and retries"
+      (def run (module-action "clan/poo/examples/representation-service"
+                             'clan/poo/examples/representation-service#symbolic-read-workflow))
+      (check-equal? (run []) '#(7 11 2 0)))
+
+    (test-case "invalid runtime names cannot demand observer or precheck callbacks"
+      (def owner (.o value: 7)) (def observed 0) (def checked 0)
+      (call-with-slot-read-observer
+        (lambda (_) (set! observed (1+ observed)))
+        (lambda ()
+          (for (bad (list 17 #f "value" 'value:))
+            (check-exception (.ref owner bad) contract-violation-error?)
+            (check-exception (.ref/cached owner bad (lambda () 99)) contract-violation-error?)))
+        before: (lambda (_receiver _key) (set! checked (1+ checked))))
+      (check-equal? (list observed checked) '(0 0))
+      (check (object-%instance owner) => #f))

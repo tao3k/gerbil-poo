@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
-(export entry-recovery-workflow)
+(export entry-recovery-workflow symbolic-read-workflow)
 (export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
@@ -13,6 +13,7 @@
         ../slot-layout
         ../object-contract
         (only-in ../io module-action)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
         (prefix-in ../object-contract contract.)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
@@ -810,3 +811,36 @@
     (unless (and (= first 27) (= narrowed 34) (= recovered 41) (= delivered 6))
       (error "narrowing service oracle"))
     (vector first narrowed recovered delivered)))
+
+
+;; Module-selected runtime names share the ordinary FUN action and existing site.
+;; Refusal must retain warmed values/credentials; a supported edit retires them,
+;; and the same action retries against a fresh invocation without caching errors.
+(def (symbolic-read-workflow)
+  (def source (.o value: 7 disabled: #f)) (def owner (.mix source))
+  (def site (make-slot-cache 'value shapes: 2)) (def delivered 0) (def defaults 0)
+  (def action (.call fun.Observation. .bind
+    (lambda (receiver) (.ref/inline receiver site))
+    (lambda (value) (lambda (_) (set! delivered (1+ delivered)) value))))
+  (def first (action owner)) (def read #f)
+  (call-with-slot-read-observer (lambda (token)
+    (when (and (eq? (slot-read-receiver token) owner) (eq? (slot-read-key token) 'value))
+      (set! read token)))
+    (lambda () (.ref owner 'value)))
+  (def revision (object-revision owner)) (def layout (object-layout owner))
+  (for (bad (list 17 #f "value" 'value:))
+    (unless (contract-violation-error? (with-catch identity (lambda () (.ref owner bad))))
+      (error "invalid runtime Slot name did not refuse"))
+    (unless (contract-violation-error? (with-catch identity (lambda ()
+      (.ref/cached owner bad (lambda () (set! defaults (1+ defaults)) 99)))))
+      (error "invalid cached Slot name reached fallback"))
+    (unless (and (object-read-current? read) (= revision (object-revision owner))
+                 (slot-cache-hit? site owner revision layout))
+      (error "refused runtime name changed warmed service")))
+  ;; Composition retains its inherited declaration snapshot; revise this receiver.
+  (.put! owner 'value 11)
+  (unless (= (.ref source 'value) 7) (error "local override changed its parent"))
+  (when (object-read-current? read) (error "supported edit retained old evidence"))
+  (def next (action owner))
+  (unless (eq? (.ref owner 'disabled) #f) (error "false payload lost"))
+  (vector first next delivered defaults))
