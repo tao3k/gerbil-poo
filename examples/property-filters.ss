@@ -345,6 +345,7 @@
 
 ;; Catch around the entire coroutine lifetime: the standard iterator retains
 ;; its first handler as well as its producer continuation across suspension.
+;; Pull before asserting: a check form installs its own narrower handler.
 (def (resumed-delay-test-cases!)
   (test-case "paused dependency cursor obeys each incoming tighter delay scope"
     (for (first-depth '(#f 4))
@@ -364,7 +365,8 @@
     (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
       (lambda () #t)) (generator.random-at 17) 0))
     (using (cursor (iter ((generator.sample-children root))) :- Iterator)
-      (check-equal? (generator.sample-value (cursor.next!)) 2)
+      (def first (cursor.next!))
+      (check-equal? (generator.sample-value first) 2)
       (check-equal? (generator.sample-value (delay-demand 2 (lambda () (cursor.next!)))) 0)
       (check (eof-object? (cursor.next!)) => #t))
     (check-equal? forces 1))
@@ -375,7 +377,8 @@
         (lambda () #t)) (generator.random-at 17) 0))
       (check-eq? (with-catch values (lambda ()
         (using (cursor (iter ((generator.sample-children root))) :- Iterator)
-          (check-equal? (generator.sample-value (cursor.next!)) 2)
+          (def first (cursor.next!))
+          (check-equal? (generator.sample-value first) 2)
           (delay-demand 2 (lambda () (cursor.next!))) 'unexpected))) cause)
       (check-equal? forces 1)))
   (test-case "source retirement precedes resumed exhaustion and fresh scopes recover"
@@ -384,7 +387,8 @@
       (lambda () live)) (generator.random-at 17) 0))
     (def cause (with-catch values (lambda ()
       (using (cursor (iter ((generator.sample-children root))) :- Iterator)
-        (check-equal? (generator.sample-value (cursor.next!)) 2)
+        (def first (cursor.next!))
+        (check-equal? (generator.sample-value first) 2)
         (set! live #f)
         (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
     (check (generator.stale-generation? cause) => #t)

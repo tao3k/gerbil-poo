@@ -173,6 +173,7 @@
       (def owner (.o epoch: 0)) (def forces 0)
       (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       ;; Each draw owns a fresh cursor; the preview does not leak into seed replay.
+      ;; Pull the preview before asserting so the action owns coroutine failures.
       ;; Resume in the requested caller scope, then use ordinary typed FUN actions.
       (def (prepare depth)
         (from-generator schema
@@ -188,7 +189,8 @@
                     (core.generator-unit value))))) depth: 4))
               (def root (core.generate source random size))
               (using (cursor (iter ((core.sample-children root))) :- Iterator)
-                (check-equal? (core.sample-value (cursor.next!)) 2)
+                (def first (cursor.next!))
+                (check-equal? (core.sample-value first) 2)
                 (core.sample-value (core.generate
                   (core.generator-delay (lambda () (core.generator-unit (cursor.next!))) depth: depth)
                   random size)))))
