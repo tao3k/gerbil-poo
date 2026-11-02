@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P81 closes shared sampler metadata ownership before returning observers.
+The existing generator-sources boundary retains returned Type identities and
+copies/registers dependency rows before source checks, serving explicit bridges,
+recursive graphs, products and Maps without another wrapper or registry.
+See [P81](pbt-design-rfc.md#p81-shared-sampler-declarations-owned-at-first-return).
+
 P80 closes first-observed Sum metadata ownership. The returned variants epoch
 and bounded distinct tag spine are owned before returning source observers;
 ordered dynamic payload getters, occurrence fuel, exact causes and fresh retries

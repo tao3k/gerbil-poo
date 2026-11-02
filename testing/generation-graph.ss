@@ -32,18 +32,28 @@
 ;; Mandatory identities cannot be removed by replacing application dependencies.
 (def (generator-sources sampler (retain! void) (expected #f))
   (retain! sampler)
-  (def descriptor (with-sources [] (.get sampler descriptor)))
-  (retain! descriptor)
+  ;; Register a returned identity inside its checked action, before returning
+  ;; observers can revise a previously unseen Type. Later reads share the ledger.
+  (def (source name)
+    (with-sources []
+      (def value (.ref sampler name))
+      (retain! value)
+      value))
+  (def descriptor (source 'descriptor))
   (when (and expected (not (eq? descriptor expected))) (error "sampler descriptor mismatch"))
-  (def bound (with-sources [] (.get sampler bound-descriptor)))
-  (retain! bound)
+  (def bound (source 'bound-descriptor))
   (unless (eq? descriptor bound)
     (error "sampler descriptor binding changed; construct a new sampler"))
-  (def dependencies (with-sources [] (.get sampler sources)))
-  (unless (list? dependencies) (error "finite sampler sources required"))
-  (def captured (list-copy dependencies))
-  (for-each retain! captured)
+  ;; Own the complete dependency spine and all first epochs BEFORE the returning
+  ;; observer. No new wrapping or source registry is retained on the sampler.
+  (def captured (with-sources []
+    (def dependencies (.get sampler sources))
+    (unless (list? dependencies) (error "finite sampler sources required"))
+    (def owned (list-copy dependencies))
+    (for-each retain! owned)
+    owned))
   (cons sampler (cons descriptor captured)))
+
 ;; Validate bounded configuration before allocating a graph or dynamic-program table.
 ;; These caps bound protocol bookkeeping, not arbitrary callback execution or bytes.
 (def (check-limits depth nodes descriptors search)

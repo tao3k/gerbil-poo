@@ -167,6 +167,35 @@
 ;; The fault is injected at an inherited checked edge, never by a second runner.
 (def carrier-tree-test
   (test-suite "known recursive carrier declarations through FUN"
+    (test-case "explicit service source refuses returning revision before draw then freshly replays"
+      (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def draws 0) (def faulty? #t)
+      (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
+      (def sampler (make-generator schema (lambda (_r _s)
+        (set! draws (1+ draws)) (make-instance schema key: 2 handler: abs))
+        (lambda (value) (if (zero? (.get value key)) [] [(.cc value key: 0)]))
+        (cut .get <> key)))
+      (.putslot! sampler 'sources ($self-slot-spec (lambda (_) (set! armed #t) (list owner owner))))
+      (def action (property-action schema (lambda (value)
+        (= ((.@ value handler) -1) (if faulty? 0 1))) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 37 cases: 1 size: 3 shrink-budget: 60))
+      (def refused (core.with-generation-check (lambda ()
+        (when (and armed (not changed)) (set! changed #t) (.set! owner epoch 1)))
+        (action configuration)))
+      (check changed => #t) (check-eq? (.get refused status) 'stale)
+      (check-equal? (list draws (.get refused attempts)) '(0 0))
+      ;; Publish an explicit fresh dependency declaration; repeated identities
+      ;; share one epoch while the ordinary Record keeps Function contracts.
+      (.putslot! sampler 'sources ($constant-slot-spec (list owner owner)))
+      (def fresh (action configuration))
+      (check-eq? (.get fresh status) 'failed) (check (> (.get fresh steps) 0) => #t)
+      (check-equal? (.get (.get fresh counterexample) key) 0)
+      (check-exception ((.@ (.get fresh counterexample) handler) 'invalid) TypeError?)
+      (check (replay-counterexample fresh) => #f)
+      (check-eq? (.get (replay-property fresh) status) 'failed)
+      (check-exception (replay-property refused) Error?)
+      (.set! owner epoch 2) (set! faulty? #f)
+      (check-exception (replay-counterexample fresh) Error?)
+      (check-eq? (.get (action configuration) status) 'passed))
     (test-case "tagged shared service rejects metadata revision then shrinks replays and retries"
       (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def factories 0) (def faulty? #t)
       (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))
