@@ -9,7 +9,7 @@
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-integer-range integer-range-anchor integer-range-shrinks generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
-        generator-string generator-symbol generator-keyword generator-bytes generator-elements prepare-hash-generator generator-hash data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
+        generator-string generator-symbol generator-keyword generator-bytes generator-elements prepare-hash-generator generator-hash finite-shrink-children data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
 (import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
@@ -453,12 +453,22 @@
 ;; constrains length rather than privileging any particular retained prefix.
 (def (list-deletions values minimum)
   (using (values :~ proper-list?) (sequence-deletions (list-copy values) minimum)))
+;; Capture one explicitly finite parameter neighborhood inside its source action.
+;; Standard multiple values carry either an owned spine or the original using
+;; refusal. Defer that refusal until returning observers have kept their priority.
+;; Generic Iterator callbacks are not routed through this finite-only boundary.
+(def (finite-shrink-children (shrink : :procedure) value)
+  (let-values (((children refused)
+    (with-sources []
+      (def returned (shrink value))
+      (if (list? returned) (values (list-copy returned) #f)
+        (values #f (with-catch values (lambda ()
+          (using (returned :~ proper-list?) returned))))))))
+    (unless children (raise refused))
+    children))
 ;; The whole finite policy owns ONE input spine before any parameter callback.
-;; Both structural and coordinate phases read that snapshot, even if a callback
-;; edits the caller's list. Parameter lists still require whole-spine admission;
-;; no partial batch escapes on refusal, and arbitrary payloads are not copied.
-;; Returned coordinate neighborhoods are captured before observers; malformed
-;; output keeps the standard using exception AFTER the original source gate.
+;; Structural and coordinate phases retain their order and shared payloads. Both
+;; eager lists and lazy model traces use the SAME finite parameter capture.
 (def (data-list-shrinks items (shrink : :procedure) minimum)
   (using (items :~ proper-list?)
     (def owned (list-copy items))
@@ -466,18 +476,9 @@
     (append structural
       (let coordinates ((tail owned) (before []))
         (if (null? tail) []
-          (let-values (((children refused)
-            (with-sources []
-              (def returned (shrink (car tail)))
-              ;; Multiple values retain the original contract exception without
-              ;; raising it before the existing returning source checks.
-              (if (list? returned) (values (list-copy returned) #f)
-                (values #f (with-catch values (lambda ()
-                  (using (returned :~ proper-list?) returned))))))))
-            (unless children (raise refused))
+          (let (children (finite-shrink-children shrink (car tail)))
             (append (map (lambda (value) (append (reverse before) (cons value (cdr tail)))) children)
               (coordinates (cdr tail) (cons (car tail) before)))))))))
-
 ;; Compose retained element trees without drawing again. Every descendant keeps
 ;; all previously observed leaves, including sources of structurally removed nodes.
 (def (sample-sequence samples (pack identity) min-length: (minimum 0)

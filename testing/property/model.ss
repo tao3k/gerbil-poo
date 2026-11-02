@@ -2,7 +2,7 @@
 (export make-model model? make-system system? valid-trace? repair-trace shrink-trace trace-generator draw-trace check-trace
         trace-report? trace-report-matched? trace-report-phase trace-report-index
         trace-report-has-command? trace-report-command trace-report-expected trace-report-actual)
-(import :std/error :std/iter (only-in ./generator data-list-shrinks with-sources with-generation-check)
+(import :std/error :std/iter (only-in ./generator data-list-shrinks finite-shrink-children with-sources with-generation-check)
         (prefix-in (only-in ./generator make-generator make-sample sample-sequence sample-children sample-value) core.))
 ;; Private model records hold ordinary callbacks, not POO descriptors. Trace
 ;; laws require pure model transitions. The shared source boundary also refuses
@@ -93,8 +93,7 @@
 ;; trace, so parameter samples have no independent recursive children here.
 (def (trace-command command shrink)
   (core.make-sample command (lambda ()
-    (using (candidates (with-sources [] (shrink command)) :~ proper-list?)
-      (def owned (list-copy candidates))
+    (let (owned (finite-shrink-children shrink command))
       (in-coroutine (lambda (yield)
         (for (candidate owned)
           (yield (core.make-sample candidate (lambda () []))))))))))

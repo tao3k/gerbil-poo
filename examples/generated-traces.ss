@@ -12,6 +12,61 @@
 
 (def generated-traces-test
   (test-suite "finite typed trace and data preparation"
+    (test-case "lazy Record parameters retain dependencies through repair FUN replay and retry"
+      (def owner (.o faulty?: #t)) (def armed #f) (def changed #f) (def row [])
+      (def opened 0) (def closed 0)
+      (def Command (Record kind: [(Enum open use)] key: [UInt] amount: [UInt]
+        handler: [(Function [Integer] [Integer])]))
+      (def State (List UInt)) (def System (TraceSystem State))
+      ;; One command identity owns its Function contract and shared handle key.
+      (def (emit kind amount)
+        (make-instance Command kind: kind key: 2 amount: amount
+          handler: (lambda (key) (+ key amount 1))))
+      ;; Pure reference transitions keep use commands dependent on the same open.
+      (def (advance state command)
+        (values (if (eq? (.get command kind) 'open) (cons (.get command key) state) state)
+          (+ (.get command key) (.get command amount) 1)))
+      (def subject (make-instance TraceGenerator Command: Command State: State Result: Integer Observation: State
+        initial: (lambda () []) enabled?: (lambda (state command)
+          (if (eq? (.get command kind) 'open) (not (memv (.get command key) state))
+            (and (memv (.get command key) state) #t)))
+        advance: advance observe: identity draw: (lambda (state _r _s)
+          (some (emit (if (null? state) 'open 'use) 2)))
+        shrink: (lambda (command)
+          (if (or (eq? (.get command kind) 'open) (zero? (.get command amount))) []
+            (begin (set! row (list (emit 'use 0))) (set! armed #t) row)))
+        measure: (cut .get <> amount)))
+      ;; The standard fixture scope closes every mismatch and replay attempt.
+      (def (with-system use)
+        (set! opened (1+ opened))
+        (try (use (make-instance System initial: [] observe: identity step: (lambda (state command)
+          (let-values (((next _reply) (advance state command)))
+            (values next (+ ((.@ command handler) (.get command key))
+              (if (and (.get owner faulty?) (eq? (.get command kind) 'use)) 1 0)))))))
+          (finally (set! closed (1+ closed)))))
+      ;; Fresh actions capture fresh owner epochs; no closed fixture is retained.
+      (def (prepare)
+        (def sampler (trace-generator Command subject steps: 2 dependencies: [owner]))
+        (property-action (.get sampler descriptor) (trace-property subject with-system) identity sampler: sampler))
+      (def configuration (make-instance PropertyConfiguration seed: 19 cases: 1 size: 2 shrink-budget: 32))
+      (def report (core.with-generation-check (lambda ()
+        (when armed (set! armed #f) (set! changed #t) (set-car! row (emit 'use 1))))
+        ((prepare) configuration)))
+      (check changed => #t) (check-eq? (.get report status) 'failed)
+      (def commands (.get report counterexample))
+      (check (valid-trace? subject commands) => #t)
+      (check-equal? (map (cut .get <> kind) commands) '(open use))
+      (check-equal? (map (cut .get <> key) commands) '(2 2))
+      (check-equal? (.get (last commands) amount) 0)
+      (check (> (.get report steps) 0) => #t)
+      (check-exception ((.@ (last commands) handler) 'invalid) TypeError?)
+      (check (replay-counterexample report) => #f)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (.set! owner faulty? #f)
+      (check-exception (replay-property report) Error?)
+      (check-exception (replay-counterexample report) Error?)
+      (check-eq? (.get ((prepare) configuration) status) 'passed)
+      (check-equal? opened closed))
     (test-case "malformed Record parameter lists keep finite admission and lazy progress"
       (for (cyclic? '(#f #t))
         (def command (Record kind: [(Enum open use)] key: [UInt] handler: [(Function [Integer] [Integer])]))

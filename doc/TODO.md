@@ -4,6 +4,12 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+P84 closes lazy dependency-trace parameter ownership through the SAME generic
+finite-shrink-children boundary used by data-list-shrinks. Structural-first demand,
+once-per-returned-proposal repair, failure charges and source priority remain with
+the existing sequence/runner. The standalone standard-library suite now has 239 cases.
+See [P84](pbt-design-rfc.md#p84-shared-finite-parameter-ownership-in-lazy-dependency-shrinking).
+
 P83 closes the generic data-list-shrinks return-ownership gap left by P82.
 Finite coordinate rows are captured inside the existing source action; malformed
 output retains its standard using contract exception until source checks complete.
