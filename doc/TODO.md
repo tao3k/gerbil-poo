@@ -3790,3 +3790,7 @@ Fixed-width product decomposition now captures shape and its shallow spine befor
 Closed typed observer epoch admission now rechecks known stamps after a true hook across bound guards, recursive discovery and replay. A returning observer cannot authorize input consumption or later participants after retiring an owner; failure precedence and old epochs remain. See [Returning typed observer epoch admission](pbt/type-discovery.md#returning-typed-observer-epoch-admission).
 
 Retained delayed-construction depth now survives dependent parent shrinking and stricter consuming scopes. Bind restores the captured remaining allowance without resetting checkpoints or relaxing an active caller; exhausted proposals retain the confirmed witness and original failure priority. See [Retained delayed-construction depth during dependency rebuilding](pbt/generator-control.md#retained-delayed-construction-depth-during-dependency-rebuilding).
+
+Paused dependency cursors now transfer each incoming caller's numeric delay
+allowance before standard coroutine resumption, preserving source/error priority,
+proposal accounting and explicit fresh retries. See [Incoming delay allowance](pbt/generator-control.md#incoming-delay-allowance-across-suspended-dependency-cursors).

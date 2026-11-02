@@ -10,7 +10,7 @@
         function-table function-from-table
         generator-integer generator-integer-range integer-range-anchor integer-range-shrinks generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
         generator-string generator-symbol generator-keyword generator-bytes generator-elements prepare-hash-generator generator-hash finite-shrink-children data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
-(import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
+(import :std/error :std/iter :std/interface (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
 ;; Producers and nodes retain flat source leaves, never recursively composed guards.
@@ -212,16 +212,16 @@
            (owned (merge-sources observed (sample-node-sources child))))
       (require-sources! owned)
       (make-sample-node (sample-value child)
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (make-delay-cursor (in-coroutine (lambda (yield)
           (for-sources (smaller ((sample-children parent)) owned)
             ;; Only regeneration restores a captured delayed-construction scope.
             ;; Unbounded trees use the active caller directly, without a frame.
             (yield (if allowance
               (parameterize ((current-delay-budget (delay-allowance allowance)))
                 (bind-sample smaller select seed size owned states (current-delay-budget)))
-              (bind-sample smaller select seed size owned states (current-delay-budget)))))
+              (bind-sample smaller select seed size owned states (delay-allowance #f)))))
           (for-sources (smaller ((sample-children child)) owned)
-            (yield (map-sample smaller identity owned)))))) owned))))
+            (yield (map-sample smaller identity owned))))) #f #f)) owned))))
 ;; Bind owns no output-value cache or second PRNG owner.
 (def (generator-bind generator (select : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
@@ -230,7 +230,7 @@
     (parameterize ((current-random-states states))
       (def parent-seed (split-seed random)) (def child-seed (split-seed random))
       (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states
-        (current-delay-budget)))) sources))
+        (delay-allowance #f)))) sources))
 ;; Admit finite topology before mapping or source discovery, then own its spine.
 ;; Retain the established bind/map checkpoint owner and split schedule: a direct
 ;; iterative draw candidate did not pass the full-workflow GC cost acceptance.
@@ -299,11 +299,33 @@
     current?: current sources: (generation-sources generator)))
 ;; Delay quota is invocation-local and shared by nested delayed constructors.
 (def current-delay-budget (make-parameter #f))
-;; False is unbounded, not zero. Meet original and active allowances so a retained
-;; child cannot renew its constructor depth or relax a stricter caller's scope.
-(def (delay-allowance retained)
-  (def active (current-delay-budget))
+;; A suspended standard coroutine restores its earlier dynamic bindings. This
+;; private cursor relays only the incoming numeric allowance, never source hooks,
+;; reports or caller continuations. There is one relay per bind child iterator.
+(defstruct delay-cursor (iterator allowance started?) final: #t)
+;; First entry installs the relay which the standard continuation retains.
+(def current-delay-cursor (make-parameter #f))
+;; False is unbounded and zero is exhausted; the same meet serves all entries.
+(def (meet-delay-allowance retained active)
   (if (and retained active) (min retained active) (or retained active)))
+;; Meet retained, saved-dynamic and incoming-caller limits without renewing any.
+(def (delay-allowance retained)
+  (def cursor (current-delay-cursor))
+  (meet-delay-allowance retained (meet-delay-allowance (current-delay-budget)
+    (and cursor (delay-cursor-allowance cursor)))))
+;; Delegate to the official Iterator without changing proposal/EOF accounting or
+;; exception routing. Later pulls update a scalar relay, without another frame;
+;; begin0 clears normal returns, while raw failures keep the standard cursor law.
+(implement Iterator delay-cursor
+  (next! (lambda (self)
+    (set! (delay-cursor-allowance self) (delay-allowance #f))
+    (using (children (delay-cursor-iterator self) :- Iterator)
+      (if (delay-cursor-started? self)
+        (begin0 (children.next!) (set! (delay-cursor-allowance self) #f))
+        (begin
+          (set! (delay-cursor-started? self) #t)
+          (parameterize ((current-delay-cursor self))
+            (begin0 (children.next!) (set! (delay-cursor-allowance self) #f)))))))))
 ;; Each force spends a token before invoking its constructor; callback termination
 ;; itself remains subject to the unchanged process guard, not a universal theorem.
 (def (generator-delay (construct : :procedure) depth: (depth 32) current?: (current immutable-current))

@@ -1,5 +1,5 @@
 ;;; Bounded rejection sampling and retained source ownership through retries.
-(export filter-test-cases! proposal-test-cases! delay-test-cases!)
+(export filter-test-cases! proposal-test-cases! delay-test-cases! resumed-delay-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -325,3 +325,68 @@
     (def root (generator.generate generation (generator.random-at 17) 0))
     (check-equal? (for/collect (child ((generator.sample-children root))) (generator.sample-value child)) '(0))
     (check-equal? forces 1)))
+
+;; Two parent candidates suspend the official coroutine before selecting a
+;; delayed branch. The source remains owned by the outer delayed producer.
+(def (paused-delay force current)
+  (generator.generator-delay (lambda ()
+    (generator.generator-bind
+      (generator.make-generator (lambda (_r _s) 3)
+        (lambda (value) (if (= value 3) '(2 1) [])))
+      (lambda (value) (if (= value 1)
+        (generator.generator-delay (lambda () (force) (generator.generator-unit 0)) depth: 1)
+        (generator.generator-unit value))))) depth: 4 current?: current))
+
+;; Enter a caller's declared delay scope without replacing the child iterator.
+(def (delay-demand depth demand)
+  (generator.sample-value (generator.generate
+    (generator.generator-delay (lambda () (generator.generator-unit (demand))) depth: depth)
+    (generator.random-at 17) 0)))
+
+;; Catch around the entire coroutine lifetime: the standard iterator retains
+;; its first handler as well as its producer continuation across suspension.
+(def (resumed-delay-test-cases!)
+  (test-case "paused dependency cursor obeys each incoming tighter delay scope"
+    (for (first-depth '(#f 4))
+      (def forces 0)
+      (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (def cause (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (if first-depth (delay-demand first-depth (lambda () (cursor.next!))) (cursor.next!)))
+          (check-equal? (generator.sample-value first) 2)
+          (delay-demand 1 (lambda () (cursor.next!)))
+          'unexpected))))
+      (check (generator.generation-exhausted? cause) => #t)
+      (check-equal? forces 0)))
+  (test-case "paused dependency cursor delegates values and EOF exactly once"
+    (def forces 0)
+    (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
+      (lambda () #t)) (generator.random-at 17) 0))
+    (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+      (check-equal? (generator.sample-value (cursor.next!)) 2)
+      (check-equal? (generator.sample-value (delay-demand 2 (lambda () (cursor.next!)))) 0)
+      (check (eof-object? (cursor.next!)) => #t))
+    (check-equal? forces 1))
+  (test-case "paused dependency cursor preserves raw constructor causes"
+    (for (cause (list #f (cons 'constructor 'cause)))
+      (def forces 0)
+      (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)) (raise cause))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (check-eq? (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (check-equal? (generator.sample-value (cursor.next!)) 2)
+          (delay-demand 2 (lambda () (cursor.next!))) 'unexpected))) cause)
+      (check-equal? forces 1)))
+  (test-case "source retirement precedes resumed exhaustion and fresh scopes recover"
+    (def live #t) (def forces 0)
+    (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
+      (lambda () live)) (generator.random-at 17) 0))
+    (def cause (with-catch values (lambda ()
+      (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+        (check-equal? (generator.sample-value (cursor.next!)) 2)
+        (set! live #f)
+        (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
+    (check (generator.stale-generation? cause) => #t)
+    (check-equal? forces 0)
+    (check-equal? (delay-demand 1 (lambda () 9)) 9)))
