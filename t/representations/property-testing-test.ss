@@ -230,10 +230,14 @@
         (set! view (.cc report))
         (def codec (replay.make-codec 'v1 (lambda (v) (set! encoded (1+ encoded)) v) values))
         (def output (open-output-string))
-        (def before calls) (set! armed #t)
-        (check-exception (case operation ((seed) (replay-property view))
-          ((concrete) (replay-counterexample view)) (else (write-counterexample view codec output))) Error?)
-        (check-equal? (list calls encoded (get-output-string output)) (list before 0 ""))))
+        ;; Force initial preparation before measuring the refused operation in
+        ;; both source and compiled TestSuite execution. Keep its call separate.
+        (check-eq? (.get view status) 'failed)
+        (let (before calls)
+          (set! armed #t)
+          (check-exception (case operation ((seed) (replay-property view))
+            ((concrete) (replay-counterexample view)) (else (write-counterexample view codec output))) Error?)
+          (check-equal? (list calls encoded (get-output-string output)) (list before 0 "")))))
     (test-case "finite shrink batches are owned before returning observers across typed paths"
       (for* ((path '(bridge product recursive)) (edit '(replace improper cycle)))
         (def Leaf (.cc UInt)) (def row (list 0)) (def armed #f) (def changed #f)
