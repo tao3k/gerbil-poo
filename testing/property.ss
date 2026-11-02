@@ -465,9 +465,11 @@
                       (lambda (domains) (values (car domains) generation)))))
        (run production (lambda (value) body ...) domain)))))
 ;; Seed replay observes the original run's entire visited provenance throughout
-;; rerun, while its new report owns only that rerun's observations.
-(def (replay-property report)
-  (def (current) (and (live? (report-size-current report))
+;; rerun, while its new report owns only that rerun's observations. An explicit
+;; invocation guard joins this transient authority, not the new report's sources;
+;; lasting ownership still belongs on the generator/domain or typed source row.
+(def (replay-property (report :~ report?) current?: (guard : :procedure := (lambda () #t)))
+  (def (current) (and (live? guard) (live? (report-size-current report))
     (current? (report-specification report) (report-generator report) (report-sources report))))
   (unless (current) (error "stale property replay"))
   (execute (report-generator report) (report-property report) (report-specification report)
@@ -489,8 +491,10 @@
   (with-current current stop (boolean-result (property value) "property must return a boolean")))
 ;; Concrete replay draws nothing and forces no selectors/children. Both accepted
 ;; witness provenance and earlier visited sources retain their original stamps.
-(def (replay-counterexample report)
+;; Extra invocation authority uses the same checked callback owner, preserving
+;; original exceptions rather than adding an outer post-check over a report.
+(def (replay-counterexample (report :~ report?) current?: (guard : :procedure := (lambda () #t)))
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
   (check-counterexample (report-counterexample report) (report-property report)
     (report-specification report) policy: (report-policy report)
-    current?: (lambda () (report-current? report))))
+    current?: (lambda () (and (live? guard) (report-current? report)))))

@@ -110,11 +110,15 @@
   (and sampler (.has? sampler .current?)
     (require-value (core.with-sources [] (.@ sampler .current?)) procedure?
       (lambda () (error "source observer must be a procedure")))))
+;; Admit the finite row at its public boundary, then detach only stamp pairs.
+;; Owner identity and declared epochs remain exact; this never refreshes a clock.
+(def (copy-source-stamps sources)
+  (map (lambda (entry) (cons (car entry) (cdr entry))) sources))
 ;; Bind a reusable guard from owned stamp pairs BEFORE any hook metadata. Copy
 ;; declared epochs, never recapture them. Only absence omits the observer: a
 ;; present value must be callable; its false/exception reply retains core semantics.
 (def (source-guard (sources :~ proper-list?) (sampler #f))
-  (def owned (map (lambda (entry) (cons (car entry) (cdr entry))) sources))
+  (def owned (copy-source-stamps sources))
   (def hook (source-observer sampler))
   (lambda () (and (stamps-current? owned) (or (not hook) (core.live? hook)))))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
@@ -490,8 +494,8 @@
 
 ;; Project generic replay back to the same POO metadata, retaining the exact
 ;; originally captured sources rather than taking a permissive fresh snapshot.
-(def (replayed-report report execution)
-  (.cc report name: (testing.report-name execution) accepted: (testing.report-accepted execution)
+(def (replayed-report report execution sources sampler)
+  (.cc report sources: sources sampler: sampler name: (testing.report-name execution) accepted: (testing.report-accepted execution)
     discarded: (testing.report-discarded execution) labels: (testing.report-labels execution)
     status: (testing.report-status execution) trial: (testing.report-trial execution)
     trial-size: (testing.report-trial-size execution)
@@ -509,19 +513,55 @@
     (list (cons 'status (.get report status)) (cons 'property (.get report name))
       (cons 'phase 'preparation) (cons 'seed (.get report seed))
       (cons 'trial (.get report trial)) (cons 'cause (.get report cause)))))
-;; Seeded replay delegates to the independent kernel's captured provenance.
-(def (replay-property report)
-  (unless (.get report replayable?) (error "property report has no replayable generator"))
-  (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
-  (replayed-report report (testing.replay-property (.get report execution))))
+;; Capture report metadata under one transient authority. The declared source
+;; row owns its pairs before later getters; the optional sampler observer binds
+;; once. Consumers receive the core execution, unchanged epochs, sampler and live
+;; predicate through ordinary higher-order/multiple-value Scheme composition.
+;; The metadata scope ends before the runner: it must own error/stale receipts,
+;; rather than have its original cause replaced by an enclosing post-check.
+(def (call-with-replay-execution report admit use)
+  (def epoch (object-revision report))
+  (def sources []) (def hook #f) (def sampler-stamp #f)
+  ;; Report revision is invocation-only; it is not added to returned source rows.
+  ;; Repeated replay therefore neither renews epochs nor grows a report chain.
+  (def (current)
+    (and (= epoch (object-revision report)) (stamps-current? sources)
+      (or (not sampler-stamp) (= (cdr sampler-stamp) (object-revision (car sampler-stamp))))
+      (or (not hook) (core.live? hook))))
+  ;; Metadata refusals keep the public replay error and raw getter exceptions.
+  (def (check!) (unless (current) (error "stale property replay")))
+  (let-values (((execution sampler)
+    (core.with-generation-check check!
+      (core.with-sources []
+        (core.with-sources [] (admit))
+        (core.with-sources []
+          (using (declared (.get report sources) :~ proper-list?)
+            (set! sources (copy-source-stamps declared))))
+        ;; A derived sampler absent from the declared row still owns its metadata
+        ;; during this call. Capture before returning checks, without publishing
+        ;; another persistent source or duplicating an already declared owner.
+        (def sampler (core.with-sources []
+          (let (value (.get report sampler))
+            (when (and value (not (assq value sources)))
+              (set! sampler-stamp (cons value (object-revision value)))) value)))
+        (set! hook (core.with-sources [] (source-observer sampler)))
+        (core.with-sources [] (values (.get report execution) sampler))))))
+    (use execution sources sampler current)))
+;; Seed replay retains the captured typed owners on the new report. Only the
+;; generic runner observes the supplied predicate and classifies callback failure.
+(def (replay-property (report :~ object?))
+  (call-with-replay-execution report
+    (lambda () (unless (.get report replayable?) (error "property report has no replayable generator")))
+    (lambda (execution sources sampler current)
+      (replayed-report report (testing.replay-property execution current?: current) sources sampler))))
 
-;; Typed export preserves the existing report and generic source authority.
-;; Only completed executions have a portable core witness to admit. Pure request
-;; contracts also precede any computed POO report/sampler metadata.
+;; Pure argument contracts precede all computed report metadata. The same owner
+;; reaches confirmation, encoding and delivery via the existing codec protocol.
 (def (write-counterexample (report :~ object?) (codec :~ replay.codec?) (port :~ output-port?))
-  (unless (.get report replayable?) (error "property report has no replayable generator"))
-  (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
-  (replay.write-counterexample (.get report execution) codec port))
+  (call-with-replay-execution report
+    (lambda () (unless (.get report replayable?) (error "property report has no replayable generator")))
+    (lambda (execution _sources _sampler current)
+      (replay.write-counterexample execution codec port current?: current))))
 ;; Reuse the sampler's bounded domain without drawing or opening a new runner.
 ;; Application codecs reconstruct ordinary validated Record/Function carriers.
 (def (read-counterexample (sampler :~ object?) (codec :~ replay.codec?) (port :~ input-port?)
@@ -576,10 +616,11 @@
 ;; Concrete replay reuses revision/domain admission but consumes no PRNG draws.
 ;; A passing/error/stale report cannot impersonate a valid false witness. Source
 ;; currentness is checked again after successful execution; callback errors escape.
-(def (replay-counterexample report)
-  (unless (eq? (.get report status) 'failed) (error "failed property report required"))
-  (unless (current? (.get report sources) (.get report sampler)) (error "stale property replay"))
-  (testing.replay-counterexample (.get report execution)))
+(def (replay-counterexample (report :~ object?))
+  (call-with-replay-execution report
+    (lambda () (unless (eq? (.get report status) 'failed) (error "failed property report required")))
+    (lambda (execution _sources _sampler current)
+      (testing.replay-counterexample execution current?: current))))
 
 
 ;; Trace preparation observes each declaration before requesting the next one.
