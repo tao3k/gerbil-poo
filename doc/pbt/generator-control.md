@@ -8,21 +8,21 @@ be checked separately. The finite laws retain their stated runtime premises.
 
 On this page:
 
-- [P0: composable generation through the typed boundary](#p0-composable-generation-through-the-typed-boundary)
-- [P0 implemented protocol](#p0-implemented-protocol)
+- [Composable generation through the typed boundary](#composable-generation-through-the-typed-boundary)
+- [Implemented generator composition](#implemented-generator-composition)
 - [Generation and domain admission](#generation-and-domain-admission)
-- [P11: source-current generator callback composition](#p11-source-current-generator-callback-composition)
-- [P23: source-consistent bounded rejection sampling](#p23-source-consistent-bounded-rejection-sampling)
-- [P24: transient admission throughout checked generator actions](#p24-transient-admission-throughout-checked-generator-actions)
-- [P25: size control retains known input ownership](#p25-size-control-retains-known-input-ownership)
-- [P26: mandatory collection ownership under size selection](#p26-mandatory-collection-ownership-under-size-selection)
-- [P27: observed proposal admission before terminal publication](#p27-observed-proposal-admission-before-terminal-publication)
-- [P32: ancestor admission through nested domains, products and replay](#p32-ancestor-admission-through-nested-domains-products-and-replay)
-- [P64: strict Boolean source admission across typed composition](#p64-strict-boolean-source-admission-across-typed-composition)
+- [Source-current generator callback composition](#source-current-generator-callback-composition)
+- [Source-consistent bounded rejection sampling](#source-consistent-bounded-rejection-sampling)
+- [Transient admission throughout checked generator actions](#transient-admission-throughout-checked-generator-actions)
+- [Size control retains known input ownership](#size-control-retains-known-input-ownership)
+- [Mandatory collection ownership under size selection](#mandatory-collection-ownership-under-size-selection)
+- [Observed proposal admission before terminal publication](#observed-proposal-admission-before-terminal-publication)
+- [Ancestor admission through nested domains, products and replay](#ancestor-admission-through-nested-domains-products-and-replay)
+- [Strict Boolean source admission across typed composition](#strict-boolean-source-admission-across-typed-composition)
 
-## P0: composable generation through the typed boundary
+## Composable generation through the typed boundary
 
-Original P0 finding (now resolved): generator composition was not retained through
+Original [Composable generation through the typed boundary](generator-control.md#composable-generation-through-the-typed-boundary) finding (now resolved): generator composition was not retained through
 the typed product boundary and size was constant. The implemented protocol below
 records the shared tree algebra, typed integration and bounded size policy.
 
@@ -54,7 +54,7 @@ Lean namespace with finite choice-membership, size/budget and provenance laws;
 do not substitute a PRNG-quality or host-termination claim. Compare preparation,
 draw and shrink costs with the current protocol under equal workloads.
 
-## P0 implemented protocol
+## Implemented generator composition
 
 The existing generator module now owns choice/frequency, sized/resize/scale,
 bounded delay/filter, shrink-policy control and `bind-generators`. It retains
@@ -116,7 +116,7 @@ A valid empty trace checks initial-state equivalence; it does not demonstrate
 command coverage. The collection example must separately assert coverage of its
 required lifecycle prefix, with seeded random state-dependent suffixes.
 
-## P11: source-current generator callback composition
+## Source-current generator callback composition
 
 Audit finding: producer draw, mapping and dependent/dynamic selector stages did
 not consistently recheck their sources after a normal callback return. A selector
@@ -168,7 +168,7 @@ recursive sample factory. Separately retained lazy children therefore keep those
 leaves after dynamic scope unwinds. Advanced handwritten sample producers retain
 their existing obligation to declare accurate source leaves for their own nodes.
 
-## P23: source-consistent bounded rejection sampling
+## Source-consistent bounded rejection sampling
 
 The filter audit reproduced a hole between retry iterations: a rejected dynamic
 branch's leaves were checked at the next loop entry and retained by a later
@@ -226,7 +226,7 @@ Racket behavior is not our contract. Its [documentation](https://docs.racket-lan
 also recommends direct domain construction when possible. This work repairs the
 already supported finite filter protocol, not unrestricted rejection sampling.
 
-## P24: transient admission throughout checked generator actions
+## Transient admission throughout checked generator actions
 
 The replay audit reproduced an action-boundary gap. A prior report had observed
 a source on a rejected shrink branch. Replaying the root draw retired that source,
@@ -288,7 +288,7 @@ shrink-tree algebra remains the composition reference; run-local revision
 admission is this project's explicit extension rather than an asserted Racket gap.
 
 
-## P25: size control retains known input ownership
+## Size control retains known input ownership
 
 Audit of Rackcheck's `gen:sized`, `gen:resize` and `gen:scale` confirmed the
 existing size algebra. Our revision-aware extension had a distinct implementation
@@ -318,12 +318,12 @@ not license fusing effectful Scheme callbacks. Explicit internal resize may exce
 the outer trial size: no new blanket bound is introduced. Existing process,
 heap, generation, shrinking and inspection budgets are unchanged. No termination,
 host PRNG quality, GC or wall-clock speedup is proved. Existing `mergeSources`
-sharing avoids another ownership mechanism. At P25 construction reused the sized run
-closure in a replacement generation descriptor; P26 below consolidates that
+sharing avoids another ownership mechanism. At [Size control retains known input ownership](generator-control.md#size-control-retains-known-input-ownership) construction reused the sized run
+closure in a replacement generation descriptor; [Mandatory collection ownership under size selection](generator-control.md#mandatory-collection-ownership-under-size-selection) below consolidates that
 metadata into the sized constructor. No timing improvement is claimed.
 
 
-## P26: mandatory collection ownership under size selection
+## Mandatory collection ownership under size selection
 
 The next audit reproduced a cardinality-dependent hole: an element generator
 whose owner was already stale could be used to construct a nonempty List producer
@@ -336,7 +336,7 @@ branch or empty result.
 as `make-generator` and `make-tree-generator`. Common leaves are validated, copied
 and identity-deduplicated before selection. Dynamic branches still add only their
 selected leaves. `generator-scale` delegates directly to that constructor,
-removing P25's replacement generation descriptor. `generator-list` supplies element
+removing [Size control retains known input ownership](generator-control.md#size-control-retains-known-input-ownership)'s replacement generation descriptor. `generator-list` supplies element
 leaves exactly when `min-length` is positive. String and Symbol inherit the same
 behavior through their existing map composition. No separate carrier validators,
 new generator representation, random schedule, namespace or retry system is added.
@@ -372,7 +372,7 @@ that list protocol. We reuse that decomposition. Positive minimums and revision
 observers are our explicit extension; no cross-language random-seed parity is claimed.
 
 
-## P27: observed proposal admission before terminal publication
+## Observed proposal admission before terminal publication
 
 The shrink-consumer audit reproduced a terminal-budget inconsistency. A returned
 filtered tombstone with a newly stale leaf was charged and recorded, but the scan
@@ -418,7 +418,7 @@ tombstones so filtering cannot hide work. Source refusal and terminal accounting
 are our extension, not a claim that Rackcheck mandates revision observers.
 
 
-## P32: ancestor admission through nested domains, products and replay
+## Ancestor admission through nested domains, products and replay
 
 The scope audit reproduced late refusal across otherwise valid child protocols:
 a typed product's first shrink callback ended its enclosing specification, but
@@ -469,7 +469,7 @@ extension. Active ancestor walks add bounded-by-context checking work; no timing
 or zero-cost improvement is claimed. Process and search limits, complete checks
 and current-head CI remain unchanged.
 
-## P64: strict Boolean source admission across typed composition
+## Strict Boolean source admission across typed composition
 
 The audit reproduced a source-judgment inconsistency: an opaque .current? hook
 returning a symbol was accepted as truthy while compiling a recursive graph. A

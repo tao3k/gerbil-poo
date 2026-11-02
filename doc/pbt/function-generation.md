@@ -8,35 +8,35 @@ be checked separately. The finite laws retain their stated runtime premises.
 
 On this page:
 
-- [P3: bounded higher-order Function values](#p3-bounded-higher-order-function-values)
-- [P19: demand-driven FunctionArguments child derivation](#p19-demand-driven-functionarguments-child-derivation)
-- [P33: sound short-circuit admission of supplied Function call fields](#p33-sound-short-circuit-admission-of-supplied-function-call-fields)
-- [P43: inherited authority for finite function observations](#p43-inherited-authority-for-finite-function-observations)
-- [P45: bounded exact-ratio generation and canonical shrinking](#p45-bounded-exact-ratio-generation-and-canonical-shrinking)
-- [P61: first-observed Function input declarations](#p61-first-observed-function-input-declarations)
-- [P74: first-observed finite Function result tuples](#p74-first-observed-finite-function-result-tuples)
-- [P78: captured finite Function call requests](#p78-captured-finite-function-call-requests)
-- [P85: first-return ownership of Function call declarations](#p85-first-return-ownership-of-function-call-declarations)
+- [Bounded higher-order Function values](#bounded-higher-order-function-values)
+- [Demand-driven FunctionArguments child derivation](#demand-driven-functionarguments-child-derivation)
+- [Sound short-circuit admission of supplied Function call fields](#sound-short-circuit-admission-of-supplied-function-call-fields)
+- [Inherited authority for finite function observations](#inherited-authority-for-finite-function-observations)
+- [Bounded exact-ratio generation and canonical shrinking](#bounded-exact-ratio-generation-and-canonical-shrinking)
+- [First-observed Function input declarations](#first-observed-function-input-declarations)
+- [First-observed finite Function result tuples](#first-observed-finite-function-result-tuples)
+- [Captured finite Function call requests](#captured-finite-function-call-requests)
+- [First-return ownership of Function call declarations](#first-return-ownership-of-function-call-declarations)
 
-## P3: bounded higher-order Function values
+## Bounded higher-order Function values
 
 `testing/function.ss` generates Function ARGUMENT ROWS. Finite function values
 now belong to the generic generator algebra; arbitrary procedures remain outside
 the decidable domain. Quickcheck's documented
 [`arbitrary-procedure`](https://docs.racket-lang.org/quickcheck/index.html) identifies
-a separate useful capability to study after P0-P2. Start with explicit finite
+a separate useful capability to study after [Composable generation through the typed boundary](generator-control.md#composable-generation-through-the-typed-boundary), [Effective-trial coverage and property diagnostics](diagnostics.md#effective-trial-coverage-and-property-diagnostics), [Portable counterexample replay](replay.md#portable-counterexample-replay). Start with explicit finite
 pure input domains, bounded memoization/equality and result generators, then use
 existing Function contracts. Repeated equal inputs, multi-value results, keyword
 interpretation, shrinking and stale-source refusal need joint acceptance.
 Opaque/effectful callbacks and unrestricted higher-order inference remain explicit
 boundaries; neither `Any` nor a universal function-correctness claim closes them.
 
-P1-P3 share the existing runner; acceptance covers the following finite contracts. Each unit needs executable downstream examples,
+[Effective-trial coverage and property diagnostics](diagnostics.md#effective-trial-coverage-and-property-diagnostics), [Portable counterexample replay](replay.md#portable-counterexample-replay), [Bounded higher-order Function values](function-generation.md#bounded-higher-order-function-values) share the existing runner; acceptance covers the following finite contracts. Each unit needs executable downstream examples,
 fault controls, finite Lean laws and the complete existing checks in both PRs.
 Concurrent linearizability, arbitrary callback termination, compiler verification
 and automatic unrestricted Type derivation are not defects in this finite V1.
 
-## P19: demand-driven FunctionArguments child derivation
+## Demand-driven FunctionArguments child derivation
 
 The audit reproduced a real automatic-derivation refusal: a later case-lambda
 input Type was completely shadowed by the first clause, yet its `.generator`
@@ -90,7 +90,7 @@ inform separating preparation from actual demand. This is a correction in the
 POO Type-driven layer, not an assertion that Racket has our descriptor/revision
 protocol. General inference and arbitrary Type generation remain explicit bounds.
 
-## P33: sound short-circuit admission of supplied Function call fields
+## Sound short-circuit admission of supplied Function call fields
 
 The audit found a value-admission defect in the project's `FunctionArguments`
 recognizer. `(FunctionArguments (Function [Integer] [Integer]))` accepted the raw
@@ -143,7 +143,7 @@ CLI with the same 1G/90-second gate; complete checks run without its focused fil
 Process, depth, search, node and proposal limits remain unchanged.
 
 
-## P43: inherited authority for finite function observations
+## Inherited authority for finite function observations
 
 A standard TestSuite control retired an enclosing generation check and then
 called a retained finite function. The call returned normally: `function-apply`
@@ -192,7 +192,7 @@ host dynamic-scope fidelity remain premises. No arbitrary Scheme procedure,
 runtime, PRNG or concurrency proof is claimed. All existing resource/check gates
 remain; this semantic fix makes no wall-clock speedup claim.
 
-## P45: bounded exact-ratio generation and canonical shrinking
+## Bounded exact-ratio generation and canonical shrinking
 
 The existing Rational descriptor recognizes Scheme rationals and exposes pair
 conversion, but automatic PBT derivation refused it with the explicit-generator
@@ -375,7 +375,7 @@ This changes compiler-session lifetime, not test execution coverage. Final cold
 admission still requires all checks and the complete entry's natural successful
 exit; no failed or partially executed run qualifies because CPU use decreased.
 
-## P61: first-observed Function input declarations
+## First-observed Function input declarations
 
 The audit found a preparation defect, rather than a missing generator domain:
 a delayed nested signature keyword getter could revise its enclosing Function.
@@ -418,7 +418,7 @@ hash-table work. This is the RFC's finite future-work protocol, not a claim abou
 the compiler/runtime or completion of unrestricted recursive/type generation.
 All full acceptance checks and resource limits remain unchanged.
 
-## P74: first-observed finite Function result tuples
+## First-observed finite Function result tuples
 
 Two public probes exposed late aggregate admission. A first result producer
 returned an invalid scalar, yet the next row still ran and threw false, replacing
@@ -478,7 +478,7 @@ an already completed aggregate. This unit changes neither that seed discipline
 nor the existing lazy shrinking policy. All checks, heaps, compiler completion
 and cancellation behavior remain unchanged.
 
-## P78: captured finite Function call requests
+## Captured finite Function call requests
 
 The audit reproduced a request-ownership defect through public function-apply.
 The caller supplied `(declared)` to a table containing declared and retargeted
@@ -514,7 +514,7 @@ with payload identity, and shared direct/procedure behavior for empty rows, zero
 and multiple values, raw keywords, false/object causes and stale tables. The cases
 join the existing PropertyProducts example module and ordinary kernel suite;
 there is no new runner/module inventory. The isolated standard-library package
-requires 231 cases. Existing P43 inherited-scope and P74 result-tuple tests remain.
+requires 231 cases. Existing [Inherited authority for finite function observations](function-generation.md#inherited-authority-for-finite-function-observations) inherited-scope and [First-observed finite Function result tuples](function-generation.md#first-observed-finite-function-result-tuples) result-tuple tests remain.
 
 The existing finite-service Record/Function example composes FUN preparation,
 first-row malformed-result refusal, real shrinking, seed/concrete replay and
@@ -538,15 +538,15 @@ unrestricted concurrent-mutation proof is claimed. This advances future work.
 
 The Rackcheck/Quickcheck map/bind comparison remains the abstraction reference:
 retain the same finite value/tree and ownership boundary rather than introduce
-another executor. This unit closes our P43 finite-call request boundary, not a
-missing Racket feature. The explicit P35 rule that invalid classification symbols
+another executor. This unit closes our [Inherited authority for finite function observations](function-generation.md#inherited-authority-for-finite-function-observations) finite-call request boundary, not a
+missing Racket feature. The explicit [Source-consistent error classification and terminal diagnostics](diagnostics.md#source-consistent-error-classification-and-terminal-diagnostics) rule that invalid classification symbols
 are API errors was audited and retained as a design boundary. Complete checks,
 original heaps, natural compiler/test completion and cancellation stay unchanged.
 
-## P85: first-return ownership of Function call declarations
+## First-return ownership of Function call declarations
 
 The next audit checked call generation alongside dependency shrinking and replay.
-P45 owned declarations before LATER metadata getters, but its read action returned
+[Bounded exact-ratio generation and canonical shrinking](function-generation.md#bounded-exact-ratio-generation-and-canonical-shrinking) owned declarations before LATER metadata getters, but its read action returned
 through inherited source observers before signatures/input/keyword/rest owners
 were registered. A supported .set! revision at that exact boundary produced
 `changed=#t accepted-current=#t`. A complex optional/keyword CaseFunction probe

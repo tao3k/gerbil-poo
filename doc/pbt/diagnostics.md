@@ -8,19 +8,19 @@ be checked separately. The finite laws retain their stated runtime premises.
 
 On this page:
 
-- [P1: effective-trial coverage and property diagnostics](#p1-effective-trial-coverage-and-property-diagnostics)
-- [P4: standard test integration and named multi-argument properties](#p4-standard-test-integration-and-named-multi-argument-properties)
-- [P6: bounded generator and shrink diagnostics](#p6-bounded-generator-and-shrink-diagnostics)
-- [P7: default POO test and debug workflow](#p7-default-poo-test-and-debug-workflow)
-- [P35: source-consistent error classification and terminal diagnostics](#p35-source-consistent-error-classification-and-terminal-diagnostics)
-- [P42: authoritative standard assertions and checked diagnostic rendering](#p42-authoritative-standard-assertions-and-checked-diagnostic-rendering)
-- [P66: diagnostic request admission before typed preparation](#p66-diagnostic-request-admission-before-typed-preparation)
-- [P67: prepared named diagnostics across report observation](#p67-prepared-named-diagnostics-across-report-observation)
-- [P77: captured preparation refusals across diagnostic rendering](#p77-captured-preparation-refusals-across-diagnostic-rendering)
+- [Effective-trial coverage and property diagnostics](#effective-trial-coverage-and-property-diagnostics)
+- [Standard test integration and named multi-argument properties](#standard-test-integration-and-named-multi-argument-properties)
+- [Bounded generator and shrink diagnostics](#bounded-generator-and-shrink-diagnostics)
+- [Default POO test and debug workflow](#default-poo-test-and-debug-workflow)
+- [Source-consistent error classification and terminal diagnostics](#source-consistent-error-classification-and-terminal-diagnostics)
+- [Authoritative standard assertions and checked diagnostic rendering](#authoritative-standard-assertions-and-checked-diagnostic-rendering)
+- [Diagnostic request admission before typed preparation](#diagnostic-request-admission-before-typed-preparation)
+- [Prepared named diagnostics across report observation](#prepared-named-diagnostics-across-report-observation)
+- [Captured preparation refusals across diagnostic rendering](#captured-preparation-refusals-across-diagnostic-rendering)
 
-## P1: effective-trial coverage and property diagnostics
+## Effective-trial coverage and property diagnostics
 
-Original P1 finding: reports had trial counts but no effective-trial classification
+Original [Effective-trial coverage and property diagnostics](diagnostics.md#effective-trial-coverage-and-property-diagnostics) finding: reports had trial counts but no effective-trial classification
 or coverage requirements. The new run-owned policy closes this finite protocol.
 Collection examples currently guarantee required lifecycle coverage with explicit
 prefixes; the generic runner does not infer that guarantee from random suffixes.
@@ -36,7 +36,7 @@ All-discard or unmet required coverage must not become a passed run. Shrink prob
 and replay must not inflate generation coverage. Prove finite counter accounting
 and coverage admission under explicit classification premises.
 
-## P4: standard test integration and named multi-argument properties
+## Standard test integration and named multi-argument properties
 
 Implemented in `testing/property/test.ss` through the installed Gerbil `do-check!`,
 `test-check!` and TestError protocol. Report APIs remain data APIs. The separate
@@ -61,7 +61,7 @@ TestResult success or claim to repair the compiler/CLI in POO. Lean proves check
 admission, preservation of non-passing status/cause/arguments, and fixed product
 domain soundness and row length. It does not certify operating-system exit status.
 
-## P6: bounded generator and shrink diagnostics
+## Bounded generator and shrink diagnostics
 
 Implemented in the existing property module: `inspect-generator` owns one
 `random-at` source and returns an `inspection` record. `count:` bounds root
@@ -112,7 +112,7 @@ per-term/unbounded exploration, this interface always has a finite global propos
 budget, so broad and infinite neighborhoods cannot evade the bound. This continues
 the paper's future-work direction; no separate runner or namespace is added.
 
-## P7: default POO test and debug workflow
+## Default POO test and debug workflow
 
 Audit finding: PBT was already in the root build and complete standard test
 entry. The missing integration was the existing developer-facing modules:
@@ -161,7 +161,7 @@ inform the standard-check ownership. The remaining comparison is not a blanket
 parity checklist: optional domain families need explicit application requirements;
 current documented finite/Boolean/termination boundaries are retained as boundaries.
 
-## P35: source-consistent error classification and terminal diagnostics
+## Source-consistent error classification and terminal diagnostics
 
 Audit reproduced a completed `unsupported` report whose `report-current?` was
 already false: the original draw threw, the error classifier revised its own
@@ -223,7 +223,7 @@ limits are unchanged. Classification source checks have a cost; no wall-clock
 speedup is inferred from suppressed callbacks.
 
 
-## P42: authoritative standard assertions and checked diagnostic rendering
+## Authoritative standard assertions and checked diagnostic rendering
 
 A standard TestSuite reproduction ran a false property, then supplied a custom
 formatter returning `((status . passed))`. The old assertion marked the case OK:
@@ -278,7 +278,7 @@ protected status/cause; arbitrary presentation fields and the host's exception/
 TestResult machinery are not verified. It extends the paper's future-work protocol,
 not the original concrete evaluator or a compiler proof.
 
-## P66: diagnostic request admission before typed preparation
+## Diagnostic request admission before typed preparation
 
 The audit reproduced a diagnostic ordering defect through the public typed
 inspect-generator entry: count -1 still forced a computed generation getter. Its
@@ -320,7 +320,7 @@ termination and standard FUN/IO delivery remain premises; this is not a proof of
 Gerbil expansion/runtime, elapsed cost or arbitrary effect rollback. All complete
 checks and process resource limits remain unchanged. No latency claim is made.
 
-## P67: prepared named diagnostics across report observation
+## Prepared named diagnostics across report observation
 
 The audit reproduced a presentation ownership defect: report-diagnostics admitted
 caller-owned binding names, then report-current? could invoke a source observer
@@ -372,9 +372,9 @@ A downstream suite can prepare its renderer before any assertion observations:
 The formatter does not run a generator or authorize a passed assertion. Reuse
 with another report always observes that report's own authority.
 
-## P77: captured preparation refusals across diagnostic rendering
+## Captured preparation refusals across diagnostic rendering
 
-The audit reproduced a break in P42's original-cause guarantee. With no kernel
+The audit reproduced a break in [Authoritative standard assertions and checked diagnostic rendering](diagnostics.md#authoritative-standard-assertions-and-checked-diagnostic-rendering)'s original-cause guarantee. With no kernel
 execution, `require-passed` admitted a finite symbolic `refusal:` alist and retained
 its caller-owned directory. A formatter could replace one field with a symbol and
 then raise a secondary cause. Fallback traversal subsequently raised a host
@@ -421,7 +421,7 @@ arbitrary concurrent writes, or immutability of shared payloads. This advances
 the paper's future work.
 
 The Rackcheck/Quickcheck comparison retains the existing generator/tree algebra;
-this unit closes our P42 standard-test ownership guarantee rather than claiming a
+this unit closes our [Authoritative standard assertions and checked diagnostic rendering](diagnostics.md#authoritative-standard-assertions-and-checked-diagnostic-rendering) standard-test ownership guarantee rather than claiming a
 missing Racket feature or changing its shrinking policy. Gerbil's existing module,
 map, error class and :std/test boundary own delivery. Design review deliberately
 kept capture at the one assertion boundary rather than adding copy/validation

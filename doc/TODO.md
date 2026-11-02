@@ -4,97 +4,97 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
-P85 closes first-return source ownership for FunctionArguments declarations.
+First-return ownership of Function call declarations closes first-return source ownership for FunctionArguments declarations.
 Clause/input/keyword/rest epochs are registered before returning observers; pure
 capture errors retain the original source/cause priority. Promises, ordered clause
 selection, layout LRU and replay reuse the same owners. The independent kernel
 remains unchanged at 239 cases.
-See [P85](pbt/function-generation.md#p85-first-return-ownership-of-function-call-declarations).
+See [First-return ownership of Function call declarations](pbt/function-generation.md#first-return-ownership-of-function-call-declarations).
 
-P84 closes lazy dependency-trace parameter ownership through the SAME generic
+Shared finite parameter ownership in lazy dependency shrinking closes lazy dependency-trace parameter ownership through the SAME generic
 finite-shrink-children boundary used by data-list-shrinks. Structural-first demand,
 once-per-returned-proposal repair, failure charges and source priority remain with
 the existing sequence/runner. The standalone standard-library suite now has 239 cases.
-See [P84](pbt/shrinking.md#p84-shared-finite-parameter-ownership-in-lazy-dependency-shrinking).
+See [Shared finite parameter ownership in lazy dependency shrinking](pbt/shrinking.md#shared-finite-parameter-ownership-in-lazy-dependency-shrinking).
 
-P83 closes the generic data-list-shrinks return-ownership gap left by P82.
+Generic data-list candidate capture with contract failure precedence closes the generic data-list-shrinks return-ownership gap left by [Finite POO shrink neighborhoods captured before returning checks](pbt/shrinking.md#finite-poo-shrink-neighborhoods-captured-before-returning-checks).
 Finite coordinate rows are captured inside the existing source action; malformed
 output retains its standard using contract exception until source checks complete.
 Generic Iterator laziness, proposal counters and failure priority remain unchanged.
 The independent standard-library suite now contains 235 cases.
-See [P83](pbt/shrinking.md#p83-generic-data-list-candidate-capture-with-contract-failure-precedence).
+See [Generic data-list candidate capture with contract failure precedence](pbt/shrinking.md#generic-data-list-candidate-capture-with-contract-failure-precedence).
 
-P82 closes finite POO shrink-neighborhood ownership across raw bridges, product
+Finite POO shrink neighborhoods captured before returning checks closes finite POO shrink-neighborhood ownership across raw bridges, product
 coordinates and recursive leaves. The existing sampler-children action captures
 shape/topology before returning observers, while reporting malformed output only
 after the original source checks. Iterator and generic data-list callback protocols
 remain separate; this does not claim those return-ownership audits are complete.
-See [P82](pbt/shrinking.md#p82-finite-poo-shrink-neighborhoods-captured-before-returning-checks).
+See [Finite POO shrink neighborhoods captured before returning checks](pbt/shrinking.md#finite-poo-shrink-neighborhoods-captured-before-returning-checks).
 
-P81 closes shared sampler metadata ownership before returning observers.
+Shared sampler declarations owned at first return closes shared sampler metadata ownership before returning observers.
 The existing generator-sources boundary retains returned Type identities and
 copies/registers dependency rows before source checks, serving explicit bridges,
 recursive graphs, products and Maps without another wrapper or registry.
-See [P81](pbt/type-discovery.md#p81-shared-sampler-declarations-owned-at-first-return).
+See [Shared sampler declarations owned at first return](pbt/type-discovery.md#shared-sampler-declarations-owned-at-first-return).
 
-P80 closes first-observed Sum metadata ownership. The returned variants epoch
+First-observed Sum metadata and bounded tag directories closes first-observed Sum metadata ownership. The returned variants epoch
 and bounded distinct tag spine are owned before returning source observers;
 ordered dynamic payload getters, occurrence fuel, exact causes and fresh retries
 reuse the existing graph owner. Shared Record/Function shrink/replay acceptance
 is integrated into the existing complex suite.
-See [P80](pbt/type-discovery.md#p80-first-observed-sum-metadata-and-bounded-tag-directories).
+See [First-observed Sum metadata and bounded tag directories](pbt/type-discovery.md#first-observed-sum-metadata-and-bounded-tag-directories).
 
-P79 closes known Tuple/Union/Or directory ownership before edge observation.
+Bounded known carrier directories before edge observation closes known Tuple/Union/Or directory ownership before edge observation.
 Complete occurrence width is admitted before copying; known Types retain their
 first epochs before inherited checks. Branch order, sharing, per-edge fuel,
 exact callback causes and explicit fresh retries use the existing graph owner.
-See [P79](pbt/type-discovery.md#p79-bounded-known-carrier-directories-before-edge-observation).
+See [Bounded known carrier directories before edge observation](pbt/type-discovery.md#bounded-known-carrier-directories-before-edge-observation).
 
-P78 closes finite Function call-request ownership. Direct calls admit and capture
+Captured finite Function call requests closes finite Function call-request ownership. Direct calls admit and capture
 finite argument spines before observers; ordinary procedures pass their owned
 rest rows to the same guarded lookup without a second request copy. Exact rows,
 payload identity, original exceptions, stale refusal and retry remain intact.
-See [P78](pbt/function-generation.md#p78-captured-finite-function-call-requests).
+See [Captured finite Function call requests](pbt/function-generation.md#captured-finite-function-call-requests).
 
-P77 closes fallback diagnostic ownership at the existing standard assertion
+Captured preparation refusals across diagnostic rendering closes fallback diagnostic ownership at the existing standard assertion
 boundary. Preparation fields and entry pairs are captured before rendering;
 corrupted caller fields cannot hide the original cause or rendering fault.
 Payload identities, valid display replacement and missing-execution refusal stay.
-See [P77](pbt/diagnostics.md#p77-captured-preparation-refusals-across-diagnostic-rendering).
+See [Captured preparation refusals across diagnostic rendering](pbt/diagnostics.md#captured-preparation-refusals-across-diagnostic-rendering).
 
-P76 closes portable replay's source-judgment inconsistency through the existing
+Shared Boolean source admission during portable replay closes portable replay's source-judgment inconsistency through the existing
 core live? operation. Malformed replies are errors; false stays stale; original
 observer/action causes, codec-first ordering and explicit retry remain intact.
 The same local authority reaches nested actions without another wrapper layer.
-See [P76](pbt/replay.md#p76-shared-boolean-source-admission-during-portable-replay).
+See [Shared Boolean source admission during portable replay](pbt/replay.md#shared-boolean-source-admission-during-portable-replay).
 
-P75 closes the joint constant-size/declared-cap request relation in the shared
+Joint admission of constant size and declared limit closes the joint constant-size/declared-cap request relation in the shared
 prepared-check owner. Known overflow refuses before named declarations or direct
 typed sampler metadata; FUN retains initial Reader ownership/configuration
 precedence while suppressing factory binding. Inclusive/zero/default bounds and
 lazy runtime-checked schedules remain unchanged. See
-[P75](pbt/preparation.md#p75-joint-admission-of-constant-size-and-declared-limit).
+[Joint admission of constant size and declared limit](pbt/preparation.md#joint-admission-of-constant-size-and-declared-limit).
 
-P74 closes finite Function result admission at each observed row, before the
+First-observed finite Function result tuples closes finite Function result admission at each observed row, before the
 next producer runs. One existing map captures proper tuple spines; table assembly
 reuses them rather than revalidating/recopying every sibling. Exact causes,
 zero/multiple values, source refusal, shrinking and replay retain their existing
 protocol. Mutable payload/preimage ownership remains explicit. See
-[P74](pbt/function-generation.md#p74-first-observed-finite-function-result-tuples).
+[First-observed finite Function result tuples](pbt/function-generation.md#first-observed-finite-function-result-tuples).
 
-P73 closes portable replay's symbol/keyword identity gap: only Gerbil-interned
+Stable symbol and keyword identities in portable replay closes portable replay's symbol/keyword identity gap: only Gerbil-interned
 tokens enter codec identities or finite payloads. Fresh handles require explicit
 logical-ID codecs, with ordinary Record/Function reconstruction and source-bound
 retry; successful export cannot silently turn identity-sensitive failure into
 success merely by rereading tokens. See
-[P73](pbt/replay.md#p73-stable-symbol-and-keyword-identities-in-portable-replay).
+[Stable symbol and keyword identities in portable replay](pbt/replay.md#stable-symbol-and-keyword-identities-in-portable-replay).
 
-P72 closes finite Hash/Map request admission before computed declaration and
+Prepared finite hash directories before typed declaration binding closes finite Hash/Map request admission before computed declaration and
 factory binding. One prepared generic directory constructor serves both layers;
 invalid limits/duplicates cannot execute later metadata, and valid requests keep
 Function wrapping, source refusal, shrinking and replay. Prepared declarations
 share keys, not generated states or source authority. See
-[P72](pbt/type-discovery.md#p72-prepared-finite-hash-directories-before-typed-declaration-binding).
+[Prepared finite hash directories before typed declaration binding](pbt/type-discovery.md#prepared-finite-hash-directories-before-typed-declaration-binding).
 
 Cycle reports now own their receiver/slot pairs as well as their outer spine.
 A bounded regression reproduced mutation of a still-active guard through the
@@ -127,165 +127,165 @@ protocol assumes faithful standard copying, finite recognition and loader effect
 it does not certify arbitrary callbacks or concurrent mutation during capture.
 Balanced complete-call controls retain natural/post-GC, AB/BA and A/A/B/B samples.
 
-P69 closes owned-factory result admission at the existing typed bridge: malformed
+Owned factory result admission before subsequent binding closes owned-factory result admission at the existing typed bridge: malformed
 present values refuse before subsequent binding, #f alone selects raw fallback,
 and factory exceptions/source retirement retain their precedence. Product and
-recursive preparation use standard ordered traversal. See [P69](pbt/preparation.md#p69-owned-factory-result-admission-before-subsequent-binding).
+recursive preparation use standard ordered traversal. See [Owned factory result admission before subsequent binding](pbt/preparation.md#owned-factory-result-admission-before-subsequent-binding).
 
-P68 closes static run admission before named declarations and typed sampler
+Shared static run admission before declaration preparation closes static run admission before named declarations and typed sampler
 preparation. Direct checks, both named macros and FUN reuse one prepared generic
 check with Gerbil keyword/default binding; every execution keeps its own random
-source, coverage and shrink state. See [P68](pbt/preparation.md#p68-shared-static-run-admission-before-declaration-preparation).
+source, coverage and shrink state. See [Shared static run admission before declaration preparation](pbt/preparation.md#shared-static-run-admission-before-declaration-preparation).
 
-P67 closes the named-report diagnostic boundary: a prepared generic formatter
+Prepared named diagnostics across report observation closes the named-report diagnostic boundary: a prepared generic formatter
 owns a finite symbolic directory before source observations or typed computed
 metadata. It is reusable through :std/test without retaining report authority;
 false values, original failures, stale refusal and unmatched rows keep their
-existing semantics. See [P67](pbt/diagnostics.md#p67-prepared-named-diagnostics-across-report-observation).
+existing semantics. See [Prepared named diagnostics across report observation](pbt/diagnostics.md#prepared-named-diagnostics-across-report-observation).
 
-P66 closes typed diagnostic request admission before computed sampler metadata,
+Diagnostic request admission before typed preparation closes typed diagnostic request admission before computed sampler metadata,
 source observation and factory binding. Both layers share the existing generic
 configuration check; zero budgets and valid-request failure behavior remain.
-See [P66](pbt/diagnostics.md#p66-diagnostic-request-admission-before-typed-preparation).
+See [Diagnostic request admission before typed preparation](pbt/diagnostics.md#diagnostic-request-admission-before-typed-preparation).
 
-P65 closes typed initialization failure reporting with the existing generic
+Shared primary-cause ownership during typed preparation failure closes typed initialization failure reporting with the existing generic
 classifier. Secondary observation cannot replace the primary cause; confirmed
 retirement stays stale, unfinished execution stays non-replayable, and FUN consumer
-IO remains outside classification. See [P65](pbt/preparation.md#p65-shared-primary-cause-ownership-during-typed-preparation-failure).
+IO remains outside classification. See [Shared primary-cause ownership during typed preparation failure](pbt/preparation.md#shared-primary-cause-ownership-during-typed-preparation-failure).
 
 
-P64 closes strict Boolean source admission across typed graphs, direct checks and
+Strict Boolean source admission across typed composition closes strict Boolean source admission across typed graphs, direct checks and
 cached guards using the existing core primitives. False remains stale, malformed
 replies remain errors, exceptions stay exact, and epoch refusal skips hooks. See
-[P64](pbt/generator-control.md#p64-strict-boolean-source-admission-across-typed-composition).
+[Strict Boolean source admission across typed composition](pbt/generator-control.md#strict-boolean-source-admission-across-typed-composition).
 
 
-P63 closes opaque-leaf preparation through the SAME constructor/source admission
+Shared opaque sampler admission before optional metadata closes opaque-leaf preparation through the SAME constructor/source admission
 used by typed bridges: declared owner epochs precede optional availability,
 malformed/retargeted declarations stop early, and empty alternatives retain their
-source obligations without draws. See [P63](pbt/type-discovery.md#p63-shared-opaque-sampler-admission-before-optional-metadata).
+source obligations without draws. See [Shared opaque sampler admission before optional metadata](pbt/type-discovery.md#shared-opaque-sampler-admission-before-optional-metadata).
 
 
-P62 closes fixed recursive carrier discovery for List/Pair/Maybe/OrFalse through
+Ordered fixed-carrier edge discovery closes fixed recursive carrier discovery for List/Pair/Maybe/OrFalse through
 the existing edge action: exhausted fuel skips metadata; earlier returned Types
 retain authority before later getters. Shared identities keep occurrence costs
-and one graph node. See [P62](pbt/type-discovery.md#p62-ordered-fixed-carrier-edge-discovery).
+and one graph node. See [Ordered fixed-carrier edge discovery](pbt/type-discovery.md#ordered-fixed-carrier-edge-discovery).
 
 
-P61 closes FunctionArguments preparation authority: computed signature getters
+First-observed Function input declarations closes FunctionArguments preparation authority: computed signature getters
 cannot renew Function, clause or previously discovered input Type epochs. Existing
 source scopes, lazy child derivation and the standard LRU carry the same authority
 through caching, shrinking and replay; exceptions retain their original causes.
-See [P61](pbt/function-generation.md#p61-first-observed-function-input-declarations).
+See [First-observed Function input declarations](pbt/function-generation.md#first-observed-function-input-declarations).
 
 
 
-P60 captures typed trace ingress before computed metadata and registers explicit
+[Owned trace ingress and first-observed explicit dependencies](pbt/model-traces.md#owned-trace-ingress-and-first-observed-explicit-dependencies) captures typed trace ingress before computed metadata and registers explicit
 owners in the existing first-observation ledger. Validation, repair, checking and
 generation reuse the existing Record, source and FUN protocols. Caller spine edits
 cannot retarget commands or dependency identities; payloads remain shared. Eight
 finite Lean laws model the original request handoff and guarded preparation;
 faithful host copying/observers and callback termination remain premises. See
-[P60](pbt/model-traces.md#p60-owned-trace-ingress-and-first-observed-explicit-dependencies).
+[Owned trace ingress and first-observed explicit dependencies](pbt/model-traces.md#owned-trace-ingress-and-first-observed-explicit-dependencies).
 
 
 
-P59 closes static trace request admission before computed declarations and
+Trace request admission before declarations and fixture scope closes static trace request admission before computed declarations and
 fixture acquisition. Standard Gerbil contracts cover generic/typed check requests,
 typed finite limits/dependencies and trace-property binding. Existing model folds,
 source checks, Record/Function wrapping and FUN delivery remain the execution
 owners. Eleven finite Lean laws reuse Boolean admission and guarded preparation;
 callback arity, termination and host cleanup are premises. See
-[P59](pbt/model-traces.md#p59-trace-request-admission-before-declarations-and-fixture-scope).
+[Trace request admission before declarations and fixture scope](pbt/model-traces.md#trace-request-admission-before-declarations-and-fixture-scope).
 
 
 
-P58 closes portable handoff configuration and physical framing admission.
+Portable handoff request admission and physical framing closes portable handoff configuration and physical framing admission.
 Gerbil parameter contracts run before observers/computed metadata; standard
 reader EOF and a separately guarded physical EOF probe precede decoding. Invalid
 requests leave caller ports untouched; malformed input may be consumed and needs
 explicit fresh input. Revision/exception behavior and nested Function wrapping
 remain with their existing owners. Eleven finite Lean laws model request/source/
 framing order, assuming faithful host port operations rather than proving the
-reader or I/O rollback. See [P58](pbt/replay.md#p58-portable-handoff-request-admission-and-physical-framing).
+reader or I/O rollback. See [Portable handoff request admission and physical framing](pbt/replay.md#portable-handoff-request-admission-and-physical-framing).
 
 
-P57 closes fixed-product decomposition and finite expansion ownership. Whole
+Fixed product row and finite expansion ownership closes fixed-product decomposition and finite expansion ownership. Whole
 rows must match field width before callbacks; finite child lists and temporary
 pack rows are owned at their existing boundaries. Heterogeneous Record/Function
 requests align finite/retained FUN shrinking and corpus replay; arbitrary payload
 mutation and user representation laws remain explicit obligations. See
-[P57 in the PBT RFC](pbt/data-generation.md#p57-fixed-product-row-and-finite-expansion-ownership).
+[Fixed product row and finite expansion ownership](pbt/data-generation.md#fixed-product-row-and-finite-expansion-ownership).
 
-P56 closes scoped fixture admission before typed metadata preparation. Closed,
+Fixture lifetime admission before typed preparation closes scoped fixture admission before typed metadata preparation. Closed,
 repeated and reentrant use cannot force raw getters or authorize an earlier
 receipt after refusal. Record/Function/FUN scenarios cover errors, shrinking,
 replay and fresh source renewal, with cleanup/ownership unchanged. See
-[P56 in the PBT RFC](pbt/preparation.md#p56-fixture-lifetime-admission-before-typed-preparation).
+[Fixture lifetime admission before typed preparation](pbt/preparation.md#fixture-lifetime-admission-before-typed-preparation).
 
-P55 closes finite sequence input ownership across structural/parameter shrinking
+Owned finite sequence preparation closes finite sequence input ownership across structural/parameter shrinking
 and model repair/preflight. One standard shallow snapshot precedes callbacks;
 caller pair edits cannot change the prepared command order. Record/Function/FUN
 examples cover shrinking, replay and source renewal; payload mutation remains an
 explicit application responsibility. See
-[P55 in the PBT RFC](pbt/data-generation.md#p55-owned-finite-sequence-preparation).
+[Owned finite sequence preparation](pbt/data-generation.md#owned-finite-sequence-preparation).
 
-P54 closes demand-driven repair in generated trace trees. The default typed path
+Demand-driven dependency-repaired trace trees closes demand-driven repair in generated trace trees. The default typed path
 now reuses the existing lazy sequence tree instead of preparing every finite
 candidate and unused parameter callback before the first proposal. Confirmed
 repaired traces own their next neighborhood; finite value inspection and explicit
 method overrides retain their separate contracts. Indexed Record/Function/FUN
 requests cover replay, retirement and fresh correction. See
-[P54 in the PBT RFC](pbt/model-traces.md#p54-demand-driven-dependency-repaired-trace-trees).
+[Demand-driven dependency-repaired trace trees](pbt/model-traces.md#demand-driven-dependency-repaired-trace-trees).
 
-P53 closes ordered named-property declaration preparation across the report and
+Ordered named-property declaration preparation closes ordered named-property declaration preparation across the report and
 standard assertion forms. Fixed specifications precede generator construction;
 retirement stops later declarations and nested producers, while dependent draws,
 shrinking and replay keep the existing bind owner. Standard TestResult controls
 and Record/Function/FUN examples cover failure and explicit fresh repair. Direct
 caller arguments and arbitrary effects remain boundaries. See
-[P53 in the PBT RFC](pbt/preparation.md#p53-ordered-named-property-declaration-preparation).
+[Ordered named-property declaration preparation](pbt/preparation.md#ordered-named-property-declaration-preparation).
 
-P52 closes Reader configuration and initial automatic-generator request admission.
+Reader configuration and initial request admission closes Reader configuration and initial automatic-generator request admission.
 Known owners precede getters and generator construction; dependency identity
 spines cannot erase authority, and size is read once through standard reflection.
 Record/Function/FUN services cover controlled refusal, shrinking/replay and fresh
 retry. Application-owned argument evaluation and arbitrary effects remain explicit
-boundaries. See [P52 in the PBT RFC](pbt/preparation.md#p52-reader-configuration-and-initial-request-admission).
+boundaries. See [Reader configuration and initial request admission](pbt/preparation.md#reader-configuration-and-initial-request-admission).
 
-P51 closes typed bridge/domain preparation after first-observation snapshots.
+Closed bridge and specification preparation closes typed bridge/domain preparation after first-observation snapshots.
 Retired getters/factories cannot bind later metadata or enter a raw fallback;
 checks and diagnostics share one captured authority. Deferred Record/Function/FUN
 recipes cover probing, replay and explicit fresh repair. Arbitrary direct host
 effects and termination remain boundaries. See
-[P51 in the PBT RFC](pbt/preparation.md#p51-closed-bridge-and-specification-preparation).
+[Closed bridge and specification preparation](pbt/preparation.md#closed-bridge-and-specification-preparation).
 
-P50 closes shared sampler declaration snapshots across bridges, checks,
+Shared sampler declaration snapshots closes shared sampler declaration snapshots across bridges, checks,
 diagnostics, products and explicit Maps. Actual/bound Types precede sources,
 known dependencies precede getters and aliases cannot refresh earlier stamps.
 Record/Function/FUN batches preserve wrapping, replay and explicit fresh retry.
 Hidden dependencies, deep payload freezing and unrestricted inference remain
-boundaries. See [P50 in the PBT RFC](pbt/type-discovery.md#p50-shared-sampler-declaration-snapshots).
+boundaries. See [Shared sampler declaration snapshots](pbt/type-discovery.md#shared-sampler-declaration-snapshots).
 
-P49 closes first-observation preparation for explicit finite-key Map generators.
+First-observation admission for explicit Map factories closes first-observation preparation for explicit finite-key Map generators.
 Known owners and request spines precede callbacks; Key authority cannot be
 refreshed by a later Value getter. Existing Record/Function/FUN trees retain the
 Map guard through shrinking and replay; recovery requires fresh preparation.
 The existing self-mutation prohibition is a boundary, not a new gap. See
-[P49 in the PBT RFC](pbt/type-discovery.md#p49-first-observation-admission-for-explicit-map-factories).
+[First-observation admission for explicit Map factories](pbt/type-discovery.md#first-observation-admission-for-explicit-map-factories).
 
-P48 closes standard Keyword derivation and unifies text carrier generation and
+One spelling protocol for text carriers and keyword call values closes standard Keyword derivation and unifies text carrier generation and
 shrinking through one spelling protocol. FunctionArguments, Record/Function/FUN,
 portable replay and explicit fresh repair compose without another parser or
 validator chain. Opaque/refined inference and runtime interning costs remain
-explicit boundaries. See [P48 in the PBT RFC](pbt/data-generation.md#p48-one-spelling-protocol-for-text-carriers-and-keyword-call-values).
+explicit boundaries. See [One spelling protocol for text carriers and keyword call values](pbt/data-generation.md#one-spelling-protocol-for-text-carriers-and-keyword-call-values).
 
-P47 closes automatic exact integer interval generation and shrinking for
+Automatic exact integer carrier profiles closes automatic exact integer interval generation and shrinking for
 IntegerRange, UIntN, IntN and Z/, including empty-domain exhaustion, source-owned
 metadata and bounded draw windows. The Record/Function/FUN example covers replay
 and fresh preparation after revision. This is a finite derivation capability, not
 arbitrary predicate inference or floating-point support. See
-[P47 in the PBT RFC](pbt/data-generation.md#p47-automatic-exact-integer-carrier-profiles).
+[Automatic exact integer carrier profiles](pbt/data-generation.md#automatic-exact-integer-carrier-profiles).
 
 Static shape narrowing now reuses the existing ordered directory only after
 complete identity-subset admission, using the standard deduplication table and
@@ -297,13 +297,13 @@ full construction. Whole-workflow tail acceleration is not established; see
 [representation.md](representation.md#checked-static-shape-narrowing).
 
 
-P46 closes automatic bounded tagged Sum generation, branch-preserving shrinking
+Bounded tagged Sum derivation and retained branch identity closes automatic bounded tagged Sum generation, branch-preserving shrinking
 and replay in the existing PBT protocol. Effective variant directories and shared
 payload Types retain first-observation epochs; descriptor limits precede later
 getters. Record/FUN journal, recursive carrier and Function-wrapper controls are
 paired with finite Lean selection/inspection laws. This is a concrete finite
 future-work unit; unrestricted inference and compiler/runtime performance remain
-outside it. See [P46 in the PBT RFC](pbt/type-discovery.md#p46-bounded-tagged-sum-derivation-and-retained-branch-identity).
+outside it. See [Bounded tagged Sum derivation and retained branch identity](pbt/type-discovery.md#bounded-tagged-sum-derivation-and-retained-branch-identity).
 
 One-key shape extension now reuses the immutable ordered directory through
 standard `find` and the existing symbolic index. Constructor hints authenticate
@@ -353,7 +353,7 @@ further tuning of the corresponding workflow.
 | Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
 | Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `types/relation.ss` / `prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
 | Generic data structure library | Shared finite validation, explicit revisions/isomorphisms, aggregates, indexes, projections and five-style publication have concrete implementations; constructor delegation preserves independently partial empty/singleton/bulk operations. Set admission now shares Table's dynamic receiver/snapshot reentry guard. See the [source-grounded composition audit](collection-composition-audit.md). | General automatic discovery remains open. Recognition reuse requires explicit refinement/purity evidence; finite reentry detection does not establish arbitrary callback termination. |
-| Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md) and [generated-testing.md](generated-testing.md). The [next PBT acceptance units](pbt/architecture.md#next-acceptance-units) prioritize reusable generator composition through Type boundaries, effective coverage, portable replay and bounded Function values; these finite
+| Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md) and [generated-testing.md](generated-testing.md). The [next PBT acceptance units](pbt/architecture.md#feature-acceptance) prioritize reusable generator composition through Type boundaries, effective coverage, portable replay and bounded Function values; these finite
   protocols now have implementations and joint acceptance described in the RFC. |
 | Jsonnet/Nix implementation | Open, separate interpreter-scale future work | No interpreter or equivalence claim is supplied by current object examples. |
 
@@ -1910,30 +1910,30 @@ remaining open scope; the broader inspiration below is retained.
 Finite declared Enum alternatives now shrink through the existing index/tree
 algebra, including nested carriers, FUN execution, empty alternatives and stale
 replay refusal. The first equal declaration position supplies the scalar rank;
-recursive grammar node costs remain unchanged. See P13 in
+recursive grammar node costs remain unchanged. See [Declared finite enumeration simplification](pbt/data-generation.md#declared-finite-enumeration-simplification) in
 [pbt-design-rfc.md](pbt-design-rfc.md).
 
 Model trace shrinking now composes the existing aligned-block and parameter
 neighborhood with dependency repair in `testing/property/model`. The typed path
 uses that same function. Parity-sensitive producer/consumer controls cover cases
 where single deletions cannot simplify a witness; source/zero-fuel/replay rules
-remain unchanged. See P14 in [pbt-design-rfc.md](pbt-design-rfc.md).
+remain unchanged. See [Dependency-repaired block trace shrinking](pbt/model-traces.md#dependency-repaired-block-trace-shrinking) in [pbt-design-rfc.md](pbt-design-rfc.md).
 
 Policy and product admission now stop between callbacks when declared sources
 change, including shrink preconditions and multi-field recognition/measurement.
 Old witnesses and charged attempts survive refusal; FUN retry captures fresh
-rules while old replay refuses. P15 in [pbt-design-rfc.md](pbt-design-rfc.md)
+rules while old replay refuses. [Source-consistent policy and product admission](pbt/replay.md#source-consistent-policy-and-product-admission) in [pbt-design-rfc.md](pbt-design-rfc.md)
 records the reproduced defect, fixed semantics and observer cost boundary.
 
 Portable counterexample handoff now checks sources between reconfirmation,
 encoding and port delivery, and before consuming stale input. Fresh codec retry
-retains data identity and Record/Function restoration. P16 in
+retains data identity and Record/Function restoration. [Source-consistent portable handoff stages](pbt/replay.md#source-consistent-portable-handoff-stages) in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced failures, admission
 order and nontransactional I/O boundary.
 
 Paused shrink iterators now check source ownership before every resumed producer
 pull, and rebuilt dependent samples keep the original selected branch's epochs.
-Retained Record subtrees cannot refresh them through a new FUN run. P17 in
+Retained Record subtrees cannot refresh them through a new FUN run. [Source-owned resumable shrink traversal](pbt/shrinking.md#source-owned-resumable-shrink-traversal) in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced failures, shared
 Iterator implementation and source-free fast path.
 
@@ -1941,7 +1941,7 @@ Independent PBT products now preserve original sibling sample nodes during
 coordinate shrinking. List/hash capture and finite Function tables share this
 protocol; explicit dependent bindings retain regeneration. Stateful draw controls,
 seed schedules, Record/FUN/replay and eight finite Lean laws close this audit unit.
-See P18 in [pbt-design-rfc.md](pbt-design-rfc.md); arbitrary mutable payload freezing
+See [Retained independent product shrinking](pbt/data-generation.md#retained-independent-product-shrinking) in [pbt-design-rfc.md](pbt-design-rfc.md); arbitrary mutable payload freezing
 and host PRNG/GC claims remain outside the protocol.
 
 Function call samplers now derive only supplied input Types after first-match
@@ -1949,93 +1949,93 @@ selection, reusing `defonce` for successful preparation. Shadowed declarations a
 empty rest suffixes cannot force unused generators, while every declared Type
 retains revision ownership and selected failures retain their original cause.
 Keyword/optional/rest, multiple returns, FUN, shrinking and replay compose in the
-worked example. P19 in [pbt-design-rfc.md](pbt-design-rfc.md) records the eight
+worked example. [Demand-driven FunctionArguments child derivation](pbt/function-generation.md#demand-driven-functionarguments-child-derivation) in [pbt-design-rfc.md](pbt-design-rfc.md) records the eight
 finite demand/reuse laws and the unchanged general-Type/promise-runtime boundaries.
 
 Scoped differential executions now retain model/fixture declaration
 epochs through preparation, steps, observations, comparisons and factory return.
-P20 in [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced false match,
+[Revision-bound scoped differential trace execution](pbt/model-traces.md#revision-bound-scoped-differential-trace-execution) in [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced false match,
 revision refusal, cleanup/retry controls and eight finite stage laws. Evolving
 actual State and hidden callback dependencies retain their existing boundaries.
 
 Explicit typed product measurement now shares the generic specification instead of
 duplicating map/sum. Captured child topology, common owners including empty rows,
-value-only shrinking and packing retain one source boundary. P21 in
+value-only shrinking and packing retain one source boundary. [Shared typed-product observation and directory ownership](pbt/data-generation.md#shared-typed-product-observation-and-directory-ownership) in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced later-field effect,
 retry/wrapper controls and eight finite product laws.
 
 Fixed products now capture all declared generator leaves before drawing, so a
 stale later field suppresses earlier draw/map effects rather than only refusing
 the final run. Finite Function tables and typed Record/FUN reuse that boundary;
-dynamic unselected branches and empty result domains remain independent. P22 in
+dynamic unselected branches and empty result domains remain independent. [Fixed-product source admission before drawing](pbt/data-generation.md#fixed-product-source-admission-before-drawing) in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced preflight mismatch,
 59-case independent library controls and six finite source-composition laws.
 
 Bounded filter retries now propagate rejected branch ownership through each later
-draw/selector/map, rather than only checking it around the final predicate. P23 in
+draw/selector/map, rather than only checking it around the final predicate. [Source-consistent bounded rejection sampling](pbt/generator-control.md#source-consistent-bounded-rejection-sampling) in
 [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced downstream effect,
 exact quota/exception and nested-filter controls, the 63-case independent library,
 Record/FUN replay and retry, and ten finite rejection-sampling laws. Quotas remain
 local; no unrestricted filter or host timing guarantee is claimed.
 
 Run-local source admission now reaches nested generation from the shared checked
-action boundary. P24 in [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced
+action boundary. [Transient admission throughout checked generator actions](pbt/generator-control.md#transient-admission-throughout-checked-generator-actions) in [pbt-design-rfc.md](pbt-design-rfc.md) records the reproduced
 late replay mapper, previous-trial/inspection refusal, transient-vs-retained
 ownership, nested/paused-iterator controls, 67-case independent library acceptance
 and nine finite scope/publication laws. No replay checker is stored as a sample
 owner; host continuation, heap and concurrency guarantees remain outside the model.
 
 Known-input size scaling now closes source ownership through fixed products and
-typed Record/FUN generation. P25 in [pbt-design-rfc.md](pbt-design-rfc.md) records
+typed Record/FUN generation. [Size control retains known input ownership](pbt/generator-control.md#size-control-retains-known-input-ownership) in [pbt-design-rfc.md](pbt-design-rfc.md) records
 71 independent cases, retained shrinking/replay and eight finite size laws.
 Open sized selectors retain their intentional unselected-branch boundary.
 
 Mandatory nonempty List/String/Symbol inputs now participate before size
-selection. P26 in [pbt-design-rfc.md](pbt-design-rfc.md) records the shared sized
+selection. [Mandatory collection ownership under size selection](pbt/generator-control.md#mandatory-collection-ownership-under-size-selection) in [pbt-design-rfc.md](pbt-design-rfc.md) records the shared sized
 source protocol, 75 independent cases, Record/FUN shrinking and fresh retry,
 and eight additional size/ownership laws. Empty optional results remain independent.
 
 Observed pruned proposals now admit their newly captured sources before
-terminal-budget publication. P27 in [pbt-design-rfc.md](pbt-design-rfc.md) records
+terminal-budget publication. [Observed proposal admission before terminal publication](pbt/generator-control.md#observed-proposal-admission-before-terminal-publication) in [pbt-design-rfc.md](pbt-design-rfc.md) records
 79 independent cases, checking/inspection parity, exact charges and original
 causes, Record/FUN retry and nine finite proposal-admission laws.
 
 Generic model drawing now rejects non-natural and malformed configuration via
-Gerbil parameter contracts before initialization. P28 in
+Gerbil parameter contracts before initialization. [Exact bounded model draw configuration](pbt/data-generation.md#exact-bounded-model-draw-configuration) in
 [pbt-design-rfc.md](pbt-design-rfc.md) records 83 independent cases, exact min caps,
 early stop/cause semantics, Record/FUN shrinking/replay and nine finite draw laws.
 
 Finite trace/value shrinking now rejects malformed outer spines and parameter
 results instead of salvaging prefixes, and rechecks sources between callbacks.
-P33 in [pbt-design-rfc.md](pbt-design-rfc.md) fixes FunctionArguments value
+[Sound short-circuit admission of supplied Function call fields](pbt/function-generation.md#sound-short-circuit-admission-of-supplied-function-call-fields) in [pbt-design-rfc.md](pbt-design-rfc.md) fixes FunctionArguments value
 admission: false field judgments are returned rather than discarded, and Gerbil
 andmap short-circuits supplied positional/optional/rest checks. Keyword checks
 inherit the same source boundary. Six call-admission/service FUN regressions and
 eight finite Boolean-fold laws cover this unit; shape selection/default semantics
 and arbitrary Type callback internals remain unchanged.
 
-P32 in [pbt-design-rfc.md](pbt-design-rfc.md) completes inherited admission across
+[Ancestor admission through nested domains, products and replay](pbt/generator-control.md#ancestor-admission-through-nested-domains-products-and-replay) in [pbt-design-rfc.md](pbt-design-rfc.md) completes inherited admission across
 nested domains, typed product callbacks and portable replay stages. Child report
 publication observes parents after local refusal scopes unwind, without a new
 context layer or checker recursion. Five generic cases (97 total), two typed
 Record/Function FUN cases and eight finite scope laws cover this unit. Host
 continuations and transactional I/O remain explicit boundaries.
 
-P31 in [pbt-design-rfc.md](pbt-design-rfc.md) closes source boundaries between
+[Source-consistent scalar stages in recursive derivation](pbt/type-discovery.md#source-consistent-scalar-stages-in-recursive-derivation) in [pbt-design-rfc.md](pbt-design-rfc.md) closes source boundaries between
 recursive scalar admission, natural measurement, shrinking and bridge preparation.
 It reuses the existing run-local checker and Interaction interpreter, preserves
 refusal categories/causes/quotas, and adds four regression cases, a shared
 Record/Function FUN example and eight finite scalar-stage laws. Hidden mutations,
 arbitrary callback termination and host concurrency remain explicit boundaries.
 
-P30 in [pbt-design-rfc.md](pbt-design-rfc.md) closes generic model action source
+[Source-consistent generic model actions](pbt/model-traces.md#source-consistent-generic-model-actions) in [pbt-design-rfc.md](pbt-design-rfc.md) closes generic model action source
 boundaries throughout draw, admission/repair and differential fixture execution.
 It reuses the existing callback guard, stops after registered revisions, preserves
 multi-values/causes/cleanup and adds five independent cases (92 total), one
 Record/FUN retry example and seven finite dependent-action laws. Host unwinding,
 arbitrary callback termination and concurrent execution are explicit boundaries.
 
-P29 in [pbt-design-rfc.md](pbt-design-rfc.md) records 87 independent cases, shared
+[Finite sequence preparation without prefix salvage](pbt/data-generation.md#finite-sequence-preparation-without-prefix-salvage) in [pbt-design-rfc.md](pbt-design-rfc.md) records 87 independent cases, shared
 Record/FUN data-carrier preparation, exact failures/retry/replay and nine laws.
 The general lazy Iterator protocol retains its original budget and scope.
 
@@ -3613,7 +3613,7 @@ The existing typed module exposes valid-trace?/repair-trace without a new runner
 Gerbil dynamic scope restores fixture ownership, and sampler currentness retains
 constructor stamps. Regression controls, a dependent service retry/replay example
 and five finite declaration-observation laws cover the complete boundary. See
-[P40 in the PBT RFC](pbt/model-traces.md#p40-first-observation-typed-trace-declaration-preparation).
+[First-observation typed trace declaration preparation](pbt/model-traces.md#first-observation-typed-trace-declaration-preparation).
 
 
 P41 closes fixed-product constructor admission and retained drawing.
@@ -3623,7 +3623,7 @@ retains field trees and the established bind/checkpoint schedule; the iterative
 candidate is excluded after GC cost acceptance failed. Lists, finite Maps/functions and typed products use the same core. The
 isolated generic acceptance now requires 115 cases. A service retry/replay example,
 source/cause controls, five finite Lean laws and the standard paired generation
-entry cover the work unit; see [P41](pbt/data-generation.md#p41-finite-fixed-product-preparation-and-retained-trees).
+entry cover the work unit; see [Finite fixed-product preparation and retained trees](pbt/data-generation.md#finite-fixed-product-preparation-and-retained-trees).
 
 Ordinary DDT/assertion helpers no longer eagerly import typed generation or its
 report-admission engine. Optional operations reuse IO and the official loader;
@@ -3641,7 +3641,7 @@ and preserves preparation refusal independently of rendering. Named checks keep
 do-check! ownership and one evaluation. The independent suite now requires 121
 cases; eleven deliberate CLI failures, typed controls, a FUN/Record/Function service
 example and seven finite admission laws cover the complete assertion boundary.
-See [P42](pbt/diagnostics.md#p42-authoritative-standard-assertions-and-checked-diagnostic-rendering).
+See [Authoritative standard assertions and checked diagnostic rendering](pbt/diagnostics.md#authoritative-standard-assertions-and-checked-diagnostic-rendering).
 
 P43 closes inherited authority for retained finite Function calls and observations.
 One private form in the existing generator module reuses with-sources for exact
@@ -3651,7 +3651,7 @@ Fresh scopes may reuse a still-current table without renewing old reports.
 Six generic controls raise independent acceptance to 127 cases. A contracted
 Record service combines FUN retry, shrinking and both replay forms plus portable
 table handoff; seven finite Lean action/lookup laws state the admitted scope.
-See [P43](pbt/function-generation.md#p43-inherited-authority-for-finite-function-observations).
+See [Inherited authority for finite function observations](pbt/function-generation.md#inherited-authority-for-finite-function-observations).
 
 P44 closes portable-copy budget preparation. Root/string/octet charging shares one
 local allowance; vector width and child depth are admitted before allocating or
@@ -3661,7 +3661,7 @@ acceptance to 132 cases. Record/List/Tuple/Function FUN retry includes oversized
 output refusal, old-codec rejection and unchanged-budget fresh replay. Eight finite
 PropertyReplay laws cover preparation and exact logical-credit accounting; reader,
 application encoder and runtime allocator behavior remain explicit premises.
-See [P44](pbt/data-generation.md#p44-portable-vector-copy-preparation-and-shared-resource-credits).
+See [Portable vector copy preparation and shared resource credits](pbt/data-generation.md#portable-vector-copy-preparation-and-shared-resource-credits).
 
 P45 adds the missing bounded exact-ratio Rational PBT profile. Existing sized
 products, map and with-shrink share one canonical rank/policy with the typed
@@ -3671,7 +3671,7 @@ controls include recursive carriers and a Record/List/Function FUN service with
 fractional shrinking, pair corpus replay, source retirement and corrected retry.
 Ten finite Rat laws and symbolic examples cover normalization/bounds, canonical
 keys, pair recovery and strict descent. See
-[P45](pbt/function-generation.md#p45-bounded-exact-ratio-generation-and-canonical-shrinking).
+[Bounded exact-ratio generation and canonical shrinking](pbt/function-generation.md#bounded-exact-ratio-generation-and-canonical-shrinking).
 
 The dependency-closure audit moves six suite-private macro groups into the
 standard TestSuite lexical body, retaining seven required syntax/type-metadata
@@ -3709,7 +3709,7 @@ P70 consolidates dependent declaration preparation into the report-producing
 Generation, parent-dependent shrinking and seeded/concrete replay reuse the same
 bind tree. Closed typed source guards own epoch pairs before metadata, reject
 noncallable present observers and cannot be renewed through caller snapshot edits.
-See [P70](pbt/model-traces.md#p70-shared-dependent-declarations-and-closed-source-observers)
+See [Shared dependent declarations and closed source observers](pbt/model-traces.md#shared-dependent-declarations-and-closed-source-observers)
 for the finite laws, public syntax, regression controls and explicit premises.
 
 ### Explicit observed Slot source registration
@@ -3745,7 +3745,7 @@ P71 closes Map observer declaration admission: present noncallable hooks refuse
 before Key/Value metadata and core construction, sharing the closed guard's
 existing observer reader. Record/Function/FUN service generation, shrinking,
 replay, old-root refusal and explicit fresh retry use the same Map factory.
-See [P71](pbt/preparation.md#p71-shared-observer-binding-before-map-declarations)
+See [Shared observer binding before Map declarations](pbt/preparation.md#shared-observer-binding-before-map-declarations)
 for finite proofs, exact failure ordering and unchanged generic-core boundaries.
 
 One-shot captures now skip the existing retained-projection owner and register

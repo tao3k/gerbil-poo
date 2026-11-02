@@ -120,7 +120,7 @@ Typed `map-generator` admits this directory before computed Key/Value/sampler
 metadata, then binds the values under its existing guard. Invalid limits and
 duplicate keys cannot execute later factories. Empty zero-budget directories
 remain valid and preserve typed source obligations. See the service-directory
-retry example in `examples/collection-properties.ss` and P72 in the RFC.
+retry example in `examples/collection-properties.ss` and [Prepared finite hash directories before typed declaration binding](pbt/type-discovery.md#prepared-finite-hash-directories-before-typed-declaration-binding) in the RFC.
 
 Bridge and specification binding use the same captured stamp set. Metadata getters,
 owned recipes and fallback binding are checked before the next stage; a factory
@@ -138,7 +138,7 @@ may capture new epochs; replacing the caller's dependency spine cannot erase old
 owners. Configuration size is read once through standard dynamic slot access.
 Configuration exceptions precede report/consumer creation; incomplete automatic
 generation retains existing non-replayable typed reports. Consumer IO and direct
-caller argument evaluation stay outside preparation. See P52 in the design RFC.
+caller argument evaluation stay outside preparation. See [Reader configuration and initial request admission](pbt/preparation.md#reader-configuration-and-initial-request-admission) in the design RFC.
 
 Named properties now share ordered fixed specification preparation. Use the
 existing `testing/property` report-form `define-property` or
@@ -151,7 +151,7 @@ A failed construction has no run report; standard assertions retain Gerbil's
 TestResult behavior. Ordinary invocation options are caller-evaluated arguments.
 The named service case in `examples/collection-properties.ss` shows typed Record/
 Function generators, FUN delivery, three replay forms and fresh correction without
-retaining a transient construction checker. See P53 of the RFC for the boundary.
+retaining a transient construction checker. See [Ordered named-property declaration preparation](pbt/preparation.md#ordered-named-property-declaration-preparation) of the RFC for the boundary.
 
 Generated model traces now use owned lazy neighborhoods. The generic
 `testing/property/model` `trace-generator` takes a model, two-value draw callback,
@@ -164,14 +164,14 @@ parameter callback must still return a finite proper list. Exact exceptions and
 previously charged work are retained on interruption; budget cutoff is not EOF.
 `collection-request-action` in `examples/collection-properties.ss` composes this
 with an indexed backend, a Record/Function product, FUN, replay and fresh repair.
-See P54 in the RFC for the finite proof and work-count boundaries.
+See [Demand-driven dependency-repaired trace trees](pbt/model-traces.md#demand-driven-dependency-repaired-trace-trees) in the RFC for the finite proof and work-count boundaries.
 
 Finite value neighborhoods and model preflight snapshot their input pair spine
 before callbacks. A callback may edit its caller's outer list without changing
 the already captured coordinates. This is shallow preparation: command payloads
 remain shared, and callbacks must obey declared source and payload ownership.
-Neither deep copying nor rollback of callback effects is provided. See P55 in
-[pbt-design-rfc.md](pbt/data-generation.md#p55-owned-finite-sequence-preparation).
+Neither deep copying nor rollback of callback effects is provided. See [Owned finite sequence preparation](pbt/data-generation.md#owned-finite-sequence-preparation) in
+[pbt-design-rfc.md](pbt/data-generation.md#owned-finite-sequence-preparation).
 
 Generic model.check-trace accepts an optional prepare-system: procedure mapping
 a raw fixture into make-system's ordinary fixture record. It runs only after
@@ -180,7 +180,7 @@ POO check-trace supplies its existing TraceSystem validation here; downstream PO
 callers keep their usual with-system/use interface. Do not catch a duplicate-use
 error and return an earlier observation: the whole session refuses delivery.
 Escaped callbacks refuse before metadata reads after cleanup. See
-[P56](pbt/preparation.md#p56-fixture-lifetime-admission-before-typed-preparation).
+[Fixture lifetime admission before typed preparation](pbt/preparation.md#fixture-lifetime-admission-before-typed-preparation).
 
 A product unpacker must return a proper list with exactly one value per declared
 child. Measurement and finite shrinking reject mismatched rows before invoking
@@ -189,59 +189,59 @@ consuming-product-sampler example uses standard reverse!). Finite POO child list
 are admitted and copied before packing or iterator publication. Arbitrary payloads
 remain shared under their Type/source contracts; no inverse law is inferred for a
 custom pack/unpack pair. See
-[P57](pbt/data-generation.md#p57-fixed-product-row-and-finite-expansion-ownership).
+[Fixed product row and finite expansion ownership](pbt/data-generation.md#fixed-product-row-and-finite-expansion-ownership).
 
 
-P58 closes portable handoff configuration and physical framing admission.
+[Portable handoff request admission and physical framing](pbt/replay.md#portable-handoff-request-admission-and-physical-framing) closes portable handoff configuration and physical framing admission.
 Gerbil parameter contracts run before observers/computed metadata; standard
 reader EOF and a separately guarded physical EOF probe precede decoding. Invalid
 requests leave caller ports untouched; malformed input may be consumed and needs
 explicit fresh input. Revision/exception behavior and nested Function wrapping
 remain with their existing owners. Eleven finite Lean laws model request/source/
 framing order, assuming faithful host port operations rather than proving the
-reader or I/O rollback. See [P58](pbt/replay.md#p58-portable-handoff-request-admission-and-physical-framing).
+reader or I/O rollback. See [Portable handoff request admission and physical framing](pbt/replay.md#portable-handoff-request-admission-and-physical-framing).
 
 
-P59 closes static trace request admission before computed declarations and
+[Trace request admission before declarations and fixture scope](pbt/model-traces.md#trace-request-admission-before-declarations-and-fixture-scope) closes static trace request admission before computed declarations and
 fixture acquisition. Standard Gerbil contracts cover generic/typed check requests,
 typed finite limits/dependencies and trace-property binding. Existing model folds,
 source checks, Record/Function wrapping and FUN delivery remain the execution
 owners. Eleven finite Lean laws reuse Boolean admission and guarded preparation;
 callback arity, termination and host cleanup are premises. See
-[P59](pbt/model-traces.md#p59-trace-request-admission-before-declarations-and-fixture-scope).
+[Trace request admission before declarations and fixture scope](pbt/model-traces.md#trace-request-admission-before-declarations-and-fixture-scope).
 
 
-P60 captures typed trace ingress before computed metadata and registers explicit
+[Owned trace ingress and first-observed explicit dependencies](pbt/model-traces.md#owned-trace-ingress-and-first-observed-explicit-dependencies) captures typed trace ingress before computed metadata and registers explicit
 owners in the existing first-observation ledger. Validation, repair, checking and
 generation reuse the existing Record, source and FUN protocols. Caller spine edits
 cannot retarget commands or dependency identities; payloads remain shared. Eight
 finite Lean laws model the original request handoff and guarded preparation;
 faithful host copying/observers and callback termination remain premises. See
-[P60](pbt/model-traces.md#p60-owned-trace-ingress-and-first-observed-explicit-dependencies).
+[Owned trace ingress and first-observed explicit dependencies](pbt/model-traces.md#owned-trace-ingress-and-first-observed-explicit-dependencies).
 
-P61 guards FunctionArguments metadata from its first Function/clause/input Type
+[First-observed Function input declarations](pbt/function-generation.md#first-observed-function-input-declarations) guards FunctionArguments metadata from its first Function/clause/input Type
 observation and carries that authority through cached layouts and lazy children.
-See [P61](pbt/function-generation.md#p61-first-observed-function-input-declarations).
+See [First-observed Function input declarations](pbt/function-generation.md#first-observed-function-input-declarations).
 
-P62 routes fixed recursive carrier fields through ordered edge discovery: quota
+[Ordered fixed-carrier edge discovery](pbt/type-discovery.md#ordered-fixed-carrier-edge-discovery) routes fixed recursive carrier fields through ordered edge discovery: quota
 precedes metadata, and each returned Type is captured before the next getter.
-See [P62](pbt/type-discovery.md#p62-ordered-fixed-carrier-edge-discovery).
+See [Ordered fixed-carrier edge discovery](pbt/type-discovery.md#ordered-fixed-carrier-edge-discovery).
 
-P63 shares opaque sampler constructor/source admission between recursive graphs
+[Shared opaque sampler admission before optional metadata](pbt/type-discovery.md#shared-opaque-sampler-admission-before-optional-metadata) shares opaque sampler constructor/source admission between recursive graphs
 and typed bridges before optional availability metadata. See
-[P63](pbt/type-discovery.md#p63-shared-opaque-sampler-admission-before-optional-metadata).
+[Shared opaque sampler admission before optional metadata](pbt/type-discovery.md#shared-opaque-sampler-admission-before-optional-metadata).
 
-P64 shares the core's strict Boolean source contract across graph participants,
+[Strict Boolean source admission across typed composition](pbt/generator-control.md#strict-boolean-source-admission-across-typed-composition) shares the core's strict Boolean source contract across graph participants,
 direct typed checks and cached guards; malformed replies cannot authorize later
-work. See [P64](pbt/generator-control.md#p64-strict-boolean-source-admission-across-typed-composition).
+work. See [Strict Boolean source admission across typed composition](pbt/generator-control.md#strict-boolean-source-admission-across-typed-composition).
 
-P65 reuses generic failure classification for typed initialization: secondary
+[Shared primary-cause ownership during typed preparation failure](pbt/preparation.md#shared-primary-cause-ownership-during-typed-preparation-failure) reuses generic failure classification for typed initialization: secondary
 observation/classification cannot erase the primary cause or enter consumer IO.
-See [P65](pbt/preparation.md#p65-shared-primary-cause-ownership-during-typed-preparation-failure).
+See [Shared primary-cause ownership during typed preparation failure](pbt/preparation.md#shared-primary-cause-ownership-during-typed-preparation-failure).
 
-P66 admits diagnostic controls before typed preparation, sharing the generic
+[Diagnostic request admission before typed preparation](pbt/diagnostics.md#diagnostic-request-admission-before-typed-preparation) admits diagnostic controls before typed preparation, sharing the generic
 request check without changing legal zero budgets or preparation exceptions.
-See [P66](pbt/diagnostics.md#p66-diagnostic-request-admission-before-typed-preparation).
+See [Diagnostic request admission before typed preparation](pbt/diagnostics.md#diagnostic-request-admission-before-typed-preparation).
 
 ### Portable handle identity
 

@@ -8,23 +8,23 @@ be checked separately. The finite laws retain their stated runtime premises.
 
 On this page:
 
-- [P5: reusable data generation families](#p5-reusable-data-generation-families)
-- [P8: retained structural collection shrinking](#p8-retained-structural-collection-shrinking)
-- [P12: finite-key HashTable and typed Map generation](#p12-finite-key-hashtable-and-typed-map-generation)
-- [P13: declared finite enumeration simplification](#p13-declared-finite-enumeration-simplification)
-- [P18: retained independent product shrinking](#p18-retained-independent-product-shrinking)
-- [P21: shared typed-product observation and directory ownership](#p21-shared-typed-product-observation-and-directory-ownership)
-- [P22: fixed-product source admission before drawing](#p22-fixed-product-source-admission-before-drawing)
-- [P28: exact bounded model draw configuration](#p28-exact-bounded-model-draw-configuration)
-- [P29: finite sequence preparation without prefix salvage](#p29-finite-sequence-preparation-without-prefix-salvage)
-- [P41: finite fixed-product preparation and retained trees](#p41-finite-fixed-product-preparation-and-retained-trees)
-- [P44: portable vector copy preparation and shared resource credits](#p44-portable-vector-copy-preparation-and-shared-resource-credits)
-- [P47: automatic exact integer carrier profiles](#p47-automatic-exact-integer-carrier-profiles)
-- [P48: one spelling protocol for text carriers and keyword call values](#p48-one-spelling-protocol-for-text-carriers-and-keyword-call-values)
-- [P55: owned finite sequence preparation](#p55-owned-finite-sequence-preparation)
-- [P57: fixed product row and finite expansion ownership](#p57-fixed-product-row-and-finite-expansion-ownership)
+- [Reusable data generation families](#reusable-data-generation-families)
+- [Retained structural collection shrinking](#retained-structural-collection-shrinking)
+- [Finite-key HashTable and typed Map generation](#finite-key-hashtable-and-typed-map-generation)
+- [Declared finite enumeration simplification](#declared-finite-enumeration-simplification)
+- [Retained independent product shrinking](#retained-independent-product-shrinking)
+- [Shared typed-product observation and directory ownership](#shared-typed-product-observation-and-directory-ownership)
+- [Fixed-product source admission before drawing](#fixed-product-source-admission-before-drawing)
+- [Exact bounded model draw configuration](#exact-bounded-model-draw-configuration)
+- [Finite sequence preparation without prefix salvage](#finite-sequence-preparation-without-prefix-salvage)
+- [Finite fixed-product preparation and retained trees](#finite-fixed-product-preparation-and-retained-trees)
+- [Portable vector copy preparation and shared resource credits](#portable-vector-copy-preparation-and-shared-resource-credits)
+- [Automatic exact integer carrier profiles](#automatic-exact-integer-carrier-profiles)
+- [One spelling protocol for text carriers and keyword call values](#one-spelling-protocol-for-text-carriers-and-keyword-call-values)
+- [Owned finite sequence preparation](#owned-finite-sequence-preparation)
+- [Fixed product row and finite expansion ownership](#fixed-product-row-and-finite-expansion-ownership)
 
-## P5: reusable data generation families
+## Reusable data generation families
 
 Implemented: `generator-integer`, `generator-character`, `generator-byte`,
 `generator-list`, `generator-string`, `generator-symbol` and `generator-bytes`
@@ -60,7 +60,7 @@ and [Quickcheck](https://docs.racket-lang.org/quickcheck/index.html)
 (character-generator-driven string construction). No separate generation engine
 or implicit filter/retry policy is introduced.
 
-## P8: retained structural collection shrinking
+## Retained structural collection shrinking
 
 Audit finding: generic Lists shrank a length seed and regenerated the payload;
 typed recursive Lists offered empty/tail deletion only. A failure requiring both
@@ -98,7 +98,7 @@ runtime-wide cost model.
 informs the removal-before-coordinate policy. The implementation reuses the
 existing modules, iterators, sample records, domain gates and check runner.
 
-## P12: finite-key HashTable and typed Map generation
+## Finite-key HashTable and typed Map generation
 
 The next finite collection capability is a HashTable with an explicit finite key
 domain. Racket provides hash generation, while our supported container algebra
@@ -155,7 +155,7 @@ provide the comparison point. This implementation intentionally declares unique,
 stable key identities rather than silently collapsing generated duplicate keys;
 existing value-generation and shrinking protocols remain the only runner algebra.
 
-## P13: declared finite enumeration simplification
+## Declared finite enumeration simplification
 
 Finite Enum values previously had no shrink candidates and zero measure. A
 nested collection could reduce its shape but could not simplify an Enum field.
@@ -191,7 +191,7 @@ source checks retain the existing lazy tree and budget costs.
 also supplies shrinking. Its removal-of-previous-choices policy differs from our
 explicit declaration-order policy; byte-for-byte tree parity is not claimed.
 
-## P18: retained independent product shrinking
+## Retained independent product shrinking
 
 The concentrated audit reproduced a distinction missing from the composition
 implementation: `generator-sequence` used dependent bind for both drawing and
@@ -234,13 +234,13 @@ others; its bind documentation separately prioritizes dependent parent shrinking
 We preserve that distinction with Gerbil's existing tree algebra and the project's
 additional revision protocol. Random bitstreams need not match Racket.
 
-## P21: shared typed-product observation and directory ownership
+## Shared typed-product observation and directory ownership
 
 The audit reproduced a typed/generic mismatch in the explicit `product-generator`
 factory: a first typed field measure
 changed a later field's source, yet that later measure still ran before the whole
 report finally became stale. The generic product specification already stopped
-between field callbacks (P15), but `product-generator` duplicated its measure
+between field callbacks ([Source-consistent policy and product admission](replay.md#source-consistent-policy-and-product-admission)), but `product-generator` duplicated its measure
 with a plain map/sum. Value-only coordinate shrinking similarly could continue
 to packing and later child callbacks. A caller could also mutate the supplied
 child-list spine after construction, making draw use the old children while
@@ -291,9 +291,9 @@ heap/time/proposal limits remain required.
 informs keeping generation algebra separate from domain observation. Common
 revision owners and typed sampler evidence are this project's explicit extension.
 
-## P22: fixed-product source admission before drawing
+## Fixed-product source admission before drawing
 
-The next audit reproduced a producer-level gap distinct from P21's typed domain
+The next audit reproduced a producer-level gap distinct from [Shared typed-product observation and directory ownership](data-generation.md#shared-typed-product-observation-and-directory-ownership)'s typed domain
 measures. `generator-sequence` already knows every fixed field, but the bind/map
 implementation exposed none of their source leaves at the product boundary. If a
 later field was obsolete before generation, `generator-current?` still returned
@@ -347,7 +347,7 @@ required. Rackcheck's pinned `gen:bind` composes retained trees and a captured c
 random source; we retain that algebra. Epoch-based fixed-product admission is our
 explicit extension, not a missing feature attributed to Racket.
 
-## P28: exact bounded model draw configuration
+## Exact bounded model draw configuration
 
 The generic trace draw accepted non-natural steps and size directly as iterator
 bounds. Before repair, steps `-1` and `1/2` each generated a command and invoked
@@ -395,7 +395,7 @@ using Gerbil mechanisms; this project's finite model-trace API is an extension,
 not a claim that Rackcheck implements the same state-machine protocol.
 
 
-## P29: finite sequence preparation without prefix salvage
+## Finite sequence preparation without prefix salvage
 
 The audit reproduced two silent truncations. `valid-trace?` rejected a dotted
 command spine while `repair-trace` initialized the model and returned its apparent
@@ -455,7 +455,7 @@ requires stream-shaped general shrink results. We preserve that lazy-protocol
 separation using Gerbil Iterators while enforcing the narrower proper-list
 contract of this project's finite value policy. Revision checks remain our extension.
 
-## P41: finite fixed-product preparation and retained trees
+## Finite fixed-product preparation and retained trees
 
 Two bounded reproductions selected this unit. Passing a cyclic constructor spine
 to `generator-sequence` consumed the diagnostic process deadline instead of
@@ -516,7 +516,7 @@ observers, serial terminating callbacks and faithful seed
 splitting remain premises. No Scheme runtime, PRNG-quality or arbitrary callback
 correctness proof is claimed.
 
-## P44: portable vector copy preparation and shared resource credits
+## Portable vector copy preparation and shared resource credits
 
 The original [Type Descriptors / I/O Validation discussion](https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L1359)
 places encoding/decoding and random generation/compression in the descriptor
@@ -574,7 +574,7 @@ finite copies. This proves neither host allocation bytes nor reader/encoder
 behavior, GC latency, wall-clock speedup or arbitrary I/O correctness. Existing
 heap/time/source/check limits and the unchanged complete paired entry remain.
 
-## P47: automatic exact integer carrier profiles
+## Automatic exact integer carrier profiles
 
 The concentrated audit reproduced a missing derivation path for existing
 `IntegerRange`, `UIntN`, `IntN` and `Z/` descriptors. They required handwritten
@@ -622,7 +622,7 @@ the paper's future work, not proofs of Scheme execution, PRNG distribution or
 wall-clock performance. The width bound is not a constant-time bignum arithmetic
 claim. All existing checks and resource limits remain unchanged.
 
-## P48: one spelling protocol for text carriers and keyword call values
+## One spelling protocol for text carriers and keyword call values
 
 The concentrated audit found that the existing Keyword Type had validation and
 standard string conversion but no automatic PBT derivation. FunctionArguments
@@ -671,7 +671,7 @@ prove Gerbil intern tables, the compiler, PRNG distribution or physical memory a
 latency. This advances the paper's future-work direction. No upstream code,
 module framework, namespace, runner, resource limit or acceptance check changes.
 
-## P55: owned finite sequence preparation
+## Owned finite sequence preparation
 
 The audit reproduced a split preparation boundary in the existing finite value
 policy. With input (4 6), a first parameter callback changing the caller's second
@@ -726,7 +726,7 @@ model snapshot costs a linear shallow copy per preparation; no wall-time or
 allocation improvement is inferred from these correctness controls. Existing
 complete checks, watchdogs and heap limits remain unchanged.
 
-## P57: fixed product row and finite expansion ownership
+## Fixed product row and finite expansion ownership
 
 The audit reproduced three defects in the value-level product path. An improper
 child neighborhood invoked the packer once before refusing its tail. A two-field

@@ -10,17 +10,17 @@ On this page:
 
 - [Original RFC metadata](#original-rfc-metadata)
 - [Module ownership and independent-library boundary](#module-ownership-and-independent-library-boundary)
-- [Next acceptance units](#next-acceptance-units)
+- [Feature acceptance](#feature-acceptance)
 - [Quickcheck and Rackcheck source comparison](#quickcheck-and-rackcheck-source-comparison)
 - [Decision](#decision)
 - [Source basis and existing capabilities](#source-basis-and-existing-capabilities)
 - [Scope and explicit boundaries](#scope-and-explicit-boundaries)
 - [Abstraction and implementation review](#abstraction-and-implementation-review)
-- [Next acceptance units after finite P1-P3](#next-acceptance-units-after-finite-p1-p3)
+- [Extended feature acceptance](#extended-feature-acceptance)
 
 ## Original RFC metadata
 
-- Status: finite V1 and P0–P85 implemented within the finite domains below; CI is checked per revision.
+- Status: finite V1 and the finite protocol features implemented within the finite domains below; CI is checked per revision.
 - Date: 2026-10-27.
 - Targets: Gerbil-POO PR #13 and Lean-POO PR #13.
 - Implementation acceptance: reusable protocol, collection controls and downstream integration are implemented; CI is checked independently for each submitted revision.
@@ -64,7 +64,7 @@ isolated installation has no object, MOP or typed testing modules. Sharing a
 module path does not import parent modules. This demonstrates code dependency
 independence; it is not an upstream publication.
 
-## Next acceptance units
+## Feature acceptance
 
 Audit date: 2026-10-28. Scheme source: `bb9729df2aa23a90869924c88e1f860cfd7f9991`.
 Lean proof source: `d4654df01516b134de6ce4171f961241795107ea`.
@@ -215,5 +215,5 @@ backends, including adapters deliberately broken at stale admission, index
 observation, inverse installation and atomic failure. Their reference oracle uses
 logical handles and ordinary lists, independent of backend mutation algorithms.
 
-## Next acceptance units after finite P1-P3
+## Extended feature acceptance
 

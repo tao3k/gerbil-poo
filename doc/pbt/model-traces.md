@@ -10,15 +10,15 @@ On this page:
 
 - [Canonical trace admission and execution](#canonical-trace-admission-and-execution)
 - [Stepwise differential execution](#stepwise-differential-execution)
-- [P14: dependency-repaired block trace shrinking](#p14-dependency-repaired-block-trace-shrinking)
-- [P20: revision-bound scoped differential trace execution](#p20-revision-bound-scoped-differential-trace-execution)
-- [P30: source-consistent generic model actions](#p30-source-consistent-generic-model-actions)
-- [P39: inherited declaration scope for typed differential fixtures](#p39-inherited-declaration-scope-for-typed-differential-fixtures)
-- [P40: first-observation typed trace declaration preparation](#p40-first-observation-typed-trace-declaration-preparation)
-- [P54: demand-driven dependency-repaired trace trees](#p54-demand-driven-dependency-repaired-trace-trees)
-- [P59: trace request admission before declarations and fixture scope](#p59-trace-request-admission-before-declarations-and-fixture-scope)
-- [P60: owned trace ingress and first-observed explicit dependencies](#p60-owned-trace-ingress-and-first-observed-explicit-dependencies)
-- [P70: shared dependent declarations and closed source observers](#p70-shared-dependent-declarations-and-closed-source-observers)
+- [Dependency-repaired block trace shrinking](#dependency-repaired-block-trace-shrinking)
+- [Revision-bound scoped differential trace execution](#revision-bound-scoped-differential-trace-execution)
+- [Source-consistent generic model actions](#source-consistent-generic-model-actions)
+- [Inherited declaration scope for typed differential fixtures](#inherited-declaration-scope-for-typed-differential-fixtures)
+- [First-observation typed trace declaration preparation](#first-observation-typed-trace-declaration-preparation)
+- [Demand-driven dependency-repaired trace trees](#demand-driven-dependency-repaired-trace-trees)
+- [Trace request admission before declarations and fixture scope](#trace-request-admission-before-declarations-and-fixture-scope)
+- [Owned trace ingress and first-observed explicit dependencies](#owned-trace-ingress-and-first-observed-explicit-dependencies)
+- [Shared dependent declarations and closed source observers](#shared-dependent-declarations-and-closed-source-observers)
 
 ## Canonical trace admission and execution
 
@@ -79,7 +79,7 @@ unchanged to the existing `error` report; catching everything as conflict, false
 or success is prohibited. Failed operations must leave the observed old state
 and usable ownership unchanged before any retry is admitted.
 
-## P14: dependency-repaired block trace shrinking
+## Dependency-repaired block trace shrinking
 
 Audit finding: the typed trace sampler enumerated only single-command deletions
 and separately rebuilt parameter coordinates. A failure requiring zero or two
@@ -123,7 +123,7 @@ We do not claim lazy preparation, linear wall-clock complexity, all possible
 subsequences, or a globally minimal witness. The supplied neighborhood becomes
 stronger without changing fuel accounting or inventing another shrink runner.
 
-## P20: revision-bound scoped differential trace execution
+## Revision-bound scoped differential trace execution
 
 A direct typed `check-trace` could execute both commands and return `matched? #t`
 after its actual fixture revised the model's observation declaration. No model
@@ -186,7 +186,7 @@ created. Existing heap/time/proposal limits and complete checks remain unchanged
 informs keeping the oracle/fixture boundary outside the generator algebra. The
 revision-bound model protocol is this project's extension, not a Rackcheck API.
 
-## P30: source-consistent generic model actions
+## Source-consistent generic model actions
 
 The audit reproduced a missed action boundary, rather than expanding the model's
 research scope: an ordinary source-owned generator called `draw-trace`, whose
@@ -236,7 +236,7 @@ Rackcheck feature. Every newly protected action walks its active observer ledger
 no timing or zero-cost improvement is claimed. Existing resource limits and the
 complete local/remote checks remain the acceptance gate for this revision.
 
-## P39: inherited declaration scope for typed differential fixtures
+## Inherited declaration scope for typed differential fixtures
 
 A direct `check-trace` reproduction changed its model during preparation, then
 entered a mapped generator before returning. The eventual stale refusal was too
@@ -278,7 +278,7 @@ fixture-only retirement. Existing nested-action admission proves suppression of
 unstarted callbacks; restoration is not transaction rollback or a concurrent
 snapshot/host evaluator correctness proof.
 
-## P40: first-observation typed trace declaration preparation
+## First-observation typed trace declaration preparation
 
 A raw model with computed Command and State fields reproduced a false admission:
 Command was read, State revised that Type, then batched snapshotting captured the
@@ -327,7 +327,7 @@ currentness. Existing captureRevision laws preserve earlier observations. These
 finite laws assume faithful host scope and clocks; they do not prove arbitrary
 callbacks, the evaluator, concurrency, or global shrink minimality.
 
-## P54: demand-driven dependency-repaired trace trees
+## Demand-driven dependency-repaired trace trees
 
 The audit reproduced unused framework work on the normal typed trace path: an
 eight-command trace with shrink-budget one called all eight parameter shrinkers
@@ -412,7 +412,7 @@ six charged structural returns, one valid reduction and seven balanced fixtures
 before the malformed parameter list refuses. No element of that malformed list
 is returned or charged; an error report still cannot authorize concrete replay.
 
-## P59: trace request admission before declarations and fixture scope
+## Trace request admission before declarations and fixture scope
 
 The complete trace front door had two reproduced admission defects. A generic
 `check-trace` request with a nonprocedure equality callback initialized its model
@@ -474,13 +474,13 @@ extension into the original paper's compiler/runtime validation. Existing full
 checks, negative controls and resource limits remain unchanged.
 
 
-## P60: owned trace ingress and first-observed explicit dependencies
+## Owned trace ingress and first-observed explicit dependencies
 
 The audit reproduced a shared ingress ownership defect across typed validation,
 repair, execution and generation. A computed Command declaration could replace
 `(1 2)` with `(99 2)` before the model saw the commands. A computed declaration
 could also replace an explicit dependency owner in the caller's list; retiring
-the originally supplied owner then left the old sampler current. P59's properness
+the originally supplied owner then left the old sampler current. [Trace request admission before declarations and fixture scope](model-traces.md#trace-request-admission-before-declarations-and-fixture-scope)'s properness
 checks admitted a shape, but did not yet capture that admitted request before
 computed declarations. The frozen baseline uses direct lazy declarations and
 checks that caller rows/owners are unchanged immediately before API entry; effects
@@ -532,7 +532,7 @@ request; metadata and epoch registration remain with their existing owners. No
 wall-clock speedup is inferred. Existing complete acceptance and resource limits
 remain unchanged. This continues the RFC's finite future-work protocol.
 
-## P70: shared dependent declarations and closed source observers
+## Shared dependent declarations and closed source observers
 
 The report-producing `testing/property` declaration now accepts the existing
 binding syntax of `testing/property/test`:
