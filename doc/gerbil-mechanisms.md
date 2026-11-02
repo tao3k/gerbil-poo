@@ -1082,3 +1082,23 @@ nested Function values retain their invocation checks. The existing codec trait
 already delegates to T and is reused rather than replaced. Custom wrap/unwrap
 operations still require their stated representation laws. Abstract category
 prototypes are declarations, not a claim of an unrestricted category solver.
+
+### Checked wrapper and byte transfer laws
+
+The companion Lean `Functional.WrapperValidation` model reuses `checkedAction`
+and proves outer refusal, exact payload-cause propagation, final membership,
+unchanged-carrier reuse and checked-payload retention. The last result needs the
+explicit unwrap/rebuild law; it does not assume decidable equality on functions or
+prove Gerbil's `eq?`. `Functional.FunctionValidation` supplies the retained input
+and output invocation gates. Regression controls include present false payloads,
+invalid Function results and normalization that violates an outer refinement.
+
+`Functional.ByteIO` models already admitted nonnegative spans, empty transport,
+exact lengths, and state retained on short reads or output failure. Reader/Writer
+implementations must obey the standard interface's span/count/minimum contracts.
+The finite state records are observations of transport effects, not another stream
+implementation. `Examples/CheckedTransfer.lean` checks short-read suppression,
+partial output, opaque false errors, fresh retry and checked callback invocation.
+Host regressions use the real standard ports and Reader/Writer dispatch. Neither
+model proves runtime memory management, pointer identity, callback termination,
+flush/close correctness or transactional rollback; callers still own resources.

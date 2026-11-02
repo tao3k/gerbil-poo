@@ -3,7 +3,7 @@
 (import :std/test
         (only-in :clan/poo/fun Identity Wrapper. Wrap. IdWrap)
         (only-in :clan/poo/object .cc .call .set!)
-        (only-in :clan/poo/mop validate TypeError? Function)
+        (only-in :clan/poo/mop validate TypeError? Function Bool)
         (only-in :clan/poo/number UInt Integer)
         (only-in :clan/poo/support/option some make-some some? some-value))
 
@@ -41,7 +41,29 @@
       (check-equal? calls 1)
       (def identity-type (.cc IdWrap T: signature))
       (def fn (validate identity-type (lambda (value) value)))
-      (check-exception (fn 'wrong) TypeError?))
+      (check-exception (fn 'wrong) TypeError?)
+      (def invalid-result (validate type (some (lambda (_) 'wrong-result))))
+      (check-exception ((some-value invalid-result) 7) TypeError?))
+    (test-case "false payloads remain values in identity and explicit carriers"
+      (def carrier (.cc Wrapper. .ap: make-some .unap: some-value))
+      (def boxed (.cc Wrap. T: Bool Wrapper: carrier .wrap?: some?))
+      (def original (some #f))
+      (check-eq? (validate boxed original) original)
+      (check-eq? (some-value (validate boxed original)) #f)
+      (check-eq? (validate (.cc IdWrap T: Bool) #f) #f))
+    (test-case "outer refinement gates payload callbacks before and after normalization"
+      (def calls 0) (def domain (.cc UInt))
+      (.set! domain .validate (lambda (_) (set! calls (1+ calls)) 3))
+      (def carrier (.cc Wrapper. .ap: make-some .unap: some-value))
+      (def type (.cc Wrap. T: domain Wrapper: carrier .wrap?: some?
+        .element?: (lambda (value) (and (some? value) (integer? (some-value value))
+                                       (even? (some-value value))))))
+      (check-exception (validate type (some 3)) TypeError?)
+      (check-equal? calls 0)
+      (def original (some 2))
+      (check-exception (validate type original) TypeError?)
+      (check-equal? calls 1)
+      (check-equal? (some-value original) 2))
     (test-case "identity wrappers reuse the inherited codec implementations"
       (def type (.cc IdWrap T: UInt))
       (check-equal? (.call type .<-bytes (.call type .bytes<- 1234)) 1234)

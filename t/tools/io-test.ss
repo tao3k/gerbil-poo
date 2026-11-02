@@ -33,6 +33,16 @@
 ;; This fixture owns no external resource.
 (defmethod {close refusing-stream} (lambda (_) (void)))
 
+;; Model a Writer that reports failure after a real partial output effect.
+(defstruct partial-writer (port cause) final: #t)
+;; Commit the first byte through the standard primitive, then raise the exact cause.
+(defmethod {write partial-writer}
+  (lambda (self bytes start _end)
+    (write-u8 (u8vector-ref bytes start) (partial-writer-port self))
+    (raise (partial-writer-cause self))))
+;; The test owns closing, exactly as with the ordinary Writer endpoint.
+(defmethod {close partial-writer} (lambda (self) (close-output-port (partial-writer-port self))))
+
 (def io-test
   (test-suite "byte I/O"
     (test-case "byte input uses the supplied standard port"
@@ -105,6 +115,16 @@
       (check-equal? (action (.o input: (make-counted-reader (open-input-u8vector #u8(8 9)) 0)
                               output: (make-counted-writer target 0))) #u8(8 9))
       (check-equal? (get-output-u8vector target) #u8(8 9)))
+    (test-case "failed exact reads and partial writes retain their consumed prefixes"
+      (def source (open-input-u8vector #u8(7)))
+      (check-exception (io.object-read-bytes 2 source) io-error?)
+      (check (io.object-read-byte source) ? eof-object?)
+      (def target (open-output-u8vector)) (def cause (cons 'partial 'write))
+      (def endpoint (open-input-u8vector #u8(8 9)))
+      (check-eq? (with-catch values (lambda ()
+        ((copy-bytes-action 2) (.o input: endpoint output: (make-partial-writer target cause))))) cause)
+      (check (io.object-read-byte endpoint) ? eof-object?)
+      (check-equal? (get-output-u8vector target) #u8(8)))
     (test-case "FUN output failures propagate without caching the previous read"
       (def action (copy-bytes-action 2)) (def cause (cons 'write 'failure))
       (check-eq? (with-catch values (lambda () (action (.o input: (open-input-u8vector #u8(1 2))
