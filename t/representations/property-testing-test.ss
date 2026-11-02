@@ -113,15 +113,102 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 243)
+    (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) 246)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
-    (displayln "PROPERTY-LIBRARY-OK 243 cases; isolated stdlib-only compiled modules"))))
+    (displayln "PROPERTY-LIBRARY-OK 246 cases; isolated stdlib-only compiled modules"))))
+
+;; Keep the public replay variants in one small test dispatcher; each API still
+;; owns its actual admission/error semantics and return shape.
+(def (typed-replay-operation operation report codec output)
+  (case operation
+    ((seed) (replay-property report)) ((concrete) (replay-counterexample report))
+    ((export) (write-counterexample report codec output))))
 
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "typed replay retains explicit owners before computed execution handoff"
+      (for (operation '(seed concrete export))
+        (def owner (.o epoch: 0)) (def calls 0) (def encoded 0)
+        (def base (check-property Integer (lambda (_) (set! calls (1+ calls)) #f)
+          cases: 1 shrink-budget: 0))
+        (def execution (.get base execution))
+        (def row (cons (cons owner (object-revision owner)) (.get base sources)))
+        (def report (.o bind-these: #f inherit: [base] sources: row
+          execution: (begin (.set! owner epoch 1) execution)))
+        (def codec (replay.make-codec 'typed-owner
+          (lambda (value) (set! encoded (1+ encoded)) value) values))
+        (def output (open-output-string)) (set! calls 0)
+        (check-exception (typed-replay-operation operation report codec output)
+          (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "stale property replay"))))
+        (check-equal? (list calls encoded (string-length (get-output-string output))) '(0 0 0))))
+    (test-case "typed replay owns source pairs before sampler metadata and transient report revision"
+      (for* ((operation '(seed concrete export)) (fault '(row report sampler)))
+        (def owner (.o epoch: 0)) (def calls 0)
+        (def base (check-property Integer (lambda (_) (set! calls (1+ calls)) #f)
+          cases: 1 shrink-budget: 0))
+        (def row (cons (cons owner (object-revision owner)) (.get base sources)))
+        (def supplied (.o bind-these: #f inherit: [(.get base sampler)] .current?: (lambda () #t)))
+        (def execution (.get base execution))
+        (def report #f)
+        (set! report (.o bind-these: #f inherit: [base] sources: row
+          sampler: (begin
+            (case fault
+              ((row) (.set! owner epoch 1) (set-cdr! (car row) (object-revision owner)))
+              ((report) (.set! report changed #t)))
+            (if (eq? fault 'sampler) supplied (.get base sampler)))
+          execution: (begin (when (eq? fault 'sampler) (.set! supplied changed #t)) execution)))
+        (set! calls 0)
+        (check-exception (typed-replay-operation operation report (replay.make-codec 'v1 values values)
+          (open-output-string)) Error?)
+        (check-equal? calls 0)))
+    (test-case "typed replay preserves raw getter and callback causes without late stale replacement"
+      (for* ((operation '(seed concrete export)) (stage '(getter property))
+             (cause (list #f (cons 'original 'cause))))
+        (def owner (.o epoch: 0)) (def armed #f)
+        (def base (check-property Integer
+          (lambda (_)
+            (when (and armed (eq? stage 'property)) (.set! owner epoch 1) (raise cause)) #f)
+          cases: 1 shrink-budget: 0))
+        (def execution (.get base execution))
+        (def row (cons (cons owner (object-revision owner)) (.get base sources)))
+        (def report (.o bind-these: #f inherit: [base] sources: row
+          execution: (begin
+            (when (eq? stage 'getter) (.set! owner epoch 1) (raise cause)) execution)))
+        (set! armed #t)
+        (def returned (with-catch values (lambda ()
+          (typed-replay-operation operation report (replay.make-codec 'v1 values values) (open-output-string)))))
+        (if (and (eq? operation 'seed) (eq? stage 'property))
+          (begin (check-eq? (.get returned status) 'stale) (check-eq? (.get returned cause) cause))
+          (check-eq? returned cause))))
+    (test-case "seed replay publishes detached declared epochs without retaining report chains"
+      (def owner (.o epoch: 0)) (def reads 0) (def checks 0)
+      (def base (check-property Integer (lambda (_) #f) cases: 1 shrink-budget: 0))
+      (def bound (.get base sampler))
+      (def sampler (.o bind-these: #f inherit: [bound]
+        .current?: (begin (set! reads (1+ reads)) (lambda () (set! checks (1+ checks)) #t))))
+      (def row (cons (cons owner (object-revision owner)) (.get base sources)))
+      (def report (.o bind-these: #f inherit: [base] sources: row sampler: sampler))
+      (def again (replay-property report))
+      (check-equal? reads 1)
+      (check-equal? (length (.get again sources)) (length row))
+      (check-eq? (car (car (.get again sources))) owner)
+      (check-equal? (cdr (car (.get again sources))) 0)
+      (check (eq? (car (.get again sources)) (car row)) => #f)
+      (set-cdr! (car row) 1)
+      (def before checks)
+      (for (_ (in-range 3))
+        (set! again (replay-property again))
+        (check-eq? (.get again status) 'failed)
+        (check-equal? (length (.get again sources)) (length row)))
+      ;; The POO slot stays memoized; source judgments are still per invocation.
+      (check-equal? reads 1)
+      (check (> checks before) => #t)
+      (.set! owner epoch 1)
+      (check-exception (replay-property again) Error?)
+      (check-exception (replay-counterexample again) Error?))
     (test-case "finite shrink batches are owned before returning observers across typed paths"
       (for* ((path '(bridge product recursive)) (edit '(replace improper cycle)))
         (def Leaf (.cc UInt)) (def row (list 0)) (def armed #f) (def changed #f)

@@ -4,6 +4,13 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Source-owned typed replay handoff now captures report declarations before later
+metadata, passes invocation authority to the existing runner/codec owners, and
+publishes detached source epochs without report-chain growth. Seed, concrete and
+portable replay retain their original cause/classification semantics. Generic
+kernel acceptance requires 246 cases. See
+[Source-owned typed replay handoff](pbt/replay.md#source-owned-typed-replay-handoff).
+
 Source-owned Iterable preparation now covers child creation, standard Iterator
 conversion and nested actions across execution, inspection and generator algebra.
 Factory-return checks remain distinct; conversion does not charge a proposal.

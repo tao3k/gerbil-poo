@@ -74,9 +74,12 @@
 ;; Prepare a complete source-current envelope before entering the port write.
 ;; Standard request contracts precede reconfirmation, encoding or port actions.
 ;; The port boundary is not a transaction: an I/O failure may leave partial bytes.
-(def (write-counterexample (report :~ report?) (codec :~ codec?) (port :~ output-port?))
+;; Explicit invocation authority joins existing per-stage checks without becoming
+;; codec identity, serialized data or a persistent owner on another report.
+(def (write-counterexample (report :~ report?) (codec :~ codec?) (port :~ output-port?)
+                          current?: (guard : :procedure := (lambda () #t)))
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
-  (def (current) (report-current? report))
+  (def (current) (and (live? guard) (report-current? report)))
   ;; Reconfirmation is a separate source-current stage: it can invalidate the
   ;; codec even when the report's own dependencies remain current.
   (with-codec codec (lambda ()
