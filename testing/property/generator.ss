@@ -171,7 +171,7 @@
   ;; retained children keep inherited leaves after dynamic scope has unwound.
   (def (tree value owned)
     (make-sample-node value
-      (lambda () (in-coroutine (lambda (yield)
+      (lambda () (sample-iterator (lambda (yield)
         (for-sources (child (shrink value) owned) (yield (tree child owned)))))) owned))
   (make-generation (lambda (random size)
     (tree (draw random size) (merge-sources (current-generation-sources) observed))) observed))
@@ -190,7 +190,7 @@
       ;; Identity can share an internal node only when it adds no source ownership.
       ((and (eq? transform identity) (eq? observed (sample-node-sources tree))) tree)
       (else (make-sample-node (transform (sample-value tree))
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (for-sources (child ((sample-children tree)) observed)
             (yield (map-sample child transform observed)))))) observed)))))
 ;; Mapping is separate from the domain specification and its decreasing measure.
@@ -212,7 +212,7 @@
            (owned (merge-sources observed (sample-node-sources child))))
       (require-sources! owned)
       (make-sample-node (sample-value child)
-        (lambda () (make-delay-cursor (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (for-sources (smaller ((sample-children parent)) owned)
             ;; Only regeneration restores a captured delayed-construction scope.
             ;; Unbounded trees use the active caller directly, without a frame.
@@ -221,7 +221,7 @@
                 (bind-sample smaller select seed size owned states (current-delay-budget)))
               (bind-sample smaller select seed size owned states (delay-allowance #f)))))
           (for-sources (smaller ((sample-children child)) owned)
-            (yield (map-sample smaller identity owned))))) #f #f)) owned))))
+            (yield (map-sample smaller identity owned)))))) owned))))
 ;; Bind owns no output-value cache or second PRNG owner.
 (def (generator-bind generator (select : :procedure) current?: (current immutable-current))
   (def sources (merge-sources (observer-sources current []) (generation-sources generator)))
@@ -326,6 +326,11 @@
           (set! (delay-cursor-started? self) #t)
           (parameterize ((current-delay-cursor self))
             (begin0 (children.next!) (set! (delay-cursor-allowance self) #f)))))))))
+;; Every callback-bearing sample coroutine shares one incoming-allowance entry.
+;; Composition must pass the caller limit before any outer continuation restores
+;; its saved scope. Pure structural deletion uses the standard coroutine directly.
+(def (sample-iterator produce)
+  (make-delay-cursor (in-coroutine produce) #f #f))
 ;; Each force spends a token before invoking its constructor; callback termination
 ;; itself remains subject to the unchanged process guard, not a universal theorem.
 (def (generator-delay (construct : :procedure) depth: (depth 32) current?: (current immutable-current))
@@ -345,7 +350,7 @@
       (let (accepted? (boolean-result (predicate (sample-value tree)) "filter must return a boolean"))
         (if accepted?
           (make-sample-node (sample-value tree)
-            (lambda () (in-coroutine (lambda (yield)
+            (lambda () (sample-iterator (lambda (yield)
               (for-sources (child ((sample-children tree)) observed)
                 (yield (filter-sample child predicate observed)))))) observed)
           (make-rejected observed))))))
@@ -528,7 +533,7 @@
     (require-sources! observed)
     (if (not (every sample? trees)) (make-rejected observed)
       (make-sample-node (with-sources observed (pack (map sample-value trees)))
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (require-sources! observed)
           (for (smaller (list-deletions trees minimum)) (yield (sequence smaller observed)))
           (let coordinates ((tail trees) (before []))
@@ -644,7 +649,7 @@
       (make-sample-node
         (make-function-value (map cons rows results)
           (lambda () (and (live? current) (guard))))
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (for-sources (child ((sample-children tree)) (sample-node-sources tree))
             (yield (function-tree child rows current))))))
         (sample-node-sources tree)))))

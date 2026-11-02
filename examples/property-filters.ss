@@ -1,5 +1,5 @@
 ;;; Bounded rejection sampling and retained source ownership through retries.
-(export filter-test-cases! proposal-test-cases! delay-test-cases! resumed-delay-test-cases!)
+(export filter-test-cases! proposal-test-cases! delay-test-cases! resumed-delay-test-cases! composed-delay-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -394,3 +394,94 @@
     (check (generator.stale-generation? cause) => #t)
     (check-equal? forces 0)
     (check-equal? (delay-demand 1 (lambda () 9)) 9)))
+
+;; Compose the same dependency through each callback-bearing sample boundary.
+;; The policy case supplies a standard lazy Iterator, not an alternate runner.
+(def (composed-delay mode force current)
+  (def source (paused-delay force current))
+  (case mode
+    ((map) (generator.generator-map source (lambda (value) (+ value 10))))
+    ((filter) (generator.generator-filter source (lambda (_) #t)))
+    ((product) (generator.make-tree-generator (lambda (random size)
+      (generator.sample-sequence (list (generator.generate source random size)) car min-length: 1))))
+    ((function) (generator.generator-function '((probe)) (generator.generator-map source list)))
+    ((policy) (generator.generator-with-shrink source (lambda (_)
+      (in-coroutine (lambda (yield)
+        (yield 2)
+        (yield (generator.sample-value (generator.generate
+          (generator.generator-delay (lambda () (force) (generator.generator-unit 0)) depth: 1)
+          (generator.random-at 17) 0))))))))))
+
+;; Observe explicit carrier shapes without widening a descriptor or redrawing it.
+(def (composed-delay-value mode value)
+  (case mode ((map) (- value 10))
+    ((function) (car (generator.function-apply value '(probe))))
+    (else value)))
+
+;; All pulls share the enclosing handler; assertions inspect already read values.
+(def (composed-delay-test-cases!)
+  (test-case "outer sample composition cannot erase a resumed caller allowance"
+    (for (mode '(map filter product function policy))
+      (def forces 0)
+      (def root (generator.generate (composed-delay mode (lambda () (set! forces (1+ forces)))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (def cause (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+          (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
+      (check (generator.generation-exhausted? cause) => #t)
+      (check-equal? forces 0)))
+  (test-case "outer sample composition preserves sufficient credits order and EOF"
+    (for (mode '(map filter product function policy))
+      (def forces 0)
+      (def root (generator.generate (composed-delay mode (lambda () (set! forces (1+ forces)))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+        (def first (cursor.next!))
+        (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+        (def second (delay-demand 2 (lambda () (cursor.next!))))
+        (check-equal? (composed-delay-value mode (generator.sample-value second)) 0)
+        (check (eof-object? (cursor.next!)) => #t))
+      (check-equal? forces 1)))
+  (test-case "outer sample composition retains exact resumed constructor causes"
+    (for* ((mode '(map filter product function policy)) (cause (list #f (cons 'force 'cause))))
+      (def root (generator.generate (composed-delay mode (lambda () (raise cause))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (check-eq? (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+          (delay-demand 2 (lambda () (cursor.next!))) 'unexpected))) cause)))
+  (test-case "outer sample composition admits sources before resumed exhaustion"
+    (for (mode '(map filter product function policy))
+      (def live #t) (def forces 0)
+      (def root (generator.generate (composed-delay mode (lambda () (set! forces (1+ forces)))
+        (lambda () live)) (generator.random-at 17) 0))
+      (def cause (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+          (set! live #f)
+          (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
+      (check (generator.stale-generation? cause) => #t)
+      (check-equal? forces 0)))
+  (test-case "composed delay trees retain zero-budget laziness and both replay forms"
+    (for (mode '(map filter product function policy))
+      (def forces 0)
+      (def source (composed-delay mode (lambda () (set! forces (1+ forces))) (lambda () #t)))
+      (def domain (property.make-specification
+        (if (eq? mode 'function) generator.function-value? exact-integer?)
+        (lambda (value) (abs (composed-delay-value mode value)))))
+      (def zero (property.check-property source (lambda (_) #f) domain cases: 1 shrink-budget: 0))
+      (check-equal? (property.report-attempts zero) 0)
+      (check-equal? forces 0)
+      (def reduced (property.check-property source (lambda (_) #f) domain seed: 17 cases: 1 shrink-budget: 16))
+      (check-eq? (property.report-status reduced) 'failed)
+      ;; Greedy descent keeps the first leaf; it does not search abandoned siblings.
+      ;; Only the replacement policy supplies descendants beneath candidate two.
+      (def expected (if (eq? mode 'policy) 0 2))
+      (check-equal? (composed-delay-value mode (property.report-counterexample reduced)) expected)
+      (check (property.replay-counterexample reduced) => #f)
+      (check-equal? (composed-delay-value mode (property.report-counterexample
+        (property.replay-property reduced))) expected))))

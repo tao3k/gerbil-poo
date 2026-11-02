@@ -3794,3 +3794,7 @@ Retained delayed-construction depth now survives dependent parent shrinking and 
 Paused dependency cursors now transfer each incoming caller's numeric delay
 allowance before standard coroutine resumption, preserving source/error priority,
 proposal accounting and explicit fresh retries. See [Incoming delay allowance](pbt/generator-control.md#incoming-delay-allowance-across-suspended-dependency-cursors).
+
+Callback-bearing sample composition now forwards incoming delayed depth through
+map/filter, retained products, finite Functions and value policies at the common
+sample iterator entry. See [Compositional delay allowance](pbt/generator-control.md#compositional-delay-allowance-through-sample-layers).

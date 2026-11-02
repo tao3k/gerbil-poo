@@ -169,7 +169,7 @@
 ;; The fault is injected at an inherited checked edge, never by a second runner.
 (def carrier-tree-test
   (test-suite "known recursive carrier declarations through FUN"
-    (test-case "paused service dependency resumes under caller quota and freshly retries"
+    (test-case "paused mapped filtered service dependency resumes under caller quota and freshly retries"
       (def owner (.o epoch: 0)) (def forces 0)
       (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
       ;; Each draw owns a fresh cursor; the preview does not leak into seed replay.
@@ -177,24 +177,24 @@
       ;; Resume in the requested caller scope, then use ordinary typed FUN actions.
       (def (prepare depth)
         (from-generator schema
-          (core.generator-map
-            (core.make-tree-generator (lambda (random size)
-              (def source (core.generator-delay (lambda ()
-                (core.generator-bind
-                  (core.make-generator (lambda (_r _s) 3)
-                    (lambda (value) (if (= value 3) '(2 1) [])))
-                  (lambda (value) (if (= value 1)
-                    (core.generator-delay (lambda () (set! forces (1+ forces))
-                      (core.generator-unit 0)) depth: 1)
-                    (core.generator-unit value))))) depth: 4))
-              (def root (core.generate source random size))
-              (using (cursor (iter ((core.sample-children root))) :- Iterator)
-                (def first (cursor.next!))
-                (check-equal? (core.sample-value first) 2)
-                (core.sample-value (core.generate
-                  (core.generator-delay (lambda () (core.generator-unit (cursor.next!))) depth: depth)
-                  random size)))))
-            (lambda (value) (make-instance schema count: value handler: abs)))
+          (core.make-tree-generator (lambda (random size)
+            (def source (core.generator-delay (lambda ()
+              (core.generator-bind
+                (core.make-generator (lambda (_r _s) 3)
+                  (lambda (value) (if (= value 3) '(2 1) [])))
+                (lambda (value) (if (= value 1)
+                  (core.generator-delay (lambda () (set! forces (1+ forces))
+                    (core.generator-unit 0)) depth: 1)
+                  (core.generator-unit value))))) depth: 4))
+            (def root (core.generate (core.generator-map
+              (core.generator-filter source (lambda (value) (>= value 0)))
+              (lambda (value) (make-instance schema count: value handler: abs))) random size))
+            (using (cursor (iter ((core.sample-children root))) :- Iterator)
+              (def first (cursor.next!))
+              (check-equal? (.get (core.sample-value first) count) 2)
+              (core.sample-value (core.generate
+                (core.generator-delay (lambda () (core.generator-unit (cursor.next!))) depth: depth)
+                random size)))))
           (cut .get <> count) dependencies: [owner]))
       (def configuration (make-instance PropertyConfiguration seed: 23 cases: 1 size: 4 shrink-budget: 8))
       (def refused ((property-action schema (lambda (_) #f) identity sampler: (prepare 1)) configuration))
