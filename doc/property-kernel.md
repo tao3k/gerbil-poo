@@ -762,7 +762,7 @@ requests leave caller ports untouched; malformed input may be consumed and needs
 explicit fresh input. Revision/exception behavior and nested Function wrapping
 remain with their existing owners. Eleven finite Lean laws model request/source/
 framing order, assuming faithful host port operations rather than proving the
-reader or I/O rollback. See [P58](pbt-design-rfc.md#p58-portable-handoff-request-admission-and-physical-framing).
+reader or I/O rollback. See [P58](pbt/replay.md#p58-portable-handoff-request-admission-and-physical-framing).
 
 
 P59 closes static trace request admission before computed declarations and
@@ -771,7 +771,7 @@ typed finite limits/dependencies and trace-property binding. Existing model fold
 source checks, Record/Function wrapping and FUN delivery remain the execution
 owners. Eleven finite Lean laws reuse Boolean admission and guarded preparation;
 callback arity, termination and host cleanup are premises. See
-[P59](pbt-design-rfc.md#p59-trace-request-admission-before-declarations-and-fixture-scope).
+[P59](pbt/model-traces.md#p59-trace-request-admission-before-declarations-and-fixture-scope).
 
 
 P60 captures typed trace ingress before computed metadata and registers explicit
@@ -780,4 +780,4 @@ generation reuse the existing Record, source and FUN protocols. Caller spine edi
 cannot retarget commands or dependency identities; payloads remain shared. Eight
 finite Lean laws model the original request handoff and guarded preparation;
 faithful host copying/observers and callback termination remain premises. See
-[P60](pbt-design-rfc.md#p60-owned-trace-ingress-and-first-observed-explicit-dependencies).
+[P60](pbt/model-traces.md#p60-owned-trace-ingress-and-first-observed-explicit-dependencies).
