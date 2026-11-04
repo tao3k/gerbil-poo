@@ -4,6 +4,17 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Source-backed Slot initialization now captures finite names and explicit entry
+pairs before standard HashTable callbacks can rewrite them. The same boundary
+serves vector/hash stores, keeps current Function/false identity, preserves source
+refusal priority and old guards, and leaves the source-free path without extra
+copies. The loader/FUN revision and explicit recovery workflow plus finite Lean
+handoff laws are covered in [Owned source-backed Slot initialization
+requests](representation.md#owned-source-backed-slot-initialization-requests).
+Source contents/payload mutation and general language-level tracking retain their
+explicit existing boundaries; no new loader or cache layer is introduced.
+
+
 Source-owned typed replay handoff now captures report declarations before later
 metadata, passes invocation authority to the existing runner/codec owners, and
 publishes detached source epochs without report-chain growth. Seed, concrete and

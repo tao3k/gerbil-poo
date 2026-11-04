@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
-(export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow)
+(export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow seed-request-workflow)
 (export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
@@ -897,3 +897,33 @@
     (unless (and (= (.ref first 'total) 9) (= total 65) (= result 19) (= delivered 6))
       (error "batch revision service oracle"))
     (vector total result delivered)))
+
+;; A standard seed source may enumerate through application code. Construction
+;; owns its finite request before that handoff, retaining exact callback/false
+;; values. The existing checked Reader then revises, refuses and repairs one owner.
+;; Source failures escape to entry-recovery-workflow; effects are not rolled back.
+(def (seed-request-workflow
+       (source (lambda (_names _rows) (list->hash-table '((seed . #f))))))
+  (def names (list 'declared))
+  (def callback (lambda (value) (+ value 3)))
+  (def rows (list (cons 'callback callback) (cons 'disabled #f)))
+  (def initial (source names rows))
+  (def cells (make-slot-values names initial rows absent-value))
+  (unless (and (eq? (hash-ref cells 'callback #f) callback)
+               (eq? (hash-ref cells 'disabled absent-value) #f))
+    (error "seed source retargeted its request"))
+  (def owner (.o inherit: [Service (object<-alist (hash->list cells))] capacity: 2 tariff: 3))
+  (def delivered 0)
+  (def action (checked-field-action ValidService 'total
+    (lambda (receiver total)
+      (set! delivered (1+ delivered))
+      (vector total ((.ref receiver 'callback) 4) (.ref receiver 'disabled)))))
+  (let (first (action owner))
+    (.putslot! owner 'tariff ($constant-slot-spec 4))
+    (let (next (action owner))
+      (.putslot! owner 'tariff ($constant-slot-spec -1))
+      (unless (and (TypeError? (with-catch values (cut action owner))) (= delivered 2))
+        (error "refused seed service reached its consumer"))
+      (.putslot! owner 'tariff ($constant-slot-spec 5))
+      (let (recovered (action owner))
+        (vector first next recovered delivered)))))

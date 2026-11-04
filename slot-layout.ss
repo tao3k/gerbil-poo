@@ -106,19 +106,29 @@
 (def (make-slot-values names initial entries missing previous: (previous #f))
   ;; Admit both spines before append/map; layout construction owns key admission.
   (using ((names :~ list?) (entries :~ list?))
-    (def keys (append names (if initial (hash-keys initial) []) (map car entries)))
-    (def values
-      (case (slot-value-storage)
-        ((vector) (HashTable (make-slot-layout
-          keys #f missing previous: previous)))
-        ((hash)
-          ;; The qualification backend has the same admission, before any seed writes.
-          (for-each (lambda (key) (using (key :~ symbol?) (void))) keys)
-          (make-hash-table-symbolic))
-        (else (error "unknown slot value storage" (slot-value-storage)))))
-    (when initial (hash-for-each (lambda (key value) (hash-put! values key value)) initial))
-    (for (([key . value] entries)) (hash-put! values key value))
-    values))
+    ;; Source enumeration is extensible through the standard HashTable interface.
+    ;; Own request spines/pairs before its first call; opaque values stay shared.
+    ;; Without a source there is no callback handoff and no extra capture cost.
+    (let ((names (if initial (list-copy names) names))
+          (entries (if initial
+                     (map (lambda (entry)
+                       ;; Leave invalid rows to the original key-preparation
+                       ;; primitives, without introducing an earlier refusal.
+                       (if (pair? entry) (cons (car entry) (cdr entry)) entry)) entries)
+                     entries)))
+      (def keys (append names (if initial (hash-keys initial) []) (map car entries)))
+      (def values
+        (case (slot-value-storage)
+          ((vector) (HashTable (make-slot-layout
+            keys #f missing previous: previous)))
+          ((hash)
+            ;; The qualification backend has the same admission, before any seed writes.
+            (for-each (lambda (key) (using (key :~ symbol?) (void))) keys)
+            (make-hash-table-symbolic))
+          (else (error "unknown slot value storage" (slot-value-storage)))))
+      (when initial (hash-for-each (lambda (key value) (hash-put! values key value)) initial))
+      (for (([key . value] entries)) (hash-put! values key value))
+      values)))
 ;; Unwrap the standard interface once when exposing its existing value layout.
 ;; There is no value copy, promotion, lineage alias or auxiliary cache.
 (def (slot-values-layout table)

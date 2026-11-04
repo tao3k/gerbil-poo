@@ -2341,3 +2341,38 @@ post-GC regimes. The initial local run has an inclusive workflow candidate
 median difference of -125.86 microseconds but a +352.38 microsecond maximum;
 its controls also fluctuate. These results do not establish a stable tail gain.
 Raw transcripts stay outside version control.
+
+### Owned source-backed Slot initialization requests
+
+`make-slot-values` now captures caller-owned names and explicit entry pairs before
+the first standard HashTable enumeration. A legal source callback could otherwise
+rewrite both the final static layout and the later explicit value writes. A
+regression reproduced loss of the original Function field. Standard `list-copy`,
+`map` and `cons` provide the shallow ownership boundary; Function and false payloads
+retain identity. The no-source path adds no copying. Invalid non-pair rows remain
+with the original key-preparation primitives rather than introducing an earlier
+refusal. Source-discovery errors still precede symbolic key admission.
+
+The source table itself remains live across its existing discovery and seed
+enumerations. This does not snapshot its contents, reverse callback effects or
+automatically track later mutation. Captured explicit rows keep their original
+order and last-write priority over seeded rows, and allocation stays private until
+construction succeeds. No loader, registry, cache or per-field wrapper was added.
+
+Regressions cover vector/hash backends, both enumeration stages, original and
+retargeted names, entry-spine/key/value changes, exact false/object refusals, old
+layout/guard preservation, invalid-key repair attempts and explicit retries. The
+existing service module demonstrates loader-selected source recovery followed by
+checked FUN delivery, supported revision, failed refinement and repair through the
+same access site. Every retry constructs an independent request.
+
+The existing Lean ValueStorage model proves captured directory/entry handoffs,
+exact stage refusals, preservation of external effects and explicit payload order.
+CheckedTransfer examples retain Function handles/false after external metadata
+replacement and compose refusal with unpublished-store preservation. For admitted
+requests, capture copies names plus twice the entry count; without a source it
+copies zero cells. This logical count excludes source enumeration, hashing/index
+preparation, vector allocation, primitive/GC costs and physical latency. Faithful
+finite source enumeration, standard shallow copies, stable opaque leaves and
+serialized handoffs are premises. This follows the author's explicit invalidation
+policy and makes no compiler, collector or unrestricted callback proof claim.
