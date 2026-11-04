@@ -45,6 +45,8 @@
                 (error "entry initialization refused"))) port)
       (newline port))))
 
+(include "representation/seed.scm")
+
 ;; Every case composes storage, inheritance and invalidation instead of testing an
 ;; independent cache model that the object engine does not actually use.
 (def representation-test
