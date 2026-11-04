@@ -29,7 +29,8 @@ On other platforms the root graph contains libraries only. The existing startup
 program package declares both executable entries in one standard make graph,
 so their static preparation is restricted to their dependency closure. Both
 programs and all library declarations remain required by `build-shared`. Root
-compilation runs to completion; the 90-second program-study guard remains.
+and startup-program compilation run to completion. The 90-second
+program-study guard applies to execution.
 This platform candidate requires a fresh Linux CI pass; macOS timings do not admit it.
 GitHub's `hashFiles` and cache action
 own exact-source cross-run lookup; `std/make` owns local dependency freshness.
@@ -38,7 +39,7 @@ source-key files, cache admission executable or revision ledger are generated.
 The startup package retains `defbuild-script`'s backend parallelism through
 `GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
 disable concurrent backend object compilation. The 90-second startup-program
-gate remains separate from root-library compilation.
+execution gate remains separate from compilation.
 The default local entry shares the existing compiler partitions between two
 official test runners on Darwin and four elsewhere, capped by
 `GERBIL_BUILD_CORES`. CI retains all
@@ -302,6 +303,21 @@ state and timing instrumentation, so it is not a cold-entry comparison. The earl
 be assigned entirely to optimization. No upstream compiler, system validation,
 compiler optimization policy or required POO check was changed. Raw logs and
 artifacts remain outside Git.
+
+### Interrupted static object preparation
+
+The released Darwin compiler waits for existing `.o.lock` files before
+compiling static objects. Terminating the standalone startup build left the
+shared `mop` and `object` locks behind. The next link could wait without a C
+child. Both shared compiler entries now run to completion, while the startup
+study keeps its execution deadline. The root entry refuses a prefix with a
+compiler lock before launching another build. Locks belong to Gerbil. Let an
+active owner finish and use a fresh output prefix after an interrupted build.
+
+Production modules and the two representation entry programs request `-O2`
+through standard compiler declarations. The test compilation policy is
+separate. Compare runtime measurements from prepared production artifacts
+with compilation measured separately.
 
 ### Complete-entry regression at a437746
 

@@ -3,12 +3,18 @@
 (export main)
 (import (prefix-in "examples/build.ss" entry-build.)
         :std/build-script (only-in :std/source this-source-file)
-        (only-in :std/make include-gambit-sharp)
+        (only-in :std/make include-gambit-sharp append-options)
         (only-in "t/build.ss" call-with-build-jobs))
 (include "testing/property/build.scm")
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
+;; Declare one production C policy through standard make. Explicit inputs keep
+;; compiler policy and each module's existing included sources in freshness checks.
+(def (production-module name (inputs []) (cc-options "") . options)
+  [gxc: name [extra-inputs: (cons "build.ss" inputs)]
+    "-cc-options" (append-options "-O2" cc-options) options ...])
+
 ;; Keep the established backend split bound for the table implementation.
 (def +gerbil-poo-cc-options+ "-D___SINGLE_HOST_LIMIT=10000")
 
@@ -18,7 +24,7 @@
    (darwin
     ;; Gambit loads this AOT module as a Mach-O bundle. Math symbols such as
     ;; pow are resolved from the host runtime when the bundle is loaded.
-    '(gxc: "fq" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
+    (production-module "fq" [] "" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
    (else "fq")))
 
 (def +gerbil-poo-build-spec+
@@ -43,7 +49,7 @@
     "recursive-cache"
     "recursive-handling"
     "fun"
-    (gxc: "io" ,@(include-gambit-sharp))
+    ,(apply production-module "io" [] "" (include-gambit-sharp))
     "validation-rebinding"
     "value-diagnostics"
     "class-validation"
@@ -102,7 +108,7 @@
     "strong-components"
     "feedback-graph"
     "reflection"
-    (gxc: "object" (extra-inputs: ("object/observation.scm")))
+    ,(production-module "object" ["object/observation.scm"])
     "polynomial"
     "proto"
     "rationaldict"
@@ -111,9 +117,11 @@
     ;; of making GCC optimize the entire collection module as one label graph.
     ;; Standard compiler inputs, object caching and all stage limits remain owned
     ;; by std/make; this is a code-generation choice, not a larger resource budget.
-    (gxc: "table" (extra-inputs: ("table/observation.scm" "table/io.scm" "table/fold.scm" "table/focus.scm" "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"))
-      "-cc-options" ,+gerbil-poo-cc-options+)
-    (gxc: "trie" (extra-inputs: ("trie/changes.scm")))
+    ,(production-module "table"
+      ["table/observation.scm" "table/io.scm" "table/fold.scm" "table/focus.scm"
+       "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"]
+      +gerbil-poo-cc-options+)
+    ,(production-module "trie" ["trie/changes.scm"])
     "type"
     "testing/generation-graph"
     "testing/recursive-generation"
@@ -193,8 +201,8 @@
     "examples/construction-workflow"
     "examples/shared-contracts"
     "examples/service-combination"
-    "t/joint-coordination-cases"
-    "t/table-testing"
+    (gxc: "t/joint-coordination-cases")
+    (gxc: "t/table-testing")
     "benchmarks/binding-benchmark"
     "benchmarks/binding-cases"
     "benchmarks/binding-suite"
@@ -249,11 +257,14 @@
 ;; libraries dynamic here; the program package owns their required static closure.
 (def build
   (let ()
+    (def modules
+      (map (lambda (spec) (if (string? spec) (production-module spec) spec))
+        +gerbil-poo-build-spec+))
     (defbuild-script
       (cond-expand
-        (darwin (append +gerbil-poo-build-spec+
+        (darwin (append modules
                    (entry-build.representation-build-spec "examples/representation-main")))
-        (else +gerbil-poo-build-spec+)))
+        (else modules)))
     main))
 ;; Close the compiler's own executor if construction refuses before make returns.
 (def (main . options)

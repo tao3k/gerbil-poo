@@ -25,6 +25,13 @@ build-core: check-layout
     #!/usr/bin/env bash
     set -euo pipefail
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
+    # Gerbil waits on these compiler-owned files without a deadline. Refuse a
+    # busy or interrupted prefix before launching another build into it.
+    for lock in "$GERBIL_PATH"/lib/static/*.o.lock; do
+        [[ -e "$lock" ]] || continue
+        printf 'BUILD-LOCK %s: let the owning build finish; use a fresh prefix after interruption\n' "$lock" >&2
+        exit 1
+    done
     if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 gerbil -:max-heap=2G,debug=q build; then
         exit 0
     else
@@ -38,8 +45,10 @@ build-core: check-layout
         exit "$build_status"
     fi
 
+# Compilation can outlast the workload deadline. Killing it mid-object can
+# strand Gerbil's static object locks in the shared package prefix.
 build-shared: build-core
-    cd benchmarks/representation-startup && /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
+    cd benchmarks/representation-startup && /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 gerbil {{ test-runtime-options }} build
 
 # Standalone studies use their ordinary compiler packages only when requested.
 build-benchmarks group: build-core

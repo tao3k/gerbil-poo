@@ -186,6 +186,23 @@
             (write '(export value) port) (newline port)
             (write '(begin-foreign (c-declare "#error expected-backend-refusal")) port) (newline port)
             (write '(def value #f) port) (newline port)))
+        ;; An interrupted Gerbil invocation can leave this compiler-owned
+        ;; marker. The public build must refuse before starting another compiler.
+        (let* ((static (path-expand "package/lib/static" project))
+               (lock (path-expand "clan__poo__testing__broken.o.lock" static))
+               (status #f))
+          (create-directory* static)
+          (call-with-output-file lock void)
+          (let (output (run-process
+            ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
+             "just" "--justfile" task-file "--working-directory" project "build-core"]
+            directory: project stderr-redirection: #t
+            check-status: (lambda (code _settings) (set! status code))))
+            (check-equal? status 1)
+            (check (and (pregexp-match "BUILD-LOCK" output) #t) => #t)
+            (check (pregexp-match "BUILD-CONCURRENCY" output) => #f)
+            (check (file-exists? lock) => #t))
+          (delete-file lock))
         (for (_ (in-range 2))
           (def status #f)
           ;; The real public compiler must fail BOTH attempts, never admit

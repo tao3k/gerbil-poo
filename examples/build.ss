@@ -7,7 +7,7 @@
 ;; Only this program's dependency closure needs static runtime objects.
 (def (representation-build-spec (entry "representation-main") (links (pkg-config-libs "openssl")))
   `((exe: ,entry bin: "representation-main"
-     "-cc-options" "-D___SINGLE_HOST_LIMIT=10000"
+     "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=10000"
      "-ld-options" ,links)))
 (def build
   (let ()

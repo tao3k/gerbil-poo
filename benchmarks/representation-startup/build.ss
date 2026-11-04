@@ -15,6 +15,6 @@
         (darwin [])
         (else (entry-build.representation-build-spec "../../examples/representation-main" links)))
       `((exe: "main" bin: "representation-startup"
-        "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)))) main))
+        "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)))) main))
 ;; Public executor cleanup is shared with the other standard build entries.
 (def (main . options) (call-with-build-jobs (cut apply build options)))
