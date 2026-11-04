@@ -3910,3 +3910,11 @@ before delivery. Direct runtime tampering still fails authentication and can
 never publish that damaged record to the observer. The existing FUN/IO service
 edits observation copies before replay and revision. Lean models the frame
 preserved by delivery and the refusal after work.
+
+
+### Retained Slot offset admission
+
+The direct bound-cell accessor checks the saved shape before using its offset.
+Growing a layout can move the requested slot while leaving the stale offset in
+bounds. Rebinding to the current shape restores the original slot value,
+including false. The receiver-aware inline route retains its existing guards.

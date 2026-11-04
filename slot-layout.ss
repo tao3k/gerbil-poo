@@ -243,9 +243,14 @@
 (def (slot-cache-index cache layout)
   (or (slot-cache-offset cache layout)
       (slot-layout-index layout (slot-cache-name cache))))
-;; Read the current vector cell, not a retained value that could outlive invalidation.
+;; Read a bound cell only while its shape still certifies the saved offset.
+;; Growth can move the slot without making the old offset out of bounds.
 (def (slot-cache-read cache)
-  (using (cache : access-cache) (slot-layout-ref cache.layout cache.index)))
+  (using (cache : access-cache)
+    (unless (and cache.layout cache.index
+                 (eq? cache.shape (slot-layout-shape cache.layout)))
+      (error "stale slot cache offset"))
+    (slot-layout-ref cache.layout cache.index)))
 ;; Bind only after successful computation; an absent index must never become a hit.
 (def (slot-cache-bind! cache owner revision layout index)
   (using (cache : access-cache)
