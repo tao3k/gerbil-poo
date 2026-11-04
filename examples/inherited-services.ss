@@ -1,7 +1,7 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
 (export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow query-workflow read-key-workflow)
 (import (only-in :std/error contract-violation-error?)
-        (only-in ../slot-observation call-with-slot-read-observer slot-read-key)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
         ../object
         ../mop
         ../number
@@ -170,7 +170,8 @@
   (def first (call-with-slot-read-observer
     (lambda (read)
       (let (key (slot-read-key read))
-        (when (equal? key '(presence amount))
+        (when (and (eq? (slot-read-receiver read) join)
+                   (equal? key '(presence amount)))
           (set! roots (cons read roots))
           (set-car! (cdr key) 'private))))
     (cut action join)))
