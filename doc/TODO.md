@@ -3870,3 +3870,12 @@ service example composes these queries with FUN. Three additional finite Lean
 laws classify syntax versus operation errors, preserve successful false presence
 and suppress both preparation/observation after rejected syntax. This does not
 claim pervasive mutation tracking or certify host symbolic-hash primitives.
+
+
+### Structural query precheck key ownership
+
+A precheck could mutate the pair spine later used to index and sign a
+structural read. Each precheck now receives its own copy at the existing
+observation boundary. Bare symbols pass directly. The query and later
+prechecks keep the original key, including presence of a false-valued field.
+The regression exercises nested delivery, replay and revision invalidation.

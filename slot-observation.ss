@@ -51,11 +51,17 @@
     (action)))
 ;; Check sources before invoking a potentially cold getter. Metadata inspection
 ;; must not recursively observe itself; outer source collectors remain active.
+;; Each precheck owns its structural key spine. A callback may retain or edit
+;; that spine without changing later prechecks or the receiver's hash key.
+;; Bare Symbol keys have no mutable spine and are passed directly.
 (def (%slot-read-demand! receiver key)
   (let* ((scope (current-read-scope)) (checks (if (read-scope? scope) (read-scope-prechecks scope) '())))
     (unless (null? checks)
       (without-observation
-        (lambda () (for-each (lambda (check) (check receiver key)) checks))))))
+        (lambda ()
+          (for-each (lambda (check)
+                      (check receiver (if (pair? key) (list-copy key) key)))
+                    checks))))))
 ;; Replace only the capture frame; retain the actual observer/precheck payloads.
 (def (%call-with-recorded-slot-reads action unique-roots?: (unique-roots? #f))
   ;; Only replay-root consumers opt in. Dependency capture keeps every
