@@ -610,9 +610,14 @@
       (def replacement (make-slot-layout (list b 'off) #f absent-value previous: original))
       (check (eq? (slot-layout-shape replacement) (slot-layout-shape original)) => #f)
       (check (slot-layout-index replacement a) => #f)
-      (for (names (list (list a) (list a 'off 'extra)))
+      ;; Repeated arrivals cannot stand in for an omitted offset. Once every
+      ;; offset has appeared, trailing non-symbols must still be refused.
+      (for (names (list (list a) (list a a a) (list a 'off 'extra)))
         (let (changed (make-slot-layout names #f absent-value previous: original))
           (check (eq? (slot-layout-shape changed) (slot-layout-shape original)) => #f)))
+      (check-exception
+        (make-slot-layout (list a 'off 17) #f absent-value previous: original)
+        contract-violation-error?)
       (def empty (make-slot-layout [] #f absent-value))
       (check (eq? (slot-layout-shape empty)
         (slot-layout-shape (make-slot-layout [] #f absent-value previous: empty))) => #t))

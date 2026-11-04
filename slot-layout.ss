@@ -13,19 +13,20 @@
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
 ;; Intern an already canonical identity order through the one existing weak table.
-;; Callers establish distinct symbolic names; this routine never edits their spine.
-(def (intern-ordered-shape keys)
+;; An admitted private membership table can become the index of a new shape.
+;; A hit leaves it unpublished. This routine never edits the keys' spine.
+(def (intern-ordered-shape keys (members #f))
   (hash-ensure-ref shapes keys
     (lambda ()
-      (let (indices (make-hash-table-symbolic))
+      (let (indices (or members (make-hash-table-symbolic)))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices keys)))))
 ;; Serial identity is the one canonical order for full and revised directories.
 (def (shape-name<? left right)
   (< (object->serial-number left) (object->serial-number right)))
 ;; Fresh unrelated name sets still use the standard complete sort.
-(def (intern-shape names)
-  (intern-ordered-shape (list-sort shape-name<? names)))
+(def (intern-shape names members)
+  (intern-ordered-shape (list-sort shape-name<? names) members))
 ;; Merge two disjoint canonical identity runs. The existing standard sorter owns
 ;; the new run; a tail loop and append-reverse share the untouched borrowed tail.
 ;; No intermediate shape/index is interned, and neither source spine is mutated.
@@ -39,56 +40,65 @@
 ;; One absent key extends an immutable sorted directory without sorting it again.
 ;; Standard prefix/copy operations share the untouched suffix; no second index or
 ;; cached transition is retained. The caller has already certified key absence.
-(def (extend-shape previous key)
+(def (extend-shape previous key (members #f))
   (def keys (shape-names previous))
   (def serial (object->serial-number key))
   ;; Standard find stops at the successor; its already-existing index supplies
   ;; the cut. False is not a symbolic key, and zero remains a valid offset.
   (def successor (find (lambda (name) (>= (object->serial-number name) serial)) keys))
   (def at (if successor (hash-ref (shape-indices previous) successor) (length keys)))
-  (intern-ordered-shape (append (take keys at) (cons key (drop keys at)))))
-;; Canonicalize symbolic identity order, independent of parent/declaration order.
-;; An explicit initial table seeds all cached values. False selects demand-filled
-;; cells: make-vector allocates the same finite layout without scanning values.
-;; An old layout supplies only an immutable shape hint. Full identity-set checking
-;; precedes reuse, so additions/removals still canonicalize through the weak table.
-;; Reusing its ordered names skips sorting/interning, never current value seeding.
+  (intern-ordered-shape (append (take keys at) (cons key (drop keys at))) members))
+;; Check exact identity coverage through the old index. One byte per offset
+;; counts unique arrivals even when names are reordered or repeated. An unknown
+;; key falls back to ordinary admission. A contraction cannot allocate old-width
+;; scratch space if its entire request is smaller than the old shape.
+(def (same-shape-names? names hint)
+  (def indices (shape-indices hint))
+  (def width (hash-length indices))
+  (and (<= width (length names))
+    (let (seen (make-u8vector width 0))
+      (let loop ((names names) (remaining width))
+        (if (null? names) (zero? remaining)
+          (let* ((name (car names)) (index (and (symbol? name) (hash-get indices name))))
+            (and index
+              (if (zero? (u8vector-ref seen index))
+                (begin (u8vector-set! seen index 1) (loop (cdr names) (1- remaining)))
+                (loop (cdr names) remaining)))))))))
+
+;; Admit every key before symbolic hashing. The private deduplication table
+;; already owns exactly the new identities and can be filled with offsets.
+(def (shape-for-names names hint)
+  (def members (make-hash-table-symbolic))
+  (def unique (delete-duplicates/hash names table: members
+    key: (lambda (name) (using (name :~ symbol?) name))))
+  (if (not hint) (intern-shape unique members)
+    (let ((width (length unique)) (prior-width (hash-length (shape-indices hint))))
+      ;; Bound filtering by the old/new width ratio. Large contractions sort
+      ;; the small new request without scanning the obsolete directory.
+      (if (or (zero? prior-width) (> prior-width (* 2 width))) (intern-shape unique members)
+        (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
+          (cond
+            ((null? added)
+             (if (= width prior-width) hint
+               (intern-ordered-shape
+                 (filter (cut hash-key? members <>) (shape-names hint)) members)))
+            ;; Cardinality and one unknown certify the cheaper single insert.
+            ((and (= width (1+ prior-width)) (null? (cdr added)))
+             (extend-shape hint (car added) members))
+            (else
+             (intern-ordered-shape
+               (merge-shape-names
+                 (filter (cut hash-key? members <>) (shape-names hint))
+                 (list-sort shape-name<? added))
+               members))))))))
+
+;; Build independent cells after certifying the canonical shape. The hint can
+;; share metadata only. An explicit initial table seeds values in shape order.
 (def (make-slot-layout names initial missing previous: (previous #f))
   (using (names :~ list?)
-    ;; Reject improper/cyclic input before iteration; check every key through the
-    ;; deduplicator before it can reach the compiler's unchecked symbolic hash.
-    ;; The standard deduplicator already builds this membership table. Retain it
-    ;; only during construction, so narrowing needs no second set or value cache.
-    (def members (make-hash-table-eq))
-    (def unique (delete-duplicates/hash names table: members
-      key: (lambda (name) (using (name :~ symbol?) name))))
     (def hint (and previous (slot-layout-shape previous)))
-    ;; Partition the admitted request once with the existing old identity index.
-    ;; Its standard length avoids recounting the old name spine. A hint supplies
-    ;; order only; every target still allocates and seeds its own value vector.
     (def canonical
-      (if (not hint) (intern-shape unique)
-        (let ((width (length unique)) (prior-width (hash-length (shape-indices hint))))
-          ;; A large contraction must not scan a huge obsolete directory for a
-          ;; tiny target. The old-directory filter is bounded by 2 * width;
-          ;; merge/prefix-copy, allocation, indexing and seeding remain separate costs.
-          (if (or (zero? prior-width) (> prior-width (* 2 width))) (intern-shape unique)
-            (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
-              (cond
-                ((null? added)
-                  (if (= width prior-width) hint
-                    (intern-ordered-shape
-                      (if (null? unique) []
-                        (filter (cut hash-key? members <>) (shape-names hint))))))
-                ;; Cardinality and one unknown certify the cheaper single insert.
-                ((and (= width (1+ prior-width)) (null? (cdr added)))
-                  (extend-shape hint (car added)))
-                ;; Mixed add/remove/replace revisions retain the surviving old run
-                ;; and sort only new identities before one final interning.
-                (else (intern-ordered-shape
-                  (merge-shape-names
-                    (filter (cut hash-key? members <>) (shape-names hint))
-                    (list-sort shape-name<? added))))))))))
+      (if (and hint (same-shape-names? names hint)) hint (shape-for-names names hint)))
     (def keys (shape-names canonical))
     ;; Fill the final vector through the same presence boundary as ordinary writes.
     ;; No intermediate value list, list-to-vector copy or second count scan exists.
