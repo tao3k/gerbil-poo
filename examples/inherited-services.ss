@@ -1,6 +1,8 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow)
-(import ../object
+(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow query-workflow)
+(import (only-in :std/error contract-violation-error?)
+        (only-in ../slot-observation call-with-slot-read-observer)
+        ../object
         ../mop
         ../number
         ../brace
@@ -126,3 +128,30 @@
     (error "invalid callback accepted"))
   (unless (= revision (object-revision root)) (error "refused write changed source"))
   (list first (action (list (lambda (n) (+ n 12))))))
+
+;; One FUN query crosses structural presence and current declared reflection on
+;; the shared service diamond. Malformed names cannot enter either protocol or
+;; deliver a result; an explicit revision retires old observations before retry.
+(def (query-workflow)
+  (def family (make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
+  (def join (.ref family 'join))
+  (def delivered 0)
+  (def reads [])
+  (def action (.call fun.Observation. .map
+    (lambda (value) (set! delivered (1+ delivered)) value)
+    (lambda (name)
+      (unless (.slot? join name) (error "undeclared service field"))
+      (read-slot join name))))
+  (def first (call-with-slot-read-observer (lambda (read) (set! reads (cons read reads)))
+    (lambda () (action 'amount))))
+  ;; Catch only standard grammar refusals; unrelated callback failures propagate.
+  (for-each (lambda (bad)
+    (unless (with-catch (lambda (cause)
+                        (if (contract-violation-error? cause) #t (raise cause)))
+              (lambda () (action bad) #f))
+      (error "malformed service query accepted"))) (list #f 17 "amount" amount:))
+  (unless (and (= delivered 1) (andmap object-read-current? reads))
+    (error "refused service query changed observation"))
+  ((revision-action 20) family)
+  (let ((retired? (not (andmap object-read-current? reads))) (last (action 'amount)))
+    (vector first last delivered retired?)))

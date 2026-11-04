@@ -3853,3 +3853,20 @@ Lean's existing ClassValidation module proves the six reflective order/result/
 revision laws; ClassContracts executes nested callbacks, stale refusal and retry.
 The author's purity-default policy is unchanged. Arbitrary lexical captures,
 concurrent publication, host identity and compiler correctness are not proved.
+
+
+### Symbolic structural query admission
+
+Closed the remaining public runtime-name gate in `.slot?` and the shared declared
+reflection lookup. Both now reuse Gerbil's Symbol contract before any bootstrap,
+MOP preparation, observer demand, catalog or visibility callback. The unguarded
+presence continuation is private; internal calls reuse the admitted identity.
+No per-method wrapper or additional value/admission cache is added.
+
+Four regressions cover cold preparation and visibility sentinels, all three warm
+query routes, unchanged Slot vector/shape/index/revision and old credentials,
+valid-name absence/refusal and explicit revision/retry. The existing inherited
+service example composes these queries with FUN. Three additional finite Lean
+laws classify syntax versus operation errors, preserve successful false presence
+and suppress both preparation/observation after rejected syntax. This does not
+claim pervasive mutation tracking or certify host symbolic-hash primitives.

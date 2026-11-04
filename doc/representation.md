@@ -2286,7 +2286,10 @@ Runtime names and symbolic hash admission
 Slot identifiers are symbols in this implementation. A string or keyword with the
 same spelling is not that identifier. Gerbil's `symbolic-hash` calls the unchecked
 `##symbol-hash`; public runtime names therefore need standard contract admission
-before it. `.ref` and `.ref/cached` admit before observers, bootstrap and preparation.
+before it. `.ref`, `.ref/cached` and `.slot?` admit before observers, bootstrap and
+preparation. The shared private `public-slot` boundary does the same for declared
+`read-slot`/`write-slot!`, before visibility getters or catalog construction. Its
+internal presence continuation is private and trusts this one admission gate.
 `slot-layout-index` is the shared named boundary for the vector store's standard
 HashTable operations, so invalid update keys cannot invoke user code or publish a
 new shape. Store insertion reuses it; there is no per-operation wrapper family.
@@ -2302,9 +2305,12 @@ example uses an explicit receiver override rather than pretending parent edits
 recompose the child automatically.
 
 `Prototype.Representation.withAdmittedName` models the contract gate over explicit
-receiver/cache/observation state. Its four laws preserve original refusal causes,
+receiver/cache/observation state. Its seven laws preserve original refusal causes,
 valid operation outcomes and ordinary/indexed agreement. `Examples/CheckedTransfer`
-includes numeric/text/keyword refusal and false at offset zero. These are bounded
+includes numeric/text/keyword refusal, false at offset zero and distinct presence/
+reflection effects. Malformed names suppress both preparation and observation;
+admitted missing symbols retain successful false presence or the original
+reflection error and preparation effects. These are bounded
 protocol laws assuming faithful symbol-identity interpretation, not a proof of the
 compiler primitive or arbitrary direct mutation of internal storage. Host tests
 exercise actual HashTable methods and loader-selected FUN service execution.
@@ -2416,3 +2422,24 @@ excluded. Faithful identity maps, finite registered edges and serialized checks
 through commit remain premises; arbitrary graph mutation during clear callbacks
 or concurrent thread races are outside this finite admission guarantee. This
 extends the author's explicit-invalidation design, not language-wide tracking.
+
+
+### Structural query admission acceptance
+
+Two safe controls reproduce the missing gate without sending an invalid key to
+`##symbol-hash`: the cold MOP hook and visibility getter throw sentinel causes
+before the unsafe operation. Both used to run for a numeric name; both are now
+suppressed by the standard contract. Warm controls cover false/numeric/string/
+keyword/list/vector names across presence and declared reads/writes, unchanged
+primary vector/layout/revision/index and retained observations. Valid-name
+callback refusals keep their exact causes, and corrected queries retry normally.
+`inherited-services.query-workflow` composes current presence/reflection through
+FUN across a shared diamond, retains old observations after malformed requests
+and retires them after an explicit source revision.
+
+This closes a public query boundary, not general tracking of arbitrary language
+mutation. No new wrapper family, cache, namespace or loader is introduced. The
+finite Lean model assumes faithful symbol identities and terminating callbacks;
+physical hash primitives, C3, host scheduling/GC and compiler correctness are not
+proved. Existing missing/hidden-symbol semantics remain distinct from syntax
+refusal, including successful false results.

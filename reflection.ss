@@ -77,13 +77,14 @@
         (else (prototype-map-list (public-declarations self index)))))
 ;; Resolve public metadata by indexed symbol lookup on the unobserved warm path.
 ;; The observed route retains ordered visibility reads and the same missing/hidden
-;; refusal. Both resolve metadata before demanding or checking a concrete value.
-(def (public-slot self name)
+;; refusal. The shared standard Symbol contract precedes catalog/visibility
+;; effects for both read and write; concrete value admission follows metadata.
+(def (public-slot self (name :~ symbol?))
   (def index (effective-declarations self))
   (or (if (%slot-read-active?)
         (let (entry (assq name (visible-declarations self index))) (and entry (cdr entry)))
         (let (visible (public-declarations self index))
-          (and (symbol? name) (prototype-map-ref visible name))))
+          (prototype-map-ref visible name)))
       (error "slot is hidden or undeclared" name)))
 ;; Admit and normalize at the existing field boundary, using the selected
 ;; Slot metaclass throughout. Private one-field receivers preserve the original

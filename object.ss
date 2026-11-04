@@ -7,7 +7,7 @@
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays issue-object-read object-slot-names
+                    call-with-issued-reads active-read-replays issue-object-read object-slot-names object-slot-present?
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
 
 (import
@@ -479,12 +479,15 @@
                supers: [(object-%supers override)... base] defaults: (object-%defaults override)
                protocol: (object-%protocol override) declarations: (object-%declarations override)))
 
-;; : Bool <- (Object _) Symbol
-(def (.slot? self slot)
+;; Structural presence admits its Symbol before bootstrap, observation or MOP
+;; preparation, just like ordinary reads. Absence is a successful false result.
+(def (.slot? self (slot :~ symbol?))
   (if (bootstrap-anchor self slot)
     (begin (object-read-bootstrap self slot (bootstrap-anchor self slot)) #t)
     (object-read-query self (list 'presence slot)
       (cut object-slot-present? self slot))))
+;; Private query continuation: its public owner already admitted the name.
+;; Recheck bootstrap after observer prechecks, which may edit the protocol.
 (def (object-slot-present? self slot)
   (if (bootstrap-anchor self slot) #t
     (begin (instantiate-object! self) (hash-key? (object-%slot-funs self) slot))))
