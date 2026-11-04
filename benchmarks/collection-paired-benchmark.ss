@@ -1,7 +1,7 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-values-study run-offset-study run-shape-study run-shape-revision-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study run-dependency-study)
+(export main run-slot-index-study run-values-study run-offset-study run-shape-study run-shape-revision-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study run-dependency-study)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) (only-in :clan/poo/benchmarks/prototype-map-benchmark
-          +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
+          +slot-index-phases+ slot-index-workload +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
           +declaration-phases+ declaration-workload declaration-preparation-workload layout-admission-workload dependency-workload shape-workload)
         :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout slot-value-storage make-slot-values make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
@@ -741,7 +741,7 @@
   (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
   (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (or (eq? scenario 'slot-index-update) (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter)))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -773,6 +773,7 @@
              (cut seeding-workload n scenario))
             ((memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow))
              (cut shape-workload n scenario))
+            ((memq scenario +slot-index-phases+) (cut slot-index-workload n scenario))
             ((memq scenario +slot-value-phases+) (cut slot-values-workload n scenario))
             ((eq? scenario 'slot-cycle-report) (cut cycle-report-workload n))
             ((eq? scenario 'slot-cycle-workflow) (cut cycle-workflow n))
@@ -876,6 +877,11 @@
 ;; Complete acceptance retains every phase, bound and paired control.
 (def (main (width "64") (count "3") (rounds "6"))
   (report-study (cut run-collection-study width count rounds) "COLLECTION"))
+
+;; Use the common timing engine and controls at a declared Slot width.
+(def (run-slot-index-study width)
+  (report-study (cut run-collection-study width "8" "6" +slot-index-phases+) "SLOT-INDEX")
+  #t)
 
 ;; Higher-resolution timing runs all five offset phases using the same engine;
 ;; it never changes the complete acceptance inventory or its default entry.

@@ -1,13 +1,14 @@
 ;;; Existing prototype-map studies share the same paired measurement engine.
-(export +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
+(export +slot-index-phases+ slot-index-workload +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
         +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot
         layout-admission-workload dependency-workload shape-workload)
-(import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
+(import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr take drop)
         (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module)
         (only-in :clan/poo/object-contract checked-action)
-        (only-in :clan/poo/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref)
+        (only-in :clan/poo/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
+          slot-values-layout slot-cache-bind! slot-cache-index)
         (only-in :clan/poo/reflection reflect-slots read-slot)
         (prefix-in :clan/poo/examples/representation-service service.)
         (only-in :clan/poo/examples/inherited-services precedence-cache-workflow))
@@ -276,6 +277,83 @@
         (unless (= (prototype-map-length result) expected) (error "declaration preparation oracle"))
         #t)))
   (values (action #f) (action #t)))
+
+;; Compare value stores separately from certified offset resolution.
+(def +slot-index-phases+
+  '(slot-index-cold slot-index-shared slot-index-mixed slot-index-update slot-index-offset))
+
+;; Both stores receive identical sparse rows and queries. Fresh symbolic
+;; identities keep the cold shape new even after the same printed names recur.
+(def (slot-index-workload width phase)
+  (def missing (list 'uncomputed))
+  (def absent (list 'absent))
+  (def occupied (max 2 (quotient width 4)))
+  ;; Distinct symbols of the same spelling must still compare by identity.
+  (def sibling (string->uninterned-symbol "0"))
+  (def (names)
+    (for/collect (i (in-range width))
+      (string->uninterned-symbol (number->string i))))
+  ;; The exact false and Function payloads distinguish absence from presence.
+  (def (rows keys)
+    (cons (cons (car keys) #f)
+      (map (cut cons <> identity) (cdr (take keys occupied)))))
+  ;; Keep construction and seed writes under the existing storage policy.
+  (def (prepare storage keys seed (previous #f))
+    (parameterize ((slot-value-storage storage))
+      (make-slot-values keys #f seed missing previous: previous)))
+  ;; Compare the full mixed trace, including uncomputed and undeclared names.
+  (def (verify table keys)
+    (unless (= (hash-length table) occupied) (error "Slot index occupancy"))
+    (for ((key keys) (i (in-range width)))
+      (unless (eq? (hash-ref table key absent)
+                   (cond ((zero? i) #f) ((< i occupied) identity) (else absent)))
+        (error "Slot index value" i)))
+    (unless (eq? (hash-ref table sibling absent) absent)
+      (error "Slot index merged distinct symbols")) #t)
+  ;; Warm fixtures are private to each side. Update charges eviction, growth,
+  ;; refill and snapshot checks on a fresh store under both policies.
+  (def (storage-action storage)
+    (if (eq? phase 'slot-index-cold)
+      (lambda () (let (keys (names)) (verify (prepare storage keys (rows keys)) keys)))
+      (let* ((keys (names)) (seed (rows keys))
+             (warm (prepare storage keys seed))
+             (hint (slot-values-layout warm)))
+        (case phase
+          ((slot-index-shared) (lambda () (verify (prepare storage keys seed hint) keys)))
+          ((slot-index-mixed) (cut verify warm keys))
+          ((slot-index-update)
+           (lambda ()
+             (let* ((store (prepare storage keys seed hint)) (snapshot (hash-copy store))
+                    (first (car keys)))
+               (hash-remove! store first)
+               (unless (eq? (hash-ref store first absent) absent) (error "Slot index eviction"))
+               (hash-put! store sibling identity)
+               (hash-put! store first #f)
+               (unless (and (= (hash-length store) (1+ occupied))
+                            (eq? (hash-ref store sibling absent) identity)
+                            (eq? (hash-ref store first absent) #f))
+                 (error "Slot index refill"))
+               (verify snapshot keys))))))))
+  ;; Resolve the same names and one same-spelling miss on independent layouts.
+  ;; Serial order establishes the positional oracle without using either lookup.
+  (def (offset-action guarded?)
+    (def keys (names))
+    (for-each object->serial-number keys)
+    (let* ((layout (make-slot-layout keys #f missing))
+           (names (append keys (list sibling)))
+           (targets (if guarded? (map make-slot-cache names) names))
+           (resolve (if guarded? (cut slot-cache-index <> layout)
+                      (cut slot-layout-index layout <>))))
+      (when guarded?
+        (for ((site targets) (i (in-range width)))
+          (slot-cache-bind! site layout 0 layout i)))
+      (lambda ()
+        (for ((target targets) (i (in-range (1+ width))))
+          (unless (eqv? (resolve target) (and (< i width) i))
+            (error "Slot offset resolution" i))) #t)))
+  (if (eq? phase 'slot-index-offset)
+    (values (offset-action #f) (offset-action #t))
+    (values (storage-action 'hash) (storage-action 'vector))))
 
 ;; All representation workloads share the existing measurement engine.
 (def +slot-value-phases+ '(slot-values-prepare slot-values-newshape slot-values-cold slot-values-hot slot-values-workflow slot-values-retry slot-values-count slot-values-observation slot-values-seed slot-values-redemand slot-values-grow slot-values-guard))

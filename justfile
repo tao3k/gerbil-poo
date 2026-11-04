@@ -253,6 +253,10 @@ benchmark-scc: build
 benchmark-slot-offset: build-shared
     just _test benchmarks/slot-offset-test.ss
 
+# Width sweeps isolate symbolic stores, shared shapes and offset resolution.
+benchmark-slot-index: build-core
+    just _test benchmarks/slot-index-test.ss
+
 # Fixed indexed-deletion study through the ordinary runner and shared producer.
 benchmark-prototype-map: build-shared
     just _test benchmarks/prototype-map-test.ss

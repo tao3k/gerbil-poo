@@ -360,6 +360,26 @@ check. First measurements that omitted it are not accepted as a hot-read
 regression result. The final study must be interpreted against its A/A/B/B
 controls, allocation/GC and cold consumer costs.
 
+### Slot index and symbolic hash width sweep
+
+Run `just benchmark-slot-index` for widths 8, 64 and 256. The ordinary
+paired sampler records setup, first calls, steady batches, allocation, GC,
+and wall-clock tails. Compile time is separate from the runtime receipt.
+
+The cold and shared cases compare the standard symbolic hash value store
+with the vector layout using the same sparse rows. Cold construction creates
+fresh symbol identities. Shared construction retains an existing shape and
+allocates independent value cells. The mixed trace checks computed false
+and Function values, uncomputed declared keys, and an undeclared symbol
+with the same spelling as a present key. The update pair charges snapshot,
+eviction, insertion, refill, and verification on both sides.
+
+The offset pair compares symbolic name-to-index lookup with a bound site
+on the same width of vector layout. Both traces resolve all declared names
+and include one miss. It isolates offset resolution from cell access and
+from the evaluator. The separate complete workflow and fresh-process
+startup studies measure those larger boundaries.
+
 ### Earlier shared-offset qualification receipt and remaining priorities
 
 macOS arm64, released Gerbil `1cfb032`; `just _run-collections 64 3 6` used the
