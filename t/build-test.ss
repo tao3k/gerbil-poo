@@ -155,8 +155,11 @@
       (check (hash-ref shared "attributes") => '("parallel"))
       (check (map (cut hash-ref <> "arguments") (hash-ref shared "dependencies")) =>
         (let (parts (map cdr (test-build-partitions)))
-          (list (append (list-ref parts 0) (list-ref parts 3))
-                (append (list-ref parts 1) (list-ref parts 2)))))
+          (list (append (list-ref parts 0)
+                  (map (lambda (group)
+                         (if (equal? group "representations") "representations/!collection-testing" group))
+                       (list-ref parts 3)))
+                (append (list-ref parts 1) (list-ref parts 2) '("representations/collection-testing")))))
       (check (hash-key? recipes "_build-test-prototypes") => #f)
       (check (hash-key? recipes "_build-test-publication") => #f))
     (test-case "failed root builds clear partial standard make markers before retry"

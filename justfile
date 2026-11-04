@@ -118,7 +118,18 @@ _test-groups +groups:
     #!/usr/bin/env bash
     set -euo pipefail
     targets=()
-    for group in "$@"; do targets+=("$GERBIL_PATH/lib/clan/poo/t/$group/"*-test.ssi); done
+    test_lib="$GERBIL_PATH/lib/clan/poo/t"
+    shopt -s extglob
+    for group in "$@"; do
+        case "$group" in
+            "representations/!collection-testing")
+                targets+=("$test_lib/representations/"!(collection-testing)-test.ssi) ;;
+            representations/collection-testing)
+                targets+=("$test_lib/representations/collection-testing-test.ssi") ;;
+            *)
+                targets+=("$test_lib/$group/"*-test.ssi) ;;
+        esac
+    done
     just _test-run "${targets[@]}"
 
 test-file file:
@@ -274,7 +285,8 @@ benchmark-declaration-index: build-shared
 benchmark-cold-query: build-shared
     just _test benchmarks/cold-query-test.ss
 
-# Darwin shares common module initialization between existing partitions.
+# Darwin shares module initialization in two contexts. The collection property
+# suite runs beside the general property suite rather than queuing behind it.
 # The official runner and each original fixture/case remain unchanged.
 [parallel]
-_test-shared-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools" "declarations" "inference" "representations" "scalars") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion" "contracts" "methods" "signatures")
+_test-shared-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools" "declarations" "inference" "representations/!collection-testing" "scalars") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion" "contracts" "methods" "signatures" "representations/collection-testing")

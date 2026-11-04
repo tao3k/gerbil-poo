@@ -348,3 +348,37 @@ at these checkpoints; its counters cannot be substituted for parallel-run phases
 Full-entry wall time and separately timed public build/test invocations remain the
 acceptance measurements. Historical `prepared` totals keep their raw values but
 must not be cited as exclusive load durations.
+
+### Darwin collection property scheduling
+
+The two Darwin runners use the same compiled interfaces and standard
+`gerbil test` command. The collection property interface now runs in the
+context that previously finished earlier, alongside the main property suite
+in the other context. The standard Just queue still admits two processes with
+the existing 2 GiB heap limit.
+
+A same-source, same-compiler local check with warm project artifacts compared
+the two schedules using Gerbil 1cfb032 and Gambit ea114fc. Both complete
+`just check 2 1 4` invocations exited zero within 999 seconds. Both had the same
+65 module and 2,565 case success markers, the isolated 260-case library suite,
+and both paired studies.
+
+| Stage | Original (s) | Rebalanced (s) |
+| --- | ---: | ---: |
+| Root, startup, test-package preparation | 250.57 | 164.11 |
+| Parallel test entry through process exit | 410.16 | 128.43 |
+| Complete entry | 836.19 | 379.11 |
+
+The earlier 999-second refusal spent 672.03 seconds in the three build stages.
+Its 553 logged backend compile paths were distinct. The warm original schedule
+emitted no root compile jobs but spent 128.69 seconds in root preparation. A
+short sample of that process caught dyld waiting for synchronous notifications
+during image unload. The two test harnesses reached their first reports about
+nine seconds after dispatch. The original collection property module took
+68.61 seconds and the generated keyword/rest case 36.86 seconds. The corresponding
+candidate measurements were 14.91 and 3.22 seconds. The isolated library
+build also varied from 114.08 to 43.59 seconds. These differences prevent
+assigning the complete wall-clock delta to the scheduling change. The measured
+scheduling result is that the collection module finished in the other context
+while the longer property suite continued. Raw logs and samples are kept outside
+version control.
