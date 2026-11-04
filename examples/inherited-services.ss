@@ -158,8 +158,8 @@
 
 
 ;; Observe the shared declaration diamond through FUN. Consumers can edit
-;; both observation and replay keys. A source revision then retires the read
-;; and the same loaded service can query the new declared value.
+;; both observation and replay keys. An explicit receiver edit retires the
+;; structural read before the same loaded service queries the new value.
 (def (read-key-workflow)
   (def family (make-services void (lambda () (error "private body forced"))))
   (def join (.ref family 'join))
@@ -178,4 +178,8 @@
   (replay-slot-reads! roots
     (lambda (_ key) (when (equal? key '(presence amount)) (set-car! key 'client))))
   ((revision-action 20) family)
-  (list first (action join) (not (ormap object-read-current? roots))))
+  ;; Updating the source value does not itself change the join's inventory.
+  ;; Publish a receiver override before checking the issued structural epoch.
+  (.put! join 'amount 20)
+  (let (retired? (not (ormap object-read-current? roots)))
+    (list first (action join) retired?)))
