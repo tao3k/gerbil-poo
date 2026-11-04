@@ -1,6 +1,6 @@
 ;;; Persistent storage and guarded layouts are exercised through real object APIs.
 (export representation-test check-observation-test)
-(import :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
+(import (only-in :gerbil/runtime/hash HashTable) :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
         (only-in :clan/poo/benchmarks/representation-startup check-observation-test)
         (only-in :std/list/list find)
         (only-in :gerbil/runtime/loader load-module reload-module! list-modules module-load-order)

@@ -2308,3 +2308,36 @@ includes numeric/text/keyword refusal and false at offset zero. These are bounde
 protocol laws assuming faithful symbol-identity interpretation, not a proof of the
 compiler primitive or arbitrary direct mutation of internal storage. Host tests
 exercise actual HashTable methods and loader-selected FUN service execution.
+
+### Bounded batch shape revisions
+
+`make-slot-layout` reuses the previous canonical symbol directory for batch
+additions, removals and replacements. It filters retained identities in their
+existing order, sorts only new identities with the standard `list-sort`, and
+merges once before using the existing weak shape interning table. Strong
+contractions (old width greater than twice the new width) take the ordinary
+full-sort path instead of scanning a huge old directory. The one-name growth
+path and unchanged-shape reuse remain intact. This adds no cache or registry.
+
+Only immutable name/index metadata is reused. Every result gets independent
+value storage populated from the current seed, in the original callback order;
+false and Function identity survive, and original refusal objects propagate.
+The loader-selected service example combines expansion, replacement, contraction,
+restoration and failed contract retry through the existing FUN/IO consumer.
+The representation suite covers same-spelling distinct symbols, duplicates,
+empty layouts and callback refusal order for both hinted and ordinary paths.
+
+The finite Lean model proves equality with ordinary canonical sorting, identity
+inventory preservation and composition with current-value seeding. Old-directory
+filter visits are bounded by twice the target width; filter plus logical merge
+and prefix-copy work is bounded by four times that width. Admission, sorting,
+hashing, allocation, collector behavior and machine time are outside those bounds.
+This is a representation optimization consistent with the author's explicit
+cache-invalidation policy, not a new dynamic module loader or pervasive tracking.
+
+The paired benchmark includes directory preparation and a complete loader/FUN
+workflow, with reversed order and identical-arm controls under natural and
+post-GC regimes. The initial local run has an inclusive workflow candidate
+median difference of -125.86 microseconds but a +352.38 microsecond maximum;
+its controls also fluctuate. These results do not establish a stable tail gain.
+Raw transcripts stay outside version control.

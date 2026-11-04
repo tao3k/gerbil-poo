@@ -3798,3 +3798,13 @@ proposal accounting and explicit fresh retries. See [Incoming delay allowance](p
 Callback-bearing sample composition now forwards incoming delayed depth through
 map/filter, retained products, finite Functions and value policies at the common
 sample iterator entry. See [Compositional delay allowance](pbt/generator-control.md#compositional-delay-allowance-through-sample-layers).
+
+### Bounded batch shape revision acceptance
+
+Batch additions/removals/replacements now reuse retained canonical identities,
+sort only fresh names and retain the existing interning owner. Strong contraction
+falls back to ordinary sorting, bounding old-directory filtering by twice the
+target width. Values and failures remain receiver-local; no new cache layer or
+loader is introduced. See `representation.md` for protocol laws and the paired
+benchmark's limited performance evidence. This closes finite batch directory
+preparation, without treating general language-level tracking as implemented.

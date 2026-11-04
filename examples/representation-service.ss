@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
-(export entry-recovery-workflow symbolic-read-workflow)
+(export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow)
 (export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
@@ -844,3 +844,56 @@
   (def next (action owner))
   (unless (eq? (.ref owner 'disabled) #f) (error "false payload lost"))
   (vector first next delivered defaults))
+
+
+;; Publish independent finite service snapshots with batch feature revisions.
+;; Both policies prepare once before the SAME contract/consumer. Immutable hints
+;; carry only directory order; current callbacks/false values belong to each root.
+;; A refused revision leaves the last successful site intact and repairs explicitly.
+(def (batch-shape-workflow width reuse?)
+  (using (width :~ (in-range-inclusive? 2 4096))
+    (def names (for/collect (i (in-range width))
+      (string->uninterned-symbol (string-append "feature-" (number->string i)))))
+    (def fresh (for/collect (i (in-range width))
+      (string->uninterned-symbol (string-append "new-feature-" (number->string i)))))
+    (for ((name names) (added fresh))
+      (object->serial-number name) (object->serial-number added))
+    (def delta (max 1 (quotient width 4)))
+    (def mixed (append (drop names delta) (take fresh (min width (* 2 delta)))))
+    (def site (make-slot-cache 'total shapes: 2)) (def delivered 0)
+    (def selected (module-action "clan/poo/examples/representation-service"
+                               'clan/poo/examples/representation-service#entry-arguments))
+    ;; Reuse the official module action as a live finite metadata provider.
+    (def (snapshot manifest rate)
+      (def current (lambda (value) (+ rate value)))
+      (def data (object<-alist (append (list (cons 'callback current) (cons 'disabled #f))
+                                      (map (lambda (name) (cons name #f)) (selected (list manifest))))))
+      (values (.o inherit: [Service data] capacity: 2 tariff: rate) current))
+    (def consume (checked-action ValidService (lambda (owner)
+      (def amount (.ref/inline owner site))
+      (set! delivered (1+ delivered)) amount)))
+    ;; Preparation is timed/charged on both sides, including each failed revision.
+    (def (visit owner callback)
+      (object-layout owner previous: (and reuse? (slot-cache-layout site)))
+      (def amount (consume owner))
+      (unless (and (eq? (.ref owner 'callback) callback) (not (.ref owner 'disabled)))
+        (error "batch shape reused a previous payload")) amount)
+    (def total 0) (def first #f) (def last #f)
+    (for ((manifest (list names (append names (take fresh delta)) mixed
+                         (list (car names) (car fresh)) names))
+          (rate (in-range 3 8)))
+      (defvalues (owner callback) (snapshot manifest rate))
+      (unless first (set! first owner))
+      (set! last owner) (set! total (+ total (visit owner callback))))
+    (defvalues (denied callback) (snapshot mixed -1))
+    (unless (and (TypeError? (with-catch values (lambda () (visit denied callback))))
+                 (= delivered 5)
+                 (slot-cache-hit? site last (object-revision last) (object-layout last)))
+      (error "refused batch revision published a value guard"))
+    (.putslot! denied 'tariff ($constant-slot-spec 8))
+    (def repaired (lambda (value) (+ 8 value)))
+    (.putslot! denied 'callback ($constant-slot-spec repaired))
+    (def result (visit denied repaired))
+    (unless (and (= (.ref first 'total) 9) (= total 65) (= result 19) (= delivered 6))
+      (error "batch revision service oracle"))
+    (vector total result delivered)))

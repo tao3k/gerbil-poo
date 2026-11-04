@@ -20,10 +20,22 @@
       (let (indices (make-hash-table-symbolic))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices keys)))))
+;; Serial identity is the one canonical order for full and revised directories.
+(def (shape-name<? left right)
+  (< (object->serial-number left) (object->serial-number right)))
 ;; Fresh unrelated name sets still use the standard complete sort.
 (def (intern-shape names)
-  (intern-ordered-shape
-    (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) names)))
+  (intern-ordered-shape (list-sort shape-name<? names)))
+;; Merge two disjoint canonical identity runs. The existing standard sorter owns
+;; the new run; a tail loop and append-reverse share the untouched borrowed tail.
+;; No intermediate shape/index is interned, and neither source spine is mutated.
+(def (merge-shape-names left right)
+  (let loop ((left left) (right right) (prefix []))
+    (cond ((null? left) (append-reverse prefix right))
+          ((null? right) (append-reverse prefix left))
+          ((not (shape-name<? (car right) (car left)))
+            (loop (cdr left) right (cons (car left) prefix)))
+          (else (loop left (cdr right) (cons (car right) prefix))))))
 ;; One absent key extends an immutable sorted directory without sorting it again.
 ;; Standard prefix/copy operations share the untouched suffix; no second index or
 ;; cached transition is retained. The caller has already certified key absence.
@@ -51,26 +63,32 @@
     (def unique (delete-duplicates/hash names table: members
       key: (lambda (name) (using (name :~ symbol?) name))))
     (def hint (and previous (slot-layout-shape previous)))
-    ;; Count each hinted directory once; unhinted construction pays neither scan.
-    (def width (and hint (length unique)))
-    (def prior-width (and hint (length (shape-names hint))))
+    ;; Partition the admitted request once with the existing old identity index.
+    ;; Its standard length avoids recounting the old name spine. A hint supplies
+    ;; order only; every target still allocates and seeds its own value vector.
     (def canonical
-      (cond
-        ((and hint (= width prior-width)
-              (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint)
-        ;; A certified subset keeps the old canonical identity order. No values
-        ;; are copied from the hint; replacement keys must take the general path.
-        ((and hint (< width prior-width)
-              (andmap (cut hash-key? (shape-indices hint) <>) unique))
-          (intern-ordered-shape
-            (if (null? unique) [] (filter (cut hash-key? members <>) (shape-names hint)))))
-        ;; Cardinality plus exactly one unknown certifies a strict extension.
-        ;; Replacements/removals retain complete canonicalization, not this hint.
-        ((and hint (= width (1+ prior-width)))
-          (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
-            (if (and (pair? added) (null? (cdr added))) (extend-shape hint (car added))
-              (intern-shape unique))))
-        (else (intern-shape unique))))
+      (if (not hint) (intern-shape unique)
+        (let ((width (length unique)) (prior-width (hash-length (shape-indices hint))))
+          ;; A large contraction must not scan a huge obsolete directory for a
+          ;; tiny target. The old-directory filter is bounded by 2 * width;
+          ;; merge/prefix-copy, allocation, indexing and seeding remain separate costs.
+          (if (or (zero? prior-width) (> prior-width (* 2 width))) (intern-shape unique)
+            (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
+              (cond
+                ((null? added)
+                  (if (= width prior-width) hint
+                    (intern-ordered-shape
+                      (if (null? unique) []
+                        (filter (cut hash-key? members <>) (shape-names hint))))))
+                ;; Cardinality and one unknown certify the cheaper single insert.
+                ((and (= width (1+ prior-width)) (null? (cdr added)))
+                  (extend-shape hint (car added)))
+                ;; Mixed add/remove/replace revisions retain the surviving old run
+                ;; and sort only new identities before one final interning.
+                (else (intern-ordered-shape
+                  (merge-shape-names
+                    (filter (cut hash-key? members <>) (shape-names hint))
+                    (list-sort shape-name<? added))))))))))
     (def keys (shape-names canonical))
     ;; Fill the final vector through the same presence boundary as ordinary writes.
     ;; No intermediate value list, list-to-vector copy or second count scan exists.

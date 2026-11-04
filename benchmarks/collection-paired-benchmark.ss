@@ -1,8 +1,8 @@
 ;;; Matched full/reused fold transport, with fixed prefixes, AB/BA and A/A controls.
-(export main run-values-study run-offset-study run-shape-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study run-dependency-study)
+(export main run-values-study run-offset-study run-shape-study run-shape-revision-study run-map-study run-names-study run-chain-study run-traversal-study run-composition-study run-catalog-study run-declaration-study run-cold-query-study run-dependency-study)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) (only-in :clan/poo/benchmarks/prototype-map-benchmark
           +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
-          +declaration-phases+ declaration-workload declaration-preparation-workload layout-admission-workload dependency-workload)
+          +declaration-phases+ declaration-workload declaration-preparation-workload layout-admission-workload dependency-workload shape-workload)
         :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
         (only-in :clan/poo/slot-layout slot-value-storage make-slot-values make-slot-cache slot-cache-name slot-cache-hit? slot-cache-read slot-cache-bind! slot-cache-index slot-layout-ref slot-layout-set! make-slot-layout slot-layout-index)
         (only-in :clan/poo/object-contract checked-action)
@@ -34,7 +34,7 @@
   slot-offset-churn slot-offset-workflow))
 (def +slot-phases+ (append +slot-value-phases+ '(slot-prepare slot-cold slot-hot slot-switch slot-tracked slot-revision slot-load-workflow
     slot-seeding-prepare slot-seeding-workflow slot-seeding-all
-    slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire
+    slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow
     slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow
     slot-dependencies-capture slot-dependencies-check slot-dependencies-register) +slot-offset-phases+))
 
@@ -257,55 +257,6 @@
 ;; Full workflows include cached standard loading, fresh inherited owners, checked
 ;; Reader consumers, shared invalidation, refused refinement and successful retry.
 ;; Changed layouts exercise both added and removed fields, not only steady hits.
-(def (shape-workload size scenario)
-  (def names (for/collect (n (in-range size)) (string->symbol (string-append "extra-" (number->string n)))))
-  (def entries (map (lambda (name) (cons name #f)) names))
-  (def initial (list->hash-table entries))
-  (def old (make-slot-layout names initial absent-value))
-  (def added (string->uninterned-symbol "extra-growth"))
-  (def (action reuse?)
-    (lambda ()
-      (if (eq? scenario 'slot-shape-retire)
-        (service.shape-prune-workflow size reuse?)
-      (if (memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-prune))
-        (let (layout (make-slot-layout
-          (if (eq? scenario 'slot-shape-prune)
-            (append (reverse (drop names (quotient size 2))) (drop names (quotient size 2)))
-            (append (reverse names) (if (eq? scenario 'slot-shape-grow) (list added) []) names))
-          initial absent-value previous: (and reuse? old)))
-          (unless (eq? (slot-layout-ref layout (slot-layout-index layout (list-ref names (if (eq? scenario 'slot-shape-prune) (quotient size 2) 0)))) #f)
-            (error "shape preparation oracle"))
-          (when (eq? scenario 'slot-shape-grow)
-            (unless (eq? (slot-layout-ref layout (slot-layout-index layout added)) absent-value)
-              (error "shape extension forced an uncomputed cell"))))
-        (begin
-          (load-module "clan/poo/examples/representation-service")
-          (let* ((recipe (.o inherit: [service.Service (object<-alist entries)] tariff: 3))
-                 (owners (for/collect (n (in-range 4)) (.o inherit: [recipe] capacity: n)))
-                 (site (make-slot-cache 'total)) (delivered 0)
-                 (consume (checked-action service.ValidService
-                   (lambda (owner)
-                     (unless reuse? (object-layout owner))
-                     (let (total (.ref/inline owner site))
-                       (set! delivered (1+ delivered)) total)))))
-            ;; Exactly one checked boundary owns refinement. Only its admitted
-            ;; receiver is prepared/read; original sources get no duplicate layout.
-            (def (visit tariff)
-              (.putslot! recipe 'tariff ($constant-slot-spec tariff))
-              (let (total (for/fold (sum 0) (owner owners) (+ sum (consume owner))))
-                (unless (= total (+ 12 (* 6 tariff))) (error "shape workflow oracle"))))
-            (visit 3)
-            (when (eq? scenario 'slot-shape-change) (.putslot! recipe 'approval ($constant-slot-spec #f)))
-            (visit 4)
-            (.putslot! recipe 'tariff ($constant-slot-spec -1))
-            (unless (and (TypeError? (with-catch identity (cut consume (car owners)))) (= delivered 8))
-              (error "shape refused consumer oracle"))
-            (when (eq? scenario 'slot-shape-change) (.removeslot! recipe 'approval))
-            (visit 5)
-            (unless (= delivered 12) (error "shape delivery oracle"))))))
-      #t))
-  (values (action #f) (action #t)))
-
 ;; Direct construction compares seeded/demand cells on identical finite shapes.
 ;; After removal of the auxiliary store, both complete workflow arms deliberately
 ;; use the same current storage: matched controls, not an old seeding algorithm.
@@ -790,7 +741,7 @@
   (displayln "COLLECTION-SLOT-BASELINES symbolic-ref/current-inline module-load=cached")
   (displayln "COLLECTION-SEEDING constructor=seeded/demand workflows=same-current-storage")
   (displayln "COLLECTION-SLOT-CHAINS baseline=opaque-computed candidate=explicit-override both=current-engine")
-  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
+  (for* ((scenario (or phases (append +backend-phases+ '(factory cold hit revision workflow retry) +order-phases+ +slot-phases+ +map-phases+ +names-phases+ +chain-phases+ +traversal-phases+ +catalog-phases+ +declaration-phases+))) (regime (if (memq scenario '(backend-rational-workflow backend-rational-retry backend-trie-workflow backend-trie-retry backend-trie-shape-workflow backend-trie-shape-retry order-diff order-stage order-owner order-workflow order-publication slot-cycle-report slot-cycle-workflow slot-layout-admission slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow slot-values-newshape slot-values-cold slot-values-workflow slot-values-retry slot-values-observation slot-values-seed slot-values-grow slot-values-guard slot-values-redemand slot-cold slot-revision slot-load-workflow slot-shape-grow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow slot-offset-workflow map-remove-workflow map-remove-cold names-cold names-workflow chain-single chain-cold chain-workflow map-compose map-compose-single map-compose-workflow c3-hot c3-workflow catalog-empty catalog-single catalog-cold catalog-clone catalog-workflow declaration-construction declaration-empty declaration-single declaration-cold declaration-workflow declaration-workflow-shared declaration-directory declaration-directory-shared declaration-visibility declaration-visibility-mixed declaration-private-filter))
       '(natural collected post-gc) '(natural collected))) (control? '(#f #t candidate)))
     (def observations [])
     (for (round (in-range (if control? 4 pairs)))
@@ -820,7 +771,7 @@
              (cut traversal-workload n scenario))
             ((memq scenario '(slot-seeding-prepare slot-seeding-workflow slot-seeding-all))
              (cut seeding-workload n scenario))
-            ((memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire))
+            ((memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow))
              (cut shape-workload n scenario))
             ((memq scenario +slot-value-phases+) (cut slot-values-workload n scenario))
             ((eq? scenario 'slot-cycle-report) (cut cycle-report-workload n))
@@ -983,7 +934,7 @@
 ;; share the existing AB/BA, A/A/B/B, GC accounting and tail-reporting engine.
 (def (run-shape-study)
   (report-study (cut run-collection-study "64" "32" "6"
-    '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire)) "SHAPE")
+    '(slot-shape-prepare slot-shape-grow slot-shape-workflow slot-shape-change slot-shape-prune slot-shape-retire slot-shape-batch slot-shape-batch-workflow)) "SHAPE")
   #t)
 
 ;; One standard paired entry charges setup, GC, first calls and same-side tails.
@@ -992,4 +943,11 @@
   (report-study (cut run-collection-study "2" "8" "12"
     '(slot-dependencies-new slot-dependencies-hot slot-dependencies-workflow
       slot-dependencies-capture slot-dependencies-check slot-dependencies-register)) "SLOT-DEPENDENCY")
+  #t)
+
+;; The existing engine charges setup, GC, first calls, AB/BA and A/A/B/B tails.
+;; Batch preparation is diagnostic; the service phase includes complete factories.
+(def (run-shape-revision-study)
+  (report-study (cut run-collection-study "128" "4" "6"
+    '(slot-shape-batch slot-shape-batch-workflow)) "SHAPE-REVISION")
   #t)
