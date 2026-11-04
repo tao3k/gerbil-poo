@@ -3830,3 +3830,26 @@ target width. Values and failures remain receiver-local; no new cache layer or
 loader is introduced. See `representation.md` for protocol laws and the paired
 benchmark's limited performance evidence. This closes finite batch directory
 preparation, without treating general language-level tracking as implemented.
+
+
+### Checked declared Slot reflection
+
+Closed a reproduced higher-order contract escape through the existing static
+value/reflection path: a List field passed `.slot.check` but its Function values
+escaped without `.slot.validate`. The shared `validate-slot-value` boundary now
+checks raw admission, dispatches the selected Slot's normalizer, then checks the
+actual result. Reads return that result; writes install it after the existing
+revision fence. Private field receivers retain the existing field-local scope;
+whole-Class relations remain explicit Class validation. No parallel wrapper,
+value cache, loader or admission registry is introduced.
+
+Regressions cover nested Function input/result rejection, inherited source writes,
+constant/custom checker preservation, exact normalization causes, metadata edits
+during validation, unchanged refused writes and retry. Identity constants remain exact: a new Function wrapper cannot satisfy them.
+The catalog fixture now declares its callable as a typed default, matching its
+normalization requirement. The inherited-services
+example composes the declaration diamond with FUN Observation publication.
+Lean's existing ClassValidation module proves the six reflective order/result/
+revision laws; ClassContracts executes nested callbacks, stale refusal and retry.
+The author's purity-default policy is unchanged. Arbitrary lexical captures,
+concurrent publication, host identity and compiler correctness are not proved.

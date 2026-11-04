@@ -1,10 +1,11 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow)
+(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow)
 (import ../object
         ../mop
         ../number
         ../brace
         ../reflection
+        (only-in ../type List)
         (runtime: :clan/poo/fun)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination compile-simula-context
@@ -102,3 +103,26 @@
            ((revision-action 20) family))))
     (unless (equal? (inspect join) first) (error "C3 rebuilt identity oracle"))
     (list before after)))
+
+;; Shared callback metadata is compiled once into the ordinary declaration
+;; diamond. FUN installs the recursively checked list; reflective reads retain
+;; argument/result contracts on every branch. A refused replacement keeps the
+;; current revision and inline read credentials; retry invalidates old reads.
+(def (callback-workflow)
+  (def signature (List (Fun Integer <- Integer)))
+  (def slot (instance Slot type: signature default: (list (lambda (n) (+ n 1)))))
+  (def root (object<-declarations (list (cons 'handlers slot))))
+  (def left (.mix root))
+  (def right (.mix root))
+  (def join (.mix left right))
+  ;; One Observation chain publishes the checked result before branch consumers.
+  (def action (.call fun.Observation. .map
+    (lambda (_) (map (lambda (owner) ((car (read-slot owner 'handlers)) 10))
+                   (list left right join)))
+    (lambda (callbacks) (write-slot! root 'handlers callbacks))))
+  (def first (action (list (lambda (n) (+ n 1)))))
+  (def revision (object-revision root))
+  (unless (with-catch (lambda (_) #t) (lambda () (action (list #f)) #f))
+    (error "invalid callback accepted"))
+  (unless (= revision (object-revision root)) (error "refused write changed source"))
+  (list first (action (list (lambda (n) (+ n 12))))))

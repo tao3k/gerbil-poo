@@ -393,7 +393,7 @@
           (recapture? :~ boolean?) (shared? :~ boolean?) (policy :~ (one-of tree compact)) (inspect :~ procedure?))
     (def callback (lambda (x) (+ x 1)))
     (def input (append
-      (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) constant: callback))
+      (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) default: callback))
             (cons 'enabled (.new Slot type: Bool constant: #f)))
       (for/collect (n (in-range width))
         (cons (make-symbol "visible-" n) (.new Slot type: Integer constant: n)))))

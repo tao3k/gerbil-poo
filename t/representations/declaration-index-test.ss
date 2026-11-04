@@ -4,9 +4,11 @@
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/reflection
         :clan/poo/prototype-map :clan/poo/slot-observation
+        (only-in :clan/poo/type List)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/benchmarks/prototype-map-benchmark reference-reflection reference-read-slot)
-        (prefix-in :clan/poo/examples/representation-service service.))
+        (prefix-in :clan/poo/examples/representation-service service.)
+        (prefix-in :clan/poo/examples/inherited-services inherited.))
 
 ;; Construct one current typed constant; source edits use the existing Slot protocol.
 (def (descriptor n (hidden? #f)) (.new Slot type: Integer constant: n hidden: hidden?))
@@ -17,6 +19,54 @@
 ;; Independent scan observations are compared to private indexing after real edits.
 (def declaration-index-test
   (test-suite "effective declarations, visibility and revision guards"
+    (test-case "reflected nested Functions retain argument and result contracts"
+      (def signature (List (Fun Integer <- Integer)))
+      (def slot (.new Slot type: signature default: (list (lambda (x) x))))
+      (def source (object<-declarations (list (cons 'handlers slot))))
+      (def owner (.mix source))
+      (def checked (car (read-slot owner 'handlers)))
+      (check-equal? (checked 7) 7)
+      (check-exception (checked #f) TypeError?)
+      (write-slot! source 'handlers (list (lambda (_) #f)))
+      (check-exception ((car (.ref source 'handlers)) 7) TypeError?)
+      (check-exception ((car (read-slot owner 'handlers)) 7) TypeError?))
+    (test-case "checked values still satisfy constants and custom Slot predicates"
+      (def slot (.new Slot type: Integer constant: 7))
+      (def type (.ref slot '.type))
+      (.putslot! slot '.type ($constant-slot-spec
+        (.cc type '.slot.validate (lambda (_ _name value _receiver) (1+ value)))))
+      (def owner (object<-declarations (list (cons 'value slot))))
+      (def revision (object-revision owner))
+      (check-exception (read-slot owner 'value) (message? "declared slot value rejected"))
+      (check-exception (write-slot! owner 'value 7) (message? "declared slot value rejected"))
+      (check-equal? (object-revision owner) revision)
+      (check-equal? (.ref owner 'value) 7))
+    (test-case "identity constants cannot be silently replaced by Function wrappers"
+      (def callback (lambda (n) n))
+      (def slot (.new Slot type: (Fun Integer <- Integer) constant: callback))
+      (def owner (object<-declarations (list (cons 'handler slot))))
+      (check-exception (read-slot owner 'handler) (message? "declared slot value rejected"))
+      (check-eq? (.ref owner 'handler) callback))
+    (test-case "normalizer causes precede stale revision failures and publication retries"
+      (for (raising? '(#f #t))
+        (let* ((slot (.new Slot type: Integer default: 7))
+               (original (.ref slot '.type))
+               (owner (object<-declarations (list (cons 'value slot)))))
+          (.putslot! slot '.type ($constant-slot-spec
+            (.cc original '.slot.validate (lambda (_ _name value _receiver)
+              (.putslot! slot 'hidden ($constant-slot-spec #t))
+              (if raising? (raise 'normalizer-refused) value)))))
+          (if raising?
+            (check-eq? (with-catch identity (cut write-slot! owner 'value 9)) 'normalizer-refused)
+            (check-exception (write-slot! owner 'value 9)
+              (message? "object changed during declaration reflection")))
+          (check-equal? (.ref owner 'value) 7)
+          (.putslot! slot '.type ($constant-slot-spec original))
+          (.putslot! slot 'hidden ($constant-slot-spec #f))
+          (write-slot! owner 'value 9)
+          (check-equal? (read-slot owner 'value) 9))))
+    (test-case "shared inherited callbacks compose FUN publication refusal and retry"
+      (check-equal? (inherited.callback-workflow) '((11 11 11) (22 22 22))))
     (test-case "all resolved declaration types are protected before definition hooks"
       (def original (.ref (descriptor 7) '.type))
       (def later-type (.cc original))
@@ -425,14 +475,14 @@
         (.putslot! slot '.type ($constant-slot-spec checked))
         (check-equal? (read-slot owner 'value) 7)
         (check-equal? (read-slot owner 'value) 7)
-        (check-equal? calls 2)
+        (check-equal? calls 4)
         (let ((revision (object-revision owner)) (index (object-%declaration-index owner)))
           (check-exception (write-slot! owner 'value 8) (message? "declared slot value rejected"))
           (check-equal? (object-revision owner) revision)
           (check-eq? (object-%declaration-index owner) index))
-        (check-equal? calls 3)
+        (check-equal? calls 5)
         (write-slot! owner 'value 7)
-        (check-equal? calls 4)
+        (check-equal? calls 7)
         (check (object-%declaration-index owner) => #f)
         (check-equal? (reference-read-slot owner 'value) 7)))
     (test-case "shared module publication demands typed fields through both point lookup strategies"
