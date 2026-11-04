@@ -3927,3 +3927,11 @@ offset still clears the primary guard. Existing shape hints certify an offset
 without a named lookup. Binding to an unrecognized shape checks the existing
 symbolic index, and the hot receiver guard performs no new lookup. Lean proves
 named-cell agreement and preservation of the primary guard on refusal.
+
+A retained offset certifies location, while a successful direct read also
+requires a materialized cell. HashTable eviction leaves the shape and offset
+intact. The direct accessor refuses the empty cell without leaking the sentinel
+or evaluating a Slot. The ordinary inline path still recomputes lazily and
+rebinds after shape growth. The FUN diamond workflow covers eviction, refusal,
+retry and subsequent source revision. Lean separates empty-cell refusal from
+stale-shape refusal and proves successful delivery of the named value.

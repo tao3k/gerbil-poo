@@ -735,6 +735,13 @@
                    (unless (eq? callback identity) (error "initial callback changed"))
                    (let (table (object-instance receiver))
                      (set! phase 'grow) (hash-remove! table target)
+                     ;; The retained offset cannot deliver the uncomputed marker.
+                     ;; Only the existing FUN demand may refill the empty cell.
+                     (when site
+                       (let (empty (with-catch identity (cut slot-cache-read site)))
+                         (unless (and (Error? empty) (equal? (error-message empty) "empty slot cache cell")
+                                      (= calls 1))
+                           (error "direct read accepted or demanded an evicted cell"))))
                      (unless (and (eq? (read receiver) callback) (current?))
                        (error "evicted site retained an old shape"))
                      (set! phase 'refuse) (hash-remove! table target)

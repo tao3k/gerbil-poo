@@ -243,14 +243,17 @@
 (def (slot-cache-index cache layout)
   (or (slot-cache-offset cache layout)
       (slot-layout-index layout (slot-cache-name cache))))
-;; Read a bound cell only while its shape still certifies the saved offset.
-;; Growth can move the slot without making the old offset out of bounds.
+;; Read a materialized cell on the retained layout. Shape growth can move the
+;; offset; eviction keeps the offset but requires ordinary demand to refill it.
 (def (slot-cache-read cache)
   (using (cache : access-cache)
     (unless (and cache.layout cache.index
                  (eq? cache.shape (slot-layout-shape cache.layout)))
       (error "stale slot cache offset"))
-    (slot-layout-ref cache.layout cache.index)))
+    (let (value (slot-layout-ref cache.layout cache.index))
+      (when (eq? value (layout-missing cache.layout))
+        (error "empty slot cache cell"))
+      value)))
 ;; Admit a binding only for the site's name in this shape. A refused offset
 ;; leaves both entries intact; false clears the primary guard without a hit.
 (def (slot-cache-bind! cache owner revision layout index)
