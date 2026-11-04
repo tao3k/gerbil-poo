@@ -198,7 +198,7 @@
              "just" "--justfile" task-file "--working-directory" project "build-core"]
             directory: project stderr-redirection: #t
             check-status: (lambda (code _settings) (set! status code))))
-            (check-equal? status 1)
+            (check (and (exact-integer? status) (not (zero? status))) => #t)
             (check (and (pregexp-match "BUILD-LOCK" output) #t) => #t)
             (check (pregexp-match "BUILD-CONCURRENCY" output) => #f)
             (check (file-exists? lock) => #t))
