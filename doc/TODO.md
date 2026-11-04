@@ -3896,3 +3896,17 @@ damaged record at the original index. A source revision retires the replacement.
 The loaded inherited service exercises the same observation and replay path
 through FUN and IO. Lean models the separate key lanes and source revision;
 host allocation and runtime tamper detection are exercised by Scheme tests.
+
+### Issued read payload ownership and delivery admission
+
+The names observation and issuance inspection exposed the signed list itself.
+The regression changed the observed first name through both access routes.
+Public access now copies the names spine and dependency list. Inspection owns
+its names copy too. Ordinary Slot values keep their exact application identity,
+and parent records keep order, identity and repeated occurrences.
+
+Reobservation admits the selected record again after its work callback and
+before delivery. Direct runtime tampering still fails authentication and can
+never publish that damaged record to the observer. The existing FUN/IO service
+edits observation copies before replay and revision. Lean models the frame
+preserved by delivery and the refusal after work.

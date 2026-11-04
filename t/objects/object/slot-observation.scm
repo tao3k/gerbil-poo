@@ -112,7 +112,7 @@
       (for-each (lambda (left right)
                   (check-equal? (car left) (car right))
                   (check-equal? (eq? (cdr left) (cdr right)) #t)) events raw-events)
-      (for-each (lambda (read edges) (check-equal? (eq? (slot-read-dependencies read) edges) #t))
+      (for-each (lambda (read edges) (check-equal? (slot-read-dependencies read) edges))
         (list a b c) dependencies))
     (test-case "a newer record for the same slot does not replace its stale predecessor"
       (.def Source port: 5432)

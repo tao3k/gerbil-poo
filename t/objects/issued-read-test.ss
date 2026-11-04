@@ -7,8 +7,8 @@
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 24)
-  (displayln "ISSUED-READ: 24 cases completed"))
+  (check-equal? completed 25)
+  (displayln "ISSUED-READ: 25 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
 (extern namespace: clan/poo/object call-with-issued-reads)
@@ -145,6 +145,7 @@
     (check-equal? (object-read-issued? genuine) #t)
     (check-equal? (object-read-issued? forged) #f)
     ;; The public dependency list must not alias the issuer's private snapshot.
+    (def original-dependencies (runtime.slot-ref genuine 'dependencies))
     (def dependencies (slot-read-dependencies genuine))
     ;; The ordinary constant slot has one preparation parent. The issuer may
     ;; retain that identity directly, but inspection must still return a fresh
@@ -157,12 +158,12 @@
     (check-equal? (object-read-issued? genuine) #f)
     (runtime.slot-set! genuine 'dependencies '())
     (check-equal? (object-read-issued? genuine) #f)
-    (runtime.slot-set! genuine 'dependencies dependencies)
+    (runtime.slot-set! genuine 'dependencies original-dependencies)
     (check-equal? (object-read-issued? genuine) #t)
     (when (pair? dependencies)
       (let (first (car dependencies))
         (set-car! dependencies forged)
-        (check-equal? (object-read-issued? genuine) #f)
+        (check-equal? (object-read-issued? genuine) #t)
         (set-car! dependencies first)
         (check-equal? (object-read-issued? genuine) #t)))
     (check-equal? (object-read-current? forged) #f)
@@ -228,6 +229,36 @@
     (check (.slot? Root 'port) => #t)
     (check-equal? ((module-action "clan/poo/examples/inherited-services"
                    'clan/poo/examples/inherited-services#read-key-workflow) []) '(10 20 #t))
+    (set! completed (+ completed 1)))
+  (test-case "published names and dependency lists are independent of signed replay"
+    (.def Root names: (list 'user) enabled: #f)
+    (def roots (recorded (cut .all-slots Root)))
+    (def read (selected roots '(names)))
+    (def names (slot-read-value read))
+    (def parents (slot-read-dependencies read))
+    (defvalues (_p _o _r fields _shape) (object-read-issuance read))
+    (set-car! names 'edited)
+    (set-car! (vector-ref fields 4) 'inspected)
+    (set-car! parents read)
+    (check-equal? (slot-read-value read) (.all-slots Root))
+    (check (object-read-current? read) => #t)
+    (check-eq? (slot-read-value (selected (recorded (cut .ref Root 'names)) 'names))
+               (.ref Root 'names))
+    (reobserve-slot-reads! roots)
+    (replay-slot-reads! roots void)
+    (def delivered 0)
+    (def original (runtime.slot-ref read 'dependencies))
+    (dynamic-wind void
+      (lambda ()
+        (refuses "unissued slot dependency"
+          (lambda ()
+            (call-with-slot-read-observer (lambda (_) (set! delivered (1+ delivered)))
+              (cut reobserve-slot-reads! (list read)
+                (lambda () (runtime.slot-set! read 'dependencies (list read)))))))
+        (check-equal? delivered 0))
+      (lambda () (runtime.slot-set! read 'dependencies original)))
+    (.putslot! Root 'extra ($constant-slot-spec 7))
+    (refuses "stale slot dependency" (cut replay-slot-reads! roots void))
     (set! completed (+ completed 1)))
   (test-case "transient miss is issued without being put in the receiver cache"
     (.def Root port: 5432)

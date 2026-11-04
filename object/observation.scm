@@ -85,7 +85,7 @@
           (hash-put! seen read #t)
           (hash-put! receivers (slot-read-receiver read) #t)
           (set! ordered (cons read ordered))
-          (for-each collect (slot-read-dependencies read))))
+          (for-each collect (read-runtime.slot-ref read 'dependencies))))
       ;; The cold selector admits a finite root spine before entering this DFS.
       ;; Preserve full issuance preflight and its order for every admitted root.
       ;; Only successful traversal copies roots and publishes a cached value.
@@ -176,7 +176,10 @@
       (for-each
         (lambda (read)
           (work)
-          (%deliver-slot-read read (slot-read-value read))) reads)) #t))
+          ;; Work may edit the presented record after the initial graph check.
+          ;; Keep the same immediate admission used by ordinary replay.
+          (without-observation (cut current! read))
+          (%deliver-slot-read read (read-runtime.slot-ref read 'value))) reads)) #t))
 
 ;; Deliver computed provenance or mint a record for an exact explicit assignment.
 (def (object-deliver-value self slot value)

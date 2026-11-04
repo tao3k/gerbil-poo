@@ -123,7 +123,8 @@
             ;; Copy primitive metadata; do not dispatch a mutable class constructor.
             (if (not candidate)
                 (values read
-                  (vector self (if (pair? key) (list-copy key) key) revision instance value
+                  (vector self (if (pair? key) (list-copy key) key) revision instance
+                    (if names (list-copy names) value)
                     (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
                   (and (pair? key) (list-copy key)))
             (and (eq? candidate read)
@@ -132,16 +133,16 @@
                  (or (not (pair? key)) (same-list? record-key key))
                  (= (slot-read-revision read) revision)
                  (eq? (slot-read-instance read) instance)
-                 (eq? (slot-read-value read) value)
+                 (eq? (read-runtime.slot-ref read 'value) value)
                  (eq? (read-runtime.slot-ref read 'current?) checker)
-                 (same-dependencies? (slot-read-dependencies read) parent-copy))))))
+                 (same-dependencies? (read-runtime.slot-ref read 'dependencies) parent-copy))))))
       ;; Ordinary values use the original predicate alone. A names record alone
       ;; adds a guard comparing its exposed spine to the private canonical names.
       (def birth
         (if names
           (lambda (candidate)
             (if (not candidate) (base-birth #f)
-              (and (base-birth candidate) (same-list? (slot-read-value candidate) names))))
+              (and (base-birth candidate) (same-list? (read-runtime.slot-ref candidate 'value) names))))
           base-birth))
       (read-runtime.slot-set! read 'birth birth)
       (hash-put! issued read birth)
