@@ -2376,3 +2376,43 @@ preparation, vector allocation, primitive/GC costs and physical latency. Faithfu
 finite source enumeration, standard shallow copies, stable opaque leaves and
 serialized handoffs are premises. This follows the author's explicit invalidation
 policy and makes no compiler, collector or unrestricted callback proof claim.
+
+### Current dependency closure before invalidation
+
+The existing `invalidate-state!` preflight allowed dependency registration, but a
+later check could add a child to a previously completed subtree. The old traversal
+then advanced revisions and cleared caches without visiting that new descendant.
+A deterministic regression reproduces this independently of weak-table order.
+
+The retained-graph path now stores the already visited state identity in its one
+existing seen table. After all checks, standard `hash-for-each` validates each
+current outgoing edge against that table before the first clear. This avoids
+iterator entry-pair allocation and adds neither a graph snapshot nor a cache.
+Missing owners and replaced child-state identities refuse with `dependency graph
+changed during invalidation`. Edges to already checked matching states, cycles and
+shared joins remain accepted. A pristine post-check leaf keeps the same fast path.
+
+Preflight exceptions retain their exact cause and suppress this later admission;
+closure refusal advances no revision and clears no cell. Registration effects
+remain visible, so one explicit retry can traverse the new finite graph. Clear
+callbacks still advance their owner's revision before running and retain prior
+effects on failure. The source table and owner list remain private to the call;
+there is no unbounded callback-replaying fixed-point loop.
+
+The service example uses the same object-state/check/clear engine as ordinary
+invalidation. An explicit tariff cell, two warmed branches and an initially
+independent service demonstrate late dependency registration, old-read retention
+on refusal, rejected old references after retry and checked FUN/IO publication.
+Regressions include state replacement, opaque/false refusal priority, closed SCC
+and diamond sharing, and partial clear failure semantics.
+
+Lean's existing CacheInvalidation model proves current-edge/state coverage and
+that every registered transitive path is included, including cycles. Admission
+preserves the original unique owner order and propagates preflight/closure errors
+before clearing. Its additional retained-graph work is one owner visit plus one
+visit per current outgoing edge, bounded by owners times (fanout + 1). Hashing,
+iteration/closure allocation, weak collection, callback costs and wall time are
+excluded. Faithful identity maps, finite registered edges and serialized checks
+through commit remain premises; arbitrary graph mutation during clear callbacks
+or concurrent thread races are outside this finite admission guarantee. This
+extends the author's explicit-invalidation design, not language-wide tracking.

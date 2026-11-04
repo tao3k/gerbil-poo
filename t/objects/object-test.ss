@@ -3,6 +3,7 @@
 (export lifecycle-test mop-test object-test parameters-test slot-observation-test support-test)
 (import
   :std/test
+  :std/iter
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number

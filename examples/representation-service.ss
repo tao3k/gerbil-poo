@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
 (export entry-arguments)
-(export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow seed-request-workflow)
+(export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow seed-request-workflow closure-invalidation-workflow)
 (export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
@@ -8,6 +8,7 @@
 (export shape-prune-workflow shape-growth-workflow value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads slot-read-key) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
+        (only-in ../object-state invalidate-state!)
         ../mop
         ../number
         ../slot-layout
@@ -927,3 +928,46 @@
       (.putslot! owner 'tariff ($constant-slot-spec 5))
       (let (recovered (action owner))
         (vector first next recovered delivered)))))
+
+;; An explicit mutable tariff needs the author's explicit cache invalidation.
+;; Application preflight registers a shared dependent after its source was walked.
+;; Reuse exactly the engine's state/check/clear functions; only application
+;; dependency registration is added. Refusal leaves cells/guards live, not effects
+;; rolled back. One explicit retry closes the new graph before checked FUN delivery.
+(def (closure-invalidation-workflow)
+  (def rate 3)
+  (def source (.o inherit: [Service] capacity: 2 (tariff rate)))
+  (def left (.mix source)) (def right (.mix source))
+  (def late (.o inherit: [Service] capacity: 2 (tariff rate)))
+  (def owners (list left right late)) (def family (cons source owners))
+  (def delivered 0) (def token #f) (def first #f) (def attached? #f)
+  (def action (checked-total-action
+    (lambda (_receiver amount) (set! delivered (1+ delivered)) amount) shapes: 2))
+  ;; Preserve all ordinary mutation/replay checks; both sibling orders are valid.
+  (def (admit owner state)
+    (check-object-edit owner state)
+    (when (or (eq? owner left) (eq? owner right))
+      (if first
+        (unless attached? (depend-on-object! late first) (set! attached? #t))
+        (set! first owner))))
+  (unless (equal? (map action owners) '(9 9 9)) (error "initial tariff service oracle"))
+  (call-with-slot-read-observer
+    (lambda (read) (when (and (eq? (slot-read-receiver read) left)
+                             (eq? (slot-read-key read) 'total)) (set! token read)))
+    (cut .ref left 'total))
+  (let (before (map object-revision family))
+    (set! rate 4)
+    (let (refused (with-catch identity (lambda ()
+           (invalidate-state! source (object-%state source) admit clear-object-cache!))))
+      (unless (and (Error? refused)
+                   (equal? (error-message refused) "dependency graph changed during invalidation")
+                   (= delivered 3) (equal? before (map object-revision family))
+                   (object-read-current? token))
+        (error "changed dependency closure published a partial tariff revision")))
+    (invalidate-state! source (object-%state source) admit clear-object-cache!)
+    (let (after (map action owners))
+      (unless (and (equal? after '(11 11 11)) (= delivered 6)
+                   (not (object-read-current? token))
+                   (equal? (map 1+ before) (map object-revision family)))
+        (error "closed dependency retry missed a shared tariff cache"))
+      (vector after delivered #t (map object-revision family)))))

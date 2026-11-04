@@ -4,6 +4,17 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Current dependency closure is now admitted before cache invalidation commits.
+Descendant preflight can no longer leave a late owner or replacement state
+unchecked in an earlier subtree. The existing visited map serves the standard
+HashTable edge pass; pristine leaves retain their fast path, original callback
+causes take priority, and explicit retry admits the new graph without replaying
+checks. See [Current dependency closure before
+invalidation](representation.md#current-dependency-closure-before-invalidation)
+for the complete FUN/IO service, regressions and finite Lean coverage/cost laws.
+No new cache, loader or namespace is introduced.
+
+
 Source-backed Slot initialization now captures finite names and explicit entry
 pairs before standard HashTable callbacks can rewrite them. The same boundary
 serves vector/hash stores, keeps current Function/false identity, preserves source
