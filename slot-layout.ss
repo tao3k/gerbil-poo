@@ -251,14 +251,18 @@
                  (eq? cache.shape (slot-layout-shape cache.layout)))
       (error "stale slot cache offset"))
     (slot-layout-ref cache.layout cache.index)))
-;; Bind only after successful computation; an absent index must never become a hit.
+;; Admit a binding only for the site's name in this shape. A refused offset
+;; leaves both entries intact; false clears the primary guard without a hit.
 (def (slot-cache-bind! cache owner revision layout index)
   (using (cache : access-cache)
+    (def current-shape (slot-layout-shape layout))
+    (when (and index (not (eqv? index (slot-cache-index cache layout))))
+      (error "invalid slot cache offset" cache.name index))
     ;; Successful indexed demand alone changes offset history. Missing offsets
     ;; clear the primary value guard but cannot replace a certified second entry.
     (when (and index cache.index (two-shape-cache? cache)
-               (not (eq? (slot-layout-shape layout) cache.shape)))
+               (not (eq? current-shape cache.shape)))
       (set! (two-shape-cache-previous-shape cache) cache.shape)
       (set! (two-shape-cache-previous-index cache) cache.index))
     (set! cache.owner owner) (set! cache.revision revision)
-    (set! cache.layout layout) (set! cache.shape (slot-layout-shape layout)) (set! cache.index index)))
+    (set! cache.layout layout) (set! cache.shape current-shape) (set! cache.index index)))

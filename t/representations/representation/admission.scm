@@ -164,7 +164,7 @@
     (test-case "loaded FUN service retains warm guards across invalid runtime names and retries"
       (def run (module-action "clan/poo/examples/representation-service"
                              'clan/poo/examples/representation-service#symbolic-read-workflow))
-      (check-equal? (run []) '#(7 11 2 0)))
+      (check-equal? (run []) '#(7 11 3 0)))
 
     (test-case "invalid runtime names cannot demand observer or precheck callbacks"
       (def owner (.o value: 7)) (def observed 0) (def checked 0)

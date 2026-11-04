@@ -838,6 +838,15 @@
     (unless (and (object-read-current? read) (= revision (object-revision owner))
                  (slot-cache-hit? site owner revision layout))
       (error "refused runtime name changed warmed service")))
+  ;; Both cells exist in the same layout. A sibling offset cannot retarget
+  ;; the warmed FUN consumer or retire its recorded read.
+  (let* ((sibling (slot-layout-index layout 'disabled))
+         (refused (with-catch identity
+           (cut slot-cache-bind! site owner revision layout sibling))))
+    (unless (and sibling (Error? refused)
+                 (equal? (error-message refused) "invalid slot cache offset")
+                 (object-read-current? read) (= (action owner) 7))
+      (error "sibling offset changed warmed service")))
   ;; Composition retains its inherited declaration snapshot; revise this receiver.
   (.put! owner 'value 11)
   (unless (= (.ref source 'value) 7) (error "local override changed its parent"))

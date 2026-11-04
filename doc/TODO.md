@@ -3918,3 +3918,12 @@ The direct bound-cell accessor checks the saved shape before using its offset.
 Growing a layout can move the requested slot while leaving the stale offset in
 bounds. Rebinding to the current shape restores the original slot value,
 including false. The receiver-aware inline route retains its existing guards.
+
+The binding entry also checks that a proposed offset resolves the site's name.
+A sibling offset in the very same shape previously retargeted both the direct
+read and the next inline hit. Refusal preserves the current binding and bounded
+shape history. A correct retry can publish the new guard, while a missing
+offset still clears the primary guard. Existing shape hints certify an offset
+without a named lookup. Binding to an unrecognized shape checks the existing
+symbolic index, and the hot receiver guard performs no new lookup. Lean proves
+named-cell agreement and preservation of the primary guard on refusal.
