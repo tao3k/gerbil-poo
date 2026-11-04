@@ -98,16 +98,17 @@
                  (loop (cdr current) (1+ index)))))
         (and (pair? current) (eq? (car current) saved) (null? (cdr current)))))
     ;; Receiver state is captured by the caller; ordinary payload identities stay
-    ;; unchanged. Only a structural names record owns a separate list spine.
+    ;; unchanged. The receiver owns the index key; the record owns a separate
+    ;; structural key spine so even a raw edit cannot damage hash placement.
     (def (issue self key revision instance value parents checker)
       (def names (and (equal? key '(names)) value))
       (def shown (if names (map values names) value))
-      (def key-copy (and (pair? key) (map values key)))
+      (def record-key (if (pair? key) (list-copy key) key))
       (def parent-copy
         (cond ((null? parents) '#())
               ((and (null? (cdr parents)) (not (vector? (car parents)))) (car parents))
               (else (list->vector parents))))
-      (def read (make-slot-read self key revision instance shown parents checker))
+      (def read (make-slot-read self record-key revision instance shown parents checker))
       ;; Captured payload is not a public struct whose fields can be rewritten
       ;; through runtime.slot-set!. The registry authenticates this procedure
       ;; before it is invoked, so replacing birth with a true-returning closure
@@ -122,13 +123,13 @@
             ;; Copy primitive metadata; do not dispatch a mutable class constructor.
             (if (not candidate)
                 (values read
-                  (vector self key revision instance value
+                  (vector self (if (pair? key) (list-copy key) key) revision instance value
                     (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
-                  (and key-copy (map values key-copy)))
+                  (and (pair? key) (list-copy key)))
             (and (eq? candidate read)
                  (eq? (slot-read-receiver read) self)
-                 (eq? (slot-read-key read) key)
-                 (or (not key-copy) (same-list? key key-copy))
+                 (eq? (read-runtime.slot-ref read 'key) record-key)
+                 (or (not (pair? key)) (same-list? record-key key))
                  (= (slot-read-revision read) revision)
                  (eq? (slot-read-instance read) instance)
                  (eq? (slot-read-value read) value)

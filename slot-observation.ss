@@ -1,6 +1,7 @@
 ;;; Receiver-bound read observations shared by every object access route.
 ;;; Values are still computed by object.ss; this module only records/replays.
-(export make-slot-read slot-read-key slot-read-receiver
+(export make-slot-read (rename-out copy-slot-read-key (copy-slot-read-key slot-read-key))
+        slot-read-receiver
         slot-read-revision slot-read-instance slot-read-value slot-read-dependencies
         call-with-slot-read-observer without-observation
         %slot-read-active? %slot-read-demand! %deliver-slot-read %record-slot-reads!
@@ -13,6 +14,11 @@
   (lambda (self receiver key revision instance value dependencies current?)
     (struct-instance-init! self
       receiver key revision instance value dependencies current? #f)))
+;; Structural keys are finite lists of symbols. Readers own the returned spine
+;; while ordinary symbol keys retain their identity and require no allocation.
+(def (copy-slot-read-key read)
+  (let (key (slot-read-key read))
+    (if (pair? key) (list-copy key) key)))
 (defstruct read-collection (seen reversed) final: #t)
 ;; One dynamic binding owns the complete observation scope: #f when disabled,
 ;; the existing collection for capture alone, or a scope with actual observers.

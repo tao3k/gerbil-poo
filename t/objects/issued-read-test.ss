@@ -7,8 +7,8 @@
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 23)
-  (displayln "ISSUED-READ: 23 cases completed"))
+  (check-equal? completed 24)
+  (displayln "ISSUED-READ: 24 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
 (extern namespace: clan/poo/object call-with-issued-reads)
@@ -195,6 +195,39 @@
     (refuses "unissued slot dependency"
       (cut replay-slot-reads! (list forged) (lambda (_r _k) (error "must not observe"))))
     (replay-slot-reads! roots (lambda (_r _k) (void)))
+    (set! completed (+ completed 1)))
+  (test-case "published structural keys do not own the read index or replay route"
+    (.def Root port: #f)
+    (def roots (recorded (cut .slot? Root 'port)))
+    (def genuine (selected roots '(presence port)))
+    (def edited (slot-read-key genuine))
+    (set-car! (cdr edited) 'missing)
+    (check-equal? edited '(presence missing))
+    (check-equal? (slot-read-key genuine) '(presence port))
+    (check (object-read-current? genuine) => #t)
+    (check-eq? (hash-get (object-%reads Root) '(presence port)) genuine)
+    (check (.slot? Root 'missing) => #f)
+    (replay-slot-reads! roots
+      (lambda (_ key)
+        (when (equal? key '(presence port)) (set-cdr! key key))))
+    (check (object-read-current? genuine) => #t)
+    (let-values (((_presented _original _signed fields shape) (object-read-issuance genuine)))
+      (set-car! (vector-ref fields 1) 'edited-inspection)
+      (check-equal? shape '(presence port))
+      (set-car! shape 'edited-shape))
+    (check (object-read-current? genuine) => #t)
+    ;; Runtime reflection bypasses the public accessor but owns no hash key.
+    (set-car! (cdr (runtime.slot-ref genuine 'key)) 'missing)
+    (check (object-read-issued? genuine) => #f)
+    (check-eq? (hash-get (object-%reads Root) '(presence port)) genuine)
+    (refuses "unissued slot dependency" (cut replay-slot-reads! roots void))
+    (def fresh (recorded (cut .slot? Root 'port)))
+    (check (object-read-current? (selected fresh '(presence port))) => #t)
+    (.put! Root 'port 5432)
+    (refuses "stale slot dependency" (cut replay-slot-reads! fresh void))
+    (check (.slot? Root 'port) => #t)
+    (check-equal? ((module-action "clan/poo/examples/inherited-services"
+                   'clan/poo/examples/inherited-services#read-key-workflow) []) '(10 20 #t))
     (set! completed (+ completed 1)))
   (test-case "transient miss is issued without being put in the receiver cache"
     (.def Root port: 5432)

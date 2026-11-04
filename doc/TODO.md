@@ -3879,3 +3879,20 @@ structural read. Each precheck now receives its own copy at the existing
 observation boundary. Bare symbols pass directly. The query and later
 prechecks keep the original key, including presence of a false-valued field.
 The regression exercises nested delivery, replay and revision invalidation.
+
+### Issued structural read key ownership
+
+The original Slot protocol maps symbolic names to delayed computations. In
+the observer extension, the published structural read key used to share its
+mutable pair spine with the receiver's hash index. An observer could rename a
+presence key through the public accessor. The scoped regression reproduced the
+rename before reaching replay.
+
+Issuance now gives the record its own structural key. The public accessor,
+inspection fields and replay callbacks give consumers independent list spines.
+Ordinary symbols retain identity. Direct runtime edits of the stored key still
+fail authentication, and a subsequent observed structural query can replace the
+damaged record at the original index. A source revision retires the replacement.
+The loaded inherited service exercises the same observation and replay path
+through FUN and IO. Lean models the separate key lanes and source revision;
+host allocation and runtime tamper detection are exercised by Scheme tests.

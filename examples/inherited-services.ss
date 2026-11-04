@@ -1,7 +1,7 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow query-workflow)
+(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow query-workflow read-key-workflow)
 (import (only-in :std/error contract-violation-error?)
-        (only-in ../slot-observation call-with-slot-read-observer)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key)
         ../object
         ../mop
         ../number
@@ -155,3 +155,27 @@
   ((revision-action 20) family)
   (let ((retired? (not (andmap object-read-current? reads))) (last (action 'amount)))
     (vector first last delivered retired?)))
+
+
+;; Observe the shared declaration diamond through FUN. Consumers can edit
+;; both observation and replay keys. A source revision then retires the read
+;; and the same loaded service can query the new declared value.
+(def (read-key-workflow)
+  (def family (make-services void (lambda () (error "private body forced"))))
+  (def join (.ref family 'join))
+  (def roots [])
+  (def action (.call fun.Observation. .map
+    (lambda (owner) (read-slot owner 'amount))
+    (lambda (owner) (unless (.slot? owner 'amount) (error "missing amount")) owner)))
+  (def first (call-with-slot-read-observer
+    (lambda (read)
+      (let (key (slot-read-key read))
+        (when (equal? key '(presence amount))
+          (set! roots (cons read roots))
+          (set-car! (cdr key) 'private))))
+    (cut action join)))
+  (unless (pair? roots) (error "missing presence read"))
+  (replay-slot-reads! roots
+    (lambda (_ key) (when (equal? key '(presence amount)) (set-car! key 'client))))
+  ((revision-action 20) family)
+  (list first (action join) (not (ormap object-read-current? roots))))
