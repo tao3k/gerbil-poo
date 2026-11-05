@@ -258,8 +258,10 @@ benchmark-combination: (build-benchmarks "combination")
 benchmark-scc: build
     {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
 
+# These focused TestSuites load their modules from the core package. The linked
+# startup probe is prepared separately for entries that actually execute it.
 # Standard test execution of the fixed higher-resolution offset study.
-benchmark-slot-offset: build-shared
+benchmark-slot-offset: build-core
     just _test benchmarks/slot-offset-test.ss
 
 # Width sweeps isolate symbolic stores, shared shapes and offset resolution.
@@ -267,35 +269,35 @@ benchmark-slot-index: build-core
     just _test benchmarks/slot-index-test.ss
 
 # Fixed indexed-deletion study through the ordinary runner and shared producer.
-benchmark-prototype-map: build-shared
+benchmark-prototype-map: build-core
     just _test benchmarks/prototype-map-test.ss
 
 # Private traversal and immutable-map composition share the full standard sampler.
-benchmark-prototype-traversal: build-shared
+benchmark-prototype-traversal: build-core
     just _test benchmarks/prototype-traversal-test.ss
 
 # Higher-resolution complete publication retains the same paired controls.
-benchmark-prototype-composition: build-shared
+benchmark-prototype-composition: build-core
     just _test benchmarks/prototype-composition-test.ss
 
 # Structural snapshots and private enumeration use the same standard test entry.
-benchmark-names: build-shared
+benchmark-names: build-core
     just _test benchmarks/names-test.ss
 
 # Explicit and opaque SlotSpec encodings retain full construction and publication.
-benchmark-slot-construction: build-shared
+benchmark-slot-construction: build-core
     just _test benchmarks/slot-construction-test.ss
 
 # Catalog capture, clone, reflection and checked module publication remain paired.
-benchmark-prototype-catalog: build-shared
+benchmark-prototype-catalog: build-core
     just _test benchmarks/prototype-catalog-test.ss
 
 # Point metadata lookup includes cold preparation, observation and full workflows.
-benchmark-declaration-index: build-shared
+benchmark-declaration-index: build-core
     just _test benchmarks/declaration-index-test.ss
 
 # Longer cold/full workflow confirmation retains the ordinary bounded test entry.
-benchmark-cold-query: build-shared
+benchmark-cold-query: build-core
     just _test benchmarks/cold-query-test.ss
 
 # Darwin shares module initialization in two contexts. The collection property
