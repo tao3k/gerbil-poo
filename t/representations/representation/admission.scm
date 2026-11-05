@@ -118,7 +118,7 @@
 
     (test-case "static value HashTable admits symbolic keys before every named operation"
       (def callback (lambda () 7))
-      (def values (make-slot-values '(value callback) #f
+      (def values (make-slot-values '(value callback pending) #f
         (list (cons 'value #f) (cons 'callback callback)) absent-value))
       (def layout (slot-values-layout values)) (def shape (slot-layout-shape layout))
       (def calls 0)
@@ -136,6 +136,15 @@
           (check-equal? (hash-length values) 2)
           (check-eq? (hash-ref values 'callback) callback)
           (check (hash-ref values 'value) => #f)))
+      (def fallback (list 'fallback))
+      (check-eq? (hash-ref values 'pending fallback) fallback)
+      (check-eq? (hash-ref values 'unknown fallback) fallback)
+      (check (hash-key? values 'pending) => #f)
+      (check (hash-key? values 'unknown) => #f)
+      (hash-update! values 'pending
+        (lambda (old) (check-eq? old fallback) callback) fallback)
+      (check-eq? (hash-ref values 'pending fallback) callback)
+      (check-eq? (slot-layout-shape layout) shape)
       (hash-update! values 'value not)
       (check (hash-ref values 'value) => #t)
       (hash-remove! values 'value)

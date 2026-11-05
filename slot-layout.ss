@@ -144,12 +144,16 @@
 (def (slot-values-layout table)
   (and (interface-instance? table)
     (let (value (interface-instance-object table)) (and (layout? value) value))))
-;; Translate an uncomputed cell to the caller's ordinary HashTable default.
-(def (layout-value self key default)
-  (let (index (slot-layout-index self key))
-    (if index
-      (let (value (vector-ref (layout-cells self) index))
-        (if (eq? value (layout-missing self)) default value)) default)))
+;; HashTable dispatch already supplies a layout receiver. Check the symbolic
+;; key here and read its existing index and cells without rechecking the receiver.
+(def (layout-value self (key :~ symbol?) default)
+  (using (self :- layout)
+    (using (directory self.shape :- shape)
+      (let (index (hash-get directory.indices key))
+        (if index
+          (let (value (vector-ref self.cells index))
+            (if (eq? value self.missing) default value))
+          default)))))
 ;; Unknown successful delegation grows the SAME store, after preparing all new
 ;; metadata/cells. Existing sites retain an immutable shape stamp and must rebind.
 (def (layout-store! self key value)
@@ -197,8 +201,8 @@
   (lambda (self)
     (vector-fill! (layout-cells self) (layout-missing self))
     (set! (layout-count self) 0)))
-;; Admit the key once at the common named lookup boundary, before symbolic hash.
-;; HashTable ref/update/delete share it; absence is false and zero is a valid index.
+;; Admit a symbolic name and return its offset for indexed callers and writes.
+;; An absent name returns false; zero remains a valid offset.
 (def (slot-layout-index layout (name :~ symbol?))
   (hash-get (shape-indices (slot-layout-shape layout)) name))
 ;; Only the guarded object access path consumes an index obtained from this shape.
