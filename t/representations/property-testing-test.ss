@@ -12,6 +12,7 @@
         (only-in :clan/poo/support/option some)
         (only-in :clan/poo/examples/signature-service signature-preparation-test failure-preparation-test inspection-request-test)
         (prefix-in :clan/poo/examples/signature-service service.)
+        (only-in :clan/poo/examples/representation-service slot-revision-workflow)
         (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests map-service-action service-value-generator service-batch-action service-factory-action) collection.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
         (only-in :clan/poo/examples/property-workflows property-workflows-test)
@@ -129,6 +130,13 @@
 ;; Every outcome is inspected; a test error never substitutes for a false property.
 (def property-testing-test
   (test-suite "descriptor-driven finite tests and counterexample shrinking"
+    (test-case "generated source revisions retire all bound descendants before rebinding"
+      (standard.require-property-passed
+        (check-property (Tuple (List Integer) Bool)
+          (lambda (row)
+            (slot-revision-workflow (append (vector-ref row 0) '(#f))
+              (if (vector-ref row 1) 2 1)))
+          seed: 41 cases: 32 size: 8)))
     (test-case "typed replay retains explicit owners before computed execution handoff"
       (for (operation '(seed concrete export))
         (def owner (.o epoch: 0)) (def calls 0) (def encoded 0)

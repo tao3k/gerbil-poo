@@ -3,13 +3,16 @@
         make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
         make-slot-cache slot-cache-name slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
+        (only-in ./object-state object-state-revision)
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
 ;; A shape owns the immutable name-to-index mapping. Cells always belong to one receiver.
 (defstruct shape (indices names))
-(defstruct layout (shape cells missing count))
+;; Object-backed cells belong to one revision of the existing invalidation state.
+;; Standalone layouts and HashTable copies have no receiver revision.
+(defstruct layout (shape cells missing count state revision))
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
 ;; Intern an already canonical identity order through the one existing weak table.
@@ -94,7 +97,7 @@
 
 ;; Build independent cells after certifying the canonical shape. The hint can
 ;; share metadata only. An explicit initial table seeds values in shape order.
-(def (make-slot-layout names initial missing previous: (previous #f))
+(def (make-slot-layout names initial missing previous: (previous #f) state: (state #f))
   (using (names :~ list?)
     (def hint (and previous (slot-layout-shape previous)))
     (def canonical
@@ -103,7 +106,8 @@
     ;; Fill the final vector through the same presence boundary as ordinary writes.
     ;; No intermediate value list, list-to-vector copy or second count scan exists.
     ;; A refused seed leaves this unpublished receiver local to this constructor.
-    (def result (make-layout canonical (make-vector (length keys) missing) missing 0))
+    (def result (make-layout canonical (make-vector (length keys) missing) missing 0
+      state (and state (object-state-revision state))))
     (when initial
       (for ((name keys) (index (in-range (length keys))))
         (slot-layout-set! result index (hash-ref initial name missing))))
@@ -113,7 +117,7 @@
 (def slot-value-storage (make-parameter 'vector))
 ;; Build the sole instance value store before publishing any read credentials.
 ;; Symbolic shapes describe uncomputed cells, so construction runs no slot body.
-(def (make-slot-values names initial entries missing previous: (previous #f))
+(def (make-slot-values names initial entries missing previous: (previous #f) state: (state #f))
   ;; Admit both spines before append/map; layout construction owns key admission.
   (using ((names :~ list?) (entries :~ list?))
     ;; Source enumeration is extensible through the standard HashTable interface.
@@ -130,7 +134,7 @@
       (def values
         (case (slot-value-storage)
           ((vector) (HashTable (make-slot-layout
-            keys #f missing previous: previous)))
+            keys #f missing previous: previous state: state)))
           ((hash)
             ;; The qualification backend has the same admission, before any seed writes.
             (for-each (lambda (key) (using (key :~ symbol?) (void))) keys)
@@ -163,7 +167,7 @@
              (at (hash-ref (shape-indices canonical) key))
              (old (layout-cells self))
              (cells (make-vector (1+ (vector-length old)) (layout-missing self)))
-             (next (make-layout canonical cells (layout-missing self) (layout-count self))))
+             (next (make-layout canonical cells (layout-missing self) (layout-count self) #f #f)))
         ;; The admitted key is absent. Canonical order inserts exactly one cell;
         ;; standard bulk copies preserve false, functions and uncomputed cells.
         ;; Finish the private candidate before replacing the authoritative store.
@@ -194,7 +198,7 @@
 (bind-method! layout::t 'HashTable::copy
   (lambda (self)
     (HashTable (make-layout (layout-shape self) (vector-copy (layout-cells self))
-                 (layout-missing self) (layout-count self)))))
+                 (layout-missing self) (layout-count self) #f #f))))
 (bind-method! layout::t 'HashTable::new
   (lambda (self (size-hint #f)) (HashTable (make-slot-layout [] #f (layout-missing self)))))
 (bind-method! layout::t 'HashTable::clear!
@@ -257,22 +261,32 @@
 (def (slot-cache-index cache layout)
   (or (slot-cache-offset cache layout)
       (slot-layout-index layout (slot-cache-name cache))))
-;; Read a materialized cell on the retained layout. Shape growth can move the
-;; offset; eviction keeps the offset but requires ordinary demand to refill it.
+;; Admit the generation of receiver-owned cells through the existing state.
+;; An independent layout has no receiver authority to check.
+(def (layout-revision-current? layout revision)
+  (let (state (layout-state layout))
+    (or (not state) (and (eqv? revision (layout-revision layout))
+                        (eqv? revision (object-state-revision state))))))
+;; Read a materialized cell only while its receiver revision and shape are live.
+;; Eviction keeps the offset but requires ordinary demand to refill the cell.
 (def (slot-cache-read cache)
   (using (cache : access-cache)
     (unless (and cache.layout cache.index
                  (eq? cache.shape (slot-layout-shape cache.layout)))
       (error "stale slot cache offset"))
+    (unless (layout-revision-current? cache.layout cache.revision)
+      (error "stale slot cache revision"))
     (let (value (slot-layout-ref cache.layout cache.index))
       (when (eq? value (layout-missing cache.layout))
         (error "empty slot cache cell"))
       value)))
-;; Admit a binding only for the site's name in this shape. A refused offset
-;; leaves both entries intact; false clears the primary guard without a hit.
+;; Admit a binding only for the site's name in a live layout revision.
+;; Refusal preserves both entries; false clears the primary guard without a hit.
 (def (slot-cache-bind! cache owner revision layout index)
   (using (cache : access-cache)
     (def current-shape (slot-layout-shape layout))
+    (when (and index (not (layout-revision-current? layout revision)))
+      (error "stale slot cache revision"))
     (when (and index (not (eqv? index (slot-cache-index cache layout))))
       (error "invalid slot cache offset" cache.name index))
     ;; Successful indexed demand alone changes offset history. Missing offsets

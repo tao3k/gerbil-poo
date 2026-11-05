@@ -209,7 +209,10 @@
         ((slot-offset-workflow)
           (let (result (enter (list size layout: #t reshape?: #t
                          shapes: capacity variants: (list (car variants) (cadr variants)))))
-            (unless (= (vector-ref result 3) (* 3 size)) (error "offset workflow oracle")) #t))
+            (unless (and (= (vector-ref result 3) (* 3 size))
+                         (service.slot-revision-workflow '(7 11 7 #f) capacity))
+              (error "offset workflow oracle"))
+            #t))
         (else
           (for-each (lambda (owner)
             (unless (= (.ref/inline owner site) 15) (error "offset current receiver oracle"))) owners)

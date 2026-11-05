@@ -1,6 +1,6 @@
 ;;; Actual Gerbil interfaces and containers under POO source/validation discipline.
 (export library-reuse-test)
-(import (prefix-in (only-in :clan/poo/examples/representation-service value-storage-workflow value-store-observation-workflow value-store-redemand-workflow) representation.)
+(import (prefix-in (only-in :clan/poo/examples/representation-service value-storage-workflow value-store-observation-workflow value-store-redemand-workflow slot-revision-workflow) representation.)
         :std/test :std/iter :std/error (only-in :gerbil/runtime/hash HashTable)
         (for-syntax :gerbil/expander)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
@@ -46,6 +46,9 @@
 ;; Use actual ordered callbacks, not only final container equality, as acceptance evidence.
 (def library-reuse-test
   (test-suite "Gerbil classes containers and lazy caches"
+    (test-case "shared inheritance retires direct bindings even when the shape and value recur"
+      (for (shapes '(1 2))
+        (check (representation.slot-revision-workflow '(7 11 7 #f) shapes) => #t)))
     (test-case "cold inline binding refreshes offsets after a dynamic dependency grows the shape"
       (def early (string->uninterned-symbol "early"))
       (def target (string->uninterned-symbol "target"))

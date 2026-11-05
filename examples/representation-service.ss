@@ -1,5 +1,5 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export entry-arguments)
+(export entry-arguments slot-revision-workflow)
 (export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow seed-request-workflow closure-invalidation-workflow)
 (export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
@@ -286,6 +286,42 @@
         (let (recovered (stage 5))
           (unless (= delivered (* 3 width)) (error "service delivery count" delivered))
           (vector first revised recovered delivered))))))
+
+;; Publish revisions through one shared ancestor. The two branches and their
+;; diamond must retire together; an unrelated equal shape stays readable.
+(def (slot-revision-workflow revisions shapes)
+  (parameterize ((slot-value-storage 'vector))
+    (def source (.o value: #f))
+    (def left (.o inherit: [source]))
+    (def right (.o inherit: [source]))
+    (def join (.o inherit: [left right]))
+    (def independent (.o value: #f))
+    (def unaffected (make-slot-cache 'value shapes: shapes))
+    (def receivers [left right join])
+    (def sites (map (lambda (_) (make-slot-cache 'value shapes: shapes)) receivers))
+    ;; Require the revision failure itself, including when the old offset is 0.
+    (def (retired? action)
+      (let (cause (with-catch identity action))
+        (and (Error? cause) (equal? (error-message cause) "stale slot cache revision"))))
+    ;; A false oracle can be shrunk and replayed by the existing property engine.
+    (let/cc refuse
+      (.ref/inline independent unaffected)
+      (for ((owner receivers) (site sites)) (.ref/inline owner site))
+      (for (value revisions)
+        (.putslot! source 'value ($constant-slot-spec value))
+        (for ((owner receivers) (site sites))
+          (def old (slot-cache-layout site))
+          (def index (slot-layout-index old 'value))
+          (unless (and (retired? (cut slot-cache-read site))
+                       (retired? (cut slot-cache-bind! site owner (object-revision owner) old index))
+                       (eq? old (slot-cache-layout site)))
+            (refuse #f))
+          (unless (and (eqv? (.ref/inline owner site) value)
+                       (eqv? (slot-cache-read site) value)
+                       (eq? (slot-layout-shape old) (slot-layout-shape (slot-cache-layout site))))
+            (refuse #f)))
+        (unless (eq? (slot-cache-read unaffected) #f) (refuse #f)))
+      #t)))
 
 ;; Duplicate local tariff methods, sparse deletion/reinsertion and restoration
 ;; exercise the same C3/contract/Reader chain on shared descendants. The removal

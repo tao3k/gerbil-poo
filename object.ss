@@ -203,7 +203,7 @@
               (make-slot-values (hash-keys (object-%slot-funs self))
                 (object-%overrides self)
                 (if (eq? (object-%protocol self) self) (or (object-%bootstrap self) []) [])
-                absent-value previous: previous))))
+                absent-value previous: previous state: (object-%state self)))))
         (set! (object-%instance self) instance)
         (hash-put! (object-read-table self) '(preparation)
           (object-record-read self '(preparation) instance dependencies))

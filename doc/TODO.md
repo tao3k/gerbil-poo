@@ -3935,3 +3935,14 @@ or evaluating a Slot. The ordinary inline path still recomputes lazily and
 rebinds after shape growth. The FUN diamond workflow covers eviction, refusal,
 retry and subsequent source revision. Lean separates empty-cell refusal from
 stale-shape refusal and proves successful delivery of the named value.
+
+
+Direct binding also admits the live receiver revision. A shared-parent edit
+retires the old layouts of both branches and their join even when the names
+and offsets are identical. Rebinding with a new revision cannot authorize old
+cells, and a refused binding leaves the previous descriptor hint intact.
+Standalone layouts and independent copies retain their existing semantics.
+The same diamond runs in the backend regression, generated typed revision
+traces, and both arms of the complete Slot offset benchmark. The finite Lean
+model connects rejection to existing graph invalidation and proves recovery
+from a newly bound, materialized cell.
