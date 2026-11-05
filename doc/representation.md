@@ -2463,3 +2463,45 @@ finite Lean model assumes faithful symbol identities and terminating callbacks;
 physical hash primitives, C3, host scheduling/GC and compiler correctness are not
 proved. Existing missing/hidden-symbol semantics remain distinct from syntax
 refusal, including successful false results.
+
+### Direct object import in a fresh process
+
+Use the already built package prefixes and the existing startup benchmark.
+Prepare the packages and the startup benchmark with the standard build before
+sampling. The child runs the public top-level `(import :clan/poo/object)` and
+exits naturally. Neither package preparation nor the linked service workflow
+is part of the measured import.
+
+```sh
+"$GERBIL_PATH/bin/representation-startup" -:max-heap=2G,debug=q \
+  object-import "$compiler" "$baseline_prefix" "$candidate_prefix" 16
+"$GERBIL_PATH/bin/representation-startup" -:max-heap=2G,debug=q \
+  object-import "$compiler" "$candidate_prefix" "$baseline_prefix" 16
+```
+
+Use one absolute Gerbil executable and retain the same package files throughout
+both runs. The study alternates AB/BA and includes A/A and B/B controls. Each
+sample records the child import wall interval, whole subprocess lifetime, import
+CPU and GC CPU. Summaries give median, nearest-rank P90, maximum and paired
+median. The whole lifetime includes spawn and cleanup. It does not attribute
+wall minus CPU to any particular loader or scheduler wait. The test suite
+`object-import-test` checks the real import and successful exit in CI.
+
+Keep image diagnostics separate from timing. A new process does not imply new
+file identity or a flushed OS cache. A file-identity study needs its own cohort
+and must not be pooled with the fixed-artifact samples.
+
+On macOS arm64 with Gerbil `1cfb032`, 16 pairs per direction used the package
+built from `cfab75b` and a candidate that replaced a C4 result projection with
+core multiple-value binding. An independent image trace removed both
+`std/values` images (64 to 62 mapped images), and candidate compilation took
+20.44 seconds outside sampling.
+
+| Order | Baseline import median / P90 / max | Candidate import median / P90 / max |
+| --- | ---: | ---: |
+| Forward | 263 / 298 / 334 ms | 263 / 293 / 1,115 ms |
+| Inverse | 259 / 293 / 297 ms | 261 / 318 / 355 ms |
+
+The candidate did not qualify for deployment. Whole subprocess medians were
+452 to 469 ms and 445 to 456 ms in the two runs. These measurements qualify the
+downstream benchmark and bound the evidence for this dependency change.
