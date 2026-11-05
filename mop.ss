@@ -235,13 +235,13 @@
 
 ;; Function descriptors preserve supplied optional/keyword/rest values; the host
 ;; target still owns its defaults and actual arity. Recognition remains procedure?.
-;; TODO: Deduplicate wrappers across contracts/continuations without changing tail calls.
 ;; TODO: Incremental amortized O(1) recursive-data validation needs its own cache laws.
+(def (refuse-function-value type value) (raise-type-error type value))
 (define-type (Function. @ Type. outputs inputs)
   optional: [] keywords: [] required-keywords: [] rest: #f
   signatures: (list @)
   .element?: procedure?
-  .validate: (lambda (f) (wrap-function @ f signatures validate (lambda (type value) (raise-type-error type value))))
+  .validate: (lambda (f) (wrap-function @ f (lambda () signatures) validate refuse-function-value))
   arity: (length inputs))
 
 ;; Check every declaration before installing a wrapper; duplicate or missing keyword
