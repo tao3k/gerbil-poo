@@ -240,11 +240,19 @@
     (unless (symbol? name) (error "symbolic cache slot required"))
     (if (= count 1) (make-access-cache name #f #f #f #f #f)
       (make-two-shape-cache name #f #f #f #f #f #f #f))))
-;; Guard receiver identity, monotone revision and exact receiver-local layout together.
+;; Admit the generation of receiver-owned cells through the existing state.
+;; An independent layout has no receiver authority to check.
+(def (layout-revision-current? layout revision)
+  (let (state (layout-state layout))
+    (or (not state) (and (eqv? revision (layout-revision layout))
+                        (eqv? revision (object-state-revision state))))))
+;; A matching caller stamp alone cannot authorize a retired value layout.
+;; Offset hints still share immutable shapes without claiming live cells.
 (def (slot-cache-hit? cache owner revision layout)
   (using (cache : access-cache)
-    (and (eq? owner cache.owner) (eqv? revision cache.revision)
-         (eq? layout cache.layout) (eq? cache.shape (slot-layout-shape layout)) cache.index)))
+    (and cache.index (eq? owner cache.owner) (eqv? revision cache.revision)
+         (eq? layout cache.layout) (eq? cache.shape (slot-layout-shape layout))
+         (layout-revision-current? layout revision) cache.index)))
 ;; Shape identity certifies only an offset, never another receiver's cells.
 ;; Compare one or two immutable descriptors without resolving a name.
 ;; False alone denotes a miss; index zero remains a successful offset.
@@ -261,12 +269,6 @@
 (def (slot-cache-index cache layout)
   (or (slot-cache-offset cache layout)
       (slot-layout-index layout (slot-cache-name cache))))
-;; Admit the generation of receiver-owned cells through the existing state.
-;; An independent layout has no receiver authority to check.
-(def (layout-revision-current? layout revision)
-  (let (state (layout-state layout))
-    (or (not state) (and (eqv? revision (layout-revision layout))
-                        (eqv? revision (object-state-revision state))))))
 ;; Read a materialized cell only while its receiver revision and shape are live.
 ;; Eviction keeps the offset but requires ordinary demand to refill the cell.
 (def (slot-cache-read cache)

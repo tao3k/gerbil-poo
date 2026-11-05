@@ -3946,3 +3946,12 @@ The same diamond runs in the backend regression, generated typed revision
 traces, and both arms of the complete Slot offset benchmark. The finite Lean
 model connects rejection to existing graph invalidation and proves recovery
 from a newly bound, materialized cell.
+
+The public hit predicate also checks the live receiver revision. A caller can
+retain the complete old owner/revision/layout tuple, but its hit is refused
+after a shared edit. The same retained shape may still supply a certified offset
+for rebinding. The diamond property and paired Slot workflow check both outcomes.
+
+Direct downstream import has a dedicated prepared-package comparison under the
+existing [startup benchmark](representation.md#direct-object-import-in-a-fresh-process).
+Eliminating two standard images did not qualify the measured candidate.
