@@ -7,6 +7,7 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
+        (prefix-in (only-in "../build-development.ss" main) development.)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
@@ -80,20 +81,28 @@
     (test-case "standard build metadata exclude progress output"
       ;; Consume one datum from the generated build protocol; never evaluate it
       ;; or reconstruct the compiler's dependency graph.
-      (def (metadata command)
-        (call-with-input-string (with-output-to-string (cut root.main command))
+      (def (metadata entry command)
+        (call-with-input-string (with-output-to-string (cut entry command))
           (lambda (port)
             (def value (read port))
             (check (eof-object? (read port)) => #t)
             value)))
-      (check-equal? (metadata "meta") '("spec" "compile" "clean"))
-      (def spec (metadata "spec"))
-      (check (list? spec) => #t)
-      ;; Executables make standard make request static objects for the whole
-      ;; graph. Only Darwin's shared-object path belongs in this library graph.
-      (check (length (filter (lambda (entry)
-        (and (pair? entry) (eq? (car entry) exe:))) spec))
-        => (cond-expand (darwin 1) (else 0))))
+      (def (executables spec)
+        (map cadr (filter (lambda (entry)
+          (and (pair? entry) (eq? (car entry) exe:))) spec)))
+      (for-each (lambda (entry)
+        (check-equal? (metadata entry "meta") '("spec" "compile" "clean")))
+        (list root.main development.main))
+      (def core (metadata root.main "spec"))
+      (def development (metadata development.main "spec"))
+      (check (list? core) => #t)
+      (check (list? development) => #t)
+      (check-equal? (executables core) '())
+      ;; Darwin shares the executable's static objects in the development graph.
+      (check (executables development)
+        => (cond-expand (darwin '("examples/representation-main")) (else '())))
+      (check (member "examples/generated-batches" (map cadr core)) => #f)
+      (check (and (member "examples/generated-batches" (map cadr development)) #t) => #t))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
