@@ -516,6 +516,23 @@ observers, serial terminating callbacks and faithful seed
 splitting remain premises. No Scheme runtime, PRNG-quality or arbitrary callback
 correctness proof is claimed.
 
+## On-demand bind streams
+
+Bind consumes its original parent and child seed draws in order. For an
+admitted seed it initializes the corresponding SRFI-27 source on the first
+bounded draw. Malformed seeds still fail at stream preparation, even if the
+generator would never draw. A fixed product's empty continuation and a
+constant branch can therefore skip seed expansion. The existing retained
+sample trees and branch regeneration still determine shrink and replay.
+
+With the same Gerbil compiler, production `-O2` and a 2 GiB heap, focused
+A/B/B/A runs of the diagnostic entry took 22.95, 18.21, 17.86 and 21.99 seconds.
+Both independent kernels passed the same 260 cases. Draws, caller random
+remainders and failure replay receipts agreed across all arms. At width 64
+under natural GC, mixed-workflow P90 fell from 141.60 to 117.87 ms in forward
+order and from 129.12 to 115.76 ms in reverse order. The reverse all-random
+draw P90 rose from 82.73 to 89.68 ms. These are focused runtime measurements.
+
 ## Portable vector copy preparation and shared resource credits
 
 The original [Type Descriptors / I/O Validation discussion](https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L1359)

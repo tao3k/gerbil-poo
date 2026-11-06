@@ -167,6 +167,15 @@
   (random-source-make-integers source))
 ;; Draw from a fresh invocation-owned PRNG rather than global random state.
 (def (random-at seed) (random-from-state (random-state-at seed)))
+;; Keep malformed split-seed errors eager; expand a valid stream on first use.
+(def (random-on-demand seed)
+  (if (and (exact-integer? seed) (>= seed 0))
+    (let (draw #f)
+      (lambda (bound)
+        (unless draw (set! draw (random-at seed)))
+        (draw bound)))
+    (random-at seed)))
+
 ;; Split once per parent/child pair; dependent regeneration reuses the child seed.
 (def (split-seed random) (random 4294967087))
 ;; Root admission merges producer and node sources without nesting callback guards.
@@ -225,7 +234,7 @@
     (let* ((selected (with-sources observed (select (sample-value parent))))
            (child (with-sources observed
              (parameterize ((current-random-states states))
-               (generate selected (random-at seed) size))))
+               (generate selected (random-on-demand seed) size))))
            ;; The returned node and its rebuilds own all already observed leaves,
            ;; including the child selected for the original parent value.
            (owned (merge-sources observed (sample-node-sources child))))
@@ -248,7 +257,7 @@
     (def states (or (current-random-states) (make-hash-table-eqv)))
     (parameterize ((current-random-states states))
       (def parent-seed (split-seed random)) (def child-seed (split-seed random))
-      (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states
+      (bind-sample (generate generator (random-on-demand parent-seed) size) select child-seed size sources states
         (delay-allowance #f)))) sources))
 ;; Admit finite topology before mapping or source discovery, then own its spine.
 ;; Retain the established bind/map checkpoint owner and split schedule: a direct
