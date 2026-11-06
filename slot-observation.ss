@@ -127,8 +127,7 @@
   (def parent (current-read-scope))
   (def observed? (read-scope? parent))
   (def checks (if observed? (read-scope-prechecks parent) '()))
-  (parameterize ((current-read-scope
-      (make-read-scope (if observed? (read-scope-frame parent) parent)
-        (cons observe (if observed? (read-scope-observers parent) '()))
-        (if before (cons before checks) checks))))
-    (action)))
+  (call-with-parameters action current-read-scope
+    (make-read-scope (if observed? (read-scope-frame parent) parent)
+      (cons observe (if observed? (read-scope-observers parent) '()))
+      (if before (cons before checks) checks))))

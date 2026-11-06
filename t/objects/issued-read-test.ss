@@ -519,5 +519,15 @@
     (check-equal? calls 0)
     (check-equal? (slot-read-precheck-active? before) #f)
     (check-equal? (slot-read-observers-compatible? '()) #t)
+    (let (returned
+          (call-with-values
+            (lambda ()
+              (call-with-slot-read-observer void
+                (lambda () (values #f (slot-read-precheck-active? before) cause))
+                before: before))
+            list))
+      (check-equal? returned (list #f #t cause))
+      (check-eq? (caddr returned) cause)
+      (check-eq? (slot-read-precheck-active? before) #f))
     (set! completed (+ completed 1)))
 ))
