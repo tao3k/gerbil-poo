@@ -46,9 +46,14 @@
     ,property-kernel-build-spec
     "examples/property-workflows"
     "examples/property-refusals"
-    "examples/generated-batches"
+    ;; Bound the independent registration groups in separate C host functions.
+    (gxc: "examples/generated-batches"
+      (extra-inputs: ("build.ss" "build-development.ss"))
+      "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
     "examples/generated-traces"
-    "examples/generated-products"
+    (gxc: "examples/generated-products"
+      (extra-inputs: ("build.ss" "build-development.ss"))
+      "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
     "examples/recursive-trees"
     "examples/inherited-services"
     "examples/metaprotocol-services"
