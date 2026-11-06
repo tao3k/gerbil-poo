@@ -5,7 +5,7 @@
         generator-delay generator-filter generator-no-shrink generator-with-shrink
         generate generator-current? sample? sample-value sample-children sample-current sample-sources with-generation-check with-sources
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
-        boolean-result live? random-at
+        boolean-result live? random-at call-with-random-checkpoints random-checkpoint-snapshot
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-integer-range integer-range-anchor integer-range-shrinks generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
@@ -129,6 +129,21 @@
 ;; Bind owns an invocation-local checkpoint table, like the existing delay quota.
 ;; Only opaque initial states are shared; mutable PRNG instances are never cached.
 (def current-random-states (make-parameter #f))
+;; A property run may retain a bounded set of seed expansions for exact replay.
+;; This scope never shares a mutable random source or observes a generated value.
+(def current-replay-checkpoints (make-parameter #f))
+(def +replay-checkpoint-limit+ 256)
+(defstruct random-checkpoints (states) final: #t)
+;; Fork a private checkpoint table even when replaying the same report twice.
+(def (call-with-random-checkpoints action (initial #f))
+  (parameterize ((current-replay-checkpoints
+                  (if initial (hash-copy (random-checkpoints-states initial))
+                    (make-hash-table-eqv))))
+    (action)))
+;; Reports own detached tables of immutable seed states, never the live scope.
+(def (random-checkpoint-snapshot)
+  (let (checkpoints (current-replay-checkpoints))
+    (and checkpoints (make-random-checkpoints (hash-copy checkpoints)))))
 ;; SRFI-27 owns seed expansion and its opaque checkpoint representation.
 (def (expand-random-state seed)
   (def source (make-random-source))
@@ -137,10 +152,14 @@
 ;; Nested bind regeneration reuses preparation, not earlier generated values.
 (def (random-state-at seed)
   (def states (current-random-states))
-  (if states
-    (if (hash-key? states seed) (hash-ref states seed)
-      (let (state (expand-random-state seed)) (hash-put! states seed state) state))
-    (expand-random-state seed)))
+  (or (and states (hash-get states seed))
+      (let* ((checkpoints (current-replay-checkpoints))
+             (replayed (and checkpoints (hash-get checkpoints seed)))
+             (state (or replayed (expand-random-state seed))))
+        (when states (hash-put! states seed state))
+        (when (and checkpoints (not replayed) (< (hash-length checkpoints) +replay-checkpoint-limit+))
+          (hash-put! checkpoints seed state))
+        state)))
 ;; Each replay restores a NEW source; sibling draws cannot mutate the checkpoint.
 (def (random-from-state state)
   (def source (make-random-source))

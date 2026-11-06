@@ -10,12 +10,14 @@
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order length=n?)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current bind-generators rejected? proposal-sources generation-exhausted?
-          stale-generation? boolean-result live? random-at with-generation-check with-sources))
+          stale-generation? boolean-result live? random-at call-with-random-checkpoints random-checkpoint-snapshot
+          with-generation-check with-sources))
 ;; Domain admission, measure and revision ownership remain explicit callbacks.
 (defstruct domain (accept measure current) final: #t)
 ;; Reports retain exact execution configuration and observed source provenance.
 (defstruct report (status generator property specification seed cases size trial-size size-limit size-current shrink-budget
-                   trial original counterexample attempts steps minimal? cause witness sources classify policy accepted discarded labels) final: #t)
+                   trial original counterexample attempts steps minimal? cause witness sources classify policy accepted discarded labels
+                   checkpoints) final: #t)
 ;; Trial policy is independent of descriptors; coverage uses minimum effective counts.
 (defstruct trial-policy (name precondition labels required discard-budget) final: #t constructor: :init!)
 ;; Copy requirements at construction so callers cannot mutate an admitted policy.
@@ -360,7 +362,8 @@
     (def witness (progress-best state))
     (make-report status generator property specification seed cases size trial-size size-limit size-current budget trial original
       (and witness (sample-value witness)) (progress-attempts state) (progress-steps state)
-      minimal? cause witness sources classify policy accepted discarded (hash->list counts)))
+      minimal? cause witness sources classify policy accepted discarded (hash->list counts)
+      (and (eq? status 'failed) (random-checkpoint-snapshot))))
   ;; Admit terminal child reports only after local catch/finish scopes unwind.
   (with-sources []
     (with-catch
@@ -432,7 +435,8 @@
   (lambda (generator (property : :procedure) specification)
     (unless (and (generator? generator) (specification? specification))
       (error "invalid property testing configuration"))
-    (execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named)))
+    (call-with-random-checkpoints
+      (cut execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named))))
 ;; Direct checks and declaration macros use the same admitted request. There is
 ;; no option parser, surrogate producer or second execution/PRNG owner.
 (def (check-property generator property specification . options)
@@ -472,9 +476,11 @@
   (def (current) (and (live? guard) (live? (report-size-current report))
     (current? (report-specification report) (report-generator report) (report-sources report))))
   (unless (current) (error "stale property replay"))
-  (execute (report-generator report) (report-property report) (report-specification report)
-    (report-seed report) (report-cases report) (report-size report) (report-size-limit report) (report-shrink-budget report)
-    (report-classify report) current (report-size-current report) (report-policy report)))
+  (call-with-random-checkpoints
+    (cut execute (report-generator report) (report-property report) (report-specification report)
+      (report-seed report) (report-cases report) (report-size report) (report-size-limit report) (report-shrink-budget report)
+      (report-classify report) current (report-size-current report) (report-policy report))
+    (report-checkpoints report)))
 
 ;; Concrete witnesses are admitted by their captured precondition/domain, not by
 ;; generation coverage. Each callback shares the existing source boundary.

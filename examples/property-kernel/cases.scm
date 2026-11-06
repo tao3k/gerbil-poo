@@ -648,7 +648,13 @@
       (let ((before-selections selections) (before-draws draws))
         (check (property.replay-counterexample report) => #f)
         (check-equal? selections before-selections) (check-equal? draws before-draws))
-      (same-failure report (property.replay-property report))
+      (let ((before-draws draws))
+        (same-failure report (property.replay-property report))
+        (def replay-draws (- draws before-draws))
+        (check (> replay-draws 0) => #t)
+        (let (before-draws draws)
+          (same-failure report (property.replay-property report))
+          (check-equal? (- draws before-draws) replay-draws)))
       ;; Changing only the ORIGINAL count-6 branch must also refuse replay after
       ;; the final witness has moved to a count-2 branch with unchanged metadata.
       (hash-put! versions 6 1)
