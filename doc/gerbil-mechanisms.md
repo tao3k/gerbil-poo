@@ -1023,3 +1023,82 @@ already bootstrapped generalized protocol. Feedback-cache owns cache reuse rathe
 than equation closure. These are dependency or semantic boundaries, not redundant
 forwarders. Merge decisions follow ownership rather than file length; no new
 registry, wrapper, loader or namespace is introduced.
+
+## Post-v0.1.2 abstraction audit
+
+This local follow-up is not part of the published v0.1.2 tag. It uses the installed Gerbil compiler's own source, including
+`gerbil/core/contract.ss`, `gerbil/runtime/c3.ss`,
+`std/io/interface/base.ss`, `std/io/bio/port.ss`, `std/misc/ports.ss`,
+`std/struct/rbtree.ss`, `std/build-script.ss` and `std/make.ss`.
+It reviews the public call chains, not just similarly named helper functions.
+
+| Responsibility | Standard mechanism and retained POO responsibility | Acceptance |
+| --- | --- | --- |
+| FUN composition | `std/func compose` plus the existing `Observation.` bind/map; the same environment reaches both steps | Bounded byte transfer stops before output on failed input; a fresh environment retries without old bytes |
+| Byte I/O | Direct `read-u8`, `write-u8`, `read-subu8vector`, `write-subu8vector`; non-port endpoints use the official Reader/Writer interfaces and generated method bindings | Five public operations, span/minimum admission, partial/exact input, zero-length operations, original opaque exceptions; no byte loop, buffering layer or transport registry |
+| Contracts and types | Core `using`/range/list rules; POO retains recursive Function wrapping, descriptor ownership and finite inference | Existing container, declaration, refinement/evidence and source-retirement suites remain required |
+| Inheritance and dispatch | Gerbil C3/C4 primitives, syntax binding and method facilities; POO retains final-self, delayed super, qualifiers and multi-argument dispatch | Existing inherited, forwarding, inner/Simula, typed generic and negative-watch controls |
+| Collections | Standard persistent RBTree, HashTable and iterators; POO retains deltas, isomorphism laws, ownership/style transfer and atomic publication | Existing collection regression and paired studies, including failure/retry |
+| Slot representation and caches | Shared immutable shape directory, standard weak tables/interfaces and one receiver-local value vector | Existing ordinary/inline read, false-value, lazy failure and revision invalidation controls; no extra value-cache layer |
+| Loading and reflection | Standard loader owns discovery/initialization; `io.module-action` owns only its finite request and current binding lookup | Existing reload, mutable diagnostic, inheritance and checked reflection controls |
+| Build and tests | Standard `defbuild-script`/make and `gerbil build/test/clean`; automatic machine concurrency and existing heap bounds | Full standard check and CI, including isolated stdlib-only testing, cleanup and complete result admission |
+
+The review reproduced four failures in the previously unexercised byte-I/O
+entry points. Their defaults attempted POO Slot dispatch on standard ports and
+misaligned the public argument order. The corrected boundary uses whole standard
+bulk operations. `read-bytes-into` returns the actual count and admits `need:`;
+`object-read-bytes` requires the complete count or raises the standard premature-EOF
+error. Output operations return Unit. The caller owns flushing/closing; I/O errors
+may retain consumed or written prefixes and do not imply transaction rollback.
+Binary codec helpers whose argument is explicitly a port remain port APIs.
+
+Only the oversized representation test source was split by responsibility:
+symbolic-edit/catalog admission is included in the original suite and namespace.
+The standard make extra-input declaration tracks it. Case order is unchanged and
+no additional runtime image is created for this source partition.
+
+Intentional boundaries are not release defects: automatic PIC/JIT policy,
+unrestricted higher-rank/recursive/row/effect inference, arbitrary callback or
+lens-law discovery, nonmonotone recursive metalevels, and full Jsonnet/Nix language
+implementations remain outside this finite release. Existing Lean laws establish
+their stated functional/ownership/cost models; tests do not prove Gerbil, Gambit,
+the OS loader, or arbitrary effectful callbacks. A function named `admit` in the
+models is ordinary checked admission, not a proof placeholder.
+
+The formatter change reuses fixed symbolic metadata, never reports or source
+validity. Its complete cold result was accepted as within the observed operating
+range, not as an end-to-end speedup claim. Raw performance logs remain ignored
+local evidence and are not release assets or versioned data.
+
+The Scheme default branch is `master`; the push CI trigger now names that actual
+branch so a squash merge receives the same complete acceptance as its PR.
+Lean uses `main`. Branch names are repository facts, not a compatibility layer.
+
+The FUN follow-up closes concrete Identity/wrapper behavior: tupled runtime map
+matches Wrapper./Observation.; IdWrap recognizes its identity carrier while the
+underlying Type still owns membership; Wrap. validates/normalizes the payload and
+re-admits the final carrier. Unchanged payloads retain the original wrapper;
+nested Function values retain their invocation checks. The existing codec trait
+already delegates to T and is reused rather than replaced. Custom wrap/unwrap
+operations still require their stated representation laws. Abstract category
+prototypes are declarations, not a claim of an unrestricted category solver.
+
+### Checked wrapper and byte transfer laws
+
+The companion Lean `Functional.WrapperValidation` model reuses `checkedAction`
+and proves outer refusal, exact payload-cause propagation, final membership,
+unchanged-carrier reuse and checked-payload retention. The last result needs the
+explicit unwrap/rebuild law; it does not assume decidable equality on functions or
+prove Gerbil's `eq?`. `Functional.FunctionValidation` supplies the retained input
+and output invocation gates. Regression controls include present false payloads,
+invalid Function results and normalization that violates an outer refinement.
+
+`Functional.ByteIO` models already admitted nonnegative spans, empty transport,
+exact lengths, and state retained on short reads or output failure. Reader/Writer
+implementations must obey the standard interface's span/count/minimum contracts.
+The finite state records are observations of transport effects, not another stream
+implementation. `Examples/CheckedTransfer.lean` checks short-read suppression,
+partial output, opaque false errors, fresh retry and checked callback invocation.
+Host regressions use the real standard ports and Reader/Writer dispatch. Neither
+model proves runtime memory management, pointer identity, callback termination,
+flush/close correctness or transactional rollback; callers still own resources.

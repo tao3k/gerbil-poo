@@ -22,7 +22,7 @@
                    version-view) publication.)
         (runtime: :clan/poo/examples/cyclic-access)
         (prefix-in (only-in ./cyclic-access cook equations) access.))
-;; Nonnegative native integer Type used by all declared service argument rows.
+;; Nonnegative Gerbil integer Type used by all declared service argument rows.
 (def units-type (IntegerRange min: 0))
 ;; Interpret permission and conservation against the supplied current capacity.
 (def (reservation-meaning available)
@@ -30,7 +30,7 @@
     (case key
       ((permission) (<= (car args) available))
       ((conservation) (equal? result (list 'ok (- available (car args)) #t))))))
-;; Validate invariant native Type/Formula descriptors once; specialize only meaning.
+;; Validate invariant Gerbil Type/Formula descriptors once; specialize only meaning.
 (def reservation-template
   (metadata.contract
     (metadata.predicate "positive-units" (match <> ([units] (and (element? units-type units) (> units 0))) (else #f)))
@@ -40,7 +40,7 @@
     (metadata.both (metadata.atom 'permission) (metadata.atom 'conservation))))
 ;; Baseline specialization copies current meaning while ordinary wrap compiles fresh checks.
 (def (reservation available) (.cc reservation-template meaning: (reservation-meaning available)))
-;; Reuse invariant native checks through the existing withMeaning specialization
+;; Reuse invariant Gerbil checks through the existing withMeaning specialization
 ;; protocol. Capacity remains the new dependent meaning, never a cached result.
 (def (specialized-reservation available (share? #t))
   (metadata.with-meaning reservation-template (reservation-meaning available) share?))

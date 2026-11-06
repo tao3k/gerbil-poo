@@ -2,7 +2,7 @@
 (export bootstrap-protocol bootstrap-protocol? close-protocol)
 (import ./object ./closure)
 ;; Recognize the explicit self-hosted root, not any object with a protocol cycle.
-;; This is native representation provenance, not a proof seal or security predicate.
+;; This is Gerbil representation provenance, not a proof seal or security predicate.
 (def (bootstrap-protocol? value)
   (and (object? value) (eq? (object-%protocol value) value)
        (pair? (object-%bootstrap value))))

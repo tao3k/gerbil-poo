@@ -1,4 +1,4 @@
-;;; Native qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
+;;; Gerbil qualified, forwarding and superclass-controlled method combination in the existing joint service chain.
 (export standard-model simple-model forwarding-model inner-model simula-model
         cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template sized-simula-model bound-simula-model empty-storage-simula-model bound-preflight context-preflight forwarder preflight start revise)
 (import ../object
@@ -129,7 +129,7 @@
 ;; Cold factory benchmarks explicitly charge context-preflight's first creation.
 (def shared-preflight (context-preflight))
 ;; Construct a typed standard/simple reserve seed, or the original sibling seed.
-;; Native registration owns the method carrier; malformed qualifiers fail before bodies run.
+;; Gerbil registration owns the method carrier; malformed qualifiers fail before bodies run.
 (def (seed mode prepared? transport? preparation program key policy view)
   (if (eq? key 'reserve)
     (case mode
@@ -244,7 +244,7 @@
 ;; Automatic prefix/suffix preflight composes with the ordinary typed reserve service.
 (def simula-model (model 'simula))
 ;; Cache-transport-only controls keep the reference combination uncompiled, so
-;; native pairs can distinguish saved lookup from saved effective construction.
+;; Gerbil pairs can distinguish saved lookup from saved effective construction.
 (def cached-forwarding-model (model 'forwarding #f #t))
 ;; The uncompiled Simula child still returns its candidate-cache successor.
 (def cached-simula-model (model 'simula #f #t))
@@ -274,7 +274,7 @@
 ;; still reconstructs current capacity/invoice/release context and contracts.
 (def context-prepared-simula-model (context-simula-model shared-preflight))
 ;; Fuse the cold context model's generic construction: install seed, declarations
-;; and projection in ONE native prototype extension instead of extending an
+;; and projection in ONE Gerbil prototype extension instead of extending an
 ;; intermediate generic then replacing its projection. With no program this is a
 ;; private binding skeleton; no placeholder is exposed by the model factory.
 (def (context-simula-template (program #f))
@@ -290,7 +290,7 @@
       projection: projection)))
 ;; Shared immutable wrapper skeleton; full cold controls charge this creation too.
 (def context-model-template (context-simula-template))
-;; Bind only the varying child program through the existing native generic/model
+;; Bind only the varying child program through the existing Gerbil generic/model
 ;; prototypes. A fresh call still constructs and checks its child; reusable wrapper
 ;; setup is paid once at module initialization, not claimed free for a new process.
 ;; Passing #f selects fused fresh construction and charges no discarded skeleton.
@@ -303,7 +303,7 @@
 ;; Steady revisions reuse immutable code and the compiled callback chain. All
 ;; Type/current-view/contract/negative checks retain their ordinary call boundary.
 (def compiled-context-model (compiled-context-simula-model (context-preflight #t)))
-;; Compose lifecycle representations through Model.'s native method override.
+;; Compose lifecycle representations through Model.'s Gerbil method override.
 ;; Initial publication uses the original captured-view constructor and argument row;
 ;; revisions use the shared compiled child through inherited .publish. The first
 ;; revision rechecks ALL generics under its new family owner, even for equal
@@ -314,14 +314,14 @@
     (lambda (source policy) (staged.prepare prepared-simula-model source policy))))
 ;; Complete first-publication / changed-revision composition. The immutable shared
 ;; code is module setup (charged separately in whole-horizon costs); factories only
-;; bind the native override. No mutable cache, hidden warmup or result memoization.
+;; bind the Gerbil override. No mutable cache, hidden warmup or result memoization.
 (def staged-simula-model (simula-workflow-model))
 ;; Size only the generic-family tables; a new owner still fully checks all keys.
 ;; This control isolates representation allocation from bound-view specialization.
 (def sized-simula-model
   (.cc staged-simula-model generics:
     (.mix family.methods.refresh<-sized-projection (.@ compiled-context-model generics))))
-;; Changed views bind a typed context owner over the same compiled unary program. Native owner/projection/watch/contract approval remains unchanged;
+;; Changed views bind a typed context owner over the same compiled unary program. Gerbil owner/projection/watch/contract approval remains unchanged;
 ;; initial construction delegates to the same captured-view model as the control.
 (def bound-simula-model
   (let (selected (model 'bound-simula #t #t 'all))

@@ -4,7 +4,7 @@
 (import (only-in :std/list/list foldl) (prefix-in :std/struct/queue queue.) ./object ./mop ./lens-laws
         (prefix-in ./recursive-publication publication.))
 
-;; Capture native supported revisions of installed/proposed metadata. Existing
+;; Capture Gerbil supported revisions of installed/proposed metadata. Existing
 ;; lens guards reject ABA writes and protect both objects throughout callbacks.
 (def (guards metadata proposed)
   (unless (and (object? metadata) (object? proposed))

@@ -53,7 +53,7 @@
   (cyclic-publication.publish old (equations config seed) cook services
                               (cut admit require-release <>)))
 
-;; Native representation of Lean's Nat × mode request: immutable pair, with
+;; Gerbil representation of Lean's Nat × mode request: immutable pair, with
 ;; symbols corresponding to Lean mode strings. Reject malformed keys before reuse.
 (def attestation-input (.cc Type. .element?: (lambda (input)
   (and (pair? input) (exact-integer? (car input)) (>= (car input) 0) (symbol? (cdr input))))))

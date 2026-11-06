@@ -7,7 +7,7 @@
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays issue-object-read object-slot-names
+                    call-with-issued-reads active-read-replays issue-object-read object-slot-names object-slot-present?
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
 
 (import
@@ -186,7 +186,7 @@
     ((bootstrap-anchor self name) => (lambda (entry) (apply (cdr entry) self next args)))
     ((and protocol (.slot? protocol name)) (apply (.ref protocol name) self next args))
     (else (next))))
-;; Instantiate atomically with respect to native exceptions. Mutating callbacks and
+;; Instantiate atomically with respect to Gerbil exceptions. Mutating callbacks and
 ;; concurrent reads/writes are outside the sequential protocol, and are rejected
 ;; for actively evaluated receivers rather than returning a partially built value.
 (def (instantiate-object! self previous: (previous #f))
@@ -203,7 +203,7 @@
               (make-slot-values (hash-keys (object-%slot-funs self))
                 (object-%overrides self)
                 (if (eq? (object-%protocol self) self) (or (object-%bootstrap self) []) [])
-                absent-value previous: previous))))
+                absent-value previous: previous state: (object-%state self)))))
         (set! (object-%instance self) instance)
         (hash-put! (object-read-table self) '(preparation)
           (object-record-read self '(preparation) instance dependencies))
@@ -363,8 +363,9 @@
 ;; Receiver-bound observations share this module's object/Slot authority.
 (include "object/observation.scm")
 
+;; Admit runtime names before recording reads, bootstrap lookup or preparation.
 ;; Read a cached slot or compute it through the original cycle-aware protocol.
-(def (.ref self slot)
+(def (.ref self (slot :~ symbol?))
   (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
   (if anchor (object-read-bootstrap self slot anchor)
@@ -418,7 +419,7 @@
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
 ;; Get an existing cached slot value from an object
-(def (.ref/cached self slot (default false))
+(def (.ref/cached self (slot :~ symbol?) (default false))
   (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
   (if anchor (object-read-bootstrap self slot anchor)
@@ -478,12 +479,15 @@
                supers: [(object-%supers override)... base] defaults: (object-%defaults override)
                protocol: (object-%protocol override) declarations: (object-%declarations override)))
 
-;; : Bool <- (Object _) Symbol
-(def (.slot? self slot)
+;; Structural presence admits its Symbol before bootstrap, observation or MOP
+;; preparation, just like ordinary reads. Absence is a successful false result.
+(def (.slot? self (slot :~ symbol?))
   (if (bootstrap-anchor self slot)
     (begin (object-read-bootstrap self slot (bootstrap-anchor self slot)) #t)
     (object-read-query self (list 'presence slot)
       (cut object-slot-present? self slot))))
+;; Private query continuation: its public owner already admitted the name.
+;; Recheck bootstrap after observer prechecks, which may edit the protocol.
 (def (object-slot-present? self slot)
   (if (bootstrap-anchor self slot) #t
     (begin (instantiate-object! self) (hash-key? (object-%slot-funs self) slot))))

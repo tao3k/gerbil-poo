@@ -19,7 +19,7 @@
     (lambda (self parent)
       (def raw (parent))
       (setter (wrapper fragment self (lambda () (getter raw))) raw))))
-;; Adapt the existing native Lens protocol, including nested Lens.compose, without
+;; Adapt the existing Gerbil Lens protocol, including nested Lens.compose, without
 ;; introducing a second lens representation or redoing method lookup per fragment.
 (def (focus-compiler lens wrapper)
   (lens-compiler (.@ lens .get) (.@ lens .set) wrapper))
@@ -45,7 +45,7 @@
 ;; Capture the exact compiler and ordered declarations without running method bodies.
 (def (prepare protocol fragments)
   (make-prepared protocol fragments (assemble protocol fragments) (.@ protocol cook)))
-;; Capture native checked C4/C3 declarations once, retaining its exact order/errors.
+;; Capture Gerbil checked C4/C3 declarations once, retaining its exact order/errors.
 (def (inheritance-fragments root declarations)
   (apply append (map declarations (compute-precedence-list! root))))
 ;; Reuse checked inheritance for the general per-fragment construction path.
@@ -92,7 +92,7 @@
       (def found (assq slot delayed))
       (unless found (error "unknown cooked field" slot))
       (force (cdr found)))))
-;; Bind one step to captured compiler/cook callbacks. Native delay/force shares
+;; Bind one step to captured compiler/cook callbacks. Gerbil delay/force shares
 ;; cooked self across all method demands within that raw stage; never across seeds.
 ;; Local purity is required; this does not preserve arbitrary callback side effects.
 (def (bound-step program cook final base)
@@ -113,7 +113,7 @@
 (def (approximate snapshot base seed depth)
   (check-depth depth)
   (iterate (prepared-program snapshot) (prepared-cook snapshot) base seed depth))
-;; Capture snapshot/base/depth once as a native Reader/FUN action. Repeated calls
+;; Capture snapshot/base/depth once as a Gerbil Reader/FUN action. Repeated calls
 ;; may use DIFFERENT seeds; no observed value or admission is cached by this binder.
 (def (bind-observer snapshot base depth)
   (check-depth depth)
@@ -125,7 +125,7 @@
 (def (bind-context-observer snapshot depth context-base context-seed)
   (check-depth depth)
   (def program (prepared-program snapshot)) (def cook (prepared-cook snapshot))
-  ;; Native identity selectors need neither captured selector nor two callbacks.
+  ;; Gerbil identity selectors need neither captured selector nor two callbacks.
   ;; Specialize only the known standard identity; arbitrary selectors stay general.
   (if (and (eq? context-base identity) (eq? context-seed identity))
     (lambda (raw) (cook (iterate program cook raw raw depth)))
@@ -137,5 +137,5 @@
   (check-depth depth)
   ((prepared-cook snapshot)
     (iterate (prepared-program snapshot) (prepared-cook snapshot) base seed depth)))
-;; Lift one compiled observation into the native FUN composition chain.
+;; Lift one compiled observation into the Gerbil FUN composition chain.
 (def observation-action bind-observer)

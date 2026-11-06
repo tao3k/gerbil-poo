@@ -2,7 +2,8 @@
 (export covers-signatures? decode-arguments signature-shape? select-signature normalize-arguments encode-arguments wrap-function check-results)
 (import (only-in ./support/base require-value) (only-in :std/list/list map-in-order delete-duplicates/hash)
         (only-in :std/list/plist alist->plist)
-        (only-in ./object .get))
+        (only-in ./object .get replay-slot-reads!)
+        (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!))
 
 ;; Decode Gerbil's keyword escapes without executing defaults or validators.
 ;; With no declared keyword API, retain positional keyword values verbatim.
@@ -61,10 +62,59 @@
   (def outputs (.get signature outputs))
   (unless (= (length outputs) (length results)) (refuse descriptor results))
   (map-in-order check outputs results))
+;; Only a procedure issued by this validator can supply its original target.
+;; The weak key owns the provenance lifetime. Raw targets are never interned.
+(defstruct function-issuance (descriptor target check refuse policy reads) final: #t)
+(def function-issuances (make-hash-table-eq weak-keys: #t))
+
+;; A signature may expose mutable Scheme list spines. Snapshot the topology
+;; independently of the native slot reads, comparing Type leaves by identity.
+(def (copy-policy value)
+  (if (pair? value) (cons (copy-policy (car value)) (copy-policy (cdr value))) value))
+(def (same-policy? left right)
+  (cond ((pair? left)
+         (and (pair? right) (same-policy? (car left) (car right))
+              (same-policy? (cdr left) (cdr right))))
+        (else (eq? left right))))
+(def (signature-policy signatures)
+  (map (lambda (signature)
+         (list signature (copy-policy (.get signature inputs))
+               (copy-policy (.get signature optional))
+               (copy-policy (.get signature keywords))
+               (copy-policy (.get signature required-keywords))
+               (.get signature rest) (copy-policy (.get signature outputs))))
+       signatures))
+(def (function-support-current? reads)
+  (with-catch (lambda (_stale) #f)
+    (lambda () (replay-slot-reads! reads void) #t)))
+
 ;; Validate arguments before one body invocation, then validate every returned value.
 ;; Target body/default errors propagate exactly and cannot cause overload fallback.
-(def (wrap-function descriptor procedure signatures check refuse)
+(def (wrap-function descriptor procedure read-signatures check refuse)
   (require-value procedure procedure? (lambda () (refuse descriptor procedure)))
+  (def signatures #f)
+  (defvalues (policy reads)
+    (%call-with-recorded-slot-reads
+      (lambda ()
+        (set! signatures (read-signatures))
+        (signature-policy signatures)) unique-roots?: #t))
+  (replay-slot-reads! reads void)
+  (%record-slot-reads! reads)
+  (def prior (hash-get function-issuances procedure))
+  (def same-issuer?
+    (and prior (eq? descriptor (function-issuance-descriptor prior))
+         (eq? check (function-issuance-check prior))
+         (eq? refuse (function-issuance-refuse prior))))
+  (if (and same-issuer? (same-policy? policy (function-issuance-policy prior))
+           (function-support-current? (function-issuance-reads prior)))
+    procedure
+    (let* ((target (if same-issuer? (function-issuance-target prior) procedure))
+           (wrapped (checking-procedure descriptor target signatures check refuse)))
+      (hash-put! function-issuances wrapped
+        (make-function-issuance descriptor target check refuse policy reads))
+      wrapped)))
+
+(def (checking-procedure descriptor procedure signatures check refuse)
   (let (keyword-mode? (ormap (lambda (signature) (pair? (.get signature keywords))) signatures))
     (lambda arguments
       (def signature (select-signature signatures arguments))

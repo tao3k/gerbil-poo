@@ -3,7 +3,7 @@
         result? result-value result-failure result-next result-reused failure? failure-stage failure-cause)
 (import :std/iter ./object (only-in ./mop define-type Type validate element?)
         (prefix-in ./fun fun.) (prefix-in ./recursive recursive.) (prefix-in ./recursive-cache cached.))
-;; Native counterpart of a resolved callable signature; registries remain ordinary
+;; Gerbil counterpart of a resolved callable signature; registries remain ordinary
 ;; immutable POO objects. The current descriptor is resolved anew on EVERY call.
 (define-type (Signature. @ [] name input output))
 ;; Published session contains only its program-indexed memo; no admitted output cache.
@@ -14,7 +14,7 @@
 (defstruct failure (stage cause) final: #t)
 ;; Start a session for one immutable typed generator, never another program's memo.
 (def (session program) (make-session-state program (cached.empty program)))
-;; Recognize the private native session carrier without forcing its program.
+;; Recognize the private Gerbil session carrier without forcing its program.
 (def session? session-state?)
 ;; Inspect memo size/statistics through the cache's read-only API.
 (def session-memo session-state-memo)
@@ -51,7 +51,7 @@
                 (error "recursive output refused"))
               (make-result (recursive.value-result completion) #f next reused))))))
     (catch (cause) (make-result #f (make-failure stage cause) next reused))))
-;; Lift a value into a retained-session action, using the native FUN convention.
+;; Lift a value into a retained-session action, using the Gerbil FUN convention.
 (def (pure-action value) (lambda (state) (make-result value #f state 'unknown)))
 ;; Bind threads the exact next session even after output rejection; failures stop
 ;; the chain without rolling back completed source work or forcing later actions.

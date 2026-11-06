@@ -1,0 +1,76 @@
+;;; Concrete Identity and lawful wrapper operations under the shared FUN protocol.
+(export fun-test)
+(import :std/test
+        (only-in :clan/poo/fun Identity Wrapper. Wrap. IdWrap)
+        (only-in :clan/poo/object .cc .call .set!)
+        (only-in :clan/poo/mop validate TypeError? Function Bool)
+        (only-in :clan/poo/number UInt Integer)
+        (only-in :clan/poo/support/option some make-some some? some-value))
+
+(def fun-test
+  (test-suite "FUN identity and wrappers"
+    (test-case "Identity shares the two-argument map protocol and ordinary bind"
+      (check-equal? (.call Identity .map 1+ 3) 4)
+      (check-equal? (.call Identity .bind 3 (lambda (value) (+ value 2))) 5)
+      (check-equal? (.call Identity .unap (.call Identity .ap #f)) #f))
+    (test-case "IdWrap admits exactly its underlying domain"
+      (def type (.cc IdWrap T: UInt))
+      (check (.call type .element? 4) => #t)
+      (check (.call type .element? -1) => #f)
+      (check-equal? (validate type 4) 4)
+      (check-exception (validate type -1) TypeError?)
+      (check-equal? (.call type .map/wrap 1+ 4) 5))
+    (test-case "wrapper validation preserves unchanged carriers and rejects wrong shapes"
+      (def carrier (.cc Wrapper. .ap: make-some .unap: some-value))
+      (def type (.cc Wrap. T: UInt Wrapper: carrier .wrap?: some?))
+      (def original (some 3))
+      (check-eq? (validate type original) original)
+      (check-exception (validate type #f) TypeError?)
+      (check-exception (validate type (some -1)) TypeError?)
+      (check-equal? (some-value (.call type .map/wrap 1+ original)) 4))
+    (test-case "wrapper validation retains nested Function argument and result checks"
+      (def calls 0)
+      (def signature (Function [Integer] [Integer]))
+      (def carrier (.cc Wrapper. .ap: make-some .unap: some-value))
+      (def type (.cc Wrap. T: signature Wrapper: carrier .wrap?: some?))
+      (def original (some (lambda (value) (set! calls (1+ calls)) value)))
+      (def checked (validate type original))
+      (check-equal? calls 0)
+      (check-equal? ((some-value checked) 7) 7)
+      (check-exception ((some-value checked) 'wrong) TypeError?)
+      (check-equal? calls 1)
+      (def identity-type (.cc IdWrap T: signature))
+      (def fn (validate identity-type (lambda (value) value)))
+      (check-exception (fn 'wrong) TypeError?)
+      (def invalid-result (validate type (some (lambda (_) 'wrong-result))))
+      (check-exception ((some-value invalid-result) 7) TypeError?))
+    (test-case "false payloads remain values in identity and explicit carriers"
+      (def carrier (.cc Wrapper. .ap: make-some .unap: some-value))
+      (def boxed (.cc Wrap. T: Bool Wrapper: carrier .wrap?: some?))
+      (def original (some #f))
+      (check-eq? (validate boxed original) original)
+      (check-eq? (some-value (validate boxed original)) #f)
+      (check-eq? (validate (.cc IdWrap T: Bool) #f) #f))
+    (test-case "outer refinement gates payload callbacks before and after normalization"
+      (def calls 0) (def domain (.cc UInt))
+      (.set! domain .validate (lambda (_) (set! calls (1+ calls)) 3))
+      (def carrier (.cc Wrapper. .ap: make-some .unap: some-value))
+      (def type (.cc Wrap. T: domain Wrapper: carrier .wrap?: some?
+        .element?: (lambda (value) (and (some? value) (integer? (some-value value))
+                                       (even? (some-value value))))))
+      (check-exception (validate type (some 3)) TypeError?)
+      (check-equal? calls 0)
+      (def original (some 2))
+      (check-exception (validate type original) TypeError?)
+      (check-equal? calls 1)
+      (check-equal? (some-value original) 2))
+    (test-case "identity wrappers reuse the inherited codec implementations"
+      (def type (.cc IdWrap T: UInt))
+      (check-equal? (.call type .<-bytes (.call type .bytes<- 1234)) 1234)
+      (check-equal? (.call type .<-json (.call type .json<- 1234)) 1234))
+    (test-case "retained wrappers resolve the current underlying validator"
+      (def domain (.cc UInt)) (def type (.cc IdWrap T: domain))
+      (check-equal? (validate type 3) 3)
+      (def cause (cons 'current 'validator))
+      (.set! domain .validate (lambda (_) (raise cause)))
+      (check-eq? (with-catch values (lambda () (validate type 3))) cause))))

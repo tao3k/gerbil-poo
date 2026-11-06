@@ -29,18 +29,26 @@
   (prefix-in :clan/poo/multimethod multimethod.)
   (prefix-in :clan/poo/dispatch-extension dispatch-extension.))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (method-combination-test)
-  (let () (include "method-declaration/method-combination.scm")))
+;; Give method-combination-test its own compiler function and private fixture scope.
+(def (make-method-combination-test)
+  (include "method-declaration/method-combination.scm"))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (method-declaration-test)
-  (let () (include "method-declaration/cases.scm")))
+(def method-combination-test (make-method-combination-test))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (multimethod-test)
-  (let () (include "method-declaration/multimethod.scm")))
+;; Give method-declaration-test its own compiler function and private fixture scope.
+(def (make-method-declaration-test)
+  (include "method-declaration/cases.scm"))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (typed-method-declaration-test)
-  (let () (include "method-declaration/typed-method-declaration.scm")))
+(def method-declaration-test (make-method-declaration-test))
+
+;; Give multimethod-test its own compiler function and private fixture scope.
+(def (make-multimethod-test)
+  (include "method-declaration/multimethod.scm"))
+
+(def multimethod-test (make-multimethod-test))
+
+;; Give typed-method-declaration-test its own compiler function and private fixture scope.
+(def (make-typed-method-declaration-test)
+  (include "method-declaration/typed-method-declaration.scm"))
+
+(def typed-method-declaration-test (make-typed-method-declaration-test))

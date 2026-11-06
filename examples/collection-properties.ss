@@ -95,6 +95,66 @@
 ;; through gerbil test after the standard qualification build, without a new runner.
 (def collection-properties-test
   (test-suite "complex model-driven collection properties"
+    (test-case "inherited report owners survive collection repair three replays and fresh FUN retry"
+      (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
+      (def commands (.get handoff commands)) (def selected (collection-model commands))
+      (def sampler (trace-generator Command selected steps: (length commands)))
+      (def configuration (make-instance PropertyConfiguration seed: 41 cases: 1
+        size: (length commands) shrink-budget: 96))
+      (def calls 0) (def encoded 0) (def delivered 0)
+      (def property (property-for selected 'rationaldict 'atomic))
+      ;; This is the real indexed fixture/oracle, not a replacement false result.
+      (def (observe trace) (set! calls (1+ calls)) (property trace))
+      ;; FUN delivery remains once per explicit action, never an effect of replay.
+      (def (deliver report) (set! delivered (1+ delivered)) report)
+      (def failed ((property-action (.get sampler descriptor) observe deliver sampler: sampler) configuration))
+      (check-eq? (.get failed status) 'failed)
+      (check (< (length (.get failed counterexample)) (length (.get failed original))) => #t)
+      (def execution (.get failed execution))
+      ;; A derived report can declare an additional service owner. Capture its
+      ;; epoch now; reading execution is allowed to retire it but not use it later.
+      (def (view retire?)
+        (def sources (append (snapshot #f (list owner)) (.get failed sources)))
+        (.o bind-these: #f inherit: [failed] sources: sources
+          execution: (begin
+            (when retire? (.set! owner epoch (1+ (.get owner epoch)))) execution)))
+      (for (operation '(seed concrete export))
+        (def report (view #t)) (def output (open-output-string))
+        (def codec (replay.make-codec 'collection-report
+          (lambda (value) (set! encoded (1+ encoded)) value) values))
+        (set! calls 0) (set! encoded 0)
+        (check-exception (case operation
+          ((seed) (replay-property report)) ((concrete) (replay-counterexample report))
+          ((export) (write-counterexample report codec output))) Error?)
+        (check-equal? (list calls encoded (string-length (get-output-string output))) '(0 0 0)))
+      (def current-view (view #f)) (def again (replay-property current-view))
+      (check-eq? (.get again status) 'failed)
+      (check-equal? (length (.get again sources)) (length (.get current-view sources)))
+      (check (.call sampler .accept? (.get again counterexample)) => #t)
+      ;; Editing the caller's old source pair cannot renew or corrupt the newly
+      ;; published report. Its source count remains fixed through repeated replay.
+      (set-cdr! (car (.get current-view sources)) (1+ (.get owner epoch)))
+      (check (replay-counterexample again) => #f)
+      (set! again (replay-property again))
+      (check-eq? (.get again status) 'failed)
+      (check-equal? (length (.get again sources)) (length (.get current-view sources)))
+      (def epoch (.get owner epoch))
+      (def codec (replay.make-codec (list 'collection-report 1 epoch) values values
+        current?: (lambda () (= epoch (.get owner epoch)))))
+      (def output (open-output-string)) (write-counterexample again codec output)
+      (check (read-counterexample sampler codec (open-input-string (get-output-string output)) observe) => #f)
+      (.set! owner epoch (1+ epoch))
+      (set! calls 0)
+      (check-exception (replay-property again) Error?)
+      (check-exception (replay-counterexample again) Error?)
+      (def input (open-input-string (get-output-string output)))
+      (check-exception (read-counterexample sampler codec input observe) Error?)
+      (check-equal? (list calls (input-port-char-position input)) '(0 0))
+      (def fresh (trace-generator Command selected steps: (length commands) dependencies: (list owner)))
+      (def corrected ((property-action (.get fresh descriptor) (property-for selected 'rationaldict 'none)
+        deliver sampler: fresh) configuration))
+      (check-eq? (.get corrected status) 'passed)
+      (check-equal? delivered 2))
     (test-case "scoped Iterable preparation retains dependency repair FUN replay and fresh retry"
       (def owner (make-instance (Record epoch: [UInt]) epoch: 0))
       (def commands (.get handoff commands))

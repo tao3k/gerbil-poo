@@ -2,7 +2,7 @@
 (export Interaction. Generator. value value? value-result source-error source-error? source-error-message
         request bind map-interaction fold interaction? generate solve pending? close)
 (import ./object (only-in ./mop define-type Type validate element?) (prefix-in ./fun fun.))
-;; Closed native nodes; public builders never expose mutation or cache receipts.
+;; Closed Gerbil nodes; public builders never expose mutation or cache receipts.
 (defstruct returned (result) final: #t)
 ;; Explicit source-language failure, not a caught host exception or machine diagnostic.
 (defstruct failed (message) final: #t)
@@ -46,7 +46,7 @@
   (on-request (called-input tree) (called-next tree)))
 ;; Map a pure result through the same bind protocol; errors/requests retain order.
 (def (map-interaction transform tree) (bind tree (lambda (answer) (value (transform answer)))))
-;; Native FUN interface: .ap/.bind/.map compose explicit requests, not unsafe thunks.
+;; Gerbil FUN interface: .ap/.bind/.map compose explicit requests, not unsafe thunks.
 (define-type (Interaction. @ fun.ParametricFunctor.)
   .ap: value .bind: bind .map: map-interaction)
 ;; Invoke one immutable typed generator. Membership checks preserve values rather

@@ -1,7 +1,10 @@
 ;;; Receiver-bound read observations shared by every object access route.
 ;;; Values are still computed by object.ss; this module only records/replays.
-(export make-slot-read slot-read-key slot-read-receiver
-        slot-read-revision slot-read-instance slot-read-value slot-read-dependencies
+(export make-slot-read (rename-out copy-slot-read-key (copy-slot-read-key slot-read-key))
+        slot-read-receiver
+        slot-read-revision slot-read-instance
+        (rename-out copy-slot-read-value (copy-slot-read-value slot-read-value))
+        (rename-out copy-slot-read-dependencies (copy-slot-read-dependencies slot-read-dependencies))
         call-with-slot-read-observer without-observation
         %slot-read-active? %slot-read-demand! %deliver-slot-read %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?)
@@ -13,6 +16,20 @@
   (lambda (self receiver key revision instance value dependencies current?)
     (struct-instance-init! self
       receiver key revision instance value dependencies current? #f)))
+;; Structural keys are finite lists of symbols. Readers own the returned spine
+;; while ordinary symbol keys retain their identity and require no allocation.
+(def (copy-slot-read-key read)
+  (let (key (slot-read-key read))
+    (if (pair? key) (list-copy key) key)))
+;; Names are structural metadata. All other values remain opaque, even an
+;; application list stored in a regular Slot called names.
+(def (copy-slot-read-value read)
+  (let (value (slot-read-value read))
+    (if (equal? (slot-read-key read) '(names)) (list-copy value) value)))
+;; Consumers may edit the dependency list, while each parent keeps its signed
+;; record identity and its original position and multiplicity.
+(def (copy-slot-read-dependencies read)
+  (list-copy (slot-read-dependencies read)))
 (defstruct read-collection (seen reversed) final: #t)
 ;; One dynamic binding owns the complete observation scope: #f when disabled,
 ;; the existing collection for capture alone, or a scope with actual observers.
@@ -51,11 +68,17 @@
     (action)))
 ;; Check sources before invoking a potentially cold getter. Metadata inspection
 ;; must not recursively observe itself; outer source collectors remain active.
+;; Each precheck owns its structural key spine. A callback may retain or edit
+;; that spine without changing later prechecks or the receiver's hash key.
+;; Bare Symbol keys have no mutable spine and are passed directly.
 (def (%slot-read-demand! receiver key)
   (let* ((scope (current-read-scope)) (checks (if (read-scope? scope) (read-scope-prechecks scope) '())))
     (unless (null? checks)
       (without-observation
-        (lambda () (for-each (lambda (check) (check receiver key)) checks))))))
+        (lambda ()
+          (for-each (lambda (check)
+                      (check receiver (if (pair? key) (list-copy key) key)))
+                    checks))))))
 ;; Replace only the capture frame; retain the actual observer/precheck payloads.
 (def (%call-with-recorded-slot-reads action unique-roots?: (unique-roots? #f))
   ;; Only replay-root consumers opt in. Dependency capture keeps every
@@ -104,8 +127,7 @@
   (def parent (current-read-scope))
   (def observed? (read-scope? parent))
   (def checks (if observed? (read-scope-prechecks parent) '()))
-  (parameterize ((current-read-scope
-      (make-read-scope (if observed? (read-scope-frame parent) parent)
-        (cons observe (if observed? (read-scope-observers parent) '()))
-        (if before (cons before checks) checks))))
-    (action)))
+  (call-with-parameters action current-read-scope
+    (make-read-scope (if observed? (read-scope-frame parent) parent)
+      (cons observe (if observed? (read-scope-observers parent) '()))
+      (if before (cons before checks) checks))))

@@ -22,17 +22,17 @@
 (def (name! name)
   (require-value name string? (lambda () (error "metadata name must be a string")))
   (string-copy name))
-;; Recognize native open metadata objects by their explicit type descriptor identity.
+;; Recognize Gerbil open metadata objects by their explicit type descriptor identity.
 (def (metadata? descriptor value)
   (and (object? value) (.has? value .type) (eq? (.@ value .type) descriptor)))
 
-;; Native Type descriptor for extensible method-edit declarations.
+;; Gerbil Type descriptor for extensible method-edit declarations.
 (define-type (Declaration @ Type.) .element?: (cut metadata? @ <>))
-;; Named native declaration with a compiled dispatch edit; overrides remain ordinary MOP slots.
+;; Named Gerbil declaration with a compiled dispatch edit; overrides remain ordinary MOP slots.
 (define-type (Declaration. @ [] name .compile) .type: Declaration)
-;; Obtain the actual dispatch edit through the declaration's native compile method.
+;; Obtain the actual dispatch edit through the declaration's Gerbil compile method.
 (.defgeneric (compile declaration) slot: .compile)
-;; Recognize a native declaration; malformed data is refused by its consuming protocol.
+;; Recognize a Gerbil declaration; malformed data is refused by its consuming protocol.
 (def (declaration? value) (element? Declaration value))
 ;; Return a private copy of the declaration name.
 (def (declaration-name declaration) (string-copy (.@ declaration name)))
@@ -50,7 +50,7 @@
 (def (install seed declarations) (dispatch-extension.patch seed (map compile declarations)))
 ;; Derive declaration-driven methods while preserving the model's seed, watches and owner protocol.
 (def (family base declarations)
-  ;; Rebinding methods preserves the native model's seed, watches and overrides.
+  ;; Rebinding methods preserves the Gerbil model's seed, watches and overrides.
   (.cc base methods: (lambda (key policy cooked) (map compile (declarations key policy cooked)))))
 ;; Label a sequence of edits by stable order for diagnostic provenance.
 (def (named label edits)
@@ -59,7 +59,7 @@
 
 ;; Formula.Holds is composed at construction. There is no tag interpreter in
 ;; the invocation path. Scheme's and/or preserve left-to-right short circuiting.
-;; Native Type descriptor for composed executable logical formulas.
+;; Gerbil Type descriptor for composed executable logical formulas.
 (define-type (Formula @ Type.) .element?: (cut metadata? @ <>))
 ;; Derive logical refusal from a Boolean holds callback; false raises logic failure.
 (define-type (methods.check<-holds @ [] .holds)
@@ -70,7 +70,7 @@
 (.defgeneric (holds formula meaning) slot: .holds)
 ;; Require formula truth or raise typed logic refusal.
 (.defgeneric (check formula meaning) slot: .check)
-;; Recognize native formula descriptors for construction validation.
+;; Recognize Gerbil formula descriptors for construction validation.
 (def (formula? value) (element? Formula value))
 ;; Formula accepting every interpretation without evaluating any atom.
 (def truth (.cc Formula. .holds: (lambda (_) #t)))
@@ -93,13 +93,13 @@
 ;; Negate a validated Boolean formula decision.
 (def (deny body) (.cc Formula. .holds: (compose not (decision body))))
 
-;; Predicates ARE native Type descriptors: refinement and typed metadata both
+;; Predicates ARE Gerbil Type descriptors: refinement and typed metadata both
 ;; participate in the existing element?/validate protocol.
-;; Native Type descriptor for input/output refinement predicates.
+;; Gerbil Type descriptor for input/output refinement predicates.
 (define-type (Predicate @ Type.) .element?: (cut metadata? @ <>))
 ;; Named refinement Type using the existing element?/validate protocol.
 (define-type (Predicate. @ Type. name) .type: Predicate)
-;; Recognize a native named predicate descriptor.
+;; Recognize a Gerbil named predicate descriptor.
 (def (predicate? value) (element? Predicate value))
 ;; Construct a named refinement from a procedure; invalid callbacks raise immediately.
 (def (predicate label test)
@@ -117,7 +117,7 @@
 
 ;; A Contract is an invocation wrapper, so it composes with ordinary calls,
 ;; typed dispatch, and publication without defining another effect system.
-;; Native Type descriptor for extensible checked invocation contracts.
+;; Gerbil Type descriptor for extensible checked invocation contracts.
 (define-type (Contract @ Type.) .element?: (cut metadata? @ <>))
 ;; Derive ordinary checked invocation from the contract's wrapper method.
 (define-type (methods.invoke<-wrap @ [] .wrap)
@@ -132,7 +132,7 @@
 (def (compile-checks input output rule)
   (make-contract-checks input output rule (cut accepts 'input input <>)
                        (cut accepts 'output output <>) (decision rule)))
-;; Identity stamps are a sufficient reuse guard under immutable native metadata.
+;; Identity stamps are a sufficient reuse guard under immutable Gerbil metadata.
 ;; Any derived predicate/formula requires fresh checks, even if outputs look equal.
 (def (matching-checks? checks input output rule)
   (and (contract-checks? checks) (eq? input (contract-checks-input checks))
@@ -173,7 +173,7 @@
                      (contract-checks-decide checks) meaning)
     (checked-wrapper (cut accepts 'input input <>) (cut accepts 'output output <>)
                      (decision rule) meaning)))
-;; Specialize a descriptor through its native method, preserving extensible slots.
+;; Specialize a descriptor through its Gerbil method, preserving extensible slots.
 ;; Sharing applies only to immutable invariant sources; the new meaning is always
 ;; used at invocation. Derived invariant changes still take the fresh-check path.
 ;; share? false avoids initial shared-record preparation for a single cold call.
@@ -205,9 +205,9 @@
                 (and (previous meaning) (boolean! (meaning binding-key)))))))))
 ;; Bind the current executor to a descriptor's checked wrapper; state remains an invocation argument.
 (.defgeneric (wrap contract execute) slot: .wrap)
-;; Execute through the descriptor's native checked invocation method.
+;; Execute through the descriptor's Gerbil checked invocation method.
 (.defgeneric (invoke contract execute args) slot: .invoke)
-;; Recognize an open native Contract descriptor before family construction/binding.
+;; Recognize an open Gerbil Contract descriptor before family construction/binding.
 (def (contract? value) (element? Contract value))
 ;; Validate invariant predicate/formula descriptors and dependent meaning, then derive a contract.
 (def (contract input-type output-type interpretation formula)

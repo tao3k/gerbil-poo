@@ -3,79 +3,111 @@
         make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
         make-slot-cache slot-cache-name slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
+        (only-in ./object-state object-state-revision)
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
 ;; A shape owns the immutable name-to-index mapping. Cells always belong to one receiver.
 (defstruct shape (indices names))
-(defstruct layout (shape cells missing count))
+;; Object-backed cells belong to one revision of the existing invalidation state.
+;; Standalone layouts and HashTable copies have no receiver revision.
+(defstruct layout (shape cells missing count state revision))
 ;; Expose shape identity without exposing its mutable implementation fields.
 (defalias slot-layout-shape layout-shape)
 ;; Intern an already canonical identity order through the one existing weak table.
-;; Callers establish distinct symbolic names; this routine never edits their spine.
-(def (intern-ordered-shape keys)
+;; An admitted private membership table can become the index of a new shape.
+;; A hit leaves it unpublished. This routine never edits the keys' spine.
+(def (intern-ordered-shape keys (members #f))
   (hash-ensure-ref shapes keys
     (lambda ()
-      (let (indices (make-hash-table-symbolic))
+      (let (indices (or members (make-hash-table-symbolic)))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices keys)))))
+;; Serial identity is the one canonical order for full and revised directories.
+(def (shape-name<? left right)
+  (< (object->serial-number left) (object->serial-number right)))
 ;; Fresh unrelated name sets still use the standard complete sort.
-(def (intern-shape names)
-  (intern-ordered-shape
-    (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b))) names)))
+(def (intern-shape names members)
+  (intern-ordered-shape (list-sort shape-name<? names) members))
+;; Merge two disjoint canonical identity runs. The existing standard sorter owns
+;; the new run; a tail loop and append-reverse share the untouched borrowed tail.
+;; No intermediate shape/index is interned, and neither source spine is mutated.
+(def (merge-shape-names left right)
+  (let loop ((left left) (right right) (prefix []))
+    (cond ((null? left) (append-reverse prefix right))
+          ((null? right) (append-reverse prefix left))
+          ((not (shape-name<? (car right) (car left)))
+            (loop (cdr left) right (cons (car left) prefix)))
+          (else (loop left (cdr right) (cons (car right) prefix))))))
 ;; One absent key extends an immutable sorted directory without sorting it again.
 ;; Standard prefix/copy operations share the untouched suffix; no second index or
 ;; cached transition is retained. The caller has already certified key absence.
-(def (extend-shape previous key)
+(def (extend-shape previous key (members #f))
   (def keys (shape-names previous))
   (def serial (object->serial-number key))
   ;; Standard find stops at the successor; its already-existing index supplies
   ;; the cut. False is not a symbolic key, and zero remains a valid offset.
   (def successor (find (lambda (name) (>= (object->serial-number name) serial)) keys))
   (def at (if successor (hash-ref (shape-indices previous) successor) (length keys)))
-  (intern-ordered-shape (append (take keys at) (cons key (drop keys at)))))
-;; Canonicalize symbolic identity order, independent of parent/declaration order.
-;; An explicit initial table seeds all cached values. False selects demand-filled
-;; cells: make-vector allocates the same finite layout without scanning values.
-;; An old layout supplies only an immutable shape hint. Full identity-set checking
-;; precedes reuse, so additions/removals still canonicalize through the weak table.
-;; Reusing its ordered names skips sorting/interning, never current value seeding.
-(def (make-slot-layout names initial missing previous: (previous #f))
+  (intern-ordered-shape (append (take keys at) (cons key (drop keys at))) members))
+;; Check exact identity coverage through the old index. One byte per offset
+;; counts unique arrivals even when names are reordered or repeated. An unknown
+;; key falls back to ordinary admission. A contraction cannot allocate old-width
+;; scratch space if its entire request is smaller than the old shape.
+(def (same-shape-names? names hint)
+  (def indices (shape-indices hint))
+  (def width (hash-length indices))
+  (and (<= width (length names))
+    (let (seen (make-u8vector width 0))
+      (let loop ((names names) (remaining width))
+        (if (null? names) (zero? remaining)
+          (let* ((name (car names)) (index (and (symbol? name) (hash-get indices name))))
+            (and index
+              (if (zero? (u8vector-ref seen index))
+                (begin (u8vector-set! seen index 1) (loop (cdr names) (1- remaining)))
+                (loop (cdr names) remaining)))))))))
+
+;; Admit every key before symbolic hashing. The private deduplication table
+;; already owns exactly the new identities and can be filled with offsets.
+(def (shape-for-names names hint)
+  (def members (make-hash-table-symbolic))
+  (def unique (delete-duplicates/hash names table: members
+    key: (lambda (name) (using (name :~ symbol?) name))))
+  (if (not hint) (intern-shape unique members)
+    (let ((width (length unique)) (prior-width (hash-length (shape-indices hint))))
+      ;; Bound filtering by the old/new width ratio. Large contractions sort
+      ;; the small new request without scanning the obsolete directory.
+      (if (or (zero? prior-width) (> prior-width (* 2 width))) (intern-shape unique members)
+        (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
+          (cond
+            ((null? added)
+             (if (= width prior-width) hint
+               (intern-ordered-shape
+                 (filter (cut hash-key? members <>) (shape-names hint)) members)))
+            ;; Cardinality and one unknown certify the cheaper single insert.
+            ((and (= width (1+ prior-width)) (null? (cdr added)))
+             (extend-shape hint (car added) members))
+            (else
+             (intern-ordered-shape
+               (merge-shape-names
+                 (filter (cut hash-key? members <>) (shape-names hint))
+                 (list-sort shape-name<? added))
+               members))))))))
+
+;; Build independent cells after certifying the canonical shape. The hint can
+;; share metadata only. An explicit initial table seeds values in shape order.
+(def (make-slot-layout names initial missing previous: (previous #f) state: (state #f))
   (using (names :~ list?)
-    ;; Reject improper/cyclic input before iteration; check every key through the
-    ;; deduplicator before it can reach the compiler's unchecked symbolic hash.
-    ;; The standard deduplicator already builds this membership table. Retain it
-    ;; only during construction, so narrowing needs no second set or value cache.
-    (def members (make-hash-table-eq))
-    (def unique (delete-duplicates/hash names table: members
-      key: (lambda (name) (using (name :~ symbol?) name))))
     (def hint (and previous (slot-layout-shape previous)))
-    ;; Count each hinted directory once; unhinted construction pays neither scan.
-    (def width (and hint (length unique)))
-    (def prior-width (and hint (length (shape-names hint))))
     (def canonical
-      (cond
-        ((and hint (= width prior-width)
-              (andmap (cut hash-key? (shape-indices hint) <>) unique)) hint)
-        ;; A certified subset keeps the old canonical identity order. No values
-        ;; are copied from the hint; replacement keys must take the general path.
-        ((and hint (< width prior-width)
-              (andmap (cut hash-key? (shape-indices hint) <>) unique))
-          (intern-ordered-shape
-            (if (null? unique) [] (filter (cut hash-key? members <>) (shape-names hint)))))
-        ;; Cardinality plus exactly one unknown certifies a strict extension.
-        ;; Replacements/removals retain complete canonicalization, not this hint.
-        ((and hint (= width (1+ prior-width)))
-          (let (added (filter (lambda (name) (not (hash-key? (shape-indices hint) name))) unique))
-            (if (and (pair? added) (null? (cdr added))) (extend-shape hint (car added))
-              (intern-shape unique))))
-        (else (intern-shape unique))))
+      (if (and hint (same-shape-names? names hint)) hint (shape-for-names names hint)))
     (def keys (shape-names canonical))
     ;; Fill the final vector through the same presence boundary as ordinary writes.
     ;; No intermediate value list, list-to-vector copy or second count scan exists.
     ;; A refused seed leaves this unpublished receiver local to this constructor.
-    (def result (make-layout canonical (make-vector (length keys) missing) missing 0))
+    (def result (make-layout canonical (make-vector (length keys) missing) missing 0
+      state (and state (object-state-revision state))))
     (when initial
       (for ((name keys) (index (in-range (length keys))))
         (slot-layout-set! result index (hash-ref initial name missing))))
@@ -85,54 +117,67 @@
 (def slot-value-storage (make-parameter 'vector))
 ;; Build the sole instance value store before publishing any read credentials.
 ;; Symbolic shapes describe uncomputed cells, so construction runs no slot body.
-(def (make-slot-values names initial entries missing previous: (previous #f))
+(def (make-slot-values names initial entries missing previous: (previous #f) state: (state #f))
   ;; Admit both spines before append/map; layout construction owns key admission.
   (using ((names :~ list?) (entries :~ list?))
-    (def keys (append names (if initial (hash-keys initial) []) (map car entries)))
-    (def values
-      (case (slot-value-storage)
-        ((vector) (HashTable (make-slot-layout
-          keys #f missing previous: previous)))
-        ((hash)
-          ;; The qualification backend has the same admission, before any seed writes.
-          (for-each (lambda (key) (using (key :~ symbol?) (void))) keys)
-          (make-hash-table-symbolic))
-        (else (error "unknown slot value storage" (slot-value-storage)))))
-    (when initial (hash-for-each (lambda (key value) (hash-put! values key value)) initial))
-    (for (([key . value] entries)) (hash-put! values key value))
-    values))
+    ;; Source enumeration is extensible through the standard HashTable interface.
+    ;; Own request spines/pairs before its first call; opaque values stay shared.
+    ;; Without a source there is no callback handoff and no extra capture cost.
+    (let ((names (if initial (list-copy names) names))
+          (entries (if initial
+                     (map (lambda (entry)
+                       ;; Leave invalid rows to the original key-preparation
+                       ;; primitives, without introducing an earlier refusal.
+                       (if (pair? entry) (cons (car entry) (cdr entry)) entry)) entries)
+                     entries)))
+      (def keys (append names (if initial (hash-keys initial) []) (map car entries)))
+      (def values
+        (case (slot-value-storage)
+          ((vector) (HashTable (make-slot-layout
+            keys #f missing previous: previous state: state)))
+          ((hash)
+            ;; The qualification backend has the same admission, before any seed writes.
+            (for-each (lambda (key) (using (key :~ symbol?) (void))) keys)
+            (make-hash-table-symbolic))
+          (else (error "unknown slot value storage" (slot-value-storage)))))
+      (when initial (hash-for-each (lambda (key value) (hash-put! values key value)) initial))
+      (for (([key . value] entries)) (hash-put! values key value))
+      values)))
 ;; Unwrap the standard interface once when exposing its existing value layout.
 ;; There is no value copy, promotion, lineage alias or auxiliary cache.
 (def (slot-values-layout table)
   (and (interface-instance? table)
     (let (value (interface-instance-object table)) (and (layout? value) value))))
-;; Translate an uncomputed cell to the caller's ordinary HashTable default.
-(def (layout-value self key default)
-  (let (index (slot-layout-index self key))
-    (if index
-      (let (value (vector-ref (layout-cells self) index))
-        (if (eq? value (layout-missing self)) default value)) default)))
+;; HashTable dispatch already supplies a layout receiver. Check the symbolic
+;; key here and read its existing index and cells without rechecking the receiver.
+(def (layout-value self (key :~ symbol?) default)
+  (using (self :- layout)
+    (using (directory self.shape :- shape)
+      (let (index (hash-get directory.indices key))
+        (if index
+          (let (value (vector-ref self.cells index))
+            (if (eq? value self.missing) default value))
+          default)))))
 ;; Unknown successful delegation grows the SAME store, after preparing all new
 ;; metadata/cells. Existing sites retain an immutable shape stamp and must rebind.
 (def (layout-store! self key value)
-  (using (key :~ symbol?)
-    (let (index (slot-layout-index self key))
-      (if index (slot-layout-set! self index value)
-        (let* ((canonical (extend-shape (layout-shape self) key))
-               (at (hash-ref (shape-indices canonical) key))
-               (old (layout-cells self))
-               (cells (make-vector (1+ (vector-length old)) (layout-missing self)))
-               (next (make-layout canonical cells (layout-missing self) (layout-count self))))
-          ;; The admitted key is absent. Canonical order inserts exactly one cell;
-          ;; standard bulk copies preserve false, functions and uncomputed cells.
-          ;; Finish the private candidate before replacing the authoritative store.
-          (vector-copy! cells 0 old 0 at)
-          (vector-copy! cells (1+ at) old at (vector-length old))
-          (slot-layout-set! next at value)
-          (set! (layout-shape self) (layout-shape next))
-          (set! (layout-cells self) (layout-cells next))
-          (set! (layout-count self) (layout-count next)))))
-    (void)))
+  (let (index (slot-layout-index self key))
+    (if index (slot-layout-set! self index value)
+      (let* ((canonical (extend-shape (layout-shape self) key))
+             (at (hash-ref (shape-indices canonical) key))
+             (old (layout-cells self))
+             (cells (make-vector (1+ (vector-length old)) (layout-missing self)))
+             (next (make-layout canonical cells (layout-missing self) (layout-count self) #f #f)))
+        ;; The admitted key is absent. Canonical order inserts exactly one cell;
+        ;; standard bulk copies preserve false, functions and uncomputed cells.
+        ;; Finish the private candidate before replacing the authoritative store.
+        (vector-copy! cells 0 old 0 at)
+        (vector-copy! cells (1+ at) old at (vector-length old))
+        (slot-layout-set! next at value)
+        (set! (layout-shape self) (layout-shape next))
+        (set! (layout-cells self) (layout-cells next))
+        (set! (layout-count self) (layout-count next)))))
+  (void))
 ;; Reuse the compiler's HashTable interface for printers, reflection and clients.
 ;; Only computed cells participate; deletion/clear never evaluate a slot body.
 (bind-method! layout::t 'HashTable::ref layout-value)
@@ -153,15 +198,17 @@
 (bind-method! layout::t 'HashTable::copy
   (lambda (self)
     (HashTable (make-layout (layout-shape self) (vector-copy (layout-cells self))
-                 (layout-missing self) (layout-count self)))))
+                 (layout-missing self) (layout-count self) #f #f))))
 (bind-method! layout::t 'HashTable::new
   (lambda (self (size-hint #f)) (HashTable (make-slot-layout [] #f (layout-missing self)))))
 (bind-method! layout::t 'HashTable::clear!
   (lambda (self)
     (vector-fill! (layout-cells self) (layout-missing self))
     (set! (layout-count self) 0)))
-;; Absence is false; zero is a valid index in Scheme.
-(def (slot-layout-index layout name) (hash-get (shape-indices (slot-layout-shape layout)) name))
+;; Admit a symbolic name and return its offset for indexed callers and writes.
+;; An absent name returns false; zero remains a valid offset.
+(def (slot-layout-index layout (name :~ symbol?))
+  (hash-get (shape-indices (slot-layout-shape layout)) name))
 ;; Only the guarded object access path consumes an index obtained from this shape.
 (def (slot-layout-ref layout index) (vector-ref (layout-cells layout) index))
 ;; All indexed/named writes share this boundary. Check the current cell first;
@@ -193,11 +240,19 @@
     (unless (symbol? name) (error "symbolic cache slot required"))
     (if (= count 1) (make-access-cache name #f #f #f #f #f)
       (make-two-shape-cache name #f #f #f #f #f #f #f))))
-;; Guard receiver identity, monotone revision and exact receiver-local layout together.
+;; Admit the generation of receiver-owned cells through the existing state.
+;; An independent layout has no receiver authority to check.
+(def (layout-revision-current? layout revision)
+  (let (state (layout-state layout))
+    (or (not state) (and (eqv? revision (layout-revision layout))
+                        (eqv? revision (object-state-revision state))))))
+;; A matching caller stamp alone cannot authorize a retired value layout.
+;; Offset hints still share immutable shapes without claiming live cells.
 (def (slot-cache-hit? cache owner revision layout)
   (using (cache : access-cache)
-    (and (eq? owner cache.owner) (eqv? revision cache.revision)
-         (eq? layout cache.layout) (eq? cache.shape (slot-layout-shape layout)) cache.index)))
+    (and cache.index (eq? owner cache.owner) (eqv? revision cache.revision)
+         (eq? layout cache.layout) (eq? cache.shape (slot-layout-shape layout))
+         (layout-revision-current? layout revision) cache.index)))
 ;; Shape identity certifies only an offset, never another receiver's cells.
 ;; Compare one or two immutable descriptors without resolving a name.
 ;; False alone denotes a miss; index zero remains a successful offset.
@@ -214,17 +269,33 @@
 (def (slot-cache-index cache layout)
   (or (slot-cache-offset cache layout)
       (slot-layout-index layout (slot-cache-name cache))))
-;; Read the current vector cell, not a retained value that could outlive invalidation.
+;; Read a materialized cell only while its receiver revision and shape are live.
+;; Eviction keeps the offset but requires ordinary demand to refill the cell.
 (def (slot-cache-read cache)
-  (using (cache : access-cache) (slot-layout-ref cache.layout cache.index)))
-;; Bind only after successful computation; an absent index must never become a hit.
+  (using (cache : access-cache)
+    (unless (and cache.layout cache.index
+                 (eq? cache.shape (slot-layout-shape cache.layout)))
+      (error "stale slot cache offset"))
+    (unless (layout-revision-current? cache.layout cache.revision)
+      (error "stale slot cache revision"))
+    (let (value (slot-layout-ref cache.layout cache.index))
+      (when (eq? value (layout-missing cache.layout))
+        (error "empty slot cache cell"))
+      value)))
+;; Admit a binding only for the site's name in a live layout revision.
+;; Refusal preserves both entries; false clears the primary guard without a hit.
 (def (slot-cache-bind! cache owner revision layout index)
   (using (cache : access-cache)
+    (def current-shape (slot-layout-shape layout))
+    (when (and index (not (layout-revision-current? layout revision)))
+      (error "stale slot cache revision"))
+    (when (and index (not (eqv? index (slot-cache-index cache layout))))
+      (error "invalid slot cache offset" cache.name index))
     ;; Successful indexed demand alone changes offset history. Missing offsets
     ;; clear the primary value guard but cannot replace a certified second entry.
     (when (and index cache.index (two-shape-cache? cache)
-               (not (eq? (slot-layout-shape layout) cache.shape)))
+               (not (eq? current-shape cache.shape)))
       (set! (two-shape-cache-previous-shape cache) cache.shape)
       (set! (two-shape-cache-previous-index cache) cache.index))
     (set! cache.owner owner) (set! cache.revision revision)
-    (set! cache.layout layout) (set! cache.shape (slot-layout-shape layout)) (set! cache.index index)))
+    (set! cache.layout layout) (set! cache.shape current-shape) (set! cache.index index)))

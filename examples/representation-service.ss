@@ -1,6 +1,6 @@
 ;;; A checked Reader workflow reuses access-site mappings across shared inheritance.
-(export entry-arguments)
-(export entry-recovery-workflow)
+(export entry-arguments slot-revision-workflow)
+(export entry-recovery-workflow symbolic-read-workflow batch-shape-workflow seed-request-workflow closure-invalidation-workflow)
 (export cycle-diagnostic-workflow layout-admission-workflow dependency-service dependency-workflow)
 ;; A dynamically selected entry retains all arguments and return values, including
 ;; checked Function payloads and false, without changing their identities.
@@ -8,11 +8,13 @@
 (export shape-prune-workflow shape-growth-workflow value-store-redemand-workflow value-store-observation-workflow value-storage-workflow Service ValidService expanded-service checked-total-action checked-kernel-action service-workflow removal-workflow reflection-workflow override-workflow composition-workflow catalog-workflow admission-workflow symbolic-edit-workflow declaration-source-workflow declaration-type-workflow topology-workflow replay-workflow entry-workflow main joint-main)
 (import (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads slot-read-key) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
+        (only-in ../object-state invalidate-state!)
         ../mop
         ../number
         ../slot-layout
         ../object-contract
         (only-in ../io module-action)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
         (prefix-in ../object-contract contract.)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
@@ -285,6 +287,45 @@
           (unless (= delivered (* 3 width)) (error "service delivery count" delivered))
           (vector first revised recovered delivered))))))
 
+;; Publish revisions through one shared ancestor. The two branches and their
+;; diamond must retire together; an unrelated equal shape stays readable.
+(def (slot-revision-workflow revisions shapes)
+  (parameterize ((slot-value-storage 'vector))
+    (def source (.o value: #f))
+    (def left (.o inherit: [source]))
+    (def right (.o inherit: [source]))
+    (def join (.o inherit: [left right]))
+    (def independent (.o value: #f))
+    (def unaffected (make-slot-cache 'value shapes: shapes))
+    (def receivers [left right join])
+    (def sites (map (lambda (_) (make-slot-cache 'value shapes: shapes)) receivers))
+    ;; Require the revision failure itself, including when the old offset is 0.
+    (def (retired? action)
+      (let (cause (with-catch identity action))
+        (and (Error? cause) (equal? (error-message cause) "stale slot cache revision"))))
+    ;; A false oracle can be shrunk and replayed by the existing property engine.
+    (let/cc refuse
+      (.ref/inline independent unaffected)
+      (for ((owner receivers) (site sites)) (.ref/inline owner site))
+      (for (value revisions)
+        (def prior (map object-revision receivers))
+        (.putslot! source 'value ($constant-slot-spec value))
+        (for ((owner receivers) (site sites) (revision prior))
+          (def old (slot-cache-layout site))
+          (def index (slot-layout-index old 'value))
+          (unless (and (not (slot-cache-hit? site owner revision old))
+                       (eqv? (slot-cache-offset site old) index)
+                       (retired? (cut slot-cache-read site))
+                       (retired? (cut slot-cache-bind! site owner (object-revision owner) old index))
+                       (eq? old (slot-cache-layout site)))
+            (refuse #f))
+          (unless (and (eqv? (.ref/inline owner site) value)
+                       (eqv? (slot-cache-read site) value)
+                       (eq? (slot-layout-shape old) (slot-layout-shape (slot-cache-layout site))))
+            (refuse #f)))
+        (unless (eq? (slot-cache-read unaffected) #f) (refuse #f)))
+      #t)))
+
 ;; Duplicate local tariff methods, sparse deletion/reinsertion and restoration
 ;; exercise the same C3/contract/Reader chain on shared descendants. The removal
 ;; argument admits an existing whole-specification replacement for paired costs;
@@ -391,7 +432,7 @@
           (recapture? :~ boolean?) (shared? :~ boolean?) (policy :~ (one-of tree compact)) (inspect :~ procedure?))
     (def callback (lambda (x) (+ x 1)))
     (def input (append
-      (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) constant: callback))
+      (list (cons 'callback (.new Slot type: (Fun Integer <- Integer) default: callback))
             (cons 'enabled (.new Slot type: Bool constant: #f)))
       (for/collect (n (in-range width))
         (cons (make-symbol "visible-" n) (.new Slot type: Integer constant: n)))))
@@ -733,6 +774,13 @@
                    (unless (eq? callback identity) (error "initial callback changed"))
                    (let (table (object-instance receiver))
                      (set! phase 'grow) (hash-remove! table target)
+                     ;; The retained offset cannot deliver the uncomputed marker.
+                     ;; Only the existing FUN demand may refill the empty cell.
+                     (when site
+                       (let (empty (with-catch identity (cut slot-cache-read site)))
+                         (unless (and (Error? empty) (equal? (error-message empty) "empty slot cache cell")
+                                      (= calls 1))
+                           (error "direct read accepted or demanded an evicted cell"))))
                      (unless (and (eq? (read receiver) callback) (current?))
                        (error "evicted site retained an old shape"))
                      (set! phase 'refuse) (hash-remove! table target)
@@ -810,3 +858,171 @@
     (unless (and (= first 27) (= narrowed 34) (= recovered 41) (= delivered 6))
       (error "narrowing service oracle"))
     (vector first narrowed recovered delivered)))
+
+
+;; Module-selected runtime names share the ordinary FUN action and existing site.
+;; Refusal must retain warmed values/credentials; a supported edit retires them,
+;; and the same action retries against a fresh invocation without caching errors.
+(def (symbolic-read-workflow)
+  (def source (.o value: 7 disabled: #f)) (def owner (.mix source))
+  (def site (make-slot-cache 'value shapes: 2)) (def delivered 0) (def defaults 0)
+  (def action (.call fun.Observation. .bind
+    (lambda (receiver) (.ref/inline receiver site))
+    (lambda (value) (lambda (_) (set! delivered (1+ delivered)) value))))
+  (def first (action owner)) (def read #f)
+  (call-with-slot-read-observer (lambda (token)
+    (when (and (eq? (slot-read-receiver token) owner) (eq? (slot-read-key token) 'value))
+      (set! read token)))
+    (lambda () (.ref owner 'value)))
+  (def revision (object-revision owner)) (def layout (object-layout owner))
+  (for (bad (list 17 #f "value" 'value:))
+    (unless (contract-violation-error? (with-catch identity (lambda () (.ref owner bad))))
+      (error "invalid runtime Slot name did not refuse"))
+    (unless (contract-violation-error? (with-catch identity (lambda ()
+      (.ref/cached owner bad (lambda () (set! defaults (1+ defaults)) 99)))))
+      (error "invalid cached Slot name reached fallback"))
+    (unless (and (object-read-current? read) (= revision (object-revision owner))
+                 (slot-cache-hit? site owner revision layout))
+      (error "refused runtime name changed warmed service")))
+  ;; Both cells exist in the same layout. A sibling offset cannot retarget
+  ;; the warmed FUN consumer or retire its recorded read.
+  (let* ((sibling (slot-layout-index layout 'disabled))
+         (refused (with-catch identity
+           (cut slot-cache-bind! site owner revision layout sibling))))
+    (unless (and sibling (Error? refused)
+                 (equal? (error-message refused) "invalid slot cache offset")
+                 (object-read-current? read) (= (action owner) 7))
+      (error "sibling offset changed warmed service")))
+  ;; Composition retains its inherited declaration snapshot; revise this receiver.
+  (.put! owner 'value 11)
+  (unless (= (.ref source 'value) 7) (error "local override changed its parent"))
+  (when (object-read-current? read) (error "supported edit retained old evidence"))
+  (def next (action owner))
+  (unless (eq? (.ref owner 'disabled) #f) (error "false payload lost"))
+  (vector first next delivered defaults))
+
+
+;; Publish independent finite service snapshots with batch feature revisions.
+;; Both policies prepare once before the SAME contract/consumer. Immutable hints
+;; carry only directory order; current callbacks/false values belong to each root.
+;; A refused revision leaves the last successful site intact and repairs explicitly.
+(def (batch-shape-workflow width reuse?)
+  (using (width :~ (in-range-inclusive? 2 4096))
+    (def names (for/collect (i (in-range width))
+      (string->uninterned-symbol (string-append "feature-" (number->string i)))))
+    (def fresh (for/collect (i (in-range width))
+      (string->uninterned-symbol (string-append "new-feature-" (number->string i)))))
+    (for ((name names) (added fresh))
+      (object->serial-number name) (object->serial-number added))
+    (def delta (max 1 (quotient width 4)))
+    (def mixed (append (drop names delta) (take fresh (min width (* 2 delta)))))
+    (def site (make-slot-cache 'total shapes: 2)) (def delivered 0)
+    (def selected (module-action "clan/poo/examples/representation-service"
+                               'clan/poo/examples/representation-service#entry-arguments))
+    ;; Reuse the official module action as a live finite metadata provider.
+    (def (snapshot manifest rate)
+      (def current (lambda (value) (+ rate value)))
+      (def data (object<-alist (append (list (cons 'callback current) (cons 'disabled #f))
+                                      (map (lambda (name) (cons name #f)) (selected (list manifest))))))
+      (values (.o inherit: [Service data] capacity: 2 tariff: rate) current))
+    (def consume (checked-action ValidService (lambda (owner)
+      (def amount (.ref/inline owner site))
+      (set! delivered (1+ delivered)) amount)))
+    ;; Preparation is timed/charged on both sides, including each failed revision.
+    (def (visit owner callback)
+      (object-layout owner previous: (and reuse? (slot-cache-layout site)))
+      (def amount (consume owner))
+      (unless (and (eq? (.ref owner 'callback) callback) (not (.ref owner 'disabled)))
+        (error "batch shape reused a previous payload")) amount)
+    (def total 0) (def first #f) (def last #f)
+    (for ((manifest (list names (append names (take fresh delta)) mixed
+                         (list (car names) (car fresh)) names))
+          (rate (in-range 3 8)))
+      (defvalues (owner callback) (snapshot manifest rate))
+      (unless first (set! first owner))
+      (set! last owner) (set! total (+ total (visit owner callback))))
+    (defvalues (denied callback) (snapshot mixed -1))
+    (unless (and (TypeError? (with-catch values (lambda () (visit denied callback))))
+                 (= delivered 5)
+                 (slot-cache-hit? site last (object-revision last) (object-layout last)))
+      (error "refused batch revision published a value guard"))
+    (.putslot! denied 'tariff ($constant-slot-spec 8))
+    (def repaired (lambda (value) (+ 8 value)))
+    (.putslot! denied 'callback ($constant-slot-spec repaired))
+    (def result (visit denied repaired))
+    (unless (and (= (.ref first 'total) 9) (= total 65) (= result 19) (= delivered 6))
+      (error "batch revision service oracle"))
+    (vector total result delivered)))
+
+;; A standard seed source may enumerate through application code. Construction
+;; owns its finite request before that handoff, retaining exact callback/false
+;; values. The existing checked Reader then revises, refuses and repairs one owner.
+;; Source failures escape to entry-recovery-workflow; effects are not rolled back.
+(def (seed-request-workflow
+       (source (lambda (_names _rows) (list->hash-table '((seed . #f))))))
+  (def names (list 'declared))
+  (def callback (lambda (value) (+ value 3)))
+  (def rows (list (cons 'callback callback) (cons 'disabled #f)))
+  (def initial (source names rows))
+  (def cells (make-slot-values names initial rows absent-value))
+  (unless (and (eq? (hash-ref cells 'callback #f) callback)
+               (eq? (hash-ref cells 'disabled absent-value) #f))
+    (error "seed source retargeted its request"))
+  (def owner (.o inherit: [Service (object<-alist (hash->list cells))] capacity: 2 tariff: 3))
+  (def delivered 0)
+  (def action (checked-field-action ValidService 'total
+    (lambda (receiver total)
+      (set! delivered (1+ delivered))
+      (vector total ((.ref receiver 'callback) 4) (.ref receiver 'disabled)))))
+  (let (first (action owner))
+    (.putslot! owner 'tariff ($constant-slot-spec 4))
+    (let (next (action owner))
+      (.putslot! owner 'tariff ($constant-slot-spec -1))
+      (unless (and (TypeError? (with-catch values (cut action owner))) (= delivered 2))
+        (error "refused seed service reached its consumer"))
+      (.putslot! owner 'tariff ($constant-slot-spec 5))
+      (let (recovered (action owner))
+        (vector first next recovered delivered)))))
+
+;; An explicit mutable tariff needs the author's explicit cache invalidation.
+;; Application preflight registers a shared dependent after its source was walked.
+;; Reuse exactly the engine's state/check/clear functions; only application
+;; dependency registration is added. Refusal leaves cells/guards live, not effects
+;; rolled back. One explicit retry closes the new graph before checked FUN delivery.
+(def (closure-invalidation-workflow)
+  (def rate 3)
+  (def source (.o inherit: [Service] capacity: 2 (tariff rate)))
+  (def left (.mix source)) (def right (.mix source))
+  (def late (.o inherit: [Service] capacity: 2 (tariff rate)))
+  (def owners (list left right late)) (def family (cons source owners))
+  (def delivered 0) (def token #f) (def first #f) (def attached? #f)
+  (def action (checked-total-action
+    (lambda (_receiver amount) (set! delivered (1+ delivered)) amount) shapes: 2))
+  ;; Preserve all ordinary mutation/replay checks; both sibling orders are valid.
+  (def (admit owner state)
+    (check-object-edit owner state)
+    (when (or (eq? owner left) (eq? owner right))
+      (if first
+        (unless attached? (depend-on-object! late first) (set! attached? #t))
+        (set! first owner))))
+  (unless (equal? (map action owners) '(9 9 9)) (error "initial tariff service oracle"))
+  (call-with-slot-read-observer
+    (lambda (read) (when (and (eq? (slot-read-receiver read) left)
+                             (eq? (slot-read-key read) 'total)) (set! token read)))
+    (cut .ref left 'total))
+  (let (before (map object-revision family))
+    (set! rate 4)
+    (let (refused (with-catch identity (lambda ()
+           (invalidate-state! source (object-%state source) admit clear-object-cache!))))
+      (unless (and (Error? refused)
+                   (equal? (error-message refused) "dependency graph changed during invalidation")
+                   (= delivered 3) (equal? before (map object-revision family))
+                   (object-read-current? token))
+        (error "changed dependency closure published a partial tariff revision")))
+    (invalidate-state! source (object-%state source) admit clear-object-cache!)
+    (let (after (map action owners))
+      (unless (and (equal? after '(11 11 11)) (= delivered 6)
+                   (not (object-read-current? token))
+                   (equal? (map 1+ before) (map object-revision family)))
+        (error "closed dependency retry missed a shared tariff cache"))
+      (vector after delivered #t (map object-revision family)))))

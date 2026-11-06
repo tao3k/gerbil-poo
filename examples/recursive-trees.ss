@@ -2,6 +2,8 @@
 (export carrier-tree-test observer-tree-tests opaque-tree-tests edge-tree-tests Tree Message Batch tree-tests tree-total source-tree-tests preparation-tree-tests JournalCommand JournalObservation journal-observation tagged-journal-tests)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator core.)
+        (prefix-in :clan/poo/testing/property/replay corpus.)
+        (prefix-in (only-in ../support/testing require-property-passed) standard.)
         ../object
         ../mop
         ../type
@@ -167,6 +169,98 @@
 ;; The fault is injected at an inherited checked edge, never by a second runner.
 (def carrier-tree-test
   (test-suite "known recursive carrier declarations through FUN"
+    (test-case "paused mapped filtered service dependency resumes under caller quota and freshly retries"
+      (def owner (.o epoch: 0)) (def forces 0)
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      ;; Each draw owns a fresh cursor; the preview does not leak into seed replay.
+      ;; Pull the preview before asserting so the action owns coroutine failures.
+      ;; Resume in the requested caller scope, then use ordinary typed FUN actions.
+      (def (prepare depth)
+        (from-generator schema
+          (core.make-tree-generator (lambda (random size)
+            (def source (core.generator-delay (lambda ()
+              (core.generator-bind
+                (core.make-generator (lambda (_r _s) 3)
+                  (lambda (value) (if (= value 3) '(2 1) [])))
+                (lambda (value) (if (= value 1)
+                  (core.generator-delay (lambda () (set! forces (1+ forces))
+                    (core.generator-unit 0)) depth: 1)
+                  (core.generator-unit value))))) depth: 4))
+            (def root (core.generate (core.generator-map
+              (core.generator-filter source (lambda (value) (>= value 0)))
+              (lambda (value) (make-instance schema count: value handler: abs))) random size))
+            (using (cursor (iter ((core.sample-children root))) :- Iterator)
+              (def first (cursor.next!))
+              (check-equal? (.get (core.sample-value first) count) 2)
+              (core.sample-value (core.generate
+                (core.generator-delay (lambda () (core.generator-unit (cursor.next!))) depth: depth)
+                random size)))))
+          (cut .get <> count) dependencies: [owner]))
+      (def configuration (make-instance PropertyConfiguration seed: 23 cases: 1 size: 4 shrink-budget: 8))
+      (def refused ((property-action schema (lambda (_) #f) identity sampler: (prepare 1)) configuration))
+      (check-eq? (.get refused status) 'exhausted)
+      (check-equal? forces 0)
+      (check-exception (replay-counterexample refused) Error?)
+      (def sampler (prepare 2))
+      (def action (property-action schema (lambda (value) (= ((.@ value handler) -1) 0))
+        identity sampler: sampler))
+      (def report (action configuration))
+      (def codec (corpus.make-codec '(paused-service 1) (cut .get <> count)
+        (lambda (value) (make-instance schema count: value handler: abs))))
+      (check-eq? (.get report status) 'failed)
+      (check-equal? (.get (.get report counterexample) count) 0)
+      (check-exception ((.@ (.get report counterexample) handler) 'bad) TypeError?)
+      (check-eq? (.get (replay-property report) status) 'failed)
+      (check (replay-counterexample report) => #f)
+      (let (output (open-output-string))
+        (write-counterexample report codec output)
+        (check (read-counterexample sampler codec (open-input-string (get-output-string output))
+          (lambda (_) #f)) => #f))
+      (.set! owner epoch 1)
+      (check-exception (replay-counterexample report) Error?)
+      (standard.require-property-passed ((property-action schema
+        (lambda (value) (= ((.@ value handler) -1) 1)) identity sampler: (prepare 2)) configuration)))
+    (test-case "delayed dependent service construction retains depth through FUN shrinking and replay"
+      (def owner (.o epoch: 0)) (def forces 0)
+      (def schema (Record count: [UInt] handler: [(Function [Integer] [Integer])]))
+      ;; One prepared sampler owns its finite constructor context and source row;
+      ;; a retry prepares another sampler rather than enlarging an old tree.
+      (def (prepare depth)
+        (from-generator schema
+          (core.generator-map
+            (core.generator-delay (lambda ()
+              (core.generator-bind
+                (core.make-generator (lambda (_r _s) 1) core.integer-shrinks)
+                (lambda (value) (if (positive? value) (core.generator-unit value)
+                  (core.generator-delay (lambda () (set! forces (1+ forces))
+                    (core.generator-unit value)) depth: 1))))) depth: depth)
+            (lambda (value) (make-instance schema count: value handler: abs)))
+          (cut .get <> count) dependencies: [owner]))
+      (def configuration (make-instance PropertyConfiguration seed: 17 cases: 1 size: 4 shrink-budget: 8))
+      (let* ((sampler (prepare 1))
+             (limited ((property-action schema (lambda (_) #f) identity sampler: sampler) configuration)))
+        (check-eq? (.get limited status) 'exhausted)
+        (check-equal? (list (.get (.get limited counterexample) count) (.get limited attempts) forces) '(1 0 0))
+        (check-exception (replay-counterexample limited) Error?))
+      (let* ((sampler (prepare 2))
+             (action (property-action schema (lambda (value) (= ((.@ value handler) -1) 0)) identity sampler: sampler))
+             (report (action configuration))
+             (codec (corpus.make-codec '(delayed-service 1) (cut .get <> count)
+               (lambda (value) (make-instance schema count: value handler: abs)))))
+        (check-eq? (.get report status) 'failed)
+        (check-equal? (.get (.get report counterexample) count) 0)
+        (check-exception ((.@ (.get report counterexample) handler) 'bad) TypeError?)
+        (check-equal? (.get (.get (replay-property report) counterexample) count) 0)
+        (check (replay-counterexample report) => #f)
+        (let (output (open-output-string))
+          (write-counterexample report codec output)
+          (check (read-counterexample sampler codec (open-input-string (get-output-string output))
+            (lambda (_) #f)) => #f))
+        (.set! owner epoch 1)
+        (check-exception (replay-property report) Error?)
+        (check-exception (replay-counterexample report) Error?)
+        (standard.require-property-passed ((property-action schema
+          (lambda (value) (= ((.@ value handler) -1) 1)) identity sampler: (prepare 2)) configuration))))
     (test-case "explicit service source refuses returning revision before draw then freshly replays"
       (def owner (.o epoch: 0)) (def armed #f) (def changed #f) (def draws 0) (def faulty? #t)
       (def schema (Record key: [UInt] handler: [(Function [Integer] [Integer])]))

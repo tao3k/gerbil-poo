@@ -1,10 +1,13 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
-(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow)
-(import ../object
+(export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow query-workflow read-key-workflow)
+(import (only-in :std/error contract-violation-error?)
+        (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver slot-read-value slot-read-dependencies)
+        ../object
         ../mop
         ../number
         ../brace
         ../reflection
+        (only-in ../type List)
         (runtime: :clan/poo/fun)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination compile-simula-context
@@ -102,3 +105,87 @@
            ((revision-action 20) family))))
     (unless (equal? (inspect join) first) (error "C3 rebuilt identity oracle"))
     (list before after)))
+
+;; Shared callback metadata is compiled once into the ordinary declaration
+;; diamond. FUN installs the recursively checked list; reflective reads retain
+;; argument/result contracts on every branch. A refused replacement keeps the
+;; current revision and inline read credentials; retry invalidates old reads.
+(def (callback-workflow)
+  (def signature (List (Fun Integer <- Integer)))
+  (def slot (instance Slot type: signature default: (list (lambda (n) (+ n 1)))))
+  (def root (object<-declarations (list (cons 'handlers slot))))
+  (def left (.mix root))
+  (def right (.mix root))
+  (def join (.mix left right))
+  ;; One Observation chain publishes the checked result before branch consumers.
+  (def action (.call fun.Observation. .map
+    (lambda (_) (map (lambda (owner) ((car (read-slot owner 'handlers)) 10))
+                   (list left right join)))
+    (lambda (callbacks) (write-slot! root 'handlers callbacks))))
+  (def first (action (list (lambda (n) (+ n 1)))))
+  (def revision (object-revision root))
+  (unless (with-catch (lambda (_) #t) (lambda () (action (list #f)) #f))
+    (error "invalid callback accepted"))
+  (unless (= revision (object-revision root)) (error "refused write changed source"))
+  (list first (action (list (lambda (n) (+ n 12))))))
+
+;; One FUN query crosses structural presence and current declared reflection on
+;; the shared service diamond. Malformed names cannot enter either protocol or
+;; deliver a result; an explicit revision retires old observations before retry.
+(def (query-workflow)
+  (def family (make-services (lambda (_) (void)) (lambda () (error "private body forced"))))
+  (def join (.ref family 'join))
+  (def delivered 0)
+  (def reads [])
+  (def action (.call fun.Observation. .map
+    (lambda (value) (set! delivered (1+ delivered)) value)
+    (lambda (name)
+      (unless (.slot? join name) (error "undeclared service field"))
+      (read-slot join name))))
+  (def first (call-with-slot-read-observer (lambda (read) (set! reads (cons read reads)))
+    (lambda () (action 'amount))))
+  ;; Catch only standard grammar refusals; unrelated callback failures propagate.
+  (for-each (lambda (bad)
+    (unless (with-catch (lambda (cause)
+                        (if (contract-violation-error? cause) #t (raise cause)))
+              (lambda () (action bad) #f))
+      (error "malformed service query accepted"))) (list #f 17 "amount" amount:))
+  (unless (and (= delivered 1) (andmap object-read-current? reads))
+    (error "refused service query changed observation"))
+  ((revision-action 20) family)
+  (let ((retired? (not (andmap object-read-current? reads))) (last (action 'amount)))
+    (vector first last delivered retired?)))
+
+
+;; Observe the shared declaration diamond through FUN. Consumers can edit
+;; both observation and replay keys. An explicit receiver edit retires the
+;; structural read before the same loaded service queries the new value.
+(def (read-key-workflow)
+  (def family (make-services void (lambda () (error "private body forced"))))
+  (def join (.ref family 'join))
+  (def roots [])
+  (def action (.call fun.Observation. .map
+    (lambda (owner) (read-slot owner 'amount))
+    (lambda (owner) (unless (.slot? owner 'amount) (error "missing amount")) owner)))
+  (def first (call-with-slot-read-observer
+    (lambda (read)
+      (let (key (slot-read-key read))
+        (when (equal? key '(names))
+          (let (names (slot-read-value read))
+            (when (pair? names) (set-car! names 'client-name))))
+        (let (parents (slot-read-dependencies read))
+          (when (pair? parents) (set-car! parents read)))
+        (when (and (eq? (slot-read-receiver read) join)
+                   (equal? key '(presence amount)))
+          (set! roots (cons read roots))
+          (set-car! (cdr key) 'private))))
+    (cut action join)))
+  (unless (pair? roots) (error "missing presence read"))
+  (replay-slot-reads! roots
+    (lambda (_ key) (when (equal? key '(presence amount)) (set-car! key 'client))))
+  ((revision-action 20) family)
+  ;; Updating the source value does not itself change the join's inventory.
+  ;; Publish a receiver override before checking the issued structural epoch.
+  (.put! join 'amount 20)
+  (let (retired? (not (ormap object-read-current? roots)))
+    (list first (action join) retired?)))

@@ -5,12 +5,12 @@
         generator-delay generator-filter generator-no-shrink generator-with-shrink
         generate generator-current? sample? sample-value sample-children sample-current sample-sources with-generation-check with-sources
         rejected? proposal-current proposal-sources generation-exhausted? stale-generation?
-        boolean-result live? random-at
+        boolean-result live? random-at call-with-random-checkpoints random-checkpoint-snapshot
         generator-function function-value? function-domain function-apply function-procedure
         function-table function-from-table
         generator-integer generator-integer-range integer-range-anchor integer-range-shrinks generator-rational rational-weight rational-shrinks generator-character generator-byte generator-list
         generator-string generator-symbol generator-keyword generator-bytes generator-elements prepare-hash-generator generator-hash finite-shrink-children data-list-shrinks character-shrinks list-deletions list-deletion-count sample-sequence)
-(import :std/error :std/iter (only-in :std/list/list append-map delete-duplicates/hash take drop))
+(import :std/error :std/iter :std/interface (only-in :std/list/list append-map delete-duplicates/hash take drop))
 (extern namespace: #f make-random-source random-source-pseudo-randomize! random-source-make-integers
         random-source-state-ref random-source-state-set!)
 ;; Producers and nodes retain flat source leaves, never recursively composed guards.
@@ -129,6 +129,21 @@
 ;; Bind owns an invocation-local checkpoint table, like the existing delay quota.
 ;; Only opaque initial states are shared; mutable PRNG instances are never cached.
 (def current-random-states (make-parameter #f))
+;; A property run may retain a bounded set of seed expansions for exact replay.
+;; This scope never shares a mutable random source or observes a generated value.
+(def current-replay-checkpoints (make-parameter #f))
+(def +replay-checkpoint-limit+ 256)
+(defstruct random-checkpoints (states) final: #t)
+;; Fork a private checkpoint table even when replaying the same report twice.
+(def (call-with-random-checkpoints action (initial #f))
+  (parameterize ((current-replay-checkpoints
+                  (if initial (hash-copy (random-checkpoints-states initial))
+                    (make-hash-table-eqv))))
+    (action)))
+;; Reports own detached tables of immutable seed states, never the live scope.
+(def (random-checkpoint-snapshot)
+  (let (checkpoints (current-replay-checkpoints))
+    (and checkpoints (make-random-checkpoints (hash-copy checkpoints)))))
 ;; SRFI-27 owns seed expansion and its opaque checkpoint representation.
 (def (expand-random-state seed)
   (def source (make-random-source))
@@ -137,10 +152,14 @@
 ;; Nested bind regeneration reuses preparation, not earlier generated values.
 (def (random-state-at seed)
   (def states (current-random-states))
-  (if states
-    (if (hash-key? states seed) (hash-ref states seed)
-      (let (state (expand-random-state seed)) (hash-put! states seed state) state))
-    (expand-random-state seed)))
+  (or (and states (hash-get states seed))
+      (let* ((checkpoints (current-replay-checkpoints))
+             (replayed (and checkpoints (hash-get checkpoints seed)))
+             (state (or replayed (expand-random-state seed))))
+        (when states (hash-put! states seed state))
+        (when (and checkpoints (not replayed) (< (hash-length checkpoints) +replay-checkpoint-limit+))
+          (hash-put! checkpoints seed state))
+        state)))
 ;; Each replay restores a NEW source; sibling draws cannot mutate the checkpoint.
 (def (random-from-state state)
   (def source (make-random-source))
@@ -148,6 +167,15 @@
   (random-source-make-integers source))
 ;; Draw from a fresh invocation-owned PRNG rather than global random state.
 (def (random-at seed) (random-from-state (random-state-at seed)))
+;; Keep malformed split-seed errors eager; expand a valid stream on first use.
+(def (random-on-demand seed)
+  (if (and (exact-integer? seed) (>= seed 0))
+    (let (draw #f)
+      (lambda (bound)
+        (unless draw (set! draw (random-at seed)))
+        (draw bound)))
+    (random-at seed)))
+
 ;; Split once per parent/child pair; dependent regeneration reuses the child seed.
 (def (split-seed random) (random 4294967087))
 ;; Root admission merges producer and node sources without nesting callback guards.
@@ -171,7 +199,7 @@
   ;; retained children keep inherited leaves after dynamic scope has unwound.
   (def (tree value owned)
     (make-sample-node value
-      (lambda () (in-coroutine (lambda (yield)
+      (lambda () (sample-iterator (lambda (yield)
         (for-sources (child (shrink value) owned) (yield (tree child owned)))))) owned))
   (make-generation (lambda (random size)
     (tree (draw random size) (merge-sources (current-generation-sources) observed))) observed))
@@ -190,7 +218,7 @@
       ;; Identity can share an internal node only when it adds no source ownership.
       ((and (eq? transform identity) (eq? observed (sample-node-sources tree))) tree)
       (else (make-sample-node (transform (sample-value tree))
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (for-sources (child ((sample-children tree)) observed)
             (yield (map-sample child transform observed)))))) observed)))))
 ;; Mapping is separate from the domain specification and its decreasing measure.
@@ -199,22 +227,27 @@
   (make-generation (lambda (random size) (map-sample (generate generator random size) transform sources)) sources))
 ;; Parent shrinks regenerate the dependent child using its captured seed. A rejected
 ;; parent never invokes selection; source leaves are unioned rather than rewrapped.
-(def (bind-sample parent select seed size sources states)
+(def (bind-sample parent select seed size sources states allowance)
   (def observed (merge-sources sources (proposal-owned-sources parent)))
   (require-sources! observed)
   (if (rejected? parent) (make-rejected observed)
     (let* ((selected (with-sources observed (select (sample-value parent))))
            (child (with-sources observed
              (parameterize ((current-random-states states))
-               (generate selected (random-at seed) size))))
+               (generate selected (random-on-demand seed) size))))
            ;; The returned node and its rebuilds own all already observed leaves,
            ;; including the child selected for the original parent value.
            (owned (merge-sources observed (sample-node-sources child))))
       (require-sources! owned)
       (make-sample-node (sample-value child)
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (for-sources (smaller ((sample-children parent)) owned)
-            (yield (bind-sample smaller select seed size owned states)))
+            ;; Only regeneration restores a captured delayed-construction scope.
+            ;; Unbounded trees use the active caller directly, without a frame.
+            (yield (if allowance
+              (parameterize ((current-delay-budget (delay-allowance allowance)))
+                (bind-sample smaller select seed size owned states (current-delay-budget)))
+              (bind-sample smaller select seed size owned states (delay-allowance #f)))))
           (for-sources (smaller ((sample-children child)) owned)
             (yield (map-sample smaller identity owned)))))) owned))))
 ;; Bind owns no output-value cache or second PRNG owner.
@@ -224,7 +257,8 @@
     (def states (or (current-random-states) (make-hash-table-eqv)))
     (parameterize ((current-random-states states))
       (def parent-seed (split-seed random)) (def child-seed (split-seed random))
-      (bind-sample (generate generator (random-at parent-seed) size) select child-seed size sources states))) sources))
+      (bind-sample (generate generator (random-on-demand parent-seed) size) select child-seed size sources states
+        (delay-allowance #f)))) sources))
 ;; Admit finite topology before mapping or source discovery, then own its spine.
 ;; Retain the established bind/map checkpoint owner and split schedule: a direct
 ;; iterative draw candidate did not pass the full-workflow GC cost acceptance.
@@ -293,6 +327,38 @@
     current?: current sources: (generation-sources generator)))
 ;; Delay quota is invocation-local and shared by nested delayed constructors.
 (def current-delay-budget (make-parameter #f))
+;; A suspended standard coroutine restores its earlier dynamic bindings. This
+;; private cursor relays only the incoming numeric allowance, never source hooks,
+;; reports or caller continuations. There is one relay per bind child iterator.
+(defstruct delay-cursor (iterator allowance started?) final: #t)
+;; First entry installs the relay which the standard continuation retains.
+(def current-delay-cursor (make-parameter #f))
+;; False is unbounded and zero is exhausted; the same meet serves all entries.
+(def (meet-delay-allowance retained active)
+  (if (and retained active) (min retained active) (or retained active)))
+;; Meet retained, saved-dynamic and incoming-caller limits without renewing any.
+(def (delay-allowance retained)
+  (def cursor (current-delay-cursor))
+  (meet-delay-allowance retained (meet-delay-allowance (current-delay-budget)
+    (and cursor (delay-cursor-allowance cursor)))))
+;; Delegate to the official Iterator without changing proposal/EOF accounting or
+;; exception routing. Later pulls update a scalar relay, without another frame;
+;; begin0 clears normal returns, while raw failures keep the standard cursor law.
+(implement Iterator delay-cursor
+  (next! (lambda (self)
+    (set! (delay-cursor-allowance self) (delay-allowance #f))
+    (using (children (delay-cursor-iterator self) :- Iterator)
+      (if (delay-cursor-started? self)
+        (begin0 (children.next!) (set! (delay-cursor-allowance self) #f))
+        (begin
+          (set! (delay-cursor-started? self) #t)
+          (parameterize ((current-delay-cursor self))
+            (begin0 (children.next!) (set! (delay-cursor-allowance self) #f)))))))))
+;; Every callback-bearing sample coroutine shares one incoming-allowance entry.
+;; Composition must pass the caller limit before any outer continuation restores
+;; its saved scope. Pure structural deletion uses the standard coroutine directly.
+(def (sample-iterator produce)
+  (make-delay-cursor (in-coroutine produce) #f #f))
 ;; Each force spends a token before invoking its constructor; callback termination
 ;; itself remains subject to the unchanged process guard, not a universal theorem.
 (def (generator-delay (construct : :procedure) depth: (depth 32) current?: (current immutable-current))
@@ -300,7 +366,7 @@
   (def sources (observer-sources current []))
   (make-generation (lambda (random size)
     (require-sources! sources)
-    (def fuel (min depth (or (current-delay-budget) depth)))
+    (def fuel (delay-allowance depth))
     (when (zero? fuel) (raise (make-generation-exhausted)))
     (parameterize ((current-delay-budget (1- fuel))) (selected-sample (with-sources sources (construct)) random size sources))) sources))
 ;; Prune rejected branches, yielding a charged tombstone rather than searching
@@ -312,7 +378,7 @@
       (let (accepted? (boolean-result (predicate (sample-value tree)) "filter must return a boolean"))
         (if accepted?
           (make-sample-node (sample-value tree)
-            (lambda () (in-coroutine (lambda (yield)
+            (lambda () (sample-iterator (lambda (yield)
               (for-sources (child ((sample-children tree)) observed)
                 (yield (filter-sample child predicate observed)))))) observed)
           (make-rejected observed))))))
@@ -495,7 +561,7 @@
     (require-sources! observed)
     (if (not (every sample? trees)) (make-rejected observed)
       (make-sample-node (with-sources observed (pack (map sample-value trees)))
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (require-sources! observed)
           (for (smaller (list-deletions trees minimum)) (yield (sequence smaller observed)))
           (let coordinates ((tail trees) (before []))
@@ -611,7 +677,7 @@
       (make-sample-node
         (make-function-value (map cons rows results)
           (lambda () (and (live? current) (guard))))
-        (lambda () (in-coroutine (lambda (yield)
+        (lambda () (sample-iterator (lambda (yield)
           (for-sources (child ((sample-children tree)) (sample-node-sources tree))
             (yield (function-tree child rows current))))))
         (sample-node-sources tree)))))

@@ -13,7 +13,7 @@
 ;; Inspect only receiver-owned state after the caller has authenticated the record.
 (def (object-issued-read-current? read)
   (def self (slot-read-receiver read))
-  (def key (slot-read-key read))
+  (def key (read-runtime.slot-ref read 'key))
   (and (= (slot-read-revision read) (object-revision self))
        (cond
          ((and (pair? key) (eq? (car key) 'bootstrap))
@@ -40,7 +40,7 @@
 ;; Reject a replaced receiver route before accepting its captured value.
 (def (require-object-read-route! read)
   (def receiver (slot-read-receiver read))
-  (require-read-route! (slot-read-key read)
+  (require-read-route! (read-runtime.slot-ref read 'key)
     (object-%reads receiver) (object-%instance receiver)))
 
 ;; Detect constructor replacement before an internal projection can allocate a receiver.
@@ -85,7 +85,7 @@
           (hash-put! seen read #t)
           (hash-put! receivers (slot-read-receiver read) #t)
           (set! ordered (cons read ordered))
-          (for-each collect (slot-read-dependencies read))))
+          (for-each collect (read-runtime.slot-ref read 'dependencies))))
       ;; The cold selector admits a finite root spine before entering this DFS.
       ;; Preserve full issuance preflight and its order for every admitted root.
       ;; Only successful traversal copies roots and publishes a cached value.
@@ -176,7 +176,10 @@
       (for-each
         (lambda (read)
           (work)
-          (%deliver-slot-read read (slot-read-value read))) reads)) #t))
+          ;; Work may edit the presented record after the initial graph check.
+          ;; Keep the same immediate admission used by ordinary replay.
+          (without-observation (cut current! read))
+          (%deliver-slot-read read (read-runtime.slot-ref read 'value))) reads)) #t))
 
 ;; Deliver computed provenance or mint a record for an exact explicit assignment.
 (def (object-deliver-value self slot value)
@@ -195,7 +198,8 @@
   (def key (list 'bootstrap slot))
   (%slot-read-demand! self key)
   (def table (object-read-table self))
-  (def read (or (hash-get table key)
+  (def saved (hash-get table key))
+  (def read (or (and saved (or (not (%slot-read-active?)) (object-read-issued? saved)) saved)
                (let (read (object-record-read self key (cdr anchor) '()))
                  (hash-put! table key read) read)))
   (%deliver-slot-read read (cdr anchor)))
@@ -208,11 +212,11 @@
   (unless (= revision (object-revision self)) (error "object changed during query" key))
   (def table (object-read-table self))
   (def saved (and cache? (hash-get table key)))
-  ;; Unobserved readers only consume the private value, never the record. Before
-  ;; observed delivery, replace a damaged name snapshot through the SAME issuer;
-  ;; the preparation parent survives, and old credentials remain rejected.
+  ;; Unobserved queries consume their actual result. Observed queries authenticate
+  ;; the saved record and replace a damaged presentation through the same issuer.
+  ;; A detached index key keeps the old record reachable for replacement.
   (def read (or (and saved
-                    (or (not (and (%slot-read-active?) (equal? key '(names))))
+                    (or (not (%slot-read-active?))
                         (object-read-issued? saved)) saved)
                (let (read (object-record-read self key value dependencies))
                  (when cache? (hash-put! table key read)) read)))

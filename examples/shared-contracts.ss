@@ -1,5 +1,5 @@
 ;;; Shared contract preparation in a cross-service atomic publication.
-;;; Generalized-prototype future work: immutable closed inputs, native mixins.
+;;; Generalized-prototype future work: immutable closed inputs, Gerbil mixins.
 (export configured-source repeated-source selection-prices source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-cached-model expanded-cached-workflow-model budgeted-source budgeted-model budgeted-workflow-model shared-checks-source shared-checks-model shared-checks-workflow-model shared-checks-cached-model shared-checks-cached-workflow-model specialized-construct expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
 (import ../object
         (runtime: :clan/poo/contract-family)
@@ -68,7 +68,7 @@
           shared-input: shared-input prepare-shared: prepare-shared project-shared: project-shared)
     independent-source))
 ;; Existing generic projections, exact-service approval reuse, dynamic cache
-;; budget and atomic refusal all remain in the native staged composition chain.
+;; budget and atomic refusal all remain in the Gerbil staged composition chain.
 ;; Install the default contract source into the existing cross-service publisher.
 ;; Generic construction, cache budget and joint approval remain its original chain.
 (def model (.cc bundle.model contract-source: source))

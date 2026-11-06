@@ -3,7 +3,7 @@
         closure-failure? closure-failure-kind closure-failure-steps closure-failure-cause)
 (import ./generalized-declaration ./lens-laws)
 ;; Only a completed equality check followed by cooking constructs this receipt.
-;; Returned raw data must remain immutable; this native provenance is not a proof seal.
+;; Returned raw data must remain immutable; this Gerbil provenance is not a proof seal.
 (defstruct closed-fragments (owner base raw interface steps) final: #t)
 ;; Report machine budget, finite lens counterexamples and source/callback errors
 ;; distinctly. No partial raw prefix or speculative cooked interface is returned.
@@ -45,7 +45,7 @@
 (def (publish-closure old prepared base seed budget checks: (checks []))
   (defvalues (candidate failure) (close-fragments prepared base seed budget checks: checks))
   (values (if failure old candidate) failure))
-;; Native Reader/FUN introduction: successful closure is one value for .map/.bind;
+;; Gerbil Reader/FUN introduction: successful closure is one value for .map/.bind;
 ;; a typed refusal raises before selecting the remaining observation chain.
 (def (closure-action prepared base budget checks: (checks []))
   (lambda (seed)

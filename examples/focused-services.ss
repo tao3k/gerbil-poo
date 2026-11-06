@@ -6,7 +6,7 @@
 ;; Persistent setters never mutate these nested vectors or the shared base.
 (def base (vector service.base service.base '(tenant audit)))
 ;; Separate product components are independent, with universal product-lens
-;; proofs in the paired Lean example; native law checks remain finite controls.
+;; proofs in the paired Lean example; Gerbil law checks remain finite controls.
 (def left-focus (service.vector-focus 0))
 ;; The other service uses the same child carrier/compiler but a different policy.
 (def right-focus (service.vector-focus 1))

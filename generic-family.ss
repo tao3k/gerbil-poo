@@ -1,4 +1,4 @@
-;;; GenericFamily.Model: native construction of checked heterogeneous generics.
+;;; GenericFamily.Model: Gerbil construction of checked heterogeneous generics.
 (export Model. Projection. methods.instantiate<-shared-expansion methods.refresh<-projection methods.refresh<-sized-projection methods.refresh<-empty-storage build prepare refresh
         family? family-ref family-has? family-keys family-built family-reused invoke failure? failure-key failure-stage failure-cause)
 (import (only-in :gerbil/runtime/hash HashTable HashTable-new) :std/iter (only-in :std/list/list-builder with-list-builder) (only-in :std/list/list delete-duplicates/hash)
@@ -120,7 +120,7 @@
          (delete-duplicates/hash keys from-end?: #t)))
   .prepare: (lambda (policy cooked) (project-family @ projection keys seed methods watches #f policy cooked))
   .refresh: (lambda (previous policy cooked) (project-family @ projection keys seed methods watches previous policy cooked)))
-;; Use the same native eq table as the original protocol, with its ordinary size
+;; Use the same Gerbil eq table as the original protocol, with its ordinary size
 ;; hint (as in the Gerbil expander). No alternate hash backend or random seed.
 ;; A new owner may copy prior storage, overwrite every current entry and prune
 ;; old-only keys before publication. This changes private storage only. All keys,
@@ -133,7 +133,7 @@
       (delete-duplicates/hash keys from-end?: #t)))
   .prepare: (lambda (policy cooked) (project-family @ projection keys seed methods watches #f policy cooked #t))
   .refresh: (lambda (previous policy cooked) (project-family @ projection keys seed methods watches previous policy cooked #t)))
-;; One native HashTable interface owns an EMPTY eq representation. Its ordinary
+;; One Gerbil HashTable interface owns an EMPTY eq representation. Its ordinary
 ;; new method reserves the requested capacity without variadic keyword parsing,
 ;; copied old entries, pending pairs or a pruning pass. Module setup is paid once;
 ;; this descriptor holds no published entries, contexts or checking certificates.
@@ -168,7 +168,7 @@
         (unless (= (multimethod.cache-size base) 0) (error "generic seed must have an empty cache"))
         (dispatch-extension.patch base (methods key policy cooked)))))
   (at-stage key 'negative (lambda () (dispatch-extension.check candidate (watches key)))))
-;; Native generic-family model. The default prepares cold bindings; projection
+;; Gerbil generic-family model. The default prepares cold bindings; projection
 ;; mixins replace refresh with closed-context reuse while retaining seed/watch checks.
 (define-type (Model. @ [] keys seed watches)
   methods: (lambda (_ __ ___) [])

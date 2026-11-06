@@ -1,6 +1,7 @@
 ;;; Fixed-product generation, domain observation and source-refusal examples.
 (export make-prepared-children iterator-preparation-test-cases! function-request-test-cases! diagnostic-binding-test-cases! product-test-cases! product-row-test-cases!)
 (import :std/test :std/error :std/iter :std/interface
+        (only-in :gerbil/runtime/gambit type-exception?)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -102,6 +103,29 @@
         (check-equal? (generator.sample-value (generator.generate (retained-product-reference fields) before 8))
           (generator.sample-value (generator.generate (generator.generator-sequence fields) after 8)))
         (check-equal? (before 4294967087) (after 4294967087))))
+    (test-case "bind preserves split draws and refuses unused malformed seeds"
+      ;; The direct SRFI-27 streams are an oracle independent of bind's preparation.
+      (def (draw random) (list (random 97) (random 113)))
+      (def parent (generator.make-generator (lambda (random _) (draw random)) (lambda (_) [])))
+      (def actual (generator.random-at 41))
+      (def expected (generator.random-at 41))
+      (def parent-seed (expected 4294967087))
+      (def child-seed (expected 4294967087))
+      (def product (generator.generator-bind parent
+        (lambda (prefix)
+          (generator.generator-map parent (lambda (suffix) (append prefix suffix))))))
+      (check-equal? (generator.sample-value (generator.generate product actual 0))
+        (append (draw (generator.random-at parent-seed)) (draw (generator.random-at child-seed))))
+      (check-equal? (actual 4294967087) (expected 4294967087))
+      (for (seeds '((bad 1) (1 bad)))
+        (def pending seeds)
+        (def callbacks 0)
+        (def constant (generator.make-generator
+          (lambda (_random _size) (set! callbacks (1+ callbacks)) 1) (lambda (_) [])))
+        (check-exception (generator.generate (generator.generator-bind constant (lambda (_) constant))
+          (lambda (_) (begin0 (car pending) (set! pending (cdr pending)))) 0) type-exception?)
+        (check-equal? pending [])
+        (check-equal? callbacks (if (eq? (car seeds) 'bad) 0 1))))
     (test-case "checked retained products preserve coordinate trees and both replay receipts"
       (def fields (list (generator.generator-integer 0 16) (generator.generator-integer 0 16)))
       (def domain (property.make-specification list? (cut apply + <>)))
@@ -327,7 +351,19 @@
     (def second (property.make-specification exact-integer? (lambda (value) (set! later (1+ later)) value)))
     (check-exception (property.specification-weight
       (property.make-product-specification (list first second) current?: (lambda () live)) '(4 6)) Error?)
-    (check-equal? later 0)))
+    (check-equal? later 0))
+  (test-case "nested products preserve explicit observer order and repeated occurrences"
+    (def calls [])
+    (def (observe label) (lambda () (set! calls (cons label calls)) #t))
+    (def plain (property.make-specification exact-integer? abs))
+    (def explicit (property.make-specification exact-integer? abs current?: (observe 'field)))
+    (def inner (property.make-product-specification (list plain explicit plain explicit)
+      current?: (observe 'inner)))
+    (def outer (property.make-product-specification (list plain inner explicit)
+      current?: (observe 'outer)))
+    (check-equal? calls [])
+    (check (property.specification-current? outer) => #t)
+    (check-equal? (reverse calls) '(outer inner field field field))))
 
 ;; Named diagnostics own only their finite symbolic directory. Generated values
 ;; and report authority still belong to the existing kernel and standard checks.

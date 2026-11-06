@@ -29,12 +29,12 @@
   (check root state)
   (if (not (object-state-dependents state)) (clear-state! root state clear)
     (let ((seen (make-hash-table-eq)) (affected (list (cons root state))))
-      (hash-put! seen root #t)
+      (hash-put! seen root state)
       ;; Root is already checked and marked. Follow the CURRENT dependencies,
-      ;; preserving descendant-first commit order and the original false errors.
+      ;; preserving reverse-discovery commit order and the original false errors.
       (def (visit owner state)
         (unless (hash-key? seen owner)
-          (hash-put! seen owner #t)
+          (hash-put! seen owner state)
           (check owner state)
           (set! affected (cons (cons owner state) affected))
           (when (object-state-dependents state)
@@ -42,4 +42,18 @@
               (visit child child-state)))))
       (for (([child . child-state] (object-state-dependents state)))
         (visit child child-state))
+      ;; A later preflight may register an edge on an already visited owner.
+      ;; Reuse the existing identity table to certify the CURRENT closure and
+      ;; exact child states before any revision advances. Refusal retains source
+      ;; effects; an explicit retry checks the new graph without replaying checks.
+      ;; Direct HashTable traversal avoids iterator entry-pair allocation. One
+      ;; local checker serves every owner, using the existing state identity map.
+      (def (check-edge! child child-state)
+        (let (prepared (hash-get seen child))
+          ;; Missing lookup is false, never evidence for a newly supplied state.
+          (unless (and prepared (eq? prepared child-state))
+            (error "dependency graph changed during invalidation"))))
+      (for-each (lambda (entry)
+        (let (dependents (object-state-dependents (cdr entry)))
+          (when dependents (hash-for-each check-edge! dependents)))) affected)
       (for-each (lambda (entry) (clear-state! (car entry) (cdr entry) clear)) affected))))

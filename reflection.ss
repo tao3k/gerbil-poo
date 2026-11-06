@@ -77,23 +77,34 @@
         (else (prototype-map-list (public-declarations self index)))))
 ;; Resolve public metadata by indexed symbol lookup on the unobserved warm path.
 ;; The observed route retains ordered visibility reads and the same missing/hidden
-;; refusal. Both resolve metadata before demanding or checking a concrete value.
-(def (public-slot self name)
+;; refusal. The shared standard Symbol contract precedes catalog/visibility
+;; effects for both read and write; concrete value admission follows metadata.
+(def (public-slot self (name :~ symbol?))
   (def index (effective-declarations self))
   (or (if (%slot-read-active?)
         (let (entry (assq name (visible-declarations self index))) (and entry (cdr entry)))
         (let (visible (public-declarations self index))
-          (and (symbol? name) (prototype-map-ref visible name))))
+          (prototype-map-ref visible name)))
       (error "slot is hidden or undeclared" name)))
-;; Admit a concrete value through the existing Slot checker. The private
-;; one-field receiver checks cached assignments and hook-produced values too;
-;; the descriptor's predicate never receives the caller's mutable cache table.
+;; Admit and normalize at the existing field boundary, using the selected
+;; Slot metaclass throughout. Private one-field receivers preserve the original
+;; checker scope; custom normalization gets the same explicit raw receiver as
+;; Class validation. Recheck constants/custom predicates against the actual
+;; wrapped value. Neither receiver exposes the owner's mutable value storage.
 (def (validate-slot-value descriptor name value)
-  (unless (.call (.@ descriptor .type) .slot.check descriptor name (object<-alist [(cons name value)]))
-    (error "declared slot value rejected" name))
-  value)
-;; Resolve and validate against one source revision. User checks may edit shared\n;; metadata; refuse their stale success without rolling back their own effects.
-;; Only raw values are cached: earlier successful admission is never reused.
+  (def slot-type (.@ descriptor .type))
+  (def candidate (object<-alist [(cons name value)]))
+  ;; Keep the first checker/normalizer refusal, without replacing its cause.
+  (def (admit receiver)
+    (unless (.call slot-type .slot.check descriptor name receiver)
+      (error "declared slot value rejected" name)))
+  (admit candidate)
+  (let (checked (.call slot-type .slot.validate descriptor name value candidate))
+    (admit (object<-alist [(cons name checked)]))
+    checked))
+;; Resolve and validate against one source revision. User checks may edit shared
+;; metadata; refuse their stale success without rolling back their own effects.
+;; Read admission never replaces the raw cache or reuses a previous verdict.
 (def (read-slot self name)
   (def revision (object-revision self))
   (def descriptor (public-slot self name))
@@ -104,6 +115,6 @@
 ;; advances a revision nor clears caches; whole-class constraints are separate.
 (def (write-slot! self name value)
   (def revision (object-revision self))
-  (validate-slot-value (public-slot self name) name value)
+  (def checked (validate-slot-value (public-slot self name) name value))
   (require-declaration-revision self revision)
-  (.putslot! self name ($constant-slot-spec value)))
+  (.putslot! self name ($constant-slot-spec checked)))

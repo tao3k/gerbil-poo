@@ -1,11 +1,14 @@
 ;;; Existing prototype-map studies share the same paired measurement engine.
-(export +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
+(export +slot-index-phases+ slot-index-workload +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
         +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot
-        layout-admission-workload dependency-workload)
-(import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
+        layout-admission-workload dependency-workload shape-workload)
+(import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr take drop)
         (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
-        (only-in :clan/poo/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout)
+        (only-in :gerbil/runtime/loader load-module)
+        (only-in :clan/poo/object-contract checked-action)
+        (only-in :clan/poo/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
+          slot-values-layout slot-cache-bind! slot-cache-index)
         (only-in :clan/poo/reflection reflect-slots read-slot)
         (prefix-in :clan/poo/examples/representation-service service.)
         (only-in :clan/poo/examples/inherited-services precedence-cache-workflow))
@@ -275,6 +278,83 @@
         #t)))
   (values (action #f) (action #t)))
 
+;; Compare value stores separately from certified offset resolution.
+(def +slot-index-phases+
+  '(slot-index-cold slot-index-shared slot-index-mixed slot-index-update slot-index-offset))
+
+;; Both stores receive identical sparse rows and queries. Fresh symbolic
+;; identities keep the cold shape new even after the same printed names recur.
+(def (slot-index-workload width phase)
+  (def missing (list 'uncomputed))
+  (def absent (list 'absent))
+  (def occupied (max 2 (quotient width 4)))
+  ;; Distinct symbols of the same spelling must still compare by identity.
+  (def sibling (string->uninterned-symbol "0"))
+  (def (names)
+    (for/collect (i (in-range width))
+      (string->uninterned-symbol (number->string i))))
+  ;; The exact false and Function payloads distinguish absence from presence.
+  (def (rows keys)
+    (cons (cons (car keys) #f)
+      (map (cut cons <> identity) (cdr (take keys occupied)))))
+  ;; Keep construction and seed writes under the existing storage policy.
+  (def (prepare storage keys seed (previous #f))
+    (parameterize ((slot-value-storage storage))
+      (make-slot-values keys #f seed missing previous: previous)))
+  ;; Compare the full mixed trace, including uncomputed and undeclared names.
+  (def (verify table keys)
+    (unless (= (hash-length table) occupied) (error "Slot index occupancy"))
+    (for ((key keys) (i (in-range width)))
+      (unless (eq? (hash-ref table key absent)
+                   (cond ((zero? i) #f) ((< i occupied) identity) (else absent)))
+        (error "Slot index value" i)))
+    (unless (eq? (hash-ref table sibling absent) absent)
+      (error "Slot index merged distinct symbols")) #t)
+  ;; Warm fixtures are private to each side. Update charges eviction, growth,
+  ;; refill and snapshot checks on a fresh store under both policies.
+  (def (storage-action storage)
+    (if (eq? phase 'slot-index-cold)
+      (lambda () (let (keys (names)) (verify (prepare storage keys (rows keys)) keys)))
+      (let* ((keys (names)) (seed (rows keys))
+             (warm (prepare storage keys seed))
+             (hint (slot-values-layout warm)))
+        (case phase
+          ((slot-index-shared) (lambda () (verify (prepare storage keys seed hint) keys)))
+          ((slot-index-mixed) (cut verify warm keys))
+          ((slot-index-update)
+           (lambda ()
+             (let* ((store (prepare storage keys seed hint)) (snapshot (hash-copy store))
+                    (first (car keys)))
+               (hash-remove! store first)
+               (unless (eq? (hash-ref store first absent) absent) (error "Slot index eviction"))
+               (hash-put! store sibling identity)
+               (hash-put! store first #f)
+               (unless (and (= (hash-length store) (1+ occupied))
+                            (eq? (hash-ref store sibling absent) identity)
+                            (eq? (hash-ref store first absent) #f))
+                 (error "Slot index refill"))
+               (verify snapshot keys))))))))
+  ;; Resolve the same names and one same-spelling miss on independent layouts.
+  ;; Serial order establishes the positional oracle without using either lookup.
+  (def (offset-action guarded?)
+    (def keys (names))
+    (for-each object->serial-number keys)
+    (let* ((layout (make-slot-layout keys #f missing))
+           (names (append keys (list sibling)))
+           (targets (if guarded? (map make-slot-cache names) names))
+           (resolve (if guarded? (cut slot-cache-index <> layout)
+                      (cut slot-layout-index layout <>))))
+      (when guarded?
+        (for ((site targets) (i (in-range width)))
+          (slot-cache-bind! site layout 0 layout i)))
+      (lambda ()
+        (for ((target targets) (i (in-range (1+ width))))
+          (unless (eqv? (resolve target) (and (< i width) i))
+            (error "Slot offset resolution" i))) #t)))
+  (if (eq? phase 'slot-index-offset)
+    (values (offset-action #f) (offset-action #t))
+    (values (storage-action 'hash) (storage-action 'vector))))
+
 ;; All representation workloads share the existing measurement engine.
 (def +slot-value-phases+ '(slot-values-prepare slot-values-newshape slot-values-cold slot-values-hot slot-values-workflow slot-values-retry slot-values-count slot-values-observation slot-values-seed slot-values-redemand slot-values-grow slot-values-guard))
 ;; Both sides run the same evaluator, contracts, revisions and result oracle.
@@ -436,3 +516,90 @@
           ((slot-dependencies-register)
             (for-each (cut depend-on-object! target <>) (if candidate? unique sources))))) #t))
   (values (action #f) (action #t)))
+
+
+;; Shape construction belongs beside the existing representation workloads.
+(def (shape-workload size scenario)
+  (if (memq scenario '(slot-shape-batch slot-shape-batch-workflow))
+    (batch-shape-workload size scenario)
+    (let ()
+      (def names (for/collect (n (in-range size)) (string->symbol (string-append "extra-" (number->string n)))))
+      (def entries (map (lambda (name) (cons name #f)) names))
+      (def initial (list->hash-table entries))
+      (def old (make-slot-layout names initial absent-value))
+      (def added (string->uninterned-symbol "extra-growth"))
+      (def (action reuse?)
+        (lambda ()
+          (if (eq? scenario 'slot-shape-retire)
+            (service.shape-prune-workflow size reuse?)
+          (if (memq scenario '(slot-shape-prepare slot-shape-grow slot-shape-prune))
+            (let (layout (make-slot-layout
+              (if (eq? scenario 'slot-shape-prune)
+                (append (reverse (drop names (quotient size 2))) (drop names (quotient size 2)))
+                (append (reverse names) (if (eq? scenario 'slot-shape-grow) (list added) []) names))
+              initial absent-value previous: (and reuse? old)))
+              (unless (eq? (slot-layout-ref layout (slot-layout-index layout (list-ref names (if (eq? scenario 'slot-shape-prune) (quotient size 2) 0)))) #f)
+                (error "shape preparation oracle"))
+              (when (eq? scenario 'slot-shape-grow)
+                (unless (eq? (slot-layout-ref layout (slot-layout-index layout added)) absent-value)
+                  (error "shape extension forced an uncomputed cell"))))
+            (begin
+              (load-module "clan/poo/examples/representation-service")
+              (let* ((recipe (.o inherit: [service.Service (object<-alist entries)] tariff: 3))
+                     (owners (for/collect (n (in-range 4)) (.o inherit: [recipe] capacity: n)))
+                     (site (make-slot-cache 'total)) (delivered 0)
+                     (consume (checked-action service.ValidService
+                       (lambda (owner)
+                         (unless reuse? (object-layout owner))
+                         (let (total (.ref/inline owner site))
+                           (set! delivered (1+ delivered)) total)))))
+                ;; Exactly one checked boundary owns refinement. Only its admitted
+                ;; receiver is prepared/read; original sources get no duplicate layout.
+                (def (visit tariff)
+                  (.putslot! recipe 'tariff ($constant-slot-spec tariff))
+                  (let (total (for/fold (sum 0) (owner owners) (+ sum (consume owner))))
+                    (unless (= total (+ 12 (* 6 tariff))) (error "shape workflow oracle"))))
+                (visit 3)
+                (when (eq? scenario 'slot-shape-change) (.putslot! recipe 'approval ($constant-slot-spec #f)))
+                (visit 4)
+                (.putslot! recipe 'tariff ($constant-slot-spec -1))
+                (unless (and (TypeError? (with-catch identity (cut consume (car owners)))) (= delivered 8))
+                  (error "shape refused consumer oracle"))
+                (when (eq? scenario 'slot-shape-change) (.removeslot! recipe 'approval))
+                (visit 5)
+                (unless (= delivered 12) (error "shape delivery oracle"))))))
+          #t))
+      (values (action #f) (action #t))
+    )))
+
+;; Compare the same admitted metadata with full sorting and bounded order reuse.
+;; Each complete action includes construction, current values, refusal and retry.
+(def (batch-shape-workload size scenario)
+  (if (eq? scenario 'slot-shape-batch-workflow)
+    (let ()
+      ;; Validate the full client result on both arms, after all preparation costs.
+      (def (action reuse?)
+        (lambda ()
+          (unless (equal? (service.batch-shape-workflow size reuse?) '#(65 19 6))
+            (error "batch workflow oracle")) #t))
+      (values (action #f) (action #t)))
+    (let ()
+      (def names (for/collect (i (in-range size))
+        (string->uninterned-symbol (string-append "batch-" (number->string i)))))
+      (def added (for/collect (i (in-range size))
+        (string->uninterned-symbol (string-append "new-batch-" (number->string i)))))
+      (for ((name names) (new added))
+        (object->serial-number name) (object->serial-number new))
+      (def delta (max 1 (quotient size 4)))
+      (def target (append (drop names delta) (take added (min size (* 2 delta)))))
+      (def seed (make-hash-table-symbolic))
+      (hash-put! seed (car target) #f) (hash-put! seed (cadr target) identity)
+      ;; Setup remains part of the paired runner's preparation receipt.
+      (def old (make-slot-layout names #f absent-value))
+      (def (action reuse?)
+        (lambda ()
+          (def fresh (make-slot-layout target seed absent-value previous: (and reuse? old)))
+          (unless (and (not (slot-layout-ref fresh (slot-layout-index fresh (car target))))
+                       (eq? (slot-layout-ref fresh (slot-layout-index fresh (cadr target))) identity))
+            (error "batch preparation oracle")) #t))
+      (values (action #f) (action #t)))))

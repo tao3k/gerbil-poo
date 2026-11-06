@@ -10,12 +10,14 @@
 (import :std/error :std/iter (only-in :std/list/list delete-duplicates/hash map-in-order length=n?)
         (only-in ./property/generator generator? generate generator-current? sample? sample-value
           sample-children sample-current bind-generators rejected? proposal-sources generation-exhausted?
-          stale-generation? boolean-result live? random-at with-generation-check with-sources))
+          stale-generation? boolean-result live? random-at call-with-random-checkpoints random-checkpoint-snapshot
+          with-generation-check with-sources))
 ;; Domain admission, measure and revision ownership remain explicit callbacks.
 (defstruct domain (accept measure current) final: #t)
 ;; Reports retain exact execution configuration and observed source provenance.
 (defstruct report (status generator property specification seed cases size trial-size size-limit size-current shrink-budget
-                   trial original counterexample attempts steps minimal? cause witness sources classify policy accepted discarded labels) final: #t)
+                   trial original counterexample attempts steps minimal? cause witness sources classify policy accepted discarded labels
+                   checkpoints) final: #t)
 ;; Trial policy is independent of descriptors; coverage uses minimum effective counts.
 (defstruct trial-policy (name precondition labels required discard-budget) final: #t constructor: :init!)
 ;; Copy requirements at construction so callers cannot mutate an admitted policy.
@@ -58,9 +60,11 @@
     (trial-policy-required policy)))
 ;; Specifications have ordinary Gerbil record identity.
 (def specification? domain?)
+;; Identity marks the built-in observer, whose result needs no field callback.
+(def (immutable-current) #t)
 ;; Callback construction uses Gerbil's existing procedure contracts.
 (def (make-specification (accept : :procedure) (measure : :procedure)
-                        current?: (current (lambda () #t)))
+                        current?: (current immutable-current))
   (using (current : :procedure) (make-domain accept measure current)))
 ;; Validate measures independently of callback annotations or host numeric coercion.
 (def (weight specification value)
@@ -120,7 +124,7 @@
 
 ;; Products share the existing domain/measure/currentness gates; domains are fixed
 ;; for one check while dependent generator branches retain their own provenance.
-(def (make-product-specification specifications current?: (owner (lambda () #t)))
+(def (make-product-specification specifications current?: (owner immutable-current))
   (unless (and (procedure? owner) (list? specifications) (every specification? specifications))
     (error "product specifications required"))
   (def domains (list-copy specifications))
@@ -131,8 +135,12 @@
     (and (list? values) (length=n? values width) (list-copy values)))
   ;; All captured domains participate in each stage, including a later field's
   ;; source invalidated by an earlier callback. Refusal skips the next callback.
-  (def (current) (and (live? owner)
-    (every (lambda (domain) (live? (domain-current domain))) domains)))
+  (def observers (filter (lambda (check) (not (eq? check immutable-current)))
+    (map domain-current domains)))
+  ;; Preserve explicit observers in order, including repeated identities.
+  (def current
+    (if (and (eq? owner immutable-current) (null? observers)) immutable-current
+      (lambda () (and (live? owner) (every live? observers)))))
   (def (stop _status _minimal?) (error "stale product specification"))
   (make-specification
     (lambda (values)
@@ -360,7 +368,8 @@
     (def witness (progress-best state))
     (make-report status generator property specification seed cases size trial-size size-limit size-current budget trial original
       (and witness (sample-value witness)) (progress-attempts state) (progress-steps state)
-      minimal? cause witness sources classify policy accepted discarded (hash->list counts)))
+      minimal? cause witness sources classify policy accepted discarded (hash->list counts)
+      (and (eq? status 'failed) (random-checkpoint-snapshot))))
   ;; Admit terminal child reports only after local catch/finish scopes unwind.
   (with-sources []
     (with-catch
@@ -432,7 +441,8 @@
   (lambda (generator (property : :procedure) specification)
     (unless (and (generator? generator) (specification? specification))
       (error "invalid property testing configuration"))
-    (execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named)))
+    (call-with-random-checkpoints
+      (cut execute generator property specification seed cases size size-limit budget classify (lambda () #t) size-current named))))
 ;; Direct checks and declaration macros use the same admitted request. There is
 ;; no option parser, surrogate producer or second execution/PRNG owner.
 (def (check-property generator property specification . options)
@@ -465,14 +475,18 @@
                       (lambda (domains) (values (car domains) generation)))))
        (run production (lambda (value) body ...) domain)))))
 ;; Seed replay observes the original run's entire visited provenance throughout
-;; rerun, while its new report owns only that rerun's observations.
-(def (replay-property report)
-  (def (current) (and (live? (report-size-current report))
+;; rerun, while its new report owns only that rerun's observations. An explicit
+;; invocation guard joins this transient authority, not the new report's sources;
+;; lasting ownership still belongs on the generator/domain or typed source row.
+(def (replay-property (report :~ report?) current?: (guard : :procedure := (lambda () #t)))
+  (def (current) (and (live? guard) (live? (report-size-current report))
     (current? (report-specification report) (report-generator report) (report-sources report))))
   (unless (current) (error "stale property replay"))
-  (execute (report-generator report) (report-property report) (report-specification report)
-    (report-seed report) (report-cases report) (report-size report) (report-size-limit report) (report-shrink-budget report)
-    (report-classify report) current (report-size-current report) (report-policy report)))
+  (call-with-random-checkpoints
+    (cut execute (report-generator report) (report-property report) (report-specification report)
+      (report-seed report) (report-cases report) (report-size report) (report-size-limit report) (report-shrink-budget report)
+      (report-classify report) current (report-size-current report) (report-policy report))
+    (report-checkpoints report)))
 
 ;; Concrete witnesses are admitted by their captured precondition/domain, not by
 ;; generation coverage. Each callback shares the existing source boundary.
@@ -489,8 +503,10 @@
   (with-current current stop (boolean-result (property value) "property must return a boolean")))
 ;; Concrete replay draws nothing and forces no selectors/children. Both accepted
 ;; witness provenance and earlier visited sources retain their original stamps.
-(def (replay-counterexample report)
+;; Extra invocation authority uses the same checked callback owner, preserving
+;; original exceptions rather than adding an outer post-check over a report.
+(def (replay-counterexample (report :~ report?) current?: (guard : :procedure := (lambda () #t)))
   (unless (eq? (report-status report) 'failed) (error "failed property report required"))
   (check-counterexample (report-counterexample report) (report-property report)
     (report-specification report) policy: (report-policy report)
-    current?: (lambda () (report-current? report))))
+    current?: (lambda () (and (live? guard) (report-current? report)))))

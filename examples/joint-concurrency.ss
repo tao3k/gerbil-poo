@@ -1,4 +1,4 @@
-;;; Bounded native thread composition for already-approved joint receipts.
+;;; Bounded Gerbil thread composition for already-approved joint receipts.
 (export install-concurrently)
 (import (prefix-in ./joint-workers workers.))
 ;; Standard channels form a ready/release rendezvous AFTER all approval calls.

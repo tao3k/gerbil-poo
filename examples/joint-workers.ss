@@ -1,4 +1,4 @@
-;;; Scoped native installation workers with explicit coordinator-controlled release.
+;;; Scoped Gerbil installation workers with explicit coordinator-controlled release.
 (export call-with-installations)
 (import :std/sync/channel
         (runtime: :clan/poo/joint-publication)

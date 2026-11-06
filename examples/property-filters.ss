@@ -1,5 +1,5 @@
 ;;; Bounded rejection sampling and retained source ownership through retries.
-(export filter-test-cases! proposal-test-cases!)
+(export filter-test-cases! proposal-test-cases! delay-test-cases! resumed-delay-test-cases! composed-delay-test-cases!)
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/testing/property/generator generator.)
         (prefix-in :clan/poo/testing/property property.))
@@ -242,3 +242,246 @@
       (check (property.report-current? report) => (not stale?))
       (set! first-live #f)
       (check (property.report-current? report) => #f))))
+
+;; A parent reduction selects a previously unused delayed branch. Its constructor
+;; belongs to the outer delay even when the retained tree is consumed later.
+(def (dependent-delay depth force (current (lambda () #t)))
+  (generator.generator-delay (lambda ()
+    (generator.generator-bind
+      (generator.make-generator (lambda (_random _size) 1) generator.integer-shrinks)
+      (lambda (value) (if (positive? value) (generator.generator-unit value)
+        (generator.generator-delay (lambda () (force) (generator.generator-unit value)) depth: 1)))))
+    depth: depth current?: current))
+
+;; Register controls in the same standard suite and independent library build.
+(def (delay-test-cases!)
+  (test-case "retained dependency shrinking cannot renew exhausted delay depth"
+    (def forces 0)
+    (def generation (dependent-delay 1 (lambda () (set! forces (1+ forces)))))
+    (def domain (property.make-specification exact-integer? abs))
+    (def report (property.check-property generation (lambda (_) #f) domain cases: 1 shrink-budget: 8))
+    (check-equal? (list (property.report-status report) (property.report-counterexample report)
+      (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))
+      '(exhausted 1 0 0 #f))
+    (check (generator.generation-exhausted? (property.report-cause report)) => #t)
+    (check-equal? forces 0)
+    (check-eq? (property.report-status (property.replay-property report)) 'exhausted)
+    (check-exception (property.replay-counterexample report) Error?)
+    (let (inspection (property.inspect-generator generation domain count: 1 depth: 1 proposal-budget: 1))
+      (check-eq? (property.inspection-status inspection) 'exhausted)
+      (check-equal? (property.inspection-attempts inspection) 0))
+    (check-equal? forces 0))
+  (test-case "sufficient retained delay depth preserves reduction and both replay modes"
+    (def forces 0)
+    (def generation (dependent-delay 2 (lambda () (set! forces (1+ forces)))))
+    (def report (property.check-property generation (lambda (_) #f)
+      (property.make-specification exact-integer? abs) seed: 17 cases: 1 shrink-budget: 8))
+    (check-equal? (list (property.report-status report) (property.report-counterexample report)
+      (property.report-attempts report) (property.report-steps report) (property.report-minimal? report))
+      '(failed 0 1 1 #t))
+    (check-equal? forces 1)
+    (check-equal? (property.report-counterexample (property.replay-property report)) 0)
+    (check (property.replay-counterexample report) => #f)
+    (check-equal? forces 2))
+  (test-case "a stricter consuming delay remains owned by further retained descendants"
+    (def forces 0)
+    ;; Two later constructors need two credits; the consuming scope supplies one.
+    (def generation (generator.generator-delay (lambda ()
+      (generator.generator-bind
+        (generator.make-generator (lambda (_r _s) 2) (lambda (v) (if (positive? v) (list (1- v)) [])))
+        (lambda (value) (if (positive? value) (generator.generator-unit value)
+          (generator.generator-delay (lambda () (set! forces (1+ forces))
+            (generator.generator-delay (lambda () (set! forces (1+ forces))
+              (generator.generator-unit 0)) depth: 2)) depth: 2))))) depth: 4))
+    (def root (generator.generate generation (generator.random-at 17) 0))
+    (def ambient (generator.generator-delay (lambda ()
+      (generator.generator-unit (car (for/collect (child ((generator.sample-children root))) child)))) depth: 2))
+    (def smaller (generator.sample-value (generator.generate ambient (generator.random-at 17) 0)))
+    (check-equal? (generator.sample-value smaller) 1)
+    (check-exception (for/collect (child ((generator.sample-children smaller))) child) generator.generation-exhausted?)
+    (check-equal? forces 1))
+  (test-case "delay restoration retains source and raw-cause precedence and unwinds"
+    (def live #t) (def forces 0)
+    (def generation (dependent-delay 1 (lambda () (set! forces (1+ forces))) (lambda () live)))
+    (def root (generator.generate generation (generator.random-at 17) 0))
+    (set! live #f)
+    (check-exception (for/collect (child ((generator.sample-children root))) child) generator.stale-generation?)
+    (check-equal? forces 0)
+    (for (cause (list #f (cons 'constructor 'cause)))
+      (let* ((source (dependent-delay 2 (lambda () (raise cause))))
+             (tree (generator.generate source (generator.random-at 17) 0)))
+        (check-eq? (with-catch values (lambda ()
+          (for/collect (child ((generator.sample-children tree))) child) 'unexpected)) cause)
+        (check-equal? (generator.sample-value (generator.generate
+          (generator.generator-delay (lambda () (generator.generator-unit 9)) depth: 1)
+          (generator.random-at 17) 0)) 9))))
+  (test-case "unbounded dependency roots retain fresh independent delayed children"
+    (def forces 0)
+    (def generation (generator.generator-bind
+      (generator.make-generator (lambda (_r _s) 1) generator.integer-shrinks)
+      (lambda (value) (if (positive? value) (generator.generator-unit value)
+        (generator.generator-delay (lambda () (set! forces (1+ forces))
+          (generator.generator-unit 0)) depth: 1)))))
+    (def root (generator.generate generation (generator.random-at 17) 0))
+    (check-equal? (for/collect (child ((generator.sample-children root))) (generator.sample-value child)) '(0))
+    (check-equal? forces 1)))
+
+;; Two parent candidates suspend the official coroutine before selecting a
+;; delayed branch. The source remains owned by the outer delayed producer.
+(def (paused-delay force current)
+  (generator.generator-delay (lambda ()
+    (generator.generator-bind
+      (generator.make-generator (lambda (_r _s) 3)
+        (lambda (value) (if (= value 3) '(2 1) [])))
+      (lambda (value) (if (= value 1)
+        (generator.generator-delay (lambda () (force) (generator.generator-unit 0)) depth: 1)
+        (generator.generator-unit value))))) depth: 4 current?: current))
+
+;; Enter a caller's declared delay scope without replacing the child iterator.
+(def (delay-demand depth demand)
+  (generator.sample-value (generator.generate
+    (generator.generator-delay (lambda () (generator.generator-unit (demand))) depth: depth)
+    (generator.random-at 17) 0)))
+
+;; Catch around the entire coroutine lifetime: the standard iterator retains
+;; its first handler as well as its producer continuation across suspension.
+;; Pull before asserting: a check form installs its own narrower handler.
+(def (resumed-delay-test-cases!)
+  (test-case "paused dependency cursor obeys each incoming tighter delay scope"
+    (for (first-depth '(#f 4))
+      (def forces 0)
+      (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (def cause (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (if first-depth (delay-demand first-depth (lambda () (cursor.next!))) (cursor.next!)))
+          (check-equal? (generator.sample-value first) 2)
+          (delay-demand 1 (lambda () (cursor.next!)))
+          'unexpected))))
+      (check (generator.generation-exhausted? cause) => #t)
+      (check-equal? forces 0)))
+  (test-case "paused dependency cursor delegates values and EOF exactly once"
+    (def forces 0)
+    (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
+      (lambda () #t)) (generator.random-at 17) 0))
+    (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+      (def first (cursor.next!))
+      (check-equal? (generator.sample-value first) 2)
+      (check-equal? (generator.sample-value (delay-demand 2 (lambda () (cursor.next!)))) 0)
+      (check (eof-object? (cursor.next!)) => #t))
+    (check-equal? forces 1))
+  (test-case "paused dependency cursor preserves raw constructor causes"
+    (for (cause (list #f (cons 'constructor 'cause)))
+      (def forces 0)
+      (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)) (raise cause))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (check-eq? (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (generator.sample-value first) 2)
+          (delay-demand 2 (lambda () (cursor.next!))) 'unexpected))) cause)
+      (check-equal? forces 1)))
+  (test-case "source retirement precedes resumed exhaustion and fresh scopes recover"
+    (def live #t) (def forces 0)
+    (def root (generator.generate (paused-delay (lambda () (set! forces (1+ forces)))
+      (lambda () live)) (generator.random-at 17) 0))
+    (def cause (with-catch values (lambda ()
+      (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+        (def first (cursor.next!))
+        (check-equal? (generator.sample-value first) 2)
+        (set! live #f)
+        (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
+    (check (generator.stale-generation? cause) => #t)
+    (check-equal? forces 0)
+    (check-equal? (delay-demand 1 (lambda () 9)) 9)))
+
+;; Compose the same dependency through each callback-bearing sample boundary.
+;; The policy case supplies a standard lazy Iterator, not an alternate runner.
+(def (composed-delay mode force current)
+  (def source (paused-delay force current))
+  (case mode
+    ((map) (generator.generator-map source (lambda (value) (+ value 10))))
+    ((filter) (generator.generator-filter source (lambda (_) #t)))
+    ((product) (generator.make-tree-generator (lambda (random size)
+      (generator.sample-sequence (list (generator.generate source random size)) car min-length: 1))))
+    ((function) (generator.generator-function '((probe)) (generator.generator-map source list)))
+    ((policy) (generator.generator-with-shrink source (lambda (_)
+      (in-coroutine (lambda (yield)
+        (yield 2)
+        (yield (generator.sample-value (generator.generate
+          (generator.generator-delay (lambda () (force) (generator.generator-unit 0)) depth: 1)
+          (generator.random-at 17) 0))))))))))
+
+;; Observe explicit carrier shapes without widening a descriptor or redrawing it.
+(def (composed-delay-value mode value)
+  (case mode ((map) (- value 10))
+    ((function) (car (generator.function-apply value '(probe))))
+    (else value)))
+
+;; All pulls share the enclosing handler; assertions inspect already read values.
+(def (composed-delay-test-cases!)
+  (test-case "outer sample composition cannot erase a resumed caller allowance"
+    (for (mode '(map filter product function policy))
+      (def forces 0)
+      (def root (generator.generate (composed-delay mode (lambda () (set! forces (1+ forces)))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (def cause (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+          (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
+      (check (generator.generation-exhausted? cause) => #t)
+      (check-equal? forces 0)))
+  (test-case "outer sample composition preserves sufficient credits order and EOF"
+    (for (mode '(map filter product function policy))
+      (def forces 0)
+      (def root (generator.generate (composed-delay mode (lambda () (set! forces (1+ forces)))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+        (def first (cursor.next!))
+        (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+        (def second (delay-demand 2 (lambda () (cursor.next!))))
+        (check-equal? (composed-delay-value mode (generator.sample-value second)) 0)
+        (check (eof-object? (cursor.next!)) => #t))
+      (check-equal? forces 1)))
+  (test-case "outer sample composition retains exact resumed constructor causes"
+    (for* ((mode '(map filter product function policy)) (cause (list #f (cons 'force 'cause))))
+      (def root (generator.generate (composed-delay mode (lambda () (raise cause))
+        (lambda () #t)) (generator.random-at 17) 0))
+      (check-eq? (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+          (delay-demand 2 (lambda () (cursor.next!))) 'unexpected))) cause)))
+  (test-case "outer sample composition admits sources before resumed exhaustion"
+    (for (mode '(map filter product function policy))
+      (def live #t) (def forces 0)
+      (def root (generator.generate (composed-delay mode (lambda () (set! forces (1+ forces)))
+        (lambda () live)) (generator.random-at 17) 0))
+      (def cause (with-catch values (lambda ()
+        (using (cursor (iter ((generator.sample-children root))) :- Iterator)
+          (def first (cursor.next!))
+          (check-equal? (composed-delay-value mode (generator.sample-value first)) 2)
+          (set! live #f)
+          (delay-demand 1 (lambda () (cursor.next!))) 'unexpected))))
+      (check (generator.stale-generation? cause) => #t)
+      (check-equal? forces 0)))
+  (test-case "composed delay trees retain zero-budget laziness and both replay forms"
+    (for (mode '(map filter product function policy))
+      (def forces 0)
+      (def source (composed-delay mode (lambda () (set! forces (1+ forces))) (lambda () #t)))
+      (def domain (property.make-specification
+        (if (eq? mode 'function) generator.function-value? exact-integer?)
+        (lambda (value) (abs (composed-delay-value mode value)))))
+      (def zero (property.check-property source (lambda (_) #f) domain cases: 1 shrink-budget: 0))
+      (check-equal? (property.report-attempts zero) 0)
+      (check-equal? forces 0)
+      (def reduced (property.check-property source (lambda (_) #f) domain seed: 17 cases: 1 shrink-budget: 16))
+      (check-eq? (property.report-status reduced) 'failed)
+      ;; Greedy descent keeps the first leaf; it does not search abandoned siblings.
+      ;; Only the replacement policy supplies descendants beneath candidate two.
+      (def expected (if (eq? mode 'policy) 0 2))
+      (check-equal? (composed-delay-value mode (property.report-counterexample reduced)) expected)
+      (check (property.replay-counterexample reduced) => #f)
+      (check-equal? (composed-delay-value mode (property.report-counterexample
+        (property.replay-property reduced))) expected))))

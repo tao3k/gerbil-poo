@@ -8,6 +8,24 @@
 ;; Cover ordered structural dispatch rather than testing procedure? recognition only.
 (def function-signature-test
   (test-suite "Function optional, keyword, rest and ordered signatures"
+    (test-case "checked identity follows live issuer and signature support"
+      (def calls 0)
+      (def (target value) (set! calls (1+ calls)) value)
+      (def descriptor (Function [Integer] [Integer]))
+      (def checked (validate descriptor target))
+      (check-equal? (eq? checked (validate descriptor checked)) #t)
+      (check-equal? (eq? checked (validate (Function [Integer] [Integer]) checked)) #f)
+      (check-exception (checked "bad input") type-error?)
+      (check-equal? calls 0)
+      (.put! descriptor 'inputs (list Integer))
+      (def renewed (validate descriptor checked))
+      (check-equal? (eq? checked renewed) #f)
+      (check-equal? (eq? renewed (validate descriptor renewed)) #t)
+      (.put! descriptor 'outputs (list String))
+      (def changed (validate descriptor renewed))
+      (check-equal? (eq? renewed changed) #f)
+      (check-exception (changed 7) type-error?)
+      (check-equal? calls 1))
     (test-case "legacy serialization and fixed invocation stay compatible"
       (check-equal? (car (.get (Function [Integer] [Integer]) sexp)) 'Function)
       (check-equal? (map cadr (cdr (.get (Function [Integer] [Integer]) sexp))) '(Integer Integer))

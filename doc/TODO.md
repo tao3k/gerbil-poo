@@ -4,6 +4,35 @@ In the future, we may add the following features and optimizations.
 
 ## Current implementation boundary
 
+Current dependency closure is now admitted before cache invalidation commits.
+Descendant preflight can no longer leave a late owner or replacement state
+unchecked in an earlier subtree. The existing visited map serves the standard
+HashTable edge pass; pristine leaves retain their fast path, original callback
+causes take priority, and explicit retry admits the new graph without replaying
+checks. See [Current dependency closure before
+invalidation](representation.md#current-dependency-closure-before-invalidation)
+for the complete FUN/IO service, regressions and finite Lean coverage/cost laws.
+No new cache, loader or namespace is introduced.
+
+
+Source-backed Slot initialization now captures finite names and explicit entry
+pairs before standard HashTable callbacks can rewrite them. The same boundary
+serves vector/hash stores, keeps current Function/false identity, preserves source
+refusal priority and old guards, and leaves the source-free path without extra
+copies. The loader/FUN revision and explicit recovery workflow plus finite Lean
+handoff laws are covered in [Owned source-backed Slot initialization
+requests](representation.md#owned-source-backed-slot-initialization-requests).
+Source contents/payload mutation and general language-level tracking retain their
+explicit existing boundaries; no new loader or cache layer is introduced.
+
+
+Source-owned typed replay handoff now captures report declarations before later
+metadata, passes invocation authority to the existing runner/codec owners, and
+publishes detached source epochs without report-chain growth. Seed, concrete and
+portable replay retain their original cause/classification semantics. Generic
+kernel acceptance requires 246 cases. See
+[Source-owned typed replay handoff](pbt/replay.md#source-owned-typed-replay-handoff).
+
 Source-owned Iterable preparation now covers child creation, standard Iterator
 conversion and nested actions across execution, inspection and generator algebra.
 Factory-return checks remain distinct; conversion does not charge a proposal.
@@ -322,21 +351,19 @@ automatic layout policy or arbitrary cold-loading performance; see
 [representation.md](representation.md#incremental-canonical-shape-extension).
 
 This design TODO is not a declaration that the whole paper or every Lean model
-has been implemented. `alignment.md` maps executable native counterparts separately
+has been implemented. `alignment.md` maps executable Gerbil counterparts separately
 from proofs. Multiple inheritance and the listed method combinations are available,
-but the unified extensible MOP remains future work. Bounded explicit recursive requests and program-owned memo now have native
-implementations, current Type admission and attested cyclic publication. Their
+but the unified extensible MOP remains future work. Bounded explicit recursive requests and program-owned memo now have Gerbil implementations, current Type admission and attested cyclic publication. Their
 purity/immutability/local termination premises and Lean-only evaluation proofs
-are explicit in alignment.md; a literal seed API alone is not the attestation path. Checked inherited C3/slot hooks and registered-source invalidation now have native
-controls. Unrestricted inheritance-hook equivalence, arbitrary lens
-adapters and cross-type migration also need further native coverage. Finite DAG,
+are explicit in alignment.md; a literal seed API alone is not the attestation path. Checked inherited C3/slot hooks and registered-source invalidation now have Gerbil controls. Unrestricted inheritance-hook equivalence, arbitrary lens
+adapters and cross-type migration also need further Gerbil coverage. Finite DAG,
 metadata, invalidation and joint-publication examples do not close these general
 items. Storage/binding performance progress below does not change their status.
 
 ## Functional completion audit (2026-10-17)
 
 **No: this TODO is not fully implemented.** Performance studies below establish
-neither feature completion nor native implementation of every Lean abstraction.
+neither feature completion nor Gerbil implementation of every Lean abstraction.
 The following ledger takes priority over the historical optimization notes.
 “Implemented” means the concrete API in the stated scope; “partial” and “open”
 remain work to do. Proposed language/library projects are not silently removed
@@ -666,8 +693,7 @@ This audit does not mark the open type/library/interpreter projects complete.
 
 **The original TODO is still incomplete.** New graph topologies or timing reports
 must not be used to mark an original feature complete. Each feature needs one
-public composable protocol, refusal/retry behavior, an integrated example, native
-regressions and corresponding Lean laws with explicit premises. The original
+public composable protocol, refusal/retry behavior, an integrated example, Gerbil regressions and corresponding Lean laws with explicit premises. The original
 specifications below are retained; interpreter/library projects remain open.
 
 The recursive publication lifecycle now has one integrated acceptance chain:
@@ -706,16 +732,16 @@ optimization studies to claim functional closure.
 The first four rows form one tested functional chain in `examples/lifecycle.ss`:
 checked nested Account construction → persistent focused revision → fresh
 constraint admission → current-tenant Reader/FUN observation → lazy delegate.
-`doc/alignment.md` records the Racket/Lean/native correspondence and proof limits.
+`doc/alignment.md` records the Racket/Lean/Gerbil correspondence and proof limits.
 The Lean model proves input refusal, successful output admission, absence versus
-stored values and active-key cycle selection; native tests separately check
+stored values and active-key cycle selection; Gerbil tests separately check
 receiver sharing, dynamic unwinding and callback behavior.
 
 All generalized MOP extensions here advance the paper's **future work**. They
 are not claims that the paper's Racket implementation already specifies this
 complete class lifecycle, nor proofs of the Scheme compiler or runtime.
 The concrete inherited-hook → invalidating source revision → declared reflection
-chain now has implementation, native controls and Lean laws (see
+chain now has implementation, Gerbil controls and Lean laws (see
 [inheritance-hooks.md](inheritance-hooks.md)). Constant-base self-hosting and nonlocal declaration protocols are now implemented
 (see [meta-prototype.md](meta-prototype.md)). Remaining work includes unrestricted
 meta fixed points beyond finite positive Boolean equations, alternative-order certification, global security policy and
@@ -758,7 +784,7 @@ as `.declare`, then admits and prepares the complete non-record fragment stream.
 Labels identify contributions, while lenses may target overlapping raw components.
 
 The concrete example combines heterogeneous scalar and method-group foci through
-native Lens composition on nested vectors, cooked final-self dependency, existing
+Gerbil Lens composition on nested vectors, cooked final-self dependency, existing
 standard method combination and an independent audit frame. The same protocol and
 macro also construct a procedure carrier. Source versions and registered callback
 metadata are checked even for zero-depth/cooking observations. Changed source
@@ -777,7 +803,7 @@ callback/lens correctness follows. See [generalized-declarations.md](generalized
 adjacent raw states compare equal, within a fixed raw-step budget. It reuses the
 existing source-guarded step/cook operations and returns a receipt bound to its
 prepared owner/base. Budget, finite law and source/cooking refusals expose no
-partial candidate; publication retains the exact old receipt. A native Reader/FUN
+partial candidate; publication retains the exact old receipt. A Gerbil Reader/FUN
 action composes successful closure with downstream observation.
 
 `lens-laws.ss` checks get-put, put-get and put-put on supplied immutable states
@@ -800,7 +826,7 @@ remains inconclusive about divergence. See [controlled-closure.md](controlled-cl
 `focused-closure.ss` now closes narrow components inside a wider non-record raw
 carrier, using captured outer lens checks and the existing bounded local closure.
 Actual old/new child values extend the finite law domain. Ordered stages compose
-with native FUN Reader `.map` and standard `foldr`; every source stays guarded
+with Gerbil FUN Reader `.map` and standard `foldr`; every source stays guarded
 through the whole chain, final equation validation and family cooking.
 All final projected equations are checked again: separate lawful lenses need not
 be independent. Conflicting overlap refuses the complete publication; compatible
@@ -808,7 +834,7 @@ overlap can pass. Every final check costs one extra raw step beyond local search
 
 `examples/focused-services.ss` closes two nested-vector services with distinct
 policies and existing primary/around methods, preserving sibling/shared audit
-data. Native controls cover actual replacement laws, overlap, budget, stale
+data. Gerbil controls cover actual replacement laws, overlap, budget, stale
 metadata, later source mutation, final cooking and Reader suffix suppression.
 Lean proves focused fixedness/frame preservation, final admission soundness,
 independent lens pairing and concrete family results. See
@@ -835,7 +861,7 @@ The capped three-service ring combines cyclic allocations, joint approval,
 primary/around methods and an independent audit. Lean proves concrete convergence
 and acceptance from every typed seed within five raw steps at cap=3, as well as
 generic conditional completeness, provenance, fixedness, component residuals,
-frame preservation and budget bounds. Native controls cover oscillation,
+frame preservation and budget bounds. Gerbil controls cover oscillation,
 cancellation, refusal/old publication, stale sources and nonlocal finalizer reuse.
 See [feedback-closure.md](feedback-closure.md) for API, residual costs and premises.
 
@@ -854,7 +880,7 @@ publication retention cover closure, source, residual and callback failures.
 `examples/shared-feedback.ss` connects one shared quota node to two nested service
 branches in a four-node feedback ring, joint readiness, primary/around methods
 and current cross-service commitment/permission checks. Quota increases/decreases,
-approval rejection/retry and old snapshots have native controls and paired Lean
+approval rejection/retry and old snapshots have Gerbil controls and paired Lean
 examples. `reviseFeedback` proves new closure, exact-candidate approval, component
 equations, seed provenance and budget bounds; `admitted_joint` proves current
 permission/coherence/commitment for any accepted example revision. Product lens
@@ -878,7 +904,7 @@ through ALWAYS-fresh joint approval. Failed candidates never become reuse bases.
 `examples/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
 edge, an independent feedback group, source increases/decreases, joint refusal/
 retry and permission-only edits. Refusing builders and identity checks verify
-skipping. Native negative controls include removed inputs, illegal inter-group
+skipping. Gerbil negative controls include removed inputs, illegal inter-group
 cycles, stale retained metadata, source writes and FUN suffix suppression.
 Lean `Functional.FeedbackCache` reuses ranked cache invalidation, proves retained
 reference equality/current approval and packages actual closed group equations.
@@ -890,11 +916,11 @@ Automatic SCC grouping and merge/split invalidation are now implemented in
 `strong-components.ss` / `feedback-graph.ss`. Shared quota, two services, final
 settlement, an independent loop and current joint approval cover graph revisions
 through existing whole-group closure and DAG caching. See
-[strong-components.md](strong-components.md) for the Racket/Lean/native mapping,
+[strong-components.md](strong-components.md) for the Racket/Lean/Gerbil mapping,
 accepted-certificate proof scope and executable controls.
 
 Simultaneous split/merge, shared-input migration and cross-service joint batches
-now compose through `generalized-graph.revise`, native FUN revision bind and the
+now compose through `generalized-graph.revise`, Gerbil FUN revision bind and the
 reusable lens-based `component-closure` builder. The twelve-node service example
 checks unchanged monitors, equal-value migration, detached old inputs, new-source
 invalidation, current joint approval and retry after partial failure. See
@@ -935,20 +961,20 @@ one authoritative current head. Final installation rechecks expected identity,
 refusing late candidates and returning current rival state rather than restoring
 a stale predecessor. Current-policy retry and fresh staging after topology changes
 reuse existing FUN revision/closure/approval. See
-[component-publication.md](component-publication.md) for native bounded-thread and
+[component-publication.md](component-publication.md) for Gerbil bounded-thread and
 interleaving controls, abstract Lean installation laws and explicit concurrency
 premises. This does not claim arbitrary mutable-object thread safety or rollback.
 
 Approval metadata invalidation is now serialized with final installation via
 `component-publication.revise-approval!` and guard validation inside the same lock.
 Several paused requests, policy change-back, metadata-only drift and six rounds
-of fresh restaging compose with existing service closure and native versions.
+of fresh restaging compose with existing service closure and Gerbil versions.
 See [approval-revision.md](approval-revision.md) for same-coordinator write premises,
 abstract revision laws and bounded thread controls. Foreign-domain/raw metadata
 writes and arbitrary mutable-object transactions remain outside this protocol.
 
 Multiple endpoints can now share an explicit `approval-domain` while retaining
-independent graph heads and request ownership. Shared native object revisions
+independent graph heads and request ownership. Shared Gerbil object revisions
 invalidate all observing guards; local-only policy changes remain selective.
 Related shared/local revisions, two paused owners, independent domains and fresh
 restaging on different topologies are covered in
@@ -960,9 +986,9 @@ Atomic shared policy replacement and consistent endpoint publication now use
 `joint-publication`: one immutable authoritative snapshot, all endpoint closure
 and approval, final joint consistency and one guarded pointer installation.
 Refusal preserves all old fields; stale work returns the current whole winner;
-fresh restaging reuses current graphs and proposed native policies. See
+fresh restaging reuses current graphs and proposed Gerbil policies. See
 [joint-publication.md](joint-publication.md) for heterogeneous Lean bundle laws,
-real native closure/thread controls and reader/immutability premises. This is a
+real Gerbil closure/thread controls and reader/immutability premises. This is a
 joint snapshot interface, not atomic mutation of old independent coordinator handles.
 
 Multiple atomic joint requests now interleave across merge/split/restore rounds.
@@ -970,13 +996,13 @@ Multiple atomic joint requests now interleave across merge/split/restore rounds.
 prepares contributions from one captured current snapshot without silent rebasing.
 Old batches remain stale after field-value round trips; fresh preparation after
 failure or a rival publication reuses current source and policy objects. See
-[joint-rounds.md](joint-rounds.md) for bounded native competing workers, six-round
+[joint-rounds.md](joint-rounds.md) for bounded Gerbil competing workers, six-round
 retry controls, arbitrary stale-batch and finite validity-preservation proofs.
 
 Atomic joint revisions now allow asymmetric endpoint phases: insertion/deletion,
 SCC merge/split and shared input migration at different services in the same
 bundle, with a shared total-budget policy instead of equal-settlement assumptions.
-Seven native rounds preserve independent cache receipts and reject old siblings;
+Seven Gerbil rounds preserve independent cache receipts and reject old siblings;
 failed total budgets require explicit fresh preparation. Dependent universe-
 polymorphic Lean replacements retain actual sources/graph/closure receipts. See
 [joint-topology.md](joint-topology.md) for exact scenarios and proof scope.
@@ -990,17 +1016,16 @@ composable admission and refusal-prefix laws with actual certified topology head
 See [joint-admission.md](joint-admission.md); this remains generalized-prototype
 future work with explicit finite/purity/identity premises.
 
-Post-admission installation now has an explicit native `approve` / `install!`
+Post-admission installation now has an explicit Gerbil `approve` / `install!`
 boundary with private receipts; `submit!` composes both. Competing approved SCC
 changes, shared proposed-policy revision drift, equal-value revision round trips
 and their combination refuse before installation, then explicitly restage from the
 actual winner. Whole typed bundles reuse the Lean checked-installation laws. See
-[joint-installation.md](joint-installation.md) for native lifecycle controls,
+[joint-installation.md](joint-installation.md) for Gerbil lifecycle controls,
 exact API failure conventions and the immutable-installed-policy boundary.
 
 Multiple already-approved receipts now compose through `install-sequence!`, with
-ordered per-attempt outcomes and independent guarded installations. Six native
-merge/delete/split/restore rounds invalidate two receipts sharing one proposed
+ordered per-attempt outcomes and independent guarded installations. Six Gerbil merge/delete/split/restore rounds invalidate two receipts sharing one proposed
 policy, allow an independent same-round winner, then replay all older receipts.
 Fresh approvals, equal-valued revision round trips, component erasure and stable
 feedback reuse are covered. Lean adds certified receipt traces, arbitrary-order
@@ -1018,13 +1043,13 @@ See [joint-concurrency.md](joint-concurrency.md) for the native/formal bridge pr
 
 Mixed-generation waves now release all historical and current approved receipts
 together, preserving receipt identity with a pure higher-order `report:` mapping.
-Six native SCC rounds directly reject each historical receipt while one independent
+Six Gerbil SCC rounds directly reject each historical receipt while one independent
 current receipt wins; an entirely refused asymmetric wave explicitly restages and
 continues component deletion/restore. Lean adds mixed-head/guard refusal and winner
 laws plus all-order certified controls with historical receipts. See
 [joint-generations.md](joint-generations.md) for exact scenarios and premises.
 
-Cross-round preparation can now continue inside one scoped native worker group,
+Cross-round preparation can now continue inside one scoped Gerbil worker group,
 while older approved receipts remain waiting. Six SCC phases retain a late worker
 across next-phase admission, shared-policy drift refusal and explicit restaging;
 old/new workers then install in either order before the next pending generation.
@@ -1033,7 +1058,7 @@ Unobserved results, escaped operations and duplicate release refuse. Lean binds
 successful new preparation to the observed prefix head and proves late-attempt
 preservation. See [joint-restaging.md](joint-restaging.md) for precise boundaries.
 
-Independent native coordinators now own separate continuing worker scopes while
+Independent Gerbil coordinators now own separate continuing worker scopes while
 concurrently preparing and publishing through one owner. Standard thread groups
 supervise both coordinators and their nested workers. Six SCC phases share a
 proposal, refuse its revision drift, then concurrently restage independent valid
@@ -1058,7 +1083,7 @@ replacements replay/refuse old receipts, then freshly capture/construct/approve.
 Old replies cannot reach a replacement, unhandled errors prevent restart and final
 joins cannot launch unsupervised work. Lean records no-write rejoining, current-head
 preparation and head/guard-stale receipt rejection. See
-[coordinator-rejoining.md](coordinator-rejoining.md) for premises and native controls.
+[coordinator-rejoining.md](coordinator-rejoining.md) for premises and Gerbil controls.
 
 Named recovery decisions now compose through `call-with-rejoining-coordinators`.
 Two failed names interleave five recoveries across six SCC phases, including both
@@ -1201,7 +1226,7 @@ as missing generic slots. No result or approval is cached by this bridge.
 `examples/declared-methods.ss` composes a shared base, two service branches,
 before/primary/after/around fragments and current-context Reader observation.
 Lean's `MethodDeclarations` proves source collection, coalescing, inherited block
-composition and equivalence to standard generic invocation. Native tests cover
+composition and equivalence to standard generic invocation. Gerbil tests cover
 all adapters, descriptor edits, recursion, zero/rest arguments and failure effects.
 See [method-declarations.md](method-declarations.md). This concrete integration
 advances generalized-prototype future work; functional completion precedes tuning.
@@ -3762,3 +3787,171 @@ Lean proves identical edge/path/cache/revision observations and a non-increasing
 logical write count. The existing paired engine measures capture, second-pass
 validation and duplicate registration separately from the complete workflow;
 these diagnostics do not justify removing safety checks or a new cache layer.
+
+### Runtime symbolic Slot lookup admission
+
+Closed a reproduced process crash: a numeric runtime name reached the optimized
+symbolic hash through `slot-layout-index`. Construction admission alone did not
+protect later public lookup. Ordinary/cached object reads now admit `symbol?`
+before observation/bootstrap/preparation; the layout's existing named-index
+boundary supplies the same standard contract for HashTable ref/key/update/delete.
+The write path reuses that boundary instead of repeating admission. Shape-hit
+inline reads and valid symbolic identities keep their existing routes.
+
+Regression covers both value backends and map policies, rejected update callbacks,
+unchanged cardinality/shape, false/Function identity, untouched observation scopes,
+loaded FUN service, retained warm credentials and explicit receiver override retry.
+Parent declaration snapshots retain their original composition semantics. Four
+finite Lean laws in ValueStorage prove refusal-state preservation, unchanged valid
+delegation, ordinary/indexed congruence and successful admission witnesses. This
+fix does not add a loader/cache or claim pervasive mutation tracking, JIT or host
+hash/compiler verification; the author's purity-default boundary remains intact.
+
+Fixed-width product decomposition now captures shape and its shallow spine before returning source observers. Measurement and value-only shrinking share the existing unpack-row boundary; malformed/width decisions cannot be repaired after return. See [Captured fixed-width product decomposition](pbt/shrinking.md#captured-fixed-width-product-decomposition) for controls, laws and host premises.
+
+Closed typed observer epoch admission now rechecks known stamps after a true hook across bound guards, recursive discovery and replay. A returning observer cannot authorize input consumption or later participants after retiring an owner; failure precedence and old epochs remain. See [Returning typed observer epoch admission](pbt/type-discovery.md#returning-typed-observer-epoch-admission).
+
+Retained delayed-construction depth now survives dependent parent shrinking and stricter consuming scopes. Bind restores the captured remaining allowance without resetting checkpoints or relaxing an active caller; exhausted proposals retain the confirmed witness and original failure priority. See [Retained delayed-construction depth during dependency rebuilding](pbt/generator-control.md#retained-delayed-construction-depth-during-dependency-rebuilding).
+
+Paused dependency cursors now transfer each incoming caller's numeric delay
+allowance before standard coroutine resumption, preserving source/error priority,
+proposal accounting and explicit fresh retries. See [Incoming delay allowance](pbt/generator-control.md#incoming-delay-allowance-across-suspended-dependency-cursors).
+
+Callback-bearing sample composition now forwards incoming delayed depth through
+map/filter, retained products, finite Functions and value policies at the common
+sample iterator entry. See [Compositional delay allowance](pbt/generator-control.md#compositional-delay-allowance-through-sample-layers).
+
+### Bounded batch shape revision acceptance
+
+Batch additions/removals/replacements now reuse retained canonical identities,
+sort only fresh names and retain the existing interning owner. Strong contraction
+falls back to ordinary sorting, bounding old-directory filtering by twice the
+target width. Values and failures remain receiver-local; no new cache layer or
+loader is introduced. See `representation.md` for protocol laws and the paired
+benchmark's limited performance evidence. This closes finite batch directory
+preparation, without treating general language-level tracking as implemented.
+
+
+### Checked declared Slot reflection
+
+Closed a reproduced higher-order contract escape through the existing static
+value/reflection path: a List field passed `.slot.check` but its Function values
+escaped without `.slot.validate`. The shared `validate-slot-value` boundary now
+checks raw admission, dispatches the selected Slot's normalizer, then checks the
+actual result. Reads return that result; writes install it after the existing
+revision fence. Private field receivers retain the existing field-local scope;
+whole-Class relations remain explicit Class validation. No parallel wrapper,
+value cache, loader or admission registry is introduced.
+
+Regressions cover nested Function input/result rejection, inherited source writes,
+constant/custom checker preservation, exact normalization causes, metadata edits
+during validation, unchanged refused writes and retry. Identity constants remain exact: a new Function wrapper cannot satisfy them.
+The catalog fixture now declares its callable as a typed default, matching its
+normalization requirement. The inherited-services
+example composes the declaration diamond with FUN Observation publication.
+Lean's existing ClassValidation module proves the six reflective order/result/
+revision laws; ClassContracts executes nested callbacks, stale refusal and retry.
+The author's purity-default policy is unchanged. Arbitrary lexical captures,
+concurrent publication, host identity and compiler correctness are not proved.
+
+
+### Symbolic structural query admission
+
+Closed the remaining public runtime-name gate in `.slot?` and the shared declared
+reflection lookup. Both now reuse Gerbil's Symbol contract before any bootstrap,
+MOP preparation, observer demand, catalog or visibility callback. The unguarded
+presence continuation is private; internal calls reuse the admitted identity.
+No per-method wrapper or additional value/admission cache is added.
+
+Four regressions cover cold preparation and visibility sentinels, all three warm
+query routes, unchanged Slot vector/shape/index/revision and old credentials,
+valid-name absence/refusal and explicit revision/retry. The existing inherited
+service example composes these queries with FUN. Three additional finite Lean
+laws classify syntax versus operation errors, preserve successful false presence
+and suppress both preparation/observation after rejected syntax. This does not
+claim pervasive mutation tracking or certify host symbolic-hash primitives.
+
+
+### Structural query precheck key ownership
+
+A precheck could mutate the pair spine later used to index and sign a
+structural read. Each precheck now receives its own copy at the existing
+observation boundary. Bare symbols pass directly. The query and later
+prechecks keep the original key, including presence of a false-valued field.
+The regression exercises nested delivery, replay and revision invalidation.
+
+### Issued structural read key ownership
+
+The original Slot protocol maps symbolic names to delayed computations. In
+the observer extension, the published structural read key used to share its
+mutable pair spine with the receiver's hash index. An observer could rename a
+presence key through the public accessor. The scoped regression reproduced the
+rename before reaching replay.
+
+Issuance now gives the record its own structural key. The public accessor,
+inspection fields and replay callbacks give consumers independent list spines.
+Ordinary symbols retain identity. Direct runtime edits of the stored key still
+fail authentication, and a subsequent observed structural query can replace the
+damaged record at the original index. A source revision retires the replacement.
+The loaded inherited service exercises the same observation and replay path
+through FUN and IO. Lean models the separate key lanes and source revision;
+host allocation and runtime tamper detection are exercised by Scheme tests.
+
+### Issued read payload ownership and delivery admission
+
+The names observation and issuance inspection exposed the signed list itself.
+The regression changed the observed first name through both access routes.
+Public access now copies the names spine and dependency list. Inspection owns
+its names copy too. Ordinary Slot values keep their exact application identity,
+and parent records keep order, identity and repeated occurrences.
+
+Reobservation admits the selected record again after its work callback and
+before delivery. Direct runtime tampering still fails authentication and can
+never publish that damaged record to the observer. The existing FUN/IO service
+edits observation copies before replay and revision. Lean models the frame
+preserved by delivery and the refusal after work.
+
+
+### Retained Slot offset admission
+
+The direct bound-cell accessor checks the saved shape before using its offset.
+Growing a layout can move the requested slot while leaving the stale offset in
+bounds. Rebinding to the current shape restores the original slot value,
+including false. The receiver-aware inline route retains its existing guards.
+
+The binding entry also checks that a proposed offset resolves the site's name.
+A sibling offset in the very same shape previously retargeted both the direct
+read and the next inline hit. Refusal preserves the current binding and bounded
+shape history. A correct retry can publish the new guard, while a missing
+offset still clears the primary guard. Existing shape hints certify an offset
+without a named lookup. Binding to an unrecognized shape checks the existing
+symbolic index, and the hot receiver guard performs no new lookup. Lean proves
+named-cell agreement and preservation of the primary guard on refusal.
+
+A retained offset certifies location, while a successful direct read also
+requires a materialized cell. HashTable eviction leaves the shape and offset
+intact. The direct accessor refuses the empty cell without leaking the sentinel
+or evaluating a Slot. The ordinary inline path still recomputes lazily and
+rebinds after shape growth. The FUN diamond workflow covers eviction, refusal,
+retry and subsequent source revision. Lean separates empty-cell refusal from
+stale-shape refusal and proves successful delivery of the named value.
+
+
+Direct binding also admits the live receiver revision. A shared-parent edit
+retires the old layouts of both branches and their join even when the names
+and offsets are identical. Rebinding with a new revision cannot authorize old
+cells, and a refused binding leaves the previous descriptor hint intact.
+Standalone layouts and independent copies retain their existing semantics.
+The same diamond runs in the backend regression, generated typed revision
+traces, and both arms of the complete Slot offset benchmark. The finite Lean
+model connects rejection to existing graph invalidation and proves recovery
+from a newly bound, materialized cell.
+
+The public hit predicate also checks the live receiver revision. A caller can
+retain the complete old owner/revision/layout tuple, but its hit is refused
+after a shared edit. The same retained shape may still supply a certified offset
+for rebinding. The diamond property and paired Slot workflow check both outcomes.
+
+Direct downstream import has a dedicated prepared-package comparison under the
+existing [startup benchmark](representation.md#direct-object-import-in-a-fresh-process).
+Eliminating two standard images did not qualify the measured candidate.

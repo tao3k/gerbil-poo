@@ -71,7 +71,7 @@
 (def (publish old spec policy builder)
   (publish-feedback-graph old spec build-group (admit policy)
     guards: [(lens-check (.lens) [policy] sources: [policy])] builder: builder))
-;; Native FUN bind preserves one old publication from preparation through approval.
+;; Gerbil FUN bind preserves one old publication from preparation through approval.
 (def (revision-action expanded? inputs policy builder)
   (feedback-graph-revision-action (lambda (spec) (reconfigure spec expanded? inputs)) build-group (admit policy)
     guards: [(lens-check (.lens) [policy] sources: [policy])] builder: builder))

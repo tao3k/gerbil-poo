@@ -132,6 +132,8 @@ jobs:
         run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - name: Exercise linked and runtime-loaded entries, including refusals
         run: just _test benchmarks/representation-startup.ss
+      - name: Check the paired Slot index workloads
+        run: just _test benchmarks/slot-index-test.ss
   single-process:
     needs: [build, compile-tests]
     runs-on: ubuntu-latest

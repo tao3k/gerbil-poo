@@ -38,7 +38,7 @@
 (def protocol (.cc gp.Protocol. cook: cook compile:
   (gp.sum-compiler (gp.lens-compiler car set-price wrap)
     (gp.lens-compiler cadr set-rebate wrap))))
-;; Shared foundation is inherited exactly once in the native C3 diamond.
+;; Shared foundation is inherited exactly once in the Gerbil C3 diamond.
 (def foundation (.o))
 ;; Left service adds a base price above the shared foundation.
 (def left (.mix foundation))
@@ -58,7 +58,7 @@
 (def (prepare-checkout) (gp.prepare-inheritance protocol root declarations))
 ;; Demand only price from a finite public observation; depth two reaches 33.
 (def (total snapshot depth) ((gp.observe snapshot base base depth) 'price))
-;; Compose two observations with native FUN bind/map and the exact same raw seed.
+;; Compose two observations with Gerbil FUN bind/map and the exact same raw seed.
 (def (report snapshot)
   (def action ((.@ fun.Observation. .bind) (gp.observation-action snapshot base 1)
     (lambda (first) ((.@ fun.Observation. .map)
@@ -66,7 +66,7 @@
       (gp.observation-action snapshot base 2)))))
   (action base))
 
-;; A functional lens isolates the checkout inside an immutable native service object.
+;; A functional lens isolates the checkout inside an immutable Gerbil service object.
 (def service-focus (slot-lens 'checkout))
 ;; Existing Lens.compose focuses through object storage into each method family.
 (def price-focus (.call Lens .compose service-focus (lens-of-get-set car set-price)))
@@ -79,9 +79,9 @@
     (def checkout (local-cook (.@ raw checkout)))
     (lambda (slot) (case slot ((price rebate) (checkout slot))
       ((service) (.@ raw service)) (else (error "unknown service view" slot))))))
-;; Qualified contribution representation uses the shared native service adapter.
+;; Qualified contribution representation uses the shared Gerbil service adapter.
 (def cook-service (service-cooking cook))
-;; Nested raw/cooked adaptation uses native POO slots plus the same existing wrappers.
+;; Nested raw/cooked adaptation uses Gerbil POO slots plus the same existing wrappers.
 (def nested-protocol (.cc gp.Protocol. cook: cook-service compile:
   (gp.sum-compiler (gp.focus-compiler price-focus wrap) (gp.focus-compiler rebate-focus wrap))))
 ;; Persistent service seed includes two independent audit frames.
@@ -108,7 +108,7 @@
 
 ;; A second enclosing service frame adds independent approval and tenant context.
 (def envelope-base (.o (billing nested-base) (approved #t) (tenant 'eu)))
-;; Compose the SAME native lenses to focus through billing into its checkout.
+;; Compose the SAME Gerbil lenses to focus through billing into its checkout.
 (def envelope-focus (.call Lens .compose (slot-lens 'billing) service-focus))
 ;; Extend either service cook with the SAME demanded typed approval and tenant.
 ;; Current metadata is read on every observation; no prior approval is retained.

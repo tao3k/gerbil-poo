@@ -1,5 +1,5 @@
 ;;; Fresh-process downstream entry qualification through standard Gerbil commands.
-(export main representation-startup-test check-study check-observation-test)
+(export main representation-startup-test check-study check-observation-test object-import-test object-import-study)
 (import :std/test :std/iter :std/misc/process
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module list-modules)
@@ -7,6 +7,7 @@
         (only-in :std/test/base test-run! test-result-error? TestResultError? TestResultError
           TestResultErrors? TestResultErrors TestHarness TestModule TestConfig TestSuite)
         (only-in :std/list/list drop-right append-map)
+        (only-in :std/misc/ports read-all-as-string)
         (only-in :std/crypto/digest sha256) (only-in :std/encoding/hex hex-encode)
         (only-in "closure-measure.ss" measure measure-pair median monotonic-seconds monotonic-ticks monotonic-frequency))
 
@@ -251,6 +252,87 @@
             " after-ready-seconds=" (median exit-differences) " after-ready-min=" (apply min exit-differences) " after-ready-max=" (apply max exit-differences)) (force-output)))))
   (displayln "SERVICE-STARTUP-OK"))
 
+;; Time the public top-level import inside a fresh Gerbil process. Only the
+;; fixed forms are executable; paths travel as arguments. Compilation, tracing
+;; and the parent runner are outside the child import interval.
+(def (object-import-sample compiler prefix)
+  (def clock (make-u64vector 1 0))
+  (def start (monotonic-seconds clock))
+  (def receipt
+    (run-process [(cond-expand (darwin "gtimeout") (else "timeout"))
+      "--foreground" "--signal=TERM" "--kill-after=3s" "90s"
+      "env" "-u" "GERBIL_LOADPATH" "-u" "DYLD_PRINT_APIS" "-u" "DYLD_PRINT_LIBRARIES"
+      (string-append "GERBIL_PATH=" prefix)
+      compiler "-:max-heap=2G,debug=q"
+      "-e" "(define import-clock (make-u64vector 2 0))"
+      "-e" "(define import-before (##process-statistics))"
+      "-e" "(##get-monotonic-time! import-clock 0)"
+      "-e" "(import :clan/poo/object)"
+      "-e" "(##get-monotonic-time! import-clock 1)"
+      "-e" "(define import-after (##process-statistics))"
+      "-e" (string-append
+        "(begin (unless (procedure? .ref) (error \"object import missing .ref\")) "
+        "(write (list (- (u64vector-ref import-clock 1) (u64vector-ref import-clock 0)) "
+        "(- (+ (f64vector-ref import-after 0) (f64vector-ref import-after 1)) "
+        "(+ (f64vector-ref import-before 0) (f64vector-ref import-before 1))) "
+        "(- (+ (f64vector-ref import-after 3) (f64vector-ref import-after 4)) "
+        "(+ (f64vector-ref import-before 3) (f64vector-ref import-before 4))))) (newline))")]
+      stderr-redirection: #t coprocess: read-all-as-string))
+  (def lifetime (- (monotonic-seconds clock) start))
+  (match (call-with-input-string receipt (lambda (port) (list (read port) (read port))))
+    ([[ticks cpu gc] (? eof-object?)]
+     (unless (and (uint? ticks) (<= 0 gc cpu))
+       (error "invalid object import counters" receipt))
+     (vector (/ ticks monotonic-frequency) lifetime cpu gc))
+    (else (error "invalid object import receipt" receipt))))
+
+;; Report nearest-rank P90 beside median and maximum. Pair order and individual
+;; samples remain visible so a favorable aggregate cannot hide an order effect.
+(def (object-import-summary samples field)
+  (def sorted (list-sort < (map (cut vector-ref <> field) samples)))
+  (list (median sorted) (list-ref sorted (1- (ceiling (* 9/10 (length sorted)))))
+    (last sorted)))
+
+;; Package prefixes are already built. AB/BA alternates within each study; A/A
+;; and B/B expose process and OS variation with the exact same artifact paths.
+(def (object-import-study compiler baseline candidate (pairs "16"))
+  (def count (string->number pairs))
+  (unless (and (uint? count) (>= count 2) (even? count))
+    (error "object import study requires an even pair count of at least two" pairs))
+  (def a (path-expand baseline))
+  (def b (path-expand candidate))
+  (for (prefix [a b])
+    (unless (file-exists? (path-expand "lib/clan/poo/object.ssi" prefix))
+      (error "object import study requires a prepared package" prefix)))
+  (displayln "OBJECT-IMPORT-INPUT " compiler " " a " " b
+    " columns=import-wall,process-wall,import-cpu,import-gc-cpu")
+  (for (control '(ab aa bb))
+    (def (sample side)
+      (object-import-sample compiler
+        (if (or (eq? control 'aa) (and (eq? control 'ab) (eq? side 'a))) a b)))
+    (def pairs
+      (for/collect (index (in-range (if (eq? control 'ab) count 4)))
+        (measure-pair (if (even? index) '(a b) '(b a)) sample
+          (lambda (results)
+            (write (list 'object-import control index results)) (newline) (force-output)))))
+    (for ((name '(import-wall process-wall import-cpu import-gc-cpu)) (field (in-range 4)))
+      (def left (map (lambda (pair) (cdr (assq 'a pair))) pairs))
+      (def right (map (lambda (pair) (cdr (assq 'b pair))) pairs))
+      (write (list 'object-import-summary control name 'median/p90/max
+        (object-import-summary left field) (object-import-summary right field)
+        'paired-median (median (map (lambda (a b) (- (vector-ref b field) (vector-ref a field))) left right))))
+      (newline))
+    (force-output))
+  (displayln "OBJECT-IMPORT-PAIRED-OK")
+  #t)
+
+;; Keep the public import and natural child exit in ordinary CI. The longer
+;; comparison is explicitly selected on two prepared package prefixes.
+(def object-import-test
+  (test-suite "direct object import"
+    (test-case "fresh Gerbil process imports object from the prepared package"
+      (check (vector-length (object-import-sample "gerbil" (gerbil-path))) => 4))))
+
 ;; Standard exe main for the unlinked reference: no generated expressions or
 ;; interpreter subprocess. Observe admission BEFORE loading the existing IO
 ;; action, then reuse its current-binding/failure/multiple-values semantics.
@@ -260,6 +342,9 @@
     ;; The existing standard-built executable owns the observation command too.
     ((prefix) (check-study prefix))
     ((prefix entry) (check-study prefix entry))
+    ((command compiler baseline candidate pairs)
+     (unless (equal? command "object-import") (error "unknown startup study" command))
+     (object-import-study compiler baseline candidate pairs))
     ((entry width access)
   (unless (and (member entry '("main" "joint-main"))
                (member access '("symbolic" "indexed")))

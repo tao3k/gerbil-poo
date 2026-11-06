@@ -41,13 +41,13 @@
 ;; The complete expected immutable result, independent of the evaluator/memo.
 (def (expected count) (if (= count 0) [] (list (* 2 count) (expected (- count 1)) 'alert)))
 ;; Validate nested source values under the CURRENT policy and function registry.
-;; Fuel bounds native type inspection; a removed callback must fail even on a hit.
+;; Fuel bounds Gerbil type inspection; a removed callback must fail even on a hit.
 (def (tree? value ceiling callback? fuel)
   (or (null? value)
     (and (> fuel 0) (list? value) (= (length value) 3)
       (exact-integer? (car value)) (<= 0 (car value) ceiling)
       callback? (eq? (caddr value) 'alert) (tree? (cadr value) ceiling callback? (- fuel 1)))))
-;; Runtime descriptors reuse the native Type system. Changing registry output or
+;; Runtime descriptors reuse the Gerbil Type system. Changing registry output or
 ;; input constraints never edits the program and must not invalidate its raw memo.
 (def (registry ceiling (callback? #t) (max-count 5))
   (.o

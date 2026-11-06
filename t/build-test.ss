@@ -7,6 +7,7 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
+        (prefix-in (only-in "../build-development.ss" main) development.)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
@@ -80,20 +81,28 @@
     (test-case "standard build metadata exclude progress output"
       ;; Consume one datum from the generated build protocol; never evaluate it
       ;; or reconstruct the compiler's dependency graph.
-      (def (metadata command)
-        (call-with-input-string (with-output-to-string (cut root.main command))
+      (def (metadata entry command)
+        (call-with-input-string (with-output-to-string (cut entry command))
           (lambda (port)
             (def value (read port))
             (check (eof-object? (read port)) => #t)
             value)))
-      (check-equal? (metadata "meta") '("spec" "compile" "clean"))
-      (def spec (metadata "spec"))
-      (check (list? spec) => #t)
-      ;; Executables make standard make request static objects for the whole
-      ;; graph. Only Darwin's shared-object path belongs in this library graph.
-      (check (length (filter (lambda (entry)
-        (and (pair? entry) (eq? (car entry) exe:))) spec))
-        => (cond-expand (darwin 1) (else 0))))
+      (def (executables spec)
+        (map cadr (filter (lambda (entry)
+          (and (pair? entry) (eq? (car entry) exe:))) spec)))
+      (for-each (lambda (entry)
+        (check-equal? (metadata entry "meta") '("spec" "compile" "clean")))
+        (list root.main development.main))
+      (def core (metadata root.main "spec"))
+      (def development (metadata development.main "spec"))
+      (check (list? core) => #t)
+      (check (list? development) => #t)
+      (check-equal? (executables core) '())
+      ;; Darwin shares the executable's static objects in the development graph.
+      (check (executables development)
+        => (cond-expand (darwin '("examples/representation-main")) (else '())))
+      (check (member "examples/generated-batches" (map cadr core)) => #f)
+      (check (and (member "examples/generated-batches" (map cadr development)) #t) => #t))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
@@ -120,9 +129,9 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 66)
-        ;; Internal compilation units keep the same 62 public test roots.
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 62)
+        (check (length all) => 68)
+        ;; Retain the 62 original roots plus the byte-I/O and FUN acceptance roots.
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 64)
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
           (check-equal? (drop spec 3)
@@ -155,8 +164,11 @@
       (check (hash-ref shared "attributes") => '("parallel"))
       (check (map (cut hash-ref <> "arguments") (hash-ref shared "dependencies")) =>
         (let (parts (map cdr (test-build-partitions)))
-          (list (append (list-ref parts 0) (list-ref parts 3))
-                (append (list-ref parts 1) (list-ref parts 2)))))
+          (list (append (list-ref parts 0)
+                  (map (lambda (group)
+                         (if (equal? group "representations") "representations/!collection-testing" group))
+                       (list-ref parts 3)))
+                (append (list-ref parts 1) (list-ref parts 2) '("representations/collection-testing")))))
       (check (hash-key? recipes "_build-test-prototypes") => #f)
       (check (hash-key? recipes "_build-test-publication") => #f))
     (test-case "failed root builds clear partial standard make markers before retry"
@@ -183,6 +195,23 @@
             (write '(export value) port) (newline port)
             (write '(begin-foreign (c-declare "#error expected-backend-refusal")) port) (newline port)
             (write '(def value #f) port) (newline port)))
+        ;; An interrupted Gerbil invocation can leave this compiler-owned
+        ;; marker. The public build must refuse before starting another compiler.
+        (let* ((static (path-expand "package/lib/static" project))
+               (lock (path-expand "clan__poo__testing__broken.o.lock" static))
+               (status #f))
+          (create-directory* static)
+          (call-with-output-file lock void)
+          (let (output (run-process
+            ["env" (string-append "GERBIL_PATH=" (path-expand "package" project))
+             "just" "--justfile" task-file "--working-directory" project "build-core"]
+            directory: project stderr-redirection: #t
+            check-status: (lambda (code _settings) (set! status code))))
+            (check (and (exact-integer? status) (not (zero? status))) => #t)
+            (check (and (pregexp-match "BUILD-LOCK" output) #t) => #t)
+            (check (pregexp-match "BUILD-CONCURRENCY" output) => #f)
+            (check (file-exists? lock) => #t))
+          (delete-file lock))
         (for (_ (in-range 2))
           (def status #f)
           ;; The real public compiler must fail BOTH attempts, never admit

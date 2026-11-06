@@ -360,6 +360,26 @@ check. First measurements that omitted it are not accepted as a hot-read
 regression result. The final study must be interpreted against its A/A/B/B
 controls, allocation/GC and cold consumer costs.
 
+### Slot index and symbolic hash width sweep
+
+Run `just benchmark-slot-index` for widths 8, 64 and 256. The ordinary
+paired sampler records setup, first calls, steady batches, allocation, GC,
+and wall-clock tails. Compile time is separate from the runtime receipt.
+
+The cold and shared cases compare the standard symbolic hash value store
+with the vector layout using the same sparse rows. Cold construction creates
+fresh symbol identities. Shared construction retains an existing shape and
+allocates independent value cells. The mixed trace checks computed false
+and Function values, uncomputed declared keys, and an undeclared symbol
+with the same spelling as a present key. The update pair charges snapshot,
+eviction, insertion, refill, and verification on both sides.
+
+The offset pair compares symbolic name-to-index lookup with a bound site
+on the same width of vector layout. Both traces resolve all declared names
+and include one miss. It isolates offset resolution from cell access and
+from the evaluator. The separate complete workflow and fresh-process
+startup studies measure those larger boundaries.
+
 ### Earlier shared-offset qualification receipt and remaining priorities
 
 macOS arm64, released Gerbil `1cfb032`; `just _run-collections 64 3 6` used the
@@ -2279,3 +2299,209 @@ signed wall residual +24,193.33 us. This repeat is retained, not discarded as
 noise. Fewer allocation/registration operations and earlier lower policy gaps
 do NOT establish stable full-workflow wall/tail improvement. That acceptance
 remains unresolved; functional acceptance and both current-head CIs passed.
+
+Runtime names and symbolic hash admission
+----------------------------------------
+
+Slot identifiers are symbols in this implementation. A string or keyword with the
+same spelling is not that identifier. Gerbil's `symbolic-hash` calls the unchecked
+`##symbol-hash`; public runtime names therefore need standard contract admission
+before it. `.ref`, `.ref/cached` and `.slot?` admit before observers, bootstrap and
+preparation. The shared private `public-slot` boundary does the same for declared
+`read-slot`/`write-slot!`, before visibility getters or catalog construction. Its
+internal presence continuation is private and trusts this one admission gate.
+`slot-layout-index` is the shared named boundary for the vector store's standard
+HashTable operations, so invalid update keys cannot invoke user code or publish a
+new shape. Store insertion reuses it; there is no per-operation wrapper family.
+The immutable-shape hit route does not perform an additional named lookup.
+
+The original paper's cache-invalidation discussion chooses purity-default caching
+and explicit mutable cells/invalidations, and treats pervasive tracking separately
+(`poof.scrbl`, cache invalidation subsection). This repair preserves that policy:
+invalid names have no preparation/registration effect; admitted names still use
+current receiver-local values and existing missing-name/error semantics. Ordinary
+prototype composition retains its inherited declaration snapshot; the FUN recovery
+example uses an explicit receiver override rather than pretending parent edits
+recompose the child automatically.
+
+`Prototype.Representation.withAdmittedName` models the contract gate over explicit
+receiver/cache/observation state. Its seven laws preserve original refusal causes,
+valid operation outcomes and ordinary/indexed agreement. `Examples/CheckedTransfer`
+includes numeric/text/keyword refusal, false at offset zero and distinct presence/
+reflection effects. Malformed names suppress both preparation and observation;
+admitted missing symbols retain successful false presence or the original
+reflection error and preparation effects. These are bounded
+protocol laws assuming faithful symbol-identity interpretation, not a proof of the
+compiler primitive or arbitrary direct mutation of internal storage. Host tests
+exercise actual HashTable methods and loader-selected FUN service execution.
+
+### Bounded batch shape revisions
+
+`make-slot-layout` reuses the previous canonical symbol directory for batch
+additions, removals and replacements. It filters retained identities in their
+existing order, sorts only new identities with the standard `list-sort`, and
+merges once before using the existing weak shape interning table. Strong
+contractions (old width greater than twice the new width) take the ordinary
+full-sort path instead of scanning a huge old directory. The one-name growth
+path and unchanged-shape reuse remain intact. This adds no cache or registry.
+
+Only immutable name/index metadata is reused. Every result gets independent
+value storage populated from the current seed, in the original callback order;
+false and Function identity survive, and original refusal objects propagate.
+The loader-selected service example combines expansion, replacement, contraction,
+restoration and failed contract retry through the existing FUN/IO consumer.
+The representation suite covers same-spelling distinct symbols, duplicates,
+empty layouts and callback refusal order for both hinted and ordinary paths.
+
+The finite Lean model proves equality with ordinary canonical sorting, identity
+inventory preservation and composition with current-value seeding. Old-directory
+filter visits are bounded by twice the target width; filter plus logical merge
+and prefix-copy work is bounded by four times that width. Admission, sorting,
+hashing, allocation, collector behavior and machine time are outside those bounds.
+This is a representation optimization consistent with the author's explicit
+cache-invalidation policy, not a new dynamic module loader or pervasive tracking.
+
+The paired benchmark includes directory preparation and a complete loader/FUN
+workflow, with reversed order and identical-arm controls under natural and
+post-GC regimes. The initial local run has an inclusive workflow candidate
+median difference of -125.86 microseconds but a +352.38 microsecond maximum;
+its controls also fluctuate. These results do not establish a stable tail gain.
+Raw transcripts stay outside version control.
+
+### Owned source-backed Slot initialization requests
+
+`make-slot-values` now captures caller-owned names and explicit entry pairs before
+the first standard HashTable enumeration. A legal source callback could otherwise
+rewrite both the final static layout and the later explicit value writes. A
+regression reproduced loss of the original Function field. Standard `list-copy`,
+`map` and `cons` provide the shallow ownership boundary; Function and false payloads
+retain identity. The no-source path adds no copying. Invalid non-pair rows remain
+with the original key-preparation primitives rather than introducing an earlier
+refusal. Source-discovery errors still precede symbolic key admission.
+
+The source table itself remains live across its existing discovery and seed
+enumerations. This does not snapshot its contents, reverse callback effects or
+automatically track later mutation. Captured explicit rows keep their original
+order and last-write priority over seeded rows, and allocation stays private until
+construction succeeds. No loader, registry, cache or per-field wrapper was added.
+
+Regressions cover vector/hash backends, both enumeration stages, original and
+retargeted names, entry-spine/key/value changes, exact false/object refusals, old
+layout/guard preservation, invalid-key repair attempts and explicit retries. The
+existing service module demonstrates loader-selected source recovery followed by
+checked FUN delivery, supported revision, failed refinement and repair through the
+same access site. Every retry constructs an independent request.
+
+The existing Lean ValueStorage model proves captured directory/entry handoffs,
+exact stage refusals, preservation of external effects and explicit payload order.
+CheckedTransfer examples retain Function handles/false after external metadata
+replacement and compose refusal with unpublished-store preservation. For admitted
+requests, capture copies names plus twice the entry count; without a source it
+copies zero cells. This logical count excludes source enumeration, hashing/index
+preparation, vector allocation, primitive/GC costs and physical latency. Faithful
+finite source enumeration, standard shallow copies, stable opaque leaves and
+serialized handoffs are premises. This follows the author's explicit invalidation
+policy and makes no compiler, collector or unrestricted callback proof claim.
+
+### Current dependency closure before invalidation
+
+The existing `invalidate-state!` preflight allowed dependency registration, but a
+later check could add a child to a previously completed subtree. The old traversal
+then advanced revisions and cleared caches without visiting that new descendant.
+A deterministic regression reproduces this independently of weak-table order.
+
+The retained-graph path now stores the already visited state identity in its one
+existing seen table. After all checks, standard `hash-for-each` validates each
+current outgoing edge against that table before the first clear. This avoids
+iterator entry-pair allocation and adds neither a graph snapshot nor a cache.
+Missing owners and replaced child-state identities refuse with `dependency graph
+changed during invalidation`. Edges to already checked matching states, cycles and
+shared joins remain accepted. A pristine post-check leaf keeps the same fast path.
+
+Preflight exceptions retain their exact cause and suppress this later admission;
+closure refusal advances no revision and clears no cell. Registration effects
+remain visible, so one explicit retry can traverse the new finite graph. Clear
+callbacks still advance their owner's revision before running and retain prior
+effects on failure. The source table and owner list remain private to the call;
+there is no unbounded callback-replaying fixed-point loop.
+
+The service example uses the same object-state/check/clear engine as ordinary
+invalidation. An explicit tariff cell, two warmed branches and an initially
+independent service demonstrate late dependency registration, old-read retention
+on refusal, rejected old references after retry and checked FUN/IO publication.
+Regressions include state replacement, opaque/false refusal priority, closed SCC
+and diamond sharing, and partial clear failure semantics.
+
+Lean's existing CacheInvalidation model proves current-edge/state coverage and
+that every registered transitive path is included, including cycles. Admission
+preserves the original unique owner order and propagates preflight/closure errors
+before clearing. Its additional retained-graph work is one owner visit plus one
+visit per current outgoing edge, bounded by owners times (fanout + 1). Hashing,
+iteration/closure allocation, weak collection, callback costs and wall time are
+excluded. Faithful identity maps, finite registered edges and serialized checks
+through commit remain premises; arbitrary graph mutation during clear callbacks
+or concurrent thread races are outside this finite admission guarantee. This
+extends the author's explicit-invalidation design, not language-wide tracking.
+
+
+### Structural query admission acceptance
+
+Two safe controls reproduce the missing gate without sending an invalid key to
+`##symbol-hash`: the cold MOP hook and visibility getter throw sentinel causes
+before the unsafe operation. Both used to run for a numeric name; both are now
+suppressed by the standard contract. Warm controls cover false/numeric/string/
+keyword/list/vector names across presence and declared reads/writes, unchanged
+primary vector/layout/revision/index and retained observations. Valid-name
+callback refusals keep their exact causes, and corrected queries retry normally.
+`inherited-services.query-workflow` composes current presence/reflection through
+FUN across a shared diamond, retains old observations after malformed requests
+and retires them after an explicit source revision.
+
+This closes a public query boundary, not general tracking of arbitrary language
+mutation. No new wrapper family, cache, namespace or loader is introduced. The
+finite Lean model assumes faithful symbol identities and terminating callbacks;
+physical hash primitives, C3, host scheduling/GC and compiler correctness are not
+proved. Existing missing/hidden-symbol semantics remain distinct from syntax
+refusal, including successful false results.
+
+### Direct object import in a fresh process
+
+Use the already built package prefixes and the existing startup benchmark.
+Prepare the packages and the startup benchmark with the standard build before
+sampling. The child runs the public top-level `(import :clan/poo/object)` and
+exits naturally. Neither package preparation nor the linked service workflow
+is part of the measured import.
+
+```sh
+"$GERBIL_PATH/bin/representation-startup" -:max-heap=2G,debug=q \
+  object-import "$compiler" "$baseline_prefix" "$candidate_prefix" 16
+"$GERBIL_PATH/bin/representation-startup" -:max-heap=2G,debug=q \
+  object-import "$compiler" "$candidate_prefix" "$baseline_prefix" 16
+```
+
+Use one absolute Gerbil executable and retain the same package files throughout
+both runs. The study alternates AB/BA and includes A/A and B/B controls. Each
+sample records the child import wall interval, whole subprocess lifetime, import
+CPU and GC CPU. Summaries give median, nearest-rank P90, maximum and paired
+median. The whole lifetime includes spawn and cleanup. It does not attribute
+wall minus CPU to any particular loader or scheduler wait. The test suite
+`object-import-test` checks the real import and successful exit in CI.
+
+Keep image diagnostics separate from timing. A new process does not imply new
+file identity or a flushed OS cache. A file-identity study needs its own cohort
+and must not be pooled with the fixed-artifact samples.
+
+On macOS arm64 with Gerbil `1cfb032`, 16 pairs per direction used the package
+built from `cfab75b` and a candidate that replaced a C4 result projection with
+core multiple-value binding. An independent image trace removed both
+`std/values` images (64 to 62 mapped images), and candidate compilation took
+20.44 seconds outside sampling.
+
+| Order | Baseline import median / P90 / max | Candidate import median / P90 / max |
+| --- | ---: | ---: |
+| Forward | 263 / 298 / 334 ms | 263 / 293 / 1,115 ms |
+| Inverse | 259 / 293 / 297 ms | 261 / 318 / 355 ms |
+
+The candidate did not qualify for deployment. Whole subprocess medians were
+452 to 469 ms and 445 to 456 ms in the two runs. These measurements qualify the
+downstream benchmark and bound the evidence for this dependency change.
