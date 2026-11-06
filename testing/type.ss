@@ -115,16 +115,17 @@
 ;; Owner identity and declared epochs remain exact; this never refreshes a clock.
 (def (copy-source-stamps sources)
   (map (lambda (entry) (cons (car entry) (cdr entry))) sources))
-;; Bind a reusable guard from owned stamp pairs BEFORE any hook metadata. Copy
-;; declared epochs, never recapture them. Only absence omits the observer: a
-;; present value must be callable; its false/exception reply retains core semantics.
-(def (source-guard (sources :~ proper-list?) (sampler #f))
+;; Copy declared epochs before reading hook metadata. The product may omit a
+;; passive guard only when its earlier aggregate epoch check already covers it.
+(def (bind-source-guard sources sampler retain?)
   (def owned (copy-source-stamps sources))
   (def hook (source-observer sampler))
-  ;; The hook is an action between pure epoch reads. A true reply cannot renew
-  ;; an owner retired by that action; false/malformed/thrown replies keep priority.
-  (lambda () (and (stamps-current? owned)
-    (or (not hook) (and (core.live? hook) (stamps-current? owned))))))
+  (and (or (not retain?) (retain? hook))
+    (lambda () (and (stamps-current? owned)
+      (or (not hook) (and (core.live? hook) (stamps-current? owned)))))))
+;; Public guards retain their detached epochs and optional hook in all cases.
+(def (source-guard (sources :~ proper-list?) (sampler #f))
+  (bind-source-guard sources sampler #f))
 ;; Bind from one admitted snapshot. Metadata getters and the optional owned
 ;; factory are separate actions: an obsolete getter cannot invoke its result,
 ;; and an obsolete false factory result cannot enter the raw fallback.
@@ -179,6 +180,12 @@
   ;; has not yet supplied its additional dependencies. This checker is transient.
   (def admission (lambda () (current? owners)))
   (def (check!) (unless (admission) (refuse-generation 'stale)))
+  (def observed-hook? #f)
+  ;; The aggregate reads all epochs before the first hook. After a hook, retain
+  ;; each passive guard so its retirement can still stop the next callback.
+  (def (retain-field-guard? hook)
+    (when hook (set! observed-hook? #t))
+    observed-hook?)
   (core.with-generation-check check!
     (core.with-sources []
       (validate Type descriptor)
@@ -187,7 +194,7 @@
           (def captured (snapshot child []))
           (def added (retain-source-stamps! owner-ledger captured))
           (unless (null? added) (set! owners (append owners added)))
-          (property-specification child captured))) children)
+          (property-specification child captured retain-field-guard?))) children)
         current?: (lambda () (current? owners))))
       ;; The generic product owns all field/owner stamps, including an empty product.
       ;; One boundary also protects representation callbacks and value-only shrinking.
@@ -387,11 +394,13 @@
 
 ;; Compile the typed domain boundary once. The independent kernel receives only
 ;; admission/cost/current callbacks, never a Type, Record or object-revision API.
-(def (property-specification sampler sources)
+(def (property-specification sampler sources (retain? #f))
   (with-source-stamps sources
     (def measure (core.with-sources [] (.@ sampler measure)))
-    (def guard (core.with-sources [] (source-guard sources sampler)))
-    (testing.make-specification (cut accepts-value? sampler <>) measure current?: guard)))
+    (def guard (core.with-sources [] (bind-source-guard sources sampler retain?)))
+    (def accept (cut accepts-value? sampler <>))
+    (if guard (testing.make-specification accept measure current?: guard)
+      (testing.make-specification accept measure))))
 ;; One ordered binding path serves runs and diagnostics, without rereading
 ;; declaration snapshots or retaining a transient checker during execution.
 (def (prepare-sampler sampler sources)
