@@ -25,6 +25,5 @@
 (defvalues (table-selection-test)
   (let () (include "table-validation/table-selection.scm")))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (table-validation-test)
-  (let () (include "table-validation/cases.scm")))
+;; Validation helpers remain private to this test module.
+(include "table-validation/cases.scm")

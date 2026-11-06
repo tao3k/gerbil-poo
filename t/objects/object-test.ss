@@ -32,26 +32,38 @@
   :clan/poo/support/io
   :clan/poo/support/repr)
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (lifecycle-test)
-  (let () (include "object/lifecycle.scm")))
+;; Give lifecycle-test its own compiler function and private fixture scope.
+(def (make-lifecycle-test)
+  (include "object/lifecycle.scm"))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (mop-test)
-  (let () (include "object/mop.scm")))
+(def lifecycle-test (make-lifecycle-test))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (object-test)
-  (let () (include "object/cases.scm")))
+;; Give mop-test its own compiler function and private fixture scope.
+(def (make-mop-test)
+  (include "object/mop.scm"))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (parameters-test)
-  (let () (include "object/parameters.scm")))
+(def mop-test (make-mop-test))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (slot-observation-test)
-  (let () (include "object/slot-observation.scm")))
+;; Give object-test its own compiler function and private fixture scope.
+(def (make-object-test)
+  (include "object/cases.scm"))
 
-;; Construct once with the original private helper scope and declaration order.
-(defvalues (support-test)
-  (let () (include "object/support.scm")))
+(def object-test (make-object-test))
+
+;; Give parameters-test its own compiler function and private fixture scope.
+(def (make-parameters-test)
+  (include "object/parameters.scm"))
+
+(def parameters-test (make-parameters-test))
+
+;; Give slot-observation-test its own compiler function and private fixture scope.
+(def (make-slot-observation-test)
+  (include "object/slot-observation.scm"))
+
+(def slot-observation-test (make-slot-observation-test))
+
+;; Give support-test its own compiler function and private fixture scope.
+(def (make-support-test)
+  (include "object/support.scm"))
+
+(def support-test (make-support-test))
