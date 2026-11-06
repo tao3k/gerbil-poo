@@ -114,10 +114,11 @@
     (def lines (string-split (run "test" "-v" "5" artifact) #\newline))
     ;; gxtest may print HARNESS-OK even with an error module, so require executed
     ;; case receipts and an error-free transcript, not merely process exit zero.
-    (def expected-cases 261)
+    (def expected-cases 262)
     (unless (= (length (filter (cut string-prefix? "CASE-OK " <>) lines)) expected-cases)
       (error "independent suite did not execute all cases" lines))
     (check (and (member "CASE-OK bind preserves split draws and refuses unused malformed seeds" lines) #t) => #t)
+    (check (and (member "CASE-OK nested products preserve explicit observer order and repeated occurrences" lines) #t) => #t)
     (check (and (member "OK" lines) #t) => #t)
     (check (ormap (cut string-prefix? "ERROR " <>) lines) => #f)
     (displayln "PROPERTY-LIBRARY-OK " expected-cases " cases; isolated stdlib-only compiled modules"))))

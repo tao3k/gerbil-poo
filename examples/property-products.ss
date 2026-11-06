@@ -351,7 +351,19 @@
     (def second (property.make-specification exact-integer? (lambda (value) (set! later (1+ later)) value)))
     (check-exception (property.specification-weight
       (property.make-product-specification (list first second) current?: (lambda () live)) '(4 6)) Error?)
-    (check-equal? later 0)))
+    (check-equal? later 0))
+  (test-case "nested products preserve explicit observer order and repeated occurrences"
+    (def calls [])
+    (def (observe label) (lambda () (set! calls (cons label calls)) #t))
+    (def plain (property.make-specification exact-integer? abs))
+    (def explicit (property.make-specification exact-integer? abs current?: (observe 'field)))
+    (def inner (property.make-product-specification (list plain explicit plain explicit)
+      current?: (observe 'inner)))
+    (def outer (property.make-product-specification (list plain inner explicit)
+      current?: (observe 'outer)))
+    (check-equal? calls [])
+    (check (property.specification-current? outer) => #t)
+    (check-equal? (reverse calls) '(outer inner field field field))))
 
 ;; Named diagnostics own only their finite symbolic directory. Generated values
 ;; and report authority still belong to the existing kernel and standard checks.

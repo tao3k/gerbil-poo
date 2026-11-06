@@ -60,9 +60,11 @@
     (trial-policy-required policy)))
 ;; Specifications have ordinary Gerbil record identity.
 (def specification? domain?)
+;; Identity marks the built-in observer, whose result needs no field callback.
+(def (immutable-current) #t)
 ;; Callback construction uses Gerbil's existing procedure contracts.
 (def (make-specification (accept : :procedure) (measure : :procedure)
-                        current?: (current (lambda () #t)))
+                        current?: (current immutable-current))
   (using (current : :procedure) (make-domain accept measure current)))
 ;; Validate measures independently of callback annotations or host numeric coercion.
 (def (weight specification value)
@@ -122,7 +124,7 @@
 
 ;; Products share the existing domain/measure/currentness gates; domains are fixed
 ;; for one check while dependent generator branches retain their own provenance.
-(def (make-product-specification specifications current?: (owner (lambda () #t)))
+(def (make-product-specification specifications current?: (owner immutable-current))
   (unless (and (procedure? owner) (list? specifications) (every specification? specifications))
     (error "product specifications required"))
   (def domains (list-copy specifications))
@@ -133,8 +135,12 @@
     (and (list? values) (length=n? values width) (list-copy values)))
   ;; All captured domains participate in each stage, including a later field's
   ;; source invalidated by an earlier callback. Refusal skips the next callback.
-  (def (current) (and (live? owner)
-    (every (lambda (domain) (live? (domain-current domain))) domains)))
+  (def observers (filter (lambda (check) (not (eq? check immutable-current)))
+    (map domain-current domains)))
+  ;; Preserve explicit observers in order, including repeated identities.
+  (def current
+    (if (and (eq? owner immutable-current) (null? observers)) immutable-current
+      (lambda () (and (live? owner) (every live? observers)))))
   (def (stop _status _minimal?) (error "stale product specification"))
   (make-specification
     (lambda (values)
