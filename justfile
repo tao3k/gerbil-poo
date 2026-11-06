@@ -21,7 +21,11 @@ check-layout:
     test ! -e testing/core
     printf 'LAYOUT-OK\n'
 
-build-core: check-layout
+build-core: check-layout (_build-root "core")
+
+build-development: check-layout (_build-root "development")
+
+_build-root graph:
     #!/usr/bin/env bash
     set -euo pipefail
     test -n "{{ timeout-executable }}" || { echo "GNU timeout is required" >&2; exit 127; }
@@ -32,14 +36,18 @@ build-core: check-layout
         printf 'BUILD-LOCK %s: let the owning build finish; use a fresh prefix after interruption\n' "$lock" >&2
         exit 1
     done
-    if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 gerbil -:max-heap=2G,debug=q build; then
+    case "$1" in
+        core) entry=(gerbil {{ test-runtime-options }}); action=build ;;
+        development) entry=(./build-development.ss); action=compile ;;
+    esac
+    if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 "${entry[@]}" "$action"; then
         exit 0
     else
         build_status=$?
         # Standard make may publish interface markers before a backend fails.
         # Invalidate its declared outputs so retry cannot admit a partial build.
         printf 'BUILD-CLEANUP root-preparation status=%s\n' "$build_status" >&2
-        if ! {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil -:max-heap=2G,debug=q clean; then
+        if ! {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "${entry[@]}" clean; then
             printf 'BUILD-CLEANUP root failed; standard clean is still required\n' >&2
         fi
         exit "$build_status"
@@ -47,11 +55,11 @@ build-core: check-layout
 
 # Compilation can outlast the workload deadline. Killing it mid-object can
 # strand Gerbil's static object locks in the shared package prefix.
-build-shared: build-core
+build-shared: build-development
     cd benchmarks/representation-startup && /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 gerbil {{ test-runtime-options }} build
 
 # Standalone studies use their ordinary compiler packages only when requested.
-build-benchmarks group: build-core
+build-benchmarks group: build-development
     cd "benchmarks/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
 # Bounded standard compiler packages reuse imports without retaining every test
@@ -203,7 +211,8 @@ _run-collections width samples pairs:
     /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/collection-paired-benchmark 'clan/poo/benchmarks/collection-paired-benchmark#main' "$1" "$2" "$3"
 
 clean:
-    printf '%s\0' t/build/*/gerbil.pkg benchmarks/*/gerbil.pkg gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s ./build-development.ss clean
+    printf '%s\0' t/build/*/gerbil.pkg benchmarks/*/gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
 
 benchmark-collections width='64' samples='10' pairs='6': build-shared (_run-collections width samples pairs)
 
@@ -258,46 +267,46 @@ benchmark-combination: (build-benchmarks "combination")
 benchmark-scc: build
     {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
 
-# These focused TestSuites load their modules from the core package. The linked
+# These focused TestSuites load the explicitly built benchmark modules. The linked
 # startup probe is prepared separately for entries that actually execute it.
 # Standard test execution of the fixed higher-resolution offset study.
-benchmark-slot-offset: build-core
+benchmark-slot-offset: build-development
     just _test benchmarks/slot-offset-test.ss
 
 # Width sweeps isolate symbolic stores, shared shapes and offset resolution.
-benchmark-slot-index: build-core
+benchmark-slot-index: build-development
     just _test benchmarks/slot-index-test.ss
 
 # Fixed indexed-deletion study through the ordinary runner and shared producer.
-benchmark-prototype-map: build-core
+benchmark-prototype-map: build-development
     just _test benchmarks/prototype-map-test.ss
 
 # Private traversal and immutable-map composition share the full standard sampler.
-benchmark-prototype-traversal: build-core
+benchmark-prototype-traversal: build-development
     just _test benchmarks/prototype-traversal-test.ss
 
 # Higher-resolution complete publication retains the same paired controls.
-benchmark-prototype-composition: build-core
+benchmark-prototype-composition: build-development
     just _test benchmarks/prototype-composition-test.ss
 
 # Structural snapshots and private enumeration use the same standard test entry.
-benchmark-names: build-core
+benchmark-names: build-development
     just _test benchmarks/names-test.ss
 
 # Explicit and opaque SlotSpec encodings retain full construction and publication.
-benchmark-slot-construction: build-core
+benchmark-slot-construction: build-development
     just _test benchmarks/slot-construction-test.ss
 
 # Catalog capture, clone, reflection and checked module publication remain paired.
-benchmark-prototype-catalog: build-core
+benchmark-prototype-catalog: build-development
     just _test benchmarks/prototype-catalog-test.ss
 
 # Point metadata lookup includes cold preparation, observation and full workflows.
-benchmark-declaration-index: build-core
+benchmark-declaration-index: build-development
     just _test benchmarks/declaration-index-test.ss
 
 # Longer cold/full workflow confirmation retains the ordinary bounded test entry.
-benchmark-cold-query: build-core
+benchmark-cold-query: build-development
     just _test benchmarks/cold-query-test.ss
 
 # Darwin shares module initialization in two contexts. The collection property

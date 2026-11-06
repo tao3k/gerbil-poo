@@ -93,7 +93,11 @@ inputs with `defbuild-script`; `std/make` owns dependency order, timestamps,
 compilation and artifact reuse. There is no additional source scanner, hash
 ledger, manifest parser, copied source view or test runner.
 
-`just build` prepares the root library package, the benchmark executable package
+The default package build installs the POO libraries, including the public
+property-testing APIs. To compile the examples, benchmark modules and shared
+test fixtures, run `./build-development.ss compile`. Use
+`./build-development.ss clean` to clean that graph. `just build` prepares the
+development graph, the benchmark executable package and the test partitions.
 
 See [test execution](doc/test-execution.md) and [CI checks](doc/ci-checks.md).
 
