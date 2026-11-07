@@ -166,6 +166,19 @@
               (current! read)
               (observe (slot-read-receiver read) (slot-read-key read))) reads)))) #t))
 
+;; A protected checkpoint authenticates the complete live traversal before
+;; calling action once. Its native frame verifies the same support at return.
+;; This operation does not deliver semantic slot reads to an outer observer.
+(def (call-with-current-slot-reads roots action)
+  (unless (procedure? action) (error "expected a slot-read checkpoint procedure"))
+  (without-observation
+    (lambda ()
+      (call-with-issued-reads roots
+        (lambda (reads current! _receivers)
+          (for-each current! reads)
+          (action (length reads)))
+        #t))))
+
 ;; The Type catalog's warm path delivers ORIGINAL records into its caller's
 ;; frame. Keep the same selected write protection across work and delivery, not
 ;; only the initial check. Metadata inspection itself remains unobserved.

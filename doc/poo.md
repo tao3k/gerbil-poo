@@ -738,3 +738,25 @@ There are infinitely many possible improvements. See [`TODO.md`](TODO.md) for a 
 ## Implementation Notes
 
 TODO: document default slot values, mutiple inheritance, etc.
+
+
+## Protected read checkpoints
+
+`(call-with-current-slot-reads roots action)` validates the original issued
+read DAG, then calls `action` once with the number of distinct selected read
+records. The count exposes no mutable traversal or receiver-protection table.
+Repeated roots and shared dependencies retain their original record identity
+and traversal order. Genuine temporary cache-miss records remain valid without
+being installed in a receiver's read cache.
+
+The producer authenticates issuance before live metadata and freshness, protects
+the selected receivers and their ancestors during the action, and authenticates
+the complete support again before a successful return. Empty support still calls
+the action once. Multiple values and original exceptions are preserved; nested
+protection unwinds independently. This operation does not deliver semantic reads
+to enclosing observers. Use `reobserve-slot-reads!` when read delivery is required.
+
+Only structural traversal preparation uses the existing receiver-local POO cache.
+Every checkpoint authenticates again; a previous success grants no later approval.
+External source checks remain the consumer's responsibility before/after effect
+boundaries and at final return. Effects are not rolled back by a failed checkpoint.

@@ -7,10 +7,10 @@
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 25)
-  (displayln "ISSUED-READ: 25 cases completed"))
+  (check-equal? completed 29)
+  (displayln "ISSUED-READ: 29 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
-;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
+;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads)
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
@@ -530,4 +530,78 @@
       (check-eq? (caddr returned) cause)
       (check-eq? (slot-read-precheck-active? before) #f))
     (set! completed (+ completed 1)))
+  (test-case "checkpoint counts native identity traversal once without read delivery"
+    (.def Root field: 1 unused: (error "unselected slot was forced"))
+    (def roots (recorded (cut .get Root field)))
+    (def repeated (append roots roots))
+    (def visits 0)
+    (replay-slot-reads! repeated (lambda (_receiver _key) (set! visits (1+ visits))))
+    (check-equal? (> visits 0) #t)
+    (def calls 0)
+    (def delivered
+      (recorded (lambda ()
+        (call-with-current-slot-reads repeated
+          (lambda (count)
+            (set! calls (1+ calls))
+            (check-equal? count visits))))))
+    (check-equal? calls 1)
+    (check-equal? delivered '())
+    (call-with-current-slot-reads '() (lambda (count) (check-equal? count 0)))
+    ;; A genuine miss is usable without entering the receiver's read cache.
+    (def misses (recorded (cut .ref/cached Root 'missing (lambda () #f))))
+    (def miss (selected misses '(cache-miss missing)))
+    (check-equal? (object-read-issued? miss) #t)
+    (check-equal? (hash-get (object-read-table Root) '(cache-miss missing)) #f)
+    (call-with-current-slot-reads misses (lambda (count) (check-equal? (> count 0) #t)))
+    (set! completed (1+ completed)))
+  (test-case "checkpoint preflight refuses forgery before stale support or action"
+    (.def Root field: 1)
+    (def read (selected (recorded (cut .get Root field)) 'field))
+    (def calls 0)
+    (def (action _count) (set! calls (1+ calls)))
+    (.put! Root 'field 2)
+    (refuses "unissued slot dependency"
+      (cut call-with-current-slot-reads (list read (copy-read read)) action))
+    (refuses "stale slot dependency"
+      (cut call-with-current-slot-reads (list read) action))
+    (check-equal? calls 0)
+    (set! completed (1+ completed)))
+  (test-case "checkpoint protects selected ancestors and restores nested failure frames"
+    (.def Parent port: 5432 unused: (error "unselected slot was forced"))
+    (def Child (.o inherit: [Parent]))
+    (def Other (.o port: 7000))
+    (def roots (recorded (cut .get Child port)))
+    (def cause (list 'checkpoint-error))
+    (call-with-current-slot-reads roots
+      (lambda (_count)
+        (refuses "object mutation during read replay" (cut .put! Parent 'port 5440))
+        (refuses "object mutation during read replay" (cut .put! Child 'port 5440))
+        (.put! Other 'port 7001)
+        (check-eq?
+          (with-catch values
+            (lambda () (call-with-current-slot-reads roots (lambda (_) (raise cause)))))
+          cause)
+        (refuses "object mutation during read replay" (cut .put! Child 'port 5440))))
+    (check-equal? (.get Parent port) 5432)
+    (check-equal? (.get Child port) 5432)
+    (check-equal? (.get Other port) 7001)
+    (.put! Child 'port 5440)
+    (check-equal? (.get Parent port) 5432)
+    (check-equal? (.get Child port) 5440)
+    (set! completed (1+ completed)))
+  (test-case "checkpoint authenticates after action and preserves multiple return values"
+    (.def Root port: 5432)
+    (def roots (recorded (cut .get Root port)))
+    (def read (selected roots 'port))
+    (def checker (runtime.slot-ref read 'current?))
+    (try
+      (refuses "unissued slot dependency"
+        (lambda () (call-with-current-slot-reads roots
+          (lambda (_) (runtime.slot-set! read 'current? (lambda (_) #t))))))
+      (finally (runtime.slot-set! read 'current? checker)))
+    (defvalues (left right)
+      (call-with-current-slot-reads roots (lambda (_) (values 'left 'right))))
+    (check-equal? (list left right) '(left right))
+    (check-equal? (object-read-current? read) #t)
+    (set! completed (1+ completed)))
 ))
