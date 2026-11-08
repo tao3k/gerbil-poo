@@ -11,7 +11,7 @@
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
-;; a separate assertion checks one shared compiler option for every root.
+;; a separate assertion checks each root has one tracked compiler policy.
 (def (build-inputs specs) (map (cut take <> 3) specs))
 
 (include "../testing/property/build.scm")
@@ -153,8 +153,11 @@
           (check (and (member name (map cadr all)) #t) => #t))
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
+          (check-equal? (length (filter (cut equal? <> "-cc-options") (drop spec 3))) 1)
           (check-equal? (drop spec 3)
-            '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096")))
+            (if (equal? (cadr spec) "feedback/graph-algorithms-test")
+              '("-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
+              '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096"))))
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))

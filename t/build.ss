@@ -15,9 +15,9 @@
         execute-pending-compile-jobs!)
       (raise cause))))
 
-;; The C harness uses the standard debugging optimization level; library and
-;; benchmark optimization levels are unchanged. Gambit expansion and
-;; the shared host-size protection stay enabled for every test root.
+;; The C harness defaults to the debugging optimization level. Timed frozen
+;; Graph kernels explicitly match production -O2; library policy is unchanged.
+;; Gambit expansion and host-size protection remain enabled for every root.
 (def +test-cc-options+ "-Og -D___SINGLE_HOST_LIMIT=4096")
 
 ;; Adjacent fixture-free suites share runtime images and retain private helper
@@ -76,7 +76,9 @@
     ("feedback"
     (gxc: "graph-algorithms-test" (extra-inputs: ("graph-algorithms/baseline.scm"
       "graph-algorithms/discovery-study.scm"
-      "graph-algorithms/compact.scm")))
+      "graph-algorithms/compact.scm"))
+      ;; This root contains frozen kernels used for timed production comparisons.
+      "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
     (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.scm" "feedback-closure/feedback-cache.scm" "feedback-closure/cases.scm")))
     "feedback-graph-test"
     "feedback-revision-test")
@@ -151,8 +153,12 @@
       ((? string?) [gxc: spec [extra-inputs: ["../build.ss"]]
         "-cc-options" +test-cc-options+])
       ([gxc: file [extra-inputs: inputs] . options]
-       [gxc: file [extra-inputs: (cons "../build.ss" inputs)]
-        "-cc-options" +test-cc-options+ options ...])
+       ;; A timed owner may declare its standard compiler policy explicitly.
+       ;; Retain exactly one -cc-options pair, rather than append conflicting
+       ;; debug/production optimization flags and depend on argument order.
+       (let (configured (if (member "-cc-options" options) options
+                         (cons "-cc-options" (cons +test-cc-options+ options))))
+         [gxc: file [extra-inputs: (cons "../build.ss" inputs)] configured ...]))
       (else (error "unsupported test build declaration" group spec))))
   (if group
     (cond

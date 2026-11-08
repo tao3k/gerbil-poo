@@ -60,6 +60,49 @@
                    (cons 'index-preparation preparation) (cons 'work work) costs))
       (newline) (force-output))))
 
+(def (shared-workspace-study index keys expected family size edges)
+  (let (observations [])
+    (for (engine '(separate shared shared separate))
+      (let-values (((result costs) (measure
+                    (lambda () ((if (eq? engine 'separate) prior-compact-discover compact-discover) index)) 1)))
+        (vector-set! result 0 (compact-component-owners index result))
+        (check-discovery result keys expected size (length expected) edges)
+        (set! observations (cons (list engine costs) observations))))
+    (display "GRAPH-SHARED-PAIR ")
+    (write (list family size edges '(order . (separate shared shared separate)) (reverse observations)))
+    (newline) (force-output)))
+
+;; The SAME degree-16 cyclic band as the failed overlapping-phase fixture: all
+;; predecessor edges plus 0 -> last, exactly 1,000,000 owners/15,999,865 edges.
+;; Its own TestCase releases the previous cold-capture call frames first. Numeric
+;; fixture construction avoids retaining an unnecessary E-cell symbolic copy.
+(def (shared-cyclic-study)
+  (def size 1000000)
+  (def edges (1+ (- (* 16 size) 136)))
+  (defvalues (cyclic preparation)
+    (measure (lambda ()
+      (def owner-names (names size))
+      (def positions (make-hash-table-symbolic size: size))
+      (def offsets (make-u32vector (1+ size) 0))
+      (def targets (make-u32vector edges 0))
+      (for (node (in-range size)) (hash-put! positions (vector-ref owner-names node) node))
+      (u32vector-set! targets 0 (1- size))
+      (let owner ((node 1) (cursor 1))
+        (u32vector-set! offsets node cursor)
+        (if (= node size)
+          (unless (= cursor edges) (error "cyclic band exact edge count" cursor edges))
+          (let fill ((distance 1) (cursor cursor))
+            (if (> distance (min node 16)) (owner (1+ node) cursor)
+              (begin
+                (u32vector-set! targets cursor (- node distance))
+                (fill (1+ distance) (1+ cursor)))))))
+      (make-compact-graph owner-names positions offsets targets 0)) 1))
+  (def keys (vector->list (compact-graph-names cyclic)))
+  (display "GRAPH-SHARED-INPUT ")
+  (write (list 'cyclic-band size edges preparation)) (newline) (force-output)
+  (shared-workspace-study cyclic keys (list keys) 'cyclic-band size edges)
+  (displayln "GRAPH-SHARED-CYCLIC-OK nodes=1000000 edges=15999865"))
+
 (def (compact-study)
   (for* ((size '(100000 1000000)) (family '(chain ring band)))
     ;; A pure frozen provider models the existing streaming source interface.
@@ -139,6 +182,7 @@
       (display "GRAPH-RANK-PAIR ")
       (write (list family size edges '(order . (tarjan selected selected tarjan)) (reverse observations)))
       (newline) (force-output))
+    (shared-workspace-study index keys (family-groups family size) family size edges)
     (display "GRAPH-COMPACT-SCC ")
     (write (list family size edges (cons 'discovery scc-cost) (cons 'symbolic-output owner-cost)))
     (newline) (force-output)
@@ -148,7 +192,12 @@
                  (cons 'cold-encode-and-first-query cold) (cons 'encoding (vector-ref bundle 1))
                  (cons 'first-query (vector-ref bundle 2)) (reverse samples)))
     (newline) (force-output)
+    ;; Later public capture needs ROWS but not this prepared CSR. Retire both
+    ;; index aliases and old SCC outputs before that next allocation phase.
     (when (eq? family 'band)
+      (set! owner-map #f) (vector-set! scc-result 0 #f)
+      (set! reverse-keys #f)
+      (vector-set! bundle 0 #f) (set! index #f)
       (owned-query-study keys rows root expected size edges)
       (invalidation-study keys rows root size edges)))
   (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")

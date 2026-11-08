@@ -1,5 +1,5 @@
 ;;; Graph properties and scale accounting through the existing POO APIs.
-(export graph-algorithms-test main small-reachability-study compact-study)
+(export graph-algorithms-test main small-reachability-study compact-study shared-cyclic-study)
 (import :std/test :std/iter :clan/poo/object :clan/poo/mop
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :gerbil/runtime/interface interface-instance-object)
@@ -7,13 +7,19 @@
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!)
         :clan/poo/type :clan/poo/number (prefix-in :clan/poo/testing/type typed.)
         (only-in :clan/poo/support/testing require-property-passed)
-        (only-in :clan/poo/benchmarks/closure-measure measure)
+        (rename-in (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics) (measure raw-measure))
         (only-in :std/list/list filter foldl find take append-map delete-duplicates/hash)
         (prefix-in :clan/poo/generalized-graph graph.)
         (prefix-in :clan/poo/dependency-analysis code.)
         (prefix-in :clan/poo/strong-components scc.)
         (prefix-in :clan/poo/recursive-topology topology.)
         (prefix-in :clan/poo/component-revision component.))
+;; Graph receipts use the existing paired-study allocation admission rule.
+;; Only the post-timer projection changes; workload, clocks and GC stay intact.
+(def (measure thunk repetitions (collect? #f))
+  (let-values (((result metrics) (raw-measure thunk repetitions collect?)))
+    (values result (qualified-metrics metrics))))
+
 (include "graph-algorithms/baseline.scm")
 (include "graph-algorithms/discovery-study.scm")
 (include "graph-algorithms/compact.scm")
@@ -218,6 +224,41 @@
 
 (def graph-algorithms-test
   (test-suite "indexed Graph properties and scale"
+    (test-case "Graph receipts qualify allocation across GC without changing time"
+      (for (input '(#(1 2 3 0 0) #(1 2 3 0 208) #(1 2 3 0 -208)
+                    #(1 2 3 1 208) #(1 2 3 1 9999999999999999)))
+        (def qualified (qualified-metrics input))
+        (check-equal? (vector-copy qualified 0 4) (vector-copy input 0 4))
+        (check-equal? qualified (qualified-metrics qualified))
+        (check-equal? (vector-ref qualified 4)
+          (and (= (vector-ref input 3) 0) (>= (vector-ref input 4) 0) (vector-ref input 4))))
+      ;; Same payload in both regimes. The actual raw counter under-reports this
+      ;; payload across requested collections on the current runtime. The report
+      ;; must say unavailable, not turn that counter into an allocation gain.
+      (for (collect-inside? '(#f #t))
+        (defvalues (answer costs)
+          (measure (lambda ()
+            (let loop ((left 8) (sum 0))
+              (if (zero? left) sum
+                (let (buffer (make-u8vector 1048576 left))
+                  (when (and collect-inside? (even? left)) (##gc))
+                  (loop (1- left) (+ sum (u8vector-ref buffer 0))))))) 1 #t))
+        (check-equal? answer 36)
+        (if (zero? (vector-ref costs 3))
+          (check (>= (vector-ref costs 4) 8388608) => #t)
+          (check-equal? (vector-ref costs 4) #f))
+        (when collect-inside? (check (>= (vector-ref costs 3) 4) => #t))))
+    (test-case "author edits to caller keys cannot rename a captured owner"
+      (def (mutating-source)
+        (def owner-keys (list 'a 'b 'c))
+        (def (read-row key)
+          (when (eq? key 'a) (set-car! (cdr owner-keys) 'rogue))
+          (if (eq? key 'a) '(b) []))
+        (.o keys: owner-keys .reads: read-row
+          .code: (lambda (key) (let (dependencies (read-row key)) (.o reads: dependencies)))))
+      (def index (scc.capture-reachability (mutating-source)))
+      (check-equal? (.call index .reachable 'a) '(b a))
+      (check-equal? (scc.partition-groups (scc.partition (mutating-source))) '((a) (b) (c))))
     (test-case "all 512 directed three-owner graphs agree with reachability"
       (def keys (names 3))
       (def failure #f)

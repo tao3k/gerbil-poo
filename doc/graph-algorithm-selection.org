@@ -4,6 +4,11 @@
 
 * Scope
 
+The latest local implementation and qualification are in
+[[*Runtime counter calibration and shared SCC workspace candidate][shared SCC workspace]] and
+[[*Equal-policy native comparison of the shared workspace][equal-policy measurements]]. Earlier cut measurements below are historical;
+they describe different pipelines and must not be pooled as one speedup.
+
 Keep public Graph operations and POO identities unchanged. Research internal
 algorithm/representation choices for 100,000 and 1,000,000 graph nodes. These
 are finite graph metadata workloads, not Yuanxu Interface or Module EVAL.
@@ -157,8 +162,7 @@ A captured graph whose every non-self edge decreases source position is already
 certified as singleton SCCs. Increasing positions give the same certificate by
 reversing the rank. Self loops are legal; a cross-owner cycle defeats both
 conditions. The ranked_singletons_exact and directional corollaries have passed
-a combined Lean check and are published as c563d08 in PR #16. This is not yet
-installed in Scheme; its complete exact-head Lean CI passed.
+a combined Lean check and are published as c563d08 in PR #16. This was installed in Scheme at 3dfd464; its complete exact-head Lean CI passed.
 
 Applicability can be accumulated during the existing capture, without another
 SCC computation. Compare its comparison/branch cost on arbitrary graphs against
@@ -644,3 +648,126 @@ an import/compiler, timeout or heap/stack rejection. Standard Harness failure
 aggregation accompanies these expected CASE failures. Both source files were
 restored byte-for-byte before the positive rebuild. LeanPoo =ff62e529= full CI
 run =42519171451= passed; Scheme exact-head CI remains separate.
+
+* Runtime counter calibration and shared SCC workspace candidate
+
+The allocation limitation is not confined to Ubuntu. A fixed eight-MiB payload
+through the existing heap-fenced Just runner reports 8,390,800 raw bytes without
+collections, but only 2,099,056 across four requested GCs on macOS. A payload
+lower-bound control fails functionally. Both raw snapshots are retained locally.
+The formula agrees with Gambit's process-statistics definition; do not repair
+this by guessing another vector offset or patching the installed compiler.
+Historical GC-containing allocation columns are unqualified diagnostics, even
+when positive. They do not establish cumulative allocation or retained memory.
+CPU, wall and GC time observations are independent fields and remain reported.
+
+=qualified-metrics= factors the rule already used by =run-child=: accept a
+nonnegative exact raw allocation count only when no collection occurred, otherwise
+use =#f=. It preserves the four time/collection fields and the original input.
+SCC metadata and captured-workspace studies apply that projection after the\nunchanged raw timer. Other existing raw reports remain diagnostics.
+There is no second timer, runner or callback in the measured workload. The new
+fixed-payload control requests actual collections, checks the payload checksum,
+and requires unavailable allocation. Deterministic cases retain measured zero,
+reject positive GC-contaminated/negative counters, and verify idempotence.
+
+The general SCC implementation follows the streamlined Algorithm T layout discussed
+in [[https://arxiv.org/html/2201.07197v2#S6.SS4][Tarjan--Zwick, section 6.4]]. One u32 vector encodes low/leader state;
+a second changes role from parent-arc link to follower link to retired component
+label. The current low value stays local; ancestors are stored before descent.
+The parent arc is read BEFORE postvisit repurposes its cell. The same immutable
+CSR, original symbols, actual owner/edge counters and final independent
+spanning/quotient certificate remain. There is no early-stop shortcut that
+pretends unvisited edges were traversed, shared query workspace or approval cache.
+
+LeanPoo =7f4bffe8= (complete CI run =42523846657= passed) adds the following
+laws in existing =ComponentWitness.SharedDiscovery=:
+- marked low values preserve their rank and are odd; lower is the rank minimum,
+  cannot increase, cannot turn a visited state fresh, and preserves code on ties;
+- an older RAM value for the current node cannot change a self-edge update;
+  other targets see their stored cells; retired targets cannot lower active lows;
+- the sentinel and arc/follower/retired pointer encodings fit the existing word
+  domain; reusing one pointer cell preserves all other owner roles and saves the
+  old active parent; role transfers preserve the owner roster;
+- live active/follower frontiers fit N owners and two N-word vectors suffice.
+
+These generic layout/event laws are not a proof that arbitrary native code emits
+all valid DFS events, or a native extraction proof. Existing ComponentWitness
+exactness still guards accepted partitions; exhaustive/seeded native differential
+properties and matched faults must validate the implementation. The implementation
+enters the general production branch; the six-vector code lives only in the
+existing test helper as a frozen same-input reference. The existing 100K/1M
+cases add A/B/B/A observations, not another shape/size matrix.
+
+* Equal-policy native comparison of the shared workspace
+
+Build inspection found an experimental confound: the frozen reference owner
+used test =-Og= while production used =-O2=. Earlier relative timings for that
+comparison are not accepted algorithm gains. The timed Graph test owner now
+explicitly uses production =-O2= with the unchanged 4096 host-size bound; every
+other test owner retains =-Og=. Standard make tracks that policy source. Each
+owner has exactly one =-cc-options= pair. A matched =-O2= to =-Og= fault was
+rejected by the build declaration assertion and restored before positive use.
+
+The following macOS observations use one frozen CSR, matching optimization
+levels, separate/shared/shared/separate order, allocation inside each timer and
+output/counter checks outside. These rows had zero collections; allocation
+counts agree with six versus two N-word vectors (24,000,688 versus 8,000,496
+bytes at 1M). Compilation units still differ, so this is a native implementation
+comparison, not a language-independent constant-factor proof.
+
+| Captured graph | V | E | Six-vector CPU ms, A/A | Two-vector CPU ms, B/B |
+|----------------+---+---+------------------------+-----------------------|
+| chain | 100,000 | 99,999 | 9.506 / 10.004 | 7.583 / 7.608 |
+| ring | 100,000 | 100,000 | 9.857 / 10.399 | 9.631 / 9.677 |
+| degree-16 band | 100,000 | 1,599,864 | 20.840 / 20.753 | 21.674 / 21.623 |
+| chain | 1,000,000 | 999,999 | 103.436 / 103.659 | 77.701 / 76.925 |
+| ring | 1,000,000 | 1,000,000 | 105.707 / 105.603 | 97.056 / 97.206 |
+| degree-16 band | 1,000,000 | 15,999,864 | 220.358 / 220.089 | 227.577 / 227.471 |
+| cyclic degree-16 band | 1,000,000 | 15,999,865 | 328.157 / 327.473 | 267.812 / 267.790 |
+
+This is not a universal time improvement: the forced-general band regresses
+about 3.3%, while the applicable source-rank path took 5.893/5.899 ms and
+4,000,256 bytes at 1M in this cohort. Its rank proof is accumulated during
+capture; it is not applicable to the cyclic band or ring. The cyclic band is
+asymptotically sparse, with a single giant SCC; do not label it a dense graph.
+
+The compact study passed naturally at 107.34 s wall / 104.41 s user under the
+unchanged 2-GiB heap, including all 48 original cold provider observations.
+The extra cyclic fixture keeps exactly 1M/15,999,865 and its own TestCase
+lifetime; two earlier attempts retained the previous CSR into owner capture
+and failed with heap overflow. They remain failed evidence. The passing test
+does not shrink either graph or increase the heap.
+
+Public owner acquisition plus first ordered query on the degree-16 1M band
+still took 3,163.22 ms CPU, including 1,112.64 ms GC; its prepared query took
+473.50 ms, including 337.26 ms GC. A zero-GC prepared numeric query took
+135.53 ms. These different windows must stay separate. Full capture, symbolic
+row retention/output and GC are the remaining bottlenecks; a 5.9-ms SCC label
+window does not make the entire public call millisecond latency. No Core or
+downstream pin is promoted by these results.
+
+The author-boundary control also reproduced a real roster alias: an author
+changed the caller's key list during acquisition and renamed a captured owner.
+Capture and partition now own their admitted list spine before the first
+callback. The immutable owner symbols, refusal order and independent author
+checks remain; both public operations are covered by the restored positive
+control. This is ownership repair, not a currentness cache.
+
+Matched compiler-policy and algorithm faults were then checked separately.
+Changing only the timed owner to =-Og= failed the exact compiler-policy assertion.
+Removing the follower bit from a lowering step compiled and failed with
+=invalid SCC quotient certificate=. Dropping the saved parent-arc link compiled
+and failed with =shared SCC incomplete owner retirement=. The bounded exhaustive
+and seeded controls observed these failures; no timeout, missing import or
+heap/stack failure counted as a rejection. Each edited source was restored
+byte-for-byte before the positive build and tests. Raw failed logs remain local.
+
+After restoration, the existing standard build declaration test, Graph properties
+and both recursive Contract suites passed with strict Module/Harness/final OK
+markers. The complete SCC suite returned naturally in 306.42 s wall / 302.78 s
+user, retaining 320 original observations, eleven 100K/1M public capacity rows,
+32 membership comparisons and 32 rank-update observations. No error or heap/stack
+marker was present. The complete typed-source 1M partition windows were
+28.40-32.03 CPU seconds in this compiler-policy cohort, including per-owner
+Computation generation. Do not compare those fixture totals to older =-Og=
+owner totals as an SCC gain/regression. Exact-head remote CI is a separate gate.
