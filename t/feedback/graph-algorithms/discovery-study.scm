@@ -22,15 +22,18 @@
       (error "captured discovery groups/work oracle"))))
 
 ;; Reuse the existing bounded exhaustive/property inputs; no new case matrix.
-(def (discovery-controls part keys)
+(def (discovery-controls part keys original-rows)
   (def reads (captured-rows part keys))
   (def work (scc.partition-work part))
   (for (kernel (list discover-wide))
     (check-discovery (discovery-result kernel keys reads) keys
       (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits)))
-  (let-values (((captured index declared edges) (capture-graph keys (cut hash-ref reads <>))))
-    (unless (and (= declared (.@ work edge-visits)) (= edges declared)
-                 (andmap (lambda (key) (equal? (hash-ref captured key) (hash-ref reads key))) keys))
+  (def declared-source (make-hash-table-eq))
+  (for ((key keys) (row (in-vector original-rows))) (hash-put! declared-source key row))
+  (let-values (((captured index declared edges) (capture-graph keys (cut hash-ref declared-source <>))))
+    (unless (and (= declared (.@ work validation-edges)) (= edges (.@ work edge-visits))
+                 (andmap (lambda (key) (and (equal? (hash-ref captured key) (hash-ref reads key))
+                   (equal? (compact-row index key) (hash-ref reads key)))) keys))
       (error "fused capture rows/work oracle"))
     (check-discovery (compact-discovery-result index) keys
       (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits)))
@@ -44,7 +47,7 @@
         (error "ordered indexed reachability oracle" root))))
   #t)
 
-;; Frozen capture at 9b0873f, only for matched before/after measurements.
+;; Frozen epoch/list capture at e94cfc2, for matched allocation measurements.
 (def (prior-capture-graph keys read-owner)
   (def count (length keys))
   (def positions (make-hash-table-symbolic size: count))
@@ -56,7 +59,11 @@
       (symbolic-table-set! raw (car rest) at)
       (assign (cdr rest) (1+ at))))
   (unless (= count (hash-length positions)) (error "distinct captured owners required"))
-  (def packed? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def word-support? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def packed? word-support?)
+  ;; Per-invocation duplicate membership, allocated only for a multi-key row.
+  ;; It never stores source/currentness approvals. owner+1 is fresh for this row.
+  (def row-marks #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (make-hash-table-eq size: count))
   (def declared 0) (def edges 0)
@@ -81,19 +88,35 @@
     (def deps (read-owner key))
     (unless (and (list? deps) (andmap symbol? deps))
       (error "unsupported component read" key deps))
-    ;; Empty/singleton rows are already normalized, with exactly the original
-    ;; owner order. Copy singleton spines so later author callbacks cannot mutate
-    ;; captured adjacency. Larger rows use the existing standard normalization.
-    (def unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
-                     (else (delete-duplicates/hash deps))))
-    (for (dep unique)
-      (let (id (symbolic-table-ref raw dep #f))
-        ;; Scheme ID zero is present. No callback runs between this admission
-        ;; and encoding the same ID into the graph-owned construction buffer.
-        (unless id (error "unsupported component read" key deps))
-        (append-target id))
-      (set! edges (1+ edges)))
-    (hash-put! reads key unique)
+    (if (and word-support? (pair? deps) (pair? (cdr deps)))
+      (begin
+        (unless row-marks (set! row-marks (make-u32vector count 0)))
+        (let ((token (fx+ owner 1)))
+          ;; Same reverse scan as the standard normalizer. The owner index
+          ;; proves support and supplies the mark-cell address in one lookup.
+          ;; Both outputs prepend together, preserving identity and row order.
+          (let-values (((ids unique)
+                        (let scan ((pending (reverse deps)) (ids []) (unique []))
+                          (if (null? pending) (values ids unique)
+                            (let* ((dep (car pending)) (id (symbolic-table-ref raw dep #f)))
+                              (unless id (error "unsupported component read" key deps))
+                              (if (fx= (u32vector-ref row-marks id) token)
+                                (scan (cdr pending) ids unique)
+                                (begin
+                                  (u32vector-set! row-marks id token)
+                                  (scan (cdr pending) (cons id ids) (cons dep unique)))))))))
+            (for (id ids) (append-target id) (set! edges (1+ edges)))
+            (hash-put! reads key unique))))
+      ;; Preserve the inexpensive empty/singleton path and the original wide
+      ;; domain. Copy singleton spines before the next independent callback.
+      (let (unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
+                        (else (delete-duplicates/hash deps))))
+        (for (dep unique)
+          (let (id (symbolic-table-ref raw dep #f))
+            (unless id (error "unsupported component read" key deps))
+            (append-target id))
+          (set! edges (1+ edges)))
+        (hash-put! reads key unique)))
     (set! declared (+ declared (length deps))))
   (def index
     (and packed?
@@ -121,7 +144,7 @@
   ;; Stored-row encoding/query and public certification have their own windows.
   (def groups-count (length expected))
   (for ((regime '(natural collected))
-        (order '((prior marked marked prior) (marked prior prior marked))))
+        (order '((prior buffered buffered prior) (buffered prior prior buffered))))
     (let (observations [])
       (for (side order)
         (display "GRAPH-DISCOVERY-BEGIN ") (write (list family size regime side))

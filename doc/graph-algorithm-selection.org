@@ -416,3 +416,68 @@ cold-source millisecond latency. The focused study passed naturally in 89.30
 seconds at the unchanged 2-GiB heap. The existing 48-window matrix is reused;
 its baseline is the immediately preceding capture, not an additional matrix.
 No loader, cross-call workspace, approval cache or public tuning flag is added.
+
+* Invocation-local row workspace and standard bulk copy (2026-11-09)
+
+After epoch membership removed per-row hash tables, capture still allocated a
+reversed source list and an integer-ID list for each multi-target row. The new
+private workspace encodes one row, scans it from the right, and compacts retained
+IDs into a suffix. Only the public symbolic adjacency list is materialized.
+Workspace storage is reused within this capture; no source approval or business
+value survives in it. Empty/singleton rows keep their original inexpensive path.
+Outside the checked word domain, retain the existing wide normalization.
+
+LeanPoo PR16 commit =160ec012= proves unread-prefix preservation, suffix
+prepending, cursor bounds, identity decoding, ordered chunk decomposition and
+nonempty/bounded copy slices. Those laws compose with =marked_row_exact= and
+=reference_row_map=. They do not establish compiler extraction or native timing.
+Use the standard checked =u32vector-copy!= for each bounded destination slice;
+update the edge count once per row rather than invoke a closure for every edge.
+
+The existing paired study now freezes production =e94cfc2= as its prior engine.
+The input provider, N/E, native 2-GiB heap, natural ABBA and collected BAAB regimes,
+row/canonical-group oracles and all 48 cold windows are retained. No additional
+Cartesian matrix is added. The first elementwise-buffer experiment and the
+bulk-copy candidate both passed their focused properties and paired study.
+The bulk-copy cohort measured these CPU seconds at 1M nodes / 15,999,864 edges:
+
+| Cold interval | Prior e94cfc2 | Workspace + bulk copy |
+|---------------+---------------+-----------------------|
+| Natural ABBA | 3.112 / 2.823 | 2.186 / 2.239 |
+| Collected BAAB | 2.711 / 2.714 | 2.344 / 2.312 |
+
+Wall seconds were 3.112/2.823 versus 2.186/2.239, and 2.711/2.714 versus
+2.344/2.312, respectively. Included GC CPU was 0.857-1.091 versus 0.434-0.488
+in natural windows and 0.773-0.775 versus 0.564-0.568 in collected windows.
+This is generated rows + admission + index + SCC + symbolic output, not the
+public POO metadata factory and independent certificate. The prepared SCC
+kernel was 107 ms for a million-node chain/ring and 281 ms for this band; its
+symbolic output was another 51-57 ms. Cold input still costs seconds and does
+not meet an end-to-end millisecond target. Signed VM accounts are not physical
+retained memory. Complete native/remote acceptance remains a separate gate.
+
+Strengthen the existing exhaustive/seeded controls by feeding ORIGINAL duplicate
+rows to capture, then comparing BOTH symbolic and indexed rows against the
+standard normalizer. Recapturing only previously normalized rows cannot expose
+some duplicate-gap corruption. A bounded growth/shrink/gap fixture exercises
+that distinction without expanding the capacity matrix.
+
+Acceptance: the wrong-cursor fault (=write - 1= replaced by =read - 1=)
+compiled in isolated products and the new four-owner gap fixture refused with
+=captured discovery groups/work oracle=. No timeout/heap/stack failure supplied
+that verdict. The source was restored byte-for-byte. Restored properties,
+feedback, local-order repair and the COMPLETE native benchmark passed naturally:
+325.64 s wall / 322.69 s user / 1.42 s system, unchanged 2 GiB and all controls.
+Lean =160ec012= complete CI passed (run 42509560561). The new Scheme exact-head
+CI remains a separate gate; Core/downstream pins remain unchanged.
+
+The earlier ~1.48 s number is the HASH ordered-reachability reference, not SCC.
+The ~145 ms compact ordered walker is still white-box =compact-reachable= in
+=t/feedback/graph-algorithms/compact.scm=. Production
+=recursive-validation.reachable= still has list membership; this row-capture
+change does NOT install that compact walker or close production reachability.
+Production needs an owner-bound already-admitted index path, with ordered-result
+and missing-owner proofs, sparse/small-query controls and charged cold conversion.
+Rebuilding the full index for every sparse root is not an acceptable shortcut.
+The existing =feedback-graph-action= already retains its partition for an exact
+unchanged source; joint approval and guard checks remain independent.

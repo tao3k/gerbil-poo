@@ -61,7 +61,7 @@
           (and (equal? ((scc.partition-reads part) (vector-ref keys i))
                        (delete-duplicates/hash (vector-ref rows i)))
                (rows-exact (1+ i)))))
-      (discovery-controls part (vector->list keys))
+      (discovery-controls part (vector->list keys) rows)
       (equal? expected (baseline-partition (source keys rows)))
       (andmap (lambda (members)
         (and (equal? (scc.partition-members part (car members)) members)
@@ -312,6 +312,9 @@
         (check-equal? (hash-ref reads 'a) '(c b))
         (check-equal? (compact-row index 'a) '(c b))
         (check-equal? (list declared edges) '(9 6))))
+    (test-case "row workspace growth and duplicate gaps retain exact adjacency"
+      (def keys '#(a b c d))
+      (check (matches? keys '#((a b b c) (d c d a b b a d c) (c a a) ())) => #t))
     (test-case "compact IDs retain distinct same-spelling symbol identities"
       (def a (string->uninterned-symbol "same-owner"))
       (def b (string->uninterned-symbol "same-owner"))

@@ -152,6 +152,7 @@
   ;; Per-invocation duplicate membership, allocated only for a multi-key row.
   ;; It never stores source/currentness approvals. owner+1 is fresh for this row.
   (def row-marks #f)
+  (def row-buffer #f) (def owner-names #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (make-hash-table-eq size: count))
   (def declared 0) (def edges 0)
@@ -171,29 +172,60 @@
             (set! chunks (cons chunk chunks)) (set! chunk #f) (set! used 0))
           (unless chunk (set! chunk (make-u32vector capacity 0)))
           (u32vector-set! chunk used id) (set! used (fx+ used 1))))))
+  ;; Copy retained row IDs in bounded standard-vector slices. No per-edge
+  ;; closure call or counter update; each chunk preserves exact row order.
+  (def (append-row-targets start end)
+    (let (after (+ edges (- end start)))
+      (when packed?
+        (if (or (not (fixnum? after)) (> after 4294967295))
+          (begin (set! packed? #f) (set! offsets #f)
+                 (set! chunks []) (set! chunk #f))
+          (let copy ((at start))
+            (when (fx< at end)
+              (when (fx= used capacity)
+                (set! chunks (cons chunk chunks)) (set! chunk #f) (set! used 0))
+              (unless chunk (set! chunk (make-u32vector capacity 0)))
+              (let* ((take (fxmin (fx- end at) (fx- capacity used))) (stop (fx+ at take)))
+                (u32vector-copy! chunk used row-buffer at stop)
+                (set! used (fx+ used take))
+                (copy stop))))))
+      (set! edges after)))
   (for ((key keys) (owner (in-range count)))
     (when packed? (u32vector-set! offsets owner edges))
     (def deps (read-owner key))
     (unless (and (list? deps) (andmap symbol? deps))
       (error "unsupported component read" key deps))
-    (if (and word-support? (pair? deps) (pair? (cdr deps)))
+    (def row-length (length deps))
+    (if (and word-support? (pair? deps) (pair? (cdr deps))
+             (fixnum? row-length) (<= row-length 4294967295))
       (begin
         (unless row-marks (set! row-marks (make-u32vector count 0)))
+        ;; Reuse one numeric row workspace across author callbacks. The unread
+        ;; prefix and retained suffix are disjoint (row_buffer_store law).
+        ;; Only public symbolic adjacency allocates an output list per edge.
+        (unless owner-names (set! owner-names (list->vector keys)))
+        (when (or (not row-buffer) (fx< (u32vector-length row-buffer) row-length))
+          (set! row-buffer (make-u32vector
+            (let (grown (if row-buffer (* 2 (u32vector-length row-buffer)) 0))
+              (if (fixnum? grown) (max row-length grown) row-length)) 0)))
+        (let fill ((pending deps) (at 0))
+          (unless (null? pending)
+            (let (id (symbolic-table-ref raw (car pending) #f))
+              (unless id (error "unsupported component read" key deps))
+              (u32vector-set! row-buffer at id))
+            (fill (cdr pending) (fx+ at 1))))
         (let ((token (fx+ owner 1)))
-          ;; Same reverse scan as the standard normalizer. The owner index
-          ;; proves support and supplies the mark-cell address in one lookup.
-          ;; Both outputs prepend together, preserving identity and row order.
-          (let-values (((ids unique)
-                        (let scan ((pending (reverse deps)) (ids []) (unique []))
-                          (if (null? pending) (values ids unique)
-                            (let* ((dep (car pending)) (id (symbolic-table-ref raw dep #f)))
-                              (unless id (error "unsupported component read" key deps))
+          (let-values (((start unique)
+                        (let scan ((read row-length) (write row-length) (unique []))
+                          (if (fx= read 0) (values write unique)
+                            (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
                               (if (fx= (u32vector-ref row-marks id) token)
-                                (scan (cdr pending) ids unique)
-                                (begin
+                                (scan next write unique)
+                                (let (destination (fx- write 1))
                                   (u32vector-set! row-marks id token)
-                                  (scan (cdr pending) (cons id ids) (cons dep unique)))))))))
-            (for (id ids) (append-target id) (set! edges (1+ edges)))
+                                  (u32vector-set! row-buffer destination id)
+                                  (scan next destination (cons (vector-ref owner-names id) unique)))))))))
+            (append-row-targets start row-length)
             (hash-put! reads key unique))))
       ;; Preserve the inexpensive empty/singleton path and the original wide
       ;; domain. Copy singleton spines before the next independent callback.
@@ -205,7 +237,7 @@
             (append-target id))
           (set! edges (1+ edges)))
         (hash-put! reads key unique)))
-    (set! declared (+ declared (length deps))))
+    (set! declared (+ declared row-length)))
   (def index
     (and packed?
       (begin
@@ -216,7 +248,7 @@
                (targets (if (null? chunks) tail
                           (u32vector-concatenate (reverse (cons tail chunks))))))
           (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
-          (make-compact-graph (list->vector keys) positions offsets targets)))))
+          (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets)))))
   (values reads index declared edges))
 
 ;; Numeric Tarjan over the exact CSR rows. This is the existing algorithm:
