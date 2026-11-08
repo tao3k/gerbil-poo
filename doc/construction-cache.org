@@ -25,13 +25,54 @@ for active keys while preserving latent code/base for later support edits.
 An identical captured source retains its lookup and schedule in constant source-
 level work (one private cache record and shared traces). Changed sources still
 capture and scan supported keys. ~reschedule~ reuses checked order/reads when
-support and every complete footprint agree; changed edges fall back to full
-cycle/unsupported validation. Value/program invalidation is independent: a new
+support and every complete footprint agree. With unchanged support, changed
+edges use the existing schedule's adjacency, reverse buckets and ranks for
+local topological repair; support edits still use full scheduling. Value/program
+invalidation is independent: a new
 method body still rebuilds its cone even when its reads are unchanged. Private
 transient tables reuse the standard hash library. Values, source objects and
 callbacks must remain stable and pure. Open POO metadata and arbitrary extension
 callbacks do not carry dependent kernel proofs. Extensions must declare their
 reads; actual undeclared provider accesses are refused.
+
+* Sparse dependency order repair
+
+Edges point from consumer to provider. A revision removes all deleted edges
+before sequentially admitting additions. An already lower provider requires no
+relabel. Otherwise dependency/reverse searches visit only frontier buckets in
+the endpoint rank interval. Overlapping frontiers refuse a cycle. Sort each
+frontier by its old rank, concatenate forward then backward, and assign the
+sorted union of their old rank labels. Nodes outside the frontiers keep their
+ranks; the numeric interval itself is not scanned. Exact incident checks include
+unchanged consumers as well as the changed owners' outgoing edges.
+
+All candidate tables are private copies. A failed cycle/unsupported/rank check
+cannot mutate the prior schedule. ConstructionCache continues its independent
+value invalidation: a consumer outside the repaired rank interval still rebuilds
+when its input changes. Its membership check reuses the schedule's existing
+support hash index instead of repeatedly searching the old key list.
+
+~schedule-work~ returns a POO object with callback-free counts: ~owner-checks~,
+~footprint-reads~, ~search-buckets~, ~search-edges~, ~rank-writes~,
+~incident-checks~, ~copied-entries~ and ~order-materialized~. Boundary edges count
+even when pruned. Source capture, immutable snapshot copies and public list
+materialization remain linear in support. These costs are separate from the
+sparse repair; this is not an O(delta) claim for the whole refresh operation.
+
+~just test-file t/construction/graph-order-repair-test.ss~ uses the ordinary
+heap-fenced runner. The 10,000-owner fixture spans almost the whole rank range
+but visits two frontier buckets and reassigns two labels. Owner 9,999 retains its
+rank and still invalidates through owner 1. Full permutation/order oracles run
+separately from the update counters. Four-owner DAGs cover 1,024 insertions and
+compare acceptance/refusal to independent cold scheduling. Assertions are
+aggregated, not printed per node. Body-only updates, batch replacement, failed
+candidate isolation and unsupported/cyclic inputs retain their own controls.
+
+LeanPoo's [[https://github.com/tao3k/lean-poo/pull/16][graph contracts]] (~RankLabels.lean~, ~HashRankLabels.lean~ and
+~StableOrderRepair.lean~) prove stable movement, HashMap slot assignment, exact
+label permutation, preserved injectivity and generic acyclic-insertion
+completeness over finite exact frontiers. This is a structural correspondence;
+it is not a compiler proof or permission to omit source/effect authentication.
 
 Accepted releases refresh generics from closed per-service inputs. Equal inputs
 under the identical model retain exact warm certificates; changed inputs rebuild
@@ -42,6 +83,61 @@ Calls retain the exact component cache and recheck the actual service-cache
 successor. A refused release retains the identical previous version, including
 its component values and warm service caches. External effects are outside this
 value rollback contract.
+
+* Certified cyclic components
+
+~strong-components.ss~ captures every finite footprint once with the standard
+POO metadata accessors and hash indices. Explicit Tarjan frames avoid host DFS
+recursion on deep chains. One source-order pass normalizes members and their
+first representative. ~partition-members~ owns the exact representative lookup;
+condensation no longer searches all groups for each representative.
+
+Before publication, independent forward/reverse walks restricted to each group
+and decreasing cross-group quotient ranks certify exact components. LeanPoo
+~ComponentWitness~ proves this certificate criterion. It does not prove the
+Scheme compiler, Tarjan implementation or physical hash costs. The receipt
+~partition-work~ separately counts declaration validation, unique DFS edges,
+finishes, pops, normalization, both certificate walks and quotient edges. All
+components, including disconnected nodes, are validated before publication.
+
+An identical immutable source reuses its partition. Reusing its component
+source also requires identical builder identity. Existing value-cache refresh,
+lens checks, source/currentness checks and joint admission still apply. Changed
+sources are captured and partitioned again; this is not a dynamic-SCC algorithm
+or authority to reuse approval across an author callback.
+
+~t/feedback/graph-algorithms-test.ss~ compares all 512 three-node directed
+graphs to an independent reachability oracle. Native POO typed properties use
+seed 2947, 256 cases, duplicate footprints, reversed source order and graph
+transposition. Seven 10,000-owner families include a deep chain, giant cycle,
+5,000 components and a degree-16 band of 159,864 edges. A business evaluator
+trap ensures partitioning evaluates no providers. Lowlink and normalization
+implementation mutations must fail with their intended semantic errors.
+
+* Graph measurement boundary
+
+The existing ~just benchmark-scc~ preserves its original 320 observations.
+Its standard TestSuite adds seven fresh-source shape observations, 32 SCC
+production-baseline pairs and 32 full/local rank-update pairs. ABBA/AABB
+and natural/collected GC regimes share the same source in each paired block;
+full group/permutation oracles run outside timing. The frozen former SCC
+strategy is test-only, from ~cd4de64~. Raw logs stay outside source control.
+
+Local macOS/Gerbil qualification on 2026-11-08 (2-GiB heap):
+
+| Window | CPU seconds | Meaning |
+|--------+-------------+---------|
+| 10,000-pair-node baseline partition | 2.018–2.212 | Former production strategy, prepared source |
+| Same prepared source, certified Tarjan | 0.0331–0.0411 | Includes independent SCC certificate |
+| Fresh metadata partition, six sparse shapes | 0.1296–0.1585 | Includes first POO metadata access and GC |
+| Fresh band partition, 159,864 edges | 0.2662 | Includes first metadata and certificate |
+| Full 10,000-owner DAG update | 0.0181–0.0556 | Same prepared immutable source |
+| Local DAG update | 0.00683–0.00746 | Includes linear snapshot copy/list output |
+
+Preparation, GC and source creation are printed separately. Native allocation
+deltas are signed diagnostics; values spanning collection are not allocation
+savings. These windows exclude import/compilation and process exit. They are
+not measurements of Yuanxu Interface admission or first business ~.get~.
 
 * Shared settlement example
 

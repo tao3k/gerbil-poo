@@ -1,19 +1,24 @@
 ;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
 (export Declaration. declaration define remove set-base revise reconfigure support schedule reschedule
-        schedule? schedule-source schedule-order schedule-reads
+        schedule? schedule-source schedule-order schedule-reads schedule-work schedule-supports?
         failure? failure-kind failure-key)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
         ./object (only-in ./mop define-type) ./support/option)
-(defstruct %schedule (source order reads) final: #t)
+(defstruct %schedule (source order reads adjacency ranks reverse supported work) final: #t)
 (def schedule? %schedule?)
 (def schedule-source %schedule-source)
 (def schedule-order %schedule-order)
 (def schedule-reads %schedule-reads)
+(def schedule-work %schedule-work)
+(def (schedule-supports? scheduled key) (hash-key? (%schedule-supported scheduled) key))
 (defstruct failure (kind key) final: #t)
 (def (keys! keys)
   (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
   (delete-duplicates/hash keys from-end?: #t))
+(def (index-keys keys)
+  (def index (make-hash-table-eq))
+  (for (key keys) (hash-put! index key #t)) index)
 (def (table entries)
   (def result (make-hash-table-eq))
   (for (entry entries)
@@ -39,16 +44,18 @@
 ;; have independent namespaces: one node may change both, but duplicate writes
 ;; within either list refuse. No intermediate graph is scheduled or published.
 ;; A #f code removes its equation; a #f base is explicit absence, not no-op.
-(def (revise spec codes (bases []))
+(def (%revise spec codes bases known-index)
   (def programs (table codes))
   (def values (table bases))
-  (unless (andmap (lambda (entry) (memq (car entry) (.@ spec keys))) (append codes bases))
+  (def supported (or known-index (index-keys (.@ spec keys))))
+  (unless (andmap (lambda (entry) (hash-key? supported (car entry))) (append codes bases))
     (error "revision target outside component support"))
   (unless (andmap (lambda (entry) (or (not (cdr entry)) (some? (cdr entry)))) bases)
     (error "revision base must be an optional outcome"))
   (.cc spec
     .code: (lambda (key) (if (hash-key? programs key) (hash-ref programs key) (.call spec .code key)))
     .base: (lambda (key) (if (hash-key? values key) (hash-ref values key) (.call spec .base key)))))
+(def (revise spec codes (bases [])) (%revise spec codes bases #f))
 ;; Change finite support and code/base in one immutable batch. Removed keys lose
 ;; both bindings; newly supported keys never inherit latent old definitions.
 ;; Surviving keys keep exact identities until explicitly edited. Final dangling
@@ -57,13 +64,29 @@
   (unless (and (list? keys) (andmap symbol? keys)
                (= (length keys) (length (delete-duplicates/hash keys))))
     (error "distinct final component support required"))
-  (def kept (lambda (key) (and (memq key keys) (memq key (.@ spec keys)))))
-  (revise (.cc spec keys: keys
+  (def previous (index-keys (.@ spec keys)))
+  (def supported (index-keys keys))
+  (def kept (lambda (key) (and (hash-key? supported key) (hash-key? previous key))))
+  (%revise (.cc spec keys: keys
     .code: (lambda (key) (and (kept key) (.call spec .code key)))
-    .base: (lambda (key) (and (kept key) (.call spec .base key)))) codes bases))
+    .base: (lambda (key) (and (kept key) (.call spec .base key)))) codes bases supported))
 (def (remove spec key)
   (.cc (set-base spec key #f) .code: (lambda (query) (if (eq? key query) #f (.call spec .code query)))))
 (def (support spec keys) (.cc spec keys: (keys! keys)))
+(def (work owners footprints buckets edges assignments checks copies materialized)
+  (.o owner-checks: owners footprint-reads: footprints search-buckets: buckets
+      search-edges: edges rank-writes: assignments incident-checks: checks
+      copied-entries: copies order-materialized: materialized))
+(def (indexed-schedule spec order reads supported receipt)
+  (def ranks (make-hash-table-eq))
+  (def readers (make-hash-table-eq))
+  (for ((key order) (rank (in-range (length order))))
+    (hash-put! ranks key rank)
+    (hash-put! readers key []))
+  (for (key order)
+    (for (dep (hash-ref reads key))
+      (hash-put! readers dep (cons key (hash-ref readers dep)))))
+  (make-%schedule spec order (lambda (key) (hash-ref reads key)) reads ranks readers supported receipt))
 (def (schedule spec)
   (def keys (.@ spec keys))
   (def reads (make-hash-table-eq))
@@ -84,16 +107,112 @@
             (for-each visit (hash-ref reads key))
             (hash-put! states key 'done) (add key))))
       (for-each visit keys)))
-  (make-%schedule spec order (lambda (key) (hash-ref reads key))))
+  (indexed-schedule spec order reads supported
+    (work (length keys) (length keys) 0 0 0 0 0 (length keys))))
 
-;;; Preserve checked order only after checking the complete new read footprint.
-;;; Equal outputs or revision labels never authorize this path.
+;;; A captured footprint is checked once per changed program. No revision hint
+;;; or unchanged output authenticates it. Source acquisition still enumerates
+;;; support; local order repair below does not enumerate the numeric interval.
 (def (reschedule prior spec)
-  (if (and (equal? (.@ spec keys) (.@ (schedule-source prior) keys))
-           (andmap (lambda (key)
-             (def code (.call spec .code key))
-             (or (eq? code (.call (schedule-source prior) .code key))
-                 (equal? (if code (keys! (.@ code reads)) []) ((schedule-reads prior) key))))
-             (.@ spec keys)))
-    (make-%schedule spec (schedule-order prior) (schedule-reads prior))
-    (schedule spec)))
+  (if (not (equal? (.@ spec keys) (.@ (schedule-source prior) keys)))
+    (schedule spec)
+    (let ((changes []) (footprints 0))
+      (for (key (.@ spec keys))
+        (def code (.call spec .code key))
+        (unless (eq? code (.call (schedule-source prior) .code key))
+          (let (row (if code (keys! (.@ code reads)) []))
+            (set! footprints (1+ footprints))
+            (unless (equal? row ((schedule-reads prior) key))
+              (for (dep row)
+                (unless (schedule-supports? prior dep) (raise (make-failure 'unsupported dep))))
+              (set! changes (cons (cons key row) changes))))))
+      (if (null? changes)
+        (make-%schedule spec (schedule-order prior) (schedule-reads prior)
+          (%schedule-adjacency prior) (%schedule-ranks prior) (%schedule-reverse prior)
+          (%schedule-supported prior) (work (length (.@ spec keys)) footprints 0 0 0 0 0 0))
+        (repair-order prior spec (reverse changes) footprints)))))
+
+;;; Pearce/Kelly stable relabel, consumer -> provider orientation.
+;;; All mutations belong to an unpublished candidate. Prior indices and values
+;;; remain immutable on failure and during reentrant construction callbacks.
+(def (repair-order prior spec changes footprints)
+  (def reads (hash-copy (%schedule-adjacency prior)))
+  (def ranks (hash-copy (%schedule-ranks prior)))
+  (def readers (hash-copy (%schedule-reverse prior)))
+  (def positions (list->vector (schedule-order prior)))
+  (def additions [])
+  (def buckets 0)
+  (def edges 0)
+  (def assignments 0)
+  (def checks 0)
+  (def (rank key) (hash-ref ranks key))
+  (def (members row)
+    (def index (make-hash-table-eq))
+    (for (key row) (hash-put! index key #t)) index)
+  ;; Remove every deleted edge before admitting additions: a replacement batch
+  ;; must not be refused for a transient cycle absent from its final graph.
+  (for (entry changes)
+    (def key (car entry))
+    (def old (hash-ref reads key))
+    (def fresh (cdr entry))
+    (def old-index (members old))
+    (def new-index (members fresh))
+    (hash-put! reads key (filter (cut hash-key? new-index <>) old))
+    (for (dep old)
+      (unless (hash-key? new-index dep)
+        (hash-put! readers dep (filter (lambda (consumer) (not (eq? key consumer))) (hash-ref readers dep)))))
+    (for (dep fresh)
+      (unless (hash-key? old-index dep) (set! additions (cons (cons key dep) additions)))))
+  (def (search adjacency root low high)
+    (def seen (make-hash-table-eq))
+    (let loop ((pending (list root)) (found []))
+      (if (null? pending) (values found seen)
+        (let ((key (car pending)) (rest (cdr pending)))
+          (if (hash-key? seen key) (loop rest found)
+            (begin
+              (hash-put! seen key #t)
+              (set! buckets (1+ buckets))
+              (let (row (hash-ref adjacency key))
+                ;; Count boundary edges too; pruning is not free work.
+                (set! edges (+ edges (length row)))
+                (loop (append (filter (lambda (dep) (<= low (rank dep) high)) row) rest)
+                  (cons key found)))))))))
+  (for (addition (reverse additions))
+    (def consumer (car addition))
+    (def provider (cdr addition))
+    (unless (< (rank provider) (rank consumer))
+      (let ((low (rank consumer)) (high (rank provider)))
+      (defvalues (forward f-index) (search reads provider low high))
+      (when (hash-key? f-index consumer) (raise (make-failure 'cycle consumer)))
+      (defvalues (backward b-index) (search readers consumer low high))
+      (for (key backward)
+        (when (hash-key? f-index key) (raise (make-failure 'cycle key))))
+      (def less? (lambda (a b) (< (rank a) (rank b))))
+      (def owners (append (list-sort less? forward) (list-sort less? backward)))
+      (def labels (list-sort < (map rank owners)))
+      ;; Every RHS is acquired before the first assignment. The old labels are
+      ;; permuted, never invented, and all other ranks retain their identity.
+      (for ((key owners) (label labels))
+        (hash-put! ranks key label)
+        (vector-set! positions label key)
+        (set! assignments (1+ assignments)))
+      ;; Exact incident checks include unchanged consumers, not just outgoing
+      ;; edges of owners whose labels moved. No callback runs in this interval.
+      (for (key owners)
+        (for (dep (hash-ref reads key))
+          (set! checks (1+ checks))
+          (unless (< (rank dep) (rank key)) (raise (make-failure 'rank key))))
+        (for (reader (hash-ref readers key))
+          (set! checks (1+ checks))
+          (unless (< (rank key) (rank reader)) (raise (make-failure 'rank reader)))))))
+    (unless (< (rank provider) (rank consumer)) (raise (make-failure 'rank consumer)))
+    (hash-put! reads consumer (cons provider (hash-ref reads consumer)))
+    (hash-put! readers provider (cons consumer (hash-ref readers provider))))
+  ;; Preserve the author's exact footprint order, independently of insertion
+  ;; order used for validation. Reads were captured before the pure repair.
+  (for (entry changes) (hash-put! reads (car entry) (cdr entry)))
+  (let* ((order (if (zero? assignments) (schedule-order prior) (vector->list positions)))
+         (size (vector-length positions)))
+    (make-%schedule spec order (lambda (key) (hash-ref reads key)) reads ranks readers
+      (%schedule-supported prior)
+      (work size footprints buckets edges assignments checks (* 4 size) (if (zero? assignments) 0 size)))))

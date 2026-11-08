@@ -2,7 +2,8 @@
 (export graph-cache? graph-cache-partition graph-cache-values graph-cache-source
         graph-cache-ref feedback-graph-action publish-feedback-graph
         feedback-graph-revision-action publish-feedback-graph-revision)
-(import :std/iter (only-in :std/list/list filter find delete-duplicates/hash)
+(import :std/iter (only-in :std/list/list filter delete-duplicates/hash)
+        (only-in :std/list/list-builder with-list-builder)
         ./object ./mop ./support/option ./feedback-cache ./lens-laws
         (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
         (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
@@ -20,19 +21,26 @@
     (map (lambda (key) (cons key (.call source .base key))) keys)))
 ;; External footprints are expressed in SCC representatives and deduplicated.
 (def (dependencies partition members)
-  (delete-duplicates/hash (filter (lambda (key) (not (eq? key (car members))))
-    (map (scc.partition-owner partition)
-      (apply append (map (scc.partition-reads partition) members))))))
+  (delete-duplicates/hash
+    (with-list-builder (add)
+      (for (member members)
+        (for (node ((scc.partition-reads partition) member))
+          (let (owner ((scc.partition-owner partition) node))
+            (unless (eq? owner (car members)) (add owner))))))))
 ;; A group resolver supplies ONLY declared external node reads. Its builder must
 ;; close every member equation on the shared carrier using existing lens closure.
 ;; Internal reads belong to cooked self, not to partially constructed cache slots.
 (def (group-code partition members source build)
   (def deps (dependencies partition members))
+  (def allowed (make-hash-table-eq))
+  (for (member members)
+    (for (node ((scc.partition-reads partition) member))
+      (unless (eq? ((scc.partition-owner partition) node) (car members))
+        (hash-put! allowed node #t))))
   (.cc code.Computation. reads: deps .evaluate: (lambda (provider)
     (code.make-success (build members source (lambda (node)
       (def owner ((scc.partition-owner partition) node))
-      (unless (and (memq owner deps) (ormap (lambda (member)
-        (memq node ((scc.partition-reads partition) member))) members)) (error "undeclared external SCC read" node))
+      (unless (hash-key? allowed node) (error "undeclared external SCC read" node))
       (def found (provider owner))
       (unless (and (some? found) (code.success? (some-value found)))
         (error "external feedback group unavailable" node))
@@ -47,8 +55,7 @@
   (graph.declaration (map car (scc.partition-groups partition))
     (map (lambda (members)
       (def key (car members))
-      (def prior (and old (find (lambda (group) (eq? (car group) key))
-                           (scc.partition-groups old-partition))))
+      (def prior (and old (scc.partition-members old-partition key)))
       (def same? (and prior (eq? build (graph-cache-build old)) (equal? members prior)
         (equal? (dependencies partition members) (dependencies old-partition prior))
         (andmap (lambda (node)
@@ -66,9 +73,13 @@
   (lambda (old)
     (unless (or (not old) (graph-cache? old)) (error "feedback graph cache required"))
     (with-lens-checks guards (lambda ()
-      (def frozen (freeze source))
-      (def partition (scc.partition frozen))
-      (def candidate-source (condense old frozen partition build))
+      (def same-source? (and old (eq? source (graph-cache-source old))))
+      (def frozen (if same-source? source (freeze source)))
+      (def partition (if same-source? (graph-cache-partition old) (scc.partition frozen)))
+      (def candidate-source
+        (if (and same-source? (eq? build (graph-cache-build old)))
+          (cache.cache-source (graph-cache-values old))
+          (condense old frozen partition build)))
       (def keys (map car (scc.partition-groups partition)))
       ;; Allocate exactly one candidate inside the guarded approval boundary.
       ;; Returning a second equal wrapper would break publication identity.

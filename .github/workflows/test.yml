@@ -157,3 +157,5 @@ jobs:
           merge-multiple: true
       - name: Run every compiled suite in one process and the complete paired study
         run: time -p just check-built 2 1 4
+      - name: Check certified Graph work and preserved paired controls
+        run: just _test benchmarks/scc-test.ss

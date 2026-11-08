@@ -1,6 +1,6 @@
 ;;; Joint component membership edits before SCC discovery and whole publication.
 (export Fragment. fragment reconfigure revision-action)
-(import (only-in :std/list/list delete-duplicates/hash filter) ./object ./mop
+(import (only-in :std/list/list delete-duplicates/hash filter append-map) ./object ./mop
         ./feedback-graph (prefix-in ./construction-cache cache.) (prefix-in ./generalized-graph graph.)
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; Service contributions use ordinary POO descriptors; code/base remain separate
@@ -17,19 +17,24 @@
 ;; Descriptors/lists and callbacks obey the existing immutable-source discipline.
 (def (reconfigure spec fragments)
   ;; Flatten each provider namespace in deterministic contribution order.
-  (def (collect field) (apply append (map (lambda (part) (.ref part field)) fragments)))
+  (def (collect field) (append-map (lambda (part) (.ref part field)) fragments))
   (def added (collect 'added))
   (def removed (collect 'removed))
+  (def old-keys (.@ spec keys))
+  (def old-index (make-hash-table-eq))
+  (def removed-index (make-hash-table-eq))
+  (for-each (lambda (key) (hash-put! old-index key #t)) old-keys)
   ;; Membership validation applies across all services, not just each descriptor.
   (def (distinct-symbols? names)
     (and (list? names) (andmap symbol? names)
       (= (length names) (length (delete-duplicates/hash names)))))
   (unless (and (distinct-symbols? added) (distinct-symbols? removed)
-               (andmap (lambda (key) (not (memq key (.@ spec keys)))) added)
-               (andmap (lambda (key) (memq key (.@ spec keys))) removed))
+               (andmap (lambda (key) (not (hash-key? old-index key))) added)
+               (andmap (cut hash-key? old-index <>) removed))
     (error "conflicting or stale component membership contributions"))
+  (for-each (lambda (key) (hash-put! removed-index key #t)) removed)
   (graph.reconfigure spec
-    (append (filter (lambda (key) (not (memq key removed))) (.@ spec keys)) added)
+    (append (filter (lambda (key) (not (hash-key? removed-index key))) old-keys) added)
     (collect 'codes) (collect 'bases)))
 
 ;; Stage against the exact approved publication. FUN Reader bind threads that same

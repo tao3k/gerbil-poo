@@ -28,7 +28,7 @@
     (def deps ((graph.schedule-reads scheduled) key))
     ;; New support may merge/split SCCs. Only an existing slot with identical
     ;; code/base and clean declared readers can survive; new slots always build.
-    (def invalid? (or (not old) (not (memq key (.@ (cache-source old) keys)))
+    (def invalid? (or (not old) (not (graph.schedule-supports? (cache-scheduled old) key))
       (not (eq? code (.call (cache-source old) .code key)))
       (not (eq? (.call spec .base key) (.call (cache-source old) .base key)))
       (ormap (cut hash-ref dirty <>) deps)))

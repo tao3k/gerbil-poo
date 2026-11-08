@@ -1,61 +1,137 @@
-;;; Automatic strongly connected components of declared finite read graphs.
-(export partition partition? partition-groups partition-owner partition-reads)
-(import :std/iter (only-in :std/list/list filter foldl delete-duplicates/hash)
-        ./object (prefix-in ./generalized-graph graph.))
-;; Private admitted partition; representatives are first members in source order.
-(defstruct %partition (groups owner reads) final: #t)
-;; Recognize only admitted partitions.
+;;; Iterative Tarjan partition over captured finite POO computation footprints.
+(export partition partition? partition-groups partition-owner partition-reads
+        partition-members partition-work)
+(import :std/iter (only-in :std/list/list delete-duplicates/hash)
+        ./object)
+;; Public groups/representatives retain source order, independently of DFS order.
+(defstruct %partition (groups owner reads members work) final: #t)
 (def partition? %partition?)
-;; Inspect ordered member lists.
 (def partition-groups %partition-groups)
-;; Map a supported node to its stable representative.
 (def partition-owner %partition-owner)
-;; Inspect the validated node footprint.
 (def partition-reads %partition-reads)
-;; Collect a finite declared reachability set using one tail-recursive worklist.
-;; Only sets for the current group remain live; std hash tables own membership.
-(def (%reachable reads root)
-  (def seen (make-hash-table-eq))
-  (let visit ((pending [root]))
-    (if (null? pending) seen
-      (let ((key (car pending)) (rest (cdr pending)))
-        (if (hash-key? seen key) (visit rest)
-          (begin
-            (hash-put! seen key #t)
-            (visit (append (hash-ref reads key) rest))))))))
-;; Validate the entire footprint before traversal, including unreachable nodes.
-;; Reachability is reflexive; singleton self loops remain atomic groups too.
+(def partition-work %partition-work)
+(def (partition-members part representative) (hash-get (%partition-members part) representative))
+(def (work-receipt owner-count input-edges discoveries-count edges-count finish-count
+                   pop-count normalized-count group-count span-buckets span-edges quotient-count)
+  (.o validation-owners: owner-count validation-edges: input-edges
+      discoveries: discoveries-count edge-visits: edges-count finishes: finish-count
+      member-pops: pop-count normalization-owners: normalized-count groups: group-count
+      certificate-buckets: span-buckets certificate-edges: span-edges
+      quotient-edges: quotient-count))
+
 (def (partition spec)
   (def keys (.@ spec keys))
   (unless (and (list? keys) (andmap symbol? keys)
                (= (length keys) (length (delete-duplicates/hash keys))))
     (error "distinct finite component keys required"))
   (def reads (make-hash-table-eq))
+  (def supported (make-hash-table-eq))
   (def reverse-reads (make-hash-table-eq))
+  (def indices (make-hash-table-eq))
+  (def low (make-hash-table-eq))
+  (def active (make-hash-table-eq))
   (def owners (make-hash-table-eq))
-  (for-each (lambda (key) (hash-put! reverse-reads key [])) keys)
+  (def stack [])
+  (def next 0)
+  (def component 0)
+  (def declared-edges 0)
+  (def examined-edges 0)
+  (def finished 0)
+  (def popped 0)
+  (for (key keys) (hash-put! supported key #t) (hash-put! reverse-reads key []))
+  ;; Validate every declaration before DFS, including disconnected owners.
   (for (key keys)
     (def code (.call spec .code key))
     (def deps (if code (.@ code reads) []))
-    (unless (and (list? deps) (andmap (lambda (dep) (memq dep keys)) deps))
+    (unless (and (list? deps) (andmap (cut hash-key? supported <>) deps))
       (error "unsupported component read" key deps))
     (def unique (delete-duplicates/hash deps))
     (hash-put! reads key unique)
-    (for-each (lambda (dep) (hash-update! reverse-reads dep (cut cons key <>))) unique))
-  ;; Preserve source-order representatives while sharing discovery by component.
-  ;; A forward set alone would incorrectly merge downstream one-way dependencies.
-  (def groups (foldl (lambda (key result)
-    (if (hash-key? owners key) result
-      (let (members
-        ;; An already assigned group is a distinct completed SCC. If every
-        ;; non-self predecessor is assigned, no new cycle can enter this key.
-        ;; Isolated nodes, self loops and dependency chains need no visited sets.
-        (if (andmap (lambda (prior) (or (eq? prior key) (hash-key? owners prior)))
-                    (hash-ref reverse-reads key))
-          [key]
-          (let ((forward (%reachable reads key)) (backward (%reachable reverse-reads key)))
-            (filter (lambda (other)
-              (and (hash-key? forward other) (hash-key? backward other))) keys))))
-        (for-each (lambda (member) (hash-put! owners member key)) members)
-        (cons members result)))) [] keys))
-  (make-%partition (reverse groups) (cut hash-ref owners <>) (cut hash-ref reads <>)))
+    (for (dep unique) (hash-put! reverse-reads dep (cons key (hash-ref reverse-reads dep))))
+    (set! declared-edges (+ declared-edges (length deps))))
+  (def (enter key)
+    (hash-put! indices key next)
+    (hash-put! low key next)
+    (set! next (1+ next))
+    (hash-put! active key #t)
+    (set! stack (cons key stack))
+    (cons key (hash-ref reads key)))
+  ;; Frames are private immutable (owner . remaining-successors) work items.
+  ;; Native tail calls, not the host call stack, carry arbitrarily deep paths.
+  (for (root keys)
+    (unless (hash-key? indices root)
+      (let walk ((frames (list (enter root))))
+        (unless (null? frames)
+          (let* ((frame (car frames)) (key (car frame))
+                 (pending (cdr frame)) (parents (cdr frames)))
+            (if (pair? pending)
+              (let* ((dep (car pending))
+                     (resumed (cons (cons key (cdr pending)) parents)))
+                (set! examined-edges (1+ examined-edges))
+                (cond
+                  ((not (hash-key? indices dep)) (walk (cons (enter dep) resumed)))
+                  ((hash-key? active dep)
+                   (hash-put! low key (min (hash-ref low key) (hash-ref indices dep)))
+                   (walk resumed))
+                  (else (walk resumed))))
+              (begin
+                (set! finished (1+ finished))
+                (when (= (hash-ref low key) (hash-ref indices key))
+                  (let pop ()
+                    (let (member (car stack))
+                      (set! stack (cdr stack))
+                      (hash-remove! active member)
+                      (hash-put! owners member component)
+                      (set! popped (1+ popped))
+                      (unless (eq? member key) (pop))))
+                  (set! component (1+ component)))
+                (when (pair? parents)
+                  (let (parent (caar parents))
+                    (hash-put! low parent (min (hash-ref low parent) (hash-ref low key)))))
+                (walk parents))))))))
+  ;; Normalize once in source order. Reuse owners for the final representative;
+  ;; transient component integers never escape as Module identities.
+  (let ((representatives (make-hash-table-eq))
+        (members (make-hash-table-eq)) (ranks (make-hash-table-eq)) (order []))
+    (for (key keys)
+      (let* ((id (hash-ref owners key)) (prior (hash-get representatives id))
+             (representative (or prior key)))
+        (unless prior
+          (hash-put! representatives id key)
+          (hash-put! ranks key id)
+          (hash-put! members key [])
+          (set! order (cons key order)))
+        (hash-put! members representative (cons key (hash-ref members representative)))
+        (hash-put! owners key representative)))
+    (let (groups (for/collect (representative (reverse order))
+                  (let (group (reverse (hash-ref members representative)))
+                    (hash-put! members representative group) group)))
+      ;; Independent linear certificate corresponding to ComponentWitness:
+      ;; two within-group spanning walks and strictly decreasing quotient ranks.
+      ;; A bad discovery cannot publish an over-merged or split partition.
+      (let ((forward-seen (make-hash-table-eq)) (backward-seen (make-hash-table-eq))
+            (certificate-buckets 0) (certificate-edges 0) (quotient-edges 0))
+        (def (span adjacency seen root)
+          (let walk ((pending (list root)))
+            (unless (null? pending)
+              (let ((key (car pending)) (rest (cdr pending)))
+                (if (hash-key? seen key) (walk rest)
+                  (let (row (hash-ref adjacency key))
+                    (hash-put! seen key #t)
+                    (set! certificate-buckets (1+ certificate-buckets))
+                    (set! certificate-edges (+ certificate-edges (length row)))
+                    (walk (append (filter (lambda (dep) (eq? (hash-ref owners dep) root)) row) rest))))))))
+        (for (group groups)
+          (span reads forward-seen (car group))
+          (span reverse-reads backward-seen (car group)))
+        (for (key keys)
+          (unless (and (hash-key? forward-seen key) (hash-key? backward-seen key))
+            (error "invalid SCC spanning certificate" key))
+          (for (dep (hash-ref reads key))
+            (set! quotient-edges (1+ quotient-edges))
+            (let ((consumer (hash-ref owners key)) (provider (hash-ref owners dep)))
+              (unless (or (eq? consumer provider) (< (hash-ref ranks provider) (hash-ref ranks consumer)))
+                (error "invalid SCC quotient certificate" key dep)))))
+        (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
+          (work-receipt next declared-edges next examined-edges finished popped next component
+            certificate-buckets certificate-edges quotient-edges))))))
