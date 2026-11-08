@@ -18,7 +18,7 @@ only when its current, already-owned partition supplies it.
 
 | Source | What informs this work | What it does not establish |
 |--------+-------------------------+----------------------------|
-| [[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L2084][POOF, generalized prototypes]] | Composition, fragments/lenses and the cache-invalidation research direction | A particular graph algorithm or a node-count threshold |
+| [[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L983][POOF, representation and sharing]] | Shared dictionaries/lazy instances, object-owned memoization and explicit mutation invalidation | A measured universal hash speed, SCC engine or node-count threshold |
 | [[https://whileydave.com/publications/Pea16_IPL_preprint.pdf][Pearce, space-efficient SCC]] | Nonrecursive traversal, merged state and reduced auxiliary storage | Scheme heap bytes: object headers, hashes, GC and adjacency are separate costs |
 | [[https://www.cs.princeton.edu/courses/archive/spr09/cos423/Lectures/bi-gabow.pdf][Gabow, path-based DFS]] | A linear path/stack-based alternative to lowlink bookkeeping | Universal superiority over Tarjan; the paper notes platform-dependent differences |
 | [[https://arxiv.org/pdf/1703.10023][Mehlhorn/Naher/Sanders, engineering DFS]] | Representation and implementation engineering must be compared alongside algorithm names | Transferring its measured speedups to Gerbil |
@@ -200,3 +200,124 @@ invalid SCC quotient certificate. The original source was restored, rebuilt and
 passed its properties again; the focused make projection passed build-test too.
 Final exact-head POO Scheme CI remains an independent gate. Yuanxu revisions remain
 on hold.
+
+* POOF sharing and the existing POO implementation
+
+The earlier mapping emphasized Appendix B and future work too narrowly. The
+main text already discusses [[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L995][sharing dictionary computation]],
+[[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L1060][prototype/instance sharing]],
+[[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L1525][cache invalidation and Gerbil POO's purity default]], and
+[[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L2344][preserving precomputation across fixed-point calls]]. It permits hash tables
+and balanced trees; it does not identify either with a universally fastest layout.
+
+Apply that guidance through existing owners:
+
+| Concern | Existing owner/mechanism | Graph obligation |
+|---------+--------------------------+------------------|
+| Shared effective slot values | object.ss receiver-local instance and slot-layout.ss cells | Keep receiver identity, missing/false distinction and supported invalidation |
+| Name-to-cell addressing | Existing shape index and guarded slot site | Reuse the certified index; never retain an offset across an invalid shape |
+| Persistent ordered declarations | prototype-map.ss and standard RBTree | Preserve contribution order, first-name identity and private snapshot ownership |
+| Captured graph lookups | Existing owner/member, adjacency and reverse indices | Share immutable rows within the captured graph; preserve source/currentness boundaries |
+| Traversal state | Private equality hash plus contiguous cells | Avoid repeated list membership or per-edge temporary objects; no approval cache |
+
+Use Gerbil's existing identity hash tables, :std/hash/misc helpers, standard
+vectors/byte vectors and :std/struct/rbtree. Preserve symbolic admission and
+uninterned-symbol identity; absence is not a cached false value. Private mutable
+work tables may accelerate a pure result without exposing mutable storage.
+The graph algorithms keep ordinary POO objects/prototypes as their public path.
+
+A captured structural index can be shared within one admitted source version.
+That does not make a previous source stamp, final admission or callback outcome
+current. Keep checks before/after author effects and publication. Do not add a
+second hash cache alongside the existing POO slot store or a global graph registry.
+
+* Packed production SCC and measured limits
+
+The production strong-components discovery path now encodes captured symbolic
+rows into private source-order IDs, u32 offsets and targets (CSR). Iterative
+Tarjan keeps the current node/cursor/end in loop parameters; saved activation
+frames and member stacks use checked u32 vectors. The edge loop performs no
+symbolic hash lookup or per-edge cons allocation. One standard symbolic table
+owns owner-to-ID conversion; its concrete standard accessor is selected once,
+only for the table created here. Symbol guards and representation checks remain.
+There is no custom hash algorithm, shared scratch workspace or approval cache.
+
+State zero is fresh; 1..N encodes active discovery+1; N+1+component is retired.
+The existing wide implementation covers graphs outside the packed word domain.
+This is representation dispatch, not an empirically invented size threshold.
+All unique captured edges are traversed, including edges to retired components.
+Original symbolic owner identities and source-order groups remain public.
+Normalization and the independent spanning/quotient certificate are unchanged.
+Transient layout/state dies before normalization and certification.
+
+LeanPoo PR #16 commit acd25ed proves exact packed row order/bounds, borrowed
+frame pending-prefix equivalence, fresh-frame capacity, disjoint state codes,
+retired-ID round trips and u32 bounds. Its complete CI passed. These are
+representation obligations, not a proof of the Scheme compiler or a replacement
+for independent ComponentWitness certification and bounded differential tests.
+
+Local actual-production measurements, coherent Homebrew Gerbil/Gambit, 2 GiB,
+serial build then tests, zero business provider evaluation:
+
+| V | shape | E | SCC discovery CPU / wall ms | symbolic output CPU / wall ms |
+|---+-------+---+----------------------------+-------------------------------|
+| 100000 | chain | 99999 | 10.82 / 10.84 | 4.01 / 4.02 |
+| 100000 | ring | 100000 | 12.95 / 13.31 | 32.19 / 32.27 (27.88 GC) |
+| 100000 | band | 1599864 | 22.75 / 22.79 | 3.30 / 3.30 |
+| 1000000 | chain | 999999 | 110.09 / 110.10 | 62.57 / 62.57 |
+| 1000000 | ring | 1000000 | 115.75 / 118.81 | 71.53 / 79.15 |
+| 1000000 | band | 15999864 | 239.10 / 239.79 | 71.36 / 71.88 |
+
+These are phases on a prepared index, not a millisecond claim for complete cold
+source admission and partition certification. On the same million-node band,
+encoding cost 767.50 ms CPU / 770.80 ms wall; complete ordered reachability cost
+149.01-150.65 ms CPU / 149.57-150.97 ms wall. The enclosing encoding+first-query
+window cost 920.60 / 930.56 ms. The hash reachability reference took
+1448.94-1563.52 ms CPU, including 346.47-500.34 ms GC. It is a different operation
+from SCC, so do not label this 1.48-second comparison an SCC speedup. Cold SCC
+encoding, symbolic output, normalization and independent certification all count.
+
+The official compact-benchmark-test calls the actual private production engine;
+it does not retain a second test-only SCC implementation. All reported traversal
+results require exact N discoveries/finishes/pops, E examined edges, full groups
+and original owner order. All 512 three-owner graphs, existing seeded properties
+and same-spelling uninterned-symbol identities exercise the production path.
+Keep mutation/failure controls separate from ordinary timing.
+
+* Scientific test preparation and remaining work
+
+The 6394e95 complete remote Scheme workflow passed; its compiled suites took
+3m17s, then the Graph study took 15m40s. Much of the latter was repeated large
+POO source-factory construction in membership setup, not the graph edge loop.
+
+The capacity membership study now borrows its already-certified chain/pairs/ring
+partitions. Reordered cases are independently repartitioned and certified from
+captured historical rows, with zero NEW author/declaration validation reported.
+It does not fabricate partitions or time the same partition object against
+itself. A bounded control compares every membership-observable group, owner,
+member list and cardinality with the original fixtures. All original small
+membership/differential rules, capacity shapes and change expectations remain.
+Release retained fixtures before the million-node band to protect the same heap.
+Captured fixture preparation remains timed and is labelled separately.
+
+Same-input dense-versus-packed discovery uses natural ABBA and collected BAAB;
+packed windows include encoding and symbolic output. A prepared phase-only
+measurement is never substituted for that cold comparison. Every included
+Scheme source is declared as a standard make input so edits cannot run stale
+compiled controls. The earlier hash-versus-dense study and matched lowlink fault
+remain historical evidence, not proof of the current engine.
+
+The unconditional hash visited-set candidate for recursive-validation.reachable
+was rejected: small one-owner requests allocated roughly 30 times more and ran
+slower than list membership. It remains a test-only reference; the production
+operation is unchanged. Lean OrderedReachability proves ordered finite-prefix
+refinement, not that paying full index setup on every tiny request is beneficial.
+A future sparse-query policy must protect this case and charge all setup.
+
+Remaining bottlenecks are cold owner-to-ID conversion, duplicate support/index
+work during source capture, full normalization/certification, and the separate
+whole-roster invalidation saturation in revise-validation. Fuse/reuse only pure
+captured work owned by the same source version; do not skip author admission or
+checks across effects. Existing feedback-graph already reuses the published
+partition for an identical frozen source; this change adds no cross-call cache.
+Keep Yuanxu revisions held until POO qualification is complete.

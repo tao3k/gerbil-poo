@@ -74,7 +74,9 @@
     ("declarations"
     (gxc: "generalized-declaration-test" (extra-inputs: ("generalized-declaration/catalog-inference.scm" "generalized-declaration/declarative-metadata.scm" "generalized-declaration/cases.scm" "generalized-declaration/meta-prototype.scm" "generalized-declaration/recursive-declaration.scm"))))
     ("feedback"
-    (gxc: "graph-algorithms-test" (extra-inputs: ("graph-algorithms/baseline.scm")))
+    (gxc: "graph-algorithms-test" (extra-inputs: ("graph-algorithms/baseline.scm"
+      "graph-algorithms/discovery-study.scm"
+      "graph-algorithms/compact.scm")))
     (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.scm" "feedback-closure/feedback-cache.scm" "feedback-closure/cases.scm")))
     "feedback-graph-test"
     "feedback-revision-test")

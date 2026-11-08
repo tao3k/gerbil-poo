@@ -37,3 +37,25 @@
         (for-each (lambda (member) (hash-put! owners member key)) members)
         (cons members result)))) [] keys))
   (reverse groups))
+
+;; Exact ordered list-membership walk frozen from recursive-validation 6394e95.
+;; Bounded semantic oracle only; never time its quadratic capacity behavior.
+(def (list-reachable-order dependencies root)
+  (let loop ((todo (list root)) (seen []))
+    (if (null? todo) seen
+      (if (memq (car todo) seen) (loop (cdr todo) seen)
+        (loop (append (hash-ref dependencies (car todo)) (cdr todo)) (cons (car todo) seen))))))
+
+;; Rejected as an unconditional runtime default: small requests pay excessive
+;; setup/allocation. Retained ONLY as the indexed capacity-study reference.
+(def (hash-reachable dependencies root)
+  ;; Invocation-local membership index; keep the original reverse-discovery list.
+  ;; Lean OrderedReachability preserves every finite prefix and visit order.
+  ;; Source/currentness and admission checks remain at their original callers.
+  (def visited (make-hash-table-eq))
+  (let loop ((todo (list root)) (seen []))
+    (if (null? todo) seen
+      (let (key (car todo))
+        (if (hash-key? visited key) (loop (cdr todo) seen)
+          (begin (hash-put! visited key #t)
+            (loop (append (hash-ref dependencies key) (cdr todo)) (cons key seen))))))))

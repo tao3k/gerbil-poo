@@ -1,6 +1,7 @@
 ;;; Graph properties and scale accounting through the existing POO APIs.
-(export graph-algorithms-test main)
+(export graph-algorithms-test main small-reachability-study compact-study)
 (import :std/test :std/iter :clan/poo/object :clan/poo/mop
+        (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         :clan/poo/type :clan/poo/number (prefix-in :clan/poo/testing/type typed.)
         (only-in :clan/poo/support/testing require-property-passed)
         (only-in :clan/poo/benchmarks/closure-measure measure)
@@ -11,6 +12,8 @@
         (prefix-in :clan/poo/recursive-topology topology.)
         (prefix-in :clan/poo/component-revision component.))
 (include "graph-algorithms/baseline.scm")
+(include "graph-algorithms/discovery-study.scm")
+(include "graph-algorithms/compact.scm")
 
 (def (names size)
   (list->vector (for/collect (i (in-range size))
@@ -50,6 +53,7 @@
 (def (matches? keys rows)
   (let* ((expected (oracle-groups keys rows)) (part (scc.partition (source keys rows))))
     (and (equal? expected (scc.partition-groups part))
+      (discovery-controls part (vector->list keys))
       (equal? expected (baseline-partition (source keys rows)))
       (andmap (lambda (members)
         (and (equal? (scc.partition-members part (car members)) members)
@@ -161,6 +165,44 @@
        (values (group-partition groups) (group-partition (map reverse (reverse groups))) [])))
     (else (error "unknown membership comparison" kind))))
 
+;; changed-members observes only groups and the existing owner/member indices.
+;; Reuse public capacity partitions; a reordered historical view is independently
+;; repartitioned/certified from its captured rows, without new author getters.
+(def (reordered-partition part keys)
+  (def rows (captured-rows part keys))
+  (partition-captured keys rows (.@ (scc.partition-work part) edge-visits) 0 0))
+
+(def (prepared-comparison kind size single pairs giant)
+  (def keys (vector->list (names size)))
+  (case kind
+    ((giant-unchanged) (values giant (reordered-partition giant (reverse keys)) []))
+    ((isolated-unchanged) (values single (reordered-partition single (reverse keys)) []))
+    ((merge) (values single giant keys))
+    ((split) (values giant single keys))
+    ((pairs-unchanged) (values pairs (reordered-partition pairs (reverse keys)) []))
+    (else (error "unknown prepared membership comparison" kind))))
+
+(def (membership-observation part keys)
+  (list (scc.partition-groups part)
+    (map (lambda (key) (list ((scc.partition-owner part) key)
+                             (scc.partition-group-of part key)
+                             (scc.partition-group-size part key)
+                             (scc.partition-members part key))) keys)))
+
+(def (membership-capacity size single pairs giant)
+  (for (kind (if (= size 100000) '(giant-unchanged isolated-unchanged merge split pairs-unchanged)
+                                    '(giant-unchanged merge split)))
+    (let-values (((inputs preparation) (measure
+                   (lambda () (let-values (((before after expected)
+                                  (prepared-comparison kind size single pairs giant)))
+                     (vector before after expected))) 1)))
+      (let-values (((result comparison) (measure
+                     (lambda () (topology.changed-members (vector-ref inputs 0) (vector-ref inputs 1))) 1)))
+        (unless (equal? result (vector-ref inputs 2)) (error "membership scale oracle" size kind))
+        (display "GRAPH-MEMBERSHIP-SCALE ")
+        (write (list kind size (cons 'captured-partition-preparation preparation)
+                     (cons 'indexed-comparison comparison))) (newline)))))
+
 (def graph-algorithms-test
   (test-suite "indexed Graph properties and scale"
     (test-case "all 512 directed three-owner graphs agree with reachability"
@@ -228,6 +270,24 @@
         (list (component.fragment '(a b) [] [])
               (component.fragment '(c d) [] []))))
       (check-equal? (.@ revised keys) '(old a b c d)))
+    (test-case "prepared membership fixtures preserve every observed index"
+      (def size 16) (def keys (vector->list (names size)))
+      (def single (scc.partition (family-source 'self size)))
+      (def pairs (scc.partition (family-source 'pairs size)))
+      (def giant (scc.partition (family-source 'ring size)))
+      (for (kind '(giant-unchanged isolated-unchanged merge split pairs-unchanged))
+        (let-values (((old-a old-b expected) (comparison-input kind size))
+                     ((new-a new-b actual) (prepared-comparison kind size single pairs giant)))
+          (check-equal? actual expected)
+          (check-equal? (membership-observation new-a keys) (membership-observation old-a keys))
+          (check-equal? (membership-observation new-b keys) (membership-observation old-b keys))
+          (check-equal? (topology.changed-members new-a new-b) expected))))
+    (test-case "compact IDs retain distinct same-spelling symbol identities"
+      (def a (string->uninterned-symbol "same-owner"))
+      (def b (string->uninterned-symbol "same-owner"))
+      (def keys (vector a b))
+      (check (eq? a b) => #f)
+      (check (matches? keys (vector (list b) (list a))) => #t))
     (test-case "representative lookup is exact and does not alias a non-representative"
       (def part (scc.partition (family-source 'pairs 10000)))
       (check-equal? (length (scc.partition-groups part)) 5000)
@@ -239,6 +299,7 @@
 ;; The existing SCC benchmark entry invokes this alongside its unchanged matrix.
 ;; Source construction and partitioning have separate process-statistics rows.
 (def (main)
+  (def prepared (vector #f #f))
   (for* ((size '(100000 1000000))
          (family (if (= size 100000) '(isolated self chain pairs ring hub band) '(chain pairs ring band))))
     (defvalues (spec preparation) (measure (lambda () (metadata-family-source family size)) 1))
@@ -248,6 +309,15 @@
     (unless (= (vector-ref getter-counts 1) (.@ (scc.partition-work part) validation-edges))
       (error "getter/capture edge count disagreement" family size))
     (check-scale part family size)
+    (case family
+      ((chain) (vector-set! prepared 0 part))
+      ((pairs) (vector-set! prepared 1 part))
+      ((ring)
+       (membership-capacity size (vector-ref prepared 0) (vector-ref prepared 1) part)
+       ;; Release every retained fixture before the degree-16 million-node band.
+       (vector-set! prepared 0 #f) (vector-set! prepared 1 #f)))
+    (when (memq family '(chain ring band))
+      (discovery-study part (.@ spec keys) family size))
     (display "GRAPH-SCALE ")
     (write (list family size (cons 'source-preparation preparation)
       (cons 'metadata-getter-pass getter-cost) (cons 'partition-including-getter traversal) (cons 'work (.alist/sort (scc.partition-work part)))))
@@ -266,18 +336,8 @@
             (set! observations (cons (list side costs) observations))))
         (display "GRAPH-MEMBERSHIP-PAIR ")
         (write (list size regime order (reverse observations))) (newline))))
-  (for* ((size '(100000 1000000))
-         (kind (if (= size 100000) '(giant-unchanged isolated-unchanged merge split pairs-unchanged)
-                    '(giant-unchanged merge split))))
-    (let-values (((inputs preparation) (measure
-                   (lambda () (let-values (((before after expected) (comparison-input kind size)))
-                     (vector before after expected))) 1)))
-      (let-values (((result comparison) (measure
-                     (lambda () (topology.changed-members (vector-ref inputs 0) (vector-ref inputs 1))) 1)))
-        (unless (equal? result (vector-ref inputs 2)) (error "membership scale oracle" size kind))
-        (display "GRAPH-MEMBERSHIP-SCALE ")
-        (write (list kind size (cons 'source-and-partition-preparation preparation)
-                     (cons 'indexed-comparison comparison))) (newline))))
   (displayln "GRAPH-MEMBERSHIP-OK bounded-pairs=32 sizes=100000,1000000")
   (displayln "GRAPH-SCALE-OK sizes=100000,1000000 shapes=7,4")
+  (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
+  (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (void))

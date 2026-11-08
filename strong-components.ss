@@ -4,7 +4,10 @@
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
         partition-members partition-group-of partition-group-size partition-work)
-(import :std/iter (only-in :std/list/list delete-duplicates/hash)
+(import :std/iter
+        (only-in :gerbil/runtime/interface interface-instance-object)
+        (only-in :gerbil/runtime/hash symbol-hash-table?)
+        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!) (only-in :std/list/list delete-duplicates/hash foldl)
         ./object)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners) final: #t)
@@ -38,7 +41,7 @@
 ;; Reuse the existing owner index; lowlinks/active flags are contiguous cells.
 ;; A frame is #(owner discovery-slot remaining-edges). Only its tail changes;
 ;; the SCC stack observes the unchanged owner/slot (DiscoveryFrame law).
-(def (discover keys reads)
+(def (discover-wide keys reads)
   (def indices (make-hash-table-eq))
   (def low (make-vector (length keys) 0))
   (def active (make-vector (length keys) #f))
@@ -90,6 +93,138 @@
                 (walk parents))))))))
   (values owners next component examined finished popped))
 
+(defstruct compact-graph (names positions offsets targets) final: #t)
+
+(def (capture-compact keys reads edges)
+  (def count (length keys))
+  (unless (and (fixnum? count) (fixnum? (1+ count)) (fixnum? edges) (<= 0 count 4294967295)
+               (<= 0 edges 4294967295))
+    (error "compact Graph word range" count edges))
+  (def names (list->vector keys))
+  (def positions (make-hash-table-symbolic size: count))
+  ;; This concrete table is created here, without locks, weak keys or hooks.
+  ;; Unwrap once; the standard specialized accessor needs no per-edge interface
+  ;; dispatch. Public Graph queries still accept original symbolic owners.
+  (def raw-positions (interface-instance-object positions))
+  (unless (symbol-hash-table? raw-positions) (error "compact symbolic index representation"))
+  (let assign ((rest keys) (index 0))
+    (unless (null? rest)
+      (unless (symbol? (car rest)) (error "symbolic compact owner required" (car rest)))
+      (symbolic-table-set! raw-positions (car rest) index)
+      (assign (cdr rest) (fx+ index 1))))
+  (unless (= count (hash-length positions)) (error "distinct compact Graph owners required"))
+  (def offsets (make-u32vector (fx+ count 1) 0))
+  (def targets (make-u32vector edges 0))
+  (let owner ((rest keys) (index 0) (cursor 0))
+    (u32vector-set! offsets index cursor)
+    (if (null? rest)
+      (unless (= cursor edges) (error "compact Graph edge count changed" cursor edges))
+      (let fill ((pending (hash-ref reads (car rest))) (cursor cursor))
+        (if (null? pending) (owner (cdr rest) (fx+ index 1) cursor)
+          (begin
+            (let* ((dep (car pending))
+                   (id (and (symbol? dep) (symbolic-table-ref raw-positions dep #f))))
+              ;; Zero is a present ID. Misses retain the ordinary key refusal;
+              ;; malformed non-symbols never enter the specialized primitive.
+              (unless id
+                (if (symbol? dep) (hash-ref positions dep)
+                  (error "symbolic compact target required" dep)))
+              (u32vector-set! targets cursor id))
+            (fill (cdr pending) (fx+ cursor 1)))))))
+  (make-compact-graph names positions offsets targets))
+
+;; Numeric Tarjan over the exact CSR rows. This is the existing algorithm:
+;; discovery order, lowlinks and pop order are unchanged. No hash per edge.
+;; state 0 = fresh; 1..N = active discovery+1; N+1+component = retired.
+(def (compact-discover graph)
+  (def offsets (compact-graph-offsets graph))
+  (def targets (compact-graph-targets graph))
+  (def count (vector-length (compact-graph-names graph)))
+  (unless (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295))
+    (error "compact SCC state word range" count))
+  (def state (make-u32vector count 0)) (def low (make-u32vector count 0))
+  (def members (make-u32vector count 0))
+  (def saved-nodes (make-u32vector count 0))
+  (def saved-cursors (make-u32vector count 0))
+  (def saved-ends (make-u32vector count 0))
+  (def next 0) (def component 0) (def member-top 0)
+  (def examined 0) (def finished 0) (def popped 0)
+  (def (enter node)
+    (set! next (fx+ next 1))
+    (u32vector-set! state node next) (u32vector-set! low node next)
+    (u32vector-set! members member-top node)
+    (set! member-top (fx+ member-top 1)))
+  (for (root (in-range count))
+    (when (fx= (u32vector-ref state root) 0)
+      (enter root)
+      (let walk ((node root) (top 0) (cursor (u32vector-ref offsets root))
+                 (end (u32vector-ref offsets (fx+ root 1))))
+        (if (fx< cursor end)
+          (let* ((dep (u32vector-ref targets cursor)) (next-cursor (fx+ cursor 1))
+                 (dep-state (u32vector-ref state dep)))
+            (set! examined (fx+ examined 1))
+            (cond
+              ((fx= dep-state 0)
+               (u32vector-set! saved-nodes top node)
+               (u32vector-set! saved-cursors top next-cursor)
+               (u32vector-set! saved-ends top end)
+               (enter dep)
+               (walk dep (fx+ top 1) (u32vector-ref offsets dep)
+                     (u32vector-ref offsets (fx+ dep 1))))
+              ((fx<= dep-state count)
+               (let (prior (u32vector-ref low node))
+                 (when (fx< dep-state prior) (u32vector-set! low node dep-state)))
+               (walk node top next-cursor end))
+              (else (walk node top next-cursor end))))
+          (let (node-low (u32vector-ref low node))
+            (set! finished (fx+ finished 1))
+            (when (fx= node-low (u32vector-ref state node))
+              (let pop ()
+                (set! member-top (fx- member-top 1))
+                (let (member (u32vector-ref members member-top))
+                  (u32vector-set! state member (fx+ (fx+ count 1) component))
+                  (set! popped (fx+ popped 1))
+                  (unless (fx= member node) (pop))))
+              (set! component (fx+ component 1)))
+            (unless (fx= top 0)
+              (let* ((parent-top (fx- top 1)) (parent (u32vector-ref saved-nodes parent-top))
+                     (parent-low (u32vector-ref low parent)))
+                (when (fx< node-low parent-low) (u32vector-set! low parent node-low))
+                (walk parent parent-top (u32vector-ref saved-cursors parent-top)
+                      (u32vector-ref saved-ends parent-top)))))))))
+  (unless (fx= member-top 0) (error "compact SCC live members after discovery" member-top))
+  (vector state next component examined finished popped))
+
+(def (compact-component-owners graph result)
+  (def names (compact-graph-names graph))
+  (def count (vector-length names))
+  (def state (vector-ref result 0))
+  (def owners (make-hash-table-symbolic size: count))
+  (def raw-owners (interface-instance-object owners))
+  (unless (symbol-hash-table? raw-owners) (error "compact owner index representation"))
+  (for (node (in-range count))
+    (let (retired (u32vector-ref state node))
+      (unless (fx> retired count) (error "compact SCC unretired owner" node retired))
+      (symbolic-table-set! raw-owners (vector-ref names node) (fx- (fx- retired count) 1))))
+  owners)
+
+(def (compact-discovery-result graph)
+  (let (result (compact-discover graph))
+    (vector-set! result 0 (compact-component-owners graph result)) result))
+
+;; Private layout refinement of the existing discovery operation. No public
+;; representation or Module identity changes, no shared traversal workspace.
+;; Word-domain dispatch preserves the original wide representation outside u32.
+(def (discover keys reads (captured-edges #f))
+  (def count (length keys))
+  (def edges (or captured-edges (foldl (lambda (key n) (+ n (length (hash-ref reads key)))) 0 keys)))
+  (if (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)
+           (fixnum? edges) (<= edges 4294967295))
+    (let (result (compact-discovery-result (capture-compact keys reads edges)))
+      (values (vector-ref result 0) (vector-ref result 1) (vector-ref result 2)
+              (vector-ref result 3) (vector-ref result 4) (vector-ref result 5)))
+    (discover-wide keys reads)))
+
 ;; The component-ID map is transient: normalization returns only final indices.
 (def (normalize keys owners)
   (def representatives (make-hash-table-eq))
@@ -116,7 +251,7 @@
     (error "distinct finite component keys required"))
   (def reads (make-hash-table-eq))
   (def supported (make-hash-table-eq))
-  (def declared-edges 0)
+  (def declared-edges 0) (def captured-edges 0)
   (for (key keys) (hash-put! supported key #t))
   ;; Validate every declaration before DFS, including disconnected owners.
   (for (key keys)
@@ -124,9 +259,17 @@
     (def deps (if code (.@ code reads) []))
     (unless (and (list? deps) (andmap (cut hash-key? supported <>) deps))
       (error "unsupported component read" key deps))
-    (hash-put! reads key (delete-duplicates/hash deps))
+    (let (unique (delete-duplicates/hash deps))
+      (hash-put! reads key unique)
+      (set! captured-edges (+ captured-edges (length unique))))
     (set! declared-edges (+ declared-edges (length deps))))
-  (let-values (((owners next component examined-edges finished popped) (discover keys reads)))
+  (partition-captured keys reads captured-edges (length keys) declared-edges))
+
+;; Pure phase over locally captured immutable rows. Production reaches this only
+;; after validating every author. White-box studies may borrow an already
+;; certified historical partition, charging zero NEW declaration validation.
+(def (partition-captured keys reads captured-edges validation-owners declared-edges)
+  (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges)))
     (let-values (((groups members ranks) (normalize keys owners)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
@@ -176,5 +319,5 @@
           (when (and quotient-error (eq? key (car quotient-error)))
             (error "invalid SCC quotient certificate" key (cdr quotient-error))))
         (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
-          (work-receipt next declared-edges next examined-edges finished popped next component
+          (work-receipt validation-owners declared-edges next examined-edges finished popped next component
             certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges) owners)))))
