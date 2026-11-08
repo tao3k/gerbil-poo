@@ -50,14 +50,13 @@
 (def (matches? keys rows)
   (let* ((expected (oracle-groups keys rows)) (part (scc.partition (source keys rows))))
     (and (equal? expected (scc.partition-groups part))
+      (equal? expected (baseline-partition (source keys rows)))
       (andmap (lambda (members)
         (and (equal? (scc.partition-members part (car members)) members)
           (andmap (lambda (key) (eq? ((scc.partition-owner part) key) (car members))) members))) expected))))
 
-(def (family-source family size)
-  (def keys (names size))
-  (def rows (for/collect (i (in-range size))
-    (case family
+(def (family-reads family keys size i)
+  (case family
       ((isolated) [])
       ((self) (list (vector-ref keys i)))
       ((chain) (if (< (1+ i) size) (list (vector-ref keys (1+ i))) []))
@@ -66,8 +65,33 @@
       ((hub) (if (zero? i) [] (list (vector-ref keys 0))))
       ((band) (filter identity (for/collect (offset (in-range 1 17))
                 (and (>= (- i offset) 0) (vector-ref keys (- i offset))))))
-      (else (error "unknown graph family" family)))))
-  (source keys (list->vector rows)))
+      (else (error "unknown graph family" family))))
+
+(def (family-source family size)
+  (def keys (names size))
+  (source keys (list->vector (for/collect (i (in-range size))
+    (family-reads family keys size i)))))
+
+;; Capacity is graph metadata, not one retained business provider per node.
+;; The existing Declaration getter produces inert metadata from a frozen key
+;; index; partition captures each footprint once. No loader or value cache.
+(def (metadata-family-source family size)
+  (def keys (names size))
+  (def positions (make-hash-table-eq))
+  (for (i (in-range size)) (hash-put! positions (vector-ref keys i) i))
+  (.cc graph.Declaration. keys: (vector->list keys)
+    .code: (lambda (key)
+      (.cc code.Computation. reads: (family-reads family keys size (hash-ref positions key))
+        .evaluate: (lambda (_) (error "Graph capacity must not evaluate a provider"))))
+    .base: (lambda (_) #f)))
+
+(def (metadata-getter-counts spec)
+  (def count 0)
+  (def edges 0)
+  (for (key (.@ spec keys))
+    (let* ((program (.call spec .code key)) (row (if program (.@ program reads) [])))
+      (set! count (1+ count)) (set! edges (+ edges (length row)))))
+  (vector count edges))
 
 (def (family-groups family size)
   (def keys (names size))
@@ -114,9 +138,11 @@
   (def rows (make-hash-table-eq))
   (for (members groups)
     (for ((key members) (next (append (cdr members) (list (car members)))))
-      (hash-put! rows key (list next))))
-  (scc.partition (source (list->vector keys)
-    (list->vector (map (cut hash-ref rows <>) keys)))))
+      (hash-put! rows key next)))
+  (scc.partition (.cc graph.Declaration. keys: keys
+    .code: (lambda (key) (.cc code.Computation. reads: (list (hash-ref rows key))
+      .evaluate: (lambda (_) (error "membership metadata is not a provider"))))
+    .base: (lambda (_) #f))))
 
 (def (comparison-input kind size)
   (def keys (vector->list (names size)))
@@ -210,29 +236,20 @@
 ;; The existing SCC benchmark entry invokes this alongside its unchanged matrix.
 ;; Source construction and partitioning have separate process-statistics rows.
 (def (main)
-  (for* ((size '(10000 100000)) (family '(isolated self chain pairs ring hub band)))
-    (defvalues (spec preparation) (measure (lambda () (family-source family size)) 1))
+  (for* ((size '(100000 1000000))
+         (family (if (= size 100000) '(isolated self chain pairs ring hub band) '(chain pairs ring band))))
+    (defvalues (spec preparation) (measure (lambda () (metadata-family-source family size)) 1))
+    (defvalues (getter-counts getter-cost) (measure (cut metadata-getter-counts spec) 1))
+    (unless (= (vector-ref getter-counts 0) size) (error "metadata enumeration count"))
     (defvalues (part traversal) (measure (cut scc.partition spec) 1))
+    (unless (= (vector-ref getter-counts 1) (.@ (scc.partition-work part) validation-edges))
+      (error "getter/capture edge count disagreement" family size))
     (check-scale part family size)
     (display "GRAPH-SCALE ")
     (write (list family size (cons 'source-preparation preparation)
-      (cons 'partition traversal) (cons 'work (.alist/sort (scc.partition-work part)))))
+      (cons 'metadata-getter-pass getter-cost) (cons 'partition-including-getter traversal) (cons 'work (.alist/sort (scc.partition-work part)))))
     (newline))
-  ;; Same process/source, ABBA and AABB controls, natural and pre-collected GC.
-  ;; Compare the exact former production strategy at 10K. Its quadratic 100K
-  ;; replay is not a capacity gate; candidate capacity is measured above.
-  (for* ((size '(10000)) (regime '(natural collected)) (order '((before after after before) (before before after after))))
-    (let ((spec (family-source 'pairs size)) (expected (family-groups 'pairs size)) (observations []))
-      (for (side order)
-        (let-values (((result costs)
-                      (measure (lambda ()
-                        (if (eq? side 'before) (baseline-partition spec)
-                          (scc.partition-groups (scc.partition spec)))) 1 (eq? regime 'collected))))
-          (unless (equal? result expected)
-            (error "paired SCC membership oracle" side size))
-          (set! observations (cons (list side costs) observations))))
-      (display "GRAPH-PAIR ") (write (list size regime order (reverse observations))) (newline)))
-  ;; Small exact-old-rule controls and 10K/100K candidate windows are separate:
+  ;; Small exact-old-rule controls and 100K/1M candidate windows are separate:
   ;; do not spend the gate proving that the former cubic giant-group scan is slow.
   (for* ((size '(64 256)) (regime '(natural collected))
          (order '((before after after before) (before before after after))))
@@ -246,8 +263,9 @@
             (set! observations (cons (list side costs) observations))))
         (display "GRAPH-MEMBERSHIP-PAIR ")
         (write (list size regime order (reverse observations))) (newline))))
-  (for* ((size '(10000 100000))
-         (kind '(giant-unchanged isolated-unchanged merge split pairs-unchanged)))
+  (for* ((size '(100000 1000000))
+         (kind (if (= size 100000) '(giant-unchanged isolated-unchanged merge split pairs-unchanged)
+                    '(giant-unchanged merge split))))
     (let-values (((inputs preparation) (measure
                    (lambda () (let-values (((before after expected) (comparison-input kind size)))
                      (vector before after expected))) 1)))
@@ -257,6 +275,6 @@
         (display "GRAPH-MEMBERSHIP-SCALE ")
         (write (list kind size (cons 'source-and-partition-preparation preparation)
                      (cons 'indexed-comparison comparison))) (newline))))
-  (displayln "GRAPH-MEMBERSHIP-OK paired-observations=32 sizes=10000,100000 families=5")
-  (displayln "GRAPH-SCALE-OK families=7 sizes=10000,100000 paired-observations=16")
+  (displayln "GRAPH-MEMBERSHIP-OK bounded-pairs=32 sizes=100000,1000000")
+  (displayln "GRAPH-SCALE-OK sizes=100000,1000000 shapes=7,4")
   (void))

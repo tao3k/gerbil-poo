@@ -128,9 +128,9 @@ implementation mutations must fail with their intended semantic errors.
 * Graph measurement boundary
 
 The existing ~just benchmark-scc~ preserves its original 320 observations.
-Its standard TestSuite measures seven fresh-source shapes at 10,000/100,000
-owners, 16 SCC production-baseline observations at 10,000 and 32 full/local
-rank-update observations at 10,000/100,000. The former 1,000-size sample is removed. ABBA/AABB
+The completed intermediate cut at =0a0aeb2= measured 10,000/100,000 nodes.
+The clarified node-capacity contract below replaces those performance sizes
+with 100,000/1,000,000; the older figures remain historical evidence. ABBA/AABB
 and natural/collected GC regimes share the same source in each paired block;
 full group/permutation oracles run outside timing. The frozen former SCC
 strategy is test-only, from ~cd4de64~. Raw logs stay outside source control.
@@ -178,7 +178,7 @@ Historical membership observations never authorize value, source or publication
 reuse. Recursive catalogs retain their existing nonempty admission contract and
 independent before/after currentness checks.
 
-The indexed-membership candidate passed the existing Benchmark TestSuite on
+The indexed-membership cut =0a0aeb2= passed the existing Benchmark TestSuite on
 2026-11-08 with MODULE-OK, HARNESS-OK, final OK and natural return (84.84 s
 measurement-suite wall time; build preparation excluded). Same 2-GiB heap:
 
@@ -530,3 +530,29 @@ spread/direction and prefix counters. CPU minus GC CPU is an accounting residual
 isolated stages are not additive end-to-end attribution. Original 192-child
 receipts remain historical. See ~doc/performance/expansion-summary.org~ for the
 bounded current measurements and any adverse outcomes.
+
+* Graph nodes and real Modules are separate workloads
+
+Graph capacity starts at 100,000 nodes and extends to 1,000,000. Every
+observation reports edge counts, preparation, metadata getter and captured
+partition/certificate cost. The separate getter pass is diagnostic; it is not
+subtracted from partition time, which still includes its own getters and GC.
+Seven 100K shapes cover semantic diversity; million-node coverage concentrates
+on deep chains, many two-node SCCs, one giant SCC and the degree-16 band.
+Membership revision uses five 100K shapes and giant/merge/split at one million.
+The standard DAG full/local study uses the same two node-capacity sizes.
+
+Capacity fixtures use the existing Graph Declaration getter over frozen node
+metadata. They do not retain a business provider or import an Interface per
+node. SCC captures each declared footprint once; evaluator traps remain. The
+rank study shares one inert empty-footprint Computation across unchanged nodes.
+This is legal graph metadata sharing, not a successful-currentness cache.
+
+The old quadratic implementation now participates only in bounded correctness
+differentials, rather than rerunning ten-thousand-node timing as a capacity
+point. Existing small semantic and matched-fault controls remain. The million
+cut still requires native qualification under the unchanged 2-GiB heap.
+
+Yuanxu separately qualifies 10,000 real Modules: source/Interface admission,
+currentness, first business scope and selected build ownership. Its 180-second
+/ 4-GiB EVAL acceptance cannot be replaced by a million-node Graph traversal.

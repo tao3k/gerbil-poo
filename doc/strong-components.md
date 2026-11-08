@@ -101,9 +101,10 @@ comparison reads stored cardinalities and checks each old group once. See
 `just benchmark-scc` prepares the existing development libraries and the feedback
 and construction test packages only. It does not build every unrelated test
 package. The original 320-observation matrix remains; capacity windows use
-10,000 and 100,000 owners, with source preparation, certified partition,
-membership comparison and full/local DAG updates separated. The quadratic old
-SCC baseline is compared only at 10,000 owners; it is not rerun at 100,000.
+100,000 and 1,000,000 nodes, with source preparation, metadata getter, certified partition,
+membership comparison and full/local DAG updates separated. The former
+SCC implementation remains a bounded correctness oracle; its quadratic timing
+is not rerun at capacity sizes.
 A bounded 64/256-owner old membership rule supplies differential timing controls.
 All capacity observations check complete groups/counters outside the timers.
 The existing 2-GiB heap and native TestSuite failure boundary remain.
