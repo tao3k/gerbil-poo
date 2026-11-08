@@ -147,7 +147,11 @@
       (symbolic-table-set! raw (car rest) at)
       (assign (cdr rest) (1+ at))))
   (unless (= count (hash-length positions)) (error "distinct captured owners required"))
-  (def packed? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def word-support? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def packed? word-support?)
+  ;; Per-invocation duplicate membership, allocated only for a multi-key row.
+  ;; It never stores source/currentness approvals. owner+1 is fresh for this row.
+  (def row-marks #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (make-hash-table-eq size: count))
   (def declared 0) (def edges 0)
@@ -172,19 +176,35 @@
     (def deps (read-owner key))
     (unless (and (list? deps) (andmap symbol? deps))
       (error "unsupported component read" key deps))
-    ;; Empty/singleton rows are already normalized, with exactly the original
-    ;; owner order. Copy singleton spines so later author callbacks cannot mutate
-    ;; captured adjacency. Larger rows use the existing standard normalization.
-    (def unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
-                     (else (delete-duplicates/hash deps))))
-    (for (dep unique)
-      (let (id (symbolic-table-ref raw dep #f))
-        ;; Scheme ID zero is present. No callback runs between this admission
-        ;; and encoding the same ID into the graph-owned construction buffer.
-        (unless id (error "unsupported component read" key deps))
-        (append-target id))
-      (set! edges (1+ edges)))
-    (hash-put! reads key unique)
+    (if (and word-support? (pair? deps) (pair? (cdr deps)))
+      (begin
+        (unless row-marks (set! row-marks (make-u32vector count 0)))
+        (let ((token (fx+ owner 1)))
+          ;; Same reverse scan as the standard normalizer. The owner index
+          ;; proves support and supplies the mark-cell address in one lookup.
+          ;; Both outputs prepend together, preserving identity and row order.
+          (let-values (((ids unique)
+                        (let scan ((pending (reverse deps)) (ids []) (unique []))
+                          (if (null? pending) (values ids unique)
+                            (let* ((dep (car pending)) (id (symbolic-table-ref raw dep #f)))
+                              (unless id (error "unsupported component read" key deps))
+                              (if (fx= (u32vector-ref row-marks id) token)
+                                (scan (cdr pending) ids unique)
+                                (begin
+                                  (u32vector-set! row-marks id token)
+                                  (scan (cdr pending) (cons id ids) (cons dep unique)))))))))
+            (for (id ids) (append-target id) (set! edges (1+ edges)))
+            (hash-put! reads key unique))))
+      ;; Preserve the inexpensive empty/singleton path and the original wide
+      ;; domain. Copy singleton spines before the next independent callback.
+      (let (unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
+                        (else (delete-duplicates/hash deps))))
+        (for (dep unique)
+          (let (id (symbolic-table-ref raw dep #f))
+            (unless id (error "unsupported component read" key deps))
+            (append-target id))
+          (set! edges (1+ edges)))
+        (hash-put! reads key unique)))
     (set! declared (+ declared (length deps))))
   (def index
     (and packed?

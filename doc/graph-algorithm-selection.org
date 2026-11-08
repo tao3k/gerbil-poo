@@ -335,12 +335,12 @@ node chain, packed conversion+discovery+symbolic output cost roughly 643-870 ms
 CPU versus 557-784 ms for the prior dense path. Keep that negative observation.
 Do not install an arbitrary node threshold to hide conversion.
 
-The next production capture uses ONE private standard symbolic owner-to-ID
+At 9b0873f, production capture uses ONE private standard symbolic owner-to-ID
 index for support admission AND target encoding. Every author's row is still
 acquired independently in the original order. Duplicate normalization shares
 only the pure row interval. Empty rows need no table; singleton rows copy their
-spine; larger rows retain the standard Gerbil normalizer and its last-occurrence
-order. Bounded temporary chunks construct packed targets without requiring an
+spine; larger rows at that revision retain the standard Gerbil normalizer and
+its last-occurrence order. Bounded temporary chunks construct packed targets without requiring an
 advance edge-count pass. The existing wide domain remains available. A tail
 handoff removes packed/capture workspace from normalization/certificate arguments.
 Known support sizes preallocate the existing standard reads hash. No index or
@@ -376,3 +376,43 @@ and SCC kernels take hundreds of milliseconds; they are not a claim that full
 source capture or Gerbil/POO author construction meets the same latency. Further
 work must target measured row generation/normalization and existing source-owned
 index reuse, without suppressing source/effect checks or inventing a cache layer.
+
+* Row-local normalization on the existing owner index
+
+The next measured bottleneck was a newly allocated duplicate hash for every
+multi-key row. The source index already gives each symbolic owner a distinct
+bounded cell address. Capture now lazily allocates one private u32 mark vector
+for the invocation, and uses source-row position+1 as its positive row token.
+Previous marks are bounded by the previous row position. A new row therefore
+needs no full-directory clearing and cannot inherit duplicate membership from
+another row. Empty/singleton and wide-domain behavior remains unchanged.
+
+Reverse-scan the original row and prepend each newly marked target to both the
+ID and symbol outputs. This preserves standard last-occurrence order, exact
+symbol identity, and private spines. The same supported-ID lookup authenticates
+the cell address. IDs are emitted directly without a second support lookup.
+All author reads and effect/currentness boundaries remain independent; marks
+store duplicate membership only, never admission results or source freshness.
+
+LeanPoo 6668ed9 proves fresh-row coverage, mark insertion, exact reverse-scan
+output, preservation of token bounds and next-row freshness. 4fabee0 additionally
+proves that the reference normalization commutes with injective owner encoding.
+Both complete Lean CI runs passed. Native existing exhaustive/seeded properties
+now compare EVERY captured row with the standard normalizer, not just its SCCs.
+Corrupting the actual row token to a constant fails these checks and the existing
+cross-row declared/unique-edge control, with no heap/timeout used as rejection.
+
+Same-process, same-input generated-row comparison against frozen 9b0873f, with
+all row generation/admission/index/discovery/symbolic output charged:
+
+| 1M-node band / 15,999,864 edges | Prior CPU / wall s | Row marks CPU / wall s |
+|-------------------------------+--------------------+------------------------|
+| natural ABBA | 5.850-6.215 / 5.851-6.217 | 2.804-3.176 / 2.805-3.178 |
+| collected BAAB | 5.703-5.778 / 5.705-5.779 | 2.783-2.805 / 2.784-2.806 |
+
+GC remains included (natural marked samples 0.784-1.164 CPU seconds). This is a
+roughly twofold improvement of the COMPLETE cold window, not a claim of whole
+cold-source millisecond latency. The focused study passed naturally in 89.30
+seconds at the unchanged 2-GiB heap. The existing 48-window matrix is reused;
+its baseline is the immediately preceding capture, not an additional matrix.
+No loader, cross-call workspace, approval cache or public tuning flag is added.

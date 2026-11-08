@@ -44,24 +44,74 @@
         (error "ordered indexed reachability oracle" root))))
   #t)
 
-;; Frozen pre-fusion support/row capture, same pure historical row provider.
-;; No author factory or business evaluator is substituted into a kernel window.
-(def (wide-capture-graph keys read-owner)
-  (def supported (make-hash-table-eq)) (def rows (make-hash-table-eq))
+;; Frozen capture at 9b0873f, only for matched before/after measurements.
+(def (prior-capture-graph keys read-owner)
+  (def count (length keys))
+  (def positions (make-hash-table-symbolic size: count))
+  (def raw (interface-instance-object positions))
+  (unless (symbol-hash-table? raw) (error "captured owner index representation"))
+  (let assign ((rest keys) (at 0))
+    (unless (null? rest)
+      (unless (symbol? (car rest)) (error "symbolic captured owner required" (car rest)))
+      (symbolic-table-set! raw (car rest) at)
+      (assign (cdr rest) (1+ at))))
+  (unless (= count (hash-length positions)) (error "distinct captured owners required"))
+  (def packed? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def offsets (and packed? (make-u32vector (1+ count) 0)))
+  (def reads (make-hash-table-eq size: count))
   (def declared 0) (def edges 0)
-  (for (key keys) (hash-put! supported key #t))
-  (for (key keys)
-    (let (row (read-owner key))
-      (unless (and (list? row) (andmap (cut hash-key? supported <>) row))
-        (error "unsupported component read" key row))
-      (let (unique (delete-duplicates/hash row))
-        (hash-put! rows key unique) (set! edges (+ edges (length unique))))
-      (set! declared (+ declared (length row)))))
-  (values rows #f declared edges))
+  ;; Private, bounded construction chunks, not a retained graph/value cache.
+  ;; A small graph pays only its support-sized chunk; an empty graph pays none.
+  (def capacity (max 1 (min count 65536)))
+  (def chunks []) (def chunk #f) (def used 0)
+  (def (append-target id)
+    (when packed?
+      ;; Outside the word domain retain the original wide algorithm, rather
+      ;; than imposing a new public graph-size refusal.
+      (if (or (not (fixnum? (1+ edges))) (>= edges 4294967295))
+        (begin (set! packed? #f) (set! offsets #f)
+               (set! chunks []) (set! chunk #f))
+        (begin
+          (when (= used capacity)
+            (set! chunks (cons chunk chunks)) (set! chunk #f) (set! used 0))
+          (unless chunk (set! chunk (make-u32vector capacity 0)))
+          (u32vector-set! chunk used id) (set! used (fx+ used 1))))))
+  (for ((key keys) (owner (in-range count)))
+    (when packed? (u32vector-set! offsets owner edges))
+    (def deps (read-owner key))
+    (unless (and (list? deps) (andmap symbol? deps))
+      (error "unsupported component read" key deps))
+    ;; Empty/singleton rows are already normalized, with exactly the original
+    ;; owner order. Copy singleton spines so later author callbacks cannot mutate
+    ;; captured adjacency. Larger rows use the existing standard normalization.
+    (def unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
+                     (else (delete-duplicates/hash deps))))
+    (for (dep unique)
+      (let (id (symbolic-table-ref raw dep #f))
+        ;; Scheme ID zero is present. No callback runs between this admission
+        ;; and encoding the same ID into the graph-owned construction buffer.
+        (unless id (error "unsupported component read" key deps))
+        (append-target id))
+      (set! edges (1+ edges)))
+    (hash-put! reads key unique)
+    (set! declared (+ declared (length deps))))
+  (def index
+    (and packed?
+      (begin
+        (u32vector-set! offsets count edges)
+        (let* ((tail (if chunk
+                       (if (= used capacity) chunk (u32vector-copy chunk 0 used))
+                       (make-u32vector 0)))
+               (targets (if (null? chunks) tail
+                          (u32vector-concatenate (reverse (cons tail chunks))))))
+          (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
+          (make-compact-graph (list->vector keys) positions offsets targets)))))
+  (values reads index declared edges))
+
 
 (def (capture-and-discover side keys read-owner)
   (let-values (((rows index _declared edges)
-                ((if (eq? side 'wide) wide-capture-graph capture-graph) keys read-owner)))
+                ((if (eq? side 'prior) prior-capture-graph capture-graph) keys read-owner)))
     (if index (compact-discovery-result index) (discovery-result discover-wide keys rows))))
 
 (def (discovery-study read-owner keys family size expected edges preparation)
@@ -71,7 +121,7 @@
   ;; Stored-row encoding/query and public certification have their own windows.
   (def groups-count (length expected))
   (for ((regime '(natural collected))
-        (order '((wide fused fused wide) (fused wide wide fused))))
+        (order '((prior marked marked prior) (marked prior prior marked))))
     (let (observations [])
       (for (side order)
         (display "GRAPH-DISCOVERY-BEGIN ") (write (list family size regime side))

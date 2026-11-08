@@ -1,6 +1,6 @@
 ;;; Prepared traversal study over the actual private production index.
 (extern namespace: clan/poo/strong-components
-  capture-compact compact-graph-names compact-graph-positions compact-graph-offsets compact-graph-targets
+  make-compact-graph capture-compact compact-graph-names compact-graph-positions compact-graph-offsets compact-graph-targets
   compact-discover compact-component-owners compact-discovery-result)
 
 (def (compact-row graph key)
