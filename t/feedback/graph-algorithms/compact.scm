@@ -43,16 +43,26 @@
 
 (def (compact-study)
   (for* ((size '(100000 1000000)) (family '(chain ring band)))
-    ;; Data fixture preparation is explicit and outside both candidate windows.
-    ;; This studies graph nodes, not a Module/provider per vertex.
-    (defvalues (input preparation)
+    ;; A pure frozen provider models the existing streaming source interface.
+    ;; It retains N names/positions, not an extra E-sized adjacency copy. Both
+    ;; cold engines pay exactly the same N row generations inside their timer.
+    (defvalues (source source-preparation)
       (measure (lambda ()
-        (let* ((names (names size)) (keys (vector->list names)) (rows (make-hash-table-eq)) (edges 0))
-          (for (i (in-range size))
-            (let (row (family-reads family names size i))
-              (hash-put! rows (vector-ref names i) row) (set! edges (+ edges (length row)))))
-          (vector keys rows edges))) 1))
-    (def keys (vector-ref input 0)) (def rows (vector-ref input 1)) (def edges (vector-ref input 2))
+        (let* ((names (names size)) (keys (vector->list names))
+               (positions (make-hash-table-eq size: size)))
+          (for (i (in-range size)) (hash-put! positions (vector-ref names i) i))
+          (vector keys (lambda (key) (family-reads family names size (hash-ref positions key)))))) 1))
+    (def keys (vector-ref source 0)) (def read-owner (vector-ref source 1))
+    (def edges (case family ((chain) (1- size)) ((band) (- (* 16 size) 136)) (else size)))
+    (discovery-study read-owner keys family size (family-groups family size) edges source-preparation)
+    ;; The original STORED adjacency workload is independently materialized,
+    ;; charged and retained for the following full-edge encoding/query windows.
+    (defvalues (rows preparation)
+      (measure (lambda ()
+        (let (rows (make-hash-table-eq size: size))
+          (for (key keys) (hash-put! rows key (read-owner key))) rows)) 1))
+    (vector-set! source 1 #f) (set! read-owner #f)
+    (reachability-study rows keys family size edges)
     (def reverse-keys (reverse keys))
     (def root (car (if (eq? family 'band) reverse-keys keys)))
     (def expected (if (eq? family 'band) keys reverse-keys))
@@ -83,8 +93,11 @@
     (write (list family size edges (cons 'discovery scc-cost) (cons 'symbolic-output owner-cost)))
     (newline) (force-output)
     (display "GRAPH-COMPACT-PAIR ")
-    (write (list family size edges (cons 'input-preparation preparation)
+    (write (list family size edges (cons 'source-preparation source-preparation)
+                 (cons 'input-preparation preparation)
                  (cons 'cold-encode-and-first-query cold) (cons 'encoding (vector-ref bundle 1))
                  (cons 'first-query (vector-ref bundle 2)) (reverse samples)))
     (newline) (force-output))
+  (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
+  (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (displayln "GRAPH-COMPACT-OK nodes=100000,1000000 shapes=chain,ring,band"))

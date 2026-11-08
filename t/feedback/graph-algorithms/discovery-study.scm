@@ -1,6 +1,6 @@
 ;;; Paired private discovery kernels over the SAME captured Graph rows.
 ;;; Ordinary consumers keep partition; this white-box fixture adds no export.
-(extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured)
+(extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph)
 (extern namespace: clan/poo/recursive-validation reachable)
 
 (def (discovery-result kernel keys reads)
@@ -28,6 +28,12 @@
   (for (kernel (list discover-wide))
     (check-discovery (discovery-result kernel keys reads) keys
       (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits)))
+  (let-values (((captured index declared edges) (capture-graph keys (cut hash-ref reads <>))))
+    (unless (and (= declared (.@ work edge-visits)) (= edges declared)
+                 (andmap (lambda (key) (equal? (hash-ref captured key) (hash-ref reads key))) keys))
+      (error "fused capture rows/work oracle"))
+    (check-discovery (compact-discovery-result index) keys
+      (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits)))
   (let (compact (capture-compact keys reads (.@ work edge-visits)))
     (check-discovery (compact-discovery-result compact) keys
       (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits))
@@ -38,30 +44,52 @@
         (error "ordered indexed reachability oracle" root))))
   #t)
 
-(def (discovery-study part keys family size)
-  ;; Borrow immutable rows from the already certified public partition. Charge
-  ;; projection into a hash explicitly; do not time author getters twice.
-  (defvalues (reads projection)
-    (measure (cut captured-rows part keys) 1))
-  (def expected (scc.partition-groups part))
-  (def work (scc.partition-work part))
-  (def edges (.@ work edge-visits))
-  (def groups-count (.@ work groups))
+;; Frozen pre-fusion support/row capture, same pure historical row provider.
+;; No author factory or business evaluator is substituted into a kernel window.
+(def (wide-capture-graph keys read-owner)
+  (def supported (make-hash-table-eq)) (def rows (make-hash-table-eq))
+  (def declared 0) (def edges 0)
+  (for (key keys) (hash-put! supported key #t))
+  (for (key keys)
+    (let (row (read-owner key))
+      (unless (and (list? row) (andmap (cut hash-key? supported <>) row))
+        (error "unsupported component read" key row))
+      (let (unique (delete-duplicates/hash row))
+        (hash-put! rows key unique) (set! edges (+ edges (length unique))))
+      (set! declared (+ declared (length row)))))
+  (values rows #f declared edges))
+
+(def (capture-and-discover side keys read-owner)
+  (let-values (((rows index _declared edges)
+                ((if (eq? side 'wide) wide-capture-graph capture-graph) keys read-owner)))
+    (if index (compact-discovery-result index) (discovery-result discover-wide keys rows))))
+
+(def (discovery-study read-owner keys family size expected edges preparation)
+  ;; One frozen pure row provider is the input to BOTH cold pipelines. Row
+  ;; generation is charged inside every window. No stored E-sized input is
+  ;; artificially retained while testing the streaming Declaration interface.
+  ;; Stored-row encoding/query and public certification have their own windows.
+  (def groups-count (length expected))
   (for ((regime '(natural collected))
-        (order '((dense packed packed dense) (packed dense dense packed))))
+        (order '((wide fused fused wide) (fused wide wide fused))))
     (let (observations [])
       (for (side order)
-        (let-values (((result costs) (measure (cut discovery-result
-                      (if (eq? side 'dense) discover-wide discover) keys reads)
-                      1 (eq? regime 'collected))))
+        (display "GRAPH-DISCOVERY-BEGIN ") (write (list family size regime side))
+        (newline) (force-output)
+        (let-values (((result costs) (measure (cut capture-and-discover side keys read-owner) 1 (eq? regime 'collected))))
           ;; Normalization and the complete canonical group oracle are untimed.
           ;; Only costs escape this iteration; candidate owner maps are retired.
           (check-discovery result keys expected size groups-count edges)
           (set! observations (cons (list side costs) observations))))
       (display "GRAPH-DISCOVERY-PAIR ")
-      (write (list family size regime order (cons 'captured-index-projection projection)
+      (write (list family size regime order (cons 'input-preparation preparation)
+                   '(input-kind . generated-rows)
+                   '(window . row-generation-admission-index-discovery-symbolic-output)
                    (reverse observations)))
       (newline) (force-output)))
+  (void))
+
+(def (reachability-study reads keys family size edges)
   ;; Time only the indexed native walk at capacity. The old list rule is already
   ;; checked on every bounded exhaustive/property graph, including output order.
   (let* ((backwards (reverse keys)) (band? (eq? family 'band))

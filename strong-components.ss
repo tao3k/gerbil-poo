@@ -133,6 +133,72 @@
             (fill (cdr pending) (fx+ cursor 1)))))))
   (make-compact-graph names positions offsets targets))
 
+;; One owner index serves BOTH source support admission and row ID encoding.
+;; Every author is still read independently, in source order. Only the pure
+;; support check/encoding interval is shared (normalized_capture_trace law).
+(def (capture-graph keys read-owner)
+  (def count (length keys))
+  (def positions (make-hash-table-symbolic size: count))
+  (def raw (interface-instance-object positions))
+  (unless (symbol-hash-table? raw) (error "captured owner index representation"))
+  (let assign ((rest keys) (at 0))
+    (unless (null? rest)
+      (unless (symbol? (car rest)) (error "symbolic captured owner required" (car rest)))
+      (symbolic-table-set! raw (car rest) at)
+      (assign (cdr rest) (1+ at))))
+  (unless (= count (hash-length positions)) (error "distinct captured owners required"))
+  (def packed? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def offsets (and packed? (make-u32vector (1+ count) 0)))
+  (def reads (make-hash-table-eq size: count))
+  (def declared 0) (def edges 0)
+  ;; Private, bounded construction chunks, not a retained graph/value cache.
+  ;; A small graph pays only its support-sized chunk; an empty graph pays none.
+  (def capacity (max 1 (min count 65536)))
+  (def chunks []) (def chunk #f) (def used 0)
+  (def (append-target id)
+    (when packed?
+      ;; Outside the word domain retain the original wide algorithm, rather
+      ;; than imposing a new public graph-size refusal.
+      (if (or (not (fixnum? (1+ edges))) (>= edges 4294967295))
+        (begin (set! packed? #f) (set! offsets #f)
+               (set! chunks []) (set! chunk #f))
+        (begin
+          (when (= used capacity)
+            (set! chunks (cons chunk chunks)) (set! chunk #f) (set! used 0))
+          (unless chunk (set! chunk (make-u32vector capacity 0)))
+          (u32vector-set! chunk used id) (set! used (fx+ used 1))))))
+  (for ((key keys) (owner (in-range count)))
+    (when packed? (u32vector-set! offsets owner edges))
+    (def deps (read-owner key))
+    (unless (and (list? deps) (andmap symbol? deps))
+      (error "unsupported component read" key deps))
+    ;; Empty/singleton rows are already normalized, with exactly the original
+    ;; owner order. Copy singleton spines so later author callbacks cannot mutate
+    ;; captured adjacency. Larger rows use the existing standard normalization.
+    (def unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
+                     (else (delete-duplicates/hash deps))))
+    (for (dep unique)
+      (let (id (symbolic-table-ref raw dep #f))
+        ;; Scheme ID zero is present. No callback runs between this admission
+        ;; and encoding the same ID into the graph-owned construction buffer.
+        (unless id (error "unsupported component read" key deps))
+        (append-target id))
+      (set! edges (1+ edges)))
+    (hash-put! reads key unique)
+    (set! declared (+ declared (length deps))))
+  (def index
+    (and packed?
+      (begin
+        (u32vector-set! offsets count edges)
+        (let* ((tail (if chunk
+                       (if (= used capacity) chunk (u32vector-copy chunk 0 used))
+                       (make-u32vector 0)))
+               (targets (if (null? chunks) tail
+                          (u32vector-concatenate (reverse (cons tail chunks))))))
+          (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
+          (make-compact-graph (list->vector keys) positions offsets targets)))))
+  (values reads index declared edges))
+
 ;; Numeric Tarjan over the exact CSR rows. This is the existing algorithm:
 ;; discovery order, lowlinks and pop order are unchanged. No hash per edge.
 ;; state 0 = fresh; 1..N = active discovery+1; N+1+component = retired.
@@ -215,12 +281,12 @@
 ;; Private layout refinement of the existing discovery operation. No public
 ;; representation or Module identity changes, no shared traversal workspace.
 ;; Word-domain dispatch preserves the original wide representation outside u32.
-(def (discover keys reads (captured-edges #f))
+(def (discover keys reads (captured-edges #f) (captured-index #f))
   (def count (length keys))
   (def edges (or captured-edges (foldl (lambda (key n) (+ n (length (hash-ref reads key)))) 0 keys)))
   (if (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)
            (fixnum? edges) (<= edges 4294967295))
-    (let (result (compact-discovery-result (capture-compact keys reads edges)))
+    (let (result (compact-discovery-result (or captured-index (capture-compact keys reads edges))))
       (values (vector-ref result 0) (vector-ref result 1) (vector-ref result 2)
               (vector-ref result 3) (vector-ref result 4) (vector-ref result 5)))
     (discover-wide keys reads)))
@@ -249,27 +315,21 @@
   (unless (and (list? keys) (andmap symbol? keys)
                (= (length keys) (length (delete-duplicates/hash keys))))
     (error "distinct finite component keys required"))
-  (def reads (make-hash-table-eq))
-  (def supported (make-hash-table-eq))
-  (def declared-edges 0) (def captured-edges 0)
-  (for (key keys) (hash-put! supported key #t))
-  ;; Validate every declaration before DFS, including disconnected owners.
-  (for (key keys)
-    (def code (.call spec .code key))
-    (def deps (if code (.@ code reads) []))
-    (unless (and (list? deps) (andmap (cut hash-key? supported <>) deps))
-      (error "unsupported component read" key deps))
-    (let (unique (delete-duplicates/hash deps))
-      (hash-put! reads key unique)
-      (set! captured-edges (+ captured-edges (length unique))))
-    (set! declared-edges (+ declared-edges (length deps))))
-  (partition-captured keys reads captured-edges (length keys) declared-edges))
+  (let-values (((reads index declared-edges captured-edges)
+                 (capture-graph keys (lambda (key)
+                   (let (code (.call spec .code key)) (if code (.@ code reads) []))))))
+    (partition-captured keys reads captured-edges (length keys) declared-edges index)))
 
 ;; Pure phase over locally captured immutable rows. Production reaches this only
 ;; after validating every author. White-box studies may borrow an already
 ;; certified historical partition, charging zero NEW declaration validation.
-(def (partition-captured keys reads captured-edges validation-owners declared-edges)
-  (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges)))
+(def (partition-captured keys reads captured-edges validation-owners declared-edges (index #f))
+  (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
+    ;; A tail handoff carries NO packed input or capture construction buffers.
+    ;; Keep those roots out of normalization/certificate closure environments.
+    (finish-partition keys reads validation-owners declared-edges owners next component examined-edges finished popped)))
+
+(def (finish-partition keys reads validation-owners declared-edges owners next component examined-edges finished popped)
     (let-values (((groups members ranks) (normalize keys owners)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
@@ -320,4 +380,4 @@
             (error "invalid SCC quotient certificate" key (cdr quotient-error))))
         (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
           (work-receipt validation-owners declared-edges next examined-edges finished popped next component
-            certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges) owners)))))
+            certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges) owners))))

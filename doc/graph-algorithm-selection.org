@@ -321,3 +321,58 @@ captured work owned by the same source version; do not skip author admission or
 checks across effects. Existing feedback-graph already reuses the published
 partition for an identical frozen source; this change adds no cross-call cache.
 Keep Yuanxu revisions held until POO qualification is complete.
+
+* Shared capture admission and bounded fixture ownership
+
+The first packed implementation (fd9e3d5) passed the complete Scheme CI,
+including every compiled suite and the full Graph study. On the same Ubuntu CI,
+the Graph step fell from 15m40s at 6394e95 to 441.66 seconds; compiled acceptance
+at fd9e3d5 took 152.11 seconds. This is aggregate qualification cost, not one
+operation's latency. Its local complete Graph study passed in 339.81 seconds.
+
+The initial encoding-only cold comparison did not win universally: on a million
+node chain, packed conversion+discovery+symbolic output cost roughly 643-870 ms
+CPU versus 557-784 ms for the prior dense path. Keep that negative observation.
+Do not install an arbitrary node threshold to hide conversion.
+
+The next production capture uses ONE private standard symbolic owner-to-ID
+index for support admission AND target encoding. Every author's row is still
+acquired independently in the original order. Duplicate normalization shares
+only the pure row interval. Empty rows need no table; singleton rows copy their
+spine; larger rows retain the standard Gerbil normalizer and its last-occurrence
+order. Bounded temporary chunks construct packed targets without requiring an
+advance edge-count pass. The existing wide domain remains available. A tail
+handoff removes packed/capture workspace from normalization/certificate arguments.
+Known support sizes preallocate the existing standard reads hash. No index or
+workspace is added to a global cache, and no successful admission is retained.
+
+LeanPoo 6d98b4c (complete CI green) adds normalized_support_iff, normalized_all
+and normalized_capture_trace: same support admission and same first rejected
+owner for normalized rows. These data laws do not authenticate effects. Native
+controls also cover same-spelling symbol identities, duplicate order/counts,
+first rejection/callback trace and mutation of an earlier singleton input spine.
+
+Qualification exposed a fixture ownership problem: holding an old fully
+certified partition AND a stored E-sized raw input while allocating a fresh
+captured graph made the added cold comparison overflow 2 GiB. The published
+packed cut had passed; the new errors were retained and not called passes.
+Stage markers verified that the updated public million-node band partition
+returned and its original complete capacity case passed under the same heap.
+
+The cold comparison now uses the SAME frozen pure row provider for both engines,
+matching Declaration's streaming row interface. All N row generations, support
+admission, encoding, discovery and symbolic output occur inside EACH timed
+window. Setup retains N names/positions, not an unrelated E-sized raw graph.
+The original stored-adjacency input is separately materialized and charged for
+all full-edge encoding/reachability/SCC phase windows. Those costs remain visible;
+no generated-source timing is labelled stored-input timing. All six cold graphs,
+48 natural ABBA/collected BAAB observations, 11 public capacity partitions, 320
+original paired observations and all membership/rank controls remain present.
+The focused cold/stored study passed naturally in 116.98 seconds at 2 GiB.
+
+The million-node degree-16 cold producer pipeline still takes seconds, including
+row generation and standard per-row normalization. Prepared full-edge traversal
+and SCC kernels take hundreds of milliseconds; they are not a claim that full
+source capture or Gerbil/POO author construction meets the same latency. Further
+work must target measured row generation/normalization and existing source-owned
+index reuse, without suppressing source/effect checks or inventing a cache layer.
