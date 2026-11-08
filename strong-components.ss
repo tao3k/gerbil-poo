@@ -1,4 +1,7 @@
-;;; Iterative Tarjan partition over captured finite POO computation footprints.
+;;; Strongly connected components (SCC): maximal mutually reachable node groups.
+;;; Iterative Tarjan partitions captured finite POO computation footprints.
+;;; Explicit feedback construction and recursive topology consume these groups;
+;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
         partition-members partition-work)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)

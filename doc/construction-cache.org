@@ -86,6 +86,17 @@ value rollback contract.
 
 * Certified cyclic components
 
+A strongly connected component (SCC) is a maximal group whose nodes can all
+reach each other through directed dependency edges. With A -> B, B -> A and
+B -> C, the groups are {A,B} and {C}; replacing each group with one node gives
+an acyclic graph. Edges here point from consumer to provider, so {C} is prepared
+before the explicit feedback construction for {A,B}.
+
+The existing ~strong-components.ss~ serves ~feedback-graph.ss~ and the
+on-demand ~recursive-topology.ss~ analysis. It is an algorithm module, not a
+filesystem namespace or Module loader. Ordinary slot recursion and invalid
+Module dependency cycles retain their existing refusal contracts.
+
 ~strong-components.ss~ captures every finite footprint once with the standard
 POO metadata accessors and hash indices. Explicit Tarjan frames avoid host DFS
 recursion on deep chains. One source-order pass normalizes members and their
