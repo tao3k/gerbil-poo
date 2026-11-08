@@ -160,9 +160,23 @@
                 (and (string? entry)
                   (member entry '("examples/closed-declarations"
                                   "examples/component-services"
-                                  "benchmarks/closure-measure"))))
+                                  "benchmarks/closure-measure"
+                                  "examples/object-contracts"
+                                  "examples/contract-publication"
+                                  "examples/recursive-validation"
+                                  "examples/recursive-revision"
+                                  "examples/recursive-migration"
+                                  "examples/recursive-topology"
+                                  "examples/recursive-staging"
+                                  "examples/recursive-restaging"
+                                  "examples/recursive-publication"
+                                  "examples/recursive-approvals"
+                                  "examples/recursive-competition"
+                                  "examples/recursive-submissions"
+                                  "examples/recursive-recovery"
+                                  "examples/recursive-coordination"))))
         +gerbil-poo-development-spec+))
-    (unless (= (length libraries) 3) (error "missing Graph study library declaration"))
+    (unless (= (length libraries) 17) (error "missing Graph study library declaration"))
     (def (tests group names)
       (def selected (filter (lambda (entry) (member (cadr entry) names))
                        (test-build-spec group)))
@@ -172,7 +186,8 @@
     (defbuild-script
       (append (map production-spec (append +gerbil-poo-build-spec+ libraries))
         (tests "feedback" '("graph-algorithms-test" "feedback-graph-test"))
-        (tests "construction" '("graph-order-repair-test"))))
+        (tests "construction" '("graph-order-repair-test"))
+        (tests "contracts" '("recursive-validation-test" "recursive-approvals-test"))))
     main))
 
 (def (main . options)

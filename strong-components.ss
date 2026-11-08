@@ -3,7 +3,7 @@
 ;;; Explicit feedback construction and recursive topology consume these groups;
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
-        partition-members partition-group-of partition-group-size partition-work)
+        partition-members partition-group-of partition-group-size partition-work capture-reachability)
 (import :std/iter
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/hash symbol-hash-table?)
@@ -250,6 +250,119 @@
           (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
           (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets)))))
   (values reads index declared edges))
+
+;; Ordered reachability over an already captured graph, never an approval memo.
+;; Small walks retain bounded list membership. Large sparse walks use a private
+;; ID set; dense marks appear only after N <= 32 * entered (Lean workspace law).
+(def (compact-reachable graph root (work #f))
+  (def names (compact-graph-names graph))
+  (def positions (compact-graph-positions graph))
+  (def offsets (compact-graph-offsets graph))
+  (def targets (compact-graph-targets graph))
+  (def root-id (hash-ref positions root))
+  (def count (vector-length names))
+  (def first (u32vector-ref offsets root-id))
+  (def last (u32vector-ref offsets (fx+ root-id 1)))
+  (def (indexed frames cursor end ids seen)
+    (def entered (length ids))
+    (def marks #f) (def sparse #f)
+    (def capacity (max 64 (fx+ (length frames) 1)))
+    (def saved-cursors (make-u32vector capacity 0))
+    (def saved-ends (make-u32vector capacity 0))
+    (when work (vector-set! work 1 (+ (vector-ref work 1) (* 2 capacity))))
+    (for ((frame (reverse frames)) (at (in-range (length frames))))
+      (u32vector-set! saved-cursors at (car frame))
+      (u32vector-set! saved-ends at (cdr frame)))
+    (if (<= count (* 32 entered))
+      (begin (set! marks (make-u8vector count 0))
+             (when work (vector-set! work 0 count))
+             (for (id ids) (u8vector-set! marks id 1)))
+      (begin (set! sparse (make-hash-table-eq))
+             (for (id ids) (hash-put! sparse id #t))))
+    (let walk ((top (length frames)) (cursor cursor) (end end) (seen seen))
+      (if (fx< cursor end)
+        (let* ((dep (u32vector-ref targets cursor)) (next (fx+ cursor 1))
+               (known? (if marks (fx= (u8vector-ref marks dep) 1) (hash-key? sparse dep))))
+          (if known? (walk top next end seen)
+            (begin
+              (set! entered (fx+ entered 1))
+              (if marks (u8vector-set! marks dep 1)
+                (begin
+                  (hash-put! sparse dep #t)
+                  (when (<= count (* 32 entered))
+                    (set! marks (make-u8vector count 0))
+                    (when work (vector-set! work 0 count))
+                    (for (id (hash-keys sparse)) (u8vector-set! marks id 1))
+                    (set! sparse #f))))
+              (when (fx= top capacity)
+                (let* ((grown (min count (* 2 capacity)))
+                       (cursors (make-u32vector grown 0)) (ends (make-u32vector grown 0)))
+                  (when work
+                    (vector-set! work 1 (+ (vector-ref work 1) (* 2 grown)))
+                    (vector-set! work 2 (+ (vector-ref work 2) (* 2 top))))
+                  (u32vector-copy! cursors 0 saved-cursors 0 top)
+                  (u32vector-copy! ends 0 saved-ends 0 top)
+                  (set! saved-cursors cursors) (set! saved-ends ends)
+                  (set! capacity grown)))
+              (u32vector-set! saved-cursors top next)
+              (u32vector-set! saved-ends top end)
+              (walk (fx+ top 1) (u32vector-ref offsets dep)
+                    (u32vector-ref offsets (fx+ dep 1)) (cons (vector-ref names dep) seen)))))
+        (if (fx= top 0) seen
+          (let (parent (fx- top 1))
+            (walk parent (u32vector-ref saved-cursors parent)
+                  (u32vector-ref saved-ends parent) seen))))))
+  ;; No N-sized allocation on a small closure, including nonempty source rows.
+  (let walk ((frames []) (cursor first) (end last) (ids (list root-id)) (seen (list root)) (entered 1))
+    (if (fx< cursor end)
+      (let* ((dep (u32vector-ref targets cursor)) (next (fx+ cursor 1)))
+        (cond ((memq dep ids) (walk frames next end ids seen entered))
+              ((fx< entered 64)
+               (walk (cons (cons next end) frames) (u32vector-ref offsets dep)
+                     (u32vector-ref offsets (fx+ dep 1)) (cons dep ids)
+                     (cons (vector-ref names dep) seen) (fx+ entered 1)))
+              (else (indexed frames cursor end ids seen))))
+      (if (null? frames) seen
+        (let (parent (car frames))
+          (walk (cdr frames) (car parent) (cdr parent) ids seen entered))))))
+
+;; The wide-domain fallback keeps bounded list setup and borrows row tails.
+(def (wide-reachable reads root)
+  (def seen-index #f)
+  (let walk ((pending (list (list root))) (seen []) (entered 0))
+    (cond ((null? pending) seen)
+          ((null? (car pending)) (walk (cdr pending) seen entered))
+          (else
+           (let* ((key (caar pending)) (rest (cons (cdar pending) (cdr pending)))
+                  (known? (if seen-index (hash-key? seen-index key) (memq key seen))))
+             (if known? (walk rest seen entered)
+               (let (row (hash-ref reads key))
+                 (unless seen-index
+                   (when (>= entered 64)
+                     (set! seen-index (make-hash-table-eq))
+                     (for (prior seen) (hash-put! seen-index prior #t))))
+                 (when seen-index (hash-put! seen-index key #t))
+                 (walk (cons row rest) (cons key seen) (1+ entered)))))))))
+
+;; Separate closure environments retire normalized row copies on the packed
+;; path. Only the selected structural layout enters the POO value's kernel.
+(def (compact-query index) (lambda (root) (compact-reachable index root)))
+(def (wide-query reads) (lambda (root) (wide-reachable reads root)))
+(def (reachability-value origin owners declared edges query)
+  (.o source: origin owner-count: owners edge-count: edges declared-edges: declared
+    .reachable: query))
+
+;; Historical structural index: captured rows/IDs are owned by this POO value.
+;; Queries cannot acquire authors again, publish, or authorize currentness.
+(def (capture-reachability origin)
+  (def keys (.@ origin keys))
+  (unless (and (list? keys) (andmap symbol? keys)
+               (= (length keys) (length (delete-duplicates/hash keys))))
+    (error "distinct finite reachability keys required"))
+  (let-values (((reads index declared edges)
+                (capture-graph keys (lambda (key) (.call origin .reads key)))))
+    (reachability-value origin (length keys) declared edges
+      (if index (compact-query index) (wide-query reads)))))
 
 ;; Numeric Tarjan over the exact CSR rows. This is the existing algorithm:
 ;; discovery order, lowlinks and pop order are unchanged. No hash per edge.

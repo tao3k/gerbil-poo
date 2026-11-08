@@ -1,7 +1,6 @@
 ;;; Paired private discovery kernels over the SAME captured Graph rows.
 ;;; Ordinary consumers keep partition; this white-box fixture adds no export.
 (extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph)
-(extern namespace: clan/poo/recursive-validation reachable)
 
 (def (discovery-result kernel keys reads)
   (let-values (((owners nodes groups edges finished popped) (kernel keys reads)))
@@ -42,8 +41,7 @@
       (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits))
     (for (root keys)
       (unless (and (equal? (compact-row compact root) (hash-ref reads root))
-                   (equal? (compact-reachable compact root) (list-reachable-order reads root))
-                   (equal? (reachable reads root) (list-reachable-order reads root)))
+                   (equal? (compact-reachable compact root) (list-reachable-order reads root)))
         (error "ordered indexed reachability oracle" root))))
   #t)
 
@@ -188,6 +186,9 @@
     (def rows (make-hash-table-eq))
     (for (i (in-range size))
       (hash-put! rows (vector-ref keys i) (family-reads family keys size i)))
+    (defvalues (index preparation)
+      (measure (cut capture-compact (vector->list keys) rows
+        (if (eq? family 'chain) (1- size) size)) 1))
     (def root (vector-ref keys 0))
     (def expected (reverse (vector->list keys)))
     (for ((regime '(natural collected))
@@ -195,11 +196,11 @@
       (let (observations [])
         (for (side order)
           (let-values (((visited costs) (measure
-                        (cut (if (eq? side 'list) list-reachable-order hash-reachable) rows root)
+                        (lambda () (if (eq? side 'list) (list-reachable-order rows root) (compact-reachable index root)))
                         repetitions (eq? regime 'collected))))
             (unless (equal? visited expected) (error "small reachability order" size side))
             (set! observations (cons (list side costs) observations))))
         (display "GRAPH-REACHABILITY-PAIR ")
-        (write (list family size regime order (cons 'repetitions repetitions) (reverse observations)))
+        (write (list family size regime order (cons 'repetitions repetitions) (cons 'index-preparation preparation) (reverse observations)))
         (newline) (force-output))))
   (displayln "GRAPH-SMALL-REACHABILITY-OK observations=96 repetitions=1000"))

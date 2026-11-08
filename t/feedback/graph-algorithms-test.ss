@@ -315,6 +315,21 @@
     (test-case "row workspace growth and duplicate gaps retain exact adjacency"
       (def keys '#(a b c d))
       (check (matches? keys '#((a b b c) (d c d a b b a d c) (c a a) ())) => #t))
+    (test-case "owned reachability captures once and rejects missing roots"
+      (def acquisitions [])
+      (def row (list 'b 'c))
+      (def source (.o keys: '(a b c isolated)
+        .reads: (lambda (key)
+          (set! acquisitions (cons key acquisitions))
+          (case key ((a) row) ((b) (set-car! row 'outside) '(c)) (else [])))))
+      (def indexed (scc.capture-reachability source))
+      (check (eq? (.@ indexed source) source) => #t)
+      (check-equal? (reverse acquisitions) '(a b c isolated))
+      (check-equal? (.call indexed .reachable 'a) '(c b a))
+      (check-equal? (.call indexed .reachable 'a) '(c b a))
+      (check-equal? (.call indexed .reachable 'isolated) '(isolated))
+      (check-exception (.call indexed .reachable 'outside) error-object?)
+      (check-equal? (length acquisitions) 4))
     (test-case "compact IDs retain distinct same-spelling symbol identities"
       (def a (string->uninterned-symbol "same-owner"))
       (def b (string->uninterned-symbol "same-owner"))

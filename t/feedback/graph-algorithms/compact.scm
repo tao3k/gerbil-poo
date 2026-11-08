@@ -1,7 +1,7 @@
 ;;; Prepared traversal study over the actual private production index.
 (extern namespace: clan/poo/strong-components
   make-compact-graph capture-compact compact-graph-names compact-graph-positions compact-graph-offsets compact-graph-targets
-  compact-discover compact-component-owners compact-discovery-result)
+  compact-discover compact-component-owners compact-discovery-result compact-reachable)
 
 (def (compact-row graph key)
   (def node (hash-ref (compact-graph-positions graph) key))
@@ -11,35 +11,28 @@
   (for/collect (at (in-range (u32vector-ref offsets node) (u32vector-ref offsets (fx+ node 1))))
     (vector-ref names (u32vector-ref targets at))))
 
-(def (compact-reachable graph root)
-  ;; Current cursor/end live in loop arguments. Save a parent frame only when
-  ;; entering a child: visited cross edges do not read/write frame storage.
-  (def names (compact-graph-names graph))
-  (def offsets (compact-graph-offsets graph))
-  (def targets (compact-graph-targets graph))
-  (def root-id (hash-ref (compact-graph-positions graph) root))
-  (def count (vector-length names))
-  (def first (u32vector-ref offsets root-id))
-  (def last (u32vector-ref offsets (fx+ root-id 1)))
-  (if (fx= first last) (list root)
-    (let ((visited (make-u8vector count 0))
-          (saved-cursors (make-u32vector count 0)) (saved-ends (make-u32vector count 0)))
-      (u8vector-set! visited root-id 1)
-      (let walk ((top 0) (cursor first) (end last) (seen (list root)))
-        (if (fx< cursor end)
-          (let ((dep (u32vector-ref targets cursor)) (next (fx+ cursor 1)))
-            (if (fx= (u8vector-ref visited dep) 0)
-              (begin
-                (u8vector-set! visited dep 1)
-                (u32vector-set! saved-cursors top next)
-                (u32vector-set! saved-ends top end)
-                (walk (fx+ top 1) (u32vector-ref offsets dep)
-                      (u32vector-ref offsets (fx+ dep 1)) (cons (vector-ref names dep) seen)))
-              (walk top next end seen)))
-          (if (fx= top 0) seen
-            (let (parent (fx- top 1))
-              (walk parent (u32vector-ref saved-cursors parent)
-                    (u32vector-ref saved-ends parent) seen))))))))
+;; Exercise the actual POO owner boundary, not only the numeric kernel. Input
+;; rows are the SAME immutable metadata used by the existing capacity case.
+(def (owned-query-study keys rows root expected size edges)
+  (def acquisitions 0)
+  (def owner-keys keys)
+  (defvalues (bundle cold)
+    (measure (lambda ()
+      (def source (.o keys: owner-keys .reads: (lambda (key)
+        (set! acquisitions (1+ acquisitions)) (hash-ref rows key))))
+      (def indexed (scc.capture-reachability source))
+      (def query (.ref indexed '.reachable))
+      (vector indexed query (query root))) 1))
+  (unless (and (= acquisitions size) (equal? (vector-ref bundle 2) expected))
+    (error "owned reachability cold acquisition/order" size acquisitions))
+  (vector-set! bundle 2 #f)
+  (let-values (((answer hot) (measure (cut (vector-ref bundle 1) root) 1)))
+    (unless (and (= acquisitions size) (equal? answer expected))
+      (error "owned reachability query replayed an author" size acquisitions))
+    (display "GRAPH-OWNED-INDEX ")
+    (write (list size edges (cons 'author-acquisitions acquisitions)
+                 (cons 'cold-owner-capture-and-query cold) (cons 'prepared-query hot)))
+    (newline) (force-output)))
 
 (def (compact-study)
   (for* ((size '(100000 1000000)) (family '(chain ring band)))
@@ -82,6 +75,24 @@
                      (lambda () (if (eq? side 'hash) (hash-reachable rows root) (compact-reachable index root))) 1)))
         (unless (equal? answer expected) (error "compact paired order" family size side))
         (set! samples (cons (list side costs) samples))))
+    ;; Same admitted index, tiny NONEMPTY closures. Deterministic allocation
+    ;; events are callback-free and untimed; ordinary EVAL timings use no probe.
+    (when (eq? family 'band)
+      (for (reached '(2 66))
+        (def start (vector-ref (compact-graph-names index) (1- reached)))
+        (def expected-small (vector->list (vector-copy (compact-graph-names index) 0 reached)))
+        (def allocation (vector 0 0 0))
+        (unless (and (equal? (compact-reachable index start allocation) expected-small)
+                     (= (vector-ref allocation 0) 0)
+                     (<= (vector-ref allocation 1) (* 8 reached))
+                     (<= (vector-ref allocation 2) (* 4 reached))
+                     (or (> reached 64) (equal? allocation '#(0 0 0))))
+          (error "sparse query allocated whole-support workspace" size reached allocation))
+        (let-values (((answer costs) (measure (cut compact-reachable index start) 1000)))
+          (unless (equal? answer expected-small) (error "sparse nonempty query order"))
+          (display "GRAPH-COMPACT-SPARSE ")
+          (write (list size reached '(repetitions . 1000) (cons 'allocation-events allocation) costs))
+          (newline) (force-output))))
     ;; Complete SCC traversal and symbolic output are separate charged phases.
     ;; Its actual counters require N entries/finishes/pops and EVERY input edge.
     (defvalues (scc-result scc-cost) (measure (cut compact-discover index) 1))
@@ -97,7 +108,8 @@
                  (cons 'input-preparation preparation)
                  (cons 'cold-encode-and-first-query cold) (cons 'encoding (vector-ref bundle 1))
                  (cons 'first-query (vector-ref bundle 2)) (reverse samples)))
-    (newline) (force-output))
+    (newline) (force-output)
+    (when (eq? family 'band) (owned-query-study keys rows root expected size edges)))
   (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
   (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (displayln "GRAPH-COMPACT-OK nodes=100000,1000000 shapes=chain,ring,band"))

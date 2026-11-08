@@ -5,6 +5,7 @@
         reconfigure-validation reconfiguration-action closed-reads validation-checkpoint)
 (import (only-in :std/list/list delete-duplicates/hash filter find)
         (only-in :std/hash/misc hash-ensure-ref)
+        (only-in ./strong-components capture-reachability)
         ./object (only-in ./mop Type. Type validate raise-type-error)
         (only-in ./value-diagnostics diagnose-structure)
         (only-in ./validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
@@ -32,12 +33,6 @@
 (def (stamps-current? stamps)
   (andmap (lambda (entry) (= (object-revision (car entry)) (cdr entry))) stamps))
 
-;; Finite reachability terminates on shared nodes and SCCs without unfolding Types.
-(def (reachable dependencies root)
-  (let loop ((todo (list root)) (seen []))
-    (if (null? todo) seen
-      (if (memq (car todo) seen) (loop (cdr todo) seen)
-        (loop (append (hash-ref dependencies (car todo)) (cdr todo)) (cons (car todo) seen))))))
 ;; Preserve both the phase and original cause; no failure is a successful #f node.
 (defstruct validation-failure (kind cause) final: #t)
 
@@ -102,6 +97,13 @@
       (hash-put! nodes name (hash-ref (closed-nodes previous) name))
       (hash-put! types name (hash-ref (closed-types previous) name))
       (hash-put! revoked name (hash-ref (closed-revoked previous) name))) reused))
+  ;; This graph owns ONE structural footprint index. No source or approval is
+  ;; memoized; effect-side freshness still runs independently before/after use.
+  (def reachability
+    (and dependencies
+      (capture-reachability (.o keys: (map node-spec-name specifications)
+        .reads: (lambda (key) (hash-ref dependencies key))))))
+  (def reachable (and reachability (.ref reachability '.reachable)))
   ;; An unaffected reference reads only its declared reachable subgraph. Whole
   ;; graph access still checks every node; an installed revision retires its old
   ;; snapshot while invalidated old Reference capabilities explicitly refuse.
@@ -113,7 +115,7 @@
     (when (and (hash-key? revoked name) (vector-ref (hash-ref revoked name) 0)) (raise (make-validation-failure 'stale name)))
     (if (and dependencies (hash-key? local-stamps name))
       (for-each (lambda (key) (check-stamps (hash-ref local-stamps key)))
-                (reachable dependencies name))
+                (reachable name))
       (check-stamps stamps)))
   ;; Scoped final checks permit a clean reference to survive unrelated revisions.
   ;; Every new graph nevertheless passes the complete admission gate below.
@@ -122,7 +124,7 @@
     (for-each (lambda (key)
       (def entry (assq key declarations))
       (unless (.call (cadr entry) .element? (hash-ref nodes key))
-        (raise (make-validation-failure 'admission key)))) (reachable dependencies name))
+        (raise (make-validation-failure 'admission key)))) (reachable name))
     (reference-fresh name))
   ;; Admission occurs only after every field batch finishes. Leaf references use
   ;; exact owner/name identity and do not recursively invoke this whole-graph gate.

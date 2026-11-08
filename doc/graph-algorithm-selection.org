@@ -473,11 +473,82 @@ CI remains a separate gate; Core/downstream pins remain unchanged.
 
 The earlier ~1.48 s number is the HASH ordered-reachability reference, not SCC.
 The ~145 ms compact ordered walker is still white-box =compact-reachable= in
-=t/feedback/graph-algorithms/compact.scm=. Production
-=recursive-validation.reachable= still has list membership; this row-capture
-change does NOT install that compact walker or close production reachability.
+=t/feedback/graph-algorithms/compact.scm=. At that cut, production recursive validation still used list membership; the
+row-capture change alone did NOT install the compact walker. The production
+integration below supersedes that open gap.
 Production needs an owner-bound already-admitted index path, with ordered-result
 and missing-owner proofs, sparse/small-query controls and charged cold conversion.
 Rebuilding the full index for every sparse root is not an acceptable shortcut.
 The existing =feedback-graph-action= already retains its partition for an exact
 unchanged source; joint approval and guard checks remain independent.
+
+* Production owner-bound ordered queries (2026-11-09)
+
+=capture-reachability= is a POO structural value over one captured finite source.
+The existing recursive validation graph constructs it once before business
+builders and binds its pure query in the existing owner closure. Reference
+freshness and element callbacks still have their independent before/after checks;
+no successful currentness/admission result enters this index. Each query owns
+its visited/frame workspace. Original Symbol identities and exact reverse-DFS
+order survive the private numeric representation. Missing roots refuse, including
+proper distinction between absence and present ID zero.
+
+The former test-only =compact-reachable= now lives in production
+=strong-components.ss=. Its duplicate test implementation and the unbounded
+list-membership production walker are removed. Small queries use a bounded
+64-owner list prefix; sparse larger queries use an ID set. Allocate dense marks
+only when N <= 32 * entered. Parent cursor/end arrays grow with active depth.
+A tail handoff keeps only the selected query layout, retiring copied symbolic
+rows from the packed kernel's closure environment. The wide-domain fallback
+retains captured symbolic rows and borrowed row tails.
+
+LeanPoo =ebd04fc= passed complete CI (run 42513048290). It proves exact state
+handoff at any list prefix, finite termination for closed captured support,
+missing-root refusal, ID-zero presence, clipped frame growth and the modeled
+reached-workspace bound. A dense bitmap plus two u32 frame arrays costs at most
+48 * entered modeled bytes given capacity <= 2 * entered. This excludes input,
+output and runtime headers, and is not a compiler extraction/physical-RAM proof.
+Proof fuel is never evaluated by the Scheme query or used as a new timeout.
+
+The existing small study now calls the PRODUCTION walker and records index
+preparation separately. Across chain/ring sizes 4-64, measured prepared CPU was
+about 0.57-0.76 times the list reference; one-owner fixed costs differed by about
+10-20 ns. This does not establish a universally optimal crossover. No public
+size flag or tuning DSL is introduced.
+
+The same 100K/1M band indices now exercise 2- and 66-owner NONEMPTY queries.
+Callback-free, untimed allocation probes report #(0 0 0) for two owners and
+#(0 384 128) for 66: dense bitmap cells, cumulative allocated u32 frame cells,
+and copied frame cells. Neither query allocates a whole-support bitmap. Normal
+timing uses no probe or source observer. The forced-dense fault compiled and
+refused with =sparse query allocated whole-support workspace=, without overflow
+or timeout. The source was restored byte-for-byte and all positive gates passed.
+
+The actual POO owner API has its own charged window, using the SAME stored rows:
+
+| V | E | Cold owner capture + first query CPU / wall | Prepared bound query CPU / wall | Included prepared GC CPU |
+|---+---+--------------------------------------------+---------------------------------+--------------------------|
+| 100000 | 1599864 | 239.26 / 239.28 ms | 13.19 / 13.21 ms | 0 ms |
+| 1000000 | 15999864 | 2787.46 / 2789.68 ms | 506.73 / 512.28 ms | 364.00 ms |
+
+Every author is acquired exactly V times during capture and zero times on query
+reuse. The prepared kernel pair used 144.61 ms and 498.36 ms CPU (the latter
+includes 352.97 ms GC), versus hash reference observations of 1449.60/1029.25 ms.
+Do not subtract GC and present the smaller remainder as observed latency. The
+separate stored-row encoding + first query was 886.03 ms CPU / 886.24 ms wall;
+that lower-level interval excludes POO author capture and is NOT the public API
+cold total. Full cold capture therefore remains a seconds-scale optimization.
+
+After exact fault reversal, properties, recursive validation/approvals and
+feedback suites passed strict Module/Harness/final markers. The COMPLETE native
+Graph study passed naturally: 355.39 s wall / 347.80 s user / 4.98 s system,
+unchanged 2 GiB, original 320 paired controls and all capacity/membership/rank
+cases. The explicit Graph build projects only the two existing recursive
+contract roots and their declared example libraries, avoiding unrelated contract
+suites or development executables. Default package build is unchanged.
+
+The earlier 1.48 s was a hash reference, not the old quadratic production walk;
+this is not a claimed same-engine 1.48-to-0.145 speedup. The new owner-bound
+production path is now tested; native publication ticket/retirement adapters,
+revision-catalog scans and Core's 10K real-Module EVAL gate remain independent
+open work. No Core or downstream pin is advanced by these Graph results.
