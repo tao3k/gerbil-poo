@@ -3,17 +3,27 @@
 ;;; Explicit feedback construction and recursive topology consume these groups;
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
-        partition-members partition-work)
+        partition-members partition-group-of partition-group-size partition-work)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         ./object)
 ;; Public groups/representatives retain source order, independently of DFS order.
-(defstruct %partition (groups owner reads members work) final: #t)
+(defstruct %partition (groups owner reads members work owners) final: #t)
 (def partition? %partition?)
 (def partition-groups %partition-groups)
 (def partition-owner %partition-owner)
 (def partition-reads %partition-reads)
 (def partition-work %partition-work)
-(def (partition-members part representative) (hash-get (%partition-members part) representative))
+;; The existing representative index stores (cardinality . members). The owner
+;; index is the same table already captured by partition-owner, not a second cache.
+(def (partition-members part representative)
+  (let (entry (hash-get (%partition-members part) representative)) (and entry (cdr entry))))
+(def (group-entry part node)
+  (let (representative (hash-get (%partition-owners part) node))
+    (and representative (hash-ref (%partition-members part) representative))))
+(def (partition-group-of part node)
+  (let (entry (group-entry part node)) (and entry (cdr entry))))
+(def (partition-group-size part node)
+  (let (entry (group-entry part node)) (and entry (car entry))))
 (def (work-receipt owner-count input-edges discoveries-count edges-count finish-count
                    pop-count normalized-count group-count span-buckets span-edges quotient-count)
   (.o validation-owners: owner-count validation-edges: input-edges
@@ -108,7 +118,7 @@
         (hash-put! owners key representative)))
     (let (groups (for/collect (representative (reverse order))
                   (let (group (reverse (hash-ref members representative)))
-                    (hash-put! members representative group) group)))
+                    (hash-put! members representative (cons (length group) group)) group)))
       ;; Independent linear certificate corresponding to ComponentWitness:
       ;; two within-group spanning walks and strictly decreasing quotient ranks.
       ;; A bad discovery cannot publish an over-merged or split partition.
@@ -137,4 +147,4 @@
                 (error "invalid SCC quotient certificate" key dep)))))
         (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
           (work-receipt next declared-edges next examined-edges finished popped next component
-            certificate-buckets certificate-edges quotient-edges))))))
+            certificate-buckets certificate-edges quotient-edges) owners)))))

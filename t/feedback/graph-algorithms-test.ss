@@ -4,10 +4,12 @@
         :clan/poo/type :clan/poo/number (prefix-in :clan/poo/testing/type typed.)
         (only-in :clan/poo/support/testing require-property-passed)
         (only-in :clan/poo/benchmarks/closure-measure measure)
-        (only-in :std/list/list filter foldl delete-duplicates/hash)
+        (only-in :std/list/list filter foldl find append-map delete-duplicates/hash)
         (prefix-in :clan/poo/generalized-graph graph.)
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/strong-components scc.))
+        (prefix-in :clan/poo/strong-components scc.)
+        (prefix-in :clan/poo/recursive-topology topology.)
+        (prefix-in :clan/poo/component-revision component.))
 (include "graph-algorithms/baseline.scm")
 
 (def (names size)
@@ -93,6 +95,43 @@
     (error "linear SCC work/group oracle" family size))
   #t)
 
+
+;; Frozen membership-observation rule, bounded to small differential inputs.
+;; It deliberately shares neither owner lookup nor per-group verdicts.
+(def (membership-oracle before after)
+  (def old (scc.partition-groups before))
+  (def fresh (scc.partition-groups after))
+  (def (group groups node) (find (lambda (members) (memq node members)) groups))
+  (filter (lambda (node)
+    (let ((left (group old node)) (right (group fresh node)))
+      (not (and left right (= (length left) (length right))
+        (andmap (cut memq <> right) left)))))
+    (delete-duplicates/hash (apply append (append old fresh)))))
+(def (change-matches? before after)
+  (equal? (membership-oracle before after) (topology.changed-members before after)))
+(def (group-partition groups)
+  (def keys (append-map reverse groups))
+  (def rows (make-hash-table-eq))
+  (for (members groups)
+    (for ((key members) (next (append (cdr members) (list (car members)))))
+      (hash-put! rows key (list next))))
+  (scc.partition (source (list->vector keys)
+    (list->vector (map (cut hash-ref rows <>) keys)))))
+
+(def (comparison-input kind size)
+  (def keys (vector->list (names size)))
+  (case kind
+    ((giant-unchanged) (values (group-partition (list keys))
+                              (group-partition (list (reverse keys))) []))
+    ((isolated-unchanged) (values (group-partition (map list keys))
+                                 (group-partition (map list (reverse keys))) []))
+    ((merge) (values (group-partition (map list keys)) (group-partition (list keys)) keys))
+    ((split) (values (group-partition (list keys)) (group-partition (map list keys)) keys))
+    ((pairs-unchanged)
+     (let (groups (family-groups 'pairs size))
+       (values (group-partition groups) (group-partition (map reverse (reverse groups))) [])))
+    (else (error "unknown membership comparison" kind))))
+
 (def graph-algorithms-test
   (test-suite "indexed Graph properties and scale"
     (test-case "all 512 directed three-owner graphs agree with reachability"
@@ -118,7 +157,12 @@
               (and (positive? (vector-length bits))
                 (vector-ref bits (modulo (+ (* i size) j) (vector-length bits)))
                 (vector-ref keys j)))))))
-          (and (matches? keys rows)
+          (and (change-matches? (scc.partition (source keys rows))
+                 (scc.partition (source keys
+                   (list->vector (for/collect (i (in-range size))
+                     (filter (lambda (key) (not (memq key (vector-ref rows i))))
+                       (vector->list keys)))))))
+            (matches? keys rows)
             (matches? keys (list->vector (map (lambda (row) (append row row)) (vector->list rows))))
             (matches? (list->vector (reverse (vector->list keys)))
               (list->vector (reverse (vector->list rows))))
@@ -129,6 +173,32 @@
     (test-case "10000-owner shapes visit every node and edge only once"
       (for (family '(isolated self chain pairs ring hub band))
         (check (check-scale (scc.partition (family-source family 10000)) family 10000) => #t)))
+    (test-case "indexed membership handles missing equal-size and renamed groups"
+      (def before (group-partition '((a b) (c) (removed))))
+      (def after (group-partition '((a c) (b) (added))))
+      (check-equal? (topology.changed-members before after) '(removed a c b added))
+      (check (change-matches? before after) => #t)
+      (check-equal? (topology.changed-members before
+        (group-partition '((removed) (c) (b a)))) [])
+      (def empty (group-partition []))
+      (check-equal? (topology.changed-members empty empty) [])
+      (check-equal? (topology.changed-members empty before) '(a b c removed))
+      (check-equal? (topology.changed-members before empty) '(a b c removed))
+      (check-equal? (scc.partition-group-of before 'absent) #f)
+      (check-equal? (scc.partition-group-size before 'absent) #f)
+      (check-equal? (scc.partition-group-size before 'b) 2)
+      (check (eq? (scc.partition-group-of before 'b)
+                  (scc.partition-members before 'a)) => #t))
+    (test-case "10000-owner membership compares giant merge split and renamed partitions"
+      (for (kind '(giant-unchanged isolated-unchanged merge split pairs-unchanged))
+        (let-values (((before after expected) (comparison-input kind 10000)))
+          (check-equal? (topology.changed-members before after) expected))))
+    (test-case "multi-member contributions preserve declaration order"
+      (def initial (graph.declaration '(old) []))
+      (def revised (component.reconfigure initial
+        (list (component.fragment '(a b) [] [])
+              (component.fragment '(c d) [] []))))
+      (check-equal? (.@ revised keys) '(old a b c d)))
     (test-case "representative lookup is exact and does not alias a non-representative"
       (def part (scc.partition (family-source 'pairs 10000)))
       (check-equal? (length (scc.partition-groups part)) 5000)
@@ -140,17 +210,18 @@
 ;; The existing SCC benchmark entry invokes this alongside its unchanged matrix.
 ;; Source construction and partitioning have separate process-statistics rows.
 (def (main)
-  (for (family '(isolated self chain pairs ring hub band))
-    (defvalues (spec preparation) (measure (lambda () (family-source family 10000)) 1))
+  (for* ((size '(10000 100000)) (family '(isolated self chain pairs ring hub band)))
+    (defvalues (spec preparation) (measure (lambda () (family-source family size)) 1))
     (defvalues (part traversal) (measure (cut scc.partition spec) 1))
-    (check-scale part family 10000)
+    (check-scale part family size)
     (display "GRAPH-SCALE ")
-    (write (list family 10000 (cons 'source-preparation preparation)
+    (write (list family size (cons 'source-preparation preparation)
       (cons 'partition traversal) (cons 'work (.alist/sort (scc.partition-work part)))))
     (newline))
   ;; Same process/source, ABBA and AABB controls, natural and pre-collected GC.
-  ;; Reference is the exact former production strategy, not an all-pairs matrix.
-  (for* ((size '(1000 10000)) (regime '(natural collected)) (order '((before after after before) (before before after after))))
+  ;; Compare the exact former production strategy at 10K. Its quadratic 100K
+  ;; replay is not a capacity gate; candidate capacity is measured above.
+  (for* ((size '(10000)) (regime '(natural collected)) (order '((before after after before) (before before after after))))
     (let ((spec (family-source 'pairs size)) (expected (family-groups 'pairs size)) (observations []))
       (for (side order)
         (let-values (((result costs)
@@ -161,5 +232,31 @@
             (error "paired SCC membership oracle" side size))
           (set! observations (cons (list side costs) observations))))
       (display "GRAPH-PAIR ") (write (list size regime order (reverse observations))) (newline)))
-  (displayln "GRAPH-SCALE-OK families=7 owners=10000 paired-observations=32")
+  ;; Small exact-old-rule controls and 10K/100K candidate windows are separate:
+  ;; do not spend the gate proving that the former cubic giant-group scan is slow.
+  (for* ((size '(64 256)) (regime '(natural collected))
+         (order '((before after after before) (before before after after))))
+    (let-values (((before after expected) (comparison-input 'giant-unchanged size)))
+      (let (observations [])
+        (for (side order)
+          (let-values (((result costs) (measure
+            (lambda () (if (eq? side 'before) (membership-oracle before after)
+                         (topology.changed-members before after))) 1 (eq? regime 'collected))))
+            (unless (equal? result expected) (error "membership paired oracle" size side))
+            (set! observations (cons (list side costs) observations))))
+        (display "GRAPH-MEMBERSHIP-PAIR ")
+        (write (list size regime order (reverse observations))) (newline))))
+  (for* ((size '(10000 100000))
+         (kind '(giant-unchanged isolated-unchanged merge split pairs-unchanged)))
+    (let-values (((inputs preparation) (measure
+                   (lambda () (let-values (((before after expected) (comparison-input kind size)))
+                     (vector before after expected))) 1)))
+      (let-values (((result comparison) (measure
+                     (lambda () (topology.changed-members (vector-ref inputs 0) (vector-ref inputs 1))) 1)))
+        (unless (equal? result (vector-ref inputs 2)) (error "membership scale oracle" size kind))
+        (display "GRAPH-MEMBERSHIP-SCALE ")
+        (write (list kind size (cons 'source-and-partition-preparation preparation)
+                     (cons 'indexed-comparison comparison))) (newline))))
+  (displayln "GRAPH-MEMBERSHIP-OK paired-observations=32 sizes=10000,100000 families=5")
+  (displayln "GRAPH-SCALE-OK families=7 sizes=10000,100000 paired-observations=16")
   (void))

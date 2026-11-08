@@ -10,8 +10,8 @@ atomically; the existing lens compiler and feedback search perform construction.
 
 `strong-components.partition` consumes the existing immutable
 `GeneralizedGraph.Declaration`: its explicit finite support and each Computation's
-`reads`. It validates every reference, computes reflexive graph reachability and
-partitions by mutual reachability. Members and representatives follow source
+`reads`. It validates every reference and partitions by mutual reachability using
+iterative Tarjan plus an independent certificate. Members and representatives follow source
 order. Isolated nodes, self loops, shared hubs and multi-node cycles are handled;
 empty graphs still pass through joint approval. This is graph metadata analysis,
 not inference of dependencies hidden inside Scheme closures.
@@ -91,31 +91,27 @@ publication now compose through [service-revisions.md](service-revisions.md).
 
 ## Group discovery and paired costs
 
-Discovery prepares forward and reverse adjacency once, then intersects one
-forward/reverse visited pair per unassigned representative. It no longer retains
-one reachable set for every vertex. Both traversals use a tail-recursive worklist
-and standard Gerbil hash tables; all footprints are validated before traversal.
-Source-order groups, representatives, normalized reads and refusal behavior are
-unchanged. The corresponding Lean path-reversal and intersection lemmas establish
-the mathematical grouping rule, not extraction or hash-table/runtime correctness.
+Discovery captures forward/reverse adjacency once, then uses iterative Tarjan
+frames and one source-order normalization pass. An independent forward/reverse
+spanning certificate and strictly ordered quotient edges reject invalid groups.
+The partition retains its existing owner/member hash indices; membership-change
+comparison reads stored cardinalities and checks each old group once. See
+[the measurement contract](construction-cache.org) for the proof boundary.
 
-`just benchmark-scc` reuses the compiled feedback regression module and its
-existing 1 GiB / 90-second focused-test bounds. One process runs small rings,
-larger rings, shared branching, chain and isolated controls, each with ABBA/BAAB
-ordering, natural/pre-collected GC and prepared/cold source construction. The
-measurement-only reference retains per-vertex reachability. Both sides include
-validation, construction, hashes and result closures; ordered groups, all owners
-and reads are checked against independent family oracles outside each timer.
-Gambit reports CPU, wall, GC CPU, collections and allocation separately. Output
-is ephemeral Scheme data; redirect it outside Git. The original closure benchmark
-matrix and its 20-second child limits remain unchanged.
+`just benchmark-scc` prepares the existing development libraries and the feedback
+and construction test packages only. It does not build every unrelated test
+package. The original 320-observation matrix remains; capacity windows use
+10,000 and 100,000 owners, with source preparation, certified partition,
+membership comparison and full/local DAG updates separated. The quadratic old
+SCC baseline is compared only at 10,000 owners; it is not rerun at 100,000.
+A bounded 64/256-owner old membership rule supplies differential timing controls.
+All capacity observations check complete groups/counters outside the timers.
+The existing 2-GiB heap and native TestSuite failure boundary remain.
 
-A singleton shortcut additionally skips both visited sets when every non-self
-incoming predecessor already belongs to a completed, distinct SCC. The Lean
-`singleton_of_assigned_predecessors` lemma makes that separation invariant
-explicit. It covers isolated nodes, self loops and source-ordered chains without
-mistaking a one-way dependency for a shared component. Hash-state maintenance of
-that invariant is exercised by regression tests, not claimed as verified extraction.
+`ComponentWitness` proves within-group paths and decreasing quotient ranks
+suffice for exact SCC membership; equal finite cardinality plus indexed inclusion
+suffices for unchanged groups. These are semantic contracts, not extraction or
+a proof of Scheme compiler/hash-table/runtime complexity.
 
 Signed allocation observations from the shared process-statistics helper are
 retained as diagnostics. Negative values and collection-spanning samples do not

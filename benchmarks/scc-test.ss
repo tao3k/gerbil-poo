@@ -8,5 +8,5 @@
 (def scc-benchmark-test
   (test-suite "complete paired SCC workload"
     (test-case "every existing topology and regime" (study.main))
-    (test-case "ten-thousand-owner work and original-production paired controls" (scale.main))
+    (test-case "10000/100000-owner indexed Graph with bounded original-production controls" (scale.main))
     (test-case "local and full DAG updates with the same prepared source" (rank.main))))

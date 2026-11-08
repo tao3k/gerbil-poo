@@ -16,8 +16,9 @@
 ;; providers. The ordered union determines the final deterministic SCC key order.
 ;; Descriptors/lists and callbacks obey the existing immutable-source discipline.
 (def (reconfigure spec fragments)
-  ;; Flatten each provider namespace in deterministic contribution order.
-  (def (collect field) (append-map (lambda (part) (.ref part field)) fragments))
+  ;; Preserve contribution AND member order; Gerbil append-map reverses each
+  ;; mapped row, so reverse restores the former apply-append semantics.
+  (def (collect field) (append-map (lambda (part) (reverse (.ref part field))) fragments))
   (def added (collect 'added))
   (def removed (collect 'removed))
   (def old-keys (.@ spec keys))

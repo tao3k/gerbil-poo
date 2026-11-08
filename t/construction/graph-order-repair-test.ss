@@ -134,7 +134,7 @@
 ;; Standard full scheduling versus sparse repair, with identical prepared inputs.
 ;; Initial declaration/order preparation remains separate from each update row.
 (def (main)
-  (for (size '(1000 10000))
+  (for (size '(10000 100000))
     (let* ((keys (list->vector (for/collect (i (in-range size))
                    (string->symbol (string-append "rank-owner-" (number->string i))))))
            (source (graph.declaration (vector->list keys)

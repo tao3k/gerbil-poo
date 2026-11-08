@@ -264,8 +264,10 @@ benchmark-combination: (build-benchmarks "combination")
     mkdir -p .build/combination
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/combination-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
 
-benchmark-scc: build
-    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
+# SCC needs the declared development libraries and two test packages, not the
+# complete four-part test build or representation-startup executable package.
+benchmark-scc: build-development (build-group "feedback") (build-group "construction")
+    just _test benchmarks/scc-test.ss
 
 # These focused TestSuites load the explicitly built benchmark modules. The linked
 # startup probe is prepared separately for entries that actually execute it.

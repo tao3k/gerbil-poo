@@ -128,8 +128,9 @@ implementation mutations must fail with their intended semantic errors.
 * Graph measurement boundary
 
 The existing ~just benchmark-scc~ preserves its original 320 observations.
-Its standard TestSuite adds seven fresh-source shape observations, 32 SCC
-production-baseline pairs and 32 full/local rank-update pairs. ABBA/AABB
+Its standard TestSuite measures seven fresh-source shapes at 10,000/100,000
+owners, 16 SCC production-baseline observations at 10,000 and 32 full/local
+rank-update observations at 10,000/100,000. The former 1,000-size sample is removed. ABBA/AABB
 and natural/collected GC regimes share the same source in each paired block;
 full group/permutation oracles run outside timing. The frozen former SCC
 strategy is test-only, from ~cd4de64~. Raw logs stay outside source control.
@@ -149,6 +150,54 @@ Preparation, GC and source creation are printed separately. Native allocation
 deltas are signed diagnostics; values spanning collection are not allocation
 savings. These windows exclude import/compilation and process exit. They are
 not measurements of Yuanxu Interface admission or first business ~.get~.
+
+* Indexed historical membership comparison
+
+=recursive-topology.changed-members= now queries the partition's existing
+owner/member indices. During normalization each member-table entry retains its
+cardinality. One verdict per old group checks equal cardinality and that every
+old member resolves to the same new group. Missing owners change; representative
+renaming alone does not. There is no per-node new-group scan and no repeated
+length scan of a giant merged group. Under the native hash-table cost model the
+comparison is linear in old/new support.
+
+LeanPoo =ComponentWitness= at =59417456= proves exact finite membership,
+group-verdict uniformity, absent-owner rejection and representative renaming.
+The Scheme properties retain the exact former per-node rule as a bounded
+independent oracle, including its union ordering. Equal-size groups with
+different members are an explicit negative control. Five 10,000-owner cases
+cover giant/isolated unchanged partitions, merge, split and renamed pairs.
+Benchmark preparation (sources plus partitions) and indexed comparison have
+separate CPU/wall/GC windows; small 64/256-owner ABBA/AABB controls compare
+against the old rule without spending the gate on a cubic 10K baseline.
+
+Gerbil =append-map= reverses each mapped row. These paths explicitly restore
+row order when replacing =apply append=; multi-member contribution tests
+protect the public SCC representative order. This changes no Gerbil API.
+Historical membership observations never authorize value, source or publication
+reuse. Recursive catalogs retain their existing nonempty admission contract and
+independent before/after currentness checks.
+
+The indexed-membership candidate passed the existing Benchmark TestSuite on
+2026-11-08 with MODULE-OK, HARNESS-OK, final OK and natural return (84.84 s
+measurement-suite wall time; build preparation excluded). Same 2-GiB heap:
+
+| CPU window | 10,000 owners | 100,000 owners |
+|------------+---------------+----------------|
+| First metadata + certified SCC, seven shapes | 0.1304–0.2771 s | 1.5858–2.9306 s |
+| Historical membership, five shapes | 4.43–7.27 ms | 57.76–142.14 ms |
+| Full DAG update, eight observations | 16.53–27.97 ms | 214.88–345.09 ms |
+| Local DAG update, eight observations | 6.58–7.37 ms | 70.45–180.10 ms |
+
+These min/max ranges describe the stated shapes/windows, not confidence
+intervals or full Module loading. Membership preparation at 100,000 owners
+takes 3.96–4.32 CPU seconds separately; the upper comparison sample includes
+57.75 ms GC CPU. Full/local DAG updates still include linear snapshot work.
+
+The cardinality-only implementation mutation compiled and failed naturally:
+seed 2947 fails trial 90 and the explicit equal-size/different-members case
+misses owners a/b. Source was restored. Its output prefix is retired before
+the final positive full check so numbered mutant objects cannot contaminate it.
 
 * Shared settlement example
 
