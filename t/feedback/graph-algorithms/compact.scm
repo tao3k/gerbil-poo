@@ -1,7 +1,7 @@
 ;;; Prepared traversal study over the actual private production index.
 (extern namespace: clan/poo/strong-components
-  make-compact-graph capture-compact compact-graph-names compact-graph-positions compact-graph-offsets compact-graph-targets
-  compact-discover compact-component-owners compact-discovery-result compact-reachable)
+  make-compact-graph capture-compact compact-graph-names compact-graph-positions compact-graph-offsets compact-graph-targets compact-graph-direction
+  compact-discover compact-selected-discover compact-component-owners compact-discovery-result compact-reachable)
 
 (def (compact-row graph key)
   (def node (hash-ref (compact-graph-positions graph) key))
@@ -33,6 +33,32 @@
     (write (list size edges (cons 'author-acquisitions acquisitions)
                  (cons 'cold-owner-capture-and-query cold) (cons 'prepared-query hot)))
     (newline) (force-output)))
+
+;; The SAME captured rows interpreted as an admitted inverse directory. Charge
+;; representation preparation once; subsequent hints must visit only their union.
+(def (invalidation-study keys rows last-key size edges)
+  (defvalues (inverse preparation)
+    (measure (lambda ()
+      (def index (make-hash-table-symbolic size: size))
+      (for (key keys) (hash-put! index key (hash-ref rows key))) index) 1))
+  (def sparse-key (list-ref keys 65))
+  (for ((kind '(full sparse))
+        (roots (list (list last-key last-key) (list (car keys) sparse-key sparse-key)))
+        (reached (list size 66)) (observed-edges (list edges 920)))
+    (def work (vector 0 0))
+    (def marked (affected-owners inverse roots work))
+    (unless (and (= (hash-length marked) reached)
+                 (= (vector-ref work 0) reached) (= (vector-ref work 1) observed-edges))
+      (error "inverse worklist repeated or omitted a bucket/edge" size kind work))
+    (let-values (((answer costs) (measure (cut affected-owners inverse roots) 1)))
+      (unless (and (= (hash-length answer) reached)
+                   (andmap (cut hash-key? answer <>)
+                     (if (eq? kind 'full) keys (take keys 66))))
+        (error "inverse timed closure identity/cardinality"))
+      (display "GRAPH-INVALIDATION ")
+      (write (list size edges kind (cons 'reached-owners reached)
+                   (cons 'index-preparation preparation) (cons 'work work) costs))
+      (newline) (force-output))))
 
 (def (compact-study)
   (for* ((size '(100000 1000000)) (family '(chain ring band)))
@@ -100,6 +126,19 @@
     (vector-set! scc-result 0 owner-map)
     (check-discovery scc-result keys (family-groups family size) size
       (if (eq? family 'ring) 1 size) edges)
+    ;; The SAME packed rows, general DFS versus source-rank selection. Preserve
+    ;; natural GC and charge every result vector allocation inside its window.
+    (let (observations [])
+      (for (engine '(tarjan selected selected tarjan))
+        (let-values (((result costs) (measure
+                      (lambda () ((if (eq? engine 'tarjan) compact-discover compact-selected-discover) index)) 1)))
+          (vector-set! result 0 (compact-component-owners index result))
+          (check-discovery result keys (family-groups family size) size
+            (if (eq? family 'ring) 1 size) edges)
+          (set! observations (cons (list engine costs) observations))))
+      (display "GRAPH-RANK-PAIR ")
+      (write (list family size edges '(order . (tarjan selected selected tarjan)) (reverse observations)))
+      (newline) (force-output))
     (display "GRAPH-COMPACT-SCC ")
     (write (list family size edges (cons 'discovery scc-cost) (cons 'symbolic-output owner-cost)))
     (newline) (force-output)
@@ -109,7 +148,9 @@
                  (cons 'cold-encode-and-first-query cold) (cons 'encoding (vector-ref bundle 1))
                  (cons 'first-query (vector-ref bundle 2)) (reverse samples)))
     (newline) (force-output)
-    (when (eq? family 'band) (owned-query-study keys rows root expected size edges)))
+    (when (eq? family 'band)
+      (owned-query-study keys rows root expected size edges)
+      (invalidation-study keys rows root size edges)))
   (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
   (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (displayln "GRAPH-COMPACT-OK nodes=100000,1000000 shapes=chain,ring,band"))

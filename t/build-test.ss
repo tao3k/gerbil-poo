@@ -101,9 +101,17 @@
       (check-equal? (take graph-study (length core)) core)
       (check-equal? (executables graph-study) '())
       (check-equal? (map cadr (drop graph-study (length core)))
-        '("examples/closed-declarations" "examples/component-services"
+        '("examples/object-contracts" "examples/contract-publication"
+          "examples/recursive-validation" "examples/recursive-revision"
+          "examples/recursive-migration" "examples/recursive-topology"
+          "examples/recursive-staging" "examples/recursive-restaging"
+          "examples/recursive-publication" "examples/recursive-approvals"
+          "examples/recursive-competition" "examples/recursive-submissions"
+          "examples/recursive-recovery" "examples/recursive-coordination"
+          "examples/closed-declarations" "examples/component-services"
           "benchmarks/closure-measure" "t/feedback/graph-algorithms-test"
-          "t/feedback/feedback-graph-test" "t/construction/graph-order-repair-test"))
+          "t/feedback/feedback-graph-test" "t/construction/graph-order-repair-test"
+          "t/contracts/recursive-approvals-test" "t/contracts/recursive-validation-test"))
       (check (list? core) => #t)
       (check (list? development) => #t)
       (check-equal? (executables core) '())

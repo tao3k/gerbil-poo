@@ -1,6 +1,7 @@
 ;;; Paired private discovery kernels over the SAME captured Graph rows.
 ;;; Ordinary consumers keep partition; this white-box fixture adds no export.
 (extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph)
+(extern namespace: clan/poo/recursive-validation affected-owners)
 
 (def (discovery-result kernel keys reads)
   (let-values (((owners nodes groups edges finished popped) (kernel keys reads)))
@@ -15,9 +16,10 @@
     (unless (and (equal? groups expected-groups)
                  (= (vector-ref result 1) nodes)
                  (= (vector-ref result 2) groups-count)
-                 (= (vector-ref result 3) expected-edges)
-                 (= (vector-ref result 4) nodes)
-                 (= (vector-ref result 5) nodes))
+                 (or (and (= (vector-ref result 3) expected-edges)
+                          (= (vector-ref result 4) nodes) (= (vector-ref result 5) nodes))
+                     (and (= groups-count nodes) (= (vector-ref result 3) 0)
+                          (= (vector-ref result 4) 0) (= (vector-ref result 5) 0))))
       (error "captured discovery groups/work oracle"))))
 
 ;; Reuse the existing bounded exhaustive/property inputs; no new case matrix.
@@ -26,23 +28,53 @@
   (def work (scc.partition-work part))
   (for (kernel (list discover-wide))
     (check-discovery (discovery-result kernel keys reads) keys
-      (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits)))
+      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges)))
   (def declared-source (make-hash-table-eq))
   (for ((key keys) (row (in-vector original-rows))) (hash-put! declared-source key row))
+  (def expected-direction 3)
+  (for ((key keys) (owner (in-range (length keys))))
+    (for (dep (hash-ref reads key))
+      (def id (let position ((rest keys) (at 0))
+                (if (eq? (car rest) dep) at (position (cdr rest) (1+ at)))))
+      (cond ((< id owner) (set! expected-direction (fxand expected-direction 1)))
+            ((> id owner) (set! expected-direction (fxand expected-direction 2))))))
   (let-values (((captured index declared edges) (capture-graph keys (cut hash-ref declared-source <>))))
-    (unless (and (= declared (.@ work validation-edges)) (= edges (.@ work edge-visits))
+    (unless (and (= expected-direction (compact-graph-direction index))
+                 (= declared (.@ work validation-edges)) (= edges (.@ work quotient-edges))
                  (andmap (lambda (key) (and (equal? (hash-ref captured key) (hash-ref reads key))
                    (equal? (compact-row index key) (hash-ref reads key)))) keys))
       (error "fused capture rows/work oracle"))
     (check-discovery (compact-discovery-result index) keys
-      (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits)))
-  (let (compact (capture-compact keys reads (.@ work edge-visits)))
+      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges)))
+  (let (compact (capture-compact keys reads (.@ work quotient-edges)))
+    (unless (= expected-direction (compact-graph-direction compact))
+      (error "captured source rank flags disagree with independent row order"))
     (check-discovery (compact-discovery-result compact) keys
-      (scc.partition-groups part) (.@ work discoveries) (.@ work groups) (.@ work edge-visits))
+      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges))
     (for (root keys)
       (unless (and (equal? (compact-row compact root) (hash-ref reads root))
                    (equal? (compact-reachable compact root) (list-reachable-order reads root)))
         (error "ordered indexed reachability oracle" root))))
+  ;; Same bounded exhaustive/property graphs, two roots and duplicated hints.
+  ;; The oracle uses the independent hash walk; only the production inverse
+  ;; worklist receives the callback-free bucket/edge probe.
+  (def inverse (make-hash-table-symbolic size: (length keys)))
+  (for (key keys) (hash-put! inverse key []))
+  (for (consumer keys)
+    (for (provider (hash-ref reads consumer))
+      (hash-put! inverse provider (cons consumer (hash-ref inverse provider)))))
+  (def roots (if (null? keys) [] (if (null? (cdr keys)) keys (list (car keys) (cadr keys)))))
+  (def expected (make-hash-table-eq))
+  (for (root roots)
+    (hash-for-each (lambda (key _) (hash-put! expected key #t)) (baseline-reachable inverse root)))
+  (def inverse-work (vector 0 0))
+  (def actual (affected-owners inverse (append roots roots) inverse-work))
+  (unless (and (= (hash-length actual) (hash-length expected))
+               (andmap (lambda (key) (eq? (hash-key? actual key) (hash-key? expected key))) keys)
+               (= (vector-ref inverse-work 0) (hash-length expected))
+               (= (vector-ref inverse-work 1) (foldl (lambda (key count)
+                   (+ count (length (hash-ref inverse key)))) 0 (hash-keys expected))))
+    (error "old inverse closure membership/inverse-work oracle"))
   #t)
 
 ;; Frozen epoch/list capture at e94cfc2, for matched allocation measurements.
@@ -126,7 +158,7 @@
                (targets (if (null? chunks) tail
                           (u32vector-concatenate (reverse (cons tail chunks))))))
           (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
-          (make-compact-graph (list->vector keys) positions offsets targets)))))
+          (make-compact-graph (list->vector keys) positions offsets targets 0)))))
   (values reads index declared edges))
 
 

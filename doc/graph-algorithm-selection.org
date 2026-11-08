@@ -552,3 +552,95 @@ this is not a claimed same-engine 1.48-to-0.145 speedup. The new owner-bound
 production path is now tested; native publication ticket/retirement adapters,
 revision-catalog scans and Core's 10K real-Module EVAL gate remain independent
 open work. No Core or downstream pin is advanced by these Graph results.
+
+* Source-rank strategy and owned revision indices (2026-11-09)
+
+The source-rank candidate described above is now wired into the existing packed
+production discovery path, under qualification. Capture owns a two-bit direction
+summary while it independently reads and validates EVERY author. Non-self edges
+must all decrease source position or all increase it. Self edges preserve both
+bits; mixed directions fall back to numeric Tarjan. The selector is not a graph
+size threshold, fixture-name branch or shared approval cache. Captured rows and
+numeric IDs remain the sole input.
+
+LeanPoo =ComponentWitness= already proves =order_flags_exact=, both directional
+classification equivalences and exact singleton SCCs. Reuse those existing laws;
+no second Graph relation or source hash is needed. Source-order public groups
+and original symbolic owner identities remain unchanged; internal rank labels
+may differ from DFS pop order. The independent quotient/spanning certificate
+still runs. Rank-assigned owners and rank-certified unique edges have separate
+receipt fields; actual DFS discoveries, edge visits, finishes and pops are zero
+on that path. Author capture, direction checks, result allocation, symbolic
+output and certification remain charged phases.
+
+The existing bounded exhaustive/seeded Graph cases now independently derive the
+direction from list positions as well as checking captured rows and canonical
+SCC groups. The existing 100K/1M compact study compares numeric Tarjan and the
+selected path on the SAME CSR graph in A/B/B/A order, with natural GC inside
+windows and output validation outside. Its old general-kernel measurements and
+cold provider-capture comparisons are retained, rather than replaced by a
+pre-certified timing.
+
+[[https://arxiv.org/html/2201.07197v2#S6.SS3][Tarjan and Zwick, sections 6.3-6.4]] compare actual memory accesses and
+nonrecursive stack representations, not merely O(V+E). Their Algorithm T is a
+useful next general-graph candidate: CSR traversal avoids hashing per edge;
+sharing stack storage and retaining current lowlink in local state can reduce
+accesses further. The paper explicitly limits that cost model: it omits cache
+hierarchy and computation. A claimed speedup still needs native paired results.
+No parallelism or unsafe vector access is justified merely by graph size.
+
+Recursive revision now also owns private symbolic recipe/entry/reuse/inverse
+indices. Freeze caller list spines, retain opaque recipe identity, seed EVERY
+changed consumer, and traverse the OLD inverse only once per affected bucket.
+LeanPoo PR #16 =ff62e529= proves the indexed lookup/capture trace and equality
+of affected closures across dependency rewrites. Changed watches and author or
+admission callbacks still require independent currentness; structural lookup
+never authenticates an approval. A private functional capture bridge avoids
+exposing authority indices to observable mutable synthetic POO receivers.
+
+Three native mutation controls reproduced real failures before this repair:
+caller recipe-list edits changed the predecessor catalog, watch-list edits hid
+a stale source, and public reused-list edits suppressed capability revocation.
+The repaired suites pass those controls plus a slot-observer authority control.
+The same bounded Graph inputs now check inverse closure membership against an
+independent walk, including duplicate roots and bucket/edge counts. No new
+Cartesian property matrix is added.
+
+Pre-selector 2-GiB inverse measurements use the same band rows. At 100K/1M
+support, the 66-owner/920-edge closure took 0.021/0.028 ms CPU respectively;
+full 1,599,864/15,999,864-edge closures took 47.48/727.81 ms. Building the
+symbolic inverse directory took 9.46/257.20 ms separately. Those numbers are
+structural traversal, not 100K/1M business Module admission. Full current-head
+capacity, negative-control and CI results remain separate acceptance gates.
+
+The complete native compact study returned naturally at this cut (91.73 s wall,
+89.27 s user, 2-GiB unchanged), retaining all 48 cold provider-pipeline
+observations and the prepared query/order/allocation controls. The 512-graph,
+seeded property and two recursive Contract suites also passed strict Module,
+Harness and final OK markers after fixing a POO receipt field self-reference.
+That failed first run remains local evidence.
+
+| Captured graph | V | E | General SCC CPU ms, A/A | Selected SCC CPU ms, B/B | Selected allocation bytes |
+|----------------+---+---+------------------------+--------------------------+---------------------------|
+| chain | 100,000 | 99,999 | 10.58 / 10.64 | 0.639 / 0.635 | 400,256 |
+| degree-16 band | 100,000 | 1,599,864 | 22.83 / 22.88 | 0.605 / 0.628 | 400,256 |
+| chain | 1,000,000 | 999,999 | 106.47 / 106.89 | 6.239 / 6.215 | 4,000,256 |
+| degree-16 band | 1,000,000 | 15,999,864 | 233.91 / 232.50 | 6.179 / 5.940 | 4,000,256 |
+| ring, general fallback | 1,000,000 | 1,000,000 | 108.40 / 111.17 | 108.81 / 108.73 | 24,000,688 |
+
+These SAME-index kernel windows include result-state allocation and natural GC
+(zero observed in the table). The general path allocates
+24,000,688 bytes at 1M. Symbolic output, author acquisition and independent
+certification are NOT in this table. In particular the full public owner-capture
+plus first ordered query remains 2,599.94 ms CPU / 2,600.18 ms wall, including
+561.46 ms GC; its prepared query took 469.09 ms including 332.42 ms GC.
+Millisecond SCC assignment does not close that cold operation.
+
+Both matched native faults compiled successfully in an isolated output prefix.
+Forcing the selected direction to decreasing for every graph was rejected with
+=invalid SCC quotient certificate=. Dropping the second invalidation root was
+rejected by =old inverse closure membership/inverse-work oracle=. Neither was
+an import/compiler, timeout or heap/stack rejection. Standard Harness failure
+aggregation accompanies these expected CASE failures. Both source files were
+restored byte-for-byte before the positive rebuild. LeanPoo =ff62e529= full CI
+run =42519171451= passed; Scheme exact-head CI remains separate.

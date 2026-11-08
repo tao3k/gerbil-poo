@@ -3,7 +3,7 @@
 ;;; Explicit feedback construction and recursive topology consume these groups;
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
-        partition-members partition-group-of partition-group-size partition-work capture-reachability)
+        partition-members partition-group-of partition-group-size partition-work capture-reachability capture-reachability-procedure)
 (import :std/iter
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/hash symbol-hash-table?)
@@ -29,13 +29,13 @@
   (let (entry (group-entry part node)) (and entry (car entry))))
 (def (work-receipt owner-count input-edges discoveries-count edges-count finish-count
                    pop-count normalized-count group-count span-buckets span-edges quotient-count
-                   singleton-count reverse-count)
+                   singleton-count reverse-count ranked-count rank-edge-count)
   (.o validation-owners: owner-count validation-edges: input-edges
       discoveries: discoveries-count edge-visits: edges-count finishes: finish-count
       member-pops: pop-count normalization-owners: normalized-count groups: group-count
       certificate-buckets: span-buckets certificate-edges: span-edges
       quotient-edges: quotient-count certificate-singletons: singleton-count
-      reverse-edges: reverse-count))
+      reverse-edges: reverse-count rank-owners: ranked-count rank-edges: rank-edge-count))
 
 ;; DFS state is private to this call and dies before normalization/certification.
 ;; Reuse the existing owner index; lowlinks/active flags are contiguous cells.
@@ -93,7 +93,7 @@
                 (walk parents))))))))
   (values owners next component examined finished popped))
 
-(defstruct compact-graph (names positions offsets targets) final: #t)
+(defstruct compact-graph (names positions offsets targets direction) final: #t)
 
 (def (capture-compact keys reads edges)
   (def count (length keys))
@@ -115,6 +115,9 @@
   (unless (= count (hash-length positions)) (error "distinct compact Graph owners required"))
   (def offsets (make-u32vector (fx+ count 1) 0))
   (def targets (make-u32vector edges 0))
+  ;; A bit survives iff EVERY captured non-self edge obeys its direction.
+  ;; This is structural evidence owned by these rows, never currentness evidence.
+  (def direction 3)
   (let owner ((rest keys) (index 0) (cursor 0))
     (u32vector-set! offsets index cursor)
     (if (null? rest)
@@ -129,9 +132,11 @@
               (unless id
                 (if (symbol? dep) (hash-ref positions dep)
                   (error "symbolic compact target required" dep)))
+              (cond ((fx< id index) (set! direction (fxand direction 1)))
+                    ((fx> id index) (set! direction (fxand direction 2))))
               (u32vector-set! targets cursor id))
             (fill (cdr pending) (fx+ cursor 1)))))))
-  (make-compact-graph names positions offsets targets))
+  (make-compact-graph names positions offsets targets direction))
 
 ;; One owner index serves BOTH source support admission and row ID encoding.
 ;; Every author is still read independently, in source order. Only the pure
@@ -156,6 +161,7 @@
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (make-hash-table-eq size: count))
   (def declared 0) (def edges 0)
+  (def direction 3)
   ;; Private, bounded construction chunks, not a retained graph/value cache.
   ;; A small graph pays only its support-sized chunk; an empty graph pays none.
   (def capacity (max 1 (min count 65536)))
@@ -212,6 +218,8 @@
           (unless (null? pending)
             (let (id (symbolic-table-ref raw (car pending) #f))
               (unless id (error "unsupported component read" key deps))
+              (cond ((fx< id owner) (set! direction (fxand direction 1)))
+                    ((fx> id owner) (set! direction (fxand direction 2))))
               (u32vector-set! row-buffer at id))
             (fill (cdr pending) (fx+ at 1))))
         (let ((token (fx+ owner 1)))
@@ -234,6 +242,8 @@
         (for (dep unique)
           (let (id (symbolic-table-ref raw dep #f))
             (unless id (error "unsupported component read" key deps))
+            (cond ((fx< id owner) (set! direction (fxand direction 1)))
+                  ((fx> id owner) (set! direction (fxand direction 2))))
             (append-target id))
           (set! edges (1+ edges)))
         (hash-put! reads key unique)))
@@ -248,7 +258,7 @@
                (targets (if (null? chunks) tail
                           (u32vector-concatenate (reverse (cons tail chunks))))))
           (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
-          (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets)))))
+          (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets direction)))))
   (values reads index declared edges))
 
 ;; Ordered reachability over an already captured graph, never an approval memo.
@@ -354,15 +364,22 @@
 
 ;; Historical structural index: captured rows/IDs are owned by this POO value.
 ;; Queries cannot acquire authors again, publish, or authorize currentness.
-(def (capture-reachability origin)
-  (def keys (.@ origin keys))
+(def (capture-reachability-components keys read-owner)
   (unless (and (list? keys) (andmap symbol? keys)
                (= (length keys) (length (delete-duplicates/hash keys))))
     (error "distinct finite reachability keys required"))
-  (let-values (((reads index declared edges)
-                (capture-graph keys (lambda (key) (.call origin .reads key)))))
-    (reachability-value origin (length keys) declared edges
-      (if index (compact-query index) (wide-query reads)))))
+  (let-values (((reads index declared edges) (capture-graph keys read-owner)))
+    (values (if index (compact-query index) (wide-query reads)) (length keys) declared edges)))
+;; Functional bridge for owner-private captured data. Internal authority never
+;; passes through an extensible Slot or an externally observable synthetic object.
+(def (capture-reachability-procedure keys read-owner)
+  (let-values (((query _owners _declared _edges)
+                (capture-reachability-components keys read-owner))) query))
+(def (capture-reachability origin)
+  (let-values (((query owners declared edges)
+                (capture-reachability-components (.@ origin keys)
+                  (lambda (key) (.call origin .reads key)))))
+    (reachability-value origin owners declared edges query)))
 
 ;; Numeric Tarjan over the exact CSR rows. This is the existing algorithm:
 ;; discovery order, lowlinks and pop order are unchanged. No hash per edge.
@@ -439,8 +456,27 @@
       (symbolic-table-set! raw-owners (vector-ref names node) (fx- (fx- retired count) 1))))
   owners)
 
+;; A verified source rank already proves every SCC is a singleton. Assign only
+;; the N result labels; do not allocate DFS state or replay E captured edges.
+;; Self loops preserve both bits; any cross-owner cycle clears both bits.
+;; Counter zeroes mean NO DFS discoveries/finishes/pops or edge visits occurred.
+(def (compact-selected-discover graph)
+  (def direction (compact-graph-direction graph))
+  (if (fx= direction 0) (compact-discover graph)
+    (let* ((count (vector-length (compact-graph-names graph)))
+           (_ (unless (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295))
+                (error "compact SCC state word range" count)))
+           (state (make-u32vector count 0))
+           (decreasing? (not (fx= (fxand direction 1) 0))))
+      (let assign ((node 0))
+        (when (fx< node count)
+          (u32vector-set! state node
+            (fx+ (fx+ count 1) (if decreasing? node (fx- (fx- count 1) node))))
+          (assign (fx+ node 1))))
+      (vector state count count 0 0 0))))
+
 (def (compact-discovery-result graph)
-  (let (result (compact-discover graph))
+  (let (result (compact-selected-discover graph))
     (vector-set! result 0 (compact-component-owners graph result)) result))
 
 ;; Private layout refinement of the existing discovery operation. No public
@@ -544,5 +580,7 @@
           (when (and quotient-error (eq? key (car quotient-error)))
             (error "invalid SCC quotient certificate" key (cdr quotient-error))))
         (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
-          (work-receipt validation-owners declared-edges next examined-edges finished popped next component
-            certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges) owners))))
+          (work-receipt validation-owners declared-edges (if (zero? finished) 0 next)
+            examined-edges finished popped next component
+            certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges
+            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners))))
