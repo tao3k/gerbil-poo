@@ -771,3 +771,77 @@ marker was present. The complete typed-source 1M partition windows were
 28.40-32.03 CPU seconds in this compiler-policy cohort, including per-owner
 Computation generation. Do not compare those fixture totals to older =-Og=
 owner totals as an SCC gain/regression. Exact-head remote CI is a separate gate.
+
+* Query-only capture projection (candidate)
+
+=OrderedReachability= at LeanPoo =33e6f195= proves exact completed-prefix
+reconstruction, original owner/order round trips, missing-owner and finite-query
+agreement, and restored first-refusal traces. The local complete file passes.
+This permits query-only capture to retain packed rows without also retaining
+symbolic copies that its caller discards. Partition still requires its rows.
+
+One collector must preserve every independent author call and validation order.
+A word-domain fallback first restores completed rows from owned chunks; it must
+exclude partial current-row words and append that whole normalized row once.
+Native bounded word-ceiling controls and same-input retention/query measurements
+remain required; no performance or remote CI claim is made by these laws alone.
+
+The following cut =4e5d2b0= strengthens root admission explicitly: optional
+row presence is preserved, =none= is refused, and a present empty row stays
+=some []=. The total row helper in the finite-prefix algebra cannot authorize
+using a missing owner. Both =33e6f195= and =4e5d2b0= complete Lean CI passed.
+Native queries retain their existing owner-index refusal before traversal.
+
+The same collector now accepts a private product projection. Its default still
+retains symbolic rows for partition/certification; the public reachability owner
+requests only the packed product. If packed words overflow, completed rows are
+restored from the existing chunks before those buffers retire. No author is
+read again. A private reduced ceiling covers this branch in bounded tests;
+production always uses the original full u32 ceiling, never an expanded bound.
+
+The existing bounded exhaustive/seeded inputs also check projected row/query
+order and that no symbolic table remains. Additional bounded controls cover
+empty rows, rightmost duplicates, a chunk crossing, both append routes, changed
+author-list aliases and identical refusal traces. These properties passed.
+The compact study also passed at 118.09 s wall / 115.41 s user, unchanged 2 GiB,
+including all original cold observations and the same cyclic-band fixture.
+
+One frozen POO author source, retained/projected/projected/retained capture,
+allocation and natural GC inside the timer; first-query oracle outside:
+
+| V / E | Retained CPU ms, A/A | Projected CPU ms, B/B | Author reads per window | Retained symbolic rows A / B |
+|-------+----------------------+-----------------------+-------------------------+-----------------------------|
+| 100K / 1,599,864 | 214.594 / 139.163 | 132.575 / 129.524 | 100,000 | 100,000 / 0 |
+| 1M / 15,999,864 | 2,024.153 / 2,222.940 | 1,493.809 / 1,503.057 | 1,000,000 | 1,000,000 / 0 |
+
+At 100K the zero-GC retained sample allocates 104,786,744 bytes versus
+23,665,208 projected. Its other retained sample includes 72.807 ms GC. At 1M
+both retained samples include GC (367.571 / 561.709 ms), so their allocation is
+unavailable; both projected samples observed zero GC and 225,857,016 bytes.
+Do not subtract an independent getter/GC pass or claim zero native allocation.
+
+The actual public cold owner capture plus first query costs 167.181 ms CPU at
+100K (zero GC; 41,770,936 bytes), and 2,140.889 ms at 1M (272.302 ms GC).
+The prepared 1M query costs 134.656 ms with zero GC. These are separate public
+windows. The private table comparison does not establish all of the difference
+from earlier public cohorts as an algorithm gain. Cold author acquisition and
+support/ID admission remain substantial; full cold latency is not milliseconds.
+Matched fault, restored full suite and exact-head Scheme CI remain to qualify
+this local projection cut.
+
+The preceding Algorithm T cut =4f62802= has now passed complete Scheme CI run
+=42528273324=. The shared job has 69 Module passes, all original/added Graph
+controls, no error/heap/stack markers, and a naturally completed cyclic fixture.
+Ubuntu cyclic-band CPU at 1M/15,999,865 is 358.505-370.204 ms for six vectors
+versus 293.704-296.868 ms for two. This green result belongs to =4f62802=,
+not the still-local row projection above. No Core dependency is promoted.
+
+The compiled matched fault omitted one completed prefix owner and was rejected
+in the new word-boundary control with =ERROR CHECK= and =UnboundKeyError= for
+that existing owner. No timeout/import/heap failure counted. After byte-for-byte
+restoration, build declarations, Graph properties and both recursive Contract
+suites passed. The full SCC suite returned naturally at 250.83 s wall / 247.70 s
+user, preserving all 320 original observations, eleven capacity rows, 32
+membership and 32 rank observations. Strict Module/Harness/final OK markers and
+absence of all error/heap/stack markers were checked. Remote CI of the projection
+itself remains separate from the already-green parent =4f62802=.

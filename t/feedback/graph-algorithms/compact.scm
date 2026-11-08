@@ -34,6 +34,36 @@
                  (cons 'cold-owner-capture-and-query cold) (cons 'prepared-query hot)))
     (newline) (force-output)))
 
+;; Isolate the unconsumed product on one frozen owner source. Both routes use
+;; the SAME production collector, author calls and numeric index. Symbolic row
+;; retention is the sole choice; public cold/query costs above remain separate.
+(def (row-projection-study keys rows root expected size edges)
+  (def acquisitions 0)
+  (def source (.o keys: keys .reads: (lambda (key)
+    (set! acquisitions (1+ acquisitions)) (hash-ref rows key))))
+  (def (sample mode)
+    (set! acquisitions 0)
+    (def retain? (eq? mode 'retained))
+    (defvalues (product costs)
+      (measure (lambda ()
+        (let-values (((reads index declared unique)
+                      (capture-graph keys (lambda (key) (.call source .reads key)) retain?)))
+          (vector reads index declared unique))) 1))
+    (def reads (vector-ref product 0)) (def index (vector-ref product 1))
+    (unless (and (= acquisitions size) (= (vector-ref product 3) edges) index
+                 (if retain? (and reads (= (hash-length reads) size)) (not reads)))
+      (error "row projection owner/product work" mode size acquisitions))
+    (unless (and (equal? (compact-reachable index root) expected) (= acquisitions size))
+      (error "row projection query order or author replay" mode size))
+    ;; Return no captured product or query list into the next observation.
+    (list mode (cons 'author-acquisitions acquisitions)
+      (cons 'retained-symbolic-rows (if reads (hash-length reads) 0)) costs))
+  (def observations (map sample '(retained projected projected retained)))
+  (display "GRAPH-ROW-PROJECTION-PAIR ")
+  (write (list size edges '(window . owner-admission-and-index)
+    '(order . (retained projected projected retained)) observations))
+  (newline) (force-output))
+
 ;; The SAME captured rows interpreted as an admitted inverse directory. Charge
 ;; representation preparation once; subsequent hints must visit only their union.
 (def (invalidation-study keys rows last-key size edges)
@@ -199,7 +229,8 @@
       (set! reverse-keys #f)
       (vector-set! bundle 0 #f) (set! index #f)
       (owned-query-study keys rows root expected size edges)
-      (invalidation-study keys rows root size edges)))
+      (invalidation-study keys rows root size edges)
+      (row-projection-study keys rows root expected size edges)))
   (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
   (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (displayln "GRAPH-COMPACT-OK nodes=100000,1000000 shapes=chain,ring,band"))

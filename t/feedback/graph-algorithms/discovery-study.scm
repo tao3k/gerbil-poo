@@ -1,6 +1,6 @@
 ;;; Paired private discovery kernels over the SAME captured Graph rows.
 ;;; Ordinary consumers keep partition; this white-box fixture adds no export.
-(extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph)
+(extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph wide-reachable)
 (extern namespace: clan/poo/recursive-validation affected-owners)
 
 (def (discovery-result kernel keys reads)
@@ -46,6 +46,14 @@
       (error "fused capture rows/work oracle"))
     (check-discovery (compact-discovery-result index) keys
       (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges)))
+  ;; Same bounded inputs check query-only product erasure. No second author
+  ;; pass belongs to a production capture; this is an independent differential.
+  (defvalues (discarded projected projected-declared projected-edges)
+    (capture-graph keys (cut hash-ref declared-source <>) #f))
+  (unless (and (not discarded) projected
+               (= projected-declared (.@ work validation-edges))
+               (= projected-edges (.@ work quotient-edges)))
+    (error "query projection retained symbolic rows or changed work"))
   (let (compact (capture-compact keys reads (.@ work quotient-edges)))
     (unless (= expected-direction (compact-graph-direction compact))
       (error "captured source rank flags disagree with independent row order"))
@@ -58,7 +66,9 @@
       (check-discovery general keys (scc.partition-groups part) (length keys)
         (.@ work groups) (.@ work quotient-edges)))
     (for (root keys)
-      (unless (and (equal? (compact-row compact root) (hash-ref reads root))
+      (unless (and (equal? (compact-row projected root) (hash-ref reads root))
+                   (equal? (compact-reachable projected root) (list-reachable-order reads root))
+                   (equal? (compact-row compact root) (hash-ref reads root))
                    (equal? (compact-reachable compact root) (list-reachable-order reads root)))
         (error "ordered indexed reachability oracle" root))))
   ;; Same bounded exhaustive/property graphs, two roots and duplicated hints.

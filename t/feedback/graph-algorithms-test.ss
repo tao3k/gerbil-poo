@@ -358,6 +358,49 @@
         (check-equal? (hash-ref reads 'a) '(c b))
         (check-equal? (compact-row index 'a) '(c b))
         (check-equal? (list declared edges) '(9 6))))
+    (test-case "query row projection restores completed rows at the word boundary"
+      ;; Reduced PRIVATE word ceilings cover first-row fallback, empty rows,
+      ;; rightmost duplicates, chunk crossings and the singleton append route.
+      ;; Production always uses the full u32 ceiling; no larger budget is tested.
+      (for (fixture (list
+             (list '(a b c d e f) '#((b c d e f) (a c d e f) (a) (a b) () (f f)) '(0 5 10))
+             (list '(a b c d) '#(() (a c a) () (b c d b)) '(0 2))))
+        (def keys (car fixture)) (def input (cadr fixture))
+        (def rows (make-hash-table-eq))
+        (for ((key keys) (row (in-vector input))) (hash-put! rows key row))
+        (defvalues (reference _index declared edges) (capture-graph keys (cut hash-ref rows <>)))
+        (for* ((limit (caddr fixture)) (retain? '(#t #f)))
+          (def calls [])
+          (defvalues (actual index observed-declared observed-edges)
+            (capture-graph keys (lambda (key)
+              (set! calls (cons key calls)) (hash-ref rows key)) retain? limit))
+          (check-equal? (reverse calls) keys)
+          (check-equal? index #f)
+          (check-equal? (list observed-declared observed-edges) (list declared edges))
+          (for (key keys)
+            (check-equal? (hash-ref actual key) (hash-ref reference key))
+            (check-equal? (wide-reachable actual key) (list-reachable-order reference key)))
+          (check-exception (wide-reachable actual 'outside) error-object?)))
+      ;; Restoration reads owned chunks, not an earlier mutable author row.
+      (def prior-row (list 'b 'c 'b))
+      (def calls [])
+      (defvalues (rows index declared edges)
+        (capture-graph '(a b c) (lambda (key)
+          (set! calls (cons key calls))
+          (case key ((a) prior-row) ((b) (set-car! prior-row 'outside) '(a)) (else []))) #f 2))
+      (check-equal? (reverse calls) '(a b c))
+      (check-equal? index #f)
+      (check-equal? (list declared edges) '(4 3))
+      (check-equal? (hash-ref rows 'a) '(c b))
+      (check-equal? (wide-reachable rows 'a) '(b c a))
+      ;; A later refused author still stops acquisition at the same owner.
+      (set! calls [])
+      (check-exception
+        (capture-graph '(a b c d) (lambda (key)
+          (set! calls (cons key calls))
+          (case key ((a) '(b c)) ((b) '(a)) ((c) '(outside)) (else []))) #f 2)
+        error-object?)
+      (check-equal? (reverse calls) '(a b c)))
     (test-case "row workspace growth and duplicate gaps retain exact adjacency"
       (def keys '#(a b c d))
       (check (matches? keys '#((a b b c) (d c d a b b a d c) (c a a) ())) => #t))

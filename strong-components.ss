@@ -141,7 +141,11 @@
 ;; One owner index serves BOTH source support admission and row ID encoding.
 ;; Every author is still read independently, in source order. Only the pure
 ;; support check/encoding interval is shared (normalized_capture_trace law).
-(def (capture-graph keys read-owner)
+(def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295))
+  ;; The private reduced ceiling exercises exactly the native wide fallback in
+  ;; bounded tests. Production always uses the full u32 range; it cannot expand.
+  (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
+    (error "captured edge word ceiling" edge-word-ceiling))
   (def count (length keys))
   (def positions (make-hash-table-symbolic size: count))
   (def raw (interface-instance-object positions))
@@ -159,20 +163,41 @@
   (def row-marks #f)
   (def row-buffer #f) (def owner-names #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
-  (def reads (make-hash-table-eq size: count))
+  (def reads (and (or symbolic-rows? (not packed?)) (make-hash-table-eq size: count)))
   (def declared 0) (def edges 0)
   (def direction 3)
   ;; Private, bounded construction chunks, not a retained graph/value cache.
   ;; A small graph pays only its support-sized chunk; an empty graph pays none.
   (def capacity (max 1 (min count 65536)))
   (def chunks []) (def chunk #f) (def used 0)
-  (def (append-target id)
+  ;; A query consumes the packed product only. On a real word-domain fallback,
+  ;; recover completed rows BEFORE dropping those chunks. The current row can
+  ;; have a partial suffix there; offsets stop before it (restore_completed_prefix).
+  (def (restore-symbolic-prefix! completed)
+    (unless reads
+      (set! reads (make-hash-table-eq size: count))
+      (unless owner-names (set! owner-names (list->vector keys)))
+      (let ((pending (reverse (if chunk (cons chunk chunks) chunks))) (cursor 0))
+        (def (next-id)
+          (when (fx= cursor capacity) (set! pending (cdr pending)) (set! cursor 0))
+          (unless (pair? pending) (error "incomplete captured row prefix"))
+          (let (id (u32vector-ref (car pending) cursor))
+            (set! cursor (fx+ cursor 1)) id))
+        (for (owner (in-range completed))
+          (hash-put! reads (vector-ref owner-names owner)
+            (for/collect (_at (in-range (u32vector-ref offsets owner)
+                               (u32vector-ref offsets (fx+ owner 1))))
+              (vector-ref owner-names (next-id))))))))
+  (def (use-wide-rows! completed)
+    (restore-symbolic-prefix! completed)
+    (set! packed? #f) (set! offsets #f)
+    (set! chunks []) (set! chunk #f))
+  (def (append-target owner id)
     (when packed?
       ;; Outside the word domain retain the original wide algorithm, rather
       ;; than imposing a new public graph-size refusal.
-      (if (or (not (fixnum? (1+ edges))) (>= edges 4294967295))
-        (begin (set! packed? #f) (set! offsets #f)
-               (set! chunks []) (set! chunk #f))
+      (if (or (not (fixnum? (1+ edges))) (>= edges edge-word-ceiling))
+        (use-wide-rows! owner)
         (begin
           (when (= used capacity)
             (set! chunks (cons chunk chunks)) (set! chunk #f) (set! used 0))
@@ -180,12 +205,11 @@
           (u32vector-set! chunk used id) (set! used (fx+ used 1))))))
   ;; Copy retained row IDs in bounded standard-vector slices. No per-edge
   ;; closure call or counter update; each chunk preserves exact row order.
-  (def (append-row-targets start end)
+  (def (append-row-targets owner start end)
     (let (after (+ edges (- end start)))
       (when packed?
-        (if (or (not (fixnum? after)) (> after 4294967295))
-          (begin (set! packed? #f) (set! offsets #f)
-                 (set! chunks []) (set! chunk #f))
+        (if (or (not (fixnum? after)) (> after edge-word-ceiling))
+          (use-wide-rows! owner)
           (let copy ((at start))
             (when (fx< at end)
               (when (fx= used capacity)
@@ -224,7 +248,7 @@
             (fill (cdr pending) (fx+ at 1))))
         (let ((token (fx+ owner 1)))
           (let-values (((start unique)
-                        (let scan ((read row-length) (write row-length) (unique []))
+                        (let scan ((read row-length) (write row-length) (unique (and reads [])))
                           (if (fx= read 0) (values write unique)
                             (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
                               (if (fx= (u32vector-ref row-marks id) token)
@@ -232,21 +256,28 @@
                                 (let (destination (fx- write 1))
                                   (u32vector-set! row-marks id token)
                                   (u32vector-set! row-buffer destination id)
-                                  (scan next destination (cons (vector-ref owner-names id) unique)))))))))
-            (append-row-targets start row-length)
-            (hash-put! reads key unique))))
+                                  (scan next destination (and reads (cons (vector-ref owner-names id) unique))))))))))
+            (append-row-targets owner start row-length)
+            (when reads
+              (hash-put! reads key (or unique
+                (for/collect (at (in-range start row-length))
+                  (vector-ref owner-names (u32vector-ref row-buffer at)))))))))
       ;; Preserve the inexpensive empty/singleton path and the original wide
       ;; domain. Copy singleton spines before the next independent callback.
-      (let (unique (cond ((null? deps) []) ((null? (cdr deps)) (list (car deps)))
+      (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
                         (else (delete-duplicates/hash deps))))
         (for (dep unique)
           (let (id (symbolic-table-ref raw dep #f))
             (unless id (error "unsupported component read" key deps))
             (cond ((fx< id owner) (set! direction (fxand direction 1)))
                   ((fx> id owner) (set! direction (fxand direction 2))))
-            (append-target id))
+            (append-target owner id))
           (set! edges (1+ edges)))
-        (hash-put! reads key unique)))
+        (when reads
+          ;; Copy the singleton before the next author, including when this row
+          ;; caused fallback. Packed queries need no unconsumed symbolic copy.
+          (hash-put! reads key (if (and (pair? unique) (null? (cdr unique)))
+                                (list (car unique)) unique)))))
     (set! declared (+ declared row-length)))
   (def index
     (and packed?
@@ -370,7 +401,7 @@
     (error "distinct finite reachability keys required"))
   ;; Own the admitted roster before the first independent author callback.
   (set! keys (append keys []))
-  (let-values (((reads index declared edges) (capture-graph keys read-owner)))
+  (let-values (((reads index declared edges) (capture-graph keys read-owner #f)))
     (values (if index (compact-query index) (wide-query reads)) (length keys) declared edges)))
 ;; Functional bridge for owner-private captured data. Internal authority never
 ;; passes through an extensible Slot or an externally observable synthetic object.
