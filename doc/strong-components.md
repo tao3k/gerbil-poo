@@ -91,16 +91,21 @@ publication now compose through [service-revisions.md](service-revisions.md).
 
 ## Group discovery and paired costs
 
-Discovery captures forward/reverse adjacency once, then uses iterative Tarjan
-frames and one source-order normalization pass. An independent forward/reverse
-spanning certificate and strictly ordered quotient edges reject invalid groups.
+Discovery captures forward adjacency once, then uses iterative Tarjan frames
+with private dense lowlink/active state and one source-order normalization pass.
+The independent certificate checks every quotient edge. It retains reverse rows
+only within nontrivial groups and uses reflexive singleton paths. Its spanning
+walks and strict quotient ranks still reject invalid groups, in the original
+per-owner refusal order. Transient discovery/normalization state is retired
+before certification; public partition fields and identities stay unchanged.
 The partition retains its existing owner/member hash indices; membership-change
 comparison reads stored cardinalities and checks each old group once. See
 [the measurement contract](construction-cache.org) for the proof boundary.
 
-`just benchmark-scc` prepares the existing development libraries and the feedback
-and construction test packages only. It does not build every unrelated test
-package. The original 320-observation matrix remains; capacity windows use
+`just benchmark-scc` uses the existing `build-development.ss graph` make
+projection: the core library, three declared study libraries and three declared
+test roots. It retains the original production/test compiler policy and source
+inputs. No representation executable or unrelated example/test package is built. The original 320-observation matrix remains; capacity windows use
 100,000 and 1,000,000 nodes, with source preparation, metadata getter, certified partition,
 membership comparison and full/local DAG updates separated. The former
 SCC implementation remains a bounded correctness oracle; its quadratic timing
@@ -119,3 +124,6 @@ retained as diagnostics. Negative values and collection-spanning samples do not
 establish an allocation reduction; CPU/wall and GC controls remain separate.
 A successful result marker alone is insufficient: the bounded process must exit
 successfully, and the complete regression suite must also pass.
+
+Algorithm/representation candidates, applicability contracts and incomplete
+million-node acceptance are tracked in [the research contract](graph-algorithm-selection.org).

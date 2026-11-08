@@ -1,7 +1,7 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Source-only build support; never a POO runtime library dependency.
 ;;; Retain compiler resource cleanup through its public API; no second scheduler.
-(export call-with-build-jobs test-build-spec test-build-partitions build-test-partition)
+(export call-with-build-jobs test-build-spec test-build-partitions build-test-partition prefix-test-spec)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in :std/list/list append-map)
         (only-in :gerbil/compiler execute-pending-compile-jobs!))

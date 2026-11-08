@@ -25,6 +25,9 @@ build-core: check-layout (_build-root "core")
 
 build-development: check-layout (_build-root "development")
 
+# Existing Scheme build entry projects the Graph study dependency closure.
+build-graph-study: check-layout (_build-root "graph")
+
 _build-root graph:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -39,6 +42,7 @@ _build-root graph:
     case "$1" in
         core) entry=(gerbil {{ test-runtime-options }}); action=build ;;
         development) entry=(./build-development.ss); action=compile ;;
+        graph) entry=(./build-development.ss graph); action=compile ;;
     esac
     if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 "${entry[@]}" "$action"; then
         exit 0
@@ -264,9 +268,8 @@ benchmark-combination: (build-benchmarks "combination")
     mkdir -p .build/combination
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/combination-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
 
-# SCC needs the declared development libraries and two test packages, not the
-# complete four-part test build or representation-startup executable package.
-benchmark-scc: build-development (build-group "feedback") (build-group "construction")
+# Native make builds the Graph projection; the ordinary TestSuite runs it.
+benchmark-scc: build-graph-study
     just _test benchmarks/scc-test.ss
 
 # These focused TestSuites load the explicitly built benchmark modules. The linked

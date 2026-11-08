@@ -81,8 +81,8 @@
     (test-case "standard build metadata exclude progress output"
       ;; Consume one datum from the generated build protocol; never evaluate it
       ;; or reconstruct the compiler's dependency graph.
-      (def (metadata entry command)
-        (call-with-input-string (with-output-to-string (cut entry command))
+      (def (metadata entry . commands)
+        (call-with-input-string (with-output-to-string (lambda () (apply entry commands)))
           (lambda (port)
             (def value (read port))
             (check (eof-object? (read port)) => #t)
@@ -95,6 +95,15 @@
         (list root.main development.main))
       (def core (metadata root.main "spec"))
       (def development (metadata development.main "spec"))
+      (def graph-study (metadata development.main "graph" "spec"))
+      ;; The focused study retains the entire core/compiler policy, and selects
+      ;; only these declared study inputs. It never builds a representation exe.
+      (check-equal? (take graph-study (length core)) core)
+      (check-equal? (executables graph-study) '())
+      (check-equal? (map cadr (drop graph-study (length core)))
+        '("examples/closed-declarations" "examples/component-services"
+          "benchmarks/closure-measure" "t/feedback/graph-algorithms-test"
+          "t/feedback/feedback-graph-test" "t/construction/graph-order-repair-test"))
       (check (list? core) => #t)
       (check (list? development) => #t)
       (check-equal? (executables core) '())

@@ -32,13 +32,15 @@ jobs:
       # Root make imports t/build.ss and compiles the top-level t/*.ss fixtures.
       # Nested test packages/includes belong to compile-tests, not this artifact.
       # Keep every root/production/benchmark input; a test edit must still run all jobs.
+      # Benchmark TestSuite sources run from checkout in the test jobs. They
+      # are not inputs to compiled development libraries or transferred programs.
       - uses: actions/cache@v4
         id: shared-cache
         with:
           path: |
             .ci-library/lib
             .ci-library/bin
-          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/**', 't/*.ss', '!t/build-test.ss') }}
+          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/**', 't/*.ss', '!t/build-test.ss', '!benchmarks/*-test.ss') }}
       - name: Check public module packaging
         run: just check-layout
       - name: Prepare the declared libraries and benchmark programs

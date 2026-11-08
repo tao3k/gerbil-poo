@@ -3,7 +3,8 @@
 (export main)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in "build.ss" +gerbil-poo-build-spec+ production-spec)
-        (only-in "t/build.ss" call-with-build-jobs)
+        (only-in "t/build.ss" call-with-build-jobs test-build-spec prefix-test-spec)
+        (only-in :std/list/list filter)
         (prefix-in "examples/build.ss" entry-build.))
 (include "testing/property/build.scm")
 
@@ -151,5 +152,32 @@
         (else modules)))
     main))
 
+;; Project the same native declarations without unrelated executable studies.
+(def graph-build
+  (let ()
+    (def libraries
+      (filter (lambda (entry)
+                (and (string? entry)
+                  (member entry '("examples/closed-declarations"
+                                  "examples/component-services"
+                                  "benchmarks/closure-measure"))))
+        +gerbil-poo-development-spec+))
+    (unless (= (length libraries) 3) (error "missing Graph study library declaration"))
+    (def (tests group names)
+      (def selected (filter (lambda (entry) (member (cadr entry) names))
+                       (test-build-spec group)))
+      (unless (= (length selected) (length names))
+        (error "missing Graph study test declaration" group names))
+      (map (cut prefix-test-spec (string-append "t/" group) <>) selected))
+    (defbuild-script
+      (append (map production-spec (append +gerbil-poo-build-spec+ libraries))
+        (tests "feedback" '("graph-algorithms-test" "feedback-graph-test"))
+        (tests "construction" '("graph-order-repair-test"))))
+    main))
+
 (def (main . options)
-  (call-with-build-jobs (cut apply build options)))
+  (call-with-build-jobs
+    (lambda ()
+      (match options
+        (["graph" . rest] (apply graph-build rest))
+        (else (apply build options))))))

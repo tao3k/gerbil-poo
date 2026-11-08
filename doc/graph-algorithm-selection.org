@@ -1,0 +1,202 @@
+#+title: Graph algorithm selection: workload, proof and measurement
+#+language: en
+#+property: STATUS research-and-qualification
+
+* Scope
+
+Keep public Graph operations and POO identities unchanged. Research internal
+algorithm/representation choices for 100,000 and 1,000,000 graph nodes. These
+are finite graph metadata workloads, not Yuanxu Interface or Module EVAL.
+No Yuanxu revision propagation, loader, approval cache or public tuning DSL.
+
+Size alone is not a dispatch rule. Capture V, E, degree skew, operation kind,
+already-owned indices and the affected update region. Do not compute SCCs merely
+to choose an SCC algorithm; component distribution may inform a later operation
+only when its current, already-owned partition supplies it.
+
+* Primary sources and their actual obligations
+
+| Source | What informs this work | What it does not establish |
+|--------+-------------------------+----------------------------|
+| [[https://github.com/metareflection/poof/blob/9affa8fbbb4f12cbd98cb97f8b8b84474fc39429/poof.scrbl#L2084][POOF, generalized prototypes]] | Composition, fragments/lenses and the cache-invalidation research direction | A particular graph algorithm or a node-count threshold |
+| [[https://whileydave.com/publications/Pea16_IPL_preprint.pdf][Pearce, space-efficient SCC]] | Nonrecursive traversal, merged state and reduced auxiliary storage | Scheme heap bytes: object headers, hashes, GC and adjacency are separate costs |
+| [[https://www.cs.princeton.edu/courses/archive/spr09/cos423/Lectures/bi-gabow.pdf][Gabow, path-based DFS]] | A linear path/stack-based alternative to lowlink bookkeeping | Universal superiority over Tarjan; the paper notes platform-dependent differences |
+| [[https://arxiv.org/pdf/1703.10023][Mehlhorn/Naher/Sanders, engineering DFS]] | Representation and implementation engineering must be compared alongside algorithm names | Transferring its measured speedups to Gerbil |
+| [[https://www.doc.ic.ac.uk/~phjk/Publications/DynTopoSortWEA2004.pdf][Pearce/Kelly, dynamic order]] | Density and the affected region can change the practical winner | That every small delta makes our entire immutable refresh O(delta) |
+
+The degree-16 band has E = 16V - 136. It is bounded-degree and asymptotically
+sparse, not a dense graph. Dense/local-dense controls require explicit E and
+degree information. A complete million-node graph is outside the existing
+heap budget; do not construct one or increase the budget to obtain a sample.
+
+* Operation-specific candidates
+
+| Operation / case | Candidate | Required accounting |
+|------------------+-----------+---------------------|
+| A few requested roots in a large catalog | Existing indexed reached-owner closure | Reached vertices/edges; no eager full SCC |
+| Full SCC, modest preparation/state | Current iterative hash-indexed Tarjan | Getter, captures, traversal, normalization and independent certificate |
+| Full SCC, large active state / GC pressure | Tarjan with private dense state; then Pearce-style compressed state | Mapping/conversion, frame allocation and peak live state |
+| Full SCC, path/stack-heavy shapes | Gabow path-based candidate | Stack traffic and complete source-order normalization |
+| Full SCC, reverse adjacency already owned | Two-pass candidate for comparison | Both passes and reverse-index ownership; no free reverse construction |
+| Small DAG edit with a valid old schedule | Existing bounded local repair | Search plus copies, output materialization and outside-interval invalidation |
+| Large edit approaching whole support | Full scheduling candidate | Compare complete update cost, including index conversion and publication |
+
+These are candidates, not installed automatic dispatch. Retain a verified
+default until comparable measurements establish a crossover. Start with state
+representation changes that preserve the existing SCC algorithm, then compare
+algorithm changes separately so an improvement has an identifiable cause.
+
+* One semantic contract
+
+Each accepted engine consumes the same captured finite graph and must satisfy
+the existing ComponentWitness connectivity/quotient certificate. Normalize
+representatives by the same original source order. Engine-local dense integers
+never become public owner or Module identities. Historical membership and
+dependency invalidation retain their existing meaning.
+
+The native public partition operation captures each author footprint once.
+Paired engine studies share that immutable capture, not successful currentness.
+Gerbil expansion, author callbacks and publication retain independent checks.
+Candidate failure cannot publish a partially normalized result or revive an old
+certificate. Existing GraphSnapshot publication controls remain applicable.
+
+* Lean work
+
+Reuse the reasoning pattern of LeanPoo QueueSelection: selected modeled charges
+include the decision, and equivalence is separate from a cost bound. Its Boolean
+positive-equation queue implementation is not an SCC implementation.
+
+Prove before enabling a choice:
+
+1. Both accepted engine certificates imply the same SCC equivalence relation.
+2. Source-order normalization therefore produces identical representatives.
+3. Missing/unvisited owners do not read a dense state cell; index zero is present.
+4. Fresh discovery has capacity; index insertion preserves distinct-owner slots.
+5. Array writes change only the selected cell; advancing a shared private DFS
+   frame preserves the owner/slot viewed by the SCC stack.
+6. A selector chooses only an applicable plan within the modeled memory bound.
+7. Its selected total charge includes capture, layout conversion, discovery,
+   normalization, certificate, decision and any layout switching work.
+8. A minimum modeled ceiling is not a proof of minimum native CPU or wall time.
+
+The storage and selection laws for items 1-8 are checked in LeanPoo PR #16
+(commit c2140e2; complete CI passed). Certificate pruning and private rank-table
+retirement are published as 9daf35f; its complete Lean CI also passed. Algorithm completeness, compiler extraction, physical memory bounds and
+empirical crossover points are not implied by those laws.
+
+* Benchmark without a redundant Cartesian product
+
+Use the existing native Graph Benchmark TestSuite. At 100K cover the diverse
+shapes; at 1M concentrate on deep paths, many small SCCs, one giant SCC and the
+bounded-degree band. Include merge/split membership changes and a tiny-frontier
+rank update. Small exhaustive graphs and seeded properties supply semantic
+diversity; do not repeat every mutation at every capacity size.
+
+Report preparation, a standalone metadata-getter pass, complete partition and
+certificate, membership comparison, full/local update, GC, CPU and wall time.
+The getter pass is diagnostic: do not subtract its time from a different
+GC-contaminated run. Signed VM allocation accounts are not physical retained
+memory. Preserve the native 2-GiB heap and existing failure controls.
+
+For competing engines use the same frozen capture, matching output/certificate
+oracles outside timing and alternating order in one coherent toolchain. Charge
+conversion even if the measured kernel would prefer it to disappear. Only add
+an intermediate size when an observed crossover needs localization; do not add
+an arbitrary ladder of scales or runtime environment flags.
+
+* Current evidence boundary
+
+Published production cut 0a0aeb2 passed its complete CI. The CI 100K isolated
+case used 2.3268 CPU seconds, including 0.9744 GC CPU seconds. This is a reason
+to investigate metadata/state allocation, not evidence that edge traversal is
+the sole bottleneck. The new streaming-metadata fixture separately exposes
+getter construction and is a different workload from the earlier retained-code
+fixture. Do not compare their totals as an algorithm speedup.
+
+The complete 100K/1M native TestSuite now passes for the structure-dependent
+certificate candidate (details below). This does not establish an adaptive
+crossover or a speed advantage over another accepted engine. No size-based
+automatic selector has been installed.
+
+* First case-dependent implementation: certificate storage
+
+Do not eagerly build E reverse entries during author-footprint capture. Once
+source-order groups are known, inspect every unique forward edge to check its
+quotient rank and retain a reverse entry only for an internal edge of a claimed
+nontrivial group. A singleton needs its own owner identity and reflexive paths,
+not a forward/reverse spanning traversal. Every declared footprint is still
+captured and validated, including disconnected owners.
+
+The pruned_spans_keep_certificate Lean law concludes the same SCC equivalence
+as the full certificate. The singleton/reflexive and reverse/restriction laws
+justify the reduced rows; they do not waive a cross-group rank obligation.
+After the complete quotient pass, reuse the private rank table for coverage
+markers. Concrete HashMap laws distinguish those markers from numeric evidence
+and preserve other entries. No table becomes a reusable currentness approval.
+
+Record the earliest bad quotient edge and raise it at the same owner position
+after that owner's spanning check. Thus changing certificate traversal does not
+change the original refusal ordering. Neither Gerbil expansion nor author
+callbacks move across an effect boundary.
+
+For a DAG with V singleton groups, retained certificate reverse edges and
+spanning buckets are both zero, but quotient checks still number E. A single
+nontrivial SCC retains its internal reverse edges and both spanning walks.
+Mixed graphs retain only their nontrivial internal reverse edges; forward walks
+still charge every row edge inspected, including rejected cross-group edges.
+The work receipt reports actual counts, not the former unconditional 2V/2E.
+
+Discovery indices, lowlinks, flags and frames die at the discovery helper return;
+the temporary component-ID map dies at the normalization helper return. This
+limits overlap of live phases rather than adding a cache or changing public
+partition identities. Native liveness/GC remains an empirical obligation.
+
+* Next candidate: a source-order rank certificate
+
+A captured graph whose every non-self edge decreases source position is already
+certified as singleton SCCs. Increasing positions give the same certificate by
+reversing the rank. Self loops are legal; a cross-owner cycle defeats both
+conditions. The ranked_singletons_exact and directional corollaries have passed
+a combined Lean check and are published as c563d08 in PR #16. This is not yet
+installed in Scheme; its complete exact-head Lean CI passed.
+
+Applicability can be accumulated during the existing capture, without another
+SCC computation. Compare its comparison/branch cost on arbitrary graphs against
+the avoided DFS on monotone graphs. A failed applicability check must fall back
+to the independently certified general path. Do not turn fixture names or V
+alone into a selector, and do not report invented DFS visits for this path.
+
+* Acceptance status for the new million-node cut
+
+The coherent Homebrew baseline and private dense-DFS candidate both failed the
+1M-node degree-16 band at the unchanged 2-GiB heap. The candidate's exhaustive,
+seeded property, publication and local-order controls passed; that does not turn
+the capacity failure into a pass. The structure-dependent certificate candidate
+has passed those three native suites and the unchanged complete 100K/1M
+Benchmark naturally (MODULE-OK, HARNESS-OK, final OK; no errors or heap/stack
+failures). The study took 526.21 seconds wall, including its preserved 320 paired
+controls, capacity windows, membership construction/comparison and rank updates.
+That aggregate is not the latency of one graph operation. Preparation remains
+outside that measured TestSuite invocation. Existing POO heap limits are unchanged.
+
+| 1M-node case | Unique E | Complete partition CPU (s) | Included GC CPU (s) | Retained reverse edges |
+|--------------+----------+----------------------------+---------------------+------------------------|
+| chain | 999999 | 33.06684 | 13.10916 | 0 |
+| pairs | 1000000 | 35.74830 | 13.97037 | 1000000 |
+| ring | 1000000 | 35.20510 | 14.03824 | 1000000 |
+| degree-16 band | 15999864 | 38.23385 | 14.52582 | 0 |
+
+At 100K, the seven complete partitions used 1.789-2.418 CPU seconds. At 1M,
+standalone getter passes used 17.770-21.048 CPU seconds. These are separate
+observations; do not subtract them to claim a kernel latency. The native
+1M membership index comparison took 1.027/1.678/1.105 CPU seconds for unchanged,
+merge and split, while their source/partition preparation took 68.770/65.273/
+56.563 seconds. Distinguish expensive construction from the already-built index.
+
+These are one coherent macOS cohort, not an alternating two-engine experiment
+or an exact-head remote CI result. Keep the prior heap failures as evidence.
+The matched missing-lowlink fault compiled and was rejected naturally with
+invalid SCC quotient certificate. The original source was restored, rebuilt and
+passed its properties again; the focused make projection passed build-test too.
+Final exact-head POO Scheme CI remains an independent gate. Yuanxu revisions remain
+on hold.
