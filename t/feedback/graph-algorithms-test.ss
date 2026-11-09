@@ -358,6 +358,29 @@
         (check-equal? (hash-ref reads 'a) '(c b))
         (check-equal? (compact-row index 'a) '(c b))
         (check-equal? (list declared edges) '(9 6))))
+    (test-case "the owner ID index rejects every bad roster before an author"
+      (for (roster (list '(a b a) '(a 7 b) '(a . b)
+                    (let (cycle (list 'a 'b)) (set-cdr! (cdr cycle) cycle) cycle)))
+        (def calls 0)
+        (def source (.o keys: roster .reads: (lambda (_) (set! calls (1+ calls)) [])
+          .code: (lambda (_) (set! calls (1+ calls)) #f)))
+        (check-exception (scc.capture-reachability source) error-object?)
+        (check-equal? calls 0)
+        (check-exception (scc.partition source) error-object?)
+        (check-equal? calls 0)))
+    (test-case "pure row admission preserves malformed-row refusal and author boundary"
+      (for* ((bad (list 17 "not-an-owner" '(b . c) (vector 'b)))
+             (kernel (list separate-admission-capture capture-graph)))
+        (def observed [])
+        (check-exception (kernel '(a b c) (lambda (key)
+          (set! observed (cons key observed))
+          (case key ((a) '(b c)) ((b) (list 'a bad 'outside))
+            (else (error "refused row crossed its author boundary")))) #f) error-object?)
+        (check-equal? (reverse observed) '(a b)))
+      (for (kernel (list separate-admission-capture capture-graph))
+        (for (bad (list '(a . b) (let (cycle (list 'a 'b))
+                                     (set-cdr! (cdr cycle) cycle) cycle)))
+          (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?))))
     (test-case "query row projection restores completed rows at the word boundary"
       ;; Reduced PRIVATE word ceilings cover first-row fallback, empty rows,
       ;; rightmost duplicates, chunk crossings and the singleton append route.

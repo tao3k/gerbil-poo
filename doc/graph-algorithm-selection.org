@@ -845,3 +845,49 @@ user, preserving all 320 original observations, eleven capacity rows, 32
 membership and 32 rank observations. Strict Module/Harness/final OK markers and
 absence of all error/heap/stack markers were checked. Remote CI of the projection
 itself remains separate from the already-green parent =4f62802=.
+
+* Shape-selected row capture and one owner index
+
+The public capture and partition paths now let their existing symbol-to-ID
+index reject duplicate owners. Finite-list validation and ownership of the
+roster still precede all author calls. The old separate roster guard measured
+221-226 ms and 163,112,288 allocated bytes at 1M owners, without GC; that
+standalone diagnostic is not subtracted from a different cold window.
+
+Within a finite row, symbol admission shares the ID lookup. For index-only
+capture, a forward stamp on the existing mark vector can prove the current
+row unique. Only that row may skip reverse compaction. A duplicate switches
+to the ordinary reverse rightmost scan with a fresh stamp. Two subsequent
+unique multi-target rows reenable the trial. The shape hint never proves a
+different row unique. Retained symbolic rows use the reverse path. The
+finite-list/cycle guard, owner callback order, missing-target refusal, and
+wide word fallback remain independent. No new table, loader or approval
+cache is installed.
+
+LeanPoo =1343777= proves fused row admission, the first refused owner and the
+exact index cardinality criterion; =ca81e96= proves the two word stamps and
+exact normalization under either strategy. The Scheme differential tests
+retain the existing 512 exhaustive graphs, seeded duplicates and word
+fallback; malformed/cyclic rows and invalid rosters exercise the refusals.
+
+Same-process macOS CPU, GCC 16, both collectors at =-O2=, unchanged 2 GiB
+heap. The reference is the frozen =4a644ca= collector, already omitting
+symbolic rows. Each window calls exactly one actual POO reader per owner.
+The 100K late-repeat case changes only the declared row shape, preserving
+the expected rightmost edge order and full ordered query result.
+
+| Captured input | Reference CPU ms | Selected CPU ms | Qualified allocation bytes |
+|----------------+------------------+-----------------+----------------------------|
+| 100K, 1,599,864 unique edges | 130.167 / 140.683 | 102.531 / 107.241 | 23,665,352 -> 18,865,480 |
+| 100K, 1,699,863 declared with late repeats | 125.515 / 126.979 | 121.265 / 121.471 | 23,665,560 -> 23,665,592 |
+| 1M, 15,999,864 unique edges | 1,500.438 / 1,835.388 (latter includes 330.017 GC) | 1,242.793 / 1,249.211 | 225,857,160 -> 177,857,288 (zero-GC windows) |
+
+The unconditional forward trial was rejected after the late-repeat case
+regressed by about 13%. The selected version removes that regression on the
+same case. It is not a general performance bound for arbitrary row shapes.
+The public 1M cold capture plus first complete ordered query still took
+1,371.780 ms; a prepared full query took 136.233 ms with no more author calls.
+These are not complete SCC certification, Module EVAL, or an achieved
+subsecond cold gate. Previously prepared cyclic SCC discovery is a different
+workload. Tarjan-Zwick's [[https://arxiv.org/html/2201.07197v3][Algorithm T early-stop rule]] is a separate candidate
+for giant cyclic components; retain the independent final certificate.

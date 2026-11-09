@@ -159,8 +159,12 @@
   (def word-support? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
   (def packed? word-support?)
   ;; Per-invocation duplicate membership, allocated only for a multi-key row.
-  ;; It never stores source/currentness approvals. owner+1 is fresh for this row.
+  ;; It never stores source/currentness approvals. Two fresh stamps per owner
+  ;; distinguish forward uniqueness from reverse rightmost normalization.
   (def row-marks #f)
+  ;; Shape is a routing hint, not evidence for the next row. A repeat sends
+  ;; the next two unique multi-target rows through the ordinary reverse scan.
+  (def fresh-streak 2)
   (def row-buffer #f) (def owner-names #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (and (or symbolic-rows? (not packed?)) (make-hash-table-eq size: count)))
@@ -223,12 +227,15 @@
   (for ((key keys) (owner (in-range count)))
     (when packed? (u32vector-set! offsets owner edges))
     (def deps (read-owner key))
-    (unless (and (list? deps) (andmap symbol? deps))
+    ;; Keep the finite/proper-list guard before any length or hash primitive.
+    ;; Symbol admission shares the subsequent ID pass; this pure interval
+    ;; contains no author, getter or source-approval callback (fused_row_eq).
+    (unless (list? deps)
       (error "unsupported component read" key deps))
     (def row-length (length deps))
     (if (and word-support? (pair? deps) (pair? (cdr deps))
              (fixnum? row-length) (<= row-length 4294967295))
-      (begin
+      (let ()
         (unless row-marks (set! row-marks (make-u32vector count 0)))
         ;; Reuse one numeric row workspace across author callbacks. The unread
         ;; prefix and retained suffix are disjoint (row_buffer_store law).
@@ -238,46 +245,62 @@
           (set! row-buffer (make-u32vector
             (let (grown (if row-buffer (* 2 (u32vector-length row-buffer)) 0))
               (if (fixnum? grown) (max row-length grown) row-length)) 0)))
-        (let fill ((pending deps) (at 0))
-          (unless (null? pending)
-            (let (id (symbolic-table-ref raw (car pending) #f))
+        (def forward (fx+ (fx* owner 2) 1))
+        (def repeated?
+          (let fill ((pending deps) (at 0) (repeated? (or (and reads #t) (fx< fresh-streak 2))))
+            (if (null? pending) repeated?
+              (let* ((dep (car pending)) (id (and (symbol? dep) (symbolic-table-ref raw dep #f))))
+                (unless id (error "unsupported component read" key deps))
+                (cond ((fx< id owner) (set! direction (fxand direction 1)))
+                      ((fx> id owner) (set! direction (fxand direction 2))))
+                (let (repeated? (or repeated? (fx= (u32vector-ref row-marks id) forward)))
+                  (unless repeated? (u32vector-set! row-marks id forward))
+                  (u32vector-set! row-buffer at id)
+                  (fill (cdr pending) (fx+ at 1) repeated?))))))
+        (if (not repeated?)
+          ;; The same ID pass established uniqueness, so the rightmost
+          ;; normalizer is identity (fresh_row_skips_normalization).
+          (begin
+            (append-row-targets owner 0 row-length)
+            (when reads (hash-put! reads key (append deps []))))
+          ;; A distinct fresh stamp lets the existing reverse scan keep the
+          ;; rightmost occurrence, regardless of how late the first repeat was.
+          (let ((token (fx+ forward 1)))
+            (let-values (((start unique)
+                          (let scan ((read row-length) (write row-length) (unique (and reads [])))
+                            (if (fx= read 0) (values write unique)
+                              (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
+                                (if (fx= (u32vector-ref row-marks id) token)
+                                  (scan next write unique)
+                                  (let (destination (fx- write 1))
+                                    (u32vector-set! row-marks id token)
+                                    (u32vector-set! row-buffer destination id)
+                                    (scan next destination (and reads (cons (vector-ref owner-names id) unique))))))))))
+              (unless reads
+                (set! fresh-streak (if (fx= start 0) (fxmin 2 (fx+ fresh-streak 1)) 0)))
+              (append-row-targets owner start row-length)
+              (when reads
+                (hash-put! reads key (or unique
+                  (for/collect (at (in-range start row-length))
+                    (vector-ref owner-names (u32vector-ref row-buffer at))))))))))
+      ;; Preserve the inexpensive empty/singleton path and the original wide
+      ;; domain. Copy singleton spines before the next independent callback.
+      (begin
+        (unless (andmap symbol? deps) (error "unsupported component read" key deps))
+        (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
+                          (else (delete-duplicates/hash deps))))
+          (for (dep unique)
+            (let (id (symbolic-table-ref raw dep #f))
               (unless id (error "unsupported component read" key deps))
               (cond ((fx< id owner) (set! direction (fxand direction 1)))
                     ((fx> id owner) (set! direction (fxand direction 2))))
-              (u32vector-set! row-buffer at id))
-            (fill (cdr pending) (fx+ at 1))))
-        (let ((token (fx+ owner 1)))
-          (let-values (((start unique)
-                        (let scan ((read row-length) (write row-length) (unique (and reads [])))
-                          (if (fx= read 0) (values write unique)
-                            (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
-                              (if (fx= (u32vector-ref row-marks id) token)
-                                (scan next write unique)
-                                (let (destination (fx- write 1))
-                                  (u32vector-set! row-marks id token)
-                                  (u32vector-set! row-buffer destination id)
-                                  (scan next destination (and reads (cons (vector-ref owner-names id) unique))))))))))
-            (append-row-targets owner start row-length)
-            (when reads
-              (hash-put! reads key (or unique
-                (for/collect (at (in-range start row-length))
-                  (vector-ref owner-names (u32vector-ref row-buffer at)))))))))
-      ;; Preserve the inexpensive empty/singleton path and the original wide
-      ;; domain. Copy singleton spines before the next independent callback.
-      (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
-                        (else (delete-duplicates/hash deps))))
-        (for (dep unique)
-          (let (id (symbolic-table-ref raw dep #f))
-            (unless id (error "unsupported component read" key deps))
-            (cond ((fx< id owner) (set! direction (fxand direction 1)))
-                  ((fx> id owner) (set! direction (fxand direction 2))))
-            (append-target owner id))
-          (set! edges (1+ edges)))
-        (when reads
-          ;; Copy the singleton before the next author, including when this row
-          ;; caused fallback. Packed queries need no unconsumed symbolic copy.
-          (hash-put! reads key (if (and (pair? unique) (null? (cdr unique)))
-                                (list (car unique)) unique)))))
+              (append-target owner id))
+            (set! edges (1+ edges)))
+          (when reads
+            ;; Copy the singleton before the next author, including when this row
+            ;; caused fallback. Packed queries need no unconsumed symbolic copy.
+            (hash-put! reads key (if (and (pair? unique) (null? (cdr unique)))
+                                  (list (car unique)) unique))))))
     (set! declared (+ declared row-length)))
   (def index
     (and packed?
@@ -396,9 +419,10 @@
 ;; Historical structural index: captured rows/IDs are owned by this POO value.
 ;; Queries cannot acquire authors again, publish, or authorize currentness.
 (def (capture-reachability-components keys read-owner)
-  (unless (and (list? keys) (andmap symbol? keys)
-               (= (length keys) (length (delete-duplicates/hash keys))))
-    (error "distinct finite reachability keys required"))
+  ;; The encoding index admits symbols and uniqueness before any author.
+  ;; Keep finite-list admission here, then own the roster; do not build a
+  ;; second duplicate table (empty_owner_index_admits_exactly_nodup).
+  (unless (list? keys) (error "distinct finite reachability keys required"))
   ;; Own the admitted roster before the first independent author callback.
   (set! keys (append keys []))
   (let-values (((reads index declared edges) (capture-graph keys read-owner #f)))
@@ -559,9 +583,10 @@
 
 (def (partition spec)
   (def keys (.@ spec keys))
-  (unless (and (list? keys) (andmap symbol? keys)
-               (= (length keys) (length (delete-duplicates/hash keys))))
-    (error "distinct finite component keys required"))
+  ;; The encoding index admits symbols and uniqueness before any author.
+  ;; Keep finite-list admission here, then own the roster; do not build a
+  ;; second duplicate table (empty_owner_index_admits_exactly_nodup).
+  (unless (list? keys) (error "distinct finite component keys required"))
   ;; Own the admitted roster before the first independent author callback.
   (set! keys (append keys []))
   (let-values (((reads index declared-edges captured-edges)

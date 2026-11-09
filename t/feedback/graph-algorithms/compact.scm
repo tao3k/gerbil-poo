@@ -34,35 +34,65 @@
                  (cons 'cold-owner-capture-and-query cold) (cons 'prepared-query hot)))
     (newline) (force-output)))
 
-;; Isolate the unconsumed product on one frozen owner source. Both routes use
-;; the SAME production collector, author calls and numeric index. Symbolic row
-;; retention is the sole choice; public cold/query costs above remain separate.
-(def (row-projection-study keys rows root expected size edges)
+;; Same compiled collector workload and POO boundary. The frozen reference is
+;; test-only; the candidate shares pure symbol admission with target encoding.
+;; Diagnostics are standalone observations, never subtracted from another run.
+(def (row-projection-study keys rows root expected size edges (declared-edges edges))
   (def acquisitions 0)
   (def source (.o keys: keys .reads: (lambda (key)
     (set! acquisitions (1+ acquisitions)) (hash-ref rows key))))
+  (for (phase (if (= declared-edges edges) '(getter roster shape encoding) '(getter shape)))
+    (set! acquisitions 0)
+    (let-values (((answer costs) (measure
+      (lambda ()
+        (case phase
+          ((getter) (for (key keys) (.call source .reads key)) acquisitions)
+          ((roster)
+           (unless (and (list? keys) (andmap symbol? keys)
+                        (= (length keys) (length (delete-duplicates/hash keys))))
+             (error "old roster diagnostic")) size)
+          ((shape)
+           (let (declared 0)
+             (for (key keys)
+               (let (row (hash-ref rows key))
+                 (unless (and (list? row) (andmap symbol? row)) (error "row shape diagnostic"))
+                 (set! declared (+ declared (length row))))) declared))
+          ((encoding) (capture-compact keys rows edges)))) 1)))
+      (unless (and (= acquisitions (if (eq? phase 'getter) size 0))
+                   (case phase ((getter roster) (= answer size)) ((shape) (= answer declared-edges))
+                     (else (and answer (equal? (compact-reachable answer root) expected)))))
+        (error "row admission phase oracle" phase size acquisitions))
+      (display "GRAPH-CAPTURE-PHASE ")
+      (write (list size edges phase costs)) (newline) (force-output)))
   (def (sample mode)
     (set! acquisitions 0)
-    (def retain? (eq? mode 'retained))
     (defvalues (product costs)
       (measure (lambda ()
         (let-values (((reads index declared unique)
-                      (capture-graph keys (lambda (key) (.call source .reads key)) retain?)))
+                      ((if (eq? mode 'separate) separate-admission-capture capture-graph)
+                       keys (lambda (key) (.call source .reads key)) #f)))
           (vector reads index declared unique))) 1))
-    (def reads (vector-ref product 0)) (def index (vector-ref product 1))
-    (unless (and (= acquisitions size) (= (vector-ref product 3) edges) index
-                 (if retain? (and reads (= (hash-length reads) size)) (not reads)))
-      (error "row projection owner/product work" mode size acquisitions))
+    (def index (vector-ref product 1))
+    (unless (and (= acquisitions size) (= (vector-ref product 2) declared-edges)
+                 (= (vector-ref product 3) edges) index (not (vector-ref product 0)))
+      (error "row admission owner/product work" mode size acquisitions))
     (unless (and (equal? (compact-reachable index root) expected) (= acquisitions size))
-      (error "row projection query order or author replay" mode size))
-    ;; Return no captured product or query list into the next observation.
-    (list mode (cons 'author-acquisitions acquisitions)
-      (cons 'retained-symbolic-rows (if reads (hash-length reads) 0)) costs))
-  (def observations (map sample '(retained projected projected retained)))
-  (display "GRAPH-ROW-PROJECTION-PAIR ")
-  (write (list size edges '(window . owner-admission-and-index)
-    '(order . (retained projected projected retained)) observations))
+      (error "row admission query order or author replay" mode size))
+    (list mode (cons 'author-acquisitions acquisitions) costs))
+  (def observations (map sample '(separate fused fused separate)))
+  (display "GRAPH-ROW-ADMISSION-PAIR ")
+  (write (list size edges (cons 'declared-edges declared-edges) '(window . owner-admission-and-index)
+    '(order . (separate fused fused separate)) observations))
   (newline) (force-output))
+
+;; Reuse the now-completed 100K band fixture. A repeat at each row's end is
+;; the expensive case for forward marking, and keeps the same rightmost order.
+(def (late-duplicate-study keys rows root expected size edges)
+  (for (key keys)
+    (let (row (hash-ref rows key))
+      (when (pair? row)
+        (hash-put! rows key (append row (list (list-ref row (1- (length row)))))))))
+  (row-projection-study keys rows root expected size edges (+ edges (1- size))))
 
 ;; The SAME captured rows interpreted as an admitted inverse directory. Charge
 ;; representation preparation once; subsequent hints must visit only their union.
@@ -230,7 +260,8 @@
       (vector-set! bundle 0 #f) (set! index #f)
       (owned-query-study keys rows root expected size edges)
       (invalidation-study keys rows root size edges)
-      (row-projection-study keys rows root expected size edges)))
+      (row-projection-study keys rows root expected size edges)
+      (when (= size 100000) (late-duplicate-study keys rows root expected size edges))))
   (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
   (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (displayln "GRAPH-COMPACT-OK nodes=100000,1000000 shapes=chain,ring,band"))
