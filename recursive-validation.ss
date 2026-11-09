@@ -265,27 +265,56 @@
   (lambda (input) (close-validation (lambda (reference) (build reference input)) limit)))
 
 
-;; Private worklist over one historical inverse. Only query-owned frame cells
-;; advance; immutable source rows are borrowed, never copied per edge or edited.
-(def (affected-owners readers roots (work #f))
+;; Frames borrow immutable index rows. The sentinel is the append point for
+;; new roots, even while an older frame is partly consumed. Only this work
+;; owns the frame cells and visited table.
+(defstruct affected-work (readers marked raw-marked frames tail receipt) final: #t)
+(def (start-affected-work readers (receipt #f))
   (def marked (make-hash-table-symbolic))
   (def raw-readers (interface-instance-object readers))
   (def raw-marked (interface-instance-object marked))
   (unless (and (symbol-hash-table? raw-readers) (symbol-hash-table? raw-marked))
     (error "symbolic inverse index required"))
-  (let walk ((frames (list roots)))
-    (cond ((null? frames) marked)
-          ((null? (car frames)) (walk (cdr frames)))
+  (def tail (list []))
+  (make-affected-work raw-readers marked raw-marked tail tail receipt))
+
+;; Fuel counts popped occurrences, including already visited owners. A pause
+;; preserves the rest of that row and every older root. New roots enter after
+;; them. Only a first visit opens a bucket, regardless of the number of resumes.
+(def (advance-affected-work! work roots (fuel #f))
+  (unless (and (or (not fuel) (and (fixnum? fuel) (fx>= fuel 0)))
+               (list? roots) (andmap symbol? roots))
+    (error "invalid inverse work extension"))
+  (when (pair? roots)
+    (let ((old-tail (affected-work-tail work)) (new-tail (list [])))
+      (set-car! old-tail (append roots []))
+      (set-cdr! old-tail new-tail)
+      (affected-work-tail-set! work new-tail)))
+  (def tail (affected-work-tail work))
+  (def readers (affected-work-readers work))
+  (def marked (affected-work-raw-marked work))
+  (def receipt (affected-work-receipt work))
+  (let walk ((frames (affected-work-frames work)) (remaining fuel))
+    (cond ((eq? frames tail) (affected-work-frames-set! work tail) #t)
+          ((null? (car frames)) (walk (cdr frames) remaining))
+          ((and remaining (fx= remaining 0))
+           (affected-work-frames-set! work frames) #f)
           (else
-           (let (name (caar frames))
+           (let ((name (caar frames)) (next (and remaining (fx- remaining 1))))
              (set-car! frames (cdar frames))
-             (if (symbolic-table-ref raw-marked name #f) (walk frames)
-               (let (row (symbolic-table-ref raw-readers name []))
-                 (symbolic-table-set! raw-marked name #t)
-                 (when work
-                   (vector-set! work 0 (1+ (vector-ref work 0)))
-                   (vector-set! work 1 (+ (vector-ref work 1) (length row))))
-                 (walk (cons row frames)))))))))
+             (if (symbolic-table-ref marked name #f) (walk frames next)
+               (let (row (symbolic-table-ref readers name []))
+                 (symbolic-table-set! marked name #t)
+                 (when receipt
+                   (vector-set! receipt 0 (1+ (vector-ref receipt 0)))
+                   (vector-set! receipt 1 (+ (vector-ref receipt 1) (length row))))
+                 (walk (cons row frames) next))))))))
+
+(def (affected-owners readers roots (receipt #f) (removed []))
+  (def work (start-affected-work readers receipt))
+  (advance-affected-work! work roots)
+  (when (pair? removed) (advance-affected-work! work removed))
+  (affected-work-marked work))
 
 ;; Reclose one linear revision family. New/changed recipes, source/descriptor
 ;; revisions and watched-input edits seed invalidation; readers transitively join
@@ -331,7 +360,7 @@
   ;; All changed/added/removed declarations are roots. Unchanged consumer rows
   ;; are identical, so the OLD immutable inverse gives the same affected set.
   (def dirty (if previous
-               (affected-owners (%directory-reverse old-directory) (append roots removed))
+               (affected-owners (%directory-reverse old-directory) roots #f removed)
                (let (index (make-hash-table-symbolic size: (length names)))
                  (for-each (lambda (name) (hash-put! index name #t)) names) index)))
   (def recipe-index recipes)

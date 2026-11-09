@@ -1,7 +1,8 @@
 ;;; Paired private discovery kernels over the SAME captured Graph rows.
 ;;; Ordinary consumers keep partition; this white-box fixture adds no export.
 (extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph wide-reachable)
-(extern namespace: clan/poo/recursive-validation affected-owners)
+(extern namespace: clan/poo/recursive-validation affected-owners
+  start-affected-work advance-affected-work! affected-work-marked)
 
 (def (discovery-result kernel keys reads)
   (let-values (((owners nodes groups edges finished popped) (kernel keys reads)))
@@ -91,6 +92,16 @@
                (= (vector-ref inverse-work 1) (foldl (lambda (key count)
                    (+ count (length (hash-ref inverse key)))) 0 (hash-keys expected))))
     (error "old inverse closure membership/inverse-work oracle"))
+  ;; Interrupt the actual work, then append an overlapping batch. The
+  ;; independent oracle remains the one-shot closure above.
+  (def continued-receipt (vector 0 0))
+  (def continued (start-affected-work inverse continued-receipt))
+  (advance-affected-work! continued roots 1)
+  (unless (and (advance-affected-work! continued roots)
+               (equal? continued-receipt inverse-work)
+               (= (hash-length (affected-work-marked continued)) (hash-length expected))
+               (andmap (cut hash-key? (affected-work-marked continued) <>) (hash-keys expected)))
+    (error "resumed inverse closure repeated or lost work"))
   #t)
 
 ;; Frozen six-vector production discovery at 3dfd464; reference only.

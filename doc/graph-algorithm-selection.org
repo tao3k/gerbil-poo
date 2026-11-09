@@ -891,3 +891,30 @@ These are not complete SCC certification, Module EVAL, or an achieved
 subsecond cold gate. Previously prepared cyclic SCC discovery is a different
 workload. Tarjan-Zwick's [[https://arxiv.org/html/2201.07197v3][Algorithm T early-stop rule]] is a separate candidate
 for giant cyclic components; retain the independent final certificate.
+
+* Continuing work on the old inverse
+
+The recursive revision walker keeps its visited table and the unconsumed
+suffix of each borrowed row. Its private tail sentinel appends owned root
+batches in order. Recipe/watch edits and removals share this work in the
+ordinary revision path. Fuel counts popped occurrences. Each first visit
+opens one bucket, and visited owners never acquire it again.
+
+Core's IndexedWork frame laws relate the sentinel append and borrowed row
+push to the existing pending-list transitions. The bounded Graph tests
+compare resumed membership and exact bucket/edge counts with the one-shot
+oracle. The matched native fault that prepends a root fails the frontier
+order assertion. The restored Graph, recursive validation, component and
+build declaration suites pass.
+
+The existing compact study uses the admitted band inverse at both 100K
+and 1M support. A paused sparse request appends overlapping roots and
+opens exactly 66 buckets with 920 edges in both cases. The local macOS
+CPU times are 30 and 28 microseconds, with no collections. Million-owner
+inverse preparation was measured separately at 189.08 ms. The same
+million-owner full walk took 666.69 ms. The compact study and independent
+million-owner cyclic case both passed under the existing 2 GiB fence.
+
+The request-family snapshot coordinator is a separate protocol boundary.
+Binding this work to its live ticket and transferring affected Yuanxu
+source Contexts remain adapter work.
