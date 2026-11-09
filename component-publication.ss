@@ -60,9 +60,13 @@
         (%lineage-invalidation-set! lineage
           (cache.cache-invalidation (graph-cache-values (snapshot-graph expected)))))
       (%lineage-invalidation lineage))))
+  (def (register-guards action)
+    (locked owner (lambda ()
+      (require-current! owner expected)
+      (require-version! lineage version)
+      (action))))
   (make-%request owner expected
-    (feedback-component-revision-action fragments build admit
-      guards: guards builder: builder invalidation: invalidation)
+    (%feedback-component-revision-action fragments build admit guards builder invalidation register-guards)
     guards (if (eq? metadata +keep-metadata+) (snapshot-metadata expected) metadata) lineage version))
 ;; Stage a fresh independent proposal, with no business construction. Capture
 ;; inherited metadata from the SAME snapshot as the revision action.

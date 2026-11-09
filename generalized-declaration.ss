@@ -1,7 +1,7 @@
 ;;; Declaration elaboration for arbitrary raw/cooked carriers using Appendix B lenses.
 (export Fragment Fragment. lens-fragment GeneralizedDeclaration. prepare-fragments .prototype
         prepared-fragments? fragment-names observe-fragments bind-fragments
-        with-fragment-sources step-fragments fragment-descriptors)
+        with-fragment-sources step-fragments fragment-descriptors %watch-fragment-sources)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         ./object ./mop ./declaration (prefix-in ./generalized-prototype gp.))
 ;; The public descriptor is ordinary extensible POO metadata. Lens laws and local
@@ -42,10 +42,15 @@
     (map identity (gp.prepared-fragments (prepared-fragments-snapshot prepared))))))
 ;; Stable source admission applies to zero-depth observation and cooking too.
 ;; Supported writes during callbacks refuse; external effects are never rolled back.
+(def (fragment-sources-current? prepared)
+  (equal? (prepared-fragments-versions prepared)
+          (map object-revision (prepared-fragments-sources prepared))))
+(def (%watch-fragment-sources prepared witness)
+  (for-each (cut depend-on-object! witness <>) (prepared-fragments-sources prepared))
+  (fragment-sources-current? prepared))
 (def (with-fragment-sources prepared action)
   (unless (prepared-fragments? prepared) (error "prepared fragment source required"))
-  (unless (equal? (prepared-fragments-versions prepared)
-                 (map object-revision (prepared-fragments-sources prepared)))
+  (unless (fragment-sources-current? prepared)
     (error "stale generalized declaration sources"))
   (parameterize ((active-object-constructions
       (append (prepared-fragments-sources prepared) (active-object-constructions))))

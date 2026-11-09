@@ -5,7 +5,7 @@
 (export partition partition? partition-groups partition-owner partition-reads
         partition-members partition-group-of partition-group-size partition-work
         partition-owned revise-partition %partition-order-keys %partition-representatives %partition-key-before
-        quotient-support-added quotient-support-retired
+        quotient-support-added quotient-support-retired %partition-source-count %partition-key-position
         capture-reachability capture-reachability-procedure)
 (import :std/iter
         (only-in :gerbil/runtime/interface interface-instance-object)
@@ -820,6 +820,10 @@
 ;; Structural edit over the exact predecessor partition and fixed support.
 ;; The caller above this layer must authenticate where the replacement rows
 ;; came from. This operation detaches them, checks all keys, and runs no author.
+(def (%partition-source-count part)
+  (hash-length (owned-partition-positions (%partition-owned part))))
+(def (%partition-key-position part key)
+  (hash-ref (owned-partition-positions (%partition-owned part)) key))
 (def (%partition-key-before part)
   (def positions (owned-partition-positions (%partition-owned part)))
   (lambda (a b) (< (hash-ref positions a) (hash-ref positions b))))

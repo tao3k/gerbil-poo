@@ -1038,3 +1038,24 @@ native Graph, component, recursive validation and DAG repair suites passed.
 The source freeze, new SCC certificate and schedule materialization remain
 whole-graph work on this path. The measured inverse closure is the local
 part of this revision.
+
+** Feedback source guards on owned partitions
+
+The owned partition indexes group guards by the existing source positions
+of its representatives. A leaf holds its admitted group. Branches share
+unchanged children. Native POO dependency edges connect a group's fragment
+and lens sources to the root, so protecting the root protects supported
+writes to those sources during joint approval.
+
+The materializer supplies the rebuilt keys. The SCC support delta supplies
+the retired representatives. A local revision splices their ordered paths
+and leaves the full group roster unmaterialized. Registration uses the
+existing approval-domain lock. Candidate allocation and approval callbacks
+run outside the lock. The coordinator checks head, ticket and source
+currentness together before installing graph and metadata.
+
+A dirty witness reaches the original group guards in source order. A source
+used only by a retired group can invalidate its historical snapshot while
+leaving the new snapshot current. Arbitrary source replacements use complete
+admission. The benchmark separates full cold publication, local revision
+and explicit demand.
