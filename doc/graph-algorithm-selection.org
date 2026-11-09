@@ -1075,3 +1075,22 @@ a source exclusive to a replaced program can then stale the old generation
 without changing the installed one. Native dependency registration uses the
 coordinator's existing writer lock and reauthenticates captured Slot reads
 without running author code inside it.
+
+** Symbol comparison after collection
+
+Owned Graph overlays, reverse-bucket masks and construction value patches
+share the ordinary POO name comparator with the prototype map and slot
+layout. Equal identities compare equal without reading a hash. Different
+hashes settle the order without looking up an object serial. The final
+identity tie distinguishes symbols with the same hash. The comparator does
+not read their spelling, which can be affected by an uninterned symbol's
+source string. The existing Gerbil RBTree still owns the persistent indices and their
+path copying. The prototype map still enumerates its contribution ordinals.
+
+Slot shape admission and single-key extension use the same order. Changing
+a shape's physical offsets still requires exact receiver, revision and shape
+identity at the read boundary. Controlled offset tests assign the symbol
+hashes that place the inserted name before the retained key. The collision
+control keeps equal-hash, same-spelling owners distinct through consecutive
+ConstructionCache revisions, including a change to an uninterned symbol's
+source string, and preserves predecessor values.

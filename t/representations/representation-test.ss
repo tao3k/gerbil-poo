@@ -446,7 +446,7 @@
     ;; Equal spelling must not collapse symbol identities; deliberately select a
     ;; target which has physical offset zero alone and offset one beside its peer.
     (def ordered (list-sort (lambda (a b) (< (object->serial-number a) (object->serial-number b)))
-      (list (string->uninterned-symbol "same") (string->uninterned-symbol "same"))))
+      (list (string->uninterned-symbol "same" 17) (string->uninterned-symbol "same" 17))))
     (def name (cadr ordered))
     (def layouts (list (make-slot-layout (list name) #f absent-value)
       (make-slot-layout ordered #f absent-value)

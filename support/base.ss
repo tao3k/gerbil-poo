@@ -44,6 +44,15 @@
 (def (comparing-key test: (test equal?) key: (key identity))
   (λ (x y) (test (key x) (key y))))
 
+;; A stored symbol hash is stable even when a caller changes the string
+;; supplied to an uninterned symbol. Resolve collisions by exact identity.
+(def (%compare-symbol-identity left right)
+  (if (eq? left right) 0
+    (let (hash-order (- (symbol-hash left) (symbol-hash right)))
+      (if (zero? hash-order)
+        (- (object->serial-number left) (object->serial-number right))
+        hash-order))))
+
 (defrules let-id-rule ()
   ((_ ((id val) ...) body ...)
    (let-syntax ((id (identifier-rules () ((_ . a) (val . a)) (_ val))) ...)

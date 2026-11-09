@@ -2,6 +2,7 @@
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
         prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
+        (only-in ./support/base %compare-symbol-identity)
         (only-in :std/vector/vector vector-filter vector-fold-right/index)
         (only-in :std/list/list length<=n? delete-duplicates/hash foldr))
 
@@ -17,13 +18,10 @@
   (let loop ((index 0))
     (and (< index (vector-length entries))
       (if (eq? name (car (vector-ref entries index))) index (loop (1+ index))))))
-;; Symbol identity, including distinct uninterned symbols with the same spelling,
-;; determines the tree order. Serial numbers are process-local, not serialized IDs.
-(def (compare-name left right) (- (object->serial-number left) (object->serial-number right)))
 ;; Empty snapshots are immutable roots, not cached mutable builders. Sharing them
 ;; avoids allocating two empty trees for each undeclared receiver; persistent put
 ;; still creates a successor. Deleted tree roots retain their own ordinal history.
-(def empty-tree (make-specifications (RBTree -) (RBTree compare-name) 0 0 #f))
+(def empty-tree (make-specifications (RBTree -) (RBTree %compare-symbol-identity) 0 0 #f))
 ;; Compact policy stays distinct even when there are no contributions.
 (def empty-compact (make-specifications '#() #f 0 0 #t))
 ;; Count ordered contributions, including duplicate names, without exporting pairs.
@@ -67,7 +65,7 @@
 ;; The official RBTree supplies construction and persistent update. Capturing
 ;; each entry also makes promotion independent of private vector entry handles.
 (def (tree-map entries (compact? #f))
-  (let ((ordered (RBTree -)) (names (RBTree compare-name)) (count 0))
+  (let ((ordered (RBTree -)) (names (RBTree %compare-symbol-identity)) (count 0))
     (for (input entries)
       (let (entry (capture-entry input))
         ;; The first ordinal remains the replacement target. Later ordinals need

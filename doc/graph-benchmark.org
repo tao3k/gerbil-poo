@@ -271,6 +271,51 @@ precise runs. Whole-process wall time ranges from 11.40 to 62.05 s
 across the four runs. The measured guard update is separate from this
 load and fixture variance.
 
+** First owner replacement after collection
+
+The controlled Scheme probe keeps the same schedule and ConstructionCache
+snapshot on each arm. It populates Gambit object serials for the fixture
+owners, collects outside the measurement, and alternates whether one serial
+lookup or the complete owner replacement runs first. The replacement adds
+one owner, retires one and updates its sole reader. It retains the exact
+provider value and checks both generations after each measurement.
+
+| Owners | Original replacement first, CPU ms | Stable comparison replacement first, CPU ms |
+|--------+------------------------------------+---------------------------------------------|
+| 100,000 | 2.287–2.477 | 0.303–0.346 |
+| 1,000,000 | 18.839–20.432 | 0.312–0.427 |
+
+Both revisions report zero collections within the timed interval. In the
+original million-owner arm, one cold serial lookup takes 18.930–19.622 ms
+CPU when it runs first. The following replacement takes 0.341–0.556 ms.
+With shared symbolic comparison, the serial lookup still takes
+15.817–15.974 ms after the replacement. Graph-only comparison leaves the
+tail in place. Changing the prototype-map name index reduces the isolated
+schedule application to 0.107–0.118 ms, while the complete revision still
+pays for the first slot shape construction. Sharing the order across
+the three paths removes this serial-table access for distinct hashes. The
+final comparator uses the serial tie for all hash collisions, since an
+uninterned symbol can retain the mutable source string. The ordinary
+native suite rejects a spelling-based comparator after the caller mutates
+that string and independently rejects omission of the identity tie.
+
+This probe deliberately populates the runtime serial table and forces a
+collection. The ordinary =owned-cache-benchmark-test= retains its natural
+collection behavior and separately measures explicit reuse output.
+
+The natural standalone suite was run baseline, stable, stable, baseline.
+For 1M owners the support replacement took 0.345–0.619 ms CPU and
+0.341–0.656 ms wall on the baseline, versus 0.310–0.337 ms CPU and
+0.309–0.336 ms wall with stable comparison. Both arms evaluated two
+owners, checked one retired reader, copied zero index entries, and
+enumerated zero order entries. The timed interval had zero GC and
+allocated 394,704 baseline or 395,152 stable bytes. Maximum resident
+set size across the complete invocations was 1,402,732,544–1,464,270,848
+baseline bytes or 1,440,169,984–1,462,861,824 stable bytes.
+The original complete baseline suite observed a 35.983 ms CPU sample
+after its earlier workloads. The natural standalone sample and forced-GC
+experiment describe different runtime serial-table states.
+
 * Acceptance
 
 The complete =just benchmark-scc= TestSuite exited normally after

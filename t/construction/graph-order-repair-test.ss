@@ -38,6 +38,24 @@
 
 (def graph-order-repair-test
   (test-suite "local topological repair and independent value invalidation"
+    (test-case "owner patches distinguish hash collisions and same-name symbols"
+      (def left (string->uninterned-symbol "shared-owner" 17))
+      (def right (string->uninterned-symbol "shared-owner" 17))
+      (def source-name (string-copy "other-owner"))
+      (def other (string->uninterned-symbol source-name 17))
+      (check (eq? left right) => #f)
+      (check (map symbol-hash [left right other]) => [17 17 17])
+      (def (base owner value) (cons owner (some (code.make-success value))))
+      (def old (cache.start-owned (graph.schedule-owned [left right other] []
+        [(base left 1) (base right 2) (base other 3)])))
+      (def next (cache.refresh-revision old
+        (cache.revision old [] [(base left 10) (base right 20) (base other 30)])))
+      (string-set! source-name 0 #\z)
+      (def latest (cache.refresh-revision next
+        (cache.revision next [] [(base right 21)])))
+      (check (map (cut value old <>) [left right other]) => [1 2 3])
+      (check (map (cut value next <>) [left right other]) => [10 20 30])
+      (check (map (cut value latest <>) [left right other]) => [10 21 30]))
     (test-case "10000 owners: two frontier buckets, two rank writes, outer consumer invalidated"
       (def names (list->vector (for/collect (i (in-range 10000))
         (string->symbol (string-append "owner-" (number->string i))))))

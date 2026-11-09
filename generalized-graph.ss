@@ -20,6 +20,7 @@
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put! rbtree-put
                  rbtree-remove rbtree-fold rbtree-foldr rbtree-for-each rbtree-size rbtree->list
                  in-rbtree-values)
+        (only-in ./support/base %compare-symbol-identity)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         ./object (only-in ./mop define-type) ./support/option)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
@@ -106,12 +107,10 @@
 ;; The cold snapshot owns its tables. A revision forks only the roots of its
 ;; sparse trees; writes change the private wrapper and path-copy tree nodes.
 (defstruct schedule-index (base changes) final: #t)
-(def (compare-owner left right)
-  (- (object->serial-number left) (object->serial-number right)))
 (def (fork-index index)
   (let (changes (schedule-index-changes index))
     (make-schedule-index (schedule-index-base index)
-      (if changes (rbtree-copy changes) (RBTree compare-owner)))))
+      (if changes (rbtree-copy changes) (RBTree %compare-symbol-identity)))))
 (def missing-index-entry (gensym 'missing-index-entry))
 (def (index-ref index key (default missing-index-entry))
   (def changes (schedule-index-changes index))
@@ -584,7 +583,7 @@
         (rbtree-put edited owner #f)
         (if ordinal (rbtree-remove added ordinal) added)
         (reverse-bucket-next row)))
-    (make-reverse-bucket row (rbtree-put (RBTree compare-owner) owner #f) (RBTree -) 0)))
+    (make-reverse-bucket row (rbtree-put (RBTree %compare-symbol-identity) owner #f) (RBTree -) 0)))
 (def (reverse-bucket-add row owner)
   (if (reverse-bucket? row)
     ;; The standard forward iterator sees the newest insertion first.

@@ -3,6 +3,7 @@
         make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
         make-slot-cache slot-cache-name slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
 (import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
+        (only-in ./support/base %compare-symbol-identity)
         (only-in ./object-state object-state-revision)
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
 
@@ -24,9 +25,9 @@
       (let (indices (or members (make-hash-table-symbolic)))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices keys)))))
-;; Serial identity is the one canonical order for full and revised directories.
+;; Full and revised directories share the same symbolic order.
 (def (shape-name<? left right)
-  (< (object->serial-number left) (object->serial-number right)))
+  (negative? (%compare-symbol-identity left right)))
 ;; Fresh unrelated name sets still use the standard complete sort.
 (def (intern-shape names members)
   (intern-ordered-shape (list-sort shape-name<? names) members))
@@ -45,10 +46,9 @@
 ;; cached transition is retained. The caller has already certified key absence.
 (def (extend-shape previous key (members #f))
   (def keys (shape-names previous))
-  (def serial (object->serial-number key))
   ;; Standard find stops at the successor; its already-existing index supplies
   ;; the cut. False is not a symbolic key, and zero remains a valid offset.
-  (def successor (find (lambda (name) (>= (object->serial-number name) serial)) keys))
+  (def successor (find (lambda (name) (not (shape-name<? name key))) keys))
   (def at (if successor (hash-ref (shape-indices previous) successor) (length keys)))
   (intern-ordered-shape (append (take keys at) (cons key (drop keys at))) members))
 ;; Check exact identity coverage through the old index. One byte per offset
