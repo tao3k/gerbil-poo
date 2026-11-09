@@ -760,3 +760,19 @@ Only structural traversal preparation uses the existing receiver-local POO cache
 Every checkpoint authenticates again; a previous success grants no later approval.
 External source checks remain the consumer's responsibility before/after effect
 boundaries and at final return. Effects are not rolled back by a failed checkpoint.
+
+The exact native `values` and `void` result paths authenticate every issued
+record in the traversal before checking live routes and values. A fixed
+result returns after one live pass. A checkpoint procedure retains the
+independent return check and selected-receiver protection.
+[Lean slot observation proof](https://github.com/tao3k/lean-poo/commit/f332e7c01007ebbc6f300a73003f4a318b3f254c).
+
+In a local native paired probe, each of four windows replayed the same
+2,048 records 100 times. CPU time for the protected identity procedure was
+434.5 and 428.7 ms. The fixed count took 193.8 and 242.2 ms, with equal
+counts and zero GC in all four windows. The issued-read suite covered
+forgery ordering, genuine misses, nested protection and callback return
+checks.
+
+Omitting the fixed-result live check returned a count for stale support.
+The paired issued-read control refused that result.

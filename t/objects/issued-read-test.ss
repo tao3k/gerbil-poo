@@ -546,6 +546,8 @@
             (check-equal? count visits))))))
     (check-equal? calls 1)
     (check-equal? delivered '())
+    (check-equal? (call-with-current-slot-reads repeated values) visits)
+    (check-equal? (call-with-current-slot-reads '() values) 0)
     (call-with-current-slot-reads '() (lambda (count) (check-equal? count 0)))
     ;; A genuine miss is usable without entering the receiver's read cache.
     (def misses (recorded (cut .ref/cached Root 'missing (lambda () #f))))
@@ -562,6 +564,10 @@
     (.put! Root 'field 2)
     (refuses "unissued slot dependency"
       (cut call-with-current-slot-reads (list read (copy-read read)) action))
+    (refuses "unissued slot dependency"
+      (cut call-with-current-slot-reads (list read (copy-read read)) values))
+    (refuses "stale slot dependency"
+      (cut call-with-current-slot-reads (list read) values))
     (refuses "stale slot dependency"
       (cut call-with-current-slot-reads (list read) action))
     (check-equal? calls 0)

@@ -64,13 +64,13 @@
     (def construction-current? object-construction-current?)
     (def (require-issued! read)
       (unless (object-read-issued? read) (error "unissued slot dependency")))
-    (def (require-current! read)
-      (require-issued! read)
-      ;; Birth was authenticated immediately above; retain route and freshness
-      ;; on every visit and the existing post-observer visit.
+    (def (require-live! read)
       (require-object-read-route! read)
       (unless (object-issued-read-current? read)
         (error "stale slot dependency" (slot-read-key read))))
+    (def (require-current! read)
+      (require-issued! read)
+      (require-live! read))
     (def (same-roots? roots saved)
       (if (null? saved) (null? roots)
         (and (pair? roots) (eq? (car roots) (car saved))
@@ -119,7 +119,7 @@
               (table-set! owners roots owner)
               next)
             (build #f roots))))))
-    (lambda (roots consume retain?)
+    (lambda (roots consume retain? (fixed-result? #f))
       ;; Replay callers can retain roots; a fresh capture has no future lookup
       ;; identity. Reuse the SAME finite DFS without a cache owner or weak entry.
       (def selected (without-observation
@@ -127,10 +127,14 @@
       (def traversal (projection-reads selected))
       ;; The receiver set is private/read-only. Nested frames and unwind remain
       ;; per call; sharing structure never shares a populated DFS seen table.
-      (parameterize ((active-read-replays
-                      (cons (projection-receivers selected) (active-read-replays))))
-        (begin0 (consume traversal require-current! (projection-receivers selected))
-          (without-observation (lambda () (for-each require-current! traversal))))))))
+      (if fixed-result?
+        ;; Selection already authenticated the whole issued traversal. The
+        ;; fixed result has no callback before or after this live check.
+        (consume traversal require-live! (projection-receivers selected))
+        (parameterize ((active-read-replays
+                        (cons (projection-receivers selected) (active-read-replays))))
+          (begin0 (consume traversal require-current! (projection-receivers selected))
+            (without-observation (lambda () (for-each require-current! traversal)))))))))
 
 ;; Opt in to invalidation from actual observed Slot reads, not hidden callback
 ;; state. Run once, admit the complete captured graph before registering edges,
@@ -177,7 +181,7 @@
         (lambda (reads current! _receivers)
           (for-each current! reads)
           (action (length reads)))
-        #t))))
+        #t (or (eq? action values) (eq? action void))))))
 
 ;; The Type catalog's warm path delivers ORIGINAL records into its caller's
 ;; frame. Keep the same selected write protection across work and delivery, not
