@@ -150,10 +150,10 @@ edge-order oracle.
 | 1,000,000 | natural | 2727.800 | 2651.728–2998.566 | 681.864–950.223 |
 | 1,000,000 | collected | 2727.800 | 2672.636–2780.668 | 680.209–711.102 |
 
-Every local update reads one changed footprint, opens two search
-buckets, visits zero prior edges and writes two ranks. The complete
-operation still compares every owner, copies 4V entries and materializes
-V ordered names. The 10K construction test independently checks
+In this reference run, every local update reads one changed footprint,
+opens two search buckets, visits zero prior edges and writes two ranks.
+The complete operation compares every owner, copies 4V entries and
+materializes V ordered names. The 10K construction test independently checks
 invalidation of a consumer outside the relabelled rank interval.
 
 Component membership comparisons borrow the partition's existing
@@ -170,6 +170,48 @@ whose changed-owner result contains the entire roster.
 | giant-unchanged | 1,000,000 | 4594.714 | 1295.157 | 1308.889 | 472.187 |
 | merge | 1,000,000 | 280.013 | 1935.342 | 1948.892 | 448.500 |
 | split | 1,000,000 | 281.371 | 1320.050 | 1329.840 | 434.196 |
+
+* Owned revisions
+
+The =d43578f= checkout passed a fresh =just benchmark-scc= run. The
+existing =GRAPH-OWNED-DELTA= pair revises the same out-of-order edge on
+the same prepared DAG. Each arm makes four observations per size and
+checks the changed read and measured work. The final order agrees with
+unrestricted repair and passes an independent order validator. Preparation
+and explicit order enumeration sit outside the revision window.
+
+| Owners | Ordinary CPU ms | Owned CPU ms | Ordinary owner checks | Owned owner checks |
+|--------+-----------------+--------------+-----------------------+--------------------|
+| 100,000 | 54.205–54.815 | 0.069–0.126 | 100,000 | 1 |
+| 1,000,000 | 552.426–604.882 | 0.061–0.096 | 1,000,000 | 1 |
+
+Both arms perform zero whole-index copies and materialize zero order
+entries. Each opens two search buckets and writes two ranks. At one
+million owners, the owned arm takes 0.060–0.096 ms wall, allocates
+115,792–116,384 bytes and records no timed GC. The ordinary arm checks
+all owner sources before applying the same sparse order repair.
+
+The same suite measures ConstructionCache support replacement separately.
+At one million owners the revision checks two owner rows and one retired
+provider's reader, with zero whole-index copies and zero order entries.
+The complete-suite sample takes 31.778 ms CPU and 32.034 ms wall. It
+allocates 393,232 bytes with no timed GC. The later explicit reuse
+projection takes 25.551 ms CPU. Both windows appear separately in
+=GRAPH-OWNED-CACHE-SUPPORT=.
+
+The million-owner pressure cases separate cold SCC preparation from the
+edit. The ring cut takes 0.075 ms CPU and represents one million singleton
+components without enumerating them. The hub edit takes 0.196 ms CPU and
+removes one reverse edge. Cold preparation takes 18.780 and 16.645 s CPU,
+respectively, including 7.872 and 6.770 s of GC. Full approval is another
+window. The 10,000-group hub publication checks all groups and takes
+11.409–16.650 ms CPU per deletion.
+
+The fresh build takes 361.85 s wall and the complete benchmark suite
+takes 646.44 s wall. The suite includes cold setup, explicit projections,
+SCC and reachability workloads, and semantic differential checks. These
+totals describe the full suite. The table describes one edge revision on
+a prepared Graph.
 
 * Acceptance
 
