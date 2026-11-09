@@ -586,6 +586,26 @@
       (cut call-with-current-slot-reads (list read) values))
     (refuses "stale slot dependency"
       (cut call-with-current-slot-reads (list read) action))
+    ;; A later issuance refusal must win over an earlier bad receiver route,
+    ;; both on cold acquisition and after the same traversal has been indexed.
+    ;; Fixed checkpoints and observer delivery owe the same preflight order.
+    (for (warm? '(#f #t))
+      (def first (.o first: 1))
+      (def last (.o last: 2))
+      (def competing (append (recorded (cut .ref first 'first))
+                             (recorded (cut .ref last 'last))))
+      (when warm? (call-with-current-slot-reads competing values))
+      (def invoked 0)
+      (runtime.slot-set! (selected competing 'last) 'value 3)
+      (runtime.slot-set! (object-%reads first) 'ref
+        (lambda (_self _key _default) (set! invoked (+ invoked 1)) #f))
+      (for (action (list values void))
+        (refuses "unissued slot dependency"
+          (cut call-with-current-slot-reads competing action)))
+      (refuses "unissued slot dependency"
+        (cut replay-slot-reads! competing
+          (lambda (_receiver _key) (set! invoked (+ invoked 1)))))
+      (check-equal? invoked 0))
     (check-equal? calls 0)
     (set! completed (1+ completed)))
   (test-case "checkpoint protects selected ancestors and restores nested failure frames"
