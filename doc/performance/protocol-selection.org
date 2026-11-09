@@ -1,0 +1,83 @@
+#+TITLE: Effect-framed protocol selection during method installation
+#+DATE: 2026-11-10
+
+* Change and contract
+
+The final =compute-slot-funs!= pass previously selected an inherited protocol
+for each surviving method. With =P= ancestors and =S= methods, absence can
+require =P*S= ancestor visits. For multiple methods, the candidate checks the
+actual symbolic write route and selects absence once. It retains the same
+enumeration, callable checks, writes and payload capture. Zero/single-method
+objects retain per-method selection. A present protocol or changed route
+retains dynamic selection, including effects between writes.
+
+The route guard checks the actual selected =set!= procedure, wrapper/backend
+classes, symbolic hash, equality test and absence of a lock. Rehash consults
+backend hash/test, so a matching write procedure alone is insufficient.
+It never calls replaced functions. This uses the supported serial runtime;
+it does not authenticate arbitrary FFI writes or concurrent mutation.
+
+[[https://github.com/tao3k/lean-poo/commit/55ed9c08899f3de4d990b88f937f18bd5e89cebe][LeanPoo SlotPreparation]] proves ordered-result/error/final-state equivalence
+under the write frame, and gives a counterexample to initial absence alone.
+Its count law covers protocol visits, not total native CPU work.
+The representation/mutation discussion in [[https://fare.tunes.org/files/cs/poof.pdf][POOF]] motivates sharing pure
+structure; it does not supply this runtime guard or a latency bound.
+
+* Focused evidence
+
+Reference method preparation: public =4e5168c= (unchanged from =269dfb5=).
+Both arms load the same read-route module; its new guard is unused by the
+reference method-preparation function.
+Both arms use Gerbil =2591dcd=, Gambit =dcd677c=, =gxc -O= and C =-O2=,
+the same compiled benchmark and identical search-path cardinality. Tests
+run serially through =just test-file= with the existing 2-GiB fence.
+
+| Final matched shape: 256 slots, 32 layers | Repetitions | Reference CPU ms | Candidate CPU ms |
+|-----------------------------------------+-------------+------------------+------------------|
+| Complete cold construction + first read | 500 | 297.492 | 251.699 |
+| Cold construction + clone + first read | 500 | 354.356 | 273.613 |
+| Clone only, unchanged-work control | 5,000 | 10.021 | 10.310 |
+| Clone + first read | 5,000 | 1651.428 | 1128.061 |
+
+The single-slot/single-layer cold control was 3.579/3.799 ms for 500
+operations; clone/read was 59.342/61.812 ms for 5,000. It shows no small-object
+gain. These are batch times, not latency for one request. Earlier alternating
+wide runs also reduced CPU, but one reference run overlapped verifier startup
+and is retained as contended evidence, not a wall-time comparison. The final
+pair ran after the verifier exited. No tail or retained-memory claim follows.
+
+The existing qualified-metrics rule marks allocation unavailable across GC
+or for a negative raw delta; raw deltas are retained separately. Do not infer
+allocation savings from those raw counters.
+
+Focused native controls passed 24 inheritance, 94 object, 29 issued-read and
+34 declaration-index Cases. Removing only the write-route condition made
+the effectful-write Case fail with exit 42: hook count 0 instead of 1.
+The reference also passed the new controls. Callback-return read checks and
+issuance refusal order remain in the existing issued-read suite.
+
+The existing Core =ThunkConstruction= finite model and six negative controls
+passed. A candidate-bound receipt was refused because the experimental
+source was not Core's pinned checkout; that guard remains unchanged. The
+model-only result does not qualify a candidate source/pin correspondence.
+
+* Reproduction and limits
+
+After normal development preparation, use the existing entrypoints:
+
+#+begin_src sh
+just test-file t/objects/inheritance-hooks-test.ss
+just test-file benchmarks/object-scale-test.ss
+just benchmark-object-scale natural tree 256 32
+#+end_src
+
+The executable retains its original 90-second/2-GiB fence, repetitions,
+oracles and full default shape matrix. The focused test uses the same
+importable workload, avoiding a separately statically linked POO copy.
+A local static-link attempt failed on unavailable OpenSSL linkage and
+provides no executable benchmark qualification.
+
+This candidate reduces ordinary method-preparation work. It establishes no
+Yuanxu first-business improvement, 10K Module/180-second/4-GiB acceptance,
+downstream build qualification or consumer pin promotion. Shared Profile
+proof production and filesystem source certification remain separate work.

@@ -23,7 +23,7 @@
   :std/iter
   ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method) read-runtime.)
-  (only-in ./read-route require-read-route! make-read-issuer)
+  (only-in ./read-route require-read-route! make-read-issuer symbolic-write-route-current?)
   ./object-state
   ./prototype-map
   ./slot-layout
@@ -298,9 +298,15 @@
   ;; change the payload capture time of another field's SlotSpec.
   (for (([slot . specs] (hash->list h)))
     (hash-put! h slot (compile-slot-specs self slot specs)))
-  (for (([slot . standard] (hash->list h)))
+  ;; Preserve the final enumeration and payload capture before author hooks.
+  ;; Native symbolic writes preserve protocol absence; changed write/hash/test
+  ;; routes keep dynamic selection. An empty set adds no protocol lookup.
+  (def entries (hash->list h))
+  (def closed? (and (pair? entries) (pair? (cdr entries)) (symbolic-write-route-current? h)
+                    (not (object-protocol self))))
+  (for (([slot . standard] entries))
     ;; Pinned hook definitions are the terminating base of self-description.
-    (def compiled (if (bootstrap-anchor self slot) standard
+    (def compiled (if (or closed? (bootstrap-anchor self slot)) standard
       (invoke-object-hook self 'compute-slot (lambda () standard) slot)))
     (unless (procedure? compiled) (error "compute-slot must return a thunk" slot))
     (hash-put! h slot compiled))

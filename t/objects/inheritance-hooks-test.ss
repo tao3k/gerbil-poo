@@ -1,12 +1,62 @@
 (export inheritance-hooks-test)
 (import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
+        (only-in :clan/poo/read-route symbolic-write-route-current?)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
+                            find-method bind-method!) runtime.)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/examples/representation-service topology-workflow)
-        :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String) :clan/poo/reflection
+        :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String) :clan/poo/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
+    (test-case "shared protocol selection authenticates its actual write route"
+      (def table (make-hash-table-symbolic))
+      (def backend (runtime.slot-ref table 'object))
+      (def calls 0)
+      (check-equal? (symbolic-write-route-current? table) #t)
+      (for (entry (list (cons table 'set!) (cons backend 'hash) (cons backend 'test)
+                       (cons backend 'lock) (cons table 'object)))
+        (def owner (car entry))
+        (def field (cdr entry))
+        (def original (runtime.slot-ref owner field))
+        (try
+          (runtime.slot-set! owner field (lambda args (set! calls (1+ calls)) #f))
+          (check-equal? (symbolic-write-route-current? table) #f)
+          (check-equal? calls 0)
+          (finally (runtime.slot-set! owner field original))))
+      (check-equal? (symbolic-write-route-current? table) #t))
+    (test-case "effectful method installation retains per-slot protocol selection"
+      (def hooks 0)
+      (def protocol
+        (.o compute-slot: (lambda (_self next _slot) (set! hooks (1+ hooks)) (next))))
+      ;; Complete this ordinary protocol before changing the HashTable method.
+      (def hook (.ref protocol 'compute-slot))
+      (def source (.o left: 1 right: 2))
+      (def sample (make-hash-table-symbolic))
+      (def klass (runtime.object-class (runtime.slot-ref sample 'object)))
+      (def original (runtime.find-method klass #f 'HashTable::set!))
+      (def writes (make-table test: eq?))
+      (def installed 0)
+      (dynamic-wind
+        (lambda ()
+          (runtime.bind-method! klass 'HashTable::set!
+            (lambda (table key value)
+              ;; Two compiled methods precede the final installation sweep.
+              ;; Its first write installs a protocol visible to the next slot.
+              (when (and (memq key '(left right)) (procedure? value))
+                (let (count (1+ (table-ref writes table 0)))
+                  (table-set! writes table count)
+                  (when (= count 3)
+                    (set! installed (1+ installed))
+                    (object-%protocol-set! source protocol))))
+              (original table key value)) #t))
+        (lambda ()
+          (check-equal? (.ref source 'left) 1)
+          (check-equal? installed 1)
+          (check-equal? hooks 1)
+          (check-equal? (eq? (.ref protocol 'compute-slot) hook) #t))
+        (lambda () (runtime.bind-method! klass 'HashTable::set! original #t))))
     (test-case "public parent snapshots cannot edit a warmed source graph"
       (def parent (.o value: 7))
       (def foreign (.o value: 99))

@@ -85,16 +85,28 @@
               policy: policy
               regime: (if collected? 'collected 'natural)
               metric-order: '(cpu wall gc-cpu collections allocated-bytes)
-              cold-construct-and-read: cold-seconds
-              cold-construct-clone-and-read: cold-clone-seconds
-              clone-only: clone-seconds
-              clone-and-read: clone-read-seconds]))
+              cold-construct-and-read: (sample.qualified-metrics cold-seconds)
+              cold-construct-clone-and-read: (sample.qualified-metrics cold-clone-seconds)
+              clone-only: (sample.qualified-metrics clone-seconds)
+              clone-and-read: (sample.qualified-metrics clone-read-seconds)
+              raw-allocation-deltas: (map (cut vector-ref <> 4)
+                [cold-seconds cold-clone-seconds clone-seconds clone-read-seconds])]))
 
 ;; Compare both current policies in one standard executable, using ABBA process order.
 ;; Existing widths/depths remain; boundary widths exercise compact/tree transitions.
-(def (main (regime "natural") (policy-name "tree"))
+(def (main (regime "natural") (policy-name "tree")
+           (width-name "all") (depth-name "all"))
   (unless (member regime '("natural" "collected")) (error "unknown GC regime" regime))
   (unless (member policy-name '("tree" "compact")) (error "unknown storage policy" policy-name))
-  (for (width [1 4 8 9 16 64 256])
-    (for (depth [1 8 32])
+  ;; Select a maintained shape for matched producer comparisons. The default
+  ;; retains every original shape and all complete construction/clone phases.
+  (def (dimensions name allowed)
+    (if (equal? name "all") allowed
+      (let (value (string->number name))
+        (unless (member value allowed) (error "unknown object shape" name allowed))
+        [value])))
+  (def widths (dimensions width-name [1 4 8 9 16 64 256]))
+  (def depths (dimensions depth-name [1 8 32]))
+  (for (width widths)
+    (for (depth depths)
       (run-case width depth (equal? regime "collected") (string->symbol policy-name)))))

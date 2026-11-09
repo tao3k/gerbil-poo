@@ -1,5 +1,8 @@
 #+TITLE: Native benchmark output policy
 
+The scoped method-installation candidate and its limits are recorded in
+[[file:protocol-selection.org][Effect-framed protocol selection]].
+
 Run ~just benchmark-metadata~ (or another native ~just benchmark-*~ recipe)
 from this package. No Lean checkout is required.
 

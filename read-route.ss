@@ -1,8 +1,30 @@
 ;;; Read provenance and metadata routes; no receiver getters or user callbacks.
-(export require-read-route! make-read-issuer)
+(export require-read-route! make-read-issuer symbolic-write-route-current?)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
-  (prefix-in (only-in :gerbil/runtime/mop object-class make-class-slot-accessor slot-ref slot-set!) read-runtime.)
-  (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock))
+  (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor slot-ref slot-set!) read-runtime.)
+  (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
+           symbolic-table-set! symbolic-hash))
+
+;; A method installation interval may omit repeated protocol selection only
+;; when its actual writes cannot dispatch an author effect. Inspect the selected
+;; wrapper fields without invoking them; changed routes use the ordinary loop.
+;; Rehash also uses the backend hash/test, so checking set! alone is insufficient.
+(def symbolic-write-route-current?
+  (let* ((sample (make-hash-table-symbolic))
+         (wrapper (read-runtime.object-class sample))
+         (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
+         (set-field (read-runtime.make-class-slot-accessor wrapper 'set!))
+         (backend-class (read-runtime.object-class (object-field sample))))
+    (lambda (table)
+      (and (read-runtime.object? table)
+           (eq? (read-runtime.object-class table) wrapper)
+           (eq? (set-field table) symbolic-table-set!)
+           (let (backend (object-field table))
+             (and (read-runtime.object? backend)
+                  (eq? (read-runtime.object-class backend) backend-class)
+                  (eq? (&raw-table-hash backend) symbolic-hash)
+                  (eq? (&raw-table-test backend) eq?)
+                  (not (&raw-table-lock backend))))))))
 ;; Validate the actual selected metadata route, without calling its methods.
 ;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.
 (defstruct route (wrapper ref backend hash test object-field ref-field) final: #t)
