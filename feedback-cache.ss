@@ -1,6 +1,6 @@
 ;;; Selective DAG reconstruction of whole feedback groups with joint publication.
 (export close-feedback-group feedback-group? group-closed feedback-cache-ref
-        feedback-cache-action publish-feedback-cache)
+        feedback-cache-action publish-feedback-cache %admit-feedback-cache)
 (import (only-in :std/list/list foldr delete-duplicates/hash) ./object ./mop ./support/option
         ./generalized-declaration ./generalized-closure ./feedback-closure ./lens-laws
         (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
@@ -28,6 +28,15 @@
   ((foldr (lambda (group rest) (lambda ()
     (with-fragment-sources (group-prepared group) (lambda ()
       (with-lens-checks (group-checks group) rest))))) action groups)))
+;; One admission boundary for an already materialized cache. Even a sparse
+;; value update must protect all required groups with opaque effect evidence.
+(def (%admit-feedback-cache old candidate keys admit)
+  (def groups (map (cut feedback-cache-ref candidate <>) keys))
+  (with-feedback-groups groups (lambda ()
+    ((.call fun.Observation. .map (lambda (next)
+      (unless (eq? (admit old next) #t) (error "joint feedback cache approval refused")) next)
+      (.call fun.Observation. .ap candidate)) old))))
+
 ;; Reader input is old cache or #f. Existing ConstructionCache propagates dirty
 ;; declared reads through a DAG of atomic groups and skips untouched builders.
 ;; Graph/code metadata must be immutable/extensional, as in that existing cache.
@@ -41,13 +50,7 @@
     (unless (or (not old) (cache.cache? old)) (error "old construction cache or #f required"))
     (with-lens-checks guards (lambda ()
       (def candidate (if old (cache.refresh old source builder) (cache.start source builder)))
-      (def groups (map (cut feedback-cache-ref candidate <>) keys))
-      (with-feedback-groups groups (lambda ()
-        ;; The same Gerbil FUN Reader chain performs final approval. No approval
-        ;; result is retained, including when every construction slot was reused.
-        ((.call fun.Observation. .map (lambda (next)
-          (unless (eq? (admit old next) #t) (error "joint feedback cache approval refused")) next)
-          (.call fun.Observation. .ap candidate)) old)))))))
+      (%admit-feedback-cache old candidate keys admit)))))
 ;; Construction, required-group checks, source admission and joint approval share
 ;; one publication boundary. Any refusal retains the exact old cache and exception.
 ;; Later publication failure never promotes a speculative cache for subsequent reuse.

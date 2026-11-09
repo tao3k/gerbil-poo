@@ -3,12 +3,16 @@
 (export component-membership-test component-migration-test component-requests-test component-rounds-test)
 (import
   :std/test
+  (only-in :std/error Error-message)
+  (prefix-in :clan/poo/examples/component-services owned-service.)
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
   :clan/poo/feedback-graph
   :clan/poo/feedback-cache
+  (only-in :clan/poo/generalized-closure closed-raw)
+  (only-in :clan/poo/component-closure component-group-builder)
   (prefix-in :clan/poo/construction-cache cache.)
   (prefix-in :clan/poo/strong-components scc.)
   (prefix-in :clan/poo/generalized-graph graph.)

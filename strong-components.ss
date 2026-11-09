@@ -3,28 +3,52 @@
 ;;; Explicit feedback construction and recursive topology consume these groups;
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
-        partition-members partition-group-of partition-group-size partition-work capture-reachability capture-reachability-procedure)
+        partition-members partition-group-of partition-group-size partition-work
+        partition-owned revise-partition %partition-order-keys %partition-representatives
+        capture-reachability capture-reachability-procedure)
 (import :std/iter
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/hash symbol-hash-table?)
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!) (only-in :std/list/list delete-duplicates/hash foldl)
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in ./generalized-graph %index %index-project %index-ref %index-fork %index-write!
+                 %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         ./object)
 ;; Public groups/representatives retain source order, independently of DFS order.
-(defstruct %partition (groups owner reads members work owners) final: #t)
+(defstruct %partition (groups owner reads members work owners owned) final: #t)
+(defstruct owned-partition (keys positions forward backward owner members shape) final: #t)
 (def partition? %partition?)
-(def partition-groups %partition-groups)
+(def (partition-groups part)
+  (let (owned (%partition-owned part))
+    (if owned
+      (with-list-builder (add)
+        (if (eq? (owned-partition-shape owned) 'singletons)
+          (for (key (owned-partition-keys owned)) (add (list key)))
+          (for (key (owned-partition-keys owned))
+            (when (eq? key ((partition-owner part) key))
+              (add (partition-members part key))))))
+      (%partition-groups part))))
 (def partition-owner %partition-owner)
 (def partition-reads %partition-reads)
 (def partition-work %partition-work)
 ;; The existing representative index stores (cardinality . members). The owner
 ;; index is the same table already captured by partition-owner, not a second cache.
+(def (member-entry part representative)
+  (let (owned (%partition-owned part))
+    (if owned (and (symbol? representative) (%index-ref (owned-partition-members owned) representative #f))
+      (hash-get (%partition-members part) representative))))
+(def (public-members part entry)
+  (and entry (if (%partition-owned part) (list-copy (cdr entry)) (cdr entry))))
 (def (partition-members part representative)
-  (let (entry (hash-get (%partition-members part) representative)) (and entry (cdr entry))))
+  (public-members part (member-entry part representative)))
 (def (group-entry part node)
-  (let (representative (hash-get (%partition-owners part) node))
-    (and representative (hash-ref (%partition-members part) representative))))
+  (def owned (%partition-owned part))
+  (def representative
+    (if owned (and (symbol? node) (%index-ref (owned-partition-owner owned) node #f))
+      (hash-get (%partition-owners part) node)))
+  (and representative (member-entry part representative)))
 (def (partition-group-of part node)
-  (let (entry (group-entry part node)) (and entry (cdr entry))))
+  (public-members part (group-entry part node)))
 (def (partition-group-size part node)
   (let (entry (group-entry part node)) (and entry (car entry))))
 (def (work-receipt owner-count input-edges discoveries-count edges-count finish-count
@@ -169,7 +193,7 @@
                  (else #f))))))
 
 (def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
-                    (ordered-rows? 'adjacent))
+                    (ordered-rows? 'adjacent) (stable-rows? #f))
   ;; The private reduced ceiling exercises exactly the native wide fallback in
   ;; bounded tests. Production always uses the full u32 range; it cannot expand.
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
@@ -196,7 +220,9 @@
   (def ordered-trial? (and ordered-rows? (not symbolic-rows?)))
   (def row-buffer #f) (def owner-names #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
-  (def reads (and (or symbolic-rows? (not packed?)) (make-hash-table-eq size: count)))
+  (def reads (and (or symbolic-rows? (not packed?))
+                   (if stable-rows? (make-hash-table-symbolic size: count)
+                     (make-hash-table-eq size: count))))
   (def declared 0) (def edges 0)
   (def direction 3)
   ;; Private, bounded construction chunks, not a retained graph/value cache.
@@ -637,9 +663,9 @@
     (discover-wide keys reads)))
 
 ;; The component-ID map is transient: normalization returns only final indices.
-(def (normalize keys owners)
+(def (normalize keys owners (owned? #f))
   (def representatives (make-hash-table-eq))
-  (def members (make-hash-table-eq)) (def ranks (make-hash-table-eq)) (def order [])
+  (def members (if owned? (make-hash-table-symbolic) (make-hash-table-eq))) (def ranks (make-hash-table-eq)) (def order [])
   (for (key keys)
     (let* ((id (hash-ref owners key)) (prior (hash-get representatives id))
            (representative (or prior key)))
@@ -655,7 +681,9 @@
                   (hash-put! members representative (cons (length group) group)) group)))
     (values groups members ranks)))
 
-(def (partition spec)
+(def (partition spec) (capture-partition spec #f))
+(def (partition-owned spec) (capture-partition spec #t))
+(def (capture-partition spec owned?)
   (def keys (.@ spec keys))
   ;; The encoding index admits symbols and uniqueness before any author.
   ;; Keep finite-list admission here, then own the roster; do not build a
@@ -665,20 +693,25 @@
   (set! keys (append keys []))
   (let-values (((reads index declared-edges captured-edges)
                  (capture-graph keys (lambda (key)
-                   (let (code (.call spec .code key)) (if code (.@ code reads) []))))))
-    (partition-captured keys reads captured-edges (length keys) declared-edges index)))
+                   (let (code (.call spec .code key)) (if code (.@ code reads) [])))
+                   #t 4294967295 'adjacent owned?)))
+    (def part (partition-captured keys reads captured-edges (length keys) declared-edges index owned?))
+    (if owned? (own-partition keys reads index part) part)))
 
 ;; Pure phase over locally captured immutable rows. Production reaches this only
 ;; after validating every author. White-box studies may borrow an already
 ;; certified historical partition, charging zero NEW declaration validation.
-(def (partition-captured keys reads captured-edges validation-owners declared-edges (index #f))
+(def (partition-captured keys reads captured-edges validation-owners declared-edges
+                         (index #f) (owned? #f))
   (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
     ;; A tail handoff carries NO packed input or capture construction buffers.
     ;; Keep those roots out of normalization/certificate closure environments.
-    (finish-partition keys reads validation-owners declared-edges owners next component examined-edges finished popped)))
+    (finish-partition keys reads validation-owners declared-edges
+      owners next component examined-edges finished popped owned?)))
 
-(def (finish-partition keys reads validation-owners declared-edges owners next component examined-edges finished popped)
-    (let-values (((groups members ranks) (normalize keys owners)))
+(def (finish-partition keys reads validation-owners declared-edges
+                       owners next component examined-edges finished popped (owned? #f))
+    (let-values (((groups members ranks) (normalize keys owners owned?)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
       ;; rows retain only internal edges of nontrivial groups (Lean pruning law).
@@ -730,4 +763,241 @@
           (work-receipt validation-owners declared-edges (if (zero? finished) 0 next)
             examined-edges finished popped next component
             certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges
-            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners))))
+            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners #f))))
+
+;; Owned partition keeps the existing SCC result and only adds the indexes
+;; required to revise that result without rereading a declaration.
+(def (owned-snapshot owned work)
+  (def (lookup index key)
+    (unless (symbol? key) (error "component key must be a symbol" key))
+    (%index-ref index key))
+  (make-%partition #f
+    (cut lookup (owned-partition-owner owned) <>)
+    (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
+    #f work #f owned))
+
+(def (own-partition keys reads index part)
+  (def positions (if index (compact-graph-positions index) (make-hash-table-symbolic)))
+  (def backward (make-hash-table-symbolic))
+  (def cycle? (and (pair? keys) (pair? (cdr keys)) (= (hash-length (%partition-members part)) 1)))
+  (for ((key keys) (position (in-range (length keys))))
+    (unless index (hash-put! positions key position))
+    (def row (hash-ref reads key))
+    (when (and cycle? (not (and (pair? row) (null? (cdr row)))))
+      (set! cycle? #f))
+    (for (provider row)
+      (hash-put! backward provider (cons key (hash-ref backward provider [])))))
+  (owned-snapshot (make-owned-partition keys positions (%index reads) (%index backward)
+                    (%index (%partition-owners part)) (%index (%partition-members part))
+                    (and cycle? 'cycle))
+    (partition-work part)))
+
+;; A node is entered once in each union walk. Mark on enqueue so a wide hub
+;; does not place duplicate pending entries on the traversal stack.
+(def (edit-region-walk roots index additions counts)
+  (def reached (make-hash-table-symbolic))
+  (def pending [])
+  (def (enter key)
+    (unless (hash-key? reached key)
+      (hash-put! reached key #t)
+      (set! pending (cons key pending))))
+  (for-each enter roots)
+  (let walk ()
+    (unless (null? pending)
+      (let (key (car pending))
+        (def (visit next)
+          (vector-set! counts 1 (1+ (vector-ref counts 1)))
+          (enter next))
+        (set! pending (cdr pending))
+        (vector-set! counts 0 (1+ (vector-ref counts 0)))
+        (%for-each-reverse-bucket visit (%index-ref index key []))
+        (for-each visit (hash-ref additions key []))
+        (walk))))
+  reached)
+
+;; Structural edit over the exact predecessor partition and fixed support.
+;; The caller above this layer must authenticate where the replacement rows
+;; came from. This operation detaches them, checks all keys, and runs no author.
+(def (%partition-order-keys part keys)
+  (def positions (owned-partition-positions (%partition-owned part)))
+  (list-sort (lambda (a b) (< (hash-ref positions a) (hash-ref positions b))) keys))
+(def (%partition-representatives part)
+  (def owned (%partition-owned part))
+  (def keys (owned-partition-keys owned))
+  (if (eq? (owned-partition-shape owned) 'singletons)
+    (list-copy keys)
+    (with-list-builder (add)
+      (for (key keys)
+        (when (eq? key ((partition-owner part) key)) (add key))))))
+(def (revise-partition prior replacements quotient?: (quotient? #f))
+  (def old (and (partition? prior) (%partition-owned prior)))
+  (unless old (error "owned component partition required"))
+  (unless (list? replacements) (error "finite component edit required"))
+  (def positions (owned-partition-positions old))
+  (def forward (owned-partition-forward old))
+  (def backward (owned-partition-backward old))
+  (def seen (make-hash-table-symbolic))
+  (def next-forward (%index-fork forward))
+  (def add-forward (make-hash-table-symbolic))
+  (def add-backward (make-hash-table-symbolic))
+  (def remove-backward (make-hash-table-symbolic))
+  (def buckets (make-hash-table-symbolic))
+  (def roots
+    (with-list-builder (add)
+      (for (entry replacements)
+        (unless (and (pair? entry) (symbol? (car entry)) (hash-key? positions (car entry))
+                     (list? (cdr entry)))
+          (error "unsupported component row replacement" entry))
+        (def key (car entry))
+        (when (hash-key? seen key) (error "duplicate component row replacement" key))
+        (hash-put! seen key #t)
+        (for (dep (cdr entry))
+          (unless (and (symbol? dep) (hash-key? positions dep))
+            (error "unsupported component read" key dep)))
+        (def row (delete-duplicates/hash (cdr entry) table: (make-hash-table-symbolic)))
+        (def previous (%index-ref forward key))
+        (unless (equal? row previous)
+          (let ()
+            (def (membership names)
+              (def index (make-hash-table-symbolic))
+              (for (name names) (hash-put! index name #t))
+              index)
+            (def was (membership previous))
+            (def now (membership row))
+            (add key)
+            (%index-write! next-forward key row)
+            (for (provider row)
+              (unless (hash-key? was provider)
+                (hash-put! add-forward key (cons provider (hash-ref add-forward key [])))
+                (hash-put! add-backward provider (cons key (hash-ref add-backward provider [])))
+                (hash-put! buckets provider #t)))
+            (for (provider previous)
+              (unless (hash-key? now provider)
+                (let (removed (hash-ref remove-backward provider #f))
+                  (unless removed
+                    (set! removed (make-hash-table-symbolic))
+                    (hash-put! remove-backward provider removed))
+                  (hash-put! removed key #t)
+                  (hash-put! buckets provider #t)))))))))
+  (def next-backward (%index-fork backward))
+  (def removed-edges 0)
+  (for (provider (hash-keys buckets))
+    (def removed (hash-ref remove-backward provider #f))
+    (def row (%index-ref backward provider []))
+    (when removed
+      (for (consumer (hash-keys removed))
+        (set! row (%reverse-bucket-remove row consumer))
+        (set! removed-edges (1+ removed-edges))))
+    ;; The collected prefix is already in reverse edit order.
+    (for (consumer (reverse (hash-ref add-backward provider [])))
+      (set! row (%reverse-bucket-add row consumer)))
+    (%index-write! next-backward provider row))
+  (def forward-work (vector 0 0))
+  (def backward-work (vector 0 0))
+  ;; Without additions the union IS the old graph. From one edited row,
+  ;; its forward/reverse intersection is already the old owner group.
+  (def single-removal? (and (pair? roots) (null? (cdr roots)) (zero? (hash-length add-forward))))
+  ;; Every key reached the cut owner before this edit. With one successor per
+  ;; row, the remaining path to the cut sink precludes any nontrivial SCC.
+  (def functional-cut? (and single-removal? (= removed-edges 1)
+                            (eq? (owned-partition-shape old) 'cycle)))
+  (def old-owner (owned-partition-owner old))
+  (def old-members (owned-partition-members old))
+  (def single-owner (and single-removal? (not functional-cut?) (%index-ref old-owner (car roots))))
+  (def to (and (not single-removal?) (edit-region-walk roots forward add-forward forward-work)))
+  (def from (and (not single-removal?) (edit-region-walk roots backward add-backward backward-work)))
+  (def (inside? key)
+    (if single-removal? (eq? single-owner (%index-ref old-owner key))
+      (and (hash-key? to key) (hash-key? from key))))
+  (def region
+    (cond (functional-cut? [])
+          (single-removal? (cdr (%index-ref old-members single-owner)))
+          (else
+           (let (smaller (if (< (hash-length to) (hash-length from)) to from))
+             (%partition-order-keys prior (filter inside? (hash-keys smaller)))))))
+  (def width (if functional-cut? (hash-length positions) (length region)))
+  (def whole? (and (pair? region) (= width (hash-length positions))))
+  (def induced-readers 0)
+  (def cycle? (and whole? (> width 1)))
+  (def local-part
+    (and (pair? region)
+      (let ()
+        (def rows (make-hash-table-symbolic size: width))
+        (def edges 0)
+        (for (key region)
+          (def all (%index-ref next-forward key))
+          (when (and cycle? (not (and (pair? all) (null? (cdr all)))))
+            (set! cycle? #f))
+          (def row
+            (if whole?
+              (let (size (length all))
+                (set! induced-readers (+ induced-readers size))
+                (set! edges (+ edges size))
+                all)
+              (filter (lambda (dep)
+                (set! induced-readers (1+ induced-readers))
+                (and (inside? dep) (begin (set! edges (1+ edges)) #t))) all)))
+          (hash-put! rows key row))
+        (partition-captured region rows edges 0 0 #f #t))))
+  ;; If the repair covers the entire graph, use the discovered native tables
+  ;; as the new base. One sparse tree write per owner would only copy work.
+  (def owner (cond (functional-cut? (%index-project positions identity))
+                   (whole? (%index (%partition-owners local-part)))
+                   (else (%index-fork old-owner))))
+  (def members (cond (functional-cut? (%index-project positions (lambda (key) (list 1 key))))
+                     (whole? (%index (%partition-members local-part)))
+                     (else (%index-fork old-members))))
+  (def owner-assignments 0)
+  (def member-assignments 0)
+  ;; Every successor group changes on a certified cut. The caller can use
+  ;; the admitted source order directly, including any authored edit seeds.
+  (def changed-groups (and quotient? (not functional-cut?) (make-hash-table-symbolic)))
+  (def changed-support? (and quotient? functional-cut?))
+  (def remapped [])
+  (when (and local-part (or quotient? (not whole?)))
+    ;; Explicit #f retires a former representative in the covered region.
+    (for (key region)
+      (def representative ((partition-owner local-part) key))
+      (unless (eq? representative (%index-ref old-owner key))
+        (when quotient? (set! remapped (cons key remapped)))
+        (unless whole?
+          (%index-write! owner key representative)
+          (set! owner-assignments (1+ owner-assignments))))
+      (def replacement (hash-get (%partition-members local-part) key))
+      (def previous (%index-ref old-members key #f))
+      (unless (equal? replacement previous)
+        (when quotient?
+          (when (or (not previous) (not replacement)) (set! changed-support? #t))
+          (when replacement (hash-put! changed-groups key #t)))
+        (unless whole?
+          (%index-write! members key replacement)
+          (set! member-assignments (1+ member-assignments))))))
+  ;; A reader outside the region can keep its SCC but refer to a different
+  ;; representative. Traverse the successor inverse of each remapped owner.
+  (def quotient-readers 0)
+  (when quotient?
+    (for (key remapped)
+      (%for-each-reverse-bucket
+        (lambda (reader)
+          (set! quotient-readers (1+ quotient-readers))
+          (hash-put! changed-groups (%index-ref owner reader) #t))
+        (%index-ref next-backward key []))))
+  (def result
+    (owned-snapshot
+      (make-owned-partition (owned-partition-keys old) positions next-forward next-backward owner members
+        (cond (functional-cut? 'singletons)
+              ((null? roots) (owned-partition-shape old))
+              ((and cycle? (= (hash-length (%partition-members local-part)) 1)) 'cycle)
+              (else #f)))
+      (.o edited-rows: (hash-length seen) changed-rows: (length roots)
+      forward-buckets: (vector-ref forward-work 0) forward-edges: (vector-ref forward-work 1)
+      reverse-buckets: (vector-ref backward-work 0) reverse-edges: (vector-ref backward-work 1)
+      reverse-writes: (hash-length buckets) reverse-removals: removed-edges reverse-rewrite-edges: 0
+      region-owners: width region-edge-visits: induced-readers owner-writes: owner-assignments
+      member-writes: member-assignments rebased-owners: (if whole? width 0)
+        projected-singletons: (if functional-cut? width 0)
+        quotient-reader-edges: quotient-readers
+        local: (and local-part (partition-work local-part)))))
+  (if quotient?
+    (values result (if functional-cut? 'all-representatives changed-groups) changed-support?)
+    result))

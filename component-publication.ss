@@ -24,6 +24,7 @@
   (unless (graph-cache? initial) (error "approved component graph required"))
   (unless (%approval-domain? domain) (error "shared approval domain required"))
   (metadata! metadata)
+  (graph-cache-current! initial)
   (make-%publication (make-%snapshot initial metadata) domain))
 (def (locked owner action)
   (unless (publication? owner) (error "component publication required"))
@@ -92,6 +93,7 @@
   (def (require-live!)
     (locked owner (lambda ()
       (require-current! owner expected)
+      (graph-cache-current! (snapshot-graph expected))
       ;; A sibling can revise policy in this domain without moving the head.
       ;; The thread-local write guard cannot protect against that sibling.
       (with-lens-checks guards void))))
@@ -112,6 +114,7 @@
     (locked owner (lambda ()
       (with-lens-checks (%request-guards request) (lambda ()
         (request-current! owner request)
+        (graph-cache-current! graph)
         (%publication-head-set! owner candidate)
         (%lineage-invalidation-set! (%request-lineage request) #f)))))
     (values candidate #f)
