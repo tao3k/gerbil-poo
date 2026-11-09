@@ -25,6 +25,9 @@
   (only-in :std/list/list foldl find filter)
   (prefix-in :clan/poo/examples/component-rounds component-rounds.service.))
 
+(extern namespace: clan/poo/component-publication %request-lineage %lineage-invalidation)
+(extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-marked)
+
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-membership-test)
   (let () (include "component-membership/cases.scm")))

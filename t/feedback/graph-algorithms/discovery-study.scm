@@ -1,7 +1,7 @@
 ;;; Paired private discovery kernels over the SAME captured Graph rows.
 ;;; Ordinary consumers keep partition; this white-box fixture adds no export.
 (extern namespace: clan/poo/strong-components discover discover-wide normalize partition-captured capture-graph wide-reachable)
-(extern namespace: clan/poo/recursive-validation affected-owners
+(extern namespace: clan/poo/generalized-graph affected-owners
   start-affected-work advance-affected-work! affected-work-marked)
 
 (def (discovery-result kernel keys reads)

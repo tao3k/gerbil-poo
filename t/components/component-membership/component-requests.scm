@@ -173,21 +173,35 @@
       (defvalues (winner ok) (publication.submit-snapshot! owner independent))
       (check-equal? ok #f)
       (check (eq? (publication.snapshot-metadata winner) independent-meta) => #t))
-    (test-case "restage during admission rejects the older return without changing head"
+    (test-case "restage during admission extends only the old family's inverse work"
       (def approvals (component-requests.service.policies))
       (def owner (component-requests.service.start approvals))
       (def before (publication.snapshot owner))
-      (def first #f) (def later #f)
+      (def first #f) (def later #f) (def work #f)
       (def metadata (.o marker: 'later))
-      (set! first (publication.stage owner [] component-requests.service.build-group
+      (def (bases key value)
+        (list (revision.fragment [] [] [] (list (cons key (some (code.make-success value)))))))
+      (def (state request) (%lineage-invalidation (%request-lineage request)))
+      (def (marked? key) (hash-key? (affected-work-marked (%invalidation-work work)) key))
+      (set! first (publication.stage owner (bases 'quota 5) component-requests.service.build-group
         (lambda (_ __)
-          (set! later (publication.restage owner first [] component-requests.service.build-group
-            (rounds.admit approvals) metadata: metadata)) #t)))
+          (set! work (state first))
+          (check (marked? 'quota) => #t)
+          (check (marked? 'spare) => #f)
+          (set! later (publication.restage owner first (bases 'spare 5) component-requests.service.build-group
+            (lambda (old candidate)
+              (check (eq? work (state later)) => #t)
+              (check (marked? 'quota) => #t)
+              (check (marked? 'spare) => #t)
+              ((rounds.admit approvals) old candidate)) metadata: metadata)) #t)))
       (defvalues (held obsolete) (publication.submit-snapshot! owner first))
       (check (not (not obsolete)) => #t) (check (eq? held before) => #t)
       (defvalues (winner ok) (publication.submit-snapshot! owner later))
       (check-equal? ok #f)
-      (check (eq? (publication.snapshot-metadata winner) metadata) => #t))
+      (check (eq? (publication.snapshot-metadata winner) metadata) => #t)
+      (check-equal? (component-requests.service.value (publication.snapshot-graph winner) 'quota) 3)
+      (check-equal? (component-requests.service.value (publication.snapshot-graph winner) 'spare) 5)
+      (check (state later) => #f))
     (test-case "paused snapshot reader refuses a rival graph and metadata generation"
       (def approvals (component-requests.service.policies))
       (def initial (publication.current (component-requests.service.start approvals)))

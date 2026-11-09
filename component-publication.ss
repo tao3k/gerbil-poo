@@ -2,14 +2,14 @@
 (export approval-domain publication publication? current snapshot snapshot-graph snapshot-metadata
         stage restage submit! submit-snapshot! call-with-snapshot revise-approval!)
 (import (only-in :gerbil/runtime/thread with-lock) ./object ./mop ./feedback-graph ./lens-laws
-        (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
+        (prefix-in ./construction-cache cache.))
 ;; Private coordination records never expose setters or candidate-install APIs.
 (defstruct %approval-domain (lock) final: #t)
 (defstruct %snapshot (graph metadata) final: #t)
 (defstruct %publication (head domain) final: #t)
 ;; Each independent stage gets its own lineage. Only explicit restage advances
 ;; its private counter; merely sharing an old snapshot does not merge requests.
-(defstruct %lineage (version) final: #t)
+(defstruct %lineage (version invalidation) final: #t)
 (defstruct %request (owner expected action guards metadata lineage version) final: #t)
 (def +keep-metadata+ (vector 'keep-publication-metadata))
 (def publication? %publication?)
@@ -39,7 +39,9 @@
 ;; Called under the coordinator domain lock. Neither check invokes user code.
 (def (request-current! owner request)
   (require-current! owner (%request-expected request))
-  (unless (= (%request-version request) (%lineage-version (%request-lineage request)))
+  (require-version! (%request-lineage request) (%request-version request)))
+(def (require-version! lineage version)
+  (unless (= version (%lineage-version lineage))
     (error "stale component revision ticket")))
 (def (revise-approval! owner policy slot value)
   (unless (and (publication? owner) (object? policy) (symbol? slot))
@@ -49,15 +51,24 @@
     (snapshot-graph (%publication-head owner)))))
 (def (make-request owner expected fragments build admit guards builder metadata lineage version)
   (unless (eq? metadata +keep-metadata+) (metadata! metadata))
+  (def (invalidation)
+    (locked owner (lambda ()
+      (require-current! owner expected)
+      (require-version! lineage version)
+      (unless (%lineage-invalidation lineage)
+        (%lineage-invalidation-set! lineage
+          (cache.cache-invalidation (graph-cache-values (snapshot-graph expected)))))
+      (%lineage-invalidation lineage))))
   (make-%request owner expected
-    (revision.revision-action (snapshot-graph expected) fragments build admit guards: guards builder: builder)
+    (feedback-component-revision-action fragments build admit
+      guards: guards builder: builder invalidation: invalidation)
     guards (if (eq? metadata +keep-metadata+) (snapshot-metadata expected) metadata) lineage version))
 ;; Stage a fresh independent proposal, with no business construction. Capture
 ;; inherited metadata from the SAME snapshot as the revision action.
 (def (stage owner fragments build admit guards: (guards []) builder: (builder (.cc cache.Builder.))
             metadata: (metadata +keep-metadata+))
   (def expected (snapshot owner))
-  (make-request owner expected fragments build admit guards builder metadata (make-%lineage 0) 0))
+  (make-request owner expected fragments build admit guards builder metadata (make-%lineage 0 #f) 0))
 ;; Replace the complete proposal in one explicit family; do not append/merge
 ;; opaque fragments or callbacks. Advance before preparing the replacement so
 ;; a failure cannot reactivate the predecessor's already-issued ticket.
@@ -101,7 +112,8 @@
     (locked owner (lambda ()
       (with-lens-checks (%request-guards request) (lambda ()
         (request-current! owner request)
-        (%publication-head-set! owner candidate)))))
+        (%publication-head-set! owner candidate)
+        (%lineage-invalidation-set! (%request-lineage request) #f)))))
     (values candidate #f)
     (catch (failure) (values (snapshot owner) failure))))
 ;; Existing value-only consumers keep their existing value result. This is a

@@ -6,6 +6,8 @@
         (prefix-in :clan/poo/construction-cache cache.)
         (prefix-in :clan/poo/dependency-analysis code.))
 
+(extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!)
+
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
 ;; The full oracle is deliberately separate from the update's operation counts.
@@ -58,7 +60,24 @@
       (check (valid-order? next keys) => #t)
       (check-equal? (graph.schedule-order prior) keys)
       (check-equal? ((graph.schedule-reads prior) (key 1)) [])
+      ;; Run both proposals on the exact old native inverse. The first
+      ;; observation keeps its own closure even after the work advances.
+      (def pending (graph.schedule-invalidation prior))
+      (def work (vector 0 0))
+      (affected-work-receipt-set! (%invalidation-work pending) work)
+      (def first (graph.schedule-invalidate! prior pending (list (key 0))))
+      (check-equal? work '#(2 1))
+      (check (first (key 9998)) => #t)
+      (def both (graph.schedule-invalidate! prior pending (list (key 0) (key 1) (key 1))))
+      (check-equal? work '#(4 2))
+      (check (first (key 9999)) => #f)
+      (check (both (key 9998)) => #t)
+      (check (both (key 9999)) => #t)
+      (check (both (key 5000)) => #f)
+      (check-exception (graph.schedule-invalidate! next pending (list (key 2))) error-object?)
+      (check-equal? work '#(4 2))
       ;; Same real 10000-owner declaration, through the existing value cache.
+
       (def old (cache.start source))
       (def refreshed (cache.refresh old edited))
       (check-equal? (cache.cache-evaluated refreshed) (list (key 1) (key 9999)))

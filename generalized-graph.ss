@@ -1,9 +1,14 @@
 ;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
 (export Declaration. declaration define remove set-base revise reconfigure support schedule reschedule
         schedule? schedule-source schedule-order schedule-reads schedule-work schedule-supports?
+        affected-owners schedule-invalidation schedule-invalidate!
         failure? failure-kind failure-key)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
+        (only-in :gerbil/runtime/thread with-lock)
+        (only-in :gerbil/runtime/interface interface-instance-object)
+        (only-in :gerbil/runtime/hash symbol-hash-table?)
+        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!)
         ./object (only-in ./mop define-type) ./support/option)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work) final: #t)
 (def schedule? %schedule?)
@@ -79,7 +84,7 @@
       copied-entries: copies order-materialized: materialized))
 (def (indexed-schedule spec order reads supported receipt)
   (def ranks (make-hash-table-eq))
-  (def readers (make-hash-table-eq))
+  (def readers (make-hash-table-symbolic))
   (for ((key order) (rank (in-range (length order))))
     (hash-put! ranks key rank)
     (hash-put! readers key []))
@@ -216,3 +221,74 @@
     (make-%schedule spec order (lambda (key) (hash-ref reads key)) reads ranks readers
       (%schedule-supported prior)
       (work size footprints buckets edges assignments checks (* 4 size) (if (zero? assignments) 0 size)))))
+
+;; Frames borrow immutable index rows. The sentinel is the append point for
+;; new roots, even while an older frame is partly consumed. Only this work
+;; owns the frame cells and visited table.
+(defstruct affected-work (readers marked raw-marked frames tail receipt) final: #t)
+(def (start-affected-work readers (receipt #f))
+  (def marked (make-hash-table-symbolic))
+  (def raw-readers (interface-instance-object readers))
+  (def raw-marked (interface-instance-object marked))
+  (unless (and (symbol-hash-table? raw-readers) (symbol-hash-table? raw-marked))
+    (error "symbolic inverse index required"))
+  (def tail (list []))
+  (make-affected-work raw-readers marked raw-marked tail tail receipt))
+
+;; Fuel counts popped occurrences, including already visited owners. A pause
+;; preserves the rest of that row and every older root. New roots enter after
+;; them. Only a first visit opens a bucket, regardless of the number of resumes.
+(def (advance-affected-work! work roots (fuel #f))
+  (unless (and (or (not fuel) (and (fixnum? fuel) (fx>= fuel 0)))
+               (list? roots) (andmap symbol? roots))
+    (error "invalid inverse work extension"))
+  (when (pair? roots)
+    (let ((old-tail (affected-work-tail work)) (new-tail (list [])))
+      (set-car! old-tail (append roots []))
+      (set-cdr! old-tail new-tail)
+      (affected-work-tail-set! work new-tail)))
+  (def tail (affected-work-tail work))
+  (def readers (affected-work-readers work))
+  (def marked (affected-work-raw-marked work))
+  (def receipt (affected-work-receipt work))
+  (let walk ((frames (affected-work-frames work)) (remaining fuel))
+    (cond ((eq? frames tail) (affected-work-frames-set! work tail) #t)
+          ((null? (car frames)) (walk (cdr frames) remaining))
+          ((and remaining (fx= remaining 0))
+           (affected-work-frames-set! work frames) #f)
+          (else
+           (let ((name (caar frames)) (next (and remaining (fx- remaining 1))))
+             (set-car! frames (cdar frames))
+             (if (symbolic-table-ref marked name #f) (walk frames next)
+               (let (row (symbolic-table-ref readers name []))
+                 (symbolic-table-set! marked name #t)
+                 (when receipt
+                   (vector-set! receipt 0 (1+ (vector-ref receipt 0)))
+                   (vector-set! receipt 1 (+ (vector-ref receipt 1) (length row))))
+                 (walk (cons row frames) next))))))))
+
+(def (affected-owners readers roots (receipt #f) (removed []))
+  (def work (start-affected-work readers receipt))
+  (advance-affected-work! work roots)
+  (when (pair? removed) (advance-affected-work! work removed))
+  (affected-work-marked work))
+
+;; One work state belongs to one admitted schedule. Its mutex protects only
+;; frame updates and capture of the reached set, never a producer callback.
+(defstruct %invalidation (schedule work lock) final: #t)
+(def (schedule-invalidation scheduled)
+  (make-%invalidation scheduled (start-affected-work (%schedule-reverse scheduled))
+    (make-mutex 'schedule-invalidation)))
+(def (schedule-invalidate! scheduled invalidation roots)
+  (unless (and (%invalidation? invalidation)
+               (eq? (%invalidation-schedule invalidation) scheduled))
+    (error "invalidation belongs to another schedule"))
+  (unless (and (list? roots) (andmap symbol? roots))
+    (error "invalid schedule invalidation roots"))
+  (with-lock (%invalidation-lock invalidation) (lambda ()
+    (def state (%invalidation-work invalidation))
+    (def reached (affected-work-marked state))
+    (advance-affected-work! state (filter (lambda (root) (not (hash-key? reached root))) roots))
+    ;; Copy the reached set only. A subsequent restage can extend its work
+    ;; without racing with or changing the current candidate's lookup.
+    (let (captured (hash-copy reached)) (cut hash-key? captured <>)))))

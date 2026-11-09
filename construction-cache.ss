@@ -1,5 +1,6 @@
 ;;; ConstructionCache: source-bound selective materialization; no resolver on hits.
 (export Builder. start refresh cache? cache-source cache-ref cache-evaluated cache-reused
+        cache-invalidation cache-invalidate!
         failure? failure-key failure-cause)
 (import (only-in :std/hash/misc hash-ref/default) :std/iter ./object (only-in ./mop define-type) ./support/option
         (prefix-in ./generalized-graph graph.) (prefix-in ./dependency-analysis computation.))
@@ -64,3 +65,8 @@
     ;; Same immutable source: retain lookup and checked schedule, reset work trace.
     (make-cache spec (cache-lookup old) [] (graph.schedule-order (cache-scheduled old)) (cache-scheduled old))
     (materialize old (graph.reschedule (cache-scheduled old) (freeze spec)) builder)))
+
+;; Reuse the cache's admitted condensation schedule. Never expose its table.
+(def (cache-invalidation current) (graph.schedule-invalidation (cache-scheduled current)))
+(def (cache-invalidate! current work roots)
+  (graph.schedule-invalidate! (cache-scheduled current) work roots))

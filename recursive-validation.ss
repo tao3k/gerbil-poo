@@ -3,9 +3,7 @@
         validation-failure? validation-failure-kind validation-failure-cause
         validation-node revise-validation revision-action closed-evaluated closed-reused
         reconfigure-validation reconfiguration-action closed-reads validation-checkpoint)
-(import (only-in :gerbil/runtime/interface interface-instance-object)
-        (only-in :gerbil/runtime/hash symbol-hash-table?)
-        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!)
+(import (only-in ./generalized-graph affected-owners)
         (only-in :std/list/list delete-duplicates/hash filter)
         (only-in :std/hash/misc hash-ensure-ref)
         (only-in ./strong-components capture-reachability-procedure)
@@ -264,57 +262,6 @@
 (def (validation-action build (limit 256))
   (lambda (input) (close-validation (lambda (reference) (build reference input)) limit)))
 
-
-;; Frames borrow immutable index rows. The sentinel is the append point for
-;; new roots, even while an older frame is partly consumed. Only this work
-;; owns the frame cells and visited table.
-(defstruct affected-work (readers marked raw-marked frames tail receipt) final: #t)
-(def (start-affected-work readers (receipt #f))
-  (def marked (make-hash-table-symbolic))
-  (def raw-readers (interface-instance-object readers))
-  (def raw-marked (interface-instance-object marked))
-  (unless (and (symbol-hash-table? raw-readers) (symbol-hash-table? raw-marked))
-    (error "symbolic inverse index required"))
-  (def tail (list []))
-  (make-affected-work raw-readers marked raw-marked tail tail receipt))
-
-;; Fuel counts popped occurrences, including already visited owners. A pause
-;; preserves the rest of that row and every older root. New roots enter after
-;; them. Only a first visit opens a bucket, regardless of the number of resumes.
-(def (advance-affected-work! work roots (fuel #f))
-  (unless (and (or (not fuel) (and (fixnum? fuel) (fx>= fuel 0)))
-               (list? roots) (andmap symbol? roots))
-    (error "invalid inverse work extension"))
-  (when (pair? roots)
-    (let ((old-tail (affected-work-tail work)) (new-tail (list [])))
-      (set-car! old-tail (append roots []))
-      (set-cdr! old-tail new-tail)
-      (affected-work-tail-set! work new-tail)))
-  (def tail (affected-work-tail work))
-  (def readers (affected-work-readers work))
-  (def marked (affected-work-raw-marked work))
-  (def receipt (affected-work-receipt work))
-  (let walk ((frames (affected-work-frames work)) (remaining fuel))
-    (cond ((eq? frames tail) (affected-work-frames-set! work tail) #t)
-          ((null? (car frames)) (walk (cdr frames) remaining))
-          ((and remaining (fx= remaining 0))
-           (affected-work-frames-set! work frames) #f)
-          (else
-           (let ((name (caar frames)) (next (and remaining (fx- remaining 1))))
-             (set-car! frames (cdar frames))
-             (if (symbolic-table-ref marked name #f) (walk frames next)
-               (let (row (symbolic-table-ref readers name []))
-                 (symbolic-table-set! marked name #t)
-                 (when receipt
-                   (vector-set! receipt 0 (1+ (vector-ref receipt 0)))
-                   (vector-set! receipt 1 (+ (vector-ref receipt 1) (length row))))
-                 (walk (cons row frames) next))))))))
-
-(def (affected-owners readers roots (receipt #f) (removed []))
-  (def work (start-affected-work readers receipt))
-  (advance-affected-work! work roots)
-  (when (pair? removed) (advance-affected-work! work removed))
-  (affected-work-marked work))
 
 ;; Reclose one linear revision family. New/changed recipes, source/descriptor
 ;; revisions and watched-input edits seed invalidation; readers transitively join

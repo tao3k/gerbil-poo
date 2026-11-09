@@ -1005,3 +1005,37 @@ was 1,290.001 ms wall, including 368.725 ms GC, with 37.038 ms wall on
 the prepared query. Source fixture generation and stored-row preparation
 are reported separately. The measured variation between 979.369 and
 1,290.001 ms leaves a repeatable subsecond full cold target open.
+
+** Ticket-bound component invalidation
+
+A staged component request borrows the inverse of the exact old condensed
+schedule. The checked fragment editor supplies roots from the same owned
+code and base edits used for reconfiguration, together with removed owners.
+The old partition maps these names to representatives. An explicit restage
+keeps this inverse work in the same lineage and extends it only with roots
+that have not been reached. The reached-set predicate captured by one
+candidate is independent of later extensions.
+
+The coordinator checks head and ticket before granting work and at commit.
+Callbacks and graph traversal run outside the coordinator lock. A refusal
+retains the old graph and metadata. A successful commit installs both in
+one head and releases the winning lineage's work. Other old tickets cannot
+acquire work against the retired head. The historical graph remains a
+historical value.
+
+A surviving clean component with the same ordered membership and builder
+can reuse its former condensed recipe without repeating member and dependency
+comparisons. A clean old vertex cannot reach a changed row, and its reachable
+paths and SCC membership remain equivalent across the checked edit.
+[[https://github.com/tao3k/lean-poo/commit/d8afd6fcc7458371212efbdbebbe64d4ca54f092][Lean path and component preservation]]
+
+The existing 10K DAG test opens 2 inverse buckets and 1 edge, extends to
+4 buckets and 2 edges including the outer consumer, retains the first
+observation and rejects a different schedule. The component suite restages
+inside admission with disjoint actual edits, refuses the old result, and
+checks the winning graph, metadata and work retirement. Existing concurrent
+read and approval-refusal controls exercise the same coordinator. The
+native Graph, component, recursive validation and DAG repair suites passed.
+The source freeze, new SCC certificate and schedule materialization remain
+whole-graph work on this path. The measured inverse closure is the local
+part of this revision.
