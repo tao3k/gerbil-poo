@@ -78,11 +78,17 @@
 ;; consumers of a live publication use this boundary plus their source guards.
 (def (call-with-snapshot owner action guards: (guards []))
   (def expected (snapshot owner))
+  (def (require-live!)
+    (locked owner (lambda ()
+      (require-current! owner expected)
+      ;; A sibling can revise policy in this domain without moving the head.
+      ;; The thread-local write guard cannot protect against that sibling.
+      (with-lens-checks guards void))))
   (with-lens-checks guards (lambda ()
-    (locked owner (lambda () (require-current! owner expected)))
+    (require-live!)
     (call-with-values (lambda () (action expected))
       (lambda results
-        (locked owner (lambda () (require-current! owner expected)))
+        (require-live!)
         (apply values results))))))
 ;; Return the complete installed/refused snapshot. Graph and metadata are ONE
 ;; pointer update; reentrant/rival commits cannot leak a mixed return pair.

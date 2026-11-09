@@ -53,7 +53,9 @@ create a fresh snapshot identity and retire earlier expected-snapshot tickets.
 
 `call-with-snapshot owner action guards: guards` checks the captured head before
 and after the callback, outside the installation lock, and preserves multiple
-return values. Independent lens/source guards remain active. A rival commit
+return values. Head identity and captured lens-source revisions are checked
+under the same domain lock at entry and return. A policy-only write can leave
+the head unchanged and still refuse the read. A rival commit
 causes refusal before values are released; historical snapshot inspection itself
 is not a live-source claim. Callback effects are never rolled back.
 
