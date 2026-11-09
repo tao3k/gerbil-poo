@@ -52,6 +52,22 @@
         (refuses "changed metadata ref" (cut reobserve-slot-reads! roots))
         (check-equal? calls 0)
         (finally (runtime.slot-set! table 'ref original))))
+    (def owner (.o value: 1))
+    (def roots (recorded (cut .ref owner 'value)))
+    (def instance (object-instance owner))
+    (def backend (runtime.slot-ref instance 'object))
+    (def shape (runtime.slot-ref backend 'shape))
+    (def foreign-shape (make-hash-table-symbolic))
+    (def method (runtime.slot-ref instance 'ref))
+    (try
+      (runtime.slot-set! backend 'shape foreign-shape)
+      (try
+        (runtime.slot-set! instance 'ref void)
+        (refuses "changed metadata ref" (cut call-with-current-slot-reads roots values))
+        (finally (runtime.slot-set! instance 'ref method)))
+      (refuses "foreign vector shape" (cut call-with-current-slot-reads roots values))
+      (finally (runtime.slot-set! backend 'shape shape)))
+    (check (object-read-current? (selected roots 'value)) => #t)
     (set! completed (1+ completed)))
   (test-case "vector storage exposure and shape growth preserve genuine read authority"
     (def parent (.o value: #f))

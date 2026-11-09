@@ -140,6 +140,13 @@ It does not call those target methods to authenticate them, rebuild cleared
 caches, or force unselected getters. Custom table routes need separate auditing.
 The internal native key vocabulary remains closed and bounded.
 
+The issuer and route checker bind field accessors to the exact runtime classes.
+After each class check, the accessor reads the live field at its fixed position.
+The vector route checks `ref` before value cells and shape, then validates the
+shape's symbolic index route. Issuance reads its private weak table through
+Gambit's table primitives. These operations retain the existing checks at both
+sides of an effectful callback.
+
 An observer remains an arbitrary application callback. Persistent replacement
 of a checker or metadata route is refused before subsequent dispatch, including
 in the final sweep. This is not proof that a callback never changed and restored
@@ -150,7 +157,8 @@ commit protocols remain consumer responsibilities.
 
 `t/objects/issued-read-test.ss` exercises export privacy, actual persistent/miss issuance,
 forgery and payload rejection, complete dependency preflight, metadata-route
-replacement before/inside observation, and live/dead transient GC lifetimes.
+replacement before/inside observation, simultaneous `ref` and shape replacement,
+and live/dead transient GC lifetimes.
 
 ## Inspecting issuance without granting it
 
