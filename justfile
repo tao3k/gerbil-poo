@@ -227,8 +227,8 @@ benchmark-slot-dependencies: build-shared
 benchmark-class-proto width='1000' samples='3': (build-benchmarks "class-proto")
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/class-proto-benchmark" {{ test-runtime-options }} "$1" "$2"
 
-benchmark-object-scale: (build-benchmarks "object-scale")
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark" {{ test-runtime-options }}
+benchmark-object-scale regime='natural' policy='tree' width='all' depth='all': (build-benchmarks "object-scale")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark" {{ test-runtime-options }} "$1" "$2" "$3" "$4"
 
 example-representation: build-shared
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 symbolic
