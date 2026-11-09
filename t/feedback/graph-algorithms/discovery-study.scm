@@ -12,13 +12,15 @@
   (let ((table (make-hash-table-eq)) (read-row (scc.partition-reads part)))
     (for (key keys) (hash-put! table key (read-row key))) table))
 
-(def (check-discovery result keys expected-groups nodes groups-count expected-edges)
+(def (check-discovery result keys expected-groups nodes groups-count expected-edges (bulk? #f))
   (let-values (((groups _members _ranks) (normalize keys (vector-ref result 0))))
     (unless (and (equal? groups expected-groups)
                  (= (vector-ref result 1) nodes)
                  (= (vector-ref result 2) groups-count)
                  (or (and (= (vector-ref result 3) expected-edges)
                           (= (vector-ref result 4) nodes) (= (vector-ref result 5) nodes))
+                     (and bulk? (= groups-count 1) (<= nodes (vector-ref result 3) expected-edges)
+                          (<= 1 (vector-ref result 4) (1- nodes)) (= (vector-ref result 5) 0))
                      (and (= groups-count nodes) (= (vector-ref result 3) 0)
                           (= (vector-ref result 4) 0) (= (vector-ref result 5) 0))))
       (error "captured discovery groups/work oracle"))))
@@ -46,7 +48,7 @@
                    (equal? (compact-row index key) (hash-ref reads key)))) keys))
       (error "fused capture rows/work oracle"))
     (check-discovery (compact-discovery-result index) keys
-      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges)))
+      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges) #t))
   ;; Same bounded inputs check query-only product erasure. No second author
   ;; pass belongs to a production capture; this is an independent differential.
   (defvalues (discarded projected projected-declared projected-edges)
@@ -59,10 +61,10 @@
     (unless (= expected-direction (compact-graph-direction compact))
       (error "captured source rank flags disagree with independent row order"))
     (check-discovery (compact-discovery-result compact) keys
-      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges))
+      (scc.partition-groups part) (length keys) (.@ work groups) (.@ work quotient-edges) #t)
     ;; Force the general engine even when source ranks could bypass it. This
     ;; reuses every existing bounded case, including empty/self-only graphs.
-    (let (general (compact-discover compact))
+    (let (general (compact-discover compact #f))
       (vector-set! general 0 (compact-component-owners compact general))
       (check-discovery general keys (scc.partition-groups part) (length keys)
         (.@ work groups) (.@ work quotient-edges)))
@@ -272,7 +274,7 @@
         (let-values (((result costs) (measure (cut capture-and-discover side keys read-owner) 1 (eq? regime 'collected))))
           ;; Normalization and the complete canonical group oracle are untimed.
           ;; Only costs escape this iteration; candidate owner maps are retired.
-          (check-discovery result keys expected size groups-count edges)
+          (check-discovery result keys expected size groups-count edges (eq? family 'ring))
           (set! observations (cons (list side costs) observations))))
       (display "GRAPH-DISCOVERY-PAIR ")
       (write (list family size regime order (cons 'input-preparation preparation)

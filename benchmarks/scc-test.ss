@@ -22,5 +22,5 @@
   (test-suite "compact Graph storage and complete cold query costs"
     (test-case "same input rows, charged CSR encoding and ordered traversal"
       (scale.compact-study))
-    (test-case "million-node cyclic band with independent fixture lifetime"
+    (test-case "paired Algorithm T completion on the million-node cyclic band"
       (scale.shared-cyclic-study))))

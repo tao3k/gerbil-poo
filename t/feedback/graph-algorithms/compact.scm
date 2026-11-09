@@ -154,13 +154,29 @@
   (let (observations [])
     (for (engine '(separate shared shared separate))
       (let-values (((result costs) (measure
-                    (lambda () ((if (eq? engine 'separate) prior-compact-discover compact-discover) index)) 1)))
+                    (lambda () (if (eq? engine 'separate) (prior-compact-discover index)
+                                 (compact-discover index #f))) 1)))
         (vector-set! result 0 (compact-component-owners index result))
         (check-discovery result keys expected size (length expected) edges)
         (set! observations (cons (list engine costs) observations))))
     (display "GRAPH-SHARED-PAIR ")
     (write (list family size edges '(order . (separate shared shared separate)) (reverse observations)))
     (newline) (force-output)))
+
+(def (stop-when-done-study index keys size edges)
+  (def observations
+    (for/collect (side '(full stop stop full))
+      (def stop? (eq? side 'stop))
+      (defvalues (result costs) (measure (cut compact-discover index stop?) 1))
+      (def work (vector-copy result 3 6))
+      (unless (equal? work (if stop? (vector size 1 0) (vector edges size size)))
+        (error "SCC early retirement work oracle" size edges side work))
+      (vector-set! result 0 (compact-component-owners index result))
+      (check-discovery result keys (list keys) size 1 edges stop?)
+      (list side (cons 'edges-finishes-pops work) costs)))
+  (display "GRAPH-SCC-RETIREMENT-PAIR ")
+  (write (list size edges observations))
+  (newline) (force-output))
 
 ;; The SAME degree-16 cyclic band as the failed overlapping-phase fixture: all
 ;; predecessor edges plus 0 -> last, exactly 1,000,000 owners/15,999,865 edges.
@@ -191,6 +207,7 @@
   (display "GRAPH-SHARED-INPUT ")
   (write (list 'cyclic-band size edges preparation)) (newline) (force-output)
   (shared-workspace-study cyclic keys (list keys) 'cyclic-band size edges)
+  (stop-when-done-study cyclic keys size edges)
   (displayln "GRAPH-SHARED-CYCLIC-OK nodes=1000000 edges=15999865"))
 
 (def (compact-study)
@@ -252,22 +269,22 @@
           (display "GRAPH-COMPACT-SPARSE ")
           (write (list size reached '(repetitions . 1000) (cons 'allocation-events allocation) costs))
           (newline) (force-output))))
-    ;; Complete SCC traversal and symbolic output are separate charged phases.
-    ;; Its actual counters require N entries/finishes/pops and EVERY input edge.
+    ;; Discovery and symbolic output are separate charged phases.
     (defvalues (scc-result scc-cost) (measure (cut compact-discover index) 1))
     (defvalues (owner-map owner-cost) (measure (cut compact-component-owners index scc-result) 1))
     (vector-set! scc-result 0 owner-map)
     (check-discovery scc-result keys (family-groups family size) size
-      (if (eq? family 'ring) 1 size) edges)
+      (if (eq? family 'ring) 1 size) edges (eq? family 'ring))
     ;; The SAME packed rows, general DFS versus source-rank selection. Preserve
     ;; natural GC and charge every result vector allocation inside its window.
     (let (observations [])
       (for (engine '(tarjan selected selected tarjan))
         (let-values (((result costs) (measure
-                      (lambda () ((if (eq? engine 'tarjan) compact-discover compact-selected-discover) index)) 1)))
+                      (lambda () (if (eq? engine 'tarjan) (compact-discover index #f)
+                                   (compact-selected-discover index))) 1)))
           (vector-set! result 0 (compact-component-owners index result))
           (check-discovery result keys (family-groups family size) size
-            (if (eq? family 'ring) 1 size) edges)
+            (if (eq? family 'ring) 1 size) edges (eq? family 'ring))
           (set! observations (cons (list engine costs) observations))))
       (display "GRAPH-RANK-PAIR ")
       (write (list family size edges '(order . (tarjan selected selected tarjan)) (reverse observations)))

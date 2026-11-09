@@ -4,10 +4,9 @@
 
 * Scope
 
-The latest local implementation and qualification are in
-[[*Runtime counter calibration and shared SCC workspace candidate][shared SCC workspace]] and
-[[*Equal-policy native comparison of the shared workspace][equal-policy measurements]]. Earlier cut measurements below are historical;
-they describe different pipelines and must not be pooled as one speedup.
+The current measurements and reproduction command are in the
+[[file:graph-benchmark.org][Scheme Graph benchmark report]]. Measurements below
+record earlier implementations and different pipelines.
 
 Keep public Graph operations and POO identities unchanged. Research internal
 algorithm/representation choices for 100,000 and 1,000,000 graph nodes. These

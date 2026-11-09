@@ -33,6 +33,7 @@
   (.o validation-owners: owner-count validation-edges: input-edges
       discoveries: discoveries-count edge-visits: edges-count finishes: finish-count
       member-pops: pop-count normalization-owners: normalized-count groups: group-count
+      bulk-retired: (if (zero? finish-count) 0 (- discoveries-count pop-count))
       certificate-buckets: span-buckets certificate-edges: span-edges
       quotient-edges: quotient-count certificate-singletons: singleton-count
       reverse-edges: reverse-count rank-owners: ranked-count rank-edges: rank-edge-count))
@@ -498,7 +499,7 @@
 ;; share one word. The second word changes from active parent-arc link, through
 ;; follower link, to the final component label. Save the active link BEFORE any
 ;; postvisit write. No workspace or approval escapes this invocation.
-(def (compact-discover graph)
+(def (compact-discover graph (stop-when-done? #t))
   (def offsets (compact-graph-offsets graph))
   (def targets (compact-graph-targets graph))
   (def count (vector-length (compact-graph-names graph)))
@@ -514,60 +515,77 @@
     (u32vector-set! lows node clock)
     (u32vector-set! pointers node parent-arc)
     clock)
-  (for (root (in-range count))
-    (when (fx= (u32vector-ref lows root) 0)
-      (let walk ((node root) (cursor (u32vector-ref offsets root))
-                 (end (u32vector-ref offsets (fx+ root 1)))
-                 (arc 0) (current-low (enter root 0)))
-        (if (fx< cursor end)
-          (let* ((dep (u32vector-ref targets cursor))
-                 (dep-low (u32vector-ref lows dep)) (next (fx+ cursor 1)))
-            (set! examined (fx+ examined 1))
-            (if (fx= dep-low 0)
-              (begin
-                ;; Suspended ancestors must expose their most recent low value.
-                (u32vector-set! lows node current-low)
-                (let (child-low (enter dep arc))
-                  (walk dep (u32vector-ref offsets dep)
-                        (u32vector-ref offsets (fx+ dep 1)) next child-low)))
-              (walk node next end arc
-                (if (fx< dep-low current-low) (fxior dep-low 1) current-low))))
-          (let* ((parent-arc (u32vector-ref pointers node))
-                 (leader? (fx= (fxand current-low 1) 0)))
-            (set! finished (fx+ finished 1))
-            (when (fx> finished count) (error "shared SCC repeated postvisit"))
-            (if leader?
-              (let (label (fx+ (fx+ count 1) component))
-                (let pop ()
-                  (unless (fx= followers 0)
-                    (let (member (fx- followers 1))
-                      (when (fx>= (u32vector-ref lows member) current-low)
-                        (set! followers (u32vector-ref pointers member))
-                        (u32vector-set! pointers member label)
-                        (u32vector-set! lows member infinity)
-                        (set! popped (fx+ popped 1))
-                        (pop)))))
-                (u32vector-set! pointers node label)
-                (u32vector-set! lows node infinity)
-                (set! popped (fx+ popped 1))
-                (set! component (fx+ component 1)))
-              (begin
-                (u32vector-set! lows node current-low)
-                (u32vector-set! pointers node followers)
-                (set! followers (fx+ node 1))))
-            (if (fx= arc 0)
-              (unless (fx= followers 0) (error "shared SCC live followers after root"))
-              (begin
-                (let* ((parent (if (fx= parent-arc 0) root
-                                 (u32vector-ref targets (fx- parent-arc 1))))
-                       (parent-low (u32vector-ref lows parent))
-                       (child-low (if leader? infinity current-low)))
-                  (walk parent arc (u32vector-ref offsets (fx+ parent 1)) parent-arc
-                    (if (fx< child-low parent-low) (fxior child-low 1) parent-low))))))))))
-  (unless (and (fx= clock (fx* 2 count)) (fx= finished count)
-               (fx= popped count) (fx= followers 0))
-    (error "shared SCC incomplete owner retirement"))
-  (vector pointers count component examined finished popped))
+  (let search ((root 0))
+    (cond
+      ((fx= root count)
+       (unless (and (fx= clock (fx* 2 count)) (fx= finished count)
+                    (fx= popped count) (fx= followers 0))
+         (error "shared SCC incomplete owner retirement"))
+       (vector pointers count component examined finished popped))
+      ((not (fx= (u32vector-ref lows root) 0)) (search (fx+ root 1)))
+      (else
+        (let walk ((node root) (cursor (u32vector-ref offsets root))
+                   (end (u32vector-ref offsets (fx+ root 1)))
+                   (arc 0) (current-low (enter root 0)))
+          (if (fx< cursor end)
+            (let* ((dep (u32vector-ref targets cursor))
+                   (dep-low (u32vector-ref lows dep)) (next (fx+ cursor 1)))
+              (set! examined (fx+ examined 1))
+              (if (fx= dep-low 0)
+                (begin
+                  ;; Suspended ancestors must expose their most recent low value.
+                  (u32vector-set! lows node current-low)
+                  (let (child-low (enter dep arc))
+                    (walk dep (u32vector-ref offsets dep)
+                          (u32vector-ref offsets (fx+ dep 1)) next child-low)))
+                (walk node next end arc
+                  (if (fx< dep-low current-low) (fxior dep-low 1) current-low))))
+            (let* ((parent-arc (u32vector-ref pointers node))
+                   (leader? (fx= (fxand current-low 1) 0)))
+              (set! finished (fx+ finished 1))
+              (when (fx> finished count) (error "shared SCC repeated postvisit"))
+              (cond
+                ;; Algorithm T's stop-when-done rule, restricted to one component
+                ;; covering the whole roster. The marked low 3 reaches the first
+                ;; DFS root. Active ancestors reach this node and live followers
+                ;; reach an active ancestor. Complete entry and no retirement
+                ;; therefore allow one label for every owner. The independent
+                ;; spanning/quotient check still runs on the original rows.
+                ((and stop-when-done? (fx= current-low 3) (fx= clock (fx* 2 count))
+                      (fx= popped 0))
+                 (u32vector-fill! pointers (fx+ count 1))
+                 (vector pointers count 1 examined finished 0))
+                (else
+                  (if leader?
+                    (let (label (fx+ (fx+ count 1) component))
+                      (let pop ()
+                        (unless (fx= followers 0)
+                          (let (member (fx- followers 1))
+                            (when (fx>= (u32vector-ref lows member) current-low)
+                              (set! followers (u32vector-ref pointers member))
+                              (u32vector-set! pointers member label)
+                              (u32vector-set! lows member infinity)
+                              (set! popped (fx+ popped 1))
+                              (pop)))))
+                      (u32vector-set! pointers node label)
+                      (u32vector-set! lows node infinity)
+                      (set! popped (fx+ popped 1))
+                      (set! component (fx+ component 1)))
+                    (begin
+                      (u32vector-set! lows node current-low)
+                      (u32vector-set! pointers node followers)
+                      (set! followers (fx+ node 1))))
+                  (if (fx= arc 0)
+                    (begin
+                      (unless (fx= followers 0) (error "shared SCC live followers after root"))
+                      (search (fx+ root 1)))
+                    (begin
+                      (let* ((parent (if (fx= parent-arc 0) root
+                                       (u32vector-ref targets (fx- parent-arc 1))))
+                             (parent-low (u32vector-ref lows parent))
+                             (child-low (if leader? infinity current-low)))
+                        (walk parent arc (u32vector-ref offsets (fx+ parent 1)) parent-arc
+                          (if (fx< child-low parent-low) (fxior child-low 1) parent-low))))))))))))))
 
 (def (compact-component-owners graph result)
   (def names (compact-graph-names graph))
