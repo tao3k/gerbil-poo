@@ -170,11 +170,12 @@
   (graph.%with-component-source next
     (lambda ()
       (def source (graph.%component-source-view next))
-      (defvalues (partition seeds support-changed?)
+      (defvalues (partition seeds support)
         (scc.revise-partition (graph-cache-partition old) (vector-ref changed 1) quotient?: #t))
-      (def keys (if support-changed? (scc.%partition-representatives partition) (graph-cache-group-keys old)))
+      (def complete? (eq? support 'complete))
+      (def complete-keys (and complete? (scc.%partition-representatives partition)))
       (def edited-keys
-        (if (eq? seeds 'all-representatives) keys
+        (if complete? complete-keys
           (let ()
             (for (node (vector-ref changed 2))
               (hash-put! seeds ((scc.partition-owner partition) node) #t))
@@ -184,8 +185,15 @@
           (cons key (group-code partition (scc.partition-members partition key) source build))))
       (def prior (graph-cache-values old))
       (def candidate
-        (if support-changed? (cache.%rebuild-owned-support prior keys edited builder)
-          (cache.%revise-with-builder prior edited builder)))
+        (cond (complete? (cache.%rebuild-owned-support prior complete-keys edited builder))
+              (support (cache.%revise-with-builder prior edited builder
+                         added: (scc.quotient-support-added support)
+                         retired: (scc.quotient-support-retired support)
+                         before?: (scc.%partition-key-before partition)))
+              (else (cache.%revise-with-builder prior edited builder))))
+      (def keys (cond (complete? complete-keys)
+                      (support (list-copy (.get (cache.cache-source candidate) keys)))
+                      (else (graph-cache-group-keys old))))
       (admit-graph old source partition build next candidate keys admit))))
 
 ;; The invalidation state supplies work for the exact old schedule only.

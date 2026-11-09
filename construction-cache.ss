@@ -119,12 +119,15 @@
   (or (cache-guards old) (error "owned construction cache required")))
 ;; Feedback publication supplies a fresh Builder per request. It runs only
 ;; the affected values, preserving the established reuse contract.
-(def (%revise-with-builder old codes builder)
+(def (%revise-with-builder old codes builder added: (added []) retired: (retired []) before?: (before? #f))
   (def guards (owned-guards old))
   (with-cache-guards guards
     (lambda ()
       (def owned-run (record-builder builder))
-      (def ticket (owned-run (lambda (_) (graph.schedule-revision (cache-scheduled old) codes))))
+      (def ticket (owned-run (lambda (_)
+        (if before?
+          (graph.%schedule-support-revision (cache-scheduled old) codes added retired before?)
+          (graph.schedule-revision (cache-scheduled old) codes)))))
       (refresh-with-run old ticket guards owned-run))))
 (def (%rebuild-owned-support old keys codes builder)
   (def guards (owned-guards old))
@@ -144,9 +147,11 @@
 (def (refresh-with-run old ticket guards owned-run)
   (defvalues (scheduled affected inverse-work)
     (graph.apply-schedule-revision (cache-scheduled old) ticket affected?: #t))
+  (def retired (graph.%schedule-revision-retirements ticket))
   (def spec (graph.schedule-source scheduled))
   (def prior-patch (cache-patch old))
   (def patch (if prior-patch (rbtree-copy prior-patch) (RBTree compare-owner)))
+  (for (key retired) (rbtree-put! patch key #f))
   (def pending (make-hash-table-eq))
   (for (key affected) (hash-put! pending key pending-value))
   (def (resolve key)
@@ -165,7 +170,7 @@
   (def width (length affected))
   (def receipt (.o graph: (graph.schedule-work scheduled)
     inverse-buckets: (vector-ref inverse-work 0) inverse-edges: (vector-ref inverse-work 1)
-    evaluated-owners: width value-patch-writes: width))
+    evaluated-owners: width value-patch-writes: (+ width (length retired))))
   (make-materialized scheduled (cache-base old) patch affected
     (delay (filter (lambda (key) (not (hash-key? pending key))) (graph.schedule-order scheduled)))
     guards owned-run receipt))

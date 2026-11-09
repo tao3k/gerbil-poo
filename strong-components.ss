@@ -4,7 +4,8 @@
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
         partition-members partition-group-of partition-group-size partition-work
-        partition-owned revise-partition %partition-order-keys %partition-representatives
+        partition-owned revise-partition %partition-order-keys %partition-representatives %partition-key-before
+        quotient-support-added quotient-support-retired
         capture-reachability capture-reachability-procedure)
 (import :std/iter
         (only-in :gerbil/runtime/interface interface-instance-object)
@@ -17,6 +18,7 @@
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
 (defstruct owned-partition (keys positions forward backward owner members shape) final: #t)
+(defstruct quotient-support (added retired) final: #t)
 (def partition? %partition?)
 (def (partition-groups part)
   (let (owned (%partition-owned part))
@@ -818,9 +820,11 @@
 ;; Structural edit over the exact predecessor partition and fixed support.
 ;; The caller above this layer must authenticate where the replacement rows
 ;; came from. This operation detaches them, checks all keys, and runs no author.
-(def (%partition-order-keys part keys)
+(def (%partition-key-before part)
   (def positions (owned-partition-positions (%partition-owned part)))
-  (list-sort (lambda (a b) (< (hash-ref positions a) (hash-ref positions b))) keys))
+  (lambda (a b) (< (hash-ref positions a) (hash-ref positions b))))
+(def (%partition-order-keys part keys)
+  (list-sort (%partition-key-before part) keys))
 (def (%partition-representatives part)
   (def owned (%partition-owned part))
   (def keys (owned-partition-keys owned))
@@ -952,7 +956,8 @@
   ;; Every successor group changes on a certified cut. The caller can use
   ;; the admitted source order directly, including any authored edit seeds.
   (def changed-groups (and quotient? (not functional-cut?) (make-hash-table-symbolic)))
-  (def changed-support? (and quotient? functional-cut?))
+  (def added [])
+  (def retired [])
   (def remapped [])
   (when (and local-part (or quotient? (not whole?)))
     ;; Explicit #f retires a former representative in the covered region.
@@ -967,7 +972,8 @@
       (def previous (%index-ref old-members key #f))
       (unless (equal? replacement previous)
         (when quotient?
-          (when (or (not previous) (not replacement)) (set! changed-support? #t))
+          (cond ((not previous) (set! added (cons key added)))
+                ((not replacement) (set! retired (cons key retired))))
           (when replacement (hash-put! changed-groups key #t)))
         (unless whole?
           (%index-write! members key replacement)
@@ -999,5 +1005,9 @@
         quotient-reader-edges: quotient-readers
         local: (and local-part (partition-work local-part)))))
   (if quotient?
-    (values result (if functional-cut? 'all-representatives changed-groups) changed-support?)
+    (values result (if functional-cut? 'all-representatives changed-groups)
+      (cond (functional-cut? 'complete)
+            ((or (pair? added) (pair? retired))
+             (make-quotient-support (reverse added) (reverse retired)))
+            (else #f)))
     result))
