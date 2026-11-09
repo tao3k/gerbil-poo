@@ -141,7 +141,34 @@
 ;; One owner index serves BOTH source support admission and row ID encoding.
 ;; Every author is still read independently, in source order. Only the pure
 ;; support check/encoding interval is shared (normalized_capture_trace law).
-(def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295))
+(def (append-ordered-targets! raw deps chunk start names)
+  ;; The reserved suffix holds at most 32 words. Until the scan reaches (),
+  ;; its writes are outside the captured graph and can be overwritten.
+  (def first (car deps))
+  (def second (cadr deps))
+  (def a (and (symbol? first) (symbolic-table-ref raw first #f)))
+  (def b (and (symbol? second) (symbolic-table-ref raw second #f)))
+  (and a b (not (fx= a b))
+       (let* ((up? (fx< a b)) (step (if up? 1 -1)) (stop (fx+ start 32))
+              (limit (if names (vector-length names) 0)))
+         (u32vector-set! chunk start a)
+         (u32vector-set! chunk (fx+ start 1) b)
+         (let write ((rest (cddr deps)) (at (fx+ start 2)) (last b))
+           (cond ((null? rest) at)
+                 ((and (fx< at stop) (pair? rest))
+                  (let* ((key (car rest)) (hint (fx+ last step))
+                         (id (if (and (fx>= hint 0) (fx< hint limit)
+                                      (eq? (vector-ref names hint) key))
+                               hint
+                               (and (symbol? key) (symbolic-table-ref raw key #f)))))
+                    (and id (if up? (fx< last id) (fx> last id))
+                         (begin
+                           (u32vector-set! chunk at id)
+                           (write (cdr rest) (fx+ at 1) id)))))
+                 (else #f))))))
+
+(def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
+                    (ordered-rows? 'adjacent))
   ;; The private reduced ceiling exercises exactly the native wide fallback in
   ;; bounded tests. Production always uses the full u32 range; it cannot expand.
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
@@ -165,6 +192,7 @@
   ;; Shape is a routing hint, not evidence for the next row. A repeat sends
   ;; the next two unique multi-target rows through the ordinary reverse scan.
   (def fresh-streak 2)
+  (def ordered-trial? (and ordered-rows? (not symbolic-rows?)))
   (def row-buffer #f) (def owner-names #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (and (or symbolic-rows? (not packed?)) (make-hash-table-eq size: count)))
@@ -227,81 +255,104 @@
   (for ((key keys) (owner (in-range count)))
     (when packed? (u32vector-set! offsets owner edges))
     (def deps (read-owner key))
-    ;; Keep the finite/proper-list guard before any length or hash primitive.
-    ;; Symbol admission shares the subsequent ID pass; this pure interval
-    ;; contains no author, getter or source-approval callback (fused_row_eq).
-    (unless (list? deps)
-      (error "unsupported component read" key deps))
-    (def row-length (length deps))
-    (if (and word-support? (pair? deps) (pair? (cdr deps))
-             (fixnum? row-length) (<= row-length 4294967295))
+    (def end
+      (and ordered-trial? packed? chunk
+           (fx<= (fx+ used 32) capacity)
+           (let (after (+ edges 32)) (and (fixnum? after) (<= after edge-word-ceiling)))
+           (pair? deps) (pair? (cdr deps))
+           (let* ((names (and (eq? ordered-rows? 'adjacent)
+                              (begin
+                                (unless owner-names (set! owner-names (list->vector keys)))
+                                owner-names)))
+                  (end (append-ordered-targets! raw deps chunk used names)))
+             ;; Use only this row's scan as evidence. A failed trial routes
+             ;; later rows through the existing general normalization.
+             (unless end (set! ordered-trial? #f))
+             end)))
+    (if end
+      (let ((first (u32vector-ref chunk used)) (last (u32vector-ref chunk (fx- end 1)))
+            (size (fx- end used)))
+        (when (fx< (fxmin first last) owner) (set! direction (fxand direction 1)))
+        (when (fx> (fxmax first last) owner) (set! direction (fxand direction 2)))
+        (set! edges (fx+ edges size))
+        (set! declared (+ declared size))
+        (set! used end))
       (let ()
-        (unless row-marks (set! row-marks (make-u32vector count 0)))
-        ;; Reuse one numeric row workspace across author callbacks. The unread
-        ;; prefix and retained suffix are disjoint (row_buffer_store law).
-        ;; Only public symbolic adjacency allocates an output list per edge.
-        (unless owner-names (set! owner-names (list->vector keys)))
-        (when (or (not row-buffer) (fx< (u32vector-length row-buffer) row-length))
-          (set! row-buffer (make-u32vector
-            (let (grown (if row-buffer (* 2 (u32vector-length row-buffer)) 0))
-              (if (fixnum? grown) (max row-length grown) row-length)) 0)))
-        (def forward (fx+ (fx* owner 2) 1))
-        (def repeated?
-          (let fill ((pending deps) (at 0) (repeated? (or (and reads #t) (fx< fresh-streak 2))))
-            (if (null? pending) repeated?
-              (let* ((dep (car pending)) (id (and (symbol? dep) (symbolic-table-ref raw dep #f))))
-                (unless id (error "unsupported component read" key deps))
-                (cond ((fx< id owner) (set! direction (fxand direction 1)))
-                      ((fx> id owner) (set! direction (fxand direction 2))))
-                (let (repeated? (or repeated? (fx= (u32vector-ref row-marks id) forward)))
-                  (unless repeated? (u32vector-set! row-marks id forward))
-                  (u32vector-set! row-buffer at id)
-                  (fill (cdr pending) (fx+ at 1) repeated?))))))
-        (if (not repeated?)
-          ;; The same ID pass established uniqueness, so the rightmost
-          ;; normalizer is identity (fresh_row_skips_normalization).
+        ;; Keep the finite/proper-list guard before any length or hash primitive.
+        ;; Symbol admission shares the subsequent ID pass; this pure interval
+        ;; contains no author, getter or source-approval callback (fused_row_eq).
+        (unless (list? deps)
+          (error "unsupported component read" key deps))
+        (def row-length (length deps))
+        (if (and word-support? (pair? deps) (pair? (cdr deps))
+                 (fixnum? row-length) (<= row-length 4294967295))
+          (let ()
+            (unless row-marks (set! row-marks (make-u32vector count 0)))
+            ;; Reuse one numeric row workspace across author callbacks. The unread
+            ;; prefix and retained suffix are disjoint (row_buffer_store law).
+            ;; Only public symbolic adjacency allocates an output list per edge.
+            (unless owner-names (set! owner-names (list->vector keys)))
+            (when (or (not row-buffer) (fx< (u32vector-length row-buffer) row-length))
+              (set! row-buffer (make-u32vector
+                (let (grown (if row-buffer (* 2 (u32vector-length row-buffer)) 0))
+                  (if (fixnum? grown) (max row-length grown) row-length)) 0)))
+            (def forward (fx+ (fx* owner 2) 1))
+            (def repeated?
+              (let fill ((pending deps) (at 0) (repeated? (or (and reads #t) (fx< fresh-streak 2))))
+                (if (null? pending) repeated?
+                  (let* ((dep (car pending)) (id (and (symbol? dep) (symbolic-table-ref raw dep #f))))
+                    (unless id (error "unsupported component read" key deps))
+                    (cond ((fx< id owner) (set! direction (fxand direction 1)))
+                          ((fx> id owner) (set! direction (fxand direction 2))))
+                    (let (repeated? (or repeated? (fx= (u32vector-ref row-marks id) forward)))
+                      (unless repeated? (u32vector-set! row-marks id forward))
+                      (u32vector-set! row-buffer at id)
+                      (fill (cdr pending) (fx+ at 1) repeated?))))))
+            (if (not repeated?)
+              ;; The same ID pass established uniqueness, so the rightmost
+              ;; normalizer is identity (fresh_row_skips_normalization).
+              (begin
+                (append-row-targets owner 0 row-length)
+                (when reads (hash-put! reads key (append deps []))))
+              ;; A distinct fresh stamp lets the existing reverse scan keep the
+              ;; rightmost occurrence, regardless of how late the first repeat was.
+              (let ((token (fx+ forward 1)))
+                (let-values (((start unique)
+                              (let scan ((read row-length) (write row-length) (unique (and reads [])))
+                                (if (fx= read 0) (values write unique)
+                                  (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
+                                    (if (fx= (u32vector-ref row-marks id) token)
+                                      (scan next write unique)
+                                      (let (destination (fx- write 1))
+                                        (u32vector-set! row-marks id token)
+                                        (u32vector-set! row-buffer destination id)
+                                        (scan next destination (and reads (cons (vector-ref owner-names id) unique))))))))))
+                  (unless reads
+                    (set! fresh-streak (if (fx= start 0) (fxmin 2 (fx+ fresh-streak 1)) 0)))
+                  (append-row-targets owner start row-length)
+                  (when reads
+                    (hash-put! reads key (or unique
+                      (for/collect (at (in-range start row-length))
+                        (vector-ref owner-names (u32vector-ref row-buffer at))))))))))
+          ;; Preserve the inexpensive empty/singleton path and the original wide
+          ;; domain. Copy singleton spines before the next independent callback.
           (begin
-            (append-row-targets owner 0 row-length)
-            (when reads (hash-put! reads key (append deps []))))
-          ;; A distinct fresh stamp lets the existing reverse scan keep the
-          ;; rightmost occurrence, regardless of how late the first repeat was.
-          (let ((token (fx+ forward 1)))
-            (let-values (((start unique)
-                          (let scan ((read row-length) (write row-length) (unique (and reads [])))
-                            (if (fx= read 0) (values write unique)
-                              (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
-                                (if (fx= (u32vector-ref row-marks id) token)
-                                  (scan next write unique)
-                                  (let (destination (fx- write 1))
-                                    (u32vector-set! row-marks id token)
-                                    (u32vector-set! row-buffer destination id)
-                                    (scan next destination (and reads (cons (vector-ref owner-names id) unique))))))))))
-              (unless reads
-                (set! fresh-streak (if (fx= start 0) (fxmin 2 (fx+ fresh-streak 1)) 0)))
-              (append-row-targets owner start row-length)
+            (unless (andmap symbol? deps) (error "unsupported component read" key deps))
+            (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
+                              (else (delete-duplicates/hash deps))))
+              (for (dep unique)
+                (let (id (symbolic-table-ref raw dep #f))
+                  (unless id (error "unsupported component read" key deps))
+                  (cond ((fx< id owner) (set! direction (fxand direction 1)))
+                        ((fx> id owner) (set! direction (fxand direction 2))))
+                  (append-target owner id))
+                (set! edges (1+ edges)))
               (when reads
-                (hash-put! reads key (or unique
-                  (for/collect (at (in-range start row-length))
-                    (vector-ref owner-names (u32vector-ref row-buffer at))))))))))
-      ;; Preserve the inexpensive empty/singleton path and the original wide
-      ;; domain. Copy singleton spines before the next independent callback.
-      (begin
-        (unless (andmap symbol? deps) (error "unsupported component read" key deps))
-        (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
-                          (else (delete-duplicates/hash deps))))
-          (for (dep unique)
-            (let (id (symbolic-table-ref raw dep #f))
-              (unless id (error "unsupported component read" key deps))
-              (cond ((fx< id owner) (set! direction (fxand direction 1)))
-                    ((fx> id owner) (set! direction (fxand direction 2))))
-              (append-target owner id))
-            (set! edges (1+ edges)))
-          (when reads
-            ;; Copy the singleton before the next author, including when this row
-            ;; caused fallback. Packed queries need no unconsumed symbolic copy.
-            (hash-put! reads key (if (and (pair? unique) (null? (cdr unique)))
-                                  (list (car unique)) unique))))))
-    (set! declared (+ declared row-length)))
+                ;; Copy the singleton before the next author, including when this row
+                ;; caused fallback. Packed queries need no unconsumed symbolic copy.
+                (hash-put! reads key (if (and (pair? unique) (null? (cdr unique)))
+                                      (list (car unique)) unique))))))
+        (set! declared (+ declared row-length)))))
   (def index
     (and packed?
       (begin
@@ -318,7 +369,7 @@
 ;; Ordered reachability over an already captured graph, never an approval memo.
 ;; Small walks retain bounded list membership. Large sparse walks use a private
 ;; ID set; dense marks appear only after N <= 32 * entered (Lean workspace law).
-(def (compact-reachable graph root (work #f))
+(def (compact-reachable graph root (work #f) (saturate? #t))
   (def names (compact-graph-names graph))
   (def positions (compact-graph-positions graph))
   (def offsets (compact-graph-offsets graph))
@@ -350,28 +401,33 @@
           (if known? (walk top next end seen)
             (begin
               (set! entered (fx+ entered 1))
-              (if marks (u8vector-set! marks dep 1)
-                (begin
-                  (hash-put! sparse dep #t)
-                  (when (<= count (* 32 entered))
-                    (set! marks (make-u8vector count 0))
-                    (when work (vector-set! work 0 count))
-                    (for (id (hash-keys sparse)) (u8vector-set! marks id 1))
-                    (set! sparse #f))))
-              (when (fx= top capacity)
-                (let* ((grown (min count (* 2 capacity)))
-                       (cursors (make-u32vector grown 0)) (ends (make-u32vector grown 0)))
-                  (when work
-                    (vector-set! work 1 (+ (vector-ref work 1) (* 2 grown)))
-                    (vector-set! work 2 (+ (vector-ref work 2) (* 2 top))))
-                  (u32vector-copy! cursors 0 saved-cursors 0 top)
-                  (u32vector-copy! ends 0 saved-ends 0 top)
-                  (set! saved-cursors cursors) (set! saved-ends ends)
-                  (set! capacity grown)))
-              (u32vector-set! saved-cursors top next)
-              (u32vector-set! saved-ends top end)
-              (walk (fx+ top 1) (u32vector-ref offsets dep)
-                    (u32vector-ref offsets (fx+ dep 1)) (cons (vector-ref names dep) seen)))))
+              ;; All admitted IDs have now entered in the original preorder.
+              ;; None of the remaining row suffixes can change the result.
+              (if (and saturate? (fx= entered count))
+                (cons (vector-ref names dep) seen)
+                (let ()
+                  (if marks (u8vector-set! marks dep 1)
+                    (begin
+                      (hash-put! sparse dep #t)
+                      (when (<= count (* 32 entered))
+                        (set! marks (make-u8vector count 0))
+                        (when work (vector-set! work 0 count))
+                        (for (id (hash-keys sparse)) (u8vector-set! marks id 1))
+                        (set! sparse #f))))
+                  (when (fx= top capacity)
+                    (let* ((grown (min count (* 2 capacity)))
+                           (cursors (make-u32vector grown 0)) (ends (make-u32vector grown 0)))
+                      (when work
+                        (vector-set! work 1 (+ (vector-ref work 1) (* 2 grown)))
+                        (vector-set! work 2 (+ (vector-ref work 2) (* 2 top))))
+                      (u32vector-copy! cursors 0 saved-cursors 0 top)
+                      (u32vector-copy! ends 0 saved-ends 0 top)
+                      (set! saved-cursors cursors) (set! saved-ends ends)
+                      (set! capacity grown)))
+                  (u32vector-set! saved-cursors top next)
+                  (u32vector-set! saved-ends top end)
+                  (walk (fx+ top 1) (u32vector-ref offsets dep)
+                        (u32vector-ref offsets (fx+ dep 1)) (cons (vector-ref names dep) seen)))))))
         (if (fx= top 0) seen
           (let (parent (fx- top 1))
             (walk parent (u32vector-ref saved-cursors parent)

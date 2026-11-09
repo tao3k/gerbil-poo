@@ -918,3 +918,90 @@ million-owner cyclic case both passed under the existing 2 GiB fence.
 The request-family snapshot coordinator is a separate protocol boundary.
 Binding this work to its live ticket and transferring affected Yuanxu
 source Contexts remain adapter work.
+
+* Bounded ordered capture and completed reachability
+
+Query-only capture tries a bounded write into the unpublished suffix of the
+existing packed target chunk. It commits the cursor only after seeing the
+proper end of a row with strictly increasing or decreasing admitted owner IDs.
+The endpoints give the same source-rank flags as a full direction scan.
+A consecutive ID is accepted only when the corresponding entry in the existing
+owner roster has the exact same symbol identity. A miss uses the admitted
+symbolic index. Duplicate, irregular and overlong rows use the general
+normalizer. A failed trial leaves the captured prefix unchanged. Invalid input
+still refuses at its original author and no later author is invoked.
+
+After indexed DFS discovers its last possible owner, every pending edge leads
+to an already discovered owner. The walk returns its existing reverse preorder
+immediately. It uses the original order and retains the full output list.
+Author acquisition, graph identity, wide-word fallback, and SCC certification
+keep their original boundaries. LeanPoo proves bounded-row exactness, identity
+lookup equivalence, normalization, and complete-walk order preservation.
+[[https://github.com/tao3k/lean-poo/commit/c9c7948cfac4a2f7c99081ccdd0582bf73bc4fe4][Lean proof commit]]
+
+** Same-process controls
+
+Local arm64 macOS, Gerbil 1cfb032, Gambit ea114fc, GCC 16.2, production =-O2=,
+2 GiB heap. The official =compact-benchmark-test= runs the paired Scheme
+collectors on one frozen input, with actual POO =.reads= calls and exact
+full ordered-result and declared/unique edge counts. The six windows are
+stamp, ordered, adjacent, adjacent, ordered, stamp. Milliseconds below
+are CPU times. The focused band run isolates the same compiled functions
+and retains the late-duplicate control. GC is included when present.
+
+| Owners / edges | Stamped capture | Ordered direct write | Direct write with roster identity |
+|----------------+-----------------+----------------------+-----------------------------------|
+| 100,000 / 1,599,864 | 195.317 / 134.311 | 91.239 / 92.432 | 71.909 / 75.392 |
+| 100,000 / 1,699,863 declared, late repeats | 139.891 / 155.858 | 137.389 / 198.210 | 134.251 / 136.076 |
+| 1,000,000 / 15,999,864 | 1,468.667 / 1,493.552 | 1,075.837 / 1,076.607 | 960.643 / 928.344 |
+
+The first 100K stamped window includes 62.695 ms GC. The second
+100K late-repeat ordered window includes 60.132 ms GC. All six 1M
+capture windows have zero GC. Each makes exactly one author call per owner.
+
+On the same prepared million-node band index, complete ordered DFS took
+155.327 ms with zero GC and 584.365 ms with 428.737 ms GC. Early return
+took 38.736 / 39.482 ms with zero GC and identical output. This
+comparison charges materializing all 1M symbols. The independent public
+cold window took 972.948 ms CPU / 979.369 ms wall and its subsequent
+prepared query took 36.530 ms CPU / 36.682 ms wall. A single subsecond
+run establishes that observation only. The complete cold path still pays
+for a million author calls, symbolic admission and construction of the
+15,999,864-edge packed graph.
+
+** Official multi-shape run
+
+Reproduce from the package root with =just build-graph-study= followed by
+=just _test -r '^compact-benchmark-test$' benchmarks/scc-test.ss=.
+The focused suite finished with =GRAPH-COMPACT-OK=,
+=GRAPH-SHARED-CYCLIC-OK=, =MODULE-OK=, =HARNESS-OK= and final =OK=.
+
+| Prepared SCC input | Selected discovery CPU ms | Symbolic output CPU ms |
+|--------------------+---------------------------+------------------------|
+| 100K chain | 0.687–0.725 | 4.058 |
+| 100K ring | 11.068–11.157 | 3.359 |
+| 100K degree-16 DAG | 0.667–0.675 | 3.342 |
+| 1M chain | 6.633–6.858 | 72.003 |
+| 1M ring | 108.998–110.540 | 75.332 |
+| 1M degree-16 DAG | 6.410–6.527 | 86.851 |
+| 1M cyclic band, 15,999,865 edges | 301.917–304.198 | — |
+
+The DAG cases use source-rank certification. The ring and cyclic band use
+Algorithm T. Symbolic projection timings are independent windows over
+prepared discovery results. These windows exclude full admission and the
+independent spanning and quotient certificate.
+
+The official band run repeated the capture result at 100K
+(128.495–129.231 to 66.098–66.394 ms CPU) and at 1M
+(1,481.906–1,482.896 to 881.610–883.160 ms CPU), all zero GC.
+The 100K late-repeat control measured 138.401–140.944 versus
+140.251–143.549 ms CPU. Prepared 1M full ordered queries took
+36.354–36.361 ms CPU versus 149.727–152.828 ms. Resumed inverse
+work opened the same 66 buckets and 920 edges at both scales,
+taking 0.029 and 0.031 ms respectively after index preparation.
+
+The public 100K cold window was 75.606 ms wall. The public 1M cold window
+was 1,290.001 ms wall, including 368.725 ms GC, with 37.038 ms wall on
+the prepared query. Source fixture generation and stored-row preparation
+are reported separately. The measured variation between 979.369 and
+1,290.001 ms leaves a repeatable subsecond full cold target open.

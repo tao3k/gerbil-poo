@@ -424,6 +424,37 @@
           (case key ((a) '(b c)) ((b) '(a)) ((c) '(outside)) (else []))) #f 2)
         error-object?)
       (check-equal? (reverse calls) '(a b c)))
+    (test-case "ordered capture publishes only a complete verified row"
+      (def roster (vector->list (names 65)))
+      (def input (list->vector roster))
+      (def (key at) (vector-ref input at))
+      (def (read owner)
+        (cond ((eq? owner (key 0)) (list (key 1)))
+              ((eq? owner (key 1)) (list (key 2) (key 3) (key 4)))
+              ((eq? owner (key 2)) (list (key 4) (key 3) (key 3) (key 2)))
+              (else [])))
+      (defvalues (_rows actual declared unique) (capture-graph roster read #f))
+      (defvalues (_reference expected original normalized) (capture-graph roster read #f 4294967295 #f))
+      (check-equal? (list declared unique) (list original normalized))
+      (check-equal? (list declared unique) '(8 7))
+      (check-equal? (compact-graph-direction actual) (compact-graph-direction expected))
+      (for (owner roster)
+        (check-equal? (compact-row actual owner) (compact-row expected owner)))
+      ;; The speculative row scans a valid prefix, then a bad tail.
+      ;; No later author may run, and the same original row is refused.
+      (for (bad (list 'bad-tail
+                      (let (cycle (list (key 2) (key 3) (key 4)))
+                        (set-cdr! (cddr cycle) cycle) cycle)))
+        (def calls [])
+        (def row (cons (key 2) (cons (key 3) bad)))
+        (check-exception
+          (capture-graph roster (lambda (owner)
+            (set! calls (cons owner calls))
+            (cond ((eq? owner (key 0)) (read owner))
+                  ((eq? owner (key 1)) row)
+                  (else (error "refused row crossed its author boundary")))) #f)
+          error-object?)
+        (check-equal? (reverse calls) (list (key 0) (key 1)))))
     (test-case "row workspace growth and duplicate gaps retain exact adjacency"
       (def keys '#(a b c d))
       (check (matches? keys '#((a b b c) (d c d a b b a d c) (c a a) ())) => #t))
