@@ -213,6 +213,43 @@ SCC and reachability workloads, and semantic differential checks. These
 totals describe the full suite. The table describes one edge revision on
 a prepared Graph.
 
+* Owned feedback publication
+
+Prepare the existing Graph study with =just build-graph-study=, then run the
+two publication suites with
+=just _test-run --run '^(owned-quotient-benchmark-test|published-hub-benchmark-test)$' benchmarks/scc-test.ss=.
+The paired run used =d43578f= and the owned-guard change on that same
+base, in baseline, indexed, indexed, baseline order. Each process built
+its own cold 1,000- and 10,000-group fixtures and shared one predecessor
+among timed revisions. The table gives the 10,000-group observations.
+
+| Operation | Baseline CPU ms | Indexed CPU ms | Indexed guard nodes written |
+|-----------+-----------------+----------------+-----------------------------|
+| No edit | 8.994–10.874 | 0.095–0.232 | 0 |
+| Base edit and affected reader | 10.775–13.505 | 0.505–0.636 | 15 |
+| Delete a reader's hub edge | 7.631–27.046 | 0.437–0.737 | 14 |
+| Cold quotient publication | 2533.740–2643.214 | 2602.245–2651.171 | full fixture |
+| Cold hub publication | 3502.693–3616.381 | 3414.896–3545.340 | full fixture |
+
+The baseline checked all 10,000 groups on every revision. Indexed node
+writes count new nodes by comparing snapshot identities outside the timed
+window. The base edit writes two values and opens two inverse buckets in
+both arms. The hub edit writes one value and opens one affected bucket.
+The base edit allocates 13.94–15.38 MB on the baseline and 0.87–0.97 MB on
+the indexed path. Its wall time falls from 10.794–13.573 ms to
+0.506–0.636 ms. Both arms record zero GC in the timed local revisions.
+
+Cold quotient GC CPU is 759–787 ms on the baseline and 780–801 ms on
+the indexed path. Whole-process peaks are 1,229,584–1,230,448 KiB for
+the baseline and 1,226,624–1,228,576 KiB for the indexed arm. One indexed
+process takes 25.09 s wall overall. The other three complete in
+10.51–10.79 s. These are whole-process measurements, including fixture
+setup and harness overhead. The timed local windows are listed above.
+
+The component suite separately exercises retained sources changed
+during and after approval, precise retirement on SCC merge, and
+pointer-identical historical snapshots after refusal.
+
 * Acceptance
 
 The complete =just benchmark-scc= TestSuite exited normally after
