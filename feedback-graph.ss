@@ -140,7 +140,7 @@
       (def same-source? (and old (eq? source (graph-cache-source old))))
       (def previous (and old (graph-cache-owned old)))
       (def ownership (or (and same-source? previous)
-                        (and owned? (graph.%capture-component-source source))))
+                        (and owned? (graph.%capture-component-source source register))))
       (def (prepare)
         (def frozen
           (cond (same-source? source)
@@ -175,7 +175,7 @@
   (graph-action source build admit guards builder #f))
 
 (def (owned-component-revision old codes bases build admit builder register)
-  (def changed (graph.%edit-component-source (graph-cache-owned old) codes bases))
+  (def changed (graph.%edit-component-source (graph-cache-owned old) codes bases register))
   (def next (vector-ref changed 0))
   (graph.%with-component-source next
     (lambda ()

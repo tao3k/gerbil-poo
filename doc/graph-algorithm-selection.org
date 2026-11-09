@@ -1059,3 +1059,19 @@ used only by a retired group can invalidate its historical snapshot while
 leaving the new snapshot current. Arbitrary source replacements use complete
 admission. The benchmark separates full cold publication, local revision
 and explicit demand.
+
+** Source evidence for owned program revisions
+
+An owned graph retains the declaration's membership and accessor evidence
+as its authority. Each code and base resolver retains its own observed read
+cut, including a resolver that returned absence. The source and feedback
+paths share the witness tree over stable owner positions. Replacing a code
+or base slot splices only that role's path. A source shared by another role
+continues to invalidate the successor through that role.
+
+Joint approval continues to guard the previous cut while the callback can
+read the historical graph. The new head carries only its own cut. Changing
+a source exclusive to a replaced program can then stale the old generation
+without changing the installed one. Native dependency registration uses the
+coordinator's existing writer lock and reauthenticates captured Slot reads
+without running author code inside it.

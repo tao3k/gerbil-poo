@@ -140,24 +140,23 @@
 ;; state. Run once, admit the complete captured graph before registering edges,
 ;; then reuse ordinary weak source dependencies. Failed work retains its exact
 ;; cause and publishes no value; old edges remain conservatively registered.
+(def (%register-slot-dependencies! self roots)
+  (unless (null? roots)
+    (call-with-issued-reads roots
+      (lambda (reads current! receivers)
+        ;; Whole-graph admission precedes every new source registration.
+        (for-each current! reads)
+        (for (([source . _] receivers))
+          (unless (eq? source self) (depend-on-object! self source)))) #f)))
 (def (with-slot-dependencies self action)
   (using ((self :~ object?) (action :~ procedure?))
     (def revision (object-revision self))
     (defvalues (value roots) (%call-with-recorded-slot-reads action))
     (unless (= revision (object-revision self)) (error "object changed during dependency capture"))
-    (if (null? roots) value
-      (call-with-issued-reads roots
-        (lambda (reads current! receivers)
-          ;; Whole-graph admission precedes every new source registration.
-          (for-each current! reads)
-          ;; The existing traversal already owns the distinct receiver set.
-          ;; Admission still visits EVERY read, including different keys/epochs.
-          (for (([source . _] receivers))
-            (unless (eq? source self) (depend-on-object! self source)))
-          ;; Preserve original dependency occurrences in the enclosing getter.
-          ;; Their observers already ran during action; do not deliver them twice.
-          (%record-slot-reads! roots)
-          value) #f))))
+    (%register-slot-dependencies! self roots)
+    ;; Keep the original occurrences without delivering observer callbacks twice.
+    (%record-slot-reads! roots)
+    value))
 
 ;; Replay authenticated reads under the same guarded source set and final check.
 (def (replay-slot-reads! roots observe)

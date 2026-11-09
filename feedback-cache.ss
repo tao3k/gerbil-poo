@@ -4,6 +4,8 @@
         %start-feedback-guard %revise-feedback-guard %feedback-guard-current! %admit-guarded-feedback-cache)
 (import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ./object ./mop ./support/option
         ./generalized-declaration ./generalized-closure ./feedback-closure ./lens-laws
+        (only-in ./generalized-graph %splice-witness-tree %witness-tree-current? %witness-tree-stamp
+                 %witness-tree-left %witness-tree-right %witness-tree-evidence)
         (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; Only successful whole-raw closure plus every component residual creates a group.
@@ -36,60 +38,16 @@
 (def (%feedback-cache-current! candidate keys)
   (for-each (lambda (key) (with-feedback-group (feedback-cache-ref candidate key) void)) keys))
 
-;; Each node watches its exact sources through native POO invalidation. Strong
-;; child links retain live support. Weak reverse links do not retain old heads.
-(defstruct guard-node (witness left right group) final: #t)
+;; The graph's witness tree supplies the same source retirement for group guards.
 (defstruct guard-index (width root) final: #t)
-(def (guard-current? node)
-  (or (not node) (zero? (object-revision (guard-node-witness node)))))
-(def (attach-guard! node)
-  (def witness (guard-node-witness node))
-  (def group (guard-node-group node))
-  (def left (guard-node-left node))
-  (def right (guard-node-right node))
-  (def current?
-    (if group
-      (let ((fragments? (%watch-fragment-sources (group-prepared group) witness))
-            (checks? (%watch-lens-sources (group-checks group) witness)))
-        (and fragments? checks?))
-      (begin
-        (when left (depend-on-object! witness (guard-node-witness left)))
-        (when right (depend-on-object! witness (guard-node-witness right)))
-        (and (guard-current? left) (guard-current? right)))))
-  ;; Linking to an already dirty child does not replay its past invalidation.
-  (unless current? (uninstantiate-object! witness)))
-
-;; The source positions do not move during a local SCC edit. Sorted replacements
-;; visit the union of changed paths once. An empty row retires its old guard.
-(def (splice-guards old width edits register)
-  (def pending [])
-  (def (node left right group)
-    (def result (make-guard-node (make-object) left right group))
-    (set! pending (cons result pending))
-    result)
-  (def (walk old first width rest)
-    (cond
-     ((or (null? rest) (>= (caar rest) (+ first width))) (values old rest))
-     ((= width 1)
-      (def group (cdar rest))
-      (values (and group (node #f #f group)) (cdr rest)))
-     (else
-      (def half (quotient width 2))
-      (defvalues (left next) (walk (and old (guard-node-left old)) first half rest))
-      (defvalues (right tail) (walk (and old (guard-node-right old)) (+ first half) (- width half) next))
-      (values (and (or left right) (node left right #f)) tail))))
-  (defvalues (root rest) (walk old 0 width edits))
-  (unless (null? rest) (error "feedback guard positions disagree with owned support"))
-  ;; Allocate the tree before taking the lock. The registration section runs
-  ;; no constructors or author callbacks and attaches children before parents.
-  (when (pair? pending)
-    (let (nodes (reverse pending))
-      (register (lambda () (for-each attach-guard! nodes)))))
-  root)
+(def (attach-guard! witness group)
+  (def fragments? (%watch-fragment-sources (group-prepared group) witness))
+  (def checks? (%watch-lens-sources (group-checks group) witness))
+  (and fragments? checks?))
 (def (%start-feedback-guard candidate keys position width register)
   (def span (max 1 width))
   (def edits (map (lambda (key) (cons (position key) (feedback-cache-ref candidate key))) keys))
-  (make-guard-index span (splice-guards #f span edits register)))
+  (make-guard-index span (%splice-witness-tree #f span edits attach-guard! register)))
 (def (%revise-feedback-guard index candidate position retired register)
   (def changed (cache.cache-evaluated candidate))
   (if (and (null? changed) (null? retired)) index
@@ -100,19 +58,19 @@
                        (list-sort (lambda (a b) (< (car a) (car b))) positions)))
            (width (guard-index-width index)))
       (make-guard-index width
-        (splice-guards (guard-index-root index) width edits register)))))
+        (%splice-witness-tree (guard-index-root index) width edits attach-guard! register)))))
 (def (%feedback-guard-current! index)
   ;; A stale aggregate keeps the same ordered fragment-before-lens refusal.
   (def (check node)
-    (unless (guard-current? node)
-      (let (group (guard-node-group node))
+    (unless (%witness-tree-current? node)
+      (let (group (%witness-tree-evidence node))
         (if group (with-feedback-group group void)
-          (begin (check (guard-node-left node)) (check (guard-node-right node)))))))
+          (begin (check (%witness-tree-left node)) (check (%witness-tree-right node)))))))
   (check (guard-index-root index)))
 (def (with-feedback-guard index action)
   (def root (guard-index-root index))
   (if (not root) (action)
-    (parameterize ((active-object-constructions (cons (guard-node-witness root) (active-object-constructions))))
+    (parameterize ((active-object-constructions (cons (%witness-tree-stamp root) (active-object-constructions))))
       (%feedback-guard-current! index)
       (begin0 (action) (%feedback-guard-current! index)))))
 
