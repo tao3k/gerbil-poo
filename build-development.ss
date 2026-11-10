@@ -97,6 +97,7 @@
     "benchmarks/closure-benchmark-support"
     "benchmarks/closure-cases"
     "benchmarks/closure-measure"
+    "benchmarks/read-field-test"
     "benchmarks/closure-paired-benchmark"
     "benchmarks/closure-paired-suite"
     "benchmarks/closure-parity"

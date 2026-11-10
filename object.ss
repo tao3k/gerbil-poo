@@ -8,7 +8,7 @@
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
-                    slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
+                    object-read-key slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -22,7 +22,7 @@
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   ./slot-observation
-  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method) read-runtime.)
+  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method make-class-slot-accessor) read-runtime.)
   (only-in ./read-route require-read-route! symbolic-write-route-current?
            %issued-read? %read-issuance)
   ./object-state

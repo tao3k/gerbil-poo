@@ -9,11 +9,11 @@
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 29)
-  (displayln "ISSUED-READ: 29 cases completed"))
+  (check-equal? completed 30)
+  (displayln "ISSUED-READ: 30 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
-(extern namespace: clan/poo/object call-with-issued-reads)
+(extern namespace: clan/poo/object call-with-issued-reads object-read-key)
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
@@ -38,6 +38,24 @@
   watcher)
 (def issued-read-test
  (test-suite "Read issuance with transient tokens and guarded replay"
+  (test-case "pinned key access preserves live symbolic and structural fields"
+    (.def Owner value: #f)
+    (def reads (recorded (lambda () (.get Owner value) (.all-slots Owner)
+                             (.ref/cached Owner 'missing (lambda () #f)))))
+    (for (read reads)
+      (check-equal? (object-read-issued? read) #t)
+      (check-eq? (object-read-key read) (runtime.slot-ref read 'key)))
+    (def read (selected reads 'value))
+    ;; Every access sees the live field. No captured key may survive a
+    ;; mutated record, even if a previous currentness check accepted it.
+    (check-equal? (object-read-current? read) #t)
+    (try
+      (runtime.slot-set! read 'key '(names))
+      (check-equal? (object-read-key read) '(names))
+      (check-equal? (object-read-current? read) #f)
+      (finally (runtime.slot-set! read 'key 'value)))
+    (check-equal? (object-read-current? read) #t)
+    (set! completed (1+ completed)))
   (test-case "vector value and index routes refuse replaced refs before dispatch"
     (for (index? '(#f #t))
       (def owner (.o value: #f))

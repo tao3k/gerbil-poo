@@ -6,6 +6,12 @@
   (or (object-%reads self)
       (let (table (make-hash-table)) (set! (object-%reads self) table) table)))
 ;; Authenticate issuance and the pinned route before checking receiver freshness.
+;; Issuance authenticates the final read class before either internal call.
+;; Pin its field offset, not a record or a validation result. Each invocation
+;; reads the live key; the public accessor still copies structural key spines.
+(def object-read-key
+  (read-runtime.make-class-slot-accessor
+    (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)) 'key))
 (def (object-read-current? read)
   (and (object-read-issued? read)
        (begin (require-object-read-route! read)
@@ -13,7 +19,7 @@
 ;; Inspect only receiver-owned state after the caller has authenticated the record.
 (def (object-issued-read-current? read)
   (def self (slot-read-receiver read))
-  (def key (read-runtime.slot-ref read 'key))
+  (def key (object-read-key read))
   (and (= (slot-read-revision read) (object-revision self))
        (cond
          ((and (pair? key) (eq? (car key) 'bootstrap))
@@ -45,7 +51,7 @@
 ;; Reject a replaced receiver route before accepting its captured value.
 (def (require-object-read-route! read)
   (def receiver (slot-read-receiver read))
-  (require-read-route! (read-runtime.slot-ref read 'key)
+  (require-read-route! (object-read-key read)
     (object-%reads receiver) (object-%instance receiver)))
 
 ;; Detect constructor replacement before an internal projection can allocate a receiver.
