@@ -726,32 +726,51 @@
     (set! completed (1+ completed)))
   (test-case "fixed checkpoints recheck alternating receivers and callback return"
     (for (warm? '(#f #t))
-      (.def Left a: #f c: 3)
-      (.def Right b: 2)
-      (.def Root value: (list (.get Left a) (.get Right b) (.get Left c)))
-      (def roots (recorded (cut .get Root value)))
-      (when warm? (call-with-current-slot-reads roots values))
-      (def calls 0)
-      (def table (object-%reads Right))
-      (def saved (runtime.slot-ref table 'ref))
-      (try
-        (runtime.slot-set! table 'ref
-          (lambda (_self _key _default) (set! calls (+ calls 1)) #f))
-        (for (action (list values void))
-          (refuses "changed metadata ref" (cut call-with-current-slot-reads roots action)))
-        (finally (runtime.slot-set! table 'ref saved)))
-      (check-equal? calls 0)
-      (call-with-current-slot-reads roots values)
-      (try
-        (refuses "changed metadata ref"
-          (lambda ()
-            (call-with-current-slot-reads roots
-              (lambda (_count)
-                (runtime.slot-set! table 'ref
-                  (lambda (_self _key _default) (set! calls (+ calls 1)) #f))))))
-        (finally (runtime.slot-set! table 'ref saved)))
-      (check-equal? calls 0)
-      (call-with-current-slot-reads roots void))
+      ;; Explicit temporal binding: taking the metadata snapshot must FOLLOW
+      ;; the observed demand, in both compiled and source execution.
+      (let* ((Left (.o a: #f c: 3))
+             (Right (.o b: 2))
+             (Root (.o value: (list (.get Left a) (.get Right b) (.get Left c))))
+             (roots (recorded (cut .get Root value))))
+        (when warm? (call-with-current-slot-reads roots values))
+        (let* ((calls 0) (table (object-%reads Right))
+               (saved (runtime.slot-ref table 'ref)))
+          (try
+            (runtime.slot-set! table 'ref
+              (lambda (_self _key _default) (set! calls (+ calls 1)) #f))
+            (for (action (list values void))
+              (refuses "changed metadata ref" (cut call-with-current-slot-reads roots action)))
+            (finally (runtime.slot-set! table 'ref saved)))
+          (check-equal? calls 0)
+          (call-with-current-slot-reads roots values)
+          (try
+            (refuses "changed metadata ref"
+              (lambda ()
+                (call-with-current-slot-reads roots
+                  (lambda (_count)
+                    (runtime.slot-set! table 'ref
+                      (lambda (_self _key _default) (set! calls (+ calls 1)) #f))))))
+            (finally (runtime.slot-set! table 'ref saved)))
+          (check-equal? calls 0)
+          (call-with-current-slot-reads roots void))))
+    ;; Return keeps serial first-refusal order, rather than moving a later
+    ;; issuance refusal ahead of an earlier stale live value.
+    (.def First value: 1)
+    (.def Last value: 2)
+    (def roots (append (recorded (cut .get First value)) (recorded (cut .get Last value))))
+    (def last-read (car (filter (lambda (read) (eq? (slot-read-receiver read) Last))
+                         (filter (lambda (read) (eq? (slot-read-key read) 'value)) roots))))
+    (try
+      (refuses "stale slot dependency"
+        (lambda ()
+          (call-with-current-slot-reads roots
+            (lambda (_count)
+              (hash-put! (object-%instance First) 'value 3)
+              (runtime.slot-set! last-read 'value 4)))))
+      (finally
+        (hash-put! (object-%instance First) 'value 1)
+        (runtime.slot-set! last-read 'value 2)))
+    (call-with-current-slot-reads roots values)
     (set! completed (1+ completed)))
   (test-case "checkpoint authenticates after action and preserves multiple return values"
     (.def Root port: 5432)

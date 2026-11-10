@@ -58,3 +58,11 @@ offset admission, not certification of all runtime class metadata.
 The corrected native artifact passed all 32 producer issued-read cases and
 Core's complete metadata-route and route-mutation suites. This correction
 does not establish a performance gain or close full Module EVAL acceptance.
+
+The first single-process CI exposed a source/AOT fixture difference: its
+read-table snapshot had no explicit sequencing after the observed demand.
+The unchanged compiled control reproduced the missed setup locally. Binding
+the demand and later snapshot with `let*` preserves every refusal assertion.
+The public correctness-only runtime then passed both compiled and source
+32-case suites, followed by Core's route-mutation suite. Exact-head full CI
+remains required; no performance candidate is included in this correction.
