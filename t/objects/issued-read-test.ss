@@ -273,6 +273,21 @@
                 (lambda () (runtime.slot-set! read 'dependencies (list read)))))))
         (check-equal? delivered 0))
       (lambda () (runtime.slot-set! read 'dependencies original)))
+    ;; A receiver's name cache is producer-owned metadata. Editing both that
+    ;; cache and the exposed raw record must not rewrite its original birth.
+    (def producer (runtime.slot-ref Root '%all-slots))
+    (def presentation (runtime.slot-ref read 'value))
+    (def producer-first (car producer))
+    (def presentation-first (car presentation))
+    (dynamic-wind void
+      (lambda ()
+        (set-car! producer 'forged-source-name)
+        (set-car! presentation 'forged-source-name)
+        (check-equal? (object-read-issued? read) #f))
+      (lambda ()
+        (set-car! producer producer-first)
+        (set-car! presentation presentation-first)))
+    (check-equal? (object-read-issued? read) #t)
     (.putslot! Root 'extra ($constant-slot-spec 7))
     (refuses "stale slot dependency" (cut replay-slot-reads! roots void))
     (set! completed (+ completed 1)))

@@ -107,8 +107,8 @@
 
 
 ;; One authority owns the original weak table and authenticated birth closures.
-;; Its caller owns finite private canonical names. Only issued copies are exposed;
-;; another factory's records cannot be authenticated by this authority.
+;; The issuer owns canonical names separately from the producer's cache and
+;; public record. Another factory's records cannot authenticate here.
 (def (make-read-issuer)
   (let ()
     ;; Both sides are weak: the registry is not a root for records, receivers or
@@ -144,7 +144,9 @@
     ;; unchanged. The receiver owns the index key; the record owns a separate
     ;; structural key spine so even a raw edit cannot damage hash placement.
     (def (issue self key revision instance value parents checker)
-      (def names (and (equal? key '(names)) value))
+      ;; The producer's name spine is reachable through its ordinary runtime
+      ;; metadata. Freeze it before creating the separate exposed presentation.
+      (def names (and (equal? key '(names)) value (map values value)))
       (def shown (if names (map values names) value))
       (def record-key (if (pair? key) (list-copy key) key))
       (def parent-copy

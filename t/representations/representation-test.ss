@@ -2,7 +2,8 @@
 (export representation-test check-observation-test)
 (import (only-in :gerbil/runtime/hash HashTable) :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
         (only-in :clan/poo/benchmarks/representation-startup check-observation-test)
-        (only-in :std/list/list find) (prefix-in (only-in :gerbil/runtime/mop slot-ref) read-runtime.)
+        (only-in :std/list/list find)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) read-runtime.)
         (only-in :gerbil/runtime/loader load-module reload-module! list-modules module-load-order)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
@@ -225,6 +226,56 @@
       (object-slots-set! bad (list (cons 'value ($constant-slot-spec 7))))
       (check-equal? (.ref bad 'value) 7)
       (check-equal? calls 1)))
+  (test-case "runtime source access cannot make an old capture certify a new receiver"
+    (def source (.o value: 7))
+    (def prepared (.o (:: @ source)))
+    (check-equal? (.ref prepared 'value) 7)
+    (def revision (object-revision source))
+    ;; Standard Gerbil MOP reaches the original payload without object-slots,
+    ;; prototype-map-ref or another candidate exposure-marking API.
+    (def raw-map (read-runtime.slot-ref source '%slots))
+    (def entries (read-runtime.slot-ref raw-map 'entries))
+    (check-eq? (vector? entries) #t)
+    (def spec (cdr (vector-ref entries 0)))
+    (check-eq? ($self-slot-spec? spec) #t)
+    (read-runtime.slot-set! spec 'fun (lambda (_) 11))
+    (check-equal? (object-revision source) revision)
+    (check-equal? (.ref prepared 'value) 7)
+    (check-equal? (.ref (.o (:: @ source)) 'value) 11))
+
+  (test-case "reflecting a clone exposes shared raw storage without invalidating old captures"
+    (def source (.o value: 23))
+    (def clone (.cc source 'extra 17))
+    (def prepared (.o (:: @ source)))
+    (check-equal? (.ref prepared 'value) 23)
+    (def revision (object-revision source))
+    ;; Only the clone is reflected. Its untouched SlotSpec has the original
+    ;; storage identity, so any future source issuer must fence every alias.
+    (def spec (cdr (assq 'value (object-slots clone))))
+    (read-runtime.slot-set! spec 'fun (lambda (_) 31))
+    (check-equal? (object-revision source) revision)
+    (check-equal? (.ref prepared 'value) 23)
+    (check-equal? (.ref (.o (:: @ source)) 'value) 31)
+    (check-equal? (.ref (.o (:: @ clone)) 'value) 31)
+    (check-eq? (cdr (assq 'value (object-slots source))) spec))
+
+  (test-case "clone replacement preserves later same-key raw contributions"
+    (for (policy '(tree compact))
+      (def suffix ($computed-slot-spec (lambda (_ inherited) (+ 2 (inherited)))))
+      (def source (make-object slots:
+        (prototype-map (list (cons 'value ($constant-slot-spec 1)) (cons 'value suffix))
+          policy: policy)))
+      (def clone (.cc source 'value 10))
+      (check-equal? (.ref source 'value) 3)
+      (check-equal? (.ref clone 'value) 12)
+      (check-eq? (cdr (cadr (object-slots clone))) suffix)
+      ;; The first contribution changed owner; the later contribution did not.
+      (read-runtime.slot-set! suffix 'fun (lambda (_ inherited) (+ 5 (inherited))))
+      (check-equal? (.ref source 'value) 3)
+      (check-equal? (.ref clone 'value) 12)
+      (check-equal? (.ref (.o (:: @ source)) 'value) 6)
+      (check-equal? (.ref (.o (:: @ clone)) 'value) 15)))
+
   (test-case "all slot payloads are captured before compute hooks run"
     (let* ((spec ($constant-slot-spec 7))
            (source (make-object slots: (list (cons 'a spec) (cons 'b spec)))))
