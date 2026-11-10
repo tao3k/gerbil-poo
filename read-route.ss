@@ -2,7 +2,8 @@
 (export require-read-route! make-read-issuer symbolic-write-route-current?
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
-  (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor slot-ref slot-set!) read-runtime.)
+  (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
+                      class-slot-offset slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
            symbolic-table-set! symbolic-hash))
 
@@ -28,7 +29,7 @@
                   (not (&raw-table-lock backend))))))))
 ;; Validate the actual selected metadata route, without calling its methods.
 ;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.
-(defstruct route (wrapper ref backend hash test object-field ref-field) final: #t)
+(defstruct route (wrapper ref backend hash test object-field ref-field object-offset ref-offset) final: #t)
 ;; Pin only class/method identities, never a receiver, value or validation result.
 (defstruct value-route (ref backend shape missing cells-field missing-field shape-field indices-field) final: #t)
 (def require-read-route!
@@ -40,7 +41,9 @@
       (def ref-field (read-runtime.make-class-slot-accessor wrapper 'ref))
       (def backend (object-field table))
       (make-route wrapper (ref-field table) (read-runtime.object-class backend)
-        (&raw-table-hash backend) (&raw-table-test backend) object-field ref-field))
+        (&raw-table-hash backend) (&raw-table-test backend) object-field ref-field
+        (read-runtime.class-slot-offset wrapper 'object)
+        (read-runtime.class-slot-offset wrapper 'ref)))
     (def reads-route (capture (make-hash-table)))
     (def instance-route (capture (make-hash-table-symbolic)))
     (def vector-route
@@ -59,8 +62,16 @@
     ;; Refuse changed metadata without dispatching its mutable public methods.
     (def (check-wrapper table expected)
       (unless (eq? (read-runtime.object-class table) (route-wrapper expected))
-        (error "foreign metadata wrapper")))
+        (error "foreign metadata wrapper"))
+      ;; Class identity alone does not freeze Gerbil's mutable field map.
+      ;; Authenticate the live layout before invoking a pinned field accessor.
+      (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'object)
+                 (route-object-offset expected))
+        (error "changed metadata object layout")))
     (def (check-ref table expected ref)
+      (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'ref)
+                 (route-ref-offset expected))
+        (error "changed metadata ref"))
       (unless (eq? ((route-ref-field expected) table) ref)
         (error "changed metadata ref")))
     (def (check-backend backend expected)

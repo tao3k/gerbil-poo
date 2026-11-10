@@ -39,3 +39,22 @@ the complete joint-publication suites through the existing Just entrypoint.
 Those controls retain callback mutation, refusal order, snapshot isolation
 and registration checks. Exact-head remote CI and downstream admission are
 separate gates.
+
+## Mutable wrapper layout correction
+
+Core's existing class-offset mutation control also failed on `6a742cd`:
+retargeting the HashTable class's `ref` field kept its class identity while
+the pinned accessor continued reading the original offset. The matched
+producer control reproduced that missed refusal; this was not a timeout.
+
+The existing route guard now authenticates the wrapper's current `object`
+and `ref` offsets before using those pinned field accessors. A moved `ref`
+still reports `changed metadata ref` before invoking the selected method.
+Class refusal remains first; callback return remains independently checked.
+`LeanPoo.Object.FixedFieldLayout` states offset admission, exact access/failure
+preservation and refusal after an intervening layout change. Its scope is
+offset admission, not certification of all runtime class metadata.
+
+The corrected native artifact passed all 32 producer issued-read cases and
+Core's complete metadata-route and route-mutation suites. This correction
+does not establish a performance gain or close full Module EVAL acceptance.

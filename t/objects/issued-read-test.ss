@@ -3,14 +3,16 @@
 (import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
         (only-in :clan/poo/read-route make-read-issuer %issued-read?)
         (only-in :gerbil/runtime/gambit unbound-global-exception?)
-        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class) runtime.)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class
+                            class-slot-offset &class-type-slot-table) runtime.)
+        (only-in :gerbil/runtime/table symbolic-table-set!)
         (only-in :gerbil/expander current-expander-context make-top-context
                  core-import-module module-context-export module-export-name eval-syntax)
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 30)
-  (displayln "ISSUED-READ: 30 cases completed"))
+  (check-equal? completed 32)
+  (displayln "ISSUED-READ: 32 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key)
@@ -698,6 +700,58 @@
     (.put! Child 'port 5440)
     (check-equal? (.get Parent port) 5432)
     (check-equal? (.get Child port) 5440)
+    (set! completed (1+ completed)))
+  (test-case "changed class slot routing refuses despite unchanged wrapper identity"
+    (.def Owner value: #f)
+    (def roots (recorded (cut .get Owner value)))
+    (def table (object-%reads Owner))
+    (def class (runtime.object-class table))
+    (def offsets (runtime.&class-type-slot-table class))
+    (def original (runtime.class-slot-offset class 'ref))
+    (def replacement (runtime.class-slot-offset class 'object))
+    (for (action (list (cut call-with-current-slot-reads roots values)
+                      (cut call-with-current-slot-reads roots void)
+                      (cut replay-slot-reads! roots
+                        (lambda (_receiver _key) (error "must not deliver")))))
+      (def failure
+        (dynamic-wind
+          (lambda () (symbolic-table-set! offsets 'ref replacement))
+          (lambda () (with-catch values action))
+          (lambda () (symbolic-table-set! offsets 'ref original))))
+      (check-equal? (Error? failure) #t)
+      (when (Error? failure)
+        (check-equal? (Error-message failure) "changed metadata ref")))
+    (check-eq? (runtime.object-class table) class)
+    (call-with-current-slot-reads roots values)
+    (set! completed (1+ completed)))
+  (test-case "fixed checkpoints recheck alternating receivers and callback return"
+    (for (warm? '(#f #t))
+      (.def Left a: #f c: 3)
+      (.def Right b: 2)
+      (.def Root value: (list (.get Left a) (.get Right b) (.get Left c)))
+      (def roots (recorded (cut .get Root value)))
+      (when warm? (call-with-current-slot-reads roots values))
+      (def calls 0)
+      (def table (object-%reads Right))
+      (def saved (runtime.slot-ref table 'ref))
+      (try
+        (runtime.slot-set! table 'ref
+          (lambda (_self _key _default) (set! calls (+ calls 1)) #f))
+        (for (action (list values void))
+          (refuses "changed metadata ref" (cut call-with-current-slot-reads roots action)))
+        (finally (runtime.slot-set! table 'ref saved)))
+      (check-equal? calls 0)
+      (call-with-current-slot-reads roots values)
+      (try
+        (refuses "changed metadata ref"
+          (lambda ()
+            (call-with-current-slot-reads roots
+              (lambda (_count)
+                (runtime.slot-set! table 'ref
+                  (lambda (_self _key _default) (set! calls (+ calls 1)) #f))))))
+        (finally (runtime.slot-set! table 'ref saved)))
+      (check-equal? calls 0)
+      (call-with-current-slot-reads roots void))
     (set! completed (1+ completed)))
   (test-case "checkpoint authenticates after action and preserves multiple return values"
     (.def Root port: 5432)
