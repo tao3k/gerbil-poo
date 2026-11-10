@@ -8,8 +8,7 @@
 (def scc-benchmark-test
   (test-suite "complete paired SCC workload"
     (test-case "every existing topology and regime" (study.main))
-    (test-case "100000/1000000 Graph nodes with bounded semantic controls" (scale.main))
-    (test-case "local and full DAG updates with the same prepared source" (rank.main))))
+    (test-case "100000/1000000 Graph nodes with bounded semantic controls" (scale.main))))
 
 ;; The official suite filter can run this bounded setup study independently.
 ;; Full benchmark-scc still runs every original suite plus this one.
@@ -26,6 +25,8 @@
       (scale.shared-cyclic-study))))
 
 (export rank-revision-benchmark-test)
+;; This complete fixed-input study has one owner. Running rank.main again in
+;; scc-benchmark-test duplicated every observation and large source preparation.
 (def rank-revision-benchmark-test
   (test-suite "separate rank revision and explicit order output"
     (test-case "100K and 1M fixed support revisions" (rank.main))))
