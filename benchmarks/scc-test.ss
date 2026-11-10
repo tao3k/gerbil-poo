@@ -54,6 +54,13 @@
   (test-suite "local SCC merge and split"
     (test-case "100K and 1M fixed support revisions" (delta.local-components-study))))
 
+(import (only-in :clan/poo/benchmarks/ordered-scc-study run-ordered-scc-study))
+(export ordered-scc-benchmark-test)
+(def ordered-scc-benchmark-test
+  (test-suite "retained SCC direction at 100K and 1M vertices"
+    (test-case "chain hub and skew: cold warm incremental and explicit output"
+      (run-ordered-scc-study))))
+
 (import (prefix-in (only-in :clan/poo/t/construction/graph-order-repair-test local-component-pressure-study) delta.))
 (export local-component-pressure-benchmark-test)
 (def local-component-pressure-benchmark-test

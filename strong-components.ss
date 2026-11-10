@@ -791,7 +791,12 @@
       (hash-put! backward provider (cons key (hash-ref backward provider [])))))
   (owned-snapshot (make-owned-partition keys positions (%index reads) (%index backward)
                     (%index (%partition-owners part)) (%index (%partition-members part))
-                    (and cycle? 'cycle))
+                    ;; Capture already authenticated both rank-direction bits.
+                    ;; Carry that structural evidence instead of scanning again.
+                    (cond (cycle? 'cycle)
+                          ((and index (positive? (compact-graph-direction index)))
+                           (compact-graph-direction index))
+                          (else #f)))
     (partition-work part)))
 
 ;; A node is entered once in each union walk. Mark on enqueue so a wide hub
@@ -844,6 +849,10 @@
   (def positions (owned-partition-positions old))
   (def forward (owned-partition-forward old))
   (def backward (owned-partition-backward old))
+  (def rank-mask
+    (let (shape (owned-partition-shape old))
+      (if (and (fixnum? shape) (> shape 0) (<= shape 3)) shape 0)))
+  (def rank-edge-checks 0)
   (def seen (make-hash-table-symbolic))
   (def next-forward (%index-fork forward))
   (def add-forward (make-hash-table-symbolic))
@@ -859,9 +868,15 @@
         (def key (car entry))
         (when (hash-key? seen key) (error "duplicate component row replacement" key))
         (hash-put! seen key #t)
-        (for (dep (cdr entry))
-          (unless (and (symbol? dep) (hash-key? positions dep))
-            (error "unsupported component read" key dep)))
+        (let (owner-rank (and (positive? rank-mask) (hash-ref positions key)))
+          (for (dep (cdr entry))
+            (unless (and (symbol? dep) (hash-key? positions dep))
+              (error "unsupported component read" key dep))
+            (when (positive? rank-mask)
+              (let (provider-rank (hash-ref positions dep))
+                (set! rank-edge-checks (1+ rank-edge-checks))
+                (cond ((< provider-rank owner-rank) (set! rank-mask (fxand rank-mask 1)))
+                      ((> provider-rank owner-rank) (set! rank-mask (fxand rank-mask 2))))))))
         (def row (delete-duplicates/hash (cdr entry) table: (make-hash-table-symbolic)))
         (def previous (%index-ref forward key))
         (unless (equal? row previous)
@@ -887,6 +902,9 @@
                     (hash-put! remove-backward provider removed))
                   (hash-put! removed key #t)
                   (hash-put! buckets provider #t)))))))))
+  ;; Freeze the decision AFTER all replacement validation and mask updates.
+  ;; Internal definition ordering is not a temporal snapshot boundary.
+  (let (ranked? (positive? rank-mask))
   (def next-backward (%index-fork backward))
   (def removed-edges 0)
   (for (provider (hash-keys buckets))
@@ -912,13 +930,14 @@
   (def old-owner (owned-partition-owner old))
   (def old-members (owned-partition-members old))
   (def single-owner (and single-removal? (not functional-cut?) (%index-ref old-owner (car roots))))
-  (def to (and (not single-removal?) (edit-region-walk roots forward add-forward forward-work)))
-  (def from (and (not single-removal?) (edit-region-walk roots backward add-backward backward-work)))
+  (def to (and (not ranked?) (not single-removal?) (edit-region-walk roots forward add-forward forward-work)))
+  (def from (and (not ranked?) (not single-removal?) (edit-region-walk roots backward add-backward backward-work)))
   (def (inside? key)
     (if single-removal? (eq? single-owner (%index-ref old-owner key))
       (and (hash-key? to key) (hash-key? from key))))
   (def region
-    (cond (functional-cut? [])
+    (cond (ranked? [])
+          (functional-cut? [])
           (single-removal? (cdr (%index-ref old-members single-owner)))
           (else
            (let (smaller (if (< (hash-length to) (hash-length from)) to from))
@@ -949,10 +968,12 @@
         (partition-captured region rows edges 0 0 #f #t))))
   ;; If the repair covers the entire graph, use the discovered native tables
   ;; as the new base. One sparse tree write per owner would only copy work.
-  (def owner (cond (functional-cut? (%index-project positions identity))
+  (def owner (cond (ranked? old-owner)
+                   (functional-cut? (%index-project positions identity))
                    (whole? (%index (%partition-owners local-part)))
                    (else (%index-fork old-owner))))
-  (def members (cond (functional-cut? (%index-project positions (lambda (key) (list 1 key))))
+  (def members (cond (ranked? old-members)
+                     (functional-cut? (%index-project positions (lambda (key) (list 1 key))))
                      (whole? (%index (%partition-members local-part)))
                      (else (%index-fork old-members))))
   (def owner-assignments 0)
@@ -995,7 +1016,8 @@
   (def result
     (owned-snapshot
       (make-owned-partition (owned-partition-keys old) positions next-forward next-backward owner members
-        (cond (functional-cut? 'singletons)
+        (cond (ranked? rank-mask)
+              (functional-cut? 'singletons)
               ((null? roots) (owned-partition-shape old))
               ((and cycle? (= (hash-length (%partition-members local-part)) 1)) 'cycle)
               (else #f)))
@@ -1004,6 +1026,7 @@
       reverse-buckets: (vector-ref backward-work 0) reverse-edges: (vector-ref backward-work 1)
       reverse-writes: (hash-length buckets) reverse-removals: removed-edges reverse-rewrite-edges: 0
       region-owners: width region-edge-visits: induced-readers owner-writes: owner-assignments
+      retained-direction: (and ranked? rank-mask) rank-checks: rank-edge-checks
       member-writes: member-assignments rebased-owners: (if whole? width 0)
         projected-singletons: (if functional-cut? width 0)
         quotient-reader-edges: quotient-readers
@@ -1014,4 +1037,4 @@
             ((or (pair? added) (pair? retired))
              (make-quotient-support (reverse added) (reverse retired)))
             (else #f)))
-    result))
+    result)))

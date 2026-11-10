@@ -1,0 +1,122 @@
+#+title: Retained SCC direction: changed-row admission and explicit output
+
+* Contract and implementation
+
+Cold packed capture already checks every edge and records its direction
+relative to the owned roster. Preserve those bits in the existing private
+partition shape. A replacement checks only its authored rows against the
+same positions. If either direction survives, every SCC is still a singleton:
+reuse the existing owner/member maps, and edit the existing persistent
+forward/reverse indices. Do not traverse old closure buckets or rewrite
+component membership. Self edges are permitted. If the premise fails, keep
+the original SCC merge/split repair. An unverified singleton result alone
+does not establish a direction certificate.
+
+LeanPoo PR16's [[https://github.com/tao3k/lean-poo/blob/68138245e247451f1c7d8d57572cb8a8ca4331e2/LeanPoo/Functional/OrderedSccRepair.lean][OrderedSccRepair]] proves path monotonicity, singleton component
+identity, preservation by exact row replacement, and cold/incremental
+membership equivalence. Structural direction does not authenticate source
+currentness, replace effect checks, or authorize a publication. Core's
+existing GraphSnapshot Quint model remains the separate publication model;
+the optimization changes neither its state transition nor ticket rules.
+
+* Reproducible study
+
+Use the existing explicit development projection and official test runner:
+
+#+begin_src sh
+just build-graph-study
+just -- _test --run '^ordered-scc-benchmark-test$' benchmarks/scc-test.ss
+#+end_src
+
+The unchanged Just boundary supplies the 2 GiB VM heap. Both kernel arms use
+production -O2 with Gerbil 2591dcd / Gambit dcd677c on arm64 macOS. The old
+kernel is byte-identical to PR17 commit 7cf5caf. Compilation/preparation is
+outside all reported kernel measurements. This is the owned SCC API, not a
+Yuanxu Module EVAL.
+
+At 100K and 1M vertices, use three ordered shapes: a chain; a middle hub with
+half the roster consuming it; and a middle row reading half the roster.
+Each edit adds one distinct, non-self dependency to an earlier vertex. The
+fixture refuses a duplicate/self edit. Four observations start from the same
+old snapshot; sequential mutation coverage remains in the original tests.
+
+Report fixture enumeration, cold prior capture, edited cold capture, sparse
+revision, 1,000 warm membership queries, and full output/equivalence separately.
+The cold oracle compares complete groups, every owner, dependency row and
+membership. Revision requires zero author callbacks and preserves the old
+row. For the certified candidate it additionally requires zero forward/
+reverse closure buckets/edges, SCC region work, owner/member writes or
+rebasing, and an exact changed-edge rank-check count. A matched old kernel
+records the whole matrix, then fails the absent work contract.
+
+Use existing Gambit process counters for CPU, wall, GC and allocation. Admit
+allocated bytes only when no GC occurred and the native delta is nonnegative;
+otherwise report unavailable. Peak RSS is the whole runner process, not an
+attributed phase allocation or a VM heap assertion. Do not print internal
+POO objects: report numeric work fields only.
+
+* Evidence status
+
+The original source and compiled local-repair suites passed the candidate,
+including cold differential edits, old snapshots and invalidating back edges.
+The matched old artifact failed the new zero-walk assertion (4buckets).
+
+An initial scale fixture used a cache-only getter on an unforced work slot;
+its final assertion failed. The corrected study uses slot presence plus
+ordinary demand. A preliminary self-edge matrix is retained locally but is
+not the final cross-vertex dependency benchmark. No failed round is a pass.
+
+* Cross-vertex dependency results
+
+The same six-case workload ran on both kernels. These are observed ranges
+over four updates per shape, with no samples removed. The old kernel ran
+the filtered study; the candidate ran inside the complete SCC benchmark.
+Different preceding cases affect allocator/GC history. The ranges describe
+observations; the zero-walk and sharing assertions are the work contract.
+
+| Vertices | Shape | Old CPU (ms) | Candidate CPU (µs) | Candidate wall (µs) |
+|----------+-------+--------------+--------------------+---------------------|
+| 100,000 | Chain | 30.01–35.98 | 19–46 | 19.07–46.01 |
+| 100,000 | Hub | 9.42–12.81 | 17–42 | 16.93–41.96 |
+| 100,000 | Skew | 11.56–74.05 | 19–47 | 17.17–46.01 |
+| 1,000,000 | Chain | 510.44–547.13 | 22–59 | 21.93–59.84 |
+| 1,000,000 | Hub | 121.84–164.40 | 20–58 | 18.84–57.94 |
+| 1,000,000 | Skew | 200.70–228.41 | 19–54 | 17.88–54.12 |
+
+All 24 candidate updates validate exactly two replacement edges and write one
+reverse-bucket delta. Old forward/reverse bucket and edge visits, local SCC
+region work, owner/member writes, and author calls are zero. The old chain
+at 1M visits 500,001 forward and 500,000 reverse buckets. Its updates allocate
+203,245,200 bytes each; the candidate allocates 67,248 bytes each with zero
+GC in all 24 samples. One old 100K skew sample includes 58.80 ms GC CPU;
+its allocation is unavailable. The old arm exits 42 solely on the missing
+retained-direction work contract after all cold equality checks complete.
+
+At 1M, candidate fixture preparation is 0.30–0.42 s wall, cold owned capture
+12.28–18.51 s wall, edited cold capture 17.70–19.00 s wall, and complete
+output/equivalence 2.48–2.95 s wall. The edited cold pass still evaluates one
+million metadata authors, with 7.87–8.86 s GC CPU. A thousand warm membership
+queries use 92–95 µs CPU in total. The old filtered run's peak RSS was
+3,198,582,784 bytes; its process duration was 129.49 s. Do not use those
+whole-process counters as an update measurement.
+
+The complete SCC suite passed all 15 cases: the original 320-observation
+matrix, million-node cyclic band (15,999,865 edges), all new cross-vertex
+updates, original ring split and ordered Hub deletion, and publication
+snapshots. Million-node Hub deletion uses 50 µs CPU, zero region/owner/member
+rewrites and one reverse removal. The complete process used 611.66 s wall,
+565.21 s user, 6.36 s system and 4,618,911,744 bytes peak RSS. This suite
+includes large additional workloads; its RSS is not comparable to the old
+filtered run or evidence about Core's 4 GiB gate.
+
+The six prepared Graph integration modules passed 174 cases, including
+fallback merging, old snapshots, refusal and publication; the independent
+100K/1M old inverse-index continuation benchmark passed too. The preceding
+Lean contract's exact commit CI is green. This qualifies the local Graph
+change; its new Scheme CI must still qualify the published commit.
+
+The million-node cold path remains open: the existing full-capacity study's independent metadata
+getter pass alone costs about 19–20 s CPU for chain/pairs/ring, including GC.
+That pass combines Computation construction and first slot demand. It does
+not isolate C4. No Core 10K/180 s/4 GiB, real Lab 120 s, Catalog or end-to-end
+performance claim follows from these Graph results.

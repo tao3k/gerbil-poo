@@ -98,6 +98,7 @@
     "benchmarks/closure-cases"
     "benchmarks/closure-measure"
     "benchmarks/read-field-test"
+    "benchmarks/ordered-scc-study"
     "benchmarks/closure-paired-benchmark"
     "benchmarks/closure-paired-suite"
     "benchmarks/closure-parity"
@@ -167,6 +168,7 @@
                                   "examples/component-rounds"
                                   "examples/component-requests"
                                   "benchmarks/closure-measure"
+                                  "benchmarks/ordered-scc-study"
                                   "examples/object-contracts"
                                   "examples/contract-publication"
                                   "examples/recursive-validation"
@@ -182,7 +184,7 @@
                                   "examples/recursive-recovery"
                                   "examples/recursive-coordination"))))
         +gerbil-poo-development-spec+))
-    (unless (= (length libraries) 22) (error "missing Graph study library declaration"))
+    (unless (= (length libraries) 23) (error "missing Graph study library declaration"))
     (def (tests group names)
       (def selected (filter (lambda (entry) (member (cadr entry) names))
                        (test-build-spec group)))

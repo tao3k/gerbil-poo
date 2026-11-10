@@ -17,7 +17,8 @@
   %schedule-reverse reverse-bucket-remove reverse-bucket-members
   %schedule-owned %owned-source-programs
   start-affected-work advance-affected-work! affected-work-marked)
-(extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward)
+(extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
+  owned-partition-owner owned-partition-members)
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
@@ -812,6 +813,33 @@
 
 (def local-components-test
   (test-suite "local SCC partition against cold discovery"
+    (test-case "retained direction skips SCC walks and a back edge still merges"
+      (for (names '((a b c d outside) (outside d c b a)))
+        (let* ((rows (list->hash-table-eq '((b a) (c b) (d c) (outside a))))
+               (old (scc.partition-owned (row-source names rows)))
+               (next (scc.revise-partition old '((d a b d) (c a)))))
+          (hash-put! rows 'd '(a b d))
+          (hash-put! rows 'c '(a))
+          (check (same-components? names next (scc.partition (row-source names rows))) => #t)
+          (let ((work (scc.partition-work next))
+                (before (%partition-owned old)) (after (%partition-owned next)))
+            (for (field '(forward-buckets reverse-buckets forward-edges reverse-edges
+                          region-owners region-edge-visits owner-writes member-writes rebased-owners))
+              (check-equal? (.ref work field) 0))
+            (check-equal? (.get work rank-checks) 4)
+            (check-equal? (.get work retained-direction) (if (eq? (car names) 'a) 1 2))
+            (check-eq? (owned-partition-owner before) (owned-partition-owner after))
+            (check-eq? (owned-partition-members before) (owned-partition-members after)))
+          (check-equal? ((scc.partition-reads old) 'd) '(c))
+          ;; Invalidating the retained direction must use complete SCC repair.
+          (let (merged (scc.revise-partition next '((a d))))
+            (hash-put! rows 'a '(d))
+            (check (same-components? names merged (scc.partition (row-source names rows))) => #t)
+            (check-equal? (scc.partition-group-size merged 'a) 3)
+            (check-equal? (.get (scc.partition-work merged) retained-direction) #f)
+            (check-equal? (scc.partition-group-size next 'a) 1))
+          (check-exception (scc.revise-partition next '((absent a))) error-object?)
+          (check-exception (scc.revise-partition next '((d missing))) error-object?))))
     (test-case "merge across a connector, split again, and retain the old owner maps"
       (def names '(isolated b bridge a tail c))
       (def rows (list->hash-table-eq '((a b) (b a bridge) (bridge c) (tail c))))
@@ -973,7 +1001,9 @@
     (defvalues (old setup) (measure (lambda () (scc.partition-owned (row-source names rows))) 1))
     (defvalues (next delta) (measure (lambda () (scc.revise-partition old (list (list final-key)))) 1))
     (def work (scc.partition-work next))
-    (def expected-width (if (eq? shape 'ring) count 1))
+    ;; An ordered hub deletion retains the certified singleton maps; unlike
+    ;; the ring cut, it no longer needs even a one-owner SCC repair region.
+    (def expected-width (if (eq? shape 'ring) count 0))
     (unless (and (= (scc.partition-group-size old final-key) (if (eq? shape 'ring) count 1))
                  (= (scc.partition-group-size next final-key) 1)
                  (= (.get work region-owners) expected-width)
@@ -1012,11 +1042,16 @@
         (displayln (list 'GRAPH-LOCAL-RING-QUOTIENT count (qualified-metrics clocks)))
         (quotient-roster-study (vector-ref quotient 0) names count)))
     (when (eq? shape 'hub)
+      (unless (and (= (.get work retained-direction) 1)
+                   (zero? (.get work owner-writes)) (zero? (.get work member-writes)))
+        (error "ordered hub deletion failed to share its certified maps" count))
       (for (sample (in-range 4))
         (defvalues (repeated timing) (measure (lambda () (scc.revise-partition old (list (list final-key)))) 1))
         (def observed (scc.partition-work repeated))
         (unless (and (zero? (.get observed reverse-rewrite-edges))
                      (= (.get observed reverse-removals) 1)
-                     (= (.get observed region-owners) 1))
+                     (= (.get observed region-owners) 0)
+                     (= (.get observed retained-direction) 1)
+                     (zero? (.get observed owner-writes)) (zero? (.get observed member-writes)))
           (error "repeated hub update changed the physical footprint" count sample))
         (displayln (list 'GRAPH-LOCAL-HUB-REPEAT count sample (qualified-metrics timing)))))))
