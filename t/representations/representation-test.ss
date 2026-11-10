@@ -3,7 +3,7 @@
 (import (only-in :gerbil/runtime/hash HashTable) :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
         (only-in :clan/poo/benchmarks/representation-startup check-observation-test)
         (only-in :std/list/list find)
-        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) read-runtime.)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class find-method bind-method!) read-runtime.)
         (only-in :gerbil/runtime/loader load-module reload-module! list-modules module-load-order)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
@@ -111,6 +111,58 @@
     ;; establish eligibility for the future point path.
     (check-exception (.ref source 'selected) (message? "compute-slot must return a thunk"))
     (check (object-%instance source) => #f))
+  (test-case "bulk functional indexes preserve rows across tree levels and edits"
+    (def shared (string->uninterned-symbol "bulk-collision" 17))
+    (def other (string->uninterned-symbol "bulk-collision" 17))
+    (for-each
+      (lambda (width)
+        (def prefix (for/collect (i (in-range (- width 3))) (make-symbol "bulk-row-" i)))
+        (def keys (append prefix (list shared other shared)))
+        (def owner (object<-fun values keys: keys))
+        (def original (object-%slots owner))
+        (check-equal? (prototype-map-keys original) keys)
+        (check-eq? (.ref owner other) other)
+        (check-eq? (.ref owner shared) shared)
+        (def first (prototype-map-ref original shared))
+        (def last (prototype-map-fold-key original shared (lambda (spec _) spec) #f))
+        (check (eq? first last) => #f)
+        (def replacement ($thunk-slot-spec (lambda () 'replaced)))
+        (def revised (prototype-map-put original shared replacement))
+        (check-eq? (prototype-map-ref revised shared) replacement)
+        (check-eq? (prototype-map-ref original shared) first)
+        (check-eq? (prototype-map-fold-key revised shared (lambda (spec _) spec) #f) last)
+        (def removed (prototype-map-remove revised shared))
+        (check-equal? (prototype-map-keys removed) (append prefix (list other)))
+        (check-equal? (prototype-map-keys
+                        (prototype-map-put removed shared replacement))
+          (append prefix (list other shared)))
+        (check-equal? (prototype-map-keys original) keys))
+      '(8 9 15 16 17 31 32 33 63 64 65))
+    (check-exception (object<-fun values keys: '(a b c d e f g h 9 j))
+                     (message? "symbolic specification required")))
+
+  (test-case "changed functional constructor metadata retains ordinary index construction"
+    (def klass (read-runtime.object-class (.o)))
+    (def initialize! (read-runtime.find-method klass #f ':init!))
+    (def keys '(a b c d e f g h i j))
+    (def (root-ordinal owner)
+      (let* ((entries (read-runtime.slot-ref (object-%slots owner) 'entries))
+             (root (read-runtime.slot-ref entries 'root)))
+        (read-runtime.slot-ref root 'key)))
+    (def ordinary
+      (make-object slots: (map (lambda (key) (cons key ($thunk-slot-spec (lambda () key)))) keys)))
+    (def original (root-ordinal ordinary))
+    (check (eqv? (root-ordinal (object<-fun values keys: keys)) original) => #f)
+    (def owner
+      (dynamic-wind
+        (lambda ()
+          (read-runtime.bind-method! klass ':init!
+            (lambda args (apply initialize! args)) #t))
+        (lambda () (object<-fun values keys: keys))
+        (lambda () (read-runtime.bind-method! klass ':init! initialize! #t))))
+    (check-equal? (root-ordinal owner) original)
+    (check-eq? (.get owner j) 'j))
+
   (test-case "private traversal preserves ordered duplicate payloads through sparse persistent edits"
     (for* ((policy '(tree compact)) (width '(0 9)))
       (let* ((f (lambda (x) x)) (a (string->uninterned-symbol "same"))

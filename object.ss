@@ -469,8 +469,16 @@
 (def (object<-hash h supers: (supers '()) defaults: (defaults '()))
   (object<-alist (hash->list/sort h symbol<?) supers: supers defaults: defaults))
 
+(extern namespace: clan/poo/prototype-map %stock-struct-construction? %bulk-generated-prototype-map)
 (def (object<-fun f keys: (keys '()) supers: (supers '()) defaults: (defaults '()))
-  (make-object slots: (map (lambda (k) (cons k ($thunk-slot-spec (cut f k)))) keys)
+  (def rows (map (lambda (key) (cons key ($thunk-slot-spec (cut f key)))) keys))
+  ;; Custom constructors still receive the original generated list.
+  (def slots
+    (or (and (pair? rows) (null? supers) (null? defaults)
+             (%stock-struct-construction? object::t 15 object:::init!)
+             (%bulk-generated-prototype-map rows))
+        rows))
+  (make-object slots: slots
                supers: supers defaults: defaults))
 
 (def (.mix slots: (slots '()) defaults: (defaults '()) . supers)

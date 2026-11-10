@@ -1,4 +1,4 @@
-(export main point-index-study)
+(export main point-index-study functional-construction-study)
 
 (import
   :gerbil/runtime/gambit
@@ -11,6 +11,26 @@
 (def cold-repetitions 500)
 ;; Complete persistent-clone operations per observed sample.
 (def clone-repetitions 5000)
+
+;; Keep key generation and structural reflection outside the timed interval.
+;; Both producers install the same thunks and neither invokes the provider.
+(def (functional-construction-study)
+  (for (width '(10000 100000))
+    (def keys (for/collect (i (in-range width)) (make-symbol "functional-source-" i)))
+    (def (provider key) (error "unexpected demand during source construction" key))
+    (def (ordinary)
+      (make-object slots: (map (lambda (key) (cons key ($thunk-slot-spec (cut provider key)))) keys)))
+    (def (generated) (object<-fun provider keys: keys))
+    (def observations
+      (for/collect (side '(ordinary generated generated ordinary))
+        (defvalues (owner timing) (sample.measure (if (eq? side 'ordinary) ordinary generated) 1))
+        (unless (equal? (prototype-map-keys (object-%slots owner)) keys)
+          (error "functional source construction lost row order" side width))
+        [side: side metrics: (sample.qualified-metrics timing)]))
+    (displayln "POO_FUNCTIONAL_CONSTRUCTION_PAIR="
+      [slots: width order: '(ordinary generated generated ordinary)
+       regime: 'natural observations: observations]))
+  #t)
 
 ;; Isolate the source index primitive before receiver binding. Setup is charged
 ;; once; neither arm constructs/evaluates a receiver. Both consume the SAME
