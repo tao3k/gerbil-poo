@@ -7,7 +7,7 @@
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays issue-object-read object-slot-names object-slot-present?
+                    call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
 
 (import

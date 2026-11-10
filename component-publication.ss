@@ -3,6 +3,8 @@
         stage restage submit! submit-snapshot! call-with-snapshot revise-approval!)
 (import (only-in :gerbil/runtime/thread with-lock) ./object ./mop ./feedback-graph ./lens-laws
         (prefix-in ./construction-cache cache.))
+;; Only this coordinator may supply deferred guard registration.
+(extern namespace: clan/poo/feedback-graph %feedback-component-revision-action)
 ;; Private coordination records never expose setters or candidate-install APIs.
 (defstruct %approval-domain (lock) final: #t)
 (defstruct %snapshot (graph metadata) final: #t)

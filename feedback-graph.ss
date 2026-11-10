@@ -2,7 +2,7 @@
 (export graph-cache? graph-cache-partition graph-cache-values graph-cache-source
         graph-cache-ref graph-cache-current! feedback-graph-action publish-feedback-graph publish-owned-feedback-graph
         feedback-graph-revision-action publish-feedback-graph-revision
-        reconfigure-components feedback-component-revision-action %feedback-component-revision-action)
+        reconfigure-components feedback-component-revision-action)
 (import :std/iter (only-in :std/list/list filter append-map delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
         ./object ./mop ./support/option ./feedback-cache ./lens-laws

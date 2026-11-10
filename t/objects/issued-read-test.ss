@@ -2,9 +2,10 @@
 (export issued-read-test test-cleanup!)
 (import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
         (only-in :clan/poo/read-route make-read-issuer %issued-read?)
+        (only-in :gerbil/runtime/gambit unbound-global-exception?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class) runtime.)
         (only-in :gerbil/expander current-expander-context make-top-context
-                 core-import-module module-context-export module-export-name)
+                 core-import-module module-context-export module-export-name eval-syntax)
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
@@ -144,6 +145,21 @@
                     'clan/poo/examples/representation-service#replay-workflow) []) '#(9 12 9 3))
     (set! completed (+ completed 1)))
   (test-case "the Gerbil export interface does not expose private read-issuance helpers"
+    (def forged-public-read?
+      (parameterize ((current-expander-context (make-top-context)))
+        (eval-syntax '(import :gerbil/core :clan/poo/object))
+        (def issue
+          (with-catch
+            (lambda (cause) (if (unbound-global-exception? cause) #f (raise cause)))
+            (lambda () (eval-syntax '%issue-read))))
+        (and issue
+             (let* ((owner (.o answer: 9))
+                    (value (.get owner answer))
+                    (read (issue owner 'answer (object-revision owner)
+                                 (object-%instance owner) value [] object-read-current?)))
+               (hash-put! (object-read-table owner) 'answer read)
+               (object-read-current? read)))))
+    (check-equal? forged-public-read? #f)
     (def names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name
@@ -153,6 +169,7 @@
         object-deliver-value object-issued-read-current? require-object-read-route!
         call-with-issued-reads active-read-replays))
     (check-equal? (and (memq 'object-read-issued? names) #t) #t)
+    (check-equal? (and (memq '%issue-read names) #t) #f)
     (def route-names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name
