@@ -3,7 +3,8 @@
         local-components-test local-components-study local-component-pressure-study)
 (import :std/test :std/iter :clan/poo/object :clan/poo/support/option
         (only-in :clan/poo/benchmarks/closure-measure measure measure-pair qualified-metrics)
-        (only-in :std/error Error? Error-message)
+        (only-in :std/error Error? Error-message UnboundKeyError?)
+        (only-in :clan/poo/support/index %index-changes %index-base)
         (only-in :clan/poo/lens-laws lens-check)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
         (prefix-in (only-in :gerbil/runtime/mop slot-set!) runtime.)
@@ -14,7 +15,7 @@
 
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!
   %schedule-reverse reverse-bucket-remove reverse-bucket-members
-  %schedule-owned %owned-source-programs schedule-index-changes
+  %schedule-owned %owned-source-programs
   start-affected-work advance-affected-work! affected-work-marked)
 (extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward)
 
@@ -55,6 +56,44 @@
 
 (def graph-order-repair-test
   (test-suite "local topological repair and independent value invalidation"
+    (test-case "structural index forks preserve roots, false values and projection effects"
+      (def table (make-hash-table-symbolic))
+      (hash-put! table 'present #f)
+      (hash-put! table 'empty [])
+      (def cold (graph.%index table))
+      (def first (graph.%index-fork cold))
+      (graph.%index-write! first 'present 1)
+      (def second (graph.%index-fork first))
+      (check-eq? (%index-base cold) table)
+      (check-eq? (%index-base first) table)
+      (check-eq? (%index-base second) table)
+      (graph.%index-write! second 'present #f)
+      (graph.%index-write! second 'new [])
+      (check-eq? (graph.%index-ref cold 'present 'missing) #f)
+      (check-equal? (graph.%index-ref first 'present) 1)
+      (check-eq? (graph.%index-ref second 'present 'missing) #f)
+      (check-equal? (graph.%index-ref second 'new 'missing) [])
+      (check-eq? (graph.%index-ref first 'new 'missing) 'missing)
+      (check-equal? (graph.%index-ref cold 'empty 'missing) [])
+      (check-exception (graph.%index-ref cold 'absent) UnboundKeyError?)
+      (def calls 0)
+      (def projected (graph.%index-project table
+        (lambda (key) (set! calls (1+ calls)) (hash-ref table key))))
+      (def overlay (graph.%index-fork projected))
+      (check-equal? calls 0)
+      (check-eq? (graph.%index-ref projected 'absent #f) #f)
+      (check-equal? calls 0)
+      (check-exception (graph.%index-ref projected 'absent) UnboundKeyError?)
+      (check-equal? calls 0)
+      (check-eq? (graph.%index-ref projected 'present 'missing) #f)
+      (check-eq? (graph.%index-ref projected 'present 'missing) #f)
+      ;; Projection remains a live operation, not a newly memoized result.
+      (check-equal? calls 2)
+      (graph.%index-write! overlay 'present [])
+      (check-equal? (graph.%index-ref overlay 'present) [])
+      (check-equal? calls 2)
+      (check-eq? (graph.%index-ref projected 'present 'missing) #f)
+      (check-equal? calls 3))
     (test-case "released owned schedules and continuations leave no strong registry roots"
       (def objects (make-hash-table test: eq? weak-keys: #t))
       (def owners (make-hash-table test: eq? weak-keys: #t))
@@ -282,7 +321,7 @@
       (def cold (graph.schedule-owned keys codes [(cons 'keep kept)]))
       (check-equal? (graph.schedule-order next) (graph.schedule-order cold))
       (check-equal? ((graph.schedule-reads next) 'fresh) '(keep))
-      (check-equal? (schedule-index-changes (%owned-source-programs (%schedule-owned next))) #f)
+      (check-equal? (%index-changes (%owned-source-programs (%schedule-owned next))) #f)
       (check-equal? (.call (graph.schedule-source next) .code 'keep) #f)
       (check (eq? (.call (graph.schedule-source next) .base 'keep) kept) => #t)
       (check-equal? (.call (graph.schedule-source next) .base 'retired) #f)

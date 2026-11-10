@@ -23,7 +23,8 @@
   :std/iter
   ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method) read-runtime.)
-  (only-in ./read-route require-read-route! make-read-issuer symbolic-write-route-current?)
+  (only-in ./read-route require-read-route! symbolic-write-route-current?
+           %issued-read? %read-issuance)
   ./object-state
   ./prototype-map
   ./slot-layout

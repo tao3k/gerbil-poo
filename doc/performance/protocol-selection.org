@@ -1,6 +1,35 @@
 #+TITLE: Effect-framed protocol selection during method installation
 #+DATE: 2026-11-10
 
+* Shared source preparation: dependency boundary
+
+The structural index implementation now lives in =support/index.ss=.
+=generalized-graph.ss= imports and reexports its same five operations rather
+than owning another implementation. Its immutable base and path-copied sparse
+tree preserve old snapshots, false payloads and live projection behavior.
+This removes the dependency cycle that prevented =object.ss= from reusing it.
+It does not yet implement source custody or sparse receiver preparation.
+
+The one live read issuer allocation also moves below =object.ss= into
+=read-route.ss=. Object keeps its existing bindings. Lower source code can
+authenticate against the same authority; the writer remains private and no
+second weak registry is allocated. Independent factories cannot authenticate
+its records. New source-certificate kinds still require separate admission
+from ordinary receiver value reads before that integration is enabled.
+
+The new index control lives in the existing Graph repair suite. It checks
+fork/base identity, false versus missing, empty values, projection call counts
+and old-root isolation. Removing only the sparse-tree copy fails both that
+control and the original SCC merge/differential controls with exit 42.
+The issued-read suite retains 29 Cases and checks lower/Object authority,
+foreign-factory refusal, private writer exports, original refusal order and
+callback-return validation. These are semantic controls, not latency evidence.
+
+The complete first-demand path still prepares all methods and value-directory
+keys. No first-business speedup or downstream pin promotion follows from this
+dependency refactor. Compiler-owned source capture and demanded binding remain
+the next implementation owner.
+
 * Change and contract
 
 The final =compute-slot-funs!= pass previously selected an inherited protocol

@@ -31,6 +31,7 @@
 (def +gerbil-poo-build-spec+
   `("brace"
     "support/base"
+    "support/index"
     "support/debug"
     "support/io"
     "support/json"

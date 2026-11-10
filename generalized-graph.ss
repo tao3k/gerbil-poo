@@ -22,6 +22,8 @@
                  rbtree-remove rbtree-fold rbtree-foldr rbtree-for-each rbtree-size rbtree->list
                  in-rbtree-values)
         (only-in ./support/base %compare-symbol-identity)
+        (only-in ./support/index %index %index-project %index-ref %index-fork %index-write!
+                 %index? %index-base %index-changes)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         ./object (only-in ./mop define-type) ./support/option)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
@@ -37,7 +39,7 @@
   (and (symbol? key)
        (let (supported (%schedule-supported scheduled))
          (if supported (hash-key? supported key)
-           (and (index-ref (%schedule-ranks scheduled) key #f) #t)))))
+           (and (%index-ref (%schedule-ranks scheduled) key #f) #t)))))
 (defstruct failure (kind key) final: #t)
 (def (keys! keys)
   (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
@@ -105,40 +107,13 @@
       source-patch-writes: source-writes
       retirement-buckets: retired-bucket-count retirement-readers: retired-reader-count))
 
-;; The cold snapshot owns its tables. A revision forks only the roots of its
-;; sparse trees; writes change the private wrapper and path-copy tree nodes.
-(defstruct schedule-index (base changes) final: #t)
-(def (fork-index index)
-  (let (changes (schedule-index-changes index))
-    (make-schedule-index (schedule-index-base index)
-      (if changes (rbtree-copy changes) (RBTree %compare-symbol-identity)))))
-(def missing-index-entry (gensym 'missing-index-entry))
-(def (index-ref index key (default missing-index-entry))
-  (def changes (schedule-index-changes index))
-  (def edited (if changes (rbtree-ref changes key missing-index-entry) missing-index-entry))
-  (if (eq? edited missing-index-entry)
-    (let (base (schedule-index-base index))
-      (if (procedure? base) (base key default)
-        (if (eq? default missing-index-entry) (hash-ref base key)
-          (hash-ref base key default))))
-    edited))
-;; Shared persistent index primitive for structural snapshots. Callers retain
-;; their private table and fork the wrapper before any sparse write.
-(def (%index base) (make-schedule-index base #f))
-(def (%index-project support project)
-  (%index (lambda (key default)
-    (if (hash-key? support key) (project key)
-      (if (eq? default missing-index-entry) (hash-ref support key) default)))))
-(def %index-ref index-ref)
-(def %index-fork fork-index)
-(def (%index-write! index key value) (rbtree-put! (schedule-index-changes index) key value))
 (def (read-projection index owned)
   ;; Explicitly owned snapshots never expose their authoritative row spines.
   (if owned (lambda (key)
-              (let (row (index-ref index key))
+              (let (row (%index-ref index key))
                 (unless row (raise (make-failure 'unsupported key)))
                 (list-copy row)))
-    (lambda (key) (index-ref index key))))
+    (lambda (key) (%index-ref index key))))
 (def (materialize-order positions changes)
   ;; Merge the sorted sparse assignments into the private cold order.
   ;; Only this explicit projection constructs the complete list.
@@ -162,11 +137,11 @@
   (for (key order)
     (for (dep (hash-ref reads key))
       (hash-put! readers dep (cons key (hash-ref readers dep)))))
-  (def adjacency (make-schedule-index reads #f))
+  (def adjacency (%index reads))
   (make-%schedule spec (delay order)
     (if owned (read-projection adjacency owned) (lambda (key) (hash-ref reads key)))
-    adjacency (make-schedule-index ranks #f)
-    (make-schedule-index readers #f) supported receipt positions #f (vector-length positions) owned))
+    adjacency (%index ranks)
+    (%index readers) supported receipt positions #f (vector-length positions) owned))
 (def (schedule spec)
   (schedule-rows spec (.@ spec keys)
     (lambda (key)
@@ -225,14 +200,14 @@
   (seal-object!
     (.o keys: (list-copy (owned-source-names source))
     .code: (lambda (key)
-      (let (captured (and (symbol? key) (index-ref (%owned-source-programs source) key #f)))
+      (let (captured (and (symbol? key) (%index-ref (%owned-source-programs source) key #f)))
         (and captured
              (if raw? (%program-value captured)
                (.o reads: (list-copy (%program-row captured))
                    .evaluate: (lambda (provider)
                      (call-with-current-slot-reads (%program-support captured)
                        (lambda (_) (.call (%program-value captured) .evaluate provider)))))))))
-    .base: (lambda (key) (and (symbol? key) (index-ref (%owned-source-bases source) key #f))))))
+    .base: (lambda (key) (and (symbol? key) (%index-ref (%owned-source-bases source) key #f))))))
 ;; Stable source positions address persistent native dependency witnesses.
 ;; Unchanged children stay shared. Weak reverse links release retired parents.
 (defstruct %witness-tree (stamp left right evidence) final: #t)
@@ -404,7 +379,7 @@
       (for (key code-keys)
         (hash-put! captured key (capture-program (hash-ref programs key))))))
   (def source (make-%owned-source names
-    (make-schedule-index captured #f) (make-schedule-index values #f)))
+    (%index captured) (%index values)))
   (schedule-rows (owned-declaration source) names
     (lambda (key) (program-row (hash-get captured key))) source supported))
 ;; A quotient with a changed roster still needs a full schedule certificate.
@@ -422,9 +397,9 @@
   ;; roster. No predecessor program can be observed from this new base.
   (def complete? (= (hash-length entries) (hash-length supported)))
   (def program-base (and complete? (make-hash-table-symbolic size: (hash-length supported))))
-  (def programs (if complete? (%index program-base) (fork-index (%owned-source-programs old))))
+  (def programs (if complete? (%index program-base) (%index-fork (%owned-source-programs old))))
   (def put-program! (if complete? (cut hash-put! program-base <> <>) (cut %index-write! programs <> <>)))
-  (def bases (fork-index (%owned-source-bases old)))
+  (def bases (%index-fork (%owned-source-bases old)))
   (for (key (owned-source-names old))
     (unless (hash-key? supported key)
       (unless complete? (put-program! key #f))
@@ -435,14 +410,14 @@
         (put-program! key (capture-program (hash-ref entries key))))))
   (def owned (make-%owned-source names programs bases))
   (schedule-rows (owned-declaration owned) names
-    (lambda (key) (program-row (index-ref programs key #f)))
+    (lambda (key) (program-row (%index-ref programs key #f)))
     owned supported (length code-keys)))
 (def (%schedule-same-program? old next key)
   (def previous (%schedule-owned old))
   (def current (%schedule-owned next))
   (if (and previous current)
-    (eq? (index-ref (%owned-source-programs previous) key #f)
-         (index-ref (%owned-source-programs current) key #f))
+    (eq? (%index-ref (%owned-source-programs previous) key #f)
+         (%index-ref (%owned-source-programs current) key #f))
     (eq? (.call (schedule-source old) .code key) (.call (schedule-source next) .code key))))
 (def (merge-support-roster old added retired before?)
   (with-list-builder (add)
@@ -487,14 +462,14 @@
           (set! retirement-readers (1+ retirement-readers))
           (when (and (active? consumer) (not (hash-key? checked-programs consumer)))
             (raise (make-failure 'unsupported key))))
-        (index-ref (%schedule-reverse prior) key))))
+        (%index-ref (%schedule-reverse prior) key))))
   ;; No author callback runs before binding and ordering the whole request.
   ;; Do not read the caller's mutable pairs after the first capture starts.
   (def code-keys (map car codes))
   (def base-keys (map car bases))
   (check-edit-targets active? code-keys base-keys checked-bases)
-  (def programs (fork-index (%owned-source-programs old)))
-  (def values (fork-index (%owned-source-bases old)))
+  (def programs (%index-fork (%owned-source-programs old)))
+  (def values (%index-fork (%owned-source-bases old)))
   (def changes [])
   (def footprints 0)
   (capture-program-batch
@@ -505,11 +480,11 @@
         (def row (program-row captured))
         (for (dep row)
           (unless (active? dep) (raise (make-failure 'unsupported dep))))
-        (unless (equal? row (or (index-ref (%schedule-adjacency prior) key #f) []))
+        (unless (equal? row (or (%index-ref (%schedule-adjacency prior) key #f) []))
           (set! changes (cons (cons key row) changes)))
-        (rbtree-put! (schedule-index-changes programs) key captured))))
+        (rbtree-put! (%index-changes programs) key captured))))
   (for (key base-keys)
-    (rbtree-put! (schedule-index-changes values) key (hash-ref checked-bases key)))
+    (rbtree-put! (%index-changes values) key (hash-ref checked-bases key)))
   (def names (%owned-source-keys old))
   (when before?
     (for (key retired-keys)
@@ -551,7 +526,7 @@
                       (values (affected-owners (%schedule-reverse result) (%revision-roots ticket) counts)
                               counts)))))
       (def ranks (%schedule-ranks result))
-      (def ordered (list-sort (lambda (a b) (< (index-ref ranks a) (index-ref ranks b)))
+      (def ordered (list-sort (lambda (a b) (< (%index-ref ranks a) (%index-ref ranks b)))
                      (hash-keys reached)))
       (values result ordered counts))
     result))
@@ -638,9 +613,9 @@
 ;;; remain immutable on failure and during reentrant construction callbacks.
 (def (repair-order prior spec changes footprints checked (owned #f) (source-writes 0)
                    (added []) (retired []) (retirement-readers 0))
-  (def reads (fork-index (%schedule-adjacency prior)))
-  (def ranks (fork-index (%schedule-ranks prior)))
-  (def readers (fork-index (%schedule-reverse prior)))
+  (def reads (%index-fork (%schedule-adjacency prior)))
+  (def ranks (%index-fork (%schedule-ranks prior)))
+  (def readers (%index-fork (%schedule-reverse prior)))
   (def positions (%schedule-positions prior))
   (def old-positions (%schedule-position-changes prior))
   (def position-changes #f)
@@ -650,7 +625,7 @@
     (rbtree-put! changes key value)
     (set! patch-writes (1+ patch-writes)))
   (def (index-set! index key value)
-    (patch! (schedule-index-changes index) key value))
+    (patch! (%index-changes index) key value))
   (def (position-index!)
     (unless position-changes
       (set! position-changes (if old-positions (rbtree-copy old-positions) (RBTree -))))
@@ -660,7 +635,7 @@
   (def edges 0)
   (def assignments 0)
   (def checks 0)
-  (def (rank key) (index-ref ranks key))
+  (def (rank key) (%index-ref ranks key))
   (def (members row)
     (def index (make-hash-table-eq))
     (for (key row) (hash-put! index key #t)) index)
@@ -676,14 +651,14 @@
   ;; must not be refused for a transient cycle absent from its final graph.
   (for (entry changes)
     (def key (car entry))
-    (def old (index-ref reads key))
+    (def old (%index-ref reads key))
     (def fresh (cdr entry))
     (def old-index (members old))
     (def new-index (members fresh))
     (index-set! reads key (filter (cut hash-key? new-index <>) old))
     (for (dep old)
       (unless (hash-key? new-index dep)
-        (index-set! readers dep (reverse-bucket-remove (index-ref readers dep) key))))
+        (index-set! readers dep (reverse-bucket-remove (%index-ref readers dep) key))))
     (for (dep fresh)
       (unless (hash-key? old-index dep) (set! additions (cons (cons key dep) additions)))))
   ;; Retired rows are in the deletion batch above. All surviving readers
@@ -706,7 +681,7 @@
             (begin
               (hash-put! seen key #t)
               (set! buckets (1+ buckets))
-              (let (row (reverse-bucket-members (index-ref adjacency key)))
+              (let (row (reverse-bucket-members (%index-ref adjacency key)))
                 ;; Count boundary edges too; pruning is not free work.
                 (set! edges (+ edges (length row)))
                 (loop (append (filter (lambda (dep) (<= low (rank dep) high)) row) rest)
@@ -733,15 +708,15 @@
       ;; Exact incident checks include unchanged consumers, not just outgoing
       ;; edges of owners whose labels moved. No callback runs in this interval.
       (for (key owners)
-        (for (dep (index-ref reads key))
+        (for (dep (%index-ref reads key))
           (set! checks (1+ checks))
           (unless (< (rank dep) (rank key)) (raise (make-failure 'rank key))))
-        (for (reader (reverse-bucket-members (index-ref readers key)))
+        (for (reader (reverse-bucket-members (%index-ref readers key)))
           (set! checks (1+ checks))
           (unless (< (rank key) (rank reader)) (raise (make-failure 'rank reader)))))))
     (unless (< (rank provider) (rank consumer)) (raise (make-failure 'rank consumer)))
-    (index-set! reads consumer (cons provider (index-ref reads consumer)))
-    (index-set! readers provider (reverse-bucket-add (index-ref readers provider) consumer)))
+    (index-set! reads consumer (cons provider (%index-ref reads consumer)))
+    (index-set! readers provider (reverse-bucket-add (%index-ref readers provider) consumer)))
   ;; Preserve the author's exact footprint order, independently of insertion
   ;; order used for validation. Reads were captured before the pure repair.
   (for (entry changes) (index-set! reads (car entry) (cdr entry)))
@@ -758,6 +733,7 @@
 ;; new roots, even while an older frame is partly consumed. Only this work
 ;; owns the frame cells and visited table.
 (defstruct reverse-cursor (insertions remaining base masked?) final: #t)
+(def missing-reverse-edit (gensym 'missing-reverse-edit))
 (def (open-reverse-cursor row)
   (def edited (reverse-bucket-edited row))
   (def added (reverse-bucket-added row))
@@ -765,7 +741,7 @@
   (def masked?
     (if (= (rbtree-size edited) 1)
       (let (excluded (only-masked-owner edited)) (cut eq? excluded <>))
-      (lambda (owner) (not (eq? (rbtree-ref edited owner missing-index-entry) missing-index-entry)))))
+      (lambda (owner) (not (eq? (rbtree-ref edited owner missing-reverse-edit) missing-reverse-edit)))))
   (make-reverse-cursor (and (positive? width) (in-rbtree-values added))
     width (reverse-bucket-base row) masked?))
 (def (reverse-cursor-empty? cursor)
@@ -781,9 +757,9 @@
 (defstruct affected-work (readers marked raw-marked frames tail receipt) final: #t)
 (def (start-affected-work readers (receipt #f))
   (def marked (make-hash-table-symbolic))
-  (def raw-readers (if (schedule-index? readers) readers (interface-instance-object readers)))
+  (def raw-readers (if (%index? readers) readers (interface-instance-object readers)))
   (def raw-marked (interface-instance-object marked))
-  (unless (and (or (schedule-index? raw-readers) (symbol-hash-table? raw-readers))
+  (unless (and (or (%index? raw-readers) (symbol-hash-table? raw-readers))
                (symbol-hash-table? raw-marked))
     (error "symbolic inverse index required"))
   (def tail (list []))
@@ -824,7 +800,7 @@
           (else
            (let ((name (pop! frames)) (next (and remaining (fx- remaining 1))))
              (if (or (not name) (symbolic-table-ref marked name #f)) (walk frames next)
-               (let (row (if (schedule-index? readers) (index-ref readers name [])
+               (let (row (if (%index? readers) (%index-ref readers name [])
                            (symbolic-table-ref readers name [])))
                  (symbolic-table-set! marked name #t)
                  (when receipt
@@ -845,7 +821,7 @@
 (def (schedule-invalidation scheduled)
   (def readers (%schedule-reverse scheduled))
   (make-%invalidation scheduled
-    (start-affected-work (if (schedule-index-changes readers) readers (schedule-index-base readers)))
+    (start-affected-work (if (%index-changes readers) readers (%index-base readers)))
     (make-mutex 'schedule-invalidation) (make-hash-table-symbolic)))
 (def (require-schedule-invalidation! scheduled invalidation)
   (unless (and (%invalidation? invalidation)
@@ -888,7 +864,7 @@
             (if (= retained (hash-length supplied)) previous
               (let (readers (%schedule-reverse scheduled))
                 (start-affected-work
-                  (if (schedule-index-changes readers) readers (schedule-index-base readers)) receipt))))
+                  (if (%index-changes readers) readers (%index-base readers)) receipt))))
            (reached (affected-work-marked state)))
       (affected-work-receipt-set! state receipt)
       (%invalidation-work-set! invalidation state)

@@ -27,7 +27,12 @@
                (or (pair? key)
                    (eq? (slot-read-value read)
                         (hash-ref (object-%instance self) key absent-value))))))))
-(defvalues (issue-object-read object-read-issued? object-read-issuance) (make-read-issuer))
+;; Trusted implementation access to the one existing writer; it remains absent
+;; from the read-route public exports. Ordinary consumers receive only checks.
+(extern namespace: clan/poo/read-route %issue-read)
+(def issue-object-read %issue-read)
+(def object-read-issued? %issued-read?)
+(def object-read-issuance %read-issuance)
 ;; Capture source state and preserve preparation parents at this one boundary.
 ;; The existing read module owns provenance, without receiver-accessor callbacks.
 (def (object-record-read self key value dependencies)

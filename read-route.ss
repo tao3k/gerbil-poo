@@ -1,5 +1,6 @@
 ;;; Read provenance and metadata routes; no receiver getters or user callbacks.
-(export require-read-route! make-read-issuer symbolic-write-route-current?)
+(export require-read-route! make-read-issuer symbolic-write-route-current?
+        %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
@@ -209,4 +210,11 @@
           (values presented original signed snapshot shape))
         (values presented #f #f #f #f)))
     (values issue issued? inspect)))
+
+;; The existing live authority belongs below object preparation, so structural
+;; source views can authenticate the same evidence without importing object.ss.
+;; Keep its writer private. This replaces the former object-local allocation;
+;; it does not add another registry. Foreign make-read-issuer factories still
+;; cannot authenticate this authority's records, or vice versa.
+(defvalues (%issue-read %issued-read? %read-issuance) (make-read-issuer))
 

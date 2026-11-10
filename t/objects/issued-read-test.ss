@@ -1,6 +1,7 @@
 ;;; Producer-owned issuance tests; no Core fixtures or dependencies.
 (export issued-read-test test-cleanup!)
 (import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
+        (only-in :clan/poo/read-route make-read-issuer %issued-read?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class) runtime.)
         (only-in :gerbil/expander current-expander-context make-top-context
                  core-import-module module-context-export module-export-name)
@@ -152,6 +153,12 @@
         object-deliver-value object-issued-read-current? require-object-read-route!
         call-with-issued-reads active-read-replays))
     (check-equal? (and (memq 'object-read-issued? names) #t) #t)
+    (def route-names
+      (parameterize ((current-expander-context (make-top-context)))
+        (map module-export-name
+          (module-context-export (core-import-module ':clan/poo/read-route)))))
+    (check-equal? (memq '%issue-read route-names) #f)
+    (check-equal? (and (memq '%issued-read? route-names) #t) #t)
     (set! completed (+ completed 1)))
   (test-case "real persistent records authenticate but public copies do not"
     (.def Root port: 5432 unused: (error "unselected branch forced"))
@@ -306,6 +313,17 @@
   (test-case "a borrowed birth cannot authorize a copy or a changed payload"
     (.def Root port: 5432)
     (def genuine (selected (recorded (cut .get Root port)) 'port))
+    ;; Object and lower source preparation check ONE existing authority. A
+    ;; separately created factory still cannot introduce evidence into it.
+    (check-equal? (%issued-read? genuine) #t)
+    (check-equal? (object-read-issued? genuine) #t)
+    (defvalues (foreign-issue foreign-issued? _foreign-inspect) (make-read-issuer))
+    (def foreign (foreign-issue Root 'port (object-revision Root)
+      (slot-read-instance genuine) 5432 (slot-read-dependencies genuine) object-read-current?))
+    (check-equal? (foreign-issued? foreign) #t)
+    (check-equal? (foreign-issued? genuine) #f)
+    (check-equal? (%issued-read? foreign) #f)
+    (check-equal? (object-read-issued? foreign) #f)
     (def forged (copy-read genuine))
     (runtime.slot-set! forged 'birth (runtime.slot-ref genuine 'birth))
     (check-equal? (object-read-issued? forged) #f)
