@@ -160,4 +160,9 @@ jobs:
       - name: Run every compiled suite in one process and the complete paired study
         run: time -p just check-built 2 1 4
       - name: Check certified Graph work and preserved paired controls
-        run: just _test benchmarks/scc-test.ss benchmarks/owned-invalidation-test.ss
+        # Each independent benchmark Module owns its interned fixture names.
+        # Functional suites above still share one process; all benchmark
+        # workloads and heap limits stay unchanged.
+        run: |
+          just _test benchmarks/scc-test.ss
+          just _test benchmarks/owned-invalidation-test.ss

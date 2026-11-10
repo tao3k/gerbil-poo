@@ -210,7 +210,8 @@
   (stop-when-done-study cyclic keys size edges)
   (displayln "GRAPH-SHARED-CYCLIC-OK nodes=1000000 edges=15999865"))
 
-(def (compact-family-study size family)
+(def (compact-study)
+  (for* ((size '(100000 1000000)) (family '(chain ring band)))
     ;; A pure frozen provider models the existing streaming source interface.
     ;; It retains N names/positions, not an extra E-sized adjacency copy. Both
     ;; cold engines pay exactly the same N row generations inside their timer.
@@ -308,14 +309,6 @@
       (invalidation-study keys rows root size edges)
       (row-projection-study keys rows root expected size edges)
       (when (= size 100000) (late-duplicate-study keys rows root expected size edges))))
-;; A family owns its source/rows/CSR/workspaces in one procedure activation.
-;; Return before constructing the next family: stale caller-frame aliases must
-;; not retain old million-node outputs during the next cold allocation window.
-;; Preserve the SAME process, sizes, shapes, paired regimes and measured work;
-;; no forced collection, new runner or enlarged heap is involved.
-(def (compact-study)
-  (for* ((size '(100000 1000000)) (family '(chain ring band)))
-    (compact-family-study size family))
   (displayln "GRAPH-DISCOVERY-PAIRED-OK observations=48 sizes=100000,1000000")
   (displayln "GRAPH-REACHABILITY-SCALE-OK full=6 sparse=2")
   (displayln "GRAPH-COMPACT-OK nodes=100000,1000000 shapes=chain,ring,band"))

@@ -20,6 +20,23 @@
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
+;; Lifetime diagnostics are separate from natural timing. Keep only weak
+;; observations outside this activation; their values never retain the keys.
+(def (owned-lifetime-source objects owners)
+  (def names (for/collect (i (in-range 64))
+    (string->symbol (string-append "owned-lifetime-" (number->string i)))))
+  (def prior (graph.schedule-owned names
+    [(cons (cadr names) (code.need (car names) identity))]
+    [(cons (car names) (some (code.make-success 1)))]))
+  (def continuation (graph.schedule-invalidation prior))
+  (def ticket (graph.schedule-revision prior [(cons (car names) (code.pure 2))]))
+  (def next (call-with-values
+    (lambda () (graph.%apply-schedule-revision-with-invalidation prior ticket #t continuation))
+    (lambda (scheduled _affected _work) scheduled)))
+  (for (value [prior (graph.schedule-source prior) continuation ticket next])
+    (hash-put! objects value #t))
+  (for (key names) (hash-put! owners key #t))
+  (vector prior continuation ticket next))
 ;; The full oracle is deliberately separate from the update's operation counts.
 (def (valid-order? scheduled keys)
   (def indices (make-hash-table-eq))
@@ -38,6 +55,21 @@
 
 (def graph-order-repair-test
   (test-suite "local topological repair and independent value invalidation"
+    (test-case "released owned schedules and continuations leave no strong registry roots"
+      (def objects (make-hash-table test: eq? weak-keys: #t))
+      (def owners (make-hash-table test: eq? weak-keys: #t))
+      (def held (owned-lifetime-source objects owners))
+      (##gc)
+      (check-equal? (length (graph.schedule-order (vector-ref held 0))) 64)
+      (check-equal? (hash-length objects) 5)
+      (check-equal? (hash-length owners) 64)
+      (set! held #f)
+      (##gc) (##gc)
+      (check-equal? (hash-length objects) 0)
+      ;; Symbol interning is a VM lifetime policy; report it independently
+      ;; rather than treating retained names as leaked schedule indexes.
+      (displayln (list 'GRAPH-OWNED-LIFETIME 'objects (hash-length objects)
+        'interned-owners (hash-length owners))))
     (test-case "10000 owned rows reuse only new inverse buckets and restart when roots are removed"
       (def names (append '(root client outer other tail)
         (for/collect (i (in-range 9995))

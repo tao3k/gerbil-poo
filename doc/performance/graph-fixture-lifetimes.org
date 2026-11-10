@@ -1,62 +1,71 @@
-#+title: Graph fixture ownership and unique benchmark execution
+#+title: Graph benchmark Module ownership and retained symbols
 
-* Observed failure and scope
+* Failed evidence
 
-Scheme CI =42741234496= at POO =72128c46= failed with =Heap overflow= during
-the 1M band CSR encoding/query Case. It occurred before the owned-invalidation
-study. This is failed full-process evidence, not a failed SCC result or a
-reason to enlarge the heap.
+Scheme CI =42741234496= at =72128c46= and CI =42750957489= at =c463add8=
+both failed with =Heap overflow= during the 1M band CSR encoding/query Case.
+The latter already limited each family to a procedure activation. That
+adjustment did not fix CI and is withdrawn; the original compact-study loop
+and all of its measured work are restored.
 
-With the exact declared =-O2 -D___SINGLE_HOST_LIMIT=4096= fixture compilation,
-the existing =compact-benchmark-test= also passes by itself on macOS under
-the unchanged 2-GiB managed-heap limit. Platform and predecessor-state effects
-remain possible; the isolated result cannot qualify the complete Linux CI.
-
-* Changes
-
-Each compact-study family now runs in one ordinary procedure activation.
-Its source provider, stored rows, CSR aliases and discovery outputs leave
-that activation before the next family allocates its source. The caller
-retains no family result. This bounds fixture ownership; it does not change
-the Graph algorithm, start another process, add collection calls or move
-encoding out of a cold timing window.
-
-The complete =rank.main= study had two callers in the same benchmark module:
-one Case inside the SCC suite and the dedicated rank-revision suite. It now
-has one owner, =rank-revision-benchmark-test=. All sizes, regimes, pairing,
-order enumeration, local/full oracles and negative controls inside that
-function remain unchanged. The SCC suite still owns the original 320-sample
-matrix and full Graph capacity study; the independent rank suite still runs
-through the same existing complete benchmark entry. No workflow/job/runner
-was added or bypassed.
-
-* Local evidence
-
-The existing entry, after normal fixture preparation, is:
+The failed combined command was:
 
 #+begin_src sh
-just _test -r '^compact-benchmark-test$' benchmarks/scc-test.ss
+just _test benchmarks/scc-test.ss benchmarks/owned-invalidation-test.ss
 #+end_src
 
-Both observations run the same 100K/1M chain/ring/band workload, 48 paired
-discovery observations, full/sparse reachability, rank/workspace controls,
-owned query/invalidation/projection and the million-node cyclic-band control.
-The existing collected regimes are retained; natural regimes gain no forced
-collection. Both require normal MODULE-OK, HARNESS-OK and final OK.
+The official runner executes the owned-invalidation Module before the SCC
+Module. Its first study interns 1M =inverse-owner-*= symbols. The compact
+study then interns 1M different =graph-owner-*= symbols and stores almost 16M
+band edges. Do not attribute this peak to an SCC kernel alone.
+
+* Measured lifetime boundary
+
+An existing Graph test now weakly observes five real production objects:
+schedule, its source, continuation, ticket and revised schedule. They remain
+live under an explicit strong owner, then all disappear after owner release
+and diagnostic GC. The 64 dynamically interned fixture names remain live in
+the tested VM. This distinguishes name-pool lifetime from leaked Graph roots;
+it does not establish a byte-level attribution of the Linux failure.
+
+The full focused source file passes 19 Cases. A matched isolated fault retains
+the owner in a strong global: the lifetime control fails with five objects
+instead of zero, exit 42. Restoration passes the same complete file. These
+collection calls belong only to the untimed lifetime control, never a natural
+benchmark observation.
+
+Local isolated compact evidence remains:
 
 | Fixture | Complete command wall | Result | Maximum RSS |
 |---------+-----------------------+--------+-------------|
 | Original loop body | 140.59 s | Both Cases passed | Not measured |
-| Family-owned activation | 132.63 s | Both Cases passed | 3,533,193,216 bytes |
+| Rejected family wrapper | 132.63 s | Both Cases passed | 3,533,193,216 bytes |
 
-The resource observation uses system =time -l= around that same Just command.
-RSS is the reported command high-water mark, not retained CSR storage or the
-managed-heap limit. These single observations do not establish a speedup,
-memory reduction, cross-platform equivalence or complete CI recovery. Source
-expansion/AOT preparation is separately captured in build artifacts and is not
-silently included in a query number. The original full-CI failure and failed
-local attempts lacking compiled fixture imports remain retained locally.
+Those macOS passes do not qualify the failed combined Linux process. The
+family-wrapper timing does not establish a speedup or memory reduction.
 
-The next acceptance is the existing complete Graph command and exact-head
-Scheme CI. Keep the Core 10K/180-second/4-GiB and downstream gates separate;
-neither is qualified by this fixture correction.
+* Correction and unchanged coverage
+
+Each independent benchmark Module now runs through its own existing,
+heap-fenced Just/Gerbil invocation:
+
+#+begin_src sh
+just _test benchmarks/scc-test.ss
+just _test benchmarks/owned-invalidation-test.ss
+#+end_src
+
+The public =benchmark-scc= recipe and the existing CI step use those exact
+commands. The preceding complete functional single-process gate is unchanged.
+No runner, workflow job, fixture namespace, name interning policy, size,
+pairing, regime, timing window or heap limit changes. No GC call is added to
+a timing study. The SCC Module still runs its complete 320-sample matrix,
+100K/1M compact studies, all 48 discovery observations and every unique
+semantic/performance control. Owned-invalidation retains its same full input,
+tickets, execution order and count oracles.
+
+The identical =rank.main= study remains owned by its dedicated
+=rank-revision-benchmark-test=, rather than executing twice inside that Module.
+
+Exact-head complete Scheme CI must verify whether this Module lifetime
+correction resolves the Linux heap failure. It does not qualify Core
+10K/180-second/4-GiB, downstream acceptance or seconds-scale first Module EVAL.

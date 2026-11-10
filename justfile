@@ -270,7 +270,8 @@ benchmark-combination: (build-benchmarks "combination")
 
 # Native make builds the Graph projection; the ordinary TestSuite runs it.
 benchmark-scc: build-graph-study
-    just _test benchmarks/scc-test.ss benchmarks/owned-invalidation-test.ss
+    just _test benchmarks/scc-test.ss
+    just _test benchmarks/owned-invalidation-test.ss
 
 # These focused TestSuites load the explicitly built benchmark modules. The linked
 # startup probe is prepared separately for entries that actually execute it.
