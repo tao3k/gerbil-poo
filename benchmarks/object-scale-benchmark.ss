@@ -1,4 +1,4 @@
-(export main)
+(export main point-index-study)
 
 (import
   :gerbil/runtime/gambit
@@ -11,6 +11,52 @@
 (def cold-repetitions 500)
 ;; Complete persistent-clone operations per observed sample.
 (def clone-repetitions 5000)
+
+;; Isolate the source index primitive before receiver binding. Setup is charged
+;; once; neither arm constructs/evaluates a receiver. Both consume the SAME
+;; immutable source, preserve duplicate order and allocate the same result.
+;; These measurements cannot establish first Module EVAL or source certification.
+(def (point-index-study)
+  (for (size '(10000 100000))
+    (defvalues (source setup)
+      (sample.measure (lambda ()
+        (prototype-map
+          (append (list (cons 'selected 1))
+            (for/collect (i (in-range size)) (cons (make-symbol "point-spare-" i) i))
+            (list (cons 'selected 2) (cons 'selected 3))) policy: 'tree)) 1))
+    (def (reference)
+      (def result [])
+      (prototype-map-for-each source (lambda (key payload)
+        (when (eq? key 'selected) (set! result (cons payload result)))))
+      result)
+    (def (indexed) (prototype-map-fold-key source 'selected cons []))
+    (def (checked action)
+      (unless (equal? (action) '(3 2 1)) (error "point index duplicate order" size)) #t)
+    (displayln "POO_POINT_INDEX_SETUP="
+      [unrelated: size contributions: (+ size 3) setup: (sample.qualified-metrics setup)])
+    ;; The first sample is one request, then a fixed batch of 64. Preserve all
+    ;; AB/BA observations, natural GC and exact denominator in the receipt.
+    (for (repetitions '(1 64))
+      (def observations [])
+      (for (side '(reference indexed indexed reference))
+        (def action (if (eq? side 'reference) reference indexed))
+        (defvalues (_result timing) (sample.measure (cut checked action) repetitions))
+        (set! observations (cons [side: side metrics: (sample.qualified-metrics timing)
+          raw-allocation-delta: (vector-ref timing 4)] observations)))
+      (displayln "POO_POINT_INDEX_PAIR="
+        [unrelated: size repetitions: repetitions order: '(reference indexed indexed reference)
+         regime: 'natural observations: (reverse observations)]))
+    ;; Work diagnostics follow ALL timing: they must not prewarm either arm's
+    ;; first selected query. Every indexed ordinal still pays an RBTree lookup.
+    (def enumerated 0) (def selected 0)
+    (prototype-map-for-each source (lambda (_key _payload) (set! enumerated (1+ enumerated))))
+    (prototype-map-fold-key source 'selected
+      (lambda (_payload state) (set! selected (1+ selected)) state) #f)
+    (unless (and (= enumerated (+ size 3)) (= selected 3))
+      (error "point index work accounting" size enumerated selected))
+    (displayln "POO_POINT_INDEX_WORK="
+      [unrelated: size enumerated: enumerated selected-contributions: selected]))
+  #t)
 
 ;; Predeclare constant SlotSpecs once, matching the public prototype recipe API.
 ;; Both policies time factory construction from these identical existing recipes.

@@ -81,3 +81,67 @@ This candidate reduces ordinary method-preparation work. It establishes no
 Yuanxu first-business improvement, 10K Module/180-second/4-GiB acceptance,
 downstream build qualification or consumer pin promotion. Shared Profile
 proof production and filesystem source certification remain separate work.
+
+* Ordered contribution index prerequisite
+
+Point preparation needs every contribution at the selected name, in source
+order. =prototype-map-ref= returns the first entry and cannot implement that
+fold. The new =prototype-map-fold-key= borrows the existing private name and
+ordinal indexes. Compact maps scan at most eight entries; tree maps perform
+one name lookup and one ordinal lookup per matching contribution. The first
+ordinal precedes the reversed duplicate tail. There is no second index or
+receiver cache, and payload references remain opaque.
+
+LeanPoo =Object.OrderedContributions= proves the selected bucket and method
+fold equal the chronological source fold, with concrete sibling insertion
+and native ordinal-spine laws. This is an index law for supplied rows, not
+a source issuer or a machine-level Scheme refinement proof. Defaults,
+admission failures, raw SlotSpec exposure and effects retain their own checks.
+
+Native representation qualification passed 86 Cases. Removing only the
+duplicate-tail reversal failed both chronology and callback-refusal controls
+with exit 42. Restoration passed the same 85 Cases. The controls compare
+complete traversal against selected folds across both policies, small/large
+maps, duplicate names, symbol identity, false/Function payloads, replacement,
+removal/reinsertion, retained snapshots and actual inherited method results.
+An explicit raw malformed-sibling control also refuses a normal selected
+read after successful keyed projection; the primitive cannot authorize
+bypassing source preparation.
+
+The existing heap-fenced benchmark entry selects the focused study:
+
+#+begin_src sh
+just _test -r '^point-index-test$' benchmarks/object-scale-test.ss
+#+end_src
+
+It charges construction separately, then compares the SAME immutable source
+in reference/indexed/indexed/reference order. Both arms check the same three
+contributions. The single-request cohort precedes fixed 64-request batches;
+work diagnostics run only after all timings, with natural GC and no prewarming.
+
+| Unrelated entries | Full-source construction CPU | Reference first query CPU | Indexed first query CPU | Traversal callbacks / selected contributions |
+|-------------------+------------------------------+---------------------------+-------------------------+----------------------------------------------|
+| 10,000 | 23.482 ms | 0.917 ms | 5 us | 10,003 / 3 |
+| 100,000 | 466.459 ms, including 220.126 ms GC | 1.947 ms | 7 us | 100,003 / 3 |
+
+At 100K, the two indexed 64-request batches took 72/57 us CPU total; these
+are batch totals, not per-request tail measurements. The single observations
+above are not a latency distribution. Construction allocation is unqualified
+when GC occurs; signed raw counters remain in local artifacts. The initial
+instrument-before-timing experiment is retained but excluded because it warmed
+the selected query. Corrected command wall time was 4.49 seconds including
+source test import, setup, every observation and natural exit.
+
+This verifies an index primitive, not complete first business demand. Current
+method preparation still captures all retained chains, and instance creation
+still builds the full value directory. The prototype-map constructor still
+builds two persistent RBTree indexes. That full-source cost is explicit above
+and remains a separate optimization target; do not replace it with the tiny
+prepared-query time or infer a Yuanxu 10K acceptance pass.
+
+A separate resource-qualified repeat passed the same study with maximum RSS
+417,398,784 bytes for the complete Just command (source test import, source
+construction, every sample and natural exit). Its 10K/100K setup CPU was
+25.333/506.027 ms; the 100K setup included 237.358 ms GC. This repeat is
+retained alongside the first corrected cohort, not substituted for it.
+Maximum RSS is a command-level high-water mark, not retained index size.

@@ -51,6 +51,65 @@
 ;; independent cache model that the object engine does not actually use.
 ;; Persistent map traversal, updates, and contribution ownership.
 (def (register-prototype-map-cases)
+  (test-case "indexed key fold preserves duplicate chronology and sparse persistent revisions"
+    (for* ((policy '(tree compact)) (width '(0 5 8 9 31)))
+      (let* ((name (string->uninterned-symbol "same"))
+             (other (string->uninterned-symbol "same")) (f (lambda () #t))
+             (root (prototype-map
+               (append (list (cons name #f) (cons other 'other) (cons name f))
+                 (for/collect (i (in-range width)) (cons (make-symbol "spare-" i) i))
+                 (list (cons name 'last))) policy: policy))
+             (changed (prototype-map-put root name 'replacement))
+             (removed (prototype-map-remove changed name))
+             (reinserted (prototype-map-put removed name 'reinserted)))
+        (for (source [root changed removed reinserted])
+          (for (query [name other 'missing])
+            (def expected [])
+            (prototype-map-for-each source (lambda (key value)
+              (when (eq? key query) (set! expected (cons value expected)))))
+            (check-equal? (prototype-map-fold-key source query cons []) expected)))
+        (check-equal? (prototype-map-fold-key root name cons []) (list 'last f #f))
+        (check-equal? (prototype-map-fold-key changed name cons []) (list 'last f 'replacement))
+        (let* ((source (make-object slots: (prototype-map
+                 (append (list
+                    (cons name ($constant-slot-spec 1))
+                    (cons name ($computed-slot-spec (lambda (_ next) (+ (next) 2)))))
+                   (for/collect (i (in-range width))
+                     (cons (make-symbol "unused-" i) ($thunk-slot-spec (lambda () (error "unused body")))))
+                   (list (cons name ($computed-slot-spec (lambda (_ next) (* (next) 3)))))) policy: policy)))
+               (selected (make-object slots:
+                 (reverse (prototype-map-fold-key (object-%slots source) name
+                   (lambda (spec rows) (cons (cons name spec) rows)) [])))))
+          (check-equal? (.ref source name) 9)
+          (check-equal? (.ref selected name) 9)))))
+  (test-case "indexed key fold retains callback order false refusal and snapshot custody"
+    (for (policy '(tree compact))
+      (let* ((source (prototype-map '((a . 1) (b . 90) (a . 2) (a . 3)) policy: policy))
+             (next source) (seen []))
+        (check-equal? (with-catch (lambda (cause) (list 'caught cause))
+          (lambda () (prototype-map-fold-key source 'a
+            (lambda (value result)
+              (set! seen (cons value seen))
+              (set! next (prototype-map-remove next 'a))
+              (when (= value 2) (raise #f))
+              (+ result value)) 0))) '(caught #f))
+        (check-equal? (reverse seen) '(1 2))
+        (check-equal? (prototype-map-fold-key source 'a + 0) 6)
+        (check-equal? (prototype-map-fold-key next 'a + 17) 17)))
+    (check-exception (prototype-map-fold-key (prototype-map []) 'a #f 0) contract-violation-error?)
+    (check-exception (prototype-map-fold-key (prototype-map []) #f + 0) contract-violation-error?)
+    (let (seed (vector 'unchanged))
+      (check-eq? (prototype-map-fold-key (prototype-map []) 'missing
+        (lambda _ (error "absent callback")) seed) seed)))
+  (test-case "keyed projection does not authorize skipping unrelated source refusal"
+    (def source (make-object slots:
+      (list (cons 'selected ($constant-slot-spec 9)) (cons 'invalid ($thunk-slot-spec 7)))))
+    (check-equal? (length (prototype-map-fold-key (object-%slots source) 'selected cons [])) 1)
+    ;; A raw caller can supply a malformed sibling. Ordinary preparation must
+    ;; refuse it before any selected value; only a real producer issuer may
+    ;; establish eligibility for the future point path.
+    (check-exception (.ref source 'selected) (message? "compute-slot must return a thunk"))
+    (check (object-%instance source) => #f))
   (test-case "private traversal preserves ordered duplicate payloads through sparse persistent edits"
     (for* ((policy '(tree compact)) (width '(0 9)))
       (let* ((f (lambda (x) x)) (a (string->uninterned-symbol "same"))

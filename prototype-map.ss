@@ -1,6 +1,6 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
-        prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
+        prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-fold-key prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in ./support/base %compare-symbol-identity)
         (only-in :std/vector/vector vector-filter vector-fold-right/index)
@@ -158,6 +158,27 @@
     (let (positions (rbtree-ref (specifications-names source) name #f))
       (if positions
         (cdr (rbtree-ref entries (if (pair? positions) (car positions) positions))) default))))
+;; Fold ALL contributions for one name in chronological order. The private
+;; name/ordinal index is authoritative; no side index, payload snapshot or
+;; receiver binding is constructed. Large maps query only matching ordinals.
+;; The duplicate spine retains the first ordinal then later ones newest-first.
+;; Reverse that tail before any consumer call; never collapse it to first/last.
+;; Payloads stay opaque and are delivered at their original callback positions.
+(def (prototype-map-fold-key source name consume initial)
+  (using ((name :~ symbol?) (consume :~ procedure?))
+    (def entries (specifications-entries source))
+    (if (vector? entries)
+      (for/fold (result initial) (entry (in-vector entries))
+        (if (eq? (car entry) name) (consume (cdr entry) result) result))
+      (let (positions (rbtree-ref (specifications-names source) name #f))
+        (cond
+          ((not positions) initial)
+          ((not (pair? positions)) (consume (cdr (rbtree-ref entries positions)) initial))
+          (else
+            (let (later (reverse (cdr positions)))
+              (for/fold (result (consume (cdr (rbtree-ref entries (car positions))) initial))
+                        (at later)
+                (consume (cdr (rbtree-ref entries at)) result)))))))))
 ;; Copy a bounded compact vector or standard balanced-tree paths. Promotion keeps
 ;; every contribution in order; all later same-name methods retain their identity.
 (def (prototype-map-put source name value)
