@@ -3,7 +3,8 @@
         schedule? schedule-source schedule-order schedule-reads schedule-work schedule-supports?
         schedule-owned schedule-owned? schedule-revision apply-schedule-revision
         %reschedule-owned-support %schedule-support-revision %schedule-revision-retirements %schedule-same-program?
-        affected-owners schedule-invalidation schedule-invalidate!
+        affected-owners schedule-invalidation schedule-invalidate! %apply-schedule-revision-with-invalidation
+        %schedule-replacement-invalidate!
         %index %index-project %index-ref %index-fork %index-write!
         %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket
         %capture-component-source %component-source-view %edit-component-source
@@ -523,8 +524,13 @@
     (+ (hash-length checked-programs) (hash-length checked-bases)) footprints
     (or added-keys []) (or retired-keys []) retirement-readers))
 (def (apply-schedule-revision prior ticket affected?: (affected? #f))
+  (%apply-schedule-revision-with-invalidation prior ticket affected? #f))
+;; Only the actual revision ticket supplies roots. Reusing the old inverse is
+;; exact when support identities are stable and every edited row is a root.
+(def (%apply-schedule-revision-with-invalidation prior ticket affected? invalidation)
   (unless (and (%revision? ticket) (eq? prior (%revision-parent ticket)))
     (raise (make-failure 'stale-revision #f)))
+  (when invalidation (require-schedule-invalidation! prior invalidation))
   (def source (%revision-source ticket))
   (def spec (owned-declaration source))
   (def changed (%revision-changes ticket))
@@ -538,11 +544,15 @@
       (repair-order prior spec changed footprints checked source
         (+ checked (* 2 (length retired))) added retired (%revision-retirement-readers ticket))))
   (if affected?
-    (let* ((counts (vector 0 0))
-           (ranks (%schedule-ranks result))
-           (reached (affected-owners (%schedule-reverse result) (%revision-roots ticket) counts))
-           (ordered (list-sort (lambda (a b) (< (index-ref ranks a) (index-ref ranks b)))
-                      (hash-keys reached))))
+    (let-values (((reached counts)
+                  (if (and invalidation (null? added) (null? retired))
+                    (revision-invalidated-owners prior invalidation (%revision-roots ticket))
+                    (let (counts (vector 0 0))
+                      (values (affected-owners (%schedule-reverse result) (%revision-roots ticket) counts)
+                              counts)))))
+      (def ranks (%schedule-ranks result))
+      (def ordered (list-sort (lambda (a b) (< (index-ref ranks a) (index-ref ranks b)))
+                     (hash-keys reached)))
       (values result ordered counts))
     result))
 (def (retain-schedule prior spec checked footprints (owned #f) (source-writes 0))
@@ -831,22 +841,66 @@
 
 ;; One work state belongs to one admitted schedule. Its mutex protects only
 ;; frame updates and capture of the reached set, never a producer callback.
-(defstruct %invalidation (schedule work lock) final: #t)
+(defstruct %invalidation (schedule work lock roots) final: #t)
 (def (schedule-invalidation scheduled)
   (def readers (%schedule-reverse scheduled))
   (make-%invalidation scheduled
     (start-affected-work (if (schedule-index-changes readers) readers (schedule-index-base readers)))
-    (make-mutex 'schedule-invalidation)))
-(def (schedule-invalidate! scheduled invalidation roots)
+    (make-mutex 'schedule-invalidation) (make-hash-table-symbolic)))
+(def (require-schedule-invalidation! scheduled invalidation)
   (unless (and (%invalidation? invalidation)
                (eq? (%invalidation-schedule invalidation) scheduled))
-    (error "invalidation belongs to another schedule"))
+    (error "invalidation belongs to another schedule")))
+(def (schedule-invalidate! scheduled invalidation roots)
+  (require-schedule-invalidation! scheduled invalidation)
   (unless (and (list? roots) (andmap symbol? roots))
     (error "invalid schedule invalidation roots"))
   (with-lock (%invalidation-lock invalidation) (lambda ()
     (def state (%invalidation-work invalidation))
     (def reached (affected-work-marked state))
-    (advance-affected-work! state (filter (lambda (root) (not (hash-key? reached root))) roots))
+    (def supplied (%invalidation-roots invalidation))
+    (advance-affected-work! state
+      (filter (lambda (root)
+                (hash-put! supplied root #t)
+                (not (hash-key? reached root))) roots))
     ;; Copy the reached set only. A subsequent restage can extend its work
     ;; without racing with or changing the current candidate's lookup.
     (let (captured (hash-copy reached)) (cut hash-key? captured <>)))))
+
+;; A restage is a complete replacement proposal, not necessarily a root union.
+;; Continue only when all previous roots remain present. Dropped roots restart
+;; on the SAME old inverse; previously returned membership snapshots stay fixed.
+(def (revision-invalidated-owners scheduled invalidation roots)
+  (require-schedule-invalidation! scheduled invalidation)
+  (with-lock (%invalidation-lock invalidation) (lambda ()
+    (def supplied (%invalidation-roots invalidation))
+    (def next (make-hash-table-symbolic))
+    (def retained 0)
+    (for (root roots)
+      (unless (hash-key? next root)
+        (hash-put! next root #t)
+        (when (hash-key? supplied root) (set! retained (1+ retained)))))
+    (let* ((previous (%invalidation-work invalidation))
+           (receipt (or (affected-work-receipt previous) (vector 0 0)))
+           (buckets (vector-ref receipt 0))
+           (edges (vector-ref receipt 1))
+           (state
+            (if (= retained (hash-length supplied)) previous
+              (let (readers (%schedule-reverse scheduled))
+                (start-affected-work
+                  (if (schedule-index-changes readers) readers (schedule-index-base readers)) receipt))))
+           (reached (affected-work-marked state)))
+      (affected-work-receipt-set! state receipt)
+      (%invalidation-work-set! invalidation state)
+      (%invalidation-roots-set! invalidation next)
+      (advance-affected-work! state (filter (lambda (root) (not (hash-key? reached root))) roots))
+      (values (hash-copy reached)
+        (vector (- (vector-ref receipt 0) buckets) (- (vector-ref receipt 1) edges)))))))
+
+;; A complete replacement's predicate must not contain roots of a revoked
+;; proposal. Keep the cumulative public extension operation separate.
+(def (%schedule-replacement-invalidate! scheduled invalidation roots)
+  (unless (and (list? roots) (andmap symbol? roots))
+    (error "invalid schedule invalidation roots"))
+  (defvalues (reached _) (revision-invalidated-owners scheduled invalidation roots))
+  (cut hash-key? reached <>))

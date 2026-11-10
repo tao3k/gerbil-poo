@@ -60,7 +60,9 @@
     ("components"
     (gxc: "component-membership-test" (extra-inputs: ("component-membership/cases.scm" "component-membership/component-migration.scm" "component-membership/component-requests.scm" "component-membership/component-rounds.scm"))))
     ("construction"
-    "graph-order-repair-test"
+    ;; The owned inverse study imports this kernel through the standard root.
+    (gxc: "graph-order-repair-test" (extra-inputs: ())
+      "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
     (gxc: "construction-cache-test" (extra-inputs: ("construction-cache/cases.scm" "construction-cache/construction-workflow.scm" "construction-cache/focused-closure.scm"))))
     ("contracts"
     (gxc: "object-contract-test" (extra-inputs: ("object-contract/class-validation.scm" "object-contract/computed-validation.scm" "object-contract/container-validation.scm" "object-contract/contract-checks.scm" "object-contract/contract-family.scm" "object-contract/contract-publication.scm" "object-contract/evidence-binding.scm" "object-contract/object-contract-flow.scm" "object-contract/cases.scm")))

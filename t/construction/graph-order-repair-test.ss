@@ -1,5 +1,5 @@
 ;;; Sparse rank repair in the existing Graph and ConstructionCache paths.
-(export graph-order-repair-test main owned-delta-study owned-cache-study reverse-bucket-study
+(export graph-order-repair-test main owned-delta-study owned-cache-study owned-invalidation-study reverse-bucket-study
         local-components-test local-components-study local-component-pressure-study)
 (import :std/test :std/iter :clan/poo/object :clan/poo/support/option
         (only-in :clan/poo/benchmarks/closure-measure measure measure-pair qualified-metrics)
@@ -38,6 +38,58 @@
 
 (def graph-order-repair-test
   (test-suite "local topological repair and independent value invalidation"
+    (test-case "10000 owned rows reuse only new inverse buckets and restart when roots are removed"
+      (def names (append '(root client outer other tail)
+        (for/collect (i (in-range 9995))
+          (string->symbol (string-append "untouched-inverse-" (number->string i))))))
+      (def prior (graph.schedule-owned names
+        [(cons 'client (code.need 'root identity)) (cons 'outer (code.need 'client identity))
+         (cons 'tail (code.need 'other identity))]
+        [(cons 'root (some (code.make-success 1))) (cons 'other (some (code.make-success 5)))]))
+      (def work (graph.schedule-invalidation prior))
+      (def (apply-edit codes)
+        (graph.%apply-schedule-revision-with-invalidation prior
+          (graph.schedule-revision prior codes) #t work))
+      (def root-code (cons 'root (code.pure 2)))
+      (def other-code (cons 'other (code.pure 7)))
+      (defvalues (first first-owners first-counts) (apply-edit [root-code]))
+      (check-equal? first-owners '(root client outer))
+      (check-equal? first-counts '#(3 2))
+      (def first-view (graph.schedule-invalidate! prior work '(root)))
+      (defvalues (both both-owners both-counts) (apply-edit [root-code other-code]))
+      (check-equal? both-owners '(root client outer other tail))
+      (check-equal? both-counts '#(2 1))
+      (check (first-view 'tail) => #f)
+      (defvalues (_repeat repeat-owners repeat-counts) (apply-edit [root-code other-code]))
+      (check-equal? repeat-owners both-owners)
+      (check-equal? repeat-counts '#(0 0))
+      (defvalues (_only only-owners only-counts) (apply-edit [other-code]))
+      (check-equal? only-owners '(other tail))
+      (check-equal? only-counts '#(2 1))
+      (defvalues (_empty empty-owners empty-counts) (apply-edit []))
+      (check-equal? empty-owners [])
+      (check-equal? empty-counts '#(0 0))
+      ;; The changed consumer is a root even when its new provider was clean.
+      (defvalues (_row row-owners row-counts)
+        (apply-edit [(cons 'client (code.need 'other identity))]))
+      (check-equal? row-owners '(client outer))
+      (check-equal? row-counts '#(2 1))
+      (check-exception
+        (graph.%apply-schedule-revision-with-invalidation first
+          (graph.schedule-revision first [other-code]) #t work) error-object?)
+      (check-equal? ((graph.schedule-reads prior) 'client) '(root))
+      ;; Materialization consumes the same native ticket/continuation path.
+      (def old (cache.start-owned prior))
+      (def next (cache.%revise-with-builder old [root-code other-code] (.cc cache.Builder.)
+                  invalidation: work))
+      (check-equal? (value next 'outer) 2)
+      (check-equal? (value next 'tail) 7)
+      (check-equal? (value old 'outer) 1)
+      (check-equal? (value old 'tail) 5)
+      (check-equal? (cache.cache-evaluated next) both-owners)
+      (def cold (cache.start (cache.cache-source next)))
+      (for (key '(root client outer other tail))
+        (check-equal? (value next key) (value cold key))))
     (test-case "owner patches distinguish hash collisions and same-name symbols"
       (def left (string->uninterned-symbol "shared-owner" 17))
       (def right (string->uninterned-symbol "shared-owner" 17))
@@ -570,6 +622,49 @@
 
 
 ;; The explicit value projection and the full cold build are separate.
+(def (owned-invalidation-study)
+  ;; Prepared structural revision, not Module EVAL. Charge source capture once
+  ;; and ticket issuance separately; both arms apply the SAME actual ticket.
+  (for (size '(100000 1000000))
+    (def names (list->vector (for/collect (i (in-range size))
+      (string->symbol (string-append "inverse-owner-" (number->string i))))))
+    (def (key i) (vector-ref names i))
+    (def width 1000)
+    (def expected (for/collect (i (in-range width)) (key i)))
+    (def codes (for/collect (i (in-range 1 width))
+      (cons (key i) (code.need (key (1- i)) identity))))
+    (defvalues (prior setup)
+      (measure (lambda () (graph.schedule-owned (vector->list names) codes
+        [(cons (key 0) (some (code.make-success 1)))])) 1))
+    (displayln (list 'GRAPH-INVERSE-SETUP size (qualified-metrics setup)
+      'raw-allocation (vector-ref setup 4)))
+    (def continuation (graph.schedule-invalidation prior))
+    (for (round (in-range 4))
+      (defvalues (ticket issued)
+        (measure (lambda ()
+          (graph.schedule-revision prior [(cons (key 0) (code.pure (+ round 2)))])) 1))
+      (def (sample side)
+        (defvalues (result clocks)
+          (measure (lambda ()
+            (call-with-values
+              (lambda ()
+                (if (eq? side 'reference)
+                  (graph.apply-schedule-revision prior ticket affected?: #t)
+                  (graph.%apply-schedule-revision-with-invalidation prior ticket #t continuation)))
+              list)) 1))
+        (unless (equal? (cadr result) expected) (error "inverse closure/order mismatch" size round side))
+        (unless (equal? (caddr result)
+                  (if (or (eq? side 'reference) (zero? round)) (vector width (1- width)) '#(0 0)))
+          (error "inverse bucket replay mismatch" size round side (caddr result)))
+        (unless (zero? (.get (graph.schedule-work (car result)) order-materialized))
+          (error "inverse revision enumerated full order" size round side))
+        (list (qualified-metrics clocks) (caddr result) 'raw-allocation (vector-ref clocks 4)))
+      (measure-pair (if (even? round) '(reference resumed) '(resumed reference)) sample
+        (lambda (rows)
+          (displayln (list 'GRAPH-INVERSE-PAIR size round
+            'ticket (qualified-metrics issued) 'rows rows))
+          (force-output))))))
+
 (def (owned-cache-study)
   (for (size '(100000 1000000))
     (def names (for/collect (i (in-range size))

@@ -1011,9 +1011,20 @@ A staged component request borrows the inverse of the exact old condensed
 schedule. The checked fragment editor supplies roots from the same owned
 code and base edits used for reconfiguration, together with removed owners.
 The old partition maps these names to representatives. An explicit restage
-keeps this inverse work in the same lineage and extends it only with roots
-that have not been reached. The reached-set predicate captured by one
-candidate is independent of later extensions.
+replaces the complete proposal. When every earlier root is retained, the
+same lineage extends its inverse work only with roots not already reached.
+When a root is removed, restart from the replacement's exact roots against
+the same old reverse index; the cumulative old set would retain consumers
+of the revoked proposal. The reached-set predicate captured by one candidate
+is independent of later extensions.
+
+At =6446abe= this handoff covered the non-owned branch but the main owned
+fixed-quotient branch still rewalked the successor inverse. The owned branch
+now passes the coordinator continuation through the existing construction
+cache revision. Its private schedule ticket supplies edited consumer/base
+roots and authenticates the old schedule. Changed support or SCC identities
+keep their original fallback. No caller may provide a clean-owner verdict.
+[[https://github.com/tao3k/lean-poo/commit/68cbbadf6f412be1f26a5b9e37d896af6aa1fc63][Lean old/new closure and replacement-root laws]]
 
 The coordinator checks head and ticket before granting work and at commit.
 Callbacks and graph traversal run outside the coordinator lock. A refusal
@@ -1038,6 +1049,16 @@ native Graph, component, recursive validation and DAG repair suites passed.
 The source freeze, new SCC certificate and schedule materialization remain
 whole-graph work on this path. The measured inverse closure is the local
 part of this revision.
+
+The additional owned 10K fixture extends disjoint roots, repeats an identical
+proposal with zero new bucket/edge work, removes a root, removes every root,
+and checks edited-consumer roots and cold materialization equivalence. The
+publication fixture restages during admission, refuses stale results, retains
+failed state and retires work after commit. Disconnecting the owned handoff
+or restoring cumulative invalidation for a replacement each fails its matched
+assertion with test exit 42. These are deterministic coordinator interleavings
+plus the existing concurrent approval/read controls, not certification of
+arbitrary parallel mutable author callbacks.
 
 ** Feedback source guards on owned partitions
 

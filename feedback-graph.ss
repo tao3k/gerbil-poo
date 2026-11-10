@@ -174,7 +174,7 @@
 (def (feedback-graph-action source build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
   (graph-action source build admit guards builder #f))
 
-(def (owned-component-revision old codes bases build admit builder register)
+(def (owned-component-revision old codes bases build admit builder register invalidation)
   (def changed (graph.%edit-component-source (graph-cache-owned old) codes bases register))
   (def next (vector-ref changed 0))
   (graph.%with-component-source next
@@ -200,7 +200,8 @@
                          added: (scc.quotient-support-added support)
                          retired: (scc.quotient-support-retired support)
                          before?: (scc.%partition-key-before partition)))
-              (else (cache.%revise-with-builder prior edited builder))))
+              (else (cache.%revise-with-builder prior edited builder
+                      invalidation: (and invalidation (invalidation))))))
       (def guard
         (if complete? (start-guard candidate complete-keys partition register)
           (%revise-feedback-guard (graph-cache-guard old) candidate
@@ -223,7 +224,7 @@
         (defvalues (added removed codes bases) (component-edits fragments))
         (cond
          ((and previous (null? added) (null? removed) (eq? build (graph-cache-build old)))
-          (owned-component-revision old codes bases build admit builder register))
+          (owned-component-revision old codes bases build admit builder register invalidation))
          (else
           (def old-source (if previous (graph.%component-source-view previous raw?: #t)
                             (graph-cache-source old)))
@@ -235,7 +236,7 @@
                                   (for (node edited)
                                     (let (members (scc.partition-group-of partition node))
                                       (when members (add (car members))))))))
-                   (cache.cache-invalidate! (graph-cache-values old) (invalidation) groups))))
+                   (cache.%cache-replacement-invalidate! (graph-cache-values old) (invalidation) groups))))
           ((graph-action source build admit guards builder affected? owned?: (and previous #t)
              register-guards: register) old))))
       (if previous (graph.%with-component-source previous prepare) (prepare))))))

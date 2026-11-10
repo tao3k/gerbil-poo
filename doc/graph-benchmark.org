@@ -316,6 +316,69 @@ The original complete baseline suite observed a 35.983 ms CPU sample
 after its earlier workloads. The natural standalone sample and forced-GC
 experiment describe different runtime serial-table states.
 
+* Owned inverse continuation: isolated update pairs
+
+The additional =benchmarks/owned-invalidation-test.ss= uses the existing
+official Just/Gerbil test lifecycle and the Graph root's production =-O2=
+kernel. It is included by =just benchmark-scc=; a focused run uses
+=just build-graph-study= followed by
+=just test-file benchmarks/owned-invalidation-test.ss=. No new runner or
+resource limit is introduced.
+
+The 2026-11-10 local cohort used Apple M2 Pro, Gerbil =2591dcd= and Gambit
+=dcd677c= with the candidate overlay of POO =6446abe='s Graph path. This is
+separate from the older cohorts above. A 100K/1M old schedule contains one
+1,000-owner dependency chain and unrelated nodes. Four private revision
+tickets edit the same first owner. Each ticket is applied through both the
+ordinary successor-inverse and old-continuation paths, alternating AB/BA in
+one process. Both arms must return the same ordered 1,000-owner closure.
+The reference is the no-continuation path in the same candidate runtime,
+not the complete older public runtime.
+
+| Work after the first edit | No continuation | Old continuation |
+|---------------------------+-----------------+------------------|
+| Expanded inverse buckets | 1,000 | 0 |
+| Visited inverse edges | 999 | 0 |
+| Returned owners | 1,000 | 1,000 |
+| Enumerated complete schedule order | 0 | 0 |
+| Qualified allocated bytes in the reported warm windows | 236,048 | 152,880 |
+
+Across all three local invocations, warm 100K updates took about
+0.903–1.011 ms reference CPU versus 0.792–0.876 ms continued CPU; the 1M
+windows were 0.902–0.940 versus 0.790–0.832 ms. This includes native timing
+from the invocation whose outer resource wrapper failed, as disclosed below.
+The resource-qualified invocation's warm windows were:
+
+| Nodes | Path | CPU ms | Wall ms |
+|-------+------+--------+---------|
+| 100K | Reference | 0.913–0.932 | 0.914–0.934 |
+| 100K | Continued | 0.792–0.808 | 0.793–0.808 |
+| 1M | Reference | 0.915–0.940 | 0.918–0.944 |
+| 1M | Continued | 0.798–0.814 | 0.798–0.817 |
+
+Ticket issuance is a separate window (about 0.058–0.206 ms CPU in that
+invocation). All reported update windows had zero GC. The continued path still copies and
+orders the reached result; removing bucket expansion does not remove that
+output work. The first continued update allocates 268,384 bytes, more than
+the reference, so this is not a cold-allocation improvement.
+
+Whole-schedule capture remains expensive: the resource-qualified run used
+about 1.497 s CPU / 1.541 s wall for 1M nodes, including 0.151 s GC CPU
+and two collections. Its negative raw allocation delta is retained as
+unqualified, not reported as saved memory. That complete invocation exited
+normally in 7.37 s wall with =time -l= maximum resident size 1,107,951,616
+bytes. This is the command's resource high-water report, not a per-arm
+memory measurement. Another sandboxed invocation passed its native tests
+but the outer =time -l= exited 1 because =kern.clockrate= was denied; its
+resource report is incomplete and is not a complete invocation pass.
+
+The focused local suites passed 18 order-repair Cases, 49 component Cases,
+10 feedback Cases and 19 Graph-property Cases. The two isolated faults above
+failed with exit 42; restoration passed the component suite again. These
+results qualify the continuation handoff locally. They establish no improved
+Yuanxu first business request, full 10K Module admission, downstream build
+acceptance or consumer pin promotion.
+
 * Acceptance
 
 The complete =just benchmark-scc= TestSuite exited normally after

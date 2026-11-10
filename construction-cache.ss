@@ -2,7 +2,7 @@
 (export Builder. start refresh cache? cache-source cache-ref cache-evaluated cache-reused
         start-owned revision refresh-revision cache-work
         %revise-with-builder %rebuild-owned-support
-        cache-invalidation cache-invalidate!
+        cache-invalidation cache-invalidate! %cache-replacement-invalidate!
         failure? failure-key failure-cause)
 (import (only-in :std/hash/misc hash-ref/default)
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!)
@@ -118,7 +118,8 @@
   (or (cache-guards old) (error "owned construction cache required")))
 ;; Feedback publication supplies a fresh Builder per request. It runs only
 ;; the affected values, preserving the established reuse contract.
-(def (%revise-with-builder old codes builder added: (added []) retired: (retired []) before?: (before? #f))
+(def (%revise-with-builder old codes builder added: (added []) retired: (retired []) before?: (before? #f)
+                           invalidation: (invalidation #f))
   (def guards (owned-guards old))
   (with-cache-guards guards
     (lambda ()
@@ -127,7 +128,7 @@
         (if before?
           (graph.%schedule-support-revision (cache-scheduled old) codes added retired before?)
           (graph.schedule-revision (cache-scheduled old) codes)))))
-      (refresh-with-run old ticket guards owned-run))))
+      (refresh-with-run old ticket guards owned-run invalidation))))
 (def (%rebuild-owned-support old keys codes builder)
   (def guards (owned-guards old))
   (with-cache-guards guards
@@ -143,9 +144,10 @@
   (def guards (owned-guards old))
   (def owned-run (cache-owned-run old))
   (with-cache-guards guards (lambda () (refresh-with-run old ticket guards owned-run))))
-(def (refresh-with-run old ticket guards owned-run)
+(def (refresh-with-run old ticket guards owned-run (invalidation #f))
   (defvalues (scheduled affected inverse-work)
-    (graph.apply-schedule-revision (cache-scheduled old) ticket affected?: #t))
+    (graph.%apply-schedule-revision-with-invalidation
+      (cache-scheduled old) ticket #t invalidation))
   (def retired (graph.%schedule-revision-retirements ticket))
   (def spec (graph.schedule-source scheduled))
   (def prior-patch (cache-patch old))
@@ -178,3 +180,5 @@
 (def (cache-invalidation current) (graph.schedule-invalidation (cache-scheduled current)))
 (def (cache-invalidate! current work roots)
   (graph.schedule-invalidate! (cache-scheduled current) work roots))
+(def (%cache-replacement-invalidate! current work roots)
+  (graph.%schedule-replacement-invalidate! (cache-scheduled current) work roots))
