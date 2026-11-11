@@ -228,3 +228,28 @@ deferred-method backend and default hash-value experiment were not selected
 and are not part of this change. Whole-source preparation, the historical
 seconds-scale first business demand, Core 10K/180-second/4-GiB and downstream
 acceptance remain separate open gates.
+
+* Writer layout qualification and rejected method snapshot
+
+The native symbolic-writer guard must check the current =object= and =set!=
+field offsets before invoking pinned accessors. Keeping the same wrapper class
+does not freeze its mutable field map. The existing inheritance-hook control
+now moves each mapping separately and restores the shared map before asserting
+refusal. =LeanPoo.Object.FixedFieldLayout= states this live-layout premise; this
+is a correctness correction, without a performance claim.
+
+The same final regression fails the old native writer guard with exit 42.
+The corrected native runtime passes 26 inheritance-hook and 32 issued-read
+Cases. Graph validation passes 42 algorithm/order Cases plus 10 publication
+Cases separately: the first aggregate failed to import an unprepared example,
+so that preparation failure is retained and only the unexecuted module rerun.
+This is not a successful single-process aggregate or a Core capacity result.
+
+A separate operation-local method-snapshot candidate was rejected. Under the
+existing C =-O2= object-scale workload, the baseline/candidate/candidate/baseline
+CPU times for 5,000 clone/read operations at 256 slots and 32 layers were
+1.479136 / 1.492456 / 1.348273 / 1.220414 seconds. The candidate did not show
+stable CPU improvement; fewer collections did not establish a latency gain.
+All four completed arms and the failed native rehash-order fault are retained
+as local artifacts. No snapshot helper, method-table reuse or write elision is
+adopted. The whole-source preparation and 10K acceptance gaps remain open.

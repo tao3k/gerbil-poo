@@ -2,7 +2,8 @@
 (import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
         (only-in :clan/poo/read-route symbolic-write-route-current?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
-                            find-method bind-method!) runtime.)
+                            find-method bind-method! class-slot-offset &class-type-slot-table) runtime.)
+        (only-in :gerbil/runtime/table symbolic-table-set!)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/examples/representation-service topology-workflow)
         :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String) :clan/poo/reflection
@@ -25,7 +26,19 @@
           (check-equal? (symbolic-write-route-current? table) #f)
           (check-equal? calls 0)
           (finally (runtime.slot-set! owner field original))))
-      (check-equal? (symbolic-write-route-current? table) #t))
+      (check-equal? (symbolic-write-route-current? table) #t)
+      (def klass (runtime.object-class table))
+      (def offsets (runtime.&class-type-slot-table klass))
+      (for (field '(object set!))
+        (def original (runtime.class-slot-offset klass field))
+        (def moved (runtime.class-slot-offset klass 'for-each))
+        (def accepted? #f)
+        (try
+          (symbolic-table-set! offsets field moved)
+          (set! accepted? (symbolic-write-route-current? table))
+          (finally (symbolic-table-set! offsets field original)))
+        ;; Assert only after restoring the shared runtime class mapping.
+        (check-equal? accepted? #f)))
     (test-case "effectful method installation retains per-slot protocol selection"
       (def hooks 0)
       (def protocol

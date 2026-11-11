@@ -16,10 +16,15 @@
          (wrapper (read-runtime.object-class sample))
          (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
          (set-field (read-runtime.make-class-slot-accessor wrapper 'set!))
+         (object-offset (read-runtime.class-slot-offset wrapper 'object))
+         (set-offset (read-runtime.class-slot-offset wrapper 'set!))
          (backend-class (read-runtime.object-class (object-field sample))))
     (lambda (table)
       (and (read-runtime.object? table)
            (eq? (read-runtime.object-class table) wrapper)
+           ;; A shared class can keep its identity while its field map moves.
+           (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)
+           (eqv? (read-runtime.class-slot-offset wrapper 'set!) set-offset)
            (eq? (set-field table) symbolic-table-set!)
            (let (backend (object-field table))
              (and (read-runtime.object? backend)
@@ -27,6 +32,7 @@
                   (eq? (&raw-table-hash backend) symbolic-hash)
                   (eq? (&raw-table-test backend) eq?)
                   (not (&raw-table-lock backend))))))))
+
 ;; Validate the actual selected metadata route, without calling its methods.
 ;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.
 (defstruct route (wrapper ref backend hash test object-field ref-field object-offset ref-offset) final: #t)
