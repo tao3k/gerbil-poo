@@ -54,7 +54,11 @@
   (test-suite "local SCC merge and split"
     (test-case "100K and 1M fixed support revisions" (delta.local-components-study))))
 
-(import (only-in :clan/poo/benchmarks/ordered-scc-study run-ordered-scc-study))
+(import (only-in :clan/poo/benchmarks/ordered-scc-study run-ordered-scc-study run-component-stable-study))
+(export component-stable-scc-benchmark-test)
+(def component-stable-scc-benchmark-test
+  (test-suite "component-preserving giant SCC edits and explicit output"
+    (test-case "100K and 1M cycle and hub components" (run-component-stable-study))))
 (export ordered-scc-benchmark-test)
 (def ordered-scc-benchmark-test
   (test-suite "retained SCC direction at 100K and 1M vertices"

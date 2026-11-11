@@ -905,6 +905,33 @@
   ;; Freeze the decision AFTER all replacement validation and mask updates.
   ;; Internal definition ordering is not a temporal snapshot boundary.
   (let (ranked? (positive? rank-mask))
+  (def old-owner (owned-partition-owner old))
+  (def old-members (owned-partition-members old))
+  (def component-edge-checks 0)
+  ;; Exact edge differences suffice: inserting inside old SCCs cannot merge
+  ;; them; deleting between old SCCs (or a self edge) cannot split them.
+  ;; Reuse the existing owner index, with no old adjacency traversal. The
+  ;; retained-direction path needs none of these additional owner queries.
+  (def retained-components?
+    (and (not ranked?)
+      (let (valid? #t)
+        (hash-for-each
+          (lambda (consumer providers)
+            (for (provider providers)
+              (when valid?
+                (set! component-edge-checks (1+ component-edge-checks))
+                (unless (eq? (%index-ref old-owner consumer) (%index-ref old-owner provider))
+                  (set! valid? #f))))) add-forward)
+        (hash-for-each
+          (lambda (provider consumers)
+            (hash-for-each
+              (lambda (consumer _)
+                (when valid?
+                  (set! component-edge-checks (1+ component-edge-checks))
+                  (unless (or (eq? consumer provider)
+                              (not (eq? (%index-ref old-owner consumer) (%index-ref old-owner provider))))
+                    (set! valid? #f)))) consumers)) remove-backward)
+        valid?)))
   (def next-backward (%index-fork backward))
   (def removed-edges 0)
   (for (provider (hash-keys buckets))
@@ -927,16 +954,16 @@
   ;; row, the remaining path to the cut sink precludes any nontrivial SCC.
   (def functional-cut? (and single-removal? (= removed-edges 1)
                             (eq? (owned-partition-shape old) 'cycle)))
-  (def old-owner (owned-partition-owner old))
-  (def old-members (owned-partition-members old))
   (def single-owner (and single-removal? (not functional-cut?) (%index-ref old-owner (car roots))))
-  (def to (and (not ranked?) (not single-removal?) (edit-region-walk roots forward add-forward forward-work)))
-  (def from (and (not ranked?) (not single-removal?) (edit-region-walk roots backward add-backward backward-work)))
+  (def to (and (not ranked?) (not retained-components?) (not single-removal?)
+               (edit-region-walk roots forward add-forward forward-work)))
+  (def from (and (not ranked?) (not retained-components?) (not single-removal?)
+                 (edit-region-walk roots backward add-backward backward-work)))
   (def (inside? key)
     (if single-removal? (eq? single-owner (%index-ref old-owner key))
       (and (hash-key? to key) (hash-key? from key))))
   (def region
-    (cond (ranked? [])
+    (cond ((or ranked? retained-components?) [])
           (functional-cut? [])
           (single-removal? (cdr (%index-ref old-members single-owner)))
           (else
@@ -968,11 +995,11 @@
         (partition-captured region rows edges 0 0 #f #t))))
   ;; If the repair covers the entire graph, use the discovered native tables
   ;; as the new base. One sparse tree write per owner would only copy work.
-  (def owner (cond (ranked? old-owner)
+  (def owner (cond ((or ranked? retained-components?) old-owner)
                    (functional-cut? (%index-project positions identity))
                    (whole? (%index (%partition-owners local-part)))
                    (else (%index-fork old-owner))))
-  (def members (cond (ranked? old-members)
+  (def members (cond ((or ranked? retained-components?) old-members)
                      (functional-cut? (%index-project positions (lambda (key) (list 1 key))))
                      (whole? (%index (%partition-members local-part)))
                      (else (%index-fork old-members))))
@@ -1019,6 +1046,10 @@
         (cond (ranked? rank-mask)
               (functional-cut? 'singletons)
               ((null? roots) (owned-partition-shape old))
+              ;; Membership preservation alone does not preserve a one-edge
+              ;; cycle certificate: an internal chord changes its outdegree.
+              (retained-components?
+                (and (eq? (owned-partition-shape old) 'singletons) 'singletons))
               ((and cycle? (= (hash-length (%partition-members local-part)) 1)) 'cycle)
               (else #f)))
       (.o edited-rows: (hash-length seen) changed-rows: (length roots)
@@ -1027,6 +1058,7 @@
       reverse-writes: (hash-length buckets) reverse-removals: removed-edges reverse-rewrite-edges: 0
       region-owners: width region-edge-visits: induced-readers owner-writes: owner-assignments
       retained-direction: (and ranked? rank-mask) rank-checks: rank-edge-checks
+      retained-components: retained-components? component-checks: component-edge-checks
       member-writes: member-assignments rebased-owners: (if whole? width 0)
         projected-singletons: (if functional-cut? width 0)
         quotient-reader-edges: quotient-readers
