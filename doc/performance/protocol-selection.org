@@ -25,6 +25,22 @@ The issued-read suite retains 29 Cases and checks lower/Object authority,
 foreign-factory refusal, private writer exports, original refusal order and
 callback-return validation. These are semantic controls, not latency evidence.
 
+The current issued-read suite has 32 Cases. Its existing layout and checkpoint
+Cases also require a fresh return check after a callback changes the same
+Gerbil class's field map. Initial class/layout admission cannot authorize the
+return route. A second control captures a cache miss, then demands a lazy
+slot whose value is =#f=. The logical receiver revision and payload stay
+unchanged, but the miss record must become stale: missing and present-false
+are different observations. The newly recorded present-false read remains
+valid. No additional Case, runner or runtime cache is introduced.
+
+These are Scheme correspondence obligations for any interval-sharing model:
+the post-callback state owns its own live checks. Layout sharing and entry
+issuance reuse must stay inside their pure intervals. Payload truthiness
+cannot replace presence, and a successful entry check cannot survive an
+arbitrary callback. This test-only extension changes no runtime algorithm
+and claims no new public Lean theorem or performance improvement.
+
 The complete first-demand path still prepares all methods and value-directory
 keys. No first-business speedup or downstream pin promotion follows from this
 dependency refactor. Compiler-owned source capture and demanded binding remain

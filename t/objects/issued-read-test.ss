@@ -723,6 +723,14 @@
         (check-equal? (Error-message failure) "changed metadata ref")))
     (check-eq? (runtime.object-class table) class)
     (call-with-current-slot-reads roots values)
+    ;; Entry layout success cannot survive the author callback. The return
+    ;; loop must start a new interval and refuse the changed class mapping.
+    (try
+      (refuses "changed metadata ref"
+        (lambda () (call-with-current-slot-reads roots
+          (lambda (_) (symbolic-table-set! offsets 'ref replacement)))))
+      (finally (symbolic-table-set! offsets 'ref original)))
+    (call-with-current-slot-reads roots values)
     (set! completed (1+ completed)))
   (test-case "fixed checkpoints recheck alternating receivers and callback return"
     (for (warm? '(#f #t))
@@ -786,5 +794,22 @@
       (call-with-current-slot-reads roots (lambda (_) (values 'left 'right))))
     (check-equal? (list left right) '(left right))
     (check-equal? (object-read-current? read) #t)
+    ;; A lazy fill is an observation effect even when both the old default
+    ;; and computed value are false and the logical revision is unchanged.
+    (.def Lazy value: #f)
+    (defvalues (absent before-fill)
+      (%call-with-recorded-slot-reads (lambda () (.ref/cached Lazy 'value))))
+    (check-eq? absent #f)
+    (def miss (selected before-fill '(cache-miss value)))
+    (def revision (object-revision Lazy))
+    (call-with-current-slot-reads (list miss) void)
+    (refuses "stale slot dependency"
+      (lambda () (call-with-current-slot-reads (list miss)
+        (lambda (_) (check-eq? (.get Lazy value) #f) 'returned))))
+    (check-equal? (object-revision Lazy) revision)
+    (defvalues (present after-fill)
+      (%call-with-recorded-slot-reads (lambda () (.get Lazy value))))
+    (check-eq? present #f)
+    (call-with-current-slot-reads after-fill void)
     (set! completed (1+ completed)))
 ))
