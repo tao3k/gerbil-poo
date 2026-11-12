@@ -1,12 +1,69 @@
 ;;; Optional cold Graph phase study; absent from default build and CI.
-(export cold-topology-test cold-inverse-test cold-capacity-test)
+(export cold-topology-test cold-inverse-test cold-capacity-test cold-owned-phases-test)
 (import :std/test :std/iter
         (only-in :std/list/list-builder with-list-builder)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/mop object-class slot-ref)
+        (prefix-in :clan/poo/generalized-graph graph.)
+        (only-in :clan/poo/support/index %index)
         (only-in :gerbil/runtime/gambit default-random-source))
 (extern namespace: #f random-source-state-ref random-source-state-set!)
+(extern namespace: clan/poo/generalized-graph
+  keys! index-keys table check-edit-targets capture-program-batch capture-program
+  make-%owned-source owned-declaration schedule-rows program-row)
+
+;; Same current schedule-owned callees, with metrics BETWEEN calls. No callback
+;; enters production, no field/source observer changes authentication behavior.
+;; Fixed fixture: fully given names, zero code/base bindings, zero edges.
+(def (owned-phases keys)
+  (def phases [])
+  (def (phase name action)
+    (defvalues (value clocks) (measure action 1))
+    (set! phases (cons (list name (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4)) phases))
+    value)
+  (def normalized (phase 'validate-deduplicate (lambda () (keys! keys))))
+  (def names (phase 'private-name-copy (lambda () (list-copy normalized))))
+  (def supported (phase 'support-index
+    (lambda () (index-keys names (make-hash-table-symbolic size: (length names))))))
+  (def programs #f)
+  (def base-values #f)
+  (def captured #f)
+  (phase 'binding-admission
+    (lambda ()
+      (set! programs (table []))
+      (set! base-values (table [] (make-hash-table-symbolic)))
+      (check-edit-targets (cut hash-key? supported <>) [] [] base-values)
+      (set! captured (make-hash-table-symbolic))
+      (capture-program-batch (lambda () (void)))))
+  (def source (phase 'owned-source
+    (lambda () (make-%owned-source names (%index captured) (%index base-values)))))
+  (def public (phase 'poo-source (lambda () (owned-declaration source))))
+  (def scheduled (phase 'rows-order-ranks
+    (lambda () (schedule-rows public names
+      (lambda (key) (program-row (hash-get captured key))) source supported))))
+  (values scheduled (reverse phases)))
+
+(def cold-owned-phases-test
+  (test-suite "actual cold owned scheduling callees"
+    (test-case "complete versus staged same functions for given names and no bindings"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (i (in-range size))
+          (string->symbol (string-append "cold-phase-owner-" (number->string i)))))
+        (for (side '(complete staged staged complete))
+          (def stages [])
+          (defvalues (result clocks)
+            (measure (lambda ()
+              (if (eq? side 'complete) (graph.schedule-owned keys [])
+                (let-values (((scheduled trace) (owned-phases keys)))
+                  (set! stages trace) scheduled))) 1))
+          ;; Outside timing. Full public order is an explicitly requested copy.
+          (check-equal? (graph.schedule-order result) keys)
+          (check (graph.schedule-supports? result (car keys)) => #t)
+          (check (graph.schedule-supports? result 'missing-cold-phase-owner) => #f)
+          (check-equal? ((graph.schedule-reads result) (car keys)) [])
+          (displayln (list 'COLD-OWNED-PHASES size side 'total (qualified-metrics clocks)
+            'stages stages 'raw-allocation (vector-ref clocks 4))))))))
 
 (def (fill-capacity keys hinted?)
   (def result (if hinted? (make-hash-table-symbolic size: (length keys))
