@@ -9,6 +9,17 @@ package GraphRoster {
                occurrence order and support domain, including duplicates and
                an initially populated domain. It must not evaluate providers. */
     }
+    requirement def NativeTableRefinement {
+        doc /* Empty membership and the has-after-put law must hold for each
+               private native table state. Conditional Lean refinement proves
+               the returned order/domain; native runtime is not verified here. */
+    }
+    requirement def DistinctCardinalityWork {
+        doc /* Admission performs N membership probes and U new inserts.
+               N includes duplicates, U does not. A capacity hint based on raw
+               N can waste memory; neither work counts nor hashing laws prove
+               a CPU-time bound. An unread fresh tail changes required support. */
+    }
     requirement def ConstructorEffectsGate {
         doc /* Pure data equivalence does not authorize removing a native
                table constructor. Preserve observable constructor/random-source

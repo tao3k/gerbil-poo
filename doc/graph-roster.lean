@@ -116,6 +116,79 @@ theorem trace_mismatch_rejects {Event : Type} (keys : List K)
   intro equal
   exact different (congrArg Prod.snd equal)
 
+-- Refinement for the existing native deduplicator, independent of its table
+-- representation. These laws must hold for all intermediate private states.
+def normalizeTable {S : Type} (has : S → K → Bool) (put : S → K → S) :
+    List K → S → List K × S
+  | [], state => ([], state)
+  | key :: rest, state =>
+      if has state key then normalizeTable has put rest state
+      else let next := normalizeTable has put rest (put state key)
+           (key :: next.1, next.2)
+
+theorem table_refinement {S : Type} (has : S → K → Bool) (put : S → K → S)
+    (put_law : ∀ state key query,
+      has (put state key) query = if query = key then true else has state query)
+    (keys : List K) (state : S) :
+    ((normalizeTable has put keys state).1,
+      has (normalizeTable has put keys state).2) = admit keys (has state) := by
+  induction keys generalizing state with
+  | nil => rfl
+  | cons key rest ih =>
+    have marked : has (put state key) = mark (has state) key := by
+      funext query
+      exact put_law state key query
+    cases h : has state key
+    · simp only [normalizeTable, admit, h, Bool.false_eq_true, ↓reduceIte]
+      have step := ih (put state key)
+      rw [marked] at step
+      have order := congrArg Prod.fst step
+      have domain := congrArg Prod.snd step
+      exact Prod.ext (congrArg (List.cons key) order) domain
+    · simpa [normalizeTable, admit, h] using ih state
+
+theorem native_normalization_order {S : Type} (has : S → K → Bool)
+    (put : S → K → S)
+    (put_law : ∀ state key query,
+      has (put state key) query = if query = key then true else has state query)
+    (keys : List K) (initial : S) (empty_law : has initial = empty) :
+    (normalizeTable has put keys initial).1 = firsts keys empty := by
+  have same := congrArg Prod.fst (table_refinement has put put_law keys initial)
+  simpa only [empty_law, same_order] using same
+
+-- Count abstract table operations, NOT CPU/GC or an assumed O(1) hash cost.
+def admissionWork : List K → Membership K → Nat × Nat
+  | [], _ => (0, 0)
+  | key :: rest, seen =>
+      if seen key then
+        let next := admissionWork rest seen
+        (next.1 + 1, next.2)
+      else
+        let next := admissionWork rest (mark seen key)
+        (next.1 + 1, next.2 + 1)
+
+theorem probes_exact (keys : List K) (seen : Membership K) :
+    (admissionWork keys seen).1 = keys.length := by
+  induction keys generalizing seen with
+  | nil => rfl
+  | cons key rest ih =>
+    cases h : seen key <;> simp [admissionWork, h, ih]
+
+theorem inserts_exact (keys : List K) (seen : Membership K) :
+    (admissionWork keys seen).2 = (firsts keys seen).length := by
+  induction keys generalizing seen with
+  | nil => rfl
+  | cons key rest ih =>
+    cases h : seen key <;> simp [admissionWork, firsts, h, ih]
+
+-- A new identity at the unread tail changes the required support result.
+-- This does not assert a machine-time lower bound or cost of hashing.
+theorem fresh_tail_changes_support (keys : List K) (fresh : K)
+    (absent : fresh ∉ keys) :
+    (admit keys empty).2 fresh = false ∧
+      (admit (keys ++ [fresh]) empty).2 fresh = true := by
+  simp [final_membership, empty, absent]
+
 #print axioms same_order
 #print axioms final_membership
 #print axioms firsts_membership
@@ -126,4 +199,9 @@ theorem trace_mismatch_rejects {Event : Type} (keys : List K)
 #print axioms mark_other
 #print axioms with_trace_exact
 #print axioms trace_mismatch_rejects
+#print axioms table_refinement
+#print axioms native_normalization_order
+#print axioms probes_exact
+#print axioms inserts_exact
+#print axioms fresh_tail_changes_support
 end GraphRoster

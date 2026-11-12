@@ -1,6 +1,7 @@
 ;;; Optional cold Graph phase study; absent from default build and CI.
-(export cold-topology-test cold-inverse-test cold-capacity-test cold-owned-phases-test)
+(export cold-topology-test cold-inverse-test cold-capacity-test cold-owned-phases-test cold-symbol-normalization-test)
 (import :std/test :std/iter
+        (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/interface interface-instance-object)
@@ -12,6 +13,69 @@
 (extern namespace: clan/poo/generalized-graph
   keys! index-keys table check-edit-targets capture-program-batch capture-program
   make-%owned-source owned-declaration schedule-rows program-row)
+
+;; Optional candidate only. Retain the same validator, one native constructor,
+;; and the SAME standard-library deduplicator. Never admit non-symbol keys.
+(def (symbol-keys keys)
+  (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
+  (delete-duplicates/hash keys table: (make-hash-table-symbolic size: (length keys)) from-end?: #t))
+(def (symbol-default-keys keys)
+  (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
+  (delete-duplicates/hash keys table: (make-hash-table-symbolic) from-end?: #t))
+
+(def cold-symbol-normalization-test
+  (test-suite "validated symbol normalization backend refinement"
+    (test-case "identity order refusal and constructor random-source effects"
+      (def first (gensym 'same-spelling))
+      (def second (gensym 'same-spelling))
+      (for (keys (list [] '(a b a c b) (list first second first 'a second)))
+        (def state (random-source-state-ref default-random-source))
+        (def original (keys! keys))
+        (def after (random-source-state-ref default-random-source))
+        (random-source-state-set! default-random-source state)
+        (def candidate (symbol-keys keys))
+        (check-equal? candidate original)
+        (for ((a original) (b candidate)) (check-eq? a b))
+        (check-equal? (random-source-state-ref default-random-source) after)
+        (random-source-state-set! default-random-source state)
+        (check-equal? (symbol-default-keys keys) original)
+        (check-equal? (random-source-state-ref default-random-source) after))
+      (check-equal? (symbol-keys (list first second first)) (list first second))
+      (for (invalid (list #f 1 '(a 1) '(a . b)))
+        (def state (random-source-state-ref default-random-source))
+        (check-exception (keys! invalid) error-object?)
+        (check-equal? (random-source-state-ref default-random-source) state)
+        (check-exception (symbol-keys invalid) error-object?)
+        (check-equal? (random-source-state-ref default-random-source) state)
+        (check-exception (symbol-default-keys invalid) error-object?)
+        (check-equal? (random-source-state-ref default-random-source) state)))
+    (test-case "paired unique and duplicate-heavy normalization at fixed cardinalities"
+      (for* ((size '(100000 1000000)) (shape '(unique duplicate-heavy)))
+        (def keys (for/collect (i (in-range size))
+          (if (eq? shape 'unique)
+            (string->symbol (string-append "normalization-owner-" (number->string i)))
+            (vector-ref '#(a b c a) (modulo i 4)))))
+        (def expected (if (eq? shape 'unique) keys '(a b c)))
+        (def state (random-source-state-ref default-random-source))
+        (keys! keys)
+        (def after (random-source-state-ref default-random-source))
+        (random-source-state-set! default-random-source state)
+        (check-equal? (symbol-keys keys) expected)
+        (check-equal? (random-source-state-ref default-random-source) after)
+        (for* ((schedule '((paired original symbolic symbolic original symbolic original original symbolic)
+                          (aa original original) (bb symbolic symbolic)
+                          (default-paired original symbolic-default symbolic-default original
+                                          symbolic-default original original symbolic-default)
+                          (default-bb symbolic-default symbolic-default)))
+               (side (cdr schedule)))
+          (defvalues (result clocks)
+            (measure (lambda ()
+              ((case side ((original) keys!) ((symbolic) symbol-keys)
+                 (else symbol-default-keys)) keys)) 1))
+          (check-equal? result expected)
+          (displayln (list 'COLD-SYMBOL-NORMALIZATION size shape (car schedule) side
+            (qualified-metrics clocks) 'result-count (length result)
+            'raw-allocation (vector-ref clocks 4))))))))
 
 ;; Same current schedule-owned callees, with metrics BETWEEN calls. No callback
 ;; enters production, no field/source observer changes authentication behavior.

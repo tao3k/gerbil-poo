@@ -28,6 +28,11 @@ membership; it is not limited to a unique generated fixture.
 | mark_other | A different key's membership is unchanged | functional state only |
 | with_trace_exact | Data plus equal effect trace are equal | trace equality must be established |
 | trace_mismatch_rejects | Different effect traces disallow full equivalence | negative specification |
+| table_refinement | Abstract private has/put operations refine admission | native table laws remain obligations |
+| native_normalization_order | Empty lawful table returns the exact order | existing standard-library deduplicator |
+| probes_exact | Exactly N membership probes for N inputs | operation counts, not elapsed time |
+| inserts_exact | Exactly U inserts for U newly admitted identities | do not size by duplicate-heavy N |
+| fresh_tail_changes_support | An unseen fresh tail changes support | full input admission cannot ignore a tail |
 
 The continuation may produce a failure value; this is not a proof that an
 effectful Scheme callback has been checked. Snapshot ownership of a mutable
@@ -86,3 +91,50 @@ local artifacts and excluded from passing evidence. Raw logs are not committed.
 Lean check: =lean +leanprover/lean4:v4.35.0 doc/graph-roster.lean=.
 The trace obligation remains OPEN. This design alone cannot qualify a new
 production path or close the Core 10K/downstream acceptance gates.
+
+* Native backend comparison: candidates not adopted
+
+The standard-library deduplicator accepts a caller-supplied native table.
+Two optional candidates retain the original validator and deduplicator, and
+each constructs exactly one table: symbolic/default capacity, and symbolic
+capacity reserved to raw input length. Neither changes production =keys!=.
+The native source has one random-seed draw for both generic and symbolic
+constructors. Runtime checks restore the same initial RNG state and compare
+the final state, empty/duplicate order and uninterned symbol identity; invalid
+proper/improper inputs refuse before RNG mutation. These checks pass.
+
+The refinement is conditional on native empty/has/put laws; Lean does not
+verify Gerbil's C backend or prove random-number generator implementation.
+The =normalizeTable= model follows the standard library's branch sequence.
+=admissionWork= proves N probes and U inserts; no constant-time hash assumption
+or machine-time guarantee is asserted. Immutable model state does not prove
+physical table privacy.
+
+Same-process natural-GC CPU medians ms, four paired observations per arm:
+
+| Inputs / shape | Generic | Symbolic reserved | Generic (separate pairing) | Symbolic default |
+|----------------+---------+-------------------+----------------------------+------------------|
+| 100K unique | 27.8215 | 14.1625 | 30.0110 | 21.3980 |
+| 100K / 3 identities | 5.5250 | 4.8075 | 5.9060 | 4.3550 |
+| 1M unique | 309.7055 | 240.5480 | 295.0085 | 292.8300 |
+| 1M / 3 identities | 57.2730 | 45.6015 | 57.0150 | 43.7365 |
+
+These are two separate interleavings; do not compare across their columns as
+if paired. Every original ABBA/BAAB observation and A/A/B/B control remains.
+At 1M unique, default symbolic wall median WORSENS 306.2991 -> 315.6480 ms,
+with GC counts original 0/0/0/0 versus candidate 0/1/1/1. Its B/B CPU control
+is 244.4290 ms; this is not substituted for the paired result. No stable
+million-name end-to-end gain is established for default symbolic capacity.
+
+Reserved symbolic capacity reduces unique-name CPU, but at 1M / 3 identities
+its zero-GC measured allocation is 33,559,296 bytes, versus generic 1,312 and
+default-symbolic 4,800. This unnecessarily sizes the table by raw N rather
+than distinct U. Reject it as the general normalization policy. Signed
+cross-GC allocation readings remain unqualified.
+
+The final optional study passes 2 cases with MODULE/CASE/HARNESS/final OK,
+natural exit: 14.97 s invocation wall, 11.58 user, 0.70 system; peak invocation
+RSS 1,020,690,432 bytes. The earlier reserved-only study also passes (11.18 s
+wall), and remains a separate result. No extra default CI workload or runner
+is added. The production path remains unchanged: semantic correctness and a
+favorable subcase alone do not satisfy the adoption gates.
