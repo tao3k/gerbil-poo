@@ -74,10 +74,10 @@
       (def observed (dynamic-wind
         (lambda ()
           (runtime.slot-set! proto 'ref
-            (lambda (backend key default)
+            (lambda (backend key . defaults)
               (when (eq? key 'foreign) (set! foreign-reads (1+ foreign-reads)))
               (when (eq? key 'a) (set! known-reads (1+ known-reads)))
-              (original-ref backend key default)))
+              (apply original-ref backend key defaults)))
           (runtime.slot-set! proto 'set!
             (lambda (backend key value)
               (when (eq? key 'a) (set! focus-writes (1+ focus-writes)))
