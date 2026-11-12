@@ -126,17 +126,18 @@
              (when (cdar rest) (add (cdar rest)))
              (loop (1+ index) (cdr rest)))
             (else (add (vector-ref positions index)) (loop (1+ index) rest))))))
-(def (indexed-schedule spec order reads supported receipt owned)
+(def (indexed-schedule spec order reads supported receipt owned sparse-inverse? edgeless?)
   (def ranks (if owned (make-hash-table-symbolic) (make-hash-table-eq)))
   (def readers (make-hash-table-symbolic))
   (def positions (make-vector (hash-length supported)))
   (for ((key order) (rank (in-range (vector-length positions))))
     (vector-set! positions rank key)
     (hash-put! ranks key rank)
-    (hash-put! readers key []))
-  (for (key order)
-    (for (dep (hash-ref reads key))
-      (hash-put! readers dep (cons key (hash-ref readers dep)))))
+    (unless sparse-inverse? (hash-put! readers key [])))
+  (unless edgeless?
+    (for (key order)
+      (for (dep (hash-ref reads key))
+        (hash-put! readers dep (cons key (hash-ref readers dep []))))))
   (def adjacency (%index reads))
   (make-%schedule spec (delay order)
     (if owned (read-projection adjacency owned) (lambda (key) (hash-ref reads key)))
@@ -151,22 +152,33 @@
   (def reads (if owned (make-hash-table-symbolic) (make-hash-table-eq)))
   (def states (make-hash-table-eq))
   (def supported (or known-support (make-hash-table-eq)))
+  ;; Private certificate: #f means no edges, a symbol means one provider,
+  ;; #t means multiple providers (or an invalid row requiring ordinary DFS).
+  (def inverse-root #f)
   (for (key keys)
     (unless known-support (hash-put! supported key #t))
-    (hash-put! reads key (row key)))
+    (def captured (row key))
+    (hash-put! reads key captured)
+    (when (and owned (not (eq? inverse-root #t)) (not (null? captured)))
+      (set! inverse-root
+        (if (and (pair? captured) (null? (cdr captured))
+                 (or (not inverse-root) (eq? inverse-root (car captured))))
+          (car captured) #t))))
   (def order
-    (with-list-builder (add)
-      (def (visit key)
-        (unless (hash-key? supported key) (raise (make-failure 'unsupported key)))
-        (case (hash-get states key)
-          ((done) (void))
-          ((active) (raise (make-failure 'cycle key)))
-          (else (hash-put! states key 'active)
-            (for-each visit (hash-ref reads key))
-            (hash-put! states key 'done) (add key))))
-      (for-each visit keys)))
+    (if (and owned (not inverse-root)) (list-copy keys)
+      (with-list-builder (add)
+        (def (visit key)
+          (unless (hash-key? supported key) (raise (make-failure 'unsupported key)))
+          (case (hash-get states key)
+            ((done) (void))
+            ((active) (raise (make-failure 'cycle key)))
+            (else (hash-put! states key 'active)
+              (for-each visit (hash-ref reads key))
+              (hash-put! states key 'done) (add key))))
+        (for-each visit keys))))
   (indexed-schedule spec order reads supported
-    (work (length keys) (or footprints (length keys)) 0 0 0 0 0 (length keys)) owned))
+    (work (length keys) (or footprints (length keys)) 0 0 0 0 0 (length keys)) owned
+    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root))))
 
 ;; The owned entry captures structural rows once. Computations and their
 ;; evaluator bodies remain author values. The rank graph never executes them.
@@ -462,7 +474,7 @@
           (set! retirement-readers (1+ retirement-readers))
           (when (and (active? consumer) (not (hash-key? checked-programs consumer)))
             (raise (make-failure 'unsupported key))))
-        (%index-ref (%schedule-reverse prior) key))))
+        (%index-ref (%schedule-reverse prior) key []))))
   ;; No author callback runs before binding and ordering the whole request.
   ;; Do not read the caller's mutable pairs after the first capture starts.
   (def code-keys (map car codes))
@@ -658,7 +670,7 @@
     (index-set! reads key (filter (cut hash-key? new-index <>) old))
     (for (dep old)
       (unless (hash-key? new-index dep)
-        (index-set! readers dep (reverse-bucket-remove (%index-ref readers dep) key))))
+        (index-set! readers dep (reverse-bucket-remove (%index-ref readers dep []) key))))
     (for (dep fresh)
       (unless (hash-key? old-index dep) (set! additions (cons (cons key dep) additions)))))
   ;; Retired rows are in the deletion batch above. All surviving readers
@@ -687,7 +699,8 @@
             (begin
               (hash-put! seen key #t)
               (set! buckets (1+ buckets))
-              (let (row (reverse-bucket-members (%index-ref adjacency key)))
+              (let (row (reverse-bucket-members
+                          (if forward? (%index-ref adjacency key) (%index-ref adjacency key []))))
                 ;; Count boundary edges too; pruning is not free work.
                 (set! edges (+ edges (length row)))
                 (loop (append (if complete? row (filter within? row)) rest)
@@ -721,10 +734,10 @@
           (lambda (reader)
             (set! checks (1+ checks))
             (unless (< (rank key) (rank reader)) (raise (make-failure 'rank reader))))
-          (%index-ref readers key)))))
+          (%index-ref readers key [])))))
     (unless (< (rank provider) (rank consumer)) (raise (make-failure 'rank consumer)))
     (index-set! reads consumer (cons provider (%index-ref reads consumer)))
-    (index-set! readers provider (reverse-bucket-add (%index-ref readers provider) consumer)))
+    (index-set! readers provider (reverse-bucket-add (%index-ref readers provider []) consumer)))
   ;; Preserve the author's exact footprint order, independently of insertion
   ;; order used for validation. Reads were captured before the pure repair.
   (for (entry changes) (index-set! reads (car entry) (cdr entry)))

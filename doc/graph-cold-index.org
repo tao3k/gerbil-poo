@@ -1,0 +1,161 @@
+#+title: Cold Graph preparation: empty topology and sparse inverse rows
+
+* Contract before Scheme
+
+The cold path currently stores N empty reverse buckets, then fills incoming
+edges in admitted topological owner order. An inverse point read already has
+an empty-list meaning when no reader exists; owner membership belongs to the
+support/rank index. [[file:graph-cold-index.lean][Lean]] proves equal ordered rows after every edge
+insertion and every complete edge sequence, starting from dense empty buckets
+or an empty sparse map. The rule is only for inverse reads with default [].
+An explicit negative example rejects extending it to arbitrary defaults.
+
+For owned snapshots, the roster is unique and admitted before row acquisition.
+After ALL captured rows are empty, DFS has no child visits and emits that exact
+roster. Lean proves the empty-DFS order under uniqueness. Keep a private copy
+of the order spine, row capture, witness checks and native table constructor
+effects. Do not infer emptiness from missing source or skip author getters.
+[[file:graph-cold-index.sysml][SysML]] records the same boundaries.
+
+Uncontrolled source handling retains its original full validation/traversal
+and dense initialization, including native key checks. Forward row semantics,
+generic index absence/false/default behavior, cycle refusal and all callback
+checks stay unchanged. No new projection, cache, loader, public API or runner.
+
+* Experimental plan
+
+Separate topology-only and inverse-only construction at 100K/1M nodes. Charge
+fresh construction in each window; prepare common admitted rows separately.
+Compare empty, chain and hub inverse shapes in native tables, retaining ordered
+bucket equality, physical bucket counts and default RNG-state equality.
+Keep ABBA/BAAB plus A/A/B/B, natural GC and every slower sample.
+
+Only after measuring a benefit: implement the owned specialization in the
+existing schedule functions, audit every private inverse read, exercise first
+edge insertion/deletion/retirement and old snapshots, and retain the standard
+work oracles. Force a false emptiness claim as a matched fault. Compare complete
+old/new cold setup and controlled revisions on identical native test artifacts.
+
+* Phase experiment and selection
+
+Both optional phase suites pass with Module/Harness/final OK, natural exit
+(86.15 s wall, 32.77 user, 1.08 system), max invocation RSS 1,762,476,032 bytes.
+Native default RNG states match after dense and sparse construction from the
+same saved state. The ordered-row oracle includes every owner; physical counts
+are N for dense, and 0 / N-1 / 1 for empty / chain / hub sparse construction.
+These are stored buckets, not domain membership.
+
+Natural-GC CPU medians ms, four paired samples/arm; every window retained:
+
+| Nodes | Phase / shape | Original | Candidate | Collections original/candidate |
+|-------+---------------+----------+-----------+--------------------------------|
+| 100K | inverse empty | 63.5320 | 27.5110 | 0 / 1 |
+| 100K | inverse chain | 77.7070 | 73.8535 | 1 / 0 |
+| 100K | inverse hub | 72.1530 | 27.1755 | 1 / 0 |
+| 1M | inverse empty | 448.3185 | 202.2795 | 1 / 1 |
+| 1M | inverse chain | 545.0800 | 638.7000 | 0 / 3 |
+| 1M | inverse hub | 486.7755 | 250.6980 | 1 / 1 |
+| 100K | empty topology | 43.5000 | 3.2625 | 0 / 0 |
+| 1M | empty topology | 454.8160 | 26.9330 | 0 / 0 |
+
+Universal sparse initialization is rejected: the 1M chain is slower, with
+different collection placement. No sample or unfavorable control is discarded.
+The candidate therefore uses sparse inverse storage only for owned zero/one
+provider graphs. A constant-space private classifier consumes already captured
+rows: #f=no edges, symbol=one provider, #t=multiple providers/invalid row. It
+short-circuits once the multiple-provider case is known. This is a topology
+certificate, not a size threshold, retained cache or new public flag. Native
+normalization guarantees admitted rows contain distinct symbol dependencies.
+
+The all-empty certificate also avoids DFS and the redundant second inverse
+pass. ALL original row captures still occur, and constructors stay in their
+original positions. Multi-provider and uncontrolled paths retain their normal
+DFS/dense inverse construction; every private inverse consumer uses [] while
+forward/generic-index missing/default behavior remains unchanged.
+
+Same-side controls show substantial variation: 1M topology full A/A is
+496.082/630.164 ms; copy B/B is 2.434/3.059 ms. Inverse chain A/A is
+539.178/568.294 ms; sparse B/B is 623.331/542.540 ms. Keep the much slower
+paired copy windows too. CPU and wall are separate: 1M topology wall medians
+are 2002.0840/168.9210 ms; inverse empty 1021.6110/472.8575 ms, chain
+1175.9850/1317.6910 ms and hub 1124.9280/610.8329 ms. No attribution of
+the wall/CPU gap is established. Signed allocation values remain unqualified.
+Full cold integration must show the total impact; phase medians are not added.
+
+* Functional and refusal gates
+
+The eight Lean theorems, including the classifier-to-all-empty binding, pass
+Lean 4.35.0 with only propext/Quot.sound and no sorry axiom. The private Scheme
+sentinels are disjoint because admitted provider identities are symbols.
+
+After restoration, construction passes 44 cases (6.82 s wall, 3.25 user,
+0.64 system) and SCC/feedback passes 55 cases (45.41 s wall, 12.08 user,
+1.27 system). Each has Module/Harness/final OK, natural exit and no error or
+overflow marker. Cases retain author-read invocation, no business evaluation,
+owner-domain membership, first edge insertion, old empty snapshots, hub versus
+chain storage and unknown-source dense behavior.
+
+Two isolated native-compiled faults exit 1 with real harness failures:
+
+- Bypass DFS for every owned graph: an owned cycle is accepted, failing the
+  explicit cycle-refusal assertion (and an existing source/value check).
+- Omit the inverse empty default on first edge insertion: a valid revision
+  fails with UnboundKeyError for its supported provider instead of succeeding.
+
+The first mutation record is retained too; direct cycle/unsupported assertions
+were added so rejection is tied to that exact obligation, rather than an
+unrelated later failure. Original inverse reads, generic index defaults and
+source guards remain separately tested. No timeout or compiler error is used
+as evidence that either fault was caught.
+
+* Complete same-program cold and update comparison
+
+Reference is exact =d28f8d14983a7c65505e7d278f93c946cffee178=. As in the prior
+rank-bound experiment, a clone-on-write output directory shares identical POO
+and compiled graph-study artifacts; only its Graph runtime is recompiled from
+that Git archive. =cmp= verifies the common runtime artifacts, and both prefixes
+have only =generalized-graph~0.o1= for that runtime unit. No higher-ordinal
+shadowing or load-path ordering workaround is used.
+
+The unchanged original owned-Delta suite runs A/B/B/A through Just in fresh
+processes. Each run retains 16 observations, exact work and full-order oracles,
+Module/Harness/final OK and natural exit. No work or heap budget is widened.
+The cold fixture has a fully admitted roster and no edges; source/name
+preparation and complete output remain distinct from each timed update.
+
+| Nodes | Metric, CPU ms | Reference | Candidate |
+|-------+----------------+-----------+-----------|
+| 100K | complete owned cold setup, median of 2 | 105.8565 | 62.3395 |
+| 1M | complete owned cold setup, median of 2 | 1999.4615 | 899.6605 |
+| 100K | owned update, median of 8 | 0.0885 | 0.0875 |
+| 1M | owned update, median of 8 | 0.1000 | 0.1035 |
+| 100K | uncontrolled update, median of 8 | 56.3320 | 55.8285 |
+| 1M | uncontrolled update, median of 8 | 554.9730 | 558.1900 |
+
+All owned update windows have zero collections and preserve one checked owner,
+one footprint, two rank writes/eight patches, and zero full-index copy/output.
+They do not show a new update speedup. The uncontrolled path still checks N
+owners. Complete owned cold samples at 1M are 1837.849/2161.074 ms reference
+and 879.139/920.182 ms candidate, with 2 collections per old sample and 1 per
+new sample. No GC window is removed. The cold wall medians are
+2145.8269/912.4730 ms; ordinary setup in the same processes is unchanged at
+1659.172/1664.1675 ms CPU, while explicit order output is 13.3615/12.9070 ms.
+
+Whole-process wall/user/system seconds for A/B/B/A are 70.69/10.75/0.85,
+11.46/9.65/0.72, 11.51/9.72/0.71 and 12.51/10.94/0.70. The long first wall
+sample remains. Its untimed gap is not attributed to Graph or host contention
+without further evidence. Peak RSS from the isolated phase invocation is
+invocation-wide, not a per-version complete-setup memory comparison. Allocation
+endpoints remain unqualified. Cold preparation still has significant cost;
+this is not complete Module EVAL or the Core 10K/180-second/4-GiB gate.
+
+No new publication/QNT state or transition is introduced. The representation
+and ordered-row refinement leave those observation boundaries unchanged; no
+fresh QNT execution or full formal completion is claimed in this experiment.
+
+Final formatted source also passes the existing 100K/1M rank-revision,
+affected-value ConstructionCache and local-SCC merge/split suites in one
+official Just invocation: all three cases and original work/output assertions,
+Module/Harness/final OK, natural exit, 52.59 s wall / 46.58 user / 1.04 system,
+without errors or overflow. The paired version comparison and the larger
+semantic integration gate are distinct evidence, not substituted for each other.

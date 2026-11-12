@@ -64,6 +64,39 @@
 
 (def graph-order-repair-test
   (test-suite "local topological repair and independent value invalidation"
+    (test-case "owned empty and single-provider cold graphs retain domain effects and snapshots"
+      (def calls 0)
+      (def program (.o reads: (begin (set! calls (1+ calls)) [])
+                      .evaluate: (lambda (_) (error "cold graph evaluated business code"))))
+      (check-equal? calls 0)
+      (def prior (graph.schedule-owned '(b a) [(cons 'a program)]))
+      (check-equal? calls 1)
+      (check-equal? (graph.schedule-order prior) '(b a))
+      (check (graph.schedule-supports? prior 'b) => #t)
+      (check (graph.schedule-supports? prior 'unknown) => #f)
+      (check-equal? ((graph.schedule-reads prior) 'b) [])
+      (check-equal? (hash-length (%index-base (%schedule-reverse prior))) 0)
+      (def next (graph.apply-schedule-revision prior
+        (graph.schedule-revision prior [(cons 'b (code.need 'a identity))])))
+      (check-equal? ((graph.schedule-reads next) 'b) '(a))
+      (check (valid-order? next '(b a)) => #t)
+      (check-equal? (hash-length (%index-base (%schedule-reverse prior))) 0)
+      (check-equal? (graph.schedule-order prior) '(b a))
+      (def hub (graph.schedule-owned '(a b c)
+        [(cons 'b (code.need 'a identity)) (cons 'c (code.need 'a identity))]))
+      (check-equal? (hash-length (%index-base (%schedule-reverse hub))) 1)
+      (def chain (graph.schedule-owned '(a b c)
+        [(cons 'b (code.need 'a identity)) (cons 'c (code.need 'b identity))]))
+      (check-equal? (hash-length (%index-base (%schedule-reverse chain))) 3)
+      (def unknown (graph.schedule (graph.declaration '(b a) [])))
+      (check-equal? (hash-length (%index-base (%schedule-reverse unknown))) 2)
+      (check-equal? (graph.schedule-order unknown) '(b a))
+      (def cyclic (caught (lambda () (graph.schedule-owned '(a b)
+        [(cons 'a (code.need 'b identity)) (cons 'b (code.need 'a identity))]))))
+      (check-equal? (and (graph.failure? cyclic) (graph.failure-kind cyclic)) 'cycle)
+      (def dangling (caught (lambda () (graph.schedule-owned '(a)
+        [(cons 'a (code.need 'outside identity))]))))
+      (check-equal? (and (graph.failure? dangling) (graph.failure-kind dangling)) 'unsupported))
     (test-case "directional rank bounds preserve partial and complete search frontiers"
       (def keys '(a b c d e f))
       (def prior (graph.schedule-owned keys
