@@ -95,19 +95,24 @@
   (values value (reverse (read-collection-reversed frame))))
 ;; One recording boundary serves normal delivery and already-delivered child
 ;; captures. Respect the current collector's occurrence/deduplication policy.
+(defrule (record-in-collection! frame seen read)
+  (unless (and seen (table-ref seen read #f))
+    (when seen (table-set! seen read #t))
+    (set! (read-collection-reversed frame)
+      (cons read (read-collection-reversed frame)))))
 (def (record-slot-read! frame read)
   (when frame
     (let (seen (read-collection-seen frame))
-      (unless (and seen (table-ref seen read #f))
-        (when seen (table-set! seen read #t))
-        (set! (read-collection-reversed frame)
-          (cons read (read-collection-reversed frame)))))))
+      (record-in-collection! frame seen read))))
 ;; Merge an authenticated child capture under one parent-scope lookup, without
 ;; replaying observers/prechecks. Recording never mints or authenticates provenance.
 (def (%record-slot-reads! reads)
   (def scope (current-read-scope))
   (def frame (if (read-scope? scope) (read-scope-frame scope) scope))
-  (when frame (for-each (cut record-slot-read! frame <>) reads)))
+  (when frame
+    ;; A batch keeps the same private identity table throughout.
+    (let (seen (read-collection-seen frame))
+      (for-each (lambda (read) (record-in-collection! frame seen read)) reads))))
 ;; Record the original read, then deliver it in order without observing callbacks.
 (def (%deliver-slot-read read value)
   (def scope (current-read-scope))

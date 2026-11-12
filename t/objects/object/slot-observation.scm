@@ -146,6 +146,27 @@
           unique-roots?: #t))
       (check-equal? calls 2)
       (check-equal? (map slot-read-key roots) '(port other)))
+    (test-case "merging recorded batches preserves occurrence policy without redelivery"
+      (.def Source first: 1 second: 2)
+      (def first (captured-token Source 'first))
+      (def second (captured-token Source 'second))
+      (for (unique? '(#f #t))
+        (def deliveries '())
+        (defvalues (_value roots)
+          (%call-with-recorded-slot-reads
+            (lambda ()
+              (call-with-slot-read-observer
+                (lambda (read) (set! deliveries (cons read deliveries)))
+                (lambda ()
+                  (%deliver-slot-read second #f)
+                  (%record-slot-reads! (list first second first))
+                  (%record-slot-reads! (list second)))))
+            unique-roots?: unique?))
+        (def expected (if unique? (list second first) (list second first second first second)))
+        (check-equal? (length roots) (length expected))
+        (check-equal? (andmap eq? roots expected) #t)
+        (check-equal? (length deliveries) 1)
+        (check-eq? (car deliveries) second)))
     (test-case "dependency capture retains duplicate edges under a compact root frame"
       (.def Source port: 5432)
       (.def Computed answer: (begin (.get Source port) (.get Source port)))
