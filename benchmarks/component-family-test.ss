@@ -4,12 +4,16 @@
         (only-in :std/list/list length<=n?)
         (only-in :gerbil/runtime/table make-raw-table symbolic-hash symbolic-table-ref symbolic-table-set!)
         (only-in :gerbil/runtime/gambit default-random-source)
+        (only-in :clan/poo/read-route gc-table-route-current?)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
 (extern namespace: #f random-source-state-ref)
 (def (list-accepts? keys members)
   (and (andmap (lambda (key) (memq key keys)) members) #t))
 (def (index-accepts? lenses members)
   (and (andmap (lambda (key) (and (symbol? key) (hash-key? lenses key))) members) #t))
+(def (guarded-accepts? keys lenses members)
+  (if (gc-table-route-current? lenses) (index-accepts? lenses members)
+    (list-accepts? keys members)))
 (def component-family-index-test
   (test-suite "prepared family uses its existing lens index"
     (test-case "domain presence and symbol identity including false focus value"
@@ -31,6 +35,7 @@
         (def lenses (make-hash-table-eq))
         (def focus (.lens))
         (for (key keys) (hash-put! lenses key focus))
+        (check-eq? (gc-table-route-current? lenses) #t)
         (check-equal? (hash-length lenses) size)
         (for (key keys)
           (unless (hash-key? lenses key) (error "prepared family domain lost" key)))
@@ -44,7 +49,7 @@
           (defvalues (accepted clocks)
             (measure (lambda ()
               (if (eq? side 'list) (list-accepts? keys members)
-                (index-accepts? lenses members))) 8))
+                (guarded-accepts? keys lenses members))) 8))
           (check-eq? accepted #t)
           (displayln (list 'COMPONENT-FAMILY-INDEX size (car schedule) side
             'queries 256 (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))

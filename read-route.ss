@@ -1,12 +1,12 @@
 ;;; Read provenance and metadata routes; no receiver getters or user callbacks.
-(export require-read-route! make-read-issuer symbolic-write-route-current?
+(export require-read-route! make-read-issuer symbolic-write-route-current? gc-table-route-current?
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
                       class-slot-offset slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
-           symbolic-table-set! symbolic-hash)
-  (only-in :gerbil/runtime/hash HashTable::interface)
+           symbolic-table-set! symbolic-hash gc-table-ref gc-table-set!)
+  (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
   (only-in :gerbil/runtime/interface &interface-descriptor-type))
 
 ;; Private admission for a single callback-free replay sweep. An identity
@@ -55,6 +55,31 @@
                   (eq? (&raw-table-hash backend) symbolic-hash)
                   (eq? (&raw-table-test backend) eq?)
                   (not (&raw-table-lock backend))))))))
+
+;; Callback-free identity-table operations for a private owned key domain.
+;; This only checks the LIVE route. The owner must separately retain native
+;; origin and retire it before any operation crosses an unknown route.
+;; No sample table/adapter is constructed or warmed by this guard.
+(def gc-table-route-current?
+  (let* ((wrapper (&interface-descriptor-type HashTable::interface))
+         (object-offset (read-runtime.class-slot-offset wrapper 'object))
+         (ref-offset (read-runtime.class-slot-offset wrapper 'ref))
+         (set-offset (read-runtime.class-slot-offset wrapper 'set!))
+         (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
+         (ref-field (read-runtime.make-class-slot-accessor wrapper 'ref))
+         (set-field (read-runtime.make-class-slot-accessor wrapper 'set!)))
+    (lambda (table)
+      (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+           (read-runtime.object? table)
+           (eq? (read-runtime.object-class table) wrapper)
+           (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)
+           (eqv? (read-runtime.class-slot-offset wrapper 'ref) ref-offset)
+           (eqv? (read-runtime.class-slot-offset wrapper 'set!) set-offset)
+           (eq? (ref-field table) gc-table-ref)
+           (eq? (set-field table) gc-table-set!)
+           (let (backend (object-field table))
+             (and (read-runtime.object? backend)
+                  (eq? (read-runtime.object-class backend) gc-hash-table::t)))))))
 
 ;; Validate the actual selected metadata route, without calling its methods.
 ;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.

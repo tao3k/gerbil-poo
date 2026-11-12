@@ -100,9 +100,54 @@ example : firstRefusal (fun n : Nat => decide (n ∈ [1, 2]))
     [some 2, none, some 7] 0 = some 1 := by decide
 example : domain [(1, false), (2, true)] 1 = true := by decide
 
+-- A map-domain theorem alone does not show that an adapter query is pure.
+-- Origin retirement is monotone, even if later metadata looks native again.
+def eligible (prior current : Bool) : Bool := prior && current
+theorem retired_stays_retired (current : Bool) : eligible false current = false := by
+  simp [eligible]
+
+abbrev MemberAction (S E : Type) := S → Except E Bool × S
+def guardedMember (origin : Bool) (nativeNow : S → Bool)
+    (lookup : MemberAction S E) (belongs : Bool) : MemberAction S E :=
+  fun state => if eligible origin (nativeNow state) then lookup state
+    else (.ok belongs, state)
+
+theorem guarded_member_exact (origin : Bool) (nativeNow : S → Bool)
+    (lookup : MemberAction S E) (belongs : Bool)
+    (native_frame : ∀ state, eligible origin (nativeNow state) = true →
+      lookup state = (.ok belongs, state)) :
+    guardedMember origin nativeNow lookup belongs = (fun state => (.ok belongs, state)) := by
+  funext state
+  cases h : eligible origin (nativeNow state) with
+  | false => simp [guardedMember, h]
+  | true => simpa [guardedMember, h] using native_frame state h
+
+-- Retiring the shortcut does NOT suppress the original effectful focus/write
+-- operation. Its exact result, error and external state are preserved.
+def trackedOperation (origin : Bool) (nativeNow : S → Bool)
+    (operation : S → Except E V × S) (state : S) : (Except E V × Bool) × S :=
+  let retained := eligible origin (nativeNow state)
+  let result := operation state
+  ((result.1, retained), result.2)
+
+theorem tracked_operation_exact (origin : Bool) (nativeNow : S → Bool)
+    (operation : S → Except E V × S) (state : S) :
+    ((trackedOperation origin nativeNow operation state).1.1,
+      (trackedOperation origin nativeNow operation state).2) = operation state := by
+  cases h : operation state <;> simp [trackedOperation, h]
+
+-- Reusing a pre-callback true verdict would execute this effect. A fresh
+-- metadata check after the callback's state change keeps membership pure.
+example : guardedMember true (fun state : Nat => decide (state = 0))
+    (fun state => ((Except.ok true : Except Nat Bool), state + 1)) true 1 =
+      (.ok true, 1) := rfl
+
 #print axioms capture_keys
 #print axioms captured_domain
 #print axioms same_first_refusal
 #print axioms same_entry
 #print axioms triangular_work
+#print axioms retired_stays_retired
+#print axioms guarded_member_exact
+#print axioms tracked_operation_exact
 end ComponentFamily

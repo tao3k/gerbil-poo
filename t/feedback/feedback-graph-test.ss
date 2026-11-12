@@ -3,6 +3,12 @@
         (only-in :std/list/list filter foldl delete-duplicates/hash take drop)
         (only-in :clan/poo/benchmarks/closure-measure measure)
         (only-in :clan/poo/component-closure component-group-builder)
+        (only-in :clan/poo/read-route gc-table-route-current?)
+        (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! &class-type-interface
+                           &class-type-slot-table class-slot-offset) runtime.)
+        (only-in :gerbil/runtime/table symbolic-table-set!)
+        (only-in :gerbil/runtime/hash HashTable::interface)
+        (only-in :gerbil/runtime/interface interface-instance-object &interface-descriptor-index prototype-table-table)
         :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/feedback-graph :clan/poo/feedback-cache
         :clan/poo/generalized-closure (prefix-in :clan/poo/strong-components scc.)
         (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/dependency-analysis code.)
@@ -15,6 +21,82 @@
 ;; Native controls include topology changes, final approval, and independent hits.
 (def feedback-graph-test
   (test-suite "automatic SCC revision and joint service approval"
+    (test-case "unknown focus writes cannot redefine the admitted logical family"
+      (def sample (make-hash-table-eq))
+      (def proto (vector-ref
+        (prototype-table-table (runtime.&class-type-interface
+          (runtime.object-class (interface-instance-object sample))))
+        (&interface-descriptor-index HashTable::interface)))
+      (def original-set (runtime.slot-ref proto 'set!))
+      (def focus (.lens))
+      (def program-calls 0)
+      (def spec (.o .code: (lambda (_) (set! program-calls (1+ program-calls)) #f)))
+      (def observed (dynamic-wind
+        (lambda () (runtime.slot-set! proto 'set!
+          (lambda (backend key value)
+            (unless (eq? key 'a) (original-set backend key value)))))
+        (lambda ()
+          (let* ((build (component-group-builder '(a) (lambda (_) focus) 0 0 2))
+                 (failure (with-catch values (lambda () (build '(a) spec void)))))
+            (list failure program-calls)))
+        (lambda () (runtime.slot-set! proto 'set! original-set))))
+      (check (car observed) ? error-object?)
+      (check-equal? (error-message (car observed)) "unknown hash key")
+      (check-equal? (cadr observed) 1))
+    (test-case "lens index route admission checks live physical fields without dispatch"
+      (def sample (make-hash-table-eq))
+      (def wrapper (runtime.object-class sample))
+      (def slots (runtime.&class-type-slot-table wrapper))
+      (def ref-offset (runtime.class-slot-offset wrapper 'ref))
+      (def object-offset (runtime.class-slot-offset wrapper 'object))
+      (def before (gc-table-route-current? sample))
+      (def moved (dynamic-wind
+        (lambda () (symbolic-table-set! slots 'ref object-offset))
+        (lambda () (gc-table-route-current? sample))
+        (lambda () (symbolic-table-set! slots 'ref ref-offset))))
+      (check-eq? before #t)
+      (check-eq? moved #f)
+      (check-eq? (gc-table-route-current? sample) #t))
+    (test-case "custom lens-table adapters cannot turn pure member refusal into a callback"
+      (def sample (make-hash-table-eq))
+      (def proto (vector-ref
+        (prototype-table-table (runtime.&class-type-interface
+          (runtime.object-class (interface-instance-object sample))))
+        (&interface-descriptor-index HashTable::interface)))
+      (def original-ref (runtime.slot-ref proto 'ref))
+      (def original-set (runtime.slot-ref proto 'set!))
+      (def foreign-reads 0)
+      (def known-reads 0)
+      (def focus-writes 0)
+      (def focus (.lens))
+      (def spec (.o .code: (lambda (_) #f)
+                    .base: (lambda (_) (some (code.make-success 0)))))
+      (def observed (dynamic-wind
+        (lambda ()
+          (runtime.slot-set! proto 'ref
+            (lambda (backend key default)
+              (when (eq? key 'foreign) (set! foreign-reads (1+ foreign-reads)))
+              (when (eq? key 'a) (set! known-reads (1+ known-reads)))
+              (original-ref backend key default)))
+          (runtime.slot-set! proto 'set!
+            (lambda (backend key value)
+              (when (eq? key 'a) (set! focus-writes (1+ focus-writes)))
+              (original-set backend key value))))
+        (lambda ()
+          (let* ((build (component-group-builder '(a) (lambda (_) focus) 0 0 2))
+                 (failure (with-catch values (lambda () (build '(foreign) spec void))))
+                 (refusal-reads foreign-reads)
+                 (accepted (build '(a) spec void)))
+            (list failure refusal-reads (closed-raw (group-closed accepted)) known-reads)))
+        (lambda ()
+          (runtime.slot-set! proto 'ref original-ref)
+          (runtime.slot-set! proto 'set! original-set))))
+      (check (car observed) ? error-object?)
+      (check-equal? (error-message (car observed)) "unknown component group member")
+      (check-equal? (cadr observed) 0)
+      (check-equal? (caddr observed) 0)
+      (check (> (cadddr observed) 0) => #t)
+      (check (> focus-writes 0) => #t))
     (test-case "prepared lens family owns keys before focus callbacks and indexed refusal"
       (def names (list 'a 'b))
       (def selected [])

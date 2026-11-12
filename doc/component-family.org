@@ -10,8 +10,10 @@ or a focus callback edits that original list.
 
 Validate the original family first, preserving its existing error/constructor
 order. Copy its list spine BEFORE the first focus callback. Select every focus
-once in captured order. That existing private table then owns BOTH membership
-and focus lookup; query =hash-key?=, never the truthiness of the focus value.
+once in captured order. That existing private table can supply BOTH membership
+and focus lookup when its callback-free route is authenticated; query
+=hash-key?=, never the truthiness of the focus value. An unknown route keeps
+the original pure =memq= check against the owned names.
 No new table/cache, retained evaluator or public interface is added.
 
 [[file:component-family.lean][Lean]] proves successful capture has exactly the captured key sequence even
@@ -38,7 +40,7 @@ executed by the membership query. The original forms, source guards, closure
 and residual paths remain untouched. Native hashing/copy behavior is trusted
 runtime code exercised by these checks, not proved Gerbil/compiler correctness.
 
-The five Lean theorems pass 4.35.0 with only propext/Quot.sound and no sorry.
+The original five Lean theorems pass 4.35.0 with only propext/Quot.sound and no sorry.
 The initial Lean check found reserved-word/type errors; corrected before
 Scheme implementation. It is not counted as a passing proof run.
 
@@ -93,7 +95,74 @@ a total cold-publication speedup from this change. Full Module EVAL and the
 remaining complete-closure costs stay separate open gates. Publication state
 transitions are unchanged; QNT has not been rerun or claimed here.
 
-* Restored integration gates
+* Route qualification: mathematical domain is not effect equivalence
+
+The original native refinement above needed an additional premise: an adapter
+query must not invoke author code. A real control against the unguarded
+implementation installs a forwarding HashTable =ref= method and observes one
+foreign-key callback before refusal, where the original list check requires
+zero. This is a functional regression, not a timeout or compiler failure.
+
+Three additional Lean theorems discharge the abstract obligations:
+
+- =guarded_member_exact=: an eligible current route must return the captured
+  membership with unchanged state; otherwise use the pure scalar answer.
+- =retired_stays_retired=: restoring metadata cannot reactivate a family
+  whose construction or operations crossed an unknown route.
+- =tracked_operation_exact=: retiring the shortcut preserves the original
+  operation's result, error and external effects.
+
+All eight theorems pass pinned Lean 4.35.0, with only propext/Quot.sound.
+The native frame premise remains an implementation obligation, not a theorem
+about Gerbil machine code. Scheme checks descriptor/wrapper identity, live
+physical offsets, exact GC ref/set methods and backend class without invoking
+methods or constructing a sample table. It checks after focus callbacks,
+before original writes/reads, and once per callback-free membership batch.
+Unknown routes permanently retire the shortcut; original operations still run.
+This follows the existing serial supported-runtime contract; concurrent raw
+mutation of Gerbil runtime metadata is outside that contract.
+
+Focused native controls pass: moved physical field rejects eligibility;
+custom ref/set adapters retain original focus operations but cannot run a
+foreign lookup during refusal; a setter which drops a declared key retains
+the original later lookup error, after the source-code callback. These test
+both refusal ordering and successful-entry effect ordering.
+
+An earlier experimental restoration control assumed typed calls would dispatch
+a globally replaced setter. Native specialization did not follow that assumed
+path. Its failure is retained locally and supplies no runtime restoration
+evidence. Monotone retirement is proved in Lean and implemented by a one-way
+flag; that experiment is not counted as an additional passing control.
+
+The study now includes the live route guard in every 32-query batch. A fresh
+same-process interleaved run gives these medians in milliseconds (four paired
+observations per arm, 256 queries per observation):
+
+| Prepared names | List CPU | Guarded index CPU | List wall | Guarded index wall |
+|----------------+----------+-------------------+-----------+--------------------|
+| 100000 | 282.7980 | 0.0465 | 1890.2124 | 0.04649 |
+| 1000000 | 181.5160 | 0.0325 | 411.1824 | 0.03302 |
+
+All windows have zero GC and 480 raw allocated bytes per observation on both
+arms. Retained A/A CPU medians are 200.1465/178.1875 ms (100K/1M); B/B are
+0.0205/0.0215 ms. Invocation exits naturally, 42.69 s wall / 6.70 user /
+1.39 system. Large wall/CPU separation is visible in this run; do not compare
+its absolute wall times with the earlier run as a controlled regression test.
+The live guard retains the prepared-query benefit; this is still neither
+cold family construction nor full Module EVAL.
+
+After the route fix and all native recompilations finish, serial existing Just
+gates pass: objects 171 cases, feedback 60 cases, construction 44 cases, and
+the frozen 1K/10K owned-publication case. All have module/case/harness/final OK,
+no error/overflow markers and natural exit. Publication takes 7.78 s invocation
+wall / 5.65 user / 0.73 system under the original 180-second watchdog and
+2GiB POO heap. No Core 10K Module or Lab acceptance is inferred from this.
+
+The preceding public head =7bb49dc= separately completed all 30 Scheme CI
+jobs (run =43204215702=). These local route-fix results do not substitute for
+CI on the new commit.
+
+* Original integration gates before route qualification
 
 After both faults are restored and native recompilation is complete:
 
