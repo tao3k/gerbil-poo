@@ -50,7 +50,33 @@ theorem streaming_exact (keep : A → Bool) (step : Step A S E)
   | error error => rfl
   | ok next => exact masked_exact keep step base next
 
+def searchEdge (accept : A → Bool) : Step A (List A × Nat) Unit :=
+  fun key (reversed, edges) =>
+    .ok (if accept key then key :: reversed else reversed, edges + 1)
+
+theorem searchRow_exact (accept : A → Bool) (row reversed : List A) (edges : Nat) :
+    walk (searchEdge accept) row (reversed, edges) =
+      .ok ((row.filter accept).reverse ++ reversed, edges + row.length) := by
+  induction row generalizing reversed edges with
+  | nil => simp [walk]
+  | cons key rest ih =>
+    cases hk : accept key <;>
+      simp [walk, searchEdge, Except.bind, hk, ih, List.reverse_cons, List.append_assoc,
+        Nat.add_assoc, Nat.add_comm 1 rest.length]
+
+def finishSearch (rest : List A) (state : List A × Nat) : List A × Nat :=
+  (state.1.reverse ++ rest, state.2)
+
+theorem editedSearch_exact (keep accept : A → Bool) (added base rest : List A) :
+    ((walk (searchEdge accept) added ([], 0)).bind
+      (maskedWalk keep (searchEdge accept) base)).map (finishSearch rest) =
+        .ok (((added ++ base.filter keep).filter accept) ++ rest,
+             (added ++ base.filter keep).length) := by
+  rw [streaming_exact, searchRow_exact]
+  simp [Except.map, finishSearch]
+
 #print axioms walk_append
 #print axioms masked_exact
 #print axioms streaming_exact
+#print axioms editedSearch_exact
 end GraphBucketWalk

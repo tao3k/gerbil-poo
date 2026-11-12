@@ -90,3 +90,38 @@ All observations from that additional invocation are retained separately:
 
 Do not replace the slower rerun with the earlier numbers or attribute its
 wall/CPU gap to the algorithm without separate scheduling evidence.
+
+* Search over an edited bucket in a partial interval
+
+=editedSearch_exact= extends the stream proof to the search frontier. It
+returns the same ordered accepted owners followed by the original pending
+tail. Its edge count includes all live readers, including those outside the
+interval. The Scheme visitor allocates a fresh cell for each accepted owner
+and relinks that private prefix. Complete intervals and plain rows use the
+existing search path.
+
+The native fixture removes one reader before adding an edge that requires
+rank repair. The edited row then has one reader inside the interval and one
+outside it. The test checks the exact resulting order, three visited buckets,
+two live edges and three changed ranks. The existing reverse-bucket study
+also checks the exact output, shared tail and live-edge count on each sample.
+
+Native CPU medians in ms, four samples per arm, original versus streamed:
+
+| Size | Regime | Empty | Sparse | Dense |
+|------+--------+-------+--------+-------|
+| 100K | natural | 1.37 / 1.07 | 1.33 / 1.06 | 2.54 / 1.50 |
+| 100K | collected | 1.38 / 1.14 | 1.30 / 1.06 | 1.89 / 1.42 |
+| 1M | natural | 15.04 / 12.83 | 14.12 / 10.77 | 24.50 / 14.25 |
+| 1M | collected | 12.95 / 10.67 | 13.54 / 10.67 | 20.32 / 14.26 |
+
+The 1M natural empty pair had almost equal wall medians at 18.68 and
+18.58 ms. The 1M natural dense reference had one collection in one sample.
+VM allocation estimates varied and some were unavailable. These timings
+measure the search frontier kernel.
+
+A separate run of the same study reported 1,062,010,880 bytes maximum RSS
+for the complete harness, including both arms and their shared inputs.
+Removing the rank predicate in an isolated native build made the new
+fixture visit four buckets instead of three and fail with exit 42.
+Restoring the predicate passed all 28 cases in the Graph order module.

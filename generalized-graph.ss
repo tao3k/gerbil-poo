@@ -692,6 +692,19 @@
         (for-each (lambda (owner) (unless (hash-key? mask owner) (visit owner))) base)))
     (for-each visit row)))
 
+;; Stream an edited bucket in its original order. Only accepted owners
+;; acquire fresh frontier cells, and every live boundary edge still counts.
+(def (edited-search-frontier row accept? rest)
+  (def reversed [])
+  (def edges 0)
+  (%for-each-reverse-bucket
+    (lambda (owner)
+      (set! edges (1+ edges))
+      (when (accept? owner)
+        (set! reversed (cons owner reversed))))
+    row)
+  (values (append-reverse! reversed rest) edges))
+
 ;;; Pearce/Kelly stable relabel, consumer -> provider orientation.
 ;;; All mutations belong to an unpublished candidate. Prior indices and values
 ;;; remain immutable on failure and during reentrant construction callbacks.
@@ -771,12 +784,17 @@
             (begin
               (hash-put! seen key #t)
               (set! buckets (1+ buckets))
-              (let (row (reverse-bucket-members
-                          (if forward? (%index-ref adjacency key) (%index-ref adjacency key []))))
-                ;; Count boundary edges too; pruning is not free work.
-                (set! edges (+ edges (length row)))
-                (loop (append (if complete? row (filter within? row)) rest)
-                  (cons key found)))))))))
+              (let (row (if forward? (%index-ref adjacency key) (%index-ref adjacency key [])))
+                (if (and (not complete?) (reverse-bucket? row))
+                  (let-values (((next live-edges)
+                                (edited-search-frontier row within? rest)))
+                    (set! edges (+ edges live-edges))
+                    (loop next (cons key found)))
+                  (let (members (reverse-bucket-members row))
+                    ;; Count boundary edges too; pruning is not free work.
+                    (set! edges (+ edges (length members)))
+                    (loop (append (if complete? members (filter within? members)) rest)
+                      (cons key found)))))))))))
   (for (addition (reverse additions))
     (def consumer (car addition))
     (def provider (cdr addition))

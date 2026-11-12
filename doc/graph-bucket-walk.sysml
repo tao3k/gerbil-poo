@@ -14,4 +14,9 @@ package GraphBucketWalk {
                Stream incident checks through the existing POO inverse index.
                Public order and bucket enumeration remain explicit operations. */
     }
+    requirement def EditedSearchFrontier {
+        doc /* Charge every live edge in the edited bucket, including edges
+               outside the rank interval. Only accepted owners contribute fresh
+               frontier cells. The pending tail and borrowed rows retain identity. */
+    }
 }

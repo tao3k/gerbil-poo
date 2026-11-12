@@ -21,7 +21,7 @@
         (prefix-in :clan/poo/strong-components scc.))
 
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!
-  %schedule-reverse reverse-bucket-remove reverse-bucket-members
+  %schedule-reverse reverse-bucket-remove reverse-bucket-members edited-search-frontier
   %schedule-owned %owned-source-programs
   start-affected-work advance-affected-work! affected-work-marked %retire-component-source
   %component-source-code-witnesses)
@@ -662,6 +662,20 @@
       (check-equal? receipt '#(3 2 4))
       (check (advance-affected-work! pending []) => #t)
       (check-equal? receipt '#(4 2 4)))
+    (test-case "repair traverses a masked inverse row in its admitted rank interval"
+      (def names '(consumer inside provider removed outside))
+      (def codes
+        (map (lambda (reader) (cons reader (code.need 'consumer identity)))
+          '(inside removed outside)))
+      (def prior (graph.schedule-owned names codes))
+      (def edits
+        (list (cons 'consumer (code.need 'provider identity)) (cons 'removed (code.pure 0))))
+      (def next (graph.apply-schedule-revision prior (graph.schedule-revision prior edits)))
+      (check-equal? (graph.schedule-order prior) names)
+      (check-equal? (graph.schedule-order next) '(provider consumer inside removed outside))
+      (check-equal? (.get (graph.schedule-work next) search-buckets) 3)
+      (check-equal? (.get (graph.schedule-work next) search-edges) 2)
+      (check-equal? (.get (graph.schedule-work next) rank-writes) 3))
     (test-case "equal footprints retain the exact certified order and read view"
       (def source (graph.declaration '(a b) (list (cons 'b (code.need 'a identity)))))
       (def prior (graph.schedule source))
@@ -690,6 +704,32 @@
     (defvalues (output demand) (measure (cut reverse-bucket-members row) 1 #t))
     (unless (equal? output expected) (error "reverse bucket explicit demand oracle"))
     (displayln "REVERSE-BUCKET-DEMAND readers=" size " clocks=" demand)
+    (def tail (list 'already-pending))
+    (def retain-first? (cut eq? <> (car base)))
+    (def reject-first? (lambda (owner) (not (retain-first? owner))))
+    (for* ((regime '(natural collected)) (selection '(empty sparse dense)))
+      (def accept? (case selection
+                      ((empty) (lambda (_) #f))
+                      ((sparse) retain-first?)
+                      ((dense) reject-first?)))
+      (def selected (filter accept? expected))
+      (def width (length selected))
+      (def expected-frontier (append selected tail))
+      (for (side '(reference candidate candidate reference reference candidate candidate reference))
+        (defvalues (result clocks)
+          (measure
+            (lambda ()
+              (if (eq? side 'reference)
+                (let (members (reverse-bucket-members row))
+                  (cons (length members) (append (filter accept? members) tail)))
+                (let-values (((next edges) (edited-search-frontier row accept? tail)))
+                  (cons edges next))))
+            1 (eq? regime 'collected)))
+        (unless (and (= (car result) (1- size))
+                     (equal? (cdr result) expected-frontier)
+                     (eq? (list-tail (cdr result) width) tail))
+          (error "edited search frontier oracle" size selection side))
+        (displayln (list 'EDITED-SEARCH-FRONTIER size regime selection side (qualified-metrics clocks)))))
     (def table (make-hash-table-symbolic))
     (hash-put! table 'hub row)
     (def inverse (graph.%index table))

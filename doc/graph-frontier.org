@@ -52,6 +52,8 @@ The sparse/empty work does not improve. At 1M dense, A/A is 84.930/87.606 ms,
 B/B 95.880/86.744 ms; same-side variation cautions against generalizing the
 paired gain. 1M sparse A/A is 95.770/77.325 ms and B/B 84.987/100.170 ms.
 Keep every sample, including these slower controls. No universal replacement
-or unmeasured density dispatcher is adopted. Production retains filter+append.
+or unmeasured density dispatcher is adopted. Plain rows retain filter+append.
+The [[file:graph-bucket-walk.org][edited reverse bucket study]] evaluates the
+separate case where streaming also avoids materializing the bucket.
 The separate [[file:graph-rank-bounds.org][DAG rank-bound contract]] instead targets redundant queries
 using certificates that the existing algorithm already maintains.
