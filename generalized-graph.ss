@@ -674,6 +674,12 @@
     (index-set! readers key []))
   (def (search adjacency root low high)
     (def seen (make-hash-table-eq))
+    ;; The admitted DAG certifies the other bound. Deletions cannot break it,
+    ;; and each prior insertion was checked before this search starts.
+    (def forward? (eq? adjacency reads))
+    (def complete? (if forward? (zero? low) (>= high (1- frontier))))
+    ;; Partial intervals keep the former predicate and its query path.
+    (def within? (lambda (dep) (<= low (rank dep) high)))
     (let loop ((pending (list root)) (found []))
       (if (null? pending) (values found seen)
         (let ((key (car pending)) (rest (cdr pending)))
@@ -684,7 +690,7 @@
               (let (row (reverse-bucket-members (%index-ref adjacency key)))
                 ;; Count boundary edges too; pruning is not free work.
                 (set! edges (+ edges (length row)))
-                (loop (append (filter (lambda (dep) (<= low (rank dep) high)) row) rest)
+                (loop (append (if complete? row (filter within? row)) rest)
                   (cons key found)))))))))
   (for (addition (reverse additions))
     (def consumer (car addition))

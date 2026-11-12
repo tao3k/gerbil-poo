@@ -64,6 +64,44 @@
 
 (def graph-order-repair-test
   (test-suite "local topological repair and independent value invalidation"
+    (test-case "directional rank bounds preserve partial and complete search frontiers"
+      (def keys '(a b c d e f))
+      (def prior (graph.schedule-owned keys
+        [(cons 'e (code.need 'a identity)) (cons 'f (code.need 'b identity))]))
+      (check-equal? (graph.schedule-order prior) keys)
+      (def next (graph.apply-schedule-revision prior
+        (graph.schedule-revision prior [(cons 'b (code.need 'e identity))])))
+      (check (valid-order? next keys) => #t)
+      ;; Both boundary edges are inspected; neither outside owner is expanded.
+      (check-equal? (.get (graph.schedule-work next) search-buckets) 2)
+      (check-equal? (.get (graph.schedule-work next) search-edges) 2)
+      (check-equal? (.get (graph.schedule-work next) rank-writes) 2)
+      (check-equal? (graph.schedule-order next) '(a e c d b f))
+      (check-equal? (graph.schedule-order prior) keys)
+      ;; A retirement leaves label 2 vacant; the remaining maximum is still 5.
+      ;; Active cardinality 5 is NOT a bound on these admitted labels.
+      (def gap (graph.apply-schedule-revision prior
+        (graph.%schedule-support-revision prior [] [] '(c)
+          (lambda (_a _b) (error "retirement must not order additions")))))
+      (def gap-keys '(a b d e f))
+      (def gap-next (graph.apply-schedule-revision gap
+        (graph.schedule-revision gap [(cons 'b (code.need 'e identity))])))
+      (check (valid-order? gap-next gap-keys) => #t)
+      (check-equal? (.get (graph.schedule-work gap-next) search-buckets) 2)
+      (check-equal? (.get (graph.schedule-work gap-next) rank-writes) 2)
+      (check-equal? (graph.schedule-order gap) gap-keys)
+      (def floor (graph.schedule-owned keys [(cons 'e (code.need 'b identity))]))
+      (def floor-next (graph.apply-schedule-revision floor
+        (graph.schedule-revision floor [(cons 'a (code.need 'e identity))])))
+      (check (valid-order? floor-next keys) => #t)
+      (check-equal? (.get (graph.schedule-work floor-next) rank-writes) 3)
+      (check-equal? (graph.schedule-order floor) keys)
+      (def ceiling (graph.schedule-owned keys [(cons 'c (code.need 'b identity))]))
+      (def ceiling-next (graph.apply-schedule-revision ceiling
+        (graph.schedule-revision ceiling [(cons 'b (code.need 'f identity))])))
+      (check (valid-order? ceiling-next keys) => #t)
+      (check-equal? (.get (graph.schedule-work ceiling-next) rank-writes) 3)
+      (check-equal? (graph.schedule-order ceiling) keys))
     (test-case "structural index forks preserve roots, false values and projection effects"
       (def table (make-hash-table-symbolic))
       (hash-put! table 'present #f)

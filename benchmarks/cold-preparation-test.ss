@@ -1,6 +1,6 @@
 ;;; Optional native study; deliberately absent from the default development build.
 ;;; Compile with the standard compiler and execute through Just test-file.
-(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test slot-assembly-test constructor-call-test inverse-walk-test)
+(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test slot-assembly-test constructor-call-test inverse-walk-test frontier-selection-test certified-frontier-test)
 (import :std/test :std/iter :clan/poo/object (only-in :std/error Error?)
         (only-in :gerbil/runtime/c3 c4-linearize*)
         (only-in :gerbil/runtime/loader list-modules)
@@ -18,13 +18,82 @@
         (only-in :std/hash/misc hash-ensure-modify!)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/gambit default-random-source))
-(import (only-in :clan/poo/generalized-graph %reverse-bucket-remove %for-each-reverse-bucket))
+(import (only-in :clan/poo/generalized-graph %reverse-bucket-remove %for-each-reverse-bucket %index %index-ref))
 (extern namespace: clan/poo/generalized-graph reverse-bucket-members)
 (extern namespace: #f random-source-state-ref random-source-state-set!)
 (extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
         ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)
 (extern namespace: clan/poo/object
   compile-slot-specs slot-spec-discards-super? prepare-declaration-specifications)
+
+(def certified-frontier-test
+  (test-suite "admitted DAG frontier bounds"
+    (test-case "two directions and empty sparse dense admitted monotone rows"
+      (for (size '(100000 1000000))
+        (def row (for/collect (_ (in-range size)) (gensym 'ranked-provider)))
+        (def table (make-hash-table-symbolic))
+        (for ((key row) (i (in-range size))) (hash-put! table key (1+ i)))
+        (def ranks (%index table))
+        (def tail (list (gensym 'pending)))
+        (for* ((direction '(forward reverse)) (shape '(empty sparse dense)))
+          ;; Forward row ranks 1..N are below owner N+1; reverse readers
+          ;; are above owner 0. Both are admitted DAG rows, not arbitrary keys.
+          (def forward? (eq? direction 'forward))
+          (def frontier (if forward? (+ size 2) (1+ size)))
+          (def low (if forward? (case shape ((empty) (1+ size)) ((sparse) (1- size)) (else 0)) 0))
+          (def high (if forward? (1+ size) (case shape ((empty) 0) ((sparse) 2) (else size))))
+          (def (original? key) (<= low (%index-ref ranks key) high))
+          (def selected (filter original? row))
+          (def width (length selected))
+          (def expected (append selected tail))
+          (for* ((schedule '((paired original certified certified original certified original original certified)
+                            (aa original original) (bb certified certified)))
+                 (side (cdr schedule)))
+            (defvalues (result clocks)
+              (measure (lambda ()
+                (if (eq? side 'original)
+                  (append (filter original? row) tail)
+                  (let (complete? (if forward? (zero? low) (>= high (1- frontier))))
+                    (append (if complete? row (filter original? row)) tail)))) 1))
+            (check-equal? result expected)
+            (check-eq? (list-tail result width) tail)
+            (check-equal? (length row) size)
+            (displayln (list 'CERTIFIED-FRONTIER size direction shape (car schedule) side
+              (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4)))))))))
+
+;; Pure selection only. The production search still charges/materializes its
+;; bucket before this interval; do not hide either obligation in these timings.
+(def frontier-selection-test
+  (test-suite "ordered private frontier selection"
+    (test-case "empty sparse dense frontiers preserve order and borrowed inputs"
+      (for (size '(100000 1000000))
+        (def row (for/collect (_ (in-range size)) (gensym 'frontier-owner)))
+        (def original (list-copy row))
+        (def table (make-hash-table-symbolic))
+        (for ((key row) (rank (in-range size))) (hash-put! table key rank))
+        (def ranks (%index table))
+        (def tail (list (gensym 'old-pending)))
+        (for (shape '(empty sparse dense))
+          (def high (case shape ((empty) -1) ((sparse) 1) (else size)))
+          (def (selected? key) (<= 0 (%index-ref ranks key) high))
+          (def selected (filter selected? row))
+          (def width (length selected))
+          (def expected (append selected tail))
+          (for* ((schedule '((paired list private private list private list list private)
+                            (aa list list) (bb private private)))
+                 (side (cdr schedule)))
+            (defvalues (result clocks)
+              (measure (lambda ()
+                (if (eq? side 'list)
+                  (append (filter selected? row) tail)
+                  (append-reverse!
+                    (for/fold (reversed []) (key row)
+                      (if (selected? key) (cons key reversed) reversed)) tail))) 1))
+            (check-equal? result expected)
+            (check-eq? (list-tail result width) tail)
+            (check-equal? row original)
+            (displayln (list 'FRONTIER-SELECTION size shape (car schedule) side
+              (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4)))))))))
 
 ;; Separate from complete repair: identical admitted bucket and visitor, natural
 ;; GC, no source callbacks. Count all visited owners; retain same-side controls.
