@@ -3,7 +3,7 @@
 * Status
 
 This is an optional candidate study, NOT a production change. The public
-=component-group-builder= remains at =7bb49dc=. Its program-read checks,
+=component-group-builder= uses the [[file:component-family.org][qualified family index at =424e525=]]. Its program-read checks,
 source guards, component equations and publication paths are untouched.
 
 The remaining =memq dep members= can scan a large SCC on each dependency read.

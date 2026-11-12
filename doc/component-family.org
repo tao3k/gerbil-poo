@@ -134,6 +134,43 @@ path. Its failure is retained locally and supplies no runtime restoration
 evidence. Monotone retirement is proved in Lean and implemented by a one-way
 flag; that experiment is not counted as an additional passing control.
 
+** Complete construction proof
+
+The follow-up strengthens the proof for the production implementation at
+=424e525=; it makes no additional Scheme change. Six further theorems connect
+the empty private table, successive successful writes and final membership:
+
+| Lean theorem | Production obligation |
+|--------------+-----------------------|
+| =write_preserves_domain= | An authenticated insertion adds exactly its captured key. |
+| =unknown_write_retires= | An unknown write cannot leave an eligible certificate. |
+| =construction_domain= | The exact-domain invariant holds over every completed prefix. |
+| =retired_construction_stays_retired= | All later writes, even known ones, preserve retirement. |
+| =written_keys= | The accumulated domain contains exactly the completed captured keys. |
+| =completed_index_domain= | From an empty table, a trusted completed index answers exactly that domain. |
+
+Unknown writes have entirely arbitrary resulting contents, including dropped
+and injected keys. Their effects are not assumed to be lawful insertions.
+A counterexample demonstrates that keeping trust after dropping a declared
+write violates the domain invariant. Failed callbacks/writes produce no
+completed index; the existing Scheme exception propagates before returning a
+builder. This matches the real adapter and missing-write controls above.
+
+There are now fourteen named theorems, all checked with pinned Lean 4.35.0;
+only propext/Quot.sound occur, no sorry or new axiom. One intermediate proof
+failed to rewrite the accumulated reverse list explicitly; that failed output
+is retained and not counted as a successful check. The corrected proof also
+removes an unused typeclass premise from the structural key-list theorem.
+
+The native write law and private-table ownership remain explicit refinement
+premises. This is not a verification of Gerbil's compiler or arbitrary global
+runtime mutations. No production scan, constructor, cache or callback is
+added by these proofs. They make the existing one-index optimization's
+construction argument precise, rather than granting reuse from set equality
+alone. No additional performance improvement is claimed.
+
+** Guarded query study
+
 The study now includes the live route guard in every 32-query batch. A fresh
 same-process interleaved run gives these medians in milliseconds (four paired
 observations per arm, 256 queries per observation):

@@ -20,6 +20,16 @@ package ComponentFamily {
                and callbacks even when eligibility is lost. No verdict spans
                an author effect boundary. */
     }
+    requirement def ConstructionDomain {
+        doc /* Start with the private empty index. For each captured key,
+               trusted insertion extends its exact domain by that key.
+               An unknown write may produce arbitrary contents but must
+               retire trust. Induction over the complete successful writes
+               proves a trusted final index has exactly the captured domain.
+               Later known writes cannot restore trust. Author callbacks do
+               not own the private table. A failed write publishes no builder.
+               The native insertion law is a runtime refinement premise. */
+    }
     requirement def RefusalAndEffects {
         doc /* Preserve ordered member checks and refuse before source/program
                callbacks. Successful entry keeps existing equations, independent

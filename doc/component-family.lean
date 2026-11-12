@@ -142,6 +142,103 @@ example : guardedMember true (fun state : Nat => decide (state = 0))
     (fun state => ((Except.ok true : Except Nat Bool), state + 1)) true 1 =
       (.ok true, 1) := rfl
 
+-- Refine successful capture to the actual private index construction. Author
+-- callbacks can change the method route; they do not own this private table.
+-- A certified write follows the native insertion law. An unknown write may
+-- leave ANY table contents, including dropping a declared key or adding one.
+abbrev Membership (K : Type) := K → Bool
+structure FamilyIndex (K : Type) where
+  trusted : Bool
+  members : Membership K
+
+def insertMember (members : Membership K) (key : K) : Membership K :=
+  fun query => if query = key then true else members query
+def writeIndex (prior : FamilyIndex K) (current : Bool) (key : K)
+    (unknownResult : Membership K) : FamilyIndex K :=
+  let next := eligible prior.trusted current
+  ⟨next, if next then insertMember prior.members key else unknownResult⟩
+def indexAgrees (keys : List K) (index : FamilyIndex K) : Prop :=
+  index.trusted = true → ∀ query, index.members query = decide (query ∈ keys)
+
+theorem write_preserves_domain (keys : List K) (prior : FamilyIndex K)
+    (agrees : indexAgrees keys prior) (current : Bool) (key : K)
+    (unknownResult : Membership K) :
+    indexAgrees (key :: keys) (writeIndex prior current key unknownResult) := by
+  intro accepted query
+  have both : prior.trusted = true ∧ current = true := by
+    simpa [writeIndex, eligible] using accepted
+  have previous := agrees both.1 query
+  by_cases same : query = key
+  · subst query
+    simp [writeIndex, eligible, both, insertMember]
+  · simp [writeIndex, eligible, both, insertMember, same, previous]
+
+theorem unknown_write_retires (prior : FamilyIndex K) (key : K)
+    (unknownResult : Membership K) :
+    (writeIndex prior false key unknownResult).trusted = false := by
+  simp [writeIndex, eligible]
+
+-- Each triple is one completed focus followed by its fresh route verdict and
+-- actual unknown-write result. Failed callbacks/writes return no index here;
+-- they cannot manufacture a successfully prepared builder.
+abbrev IndexWrite (K : Type) := K × Bool × Membership K
+def writeAll : FamilyIndex K → List (IndexWrite K) → FamilyIndex K
+  | prior, [] => prior
+  | prior, (key, current, unknownResult) :: rest =>
+      writeAll (writeIndex prior current key unknownResult) rest
+def writtenKeys : List (IndexWrite K) → List K → List K
+  | [], keys => keys
+  | (key, _, _) :: rest, keys => writtenKeys rest (key :: keys)
+
+theorem construction_domain (writes : List (IndexWrite K))
+    (keys : List K) (prior : FamilyIndex K) (agrees : indexAgrees keys prior) :
+    indexAgrees (writtenKeys writes keys) (writeAll prior writes) := by
+  induction writes generalizing keys prior with
+  | nil => exact agrees
+  | cons entry rest ih =>
+    rcases entry with ⟨key, current, unknownResult⟩
+    exact ih (key :: keys) (writeIndex prior current key unknownResult)
+      (write_preserves_domain keys prior agrees current key unknownResult)
+
+theorem retired_construction_stays_retired (writes : List (IndexWrite K))
+    (prior : FamilyIndex K) (retired : prior.trusted = false) :
+    (writeAll prior writes).trusted = false := by
+  induction writes generalizing prior with
+  | nil => exact retired
+  | cons entry rest ih =>
+    rcases entry with ⟨key, current, unknownResult⟩
+    apply ih
+    simp [writeIndex, eligible, retired]
+
+omit [DecidableEq K] in
+theorem written_keys (writes : List (IndexWrite K)) (keys : List K) :
+    writtenKeys writes keys = (writes.map Prod.fst).reverse ++ keys := by
+  induction writes generalizing keys with
+  | nil => rfl
+  | cons entry rest ih =>
+    rcases entry with ⟨key, current, unknownResult⟩
+    simp [writtenKeys, ih, List.reverse_cons, List.append_assoc]
+
+theorem completed_index_domain (writes : List (IndexWrite K))
+    (accepted : (writeAll ⟨true, fun _ => false⟩ writes).trusted = true)
+    (query : K) :
+    (writeAll ⟨true, fun _ => false⟩ writes).members query =
+      decide (query ∈ writes.map Prod.fst) := by
+  have initial : indexAgrees ([] : List K) ⟨true, fun _ => false⟩ := by
+    simp [indexAgrees]
+  have complete := construction_domain writes [] ⟨true, fun _ => false⟩ initial
+  have result := complete accepted query
+  rw [written_keys writes []] at result
+  simpa only [List.append_nil, List.mem_reverse] using result
+
+-- Dropping a declared write while keeping the certificate is unsound even
+-- if all later metadata and queries look ordinary. This is the native setter
+-- control's mathematical counterexample, not an assumption of successful IO.
+example : ¬ indexAgrees [1] ⟨true, fun _ : Nat => false⟩ := by
+  intro accepted
+  have impossible := accepted rfl 1
+  simp at impossible
+
 #print axioms capture_keys
 #print axioms captured_domain
 #print axioms same_first_refusal
@@ -150,4 +247,10 @@ example : guardedMember true (fun state : Nat => decide (state = 0))
 #print axioms retired_stays_retired
 #print axioms guarded_member_exact
 #print axioms tracked_operation_exact
+#print axioms write_preserves_domain
+#print axioms unknown_write_retires
+#print axioms construction_domain
+#print axioms retired_construction_stays_retired
+#print axioms written_keys
+#print axioms completed_index_domain
 end ComponentFamily
