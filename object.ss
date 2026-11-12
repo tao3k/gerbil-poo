@@ -110,6 +110,16 @@
   (depend-on-state! (object-%state source) self (object-%state self)))
 ;; Read-only revision identity for source-bound external caches.
 (def (object-revision self) (object-state-revision (object-%state self)))
+;; Internal source guard: both spines are private, proper snapshots and every
+;; source is an object. Read only fixed revision fields, never slot getters.
+;; Keep each caller's independent before/after effect-boundary checks.
+(def (%object-revisions-current? sources versions)
+  (let loop ((sources sources) (versions versions))
+    (cond
+      ((null? sources) (null? versions))
+      ((null? versions) #f)
+      (else (and (equal? (car versions) (object-revision (car sources)))
+                 (loop (cdr sources) (cdr versions)))))))
 ;; Active construction is separate from slot computation: no partial method table
 ;; or instance is published when an inherited hook tries to read its own receiver.
 (def active-object-constructions (make-parameter []))

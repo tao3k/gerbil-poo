@@ -67,6 +67,15 @@
       (def prepared (services.prepare-services))
       (defvalues (old _) (publish-feedback #f prepared services.base services.base 5))
       (.putslot! (car (fragment-descriptors prepared)) 'method ($constant-slot-spec 4))
+      ;; A later residual error can mask a missing entry guard. Require the
+      ;; original refusal BEFORE the independent action, not merely any error.
+      (let (entered? #f)
+        (let (failure (with-catch values (lambda ()
+          (with-fragment-sources prepared (lambda () (set! entered? #t) 'entered)))))
+          (check failure ? error-object?)
+          (when (error-object? failure)
+            (check-equal? (error-message failure) "stale generalized declaration sources"))
+          (check-equal? entered? #f)))
       (defvalues (held failure) (publish-feedback old prepared services.base services.base 6))
       (check (eq? held old) => #t) (check (not (not failure)) => #t)
       (check-equal? (services.report old 2) '(3 3 3 #t 36 audit))

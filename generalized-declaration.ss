@@ -43,8 +43,8 @@
 ;; Stable source admission applies to zero-depth observation and cooking too.
 ;; Supported writes during callbacks refuse; external effects are never rolled back.
 (def (fragment-sources-current? prepared)
-  (equal? (prepared-fragments-versions prepared)
-          (map object-revision (prepared-fragments-sources prepared))))
+  (%object-revisions-current? (prepared-fragments-sources prepared)
+                              (prepared-fragments-versions prepared)))
 (def (%watch-fragment-sources prepared witness)
   (for-each (cut depend-on-object! witness <>) (prepared-fragments-sources prepared))
   (fragment-sources-current? prepared))

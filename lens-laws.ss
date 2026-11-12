@@ -39,8 +39,8 @@
 ;; Include actual computed replacement values in addition to the captured domain;
 ;; dynamic coverage still does not prove universal laws or callback termination.
 (def (lens-check-current? check)
-  (and (lens-check? check) (equal? (law-check-versions check)
-                                  (map object-revision (law-check-sources check)))))
+  (and (lens-check? check)
+       (%object-revisions-current? (law-check-sources check) (law-check-versions check))))
 (def (run-lens-check check states extra-values: (extra-values []))
   (unless (lens-check-current? check)
     (error "stale or invalid lens check"))
