@@ -1,0 +1,123 @@
+#+title: Ordered Slot catalog assembly: fusion contract and rejected universal candidate
+#+language: en
+#+property: STATUS research-only
+
+* Existing owner and opportunity
+
+=object.ss:compute-slot-funs!= is the existing evaluator's preparation stage.
+After declaration/default/direct contribution admission, it enumerates the
+private symbolic table, compiles every surviving SlotSpec chain, writes each
+thunk back, then enumerates the table again before invoking compute-slot hooks.
+All thunk payloads must be frozen before the first author hook. The second
+enumeration is real work, but not automatically redundant.
+
+Gerbil 1cfb032 =runtime/table.ss= checks the free-slot threshold BEFORE looking
+up an existing key. Thus replacing a value can rehash and change physical key
+order. The next hook enumeration can differ even when key membership is equal.
+A native symbolic write route alone does not justify reusing the first order.
+
+* Contract and proof
+
+[[file:slot-assembly.lean][Standalone Lean]] and [[file:slot-assembly.sysml][SysML]] describe one closed native interval:
+
+- Interface conversion, enumerator, writer, hash/test and unlocked backend are
+  the admitted native routes. Admit BEFORE the first enumeration; an earlier
+  authored enumeration could return arbitrary order and later restore its route.
+- First-snapshot keys are unique. Every compile/write replaces an existing key.
+  =free >= vector-width/4= prevents every pre-write rehash in that interval.
+- Only the newly allocated hash->list row pairs are reusable. Their payloads
+  refer to SlotSpecs; replacing the row cdr does not mutate those payloads.
+- Compile and write in original order. No author body runs during successful
+  compilation. Keep all original declaration preparation, malformed-prefix
+  admission and hook return checks. Freeze the entire thunk catalog before hooks.
+- Unsupported routes require the unchanged ordinary path. No verdict is retained
+  across a hook, callback, expansion, publication or later .get.
+
+=installed_snapshot= proves readback order/value equality for arbitrary unique
+rows; =outside_unchanged= preserves other keys. =prepared_keys= connects a
+successful compilation to its input key order. =complete_exact= includes first
+key/cause refusal and identical private partial stores on failure.
+=arbitrary_continuation_exact= permits arbitrary post-assembly hooks only after
+the complete equal snapshot. =no_rehash_interval= proves any number of existing
+replacements retains the modeled layout under the threshold premise.
+
+These are functional observation laws, not a new runtime map or a proof of host
+compilation, arbitrary raw mutation, concurrent raw metadata writes or physical
+allocation/time equality. Native capture, successful compiler purity, private
+pair ownership and route guard conformance remain implementation obligations.
+The examples retain false versus missing, duplicate-key counterexamples and
+possible rehash reordering. Check with:
+
+#+begin_src sh
+lean +leanprover/lean4:v4.35.0 doc/slot-assembly.lean
+#+end_src
+
+Only standard propext/Quot.sound axioms are used; no sorry axiom is admitted.
+
+* Controlled Scheme prototype
+
+The optional [[file:../benchmarks/cold-preparation-test.ss][cold-preparation study]] contains a prototype, absent from default
+build targets and CI. It uses the same native compiler and Just test-file as
+[[file:shape-admission.org][the existing preparation studies]]. The production assembler is unchanged.
+
+=runtime= calls the real original assembler. =mirror= and =fused= call one
+prototype module with identical source preparation and compiler linkage; only
+snapshot handling differs. This separates cross-module inlining from the
+proposed fusion. The schedules retain oracle ABBA, matched ABBA/BAAB, A/A and
+B/B. Every compiled constant is checked against its exact payload identity.
+
+Each window owns 4096 total fields: 4096 one-field owners, 512 eight-field
+owners, or 64 sixty-four-field owners. Fresh receiver creation and C4 admission
+are measured separately. No .get is warmed, substituted or qualified by this
+phase-only benchmark. A separate guard-only diagnostic is not subtracted from
+medians. All GC windows and raw allocation inputs are retained locally.
+
+A bounded native control fills 17 keys, demonstrates that existing-key
+replacement can change enumeration order, refuses the experimental interval,
+and confirms the ordinary assembler still works. A matched fault removes ONLY
+the free/width threshold. It produces =ERROR CHECK (assembly-stable? h)=,
+actual true versus expected false, and Just exits 1. This is a logical failure,
+not a timeout or import failure. Restoring the threshold passes all 7 Cases,
+Module/Harness/final OK, natural exit (5.38 s wall), with no error/overflow.
+
+The prototype guard is suitable only for these controlled native fixtures: it
+is not a total production guard for malformed field maps. Inapplicable input
+is explicitly refused, not silently treated as an optimized run. A production
+implementation would need exact fallback and full callback/mutation controls.
+
+* Measured decision
+
+Final restored same-process native run, four paired windows per arm, natural GC:
+
+| Fields/owner | Owners/window | Mirror CPU median ms | Fused CPU median ms | Mirror/Fused GC windows |
+|--------------+---------------+----------------------+---------------------+-------------------------|
+| 1 | 4096 | 7.4790 | 8.0695 | 0/4, 0/4 |
+| 8 | 512 | 1.5355 | 1.5785 | 0/4, 1/4 |
+| 64 | 64 | 1.0675 | 0.9335 | 0/4, 0/4 |
+
+Single-field A/A is 7.239/6.772 ms; B/B is 8.282/7.580 ms. At 64 fields,
+A/A is 1.032/0.992 ms and B/B 0.976/0.916 ms. The 8-field B/B includes a
+40.603 ms GC window; it is not discarded. Guard-only paired samples range
+0.756-1.576 ms for 4096 owners and 0.014-0.022 ms for 64 owners.
+
+Qualified zero-GC allocation per owner decreases approximately 6560 to 6272
+bytes at one field, 11360 to 9616 at eight fields, and 54579 to 41187 at
+sixty-four fields. These are phase windows, not total live memory or complete
+EVAL measurements; the existing counter qualifications still apply.
+
+The universal candidate is REJECTED: one-field CPU regresses about 8%, and
+eight-field CPU also regresses. The wide-catalog signal does not qualify a
+size selector or justify per-owner extra guard work on the million-leaf path.
+No production flag, new cache, assembler replacement or consumer pin is added.
+Any future guarded size/case choice must charge its decision, preserve exact
+fallback and pass the real first-demand path; proof alone is not admission.
+The preceding matched run also regressed at one field (7.0085 to 7.7780 ms).
+Its raw evidence remains separate; final medians above include the restored
+control and are not selected from earlier favorable windows. Fault-run timing
+is never used as performance evidence.
+
+The production baseline =e6a4f14= has independent
+[[https://github.com/tao3k/gerbil-poo/actions/runs/43162068179][complete Scheme CI success, 30/30 jobs]], including linked entry, single-process
+functional acceptance and the preserved Graph benchmark/negative controls.
+This research does not qualify a subsequent HEAD's CI, Core 10K or downstream
+promotion. It leaves the production assembler and all existing gates unchanged.
