@@ -52,15 +52,15 @@ Same-process paired traversal CPU medians, four samples/arm, natural GC:
 
 | Bucket size | Materialize then visit ms | Stream ms | Collections list/stream |
 |-------------+---------------------------+-----------+-------------------------|
-| 100,000 | 1.5825 | 0.9913 | 1 / 0 |
+| 100,000 | 1.5825 | 0.9915 | 1 / 0 |
 | 1,000,000 | 45.5575 | 17.6930 | 0 / 0 |
 
 The first 100K list sample includes a 30.209 ms GC and remains in the data.
 100K A/A is 1.549/1.583 ms, B/B 0.975/0.978 ms. 1M A/A is
 41.535/44.106 ms, B/B 15.933/17.260 ms. These are one-deletion wide buckets,
 not a complete multi-shape Graph or Module EVAL claim. Raw signed allocation
-endpoints are retained but not reported as attributable bytes. Peak RSS is not
-measured by this kernel. Full end-to-end and exact-head remote gates remain
+endpoints are retained but not reported as attributable bytes. Full end-to-end
+and exact-head remote gates remain
 separate; no 180-second/4-GiB requirement is changed or declared satisfied here.
 
 The unchanged existing =benchmarks/scc-test.ss= rank-revision and owned-delta
@@ -69,3 +69,24 @@ and 16 controlled/unrestricted observations at 100K/1M, with the original work
 oracles and explicit full-order verification. Module/Harness/final OK and natural
 exit are required. This verifies integration with the existing schedule path;
 it does not turn the wide-bucket kernel result into a complete EVAL speedup.
+
+* Wall clock and invocation RSS control
+
+Original paired wall medians are 1.5849/0.9940 ms at 100K and
+45.5655/17.7060 ms at 1M (list/stream). A separate native =/usr/bin/time -l=
+invocation uses the same Just entry with only =inverse-walk-test= selected.
+It exits naturally with Module/Harness/final OK in 6.11 s and records maximum
+resident set size 746,635,264 bytes (about 712 MiB). This includes the harness,
+loaded libraries, fixtures and both arms; it is not a per-arm allocation or a
+claim of reduced peak RSS. The reported parent memory footprint is not
+substituted for the child workload's RSS.
+
+All observations from that additional invocation are retained separately:
+
+| Size | List/stream CPU medians ms | List/stream wall medians ms | Collections |
+|------+----------------------------+-----------------------------+-------------|
+| 100K | 1.6940 / 1.0500 | 1.6944 / 1.0506 | 1 / 0 |
+| 1M | 55.6395 / 20.1435 | 92.4895 / 21.7780 | 0 / 0 |
+
+Do not replace the slower rerun with the earlier numbers or attribute its
+wall/CPU gap to the algorithm without separate scheduling evidence.
