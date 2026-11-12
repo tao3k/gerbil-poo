@@ -126,7 +126,8 @@
              (when (cdar rest) (add (cdar rest)))
              (loop (1+ index) (cdr rest)))
             (else (add (vector-ref positions index)) (loop (1+ index) rest))))))
-(def (indexed-schedule spec order reads supported receipt owned sparse-inverse? edgeless?)
+(def (indexed-schedule spec order reads supported receipt owned sparse-inverse? edgeless?
+                       (implicit-empty? #f))
   (def ranks (if owned (make-hash-table-symbolic size: (hash-length supported))
                        (make-hash-table-eq)))
   (def readers (if (and owned (not sparse-inverse?))
@@ -141,7 +142,9 @@
     (for (key order)
       (for (dep (hash-ref reads key))
         (hash-put! readers dep (cons key (hash-ref readers dep []))))))
-  (def adjacency (%index reads))
+  (def adjacency (if implicit-empty?
+                   (%index-project supported (lambda (_) []))
+                   (%index reads)))
   (make-%schedule spec (delay order)
     (if owned (read-projection adjacency owned) (lambda (key) (hash-ref reads key)))
     adjacency (%index ranks)
@@ -152,23 +155,28 @@
       (def code (.call spec .code key))
       (if code (keys! (.@ code reads)) []))))
 (def (schedule-rows spec keys row (owned #f) (known-support #f) (footprints #f))
+  ;; The empty-capture arm supplies no row reader: all authored capture has
+  ;; already finished, and every admitted owner gets the implicit empty row.
+  (def implicit-empty? (not row))
   (def reads (if owned
-               (make-hash-table-symbolic size: (if known-support (hash-length known-support) (length keys)))
+               (if implicit-empty? (make-hash-table-symbolic)
+                 (make-hash-table-symbolic size: (if known-support (hash-length known-support) (length keys))))
                (make-hash-table-eq)))
   (def states (make-hash-table-eq))
   (def supported (or known-support (make-hash-table-eq)))
   ;; Private certificate: #f means no edges, a symbol means one provider,
   ;; #t means multiple providers (or an invalid row requiring ordinary DFS).
   (def inverse-root #f)
-  (for (key keys)
-    (unless known-support (hash-put! supported key #t))
-    (def captured (row key))
-    (hash-put! reads key captured)
-    (when (and owned (not (eq? inverse-root #t)) (not (null? captured)))
-      (set! inverse-root
-        (if (and (pair? captured) (null? (cdr captured))
-                 (or (not inverse-root) (eq? inverse-root (car captured))))
-          (car captured) #t))))
+  (unless implicit-empty?
+    (for (key keys)
+      (unless known-support (hash-put! supported key #t))
+      (def captured (row key))
+      (hash-put! reads key captured)
+      (when (and owned (not (eq? inverse-root #t)) (not (null? captured)))
+        (set! inverse-root
+          (if (and (pair? captured) (null? (cdr captured))
+                   (or (not inverse-root) (eq? inverse-root (car captured))))
+            (car captured) #t)))))
   (def order
     (if (and owned (not inverse-root)) (list-copy keys)
       (with-list-builder (add)
@@ -182,8 +190,8 @@
               (hash-put! states key 'done) (add key))))
         (for-each visit keys))))
   (indexed-schedule spec order reads supported
-    (work (length keys) (or footprints (length keys)) 0 0 0 0 0 (length keys)) owned
-    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root))))
+    (work (length keys) (if implicit-empty? 0 (or footprints (length keys))) 0 0 0 0 0 (length keys)) owned
+    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root)) implicit-empty?))
 
 ;; The owned entry captures structural rows once. Computations and their
 ;; evaluator bodies remain author values. The rank graph never executes them.
@@ -383,6 +391,8 @@
         (unless (or (not value) (some? value)) (error "revision base must be an optional outcome"))))
     base-keys))
 (def (schedule-owned keys codes (bases []))
+  (schedule-owned/rows keys codes bases #t))
+(def (schedule-owned/rows keys codes bases implicit-allowed?)
   (def names (list-copy (keys! keys)))
   ;; Owned snapshots use stable Symbol hashing, including after GC.
   (def supported (index-keys names (make-hash-table-symbolic size: (length names))))
@@ -397,8 +407,9 @@
         (hash-put! captured key (capture-program (hash-ref programs key))))))
   (def source (make-%owned-source names
     (%index captured) (%index values)))
+  (def implicit-empty? (and implicit-allowed? (zero? (hash-length captured))))
   (schedule-rows (owned-declaration source) names
-    (lambda (key) (program-row (hash-get captured key))) source supported))
+    (and (not implicit-empty?) (lambda (key) (program-row (hash-get captured key)))) source supported))
 ;; A quotient with a changed roster still needs a full schedule certificate.
 ;; Keep admitted program identities and capture only explicitly changed rows.
 (def (%reschedule-owned-support prior keys codes)

@@ -1,18 +1,75 @@
 ;;; Optional cold Graph phase study; absent from default build and CI.
-(export cold-topology-test cold-inverse-test cold-capacity-test cold-owned-phases-test cold-symbol-normalization-test)
+(export cold-topology-test cold-inverse-test cold-capacity-test cold-owned-phases-test
+        cold-symbol-normalization-test cold-forward-implicit-test)
 (import :std/test :std/iter
+        (only-in :std/error UnboundKeyError?)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/mop object-class slot-ref)
         (prefix-in :clan/poo/generalized-graph graph.)
+        (prefix-in :clan/poo/dependency-analysis code.)
+        (only-in :clan/poo/object .@)
         (only-in :clan/poo/support/index %index)
         (only-in :gerbil/runtime/gambit default-random-source))
 (extern namespace: #f random-source-state-ref random-source-state-set!)
 (extern namespace: clan/poo/generalized-graph
   keys! index-keys table check-edit-targets capture-program-batch capture-program
-  make-%owned-source owned-declaration schedule-rows program-row)
+  make-%owned-source owned-declaration schedule-rows schedule-owned/rows)
+
+(def (forward-edit state codes (added []) (retired []))
+  (graph.apply-schedule-revision state
+    (graph.%schedule-support-revision state codes added retired
+      (lambda (a b) (string<? (symbol->string a) (symbol->string b))))))
+
+(def cold-forward-implicit-test
+  (test-suite "implicit empty rows for an admitted owned source"
+    (test-case "first edge, unbound key and existing authored edge"
+      (def cold (graph.schedule-owned '(a b) []))
+      (check-exception ((graph.schedule-reads cold) 'unknown) UnboundKeyError?)
+      (def codes (list (cons 'a (code.need 'b identity))))
+      (def edited (forward-edit cold codes))
+      (def authored (graph.schedule-owned '(a b) codes))
+      (check-equal? (graph.schedule-order edited) '(b a))
+      (check-equal? (graph.schedule-order authored) '(b a))
+      (check-equal? ((graph.schedule-reads edited) 'a) '(b))
+      (check-equal? ((graph.schedule-reads authored) 'a) '(b))
+      (check-equal? ((graph.schedule-reads cold) 'a) [])
+      (check-exception (forward-edit edited [] [] '(b)) graph.failure?)
+      (def removed (forward-edit edited [] [] '(a)))
+      (check-exception ((graph.schedule-reads removed) 'a) graph.failure?)
+      (def revived (forward-edit removed '((a . #f)) '(a)))
+      (check-equal? ((graph.schedule-reads revived) 'a) [])
+      (check-equal? ((graph.schedule-reads edited) 'a) '(b)))
+    (test-case "empty row storage preserves the constructor RNG trace"
+      (def support (index-keys '(a b) (make-hash-table-symbolic size: 2)))
+      (def state (random-source-state-ref default-random-source))
+      (def (rng-end row)
+        (random-source-state-set! default-random-source state)
+        (schedule-rows #f '(a b) row #t support)
+        (random-source-state-ref default-random-source))
+      (def dense (rng-end (lambda (_) [])))
+      (def implicit (rng-end #f))
+      (check-equal? implicit dense))
+    (test-case "complete empty cold cost with same-side controls"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (i (in-range size))
+          (string->symbol (string-append "cold-forward-owner-" (number->string i)))))
+        (for* ((group '((paired #f implicit-empty implicit-empty #f)
+                        (paired implicit-empty #f #f implicit-empty)
+                        (aa #f #f) (bb implicit-empty implicit-empty)))
+               (side (cdr group)))
+          (defvalues (result clocks)
+            (measure (lambda ()
+              (if side (graph.schedule-owned keys []) (schedule-owned/rows keys [] [] #f))) 1))
+          (check-equal? (graph.schedule-order result) keys)
+          (check-equal? (.@ (graph.schedule-work result) footprint-reads) (if side 0 size))
+          (def reads (graph.schedule-reads result))
+          (unless (andmap (lambda (key) (null? (reads key))) keys)
+            (error "implicit cold schedule has nonempty row" side size))
+          (displayln (list 'COLD-FORWARD-IMPLICIT size (car group) side (qualified-metrics clocks)))
+          (force-output))))))
 
 ;; Optional candidate only. Retain the same validator, one native constructor,
 ;; and the SAME standard-library deduplicator. Never admit non-symbol keys.
@@ -104,8 +161,7 @@
     (lambda () (make-%owned-source names (%index captured) (%index base-values)))))
   (def public (phase 'poo-source (lambda () (owned-declaration source))))
   (def scheduled (phase 'rows-order-ranks
-    (lambda () (schedule-rows public names
-      (lambda (key) (program-row (hash-get captured key))) source supported))))
+    (lambda () (schedule-rows public names #f source supported))))
   (values scheduled (reverse phases)))
 
 (def cold-owned-phases-test

@@ -249,6 +249,10 @@ Whole-process wall/user/system seconds are 65.52/10.05/0.76,
 sample remains. Capacity helps this cold CPU stage, but substantial preparation
 and the real Module EVAL/10K acceptance remain open.
 
+The next representation candidate is specified and proved separately in
+[[file:graph-forward-rows.org][sparse forward rows with exact support]]. It does not change
+the qualified capacity implementation or these measurements.
+
 Final capacity candidate additionally passes the original 100K/1M rank,
 affected-value and local-SCC merge/split integration in one official Just
 invocation: all three cases, 32 rank observations, original work/output

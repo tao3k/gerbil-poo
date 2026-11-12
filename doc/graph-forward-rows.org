@@ -1,0 +1,166 @@
+#+title: Cold owned schedule: sparse forward rows with exact support
+
+The 884.916 ms result in [[file:graph-cold-index.org][cold index qualification]] is CPU for
+the complete owned cold schedule of 1M admitted owners with no edges. It
+includes roster normalization, support admission, capture, order and ranks.
+The comparison observed 1026.6475 ms reference CPU, but 1050.0721 → 1190.1796
+ms wall; this is neither an SCC kernel result nor a first business =.get=.
+[[file:graph-roster.org][The phase diagnostic]] puts rows/order/ranks at 331.599–344.028 ms
+on that fixture, jointly. It does not isolate the cost of forward writes.
+
+* Lean gate before Scheme
+
+Today =schedule-rows= writes one forward table entry per owner, even when
+its row is empty. A candidate can store only nonempty rows while capturing
+them in the existing order, then project the cold adjacency through the
+existing admitted support index. It needs neither a dense intermediate map
+nor another index. This is an owned-schedule candidate; uncontrolled sources
+keep their existing path.
+
+[[file:graph-forward-rows.lean][Lean]] checks the following for arbitrary ordered rows:
+
+| Obligation | Theorem | Production correspondence |
+|------------+---------+---------------------------|
+| Unique admitted keys allow skipping empty writes during capture | =fused_cold_exact= | =schedule-rows= and the private cold base |
+| A supported empty row is distinct from an unsupported owner | =cold_base_exact=, =no_unsupported_as_empty= | projected base and public owned =read-projection= |
+| Identical repair batches preserve ordered rows | =revised_rows_exact= | existing =%index-fork= and repair writes |
+| An empty addition masks an older base row; retirement masks it with =#f= | =empty_patch_masks_base=, =retirement_masks_base= | =repair-order= support edits |
+| Failed capture and its effect trace remain the original observation | =same_captured_observation= | change only private row storage, not validation, getter or replay order |
+| An edgeless capture stores zero rows | =no_cold_writes_when_empty= | no per-owner forward write, still one row inspection |
+
+The overlay model has three distinct states: no patch, retirement, and a
+present row (possibly empty). The cold support is the immutable admitted
+support, never the evolving set; add/re-add and retire are explicit patches.
+The result compares exact ordered rows, not just edge sets. The effect
+theorem assumes the same capture and effect trace; it does not prove native
+Gerbil constructor/RNG behavior or write isolation.
+
+* Native refinement still required
+
+Prove the Scheme base handles both explicit defaults and no-default lookups
+like =support/index.ss=. Audit every caller of =%schedule-adjacency= and the
+cold DFS/inverse builders. Preserve first refusal for invalid support, cycles
+and source changes; keep the no-default failure where the old internal code
+requires it. Keep row order, copies at the public boundary, retirement
+tombstones, and the old snapshot. Constructor order, author callbacks and
+independent rechecks are outside the storage rewrite and must remain intact.
+
+An extra support probe at every nonempty read can erase the win. A native
+candidate should try the stored row first and consult support only on a miss.
+Measure both cold writes and revised lookups. Use the existing matched empty,
+chain and hub workloads and verify exact order and retire/re-add behavior;
+force a blanket empty default as the negative control. Compare complete CPU,
+wall, allocation and GC under existing bounds. A sparse representation that
+reserves dense backing storage may save writes without saving memory. This
+proof selects no capacity policy and establishes no latency bound.
+
+Check with =lean +leanprover/lean4:v4.35.0 doc/graph-forward-rows.lean=.
+[[file:graph-forward-rows.sysml][SysML]] tracks these same obligations. Only the narrower
+empty-capture case below enters the public owned scheduling entry.
+
+* Private native candidate: reject general sparse rows
+
+The optional study exercises the same compiled scheduling and repair code
+on both arms. The public entry still selects the existing representation.
+At 100K/1M, empty uses complete =schedule-owned= with no bindings; chain and
+hub use already admitted support and synthetic rows, timing =schedule-rows=
+only. Neither is a business EVAL. Each row retains the four A/B/B/A samples,
+with full ordered output and all row comparisons outside timing.
+
+| Owners | Shape | Dense CPU ms | Sparse CPU ms | Dense wall ms | Sparse wall ms |
+|--------+-------+--------------+---------------+---------------+----------------|
+| 100K | empty | 59.839 | 43.268 | 64.749 | 43.417 |
+| 100K | chain | 133.044 | 180.640 | 137.687 | 214.962 |
+| 100K | hub | 156.068 | 135.101 | 163.291 | 139.335 |
+| 1M | empty | 880.910 | 745.835 | 896.559 | 749.744 |
+| 1M | chain | 2413.656 | 2371.761 | 2431.545 | 2380.387 |
+| 1M | hub | 2143.616 | 2068.638 | 2354.346 | 2090.626 |
+
+Each 1M empty window collected once. Allocation across GC is unqualified.
+The 100K chain regression rules out the general policy; the 1M chain/hub
+results do not reverse that decision. The graph unit was built at =-O2=
+using the project's macOS compiler environment. The first direct compile
+lacked that environment and failed to link =_memset=; it is not evidence.
+The focused semantics suite and all 24 scale windows passed via Just at
+2 GiB with Module/Harness/final OK. The scale invocation exited naturally
+in 46.80 s wall / 41.14 s user / 0.93 s system. No peak RSS was recorded.
+
+The initial full-source RNG assertion was not a valid matched observation:
+even dense followed by dense disagreed from a restored RNG state. The
+isolated storage phase shares admitted support and authored rows and checks
+dense/dense and dense/sparse equality of the resulting RNG state. Full-source
+RNG equality is not claimed. The separate revision case checks unbound keys,
+retirement, re-addition, refusal and the predecessor's old rows.
+
+* Narrow candidate: no captured bindings
+
+=empty_capture_base_exact= proves that after author capture succeeds, an
+empty capture map gives every supported owner an implicit empty row. This
+allows the owned entry to skip the per-owner =program-row= lookup pass itself,
+not only its writes. =all_authored_rows_empty= proves the broader mathematical
+case, but the experimental guard only accepts an actually empty capture map.
+An explicit binding, including a false binding, uses the dense fallback.
+Neither branch skips author capture or its effect checks. The existing order
+and rank construction still run. This guard is not a profile or size threshold.
+
+The =cold-forward-implicit-test= compares complete calls, with two opposite
+four-sample interleavings and both same-side controls. Both sizes compare the
+entire order and every row outside timing. CPU/wall paired medians in ms:
+
+| Owners | Dense CPU | Implicit CPU | Dense wall | Implicit wall |
+|--------+-----------+--------------+------------+---------------|
+| 100K | 61.430 | 46.8915 | 64.3566 | 47.7055 |
+| 1M | 852.888 | 674.447 | 869.7675 | 690.9504 |
+
+At 1M, A/A CPU is 858.363 ms and B/B CPU 716.921 ms. B/B wall median
+is 992.247 ms, including one 1330.514 ms sample. Paired GC counts are
+1/1/0/0 dense and 0/0/1/0 implicit, in each arm's execution order. Both
+zero-GC dense windows allocate 319,859,312 bytes; all three zero-GC
+implicit windows allocate 286,304,768 bytes. Do not infer allocation from
+other windows. The test passes naturally with both cases, Module/Harness/
+final OK and 23.71 s wall / 17.90 s user / 0.95 s system.
+
+Matched native fault: removing the empty-map guard lets an authored =a → b=
+row enter the implicit-empty branch. The same existing-edge test fails:
+the faulty artifact returns =(a b)= where the checked order is =(b a)=.
+The official suite exits 1; its empty scale case still passes. A first
+launcher attempt with the unsupported =--case= option is retained as an
+invocation error and is not counted as fault evidence. The guard is restored.
+
+These results qualify a private candidate for the next full integration
+comparison. They do not adopt it as the default or close PR/consumer gates.
+
+* Public owned entry integration
+
+The final candidate uses only the empty-map guard. General sparse rows and
+their extra fallback reads are removed. On the implicit path the existing
+support index answers cold forward reads; the existing fork and patch path
+remains responsible for all later edits. The same constructors run in the
+same order, but the temporary forward table has default capacity and is not
+retained. The work receipt reports zero footprint reads for this path;
+validation, rank assignment, order and author-capture effects remain charged.
+
+The production Graph unit was built at =-O2=; the same native dependency
+prefix and original prepared integration fixture were used. The final
+same-process test runs the public entry against the forced dense reference,
+with full order/row assertions and the footprint counter. Paired CPU/wall
+medians in milliseconds:
+
+| Owners | Dense CPU | Public CPU | Dense wall | Public wall |
+|--------+-----------+------------+------------+-------------|
+| 100K | 63.1055 | 48.6210 | 65.3690 | 50.7334 |
+| 1M | 725.0040 | 614.2050 | 726.1115 | 625.6925 |
+
+At 1M, the same-side CPU medians are 816.3315 and 574.4650 ms; wall
+medians are 851.4310 and 582.4511 ms. Paired collections are 1/1/0/0
+and 0/0/1/0. Zero-GC allocation is 319,859,312 vs 286,304,816 bytes.
+There is no valid per-arm peak RSS. The three-case run exits naturally in
+19.07 s wall. The existing source-owned rank, affected-only ConstructionCache
+and local SCC merge/split suites also exit naturally with all 32 observations
+and final OK in 22.50 s wall. The owned edit still checks one owner and one
+footprint, writes two ranks and eight patches, and neither copies the full
+index nor materializes order. The unrestricted path still checks all owners.
+The original order and invalidation suite passes 25 cases; the separate
+100K/1M inverse-continuation suite also passes with unchanged work oracles.
+This is focused producer integration; exact PR CI and 10K Module EVAL remain
+separate acceptance requirements.
