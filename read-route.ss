@@ -7,6 +7,17 @@
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
            symbolic-table-set! symbolic-hash))
 
+;; These are the final record owner's generated physical-field operations,
+;; not the public copying inspectors or a new lookup through mutable class
+;; display metadata. Every issuer captures the SAME declared field meanings.
+(extern
+  (record-key-field clan/poo/slot-observation#slot-read-key)
+  (record-value-field clan/poo/slot-observation#slot-read-value)
+  (record-current-field clan/poo/slot-observation#slot-read-current?)
+  (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
+  (record-birth-field clan/poo/slot-observation#slot-read-birth)
+  (record-birth-set! clan/poo/slot-observation#slot-read-birth-set!))
+
 ;; A method installation interval may omit repeated protocol selection only
 ;; when its actual writes cannot dispatch an author effect. Inspect the selected
 ;; wrapper fields without invoking them; changed routes use the ordinary loop.
@@ -136,11 +147,12 @@
       (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)))
     ;; The exact final record class is admitted before any of these accessors.
     ;; Each invocation reads live fields rather than retaining a verdict.
-    (def read-key (read-runtime.make-class-slot-accessor record-class 'key))
-    (def read-value (read-runtime.make-class-slot-accessor record-class 'value))
-    (def read-current? (read-runtime.make-class-slot-accessor record-class 'current?))
-    (def read-dependencies (read-runtime.make-class-slot-accessor record-class 'dependencies))
-    (def read-birth (read-runtime.make-class-slot-accessor record-class 'birth))
+    (def read-key record-key-field)
+    (def read-value record-value-field)
+    (def read-current? record-current-field)
+    (def read-dependencies record-dependencies-field)
+    (def read-birth record-birth-field)
+    (def write-birth! record-birth-set!)
     ;; Recurse over the private finite sequence: a cyclic or improper presented
     ;; spine cannot extend the comparison past the saved sequence's length.
     (def (same-list? current saved)
@@ -207,7 +219,7 @@
             (if (not candidate) (base-birth #f)
               (and (base-birth candidate) (same-list? (read-value candidate) names))))
           base-birth))
-      (read-runtime.slot-set! read 'birth birth)
+      (write-birth! read birth)
       (table-set! issued read birth)
       read)
     ;; Authenticate class and registered procedure identity BEFORE invoking it.

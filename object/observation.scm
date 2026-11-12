@@ -7,11 +7,16 @@
       (let (table (make-hash-table)) (set! (object-%reads self) table) table)))
 ;; Authenticate issuance and the pinned route before checking receiver freshness.
 ;; Issuance authenticates the final read class before either internal call.
-;; Pin its field offset, not a record or a validation result. Each invocation
-;; reads the live key; the public accessor still copies structural key spines.
-(def object-read-key
-  (read-runtime.make-class-slot-accessor
-    (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)) 'key))
+;; Use the SAME physical fields as the issuer. Symbolic inspection metadata
+;; cannot redirect a signed edge or change what a newly loaded consumer reads.
+;; Every call reads live fields; public structural inspectors still copy spines.
+(extern
+  (record-key-field clan/poo/slot-observation#slot-read-key)
+  (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
+  (record-value-field clan/poo/slot-observation#slot-read-value))
+(def object-read-key record-key-field)
+(def object-read-dependencies record-dependencies-field)
+(def object-read-value record-value-field)
 (def (object-read-current? read)
   (and (object-read-issued? read)
        (begin (require-object-read-route! read)
@@ -24,14 +29,14 @@
        (cond
          ((and (pair? key) (eq? (car key) 'bootstrap))
           (let (anchor (bootstrap-anchor self (cadr key)))
-            (and anchor (eq? (cdr anchor) (slot-read-value read)))))
+            (and anchor (eq? (cdr anchor) (object-read-value read)))))
          ((not (eq? (slot-read-instance read) (object-%instance self))) #f)
          ((and (pair? key) (eq? (car key) 'cache-miss))
           (not (hash-key? (object-%instance self) (cadr key))))
          (else
           (and (object-%reads self) (eq? read (hash-get (object-%reads self) key))
                (or (pair? key)
-                   (eq? (slot-read-value read)
+                   (eq? (object-read-value read)
                         (hash-ref (object-%instance self) key absent-value))))))))
 ;; Trusted implementation access to the one existing writer; it remains absent
 ;; from the read-route public exports. Ordinary consumers receive only checks.
@@ -96,7 +101,7 @@
           (hash-put! seen read #t)
           (hash-put! receivers (slot-read-receiver read) #t)
           (set! ordered (cons read ordered))
-          (for-each collect (read-runtime.slot-ref read 'dependencies))))
+          (for-each collect (object-read-dependencies read))))
       ;; The cold selector admits a finite root spine before entering this DFS.
       ;; Preserve full issuance preflight and its order for every admitted root.
       ;; Only successful traversal copies roots and publishes a cached value.
@@ -206,7 +211,7 @@
           ;; Work may edit the presented record after the initial graph check.
           ;; Keep the same immediate admission used by ordinary replay.
           (without-observation (cut current! read))
-          (%deliver-slot-read read (read-runtime.slot-ref read 'value))) reads)) #t))
+          (%deliver-slot-read read (object-read-value read))) reads)) #t))
 
 ;; Deliver computed provenance or mint a record for an exact explicit assignment.
 (def (object-deliver-value self slot value)

@@ -11,11 +11,12 @@
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 32)
-  (displayln "ISSUED-READ: 32 cases completed"))
+  (check-equal? completed 35)
+  (displayln "ISSUED-READ: 35 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
-(extern namespace: clan/poo/object call-with-issued-reads object-read-key)
+(extern namespace: clan/poo/object call-with-issued-reads object-read-key
+        object-read-dependencies object-read-value)
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
@@ -38,6 +39,24 @@
   (for-each (lambda (read) (hash-put! watcher read #t))
     (recorded (cut .ref/cached receiver 'missing (lambda () #f))))
   watcher)
+(def (with-declared-field-fixture action)
+  (.def Source port: 5432)
+  (.def Alternative empty: '())
+  (def source-read (selected (recorded (lambda () (.get Source port))) 'port))
+  (def alternative-read (selected (recorded (lambda () (.get Alternative empty))) 'empty))
+  (.def Target payload: (begin (.get Source port) (list alternative-read)))
+  (def target-read (selected (recorded (lambda () (.get Target payload))) 'payload))
+  (check-equal? (and (memq source-read (slot-read-dependencies target-read)) #t) #t)
+  (action target-read source-read))
+(def (with-moved-declared-field read field replacement-field action)
+  (def class (runtime.object-class read))
+  (def offsets (runtime.&class-type-slot-table class))
+  (def original (runtime.class-slot-offset class field))
+  (def replacement (runtime.class-slot-offset class replacement-field))
+  (dynamic-wind
+    (lambda () (symbolic-table-set! offsets field replacement))
+    action
+    (lambda () (symbolic-table-set! offsets field original))))
 (def issued-read-test
  (test-suite "Read issuance with transient tokens and guarded replay"
   (test-case "pinned key access preserves live symbolic and structural fields"
@@ -46,7 +65,9 @@
                              (.ref/cached Owner 'missing (lambda () #f)))))
     (for (read reads)
       (check-equal? (object-read-issued? read) #t)
-      (check-eq? (object-read-key read) (runtime.slot-ref read 'key)))
+      (check-eq? (object-read-key read) (runtime.slot-ref read 'key))
+      (check-eq? (object-read-dependencies read) (runtime.slot-ref read 'dependencies))
+      (check-eq? (object-read-value read) (runtime.slot-ref read 'value)))
     (def read (selected reads 'value))
     ;; Every access sees the live field. No captured key may survive a
     ;; mutated record, even if a previous currentness check accepted it.
@@ -187,7 +208,9 @@
     (for-each (lambda (name) (check-equal? (memq name names) #f))
       '(object-record-read object-read-query object-read-bootstrap
         object-deliver-value object-issued-read-current? require-object-read-route!
-        call-with-issued-reads active-read-replays))
+        call-with-issued-reads active-read-replays object-read-key
+        object-read-dependencies object-read-value record-key-field
+        record-dependencies-field record-value-field))
     (check-equal? (and (memq 'object-read-issued? names) #t) #t)
     (check-equal? (and (memq '%issue-read names) #t) #f)
     (def route-names
@@ -195,6 +218,9 @@
         (map module-export-name
           (module-context-export (core-import-module ':clan/poo/read-route)))))
     (check-equal? (memq '%issue-read route-names) #f)
+    (for-each (lambda (name) (check-equal? (memq name route-names) #f))
+      '(record-key-field record-value-field record-current-field
+        record-dependencies-field record-birth-field record-birth-set!))
     (check-equal? (and (memq '%issued-read? route-names) #t) #t)
     (set! completed (+ completed 1)))
   (test-case "real persistent records authenticate but public copies do not"
@@ -811,5 +837,51 @@
       (%call-with-recorded-slot-reads (lambda () (.get Lazy value))))
     (check-eq? present #f)
     (call-with-current-slot-reads after-fill void)
+    (set! completed (1+ completed)))
+  (test-case "symbolic field metadata cannot redirect a cold closure"
+    (with-declared-field-fixture
+      (lambda (root _source)
+        (def normal (call-with-current-slot-reads (list root) values))
+        (check-equal? (> normal 2) #t)
+        (def redirected
+          (with-moved-declared-field root 'dependencies 'value
+            (lambda () (call-with-current-slot-reads (list root) values))))
+        (check-equal? redirected normal)))
+    (set! completed (1+ completed)))
+  (test-case "cold replay authenticates the original parent after a metadata move"
+    (with-declared-field-fixture
+      (lambda (root source)
+        (def revision (slot-read-revision source))
+        (def (attempt)
+          (with-catch values
+            (lambda () (call-with-current-slot-reads (list root) values))))
+        (dynamic-wind
+          (lambda () (runtime.slot-set! source 'revision (1+ revision)))
+          (lambda ()
+            (def ordinary (attempt))
+            (check-equal? (Error? ordinary) #t)
+            (when (Error? ordinary)
+              (check-equal? (Error-message ordinary) "unissued slot dependency"))
+            (def moved
+              (with-moved-declared-field root 'dependencies 'value attempt))
+            (check-equal? (Error? moved) #t)
+            (when (Error? moved)
+              (check-equal? (Error-message moved) "unissued slot dependency")))
+          (lambda () (runtime.slot-set! source 'revision revision)))))
+    (set! completed (1+ completed)))
+  (test-case "a new issuer retains constructor field meanings after display edits"
+    (def sample (make-slot-read #f 'sample 0 #f #f '() values))
+    (for-each
+      (lambda (field)
+        (with-moved-declared-field sample field (if (eq? field 'value) 'revision 'value)
+          (lambda ()
+            (defvalues (issue issued? _inspect) (make-read-issuer))
+            (def read (issue #f 'metadata-field 0 #f 'payload '() values))
+            (check-equal? (issued? read) #t)
+            (check-equal? (slot-read-key read) 'metadata-field)
+            (check-equal? (slot-read-value read) 'payload)
+            (check-equal? (slot-read-dependencies read) '())
+            (check-equal? (%issued-read? read) #f))))
+      '(key value current? dependencies birth))
     (set! completed (1+ completed)))
 ))
