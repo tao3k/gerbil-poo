@@ -1,6 +1,6 @@
 ;;; Optional native study; deliberately absent from the default development build.
 ;;; Compile with the standard compiler and execute through Just test-file.
-(export root-linearization-test shape-construction-test scalar-layout-paired-test)
+(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test)
 (import :std/test :std/iter :clan/poo/object
         (only-in :gerbil/runtime/c3 c4-linearize*)
         (only-in :std/values first-value)
@@ -10,6 +10,54 @@
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
 (extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
         ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)
+
+;; Preserve native counter endpoints when the signed allocation result is not
+;; admissible. This observer runs after timing, without observing POO sources.
+(def (counter-endpoints before after _elapsed)
+  (displayln (list 'ALLOCATION-ENDPOINTS
+    'before (vector (f64vector-ref before 6) (f64vector-ref before 7) (f64vector-ref before 9))
+    'after (vector (f64vector-ref after 6) (f64vector-ref after 7) (f64vector-ref after 9)))))
+
+;; Complete public precedence protocol, distinct from the pure C4 base-case
+;; diagnostic below. Each cold window receives fresh runtime receiver state.
+;; Warm windows use precisely those receivers; no business slot is demanded.
+(def root-protocol-test
+  (test-suite "complete root precedence protocol costs"
+    (test-case "fresh roots and their cached metadata, preparation charged separately"
+      (for (_ (in-range 4))
+        (defvalues (owners preparation)
+          (measure (lambda ()
+            (for/collect (_ (in-range 4096)) (make-object))) 1))
+        (for (phase '(cold warm))
+          (defvalues (_ clocks)
+            (measure (lambda ()
+              (for (owner owners)
+                (let (order (compute-precedence-list! owner))
+                  (unless (and (pair? order) (eq? (car order) owner) (null? (cdr order)))
+                    (error "root protocol changed precedence"))))) 1 #f counter-endpoints))
+          (displayln (list 'ROOT-PROTOCOL phase 'operations 4096
+            'preparation (qualified-metrics preparation)
+            'precedence (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))
+
+;; The same lexical constant leaf used by the cold Graph author's .code.
+;; This is a first .get study, not the pure C4 or layout diagnostic.
+(def leaf-demand-test
+  (test-suite "complete lexical leaf demand costs"
+    (test-case "construction first get and repeated get retain payload identity"
+      (for (_ (in-range 4))
+        (def payloads (for/collect (i (in-range 4096)) (list i)))
+        (defvalues (leaves construction)
+          (measure (lambda ()
+            (for/collect (payload payloads) (.o reads: payload))) 1))
+        (for (phase '(cold warm))
+          (defvalues (_ clocks)
+            (measure (lambda ()
+              (for ((leaf leaves) (payload payloads))
+                (unless (eq? (.get leaf reads) payload)
+                  (error "leaf demand changed payload identity")))) 1 #f counter-endpoints))
+          (displayln (list 'LEAF-DEMAND phase 'operations 4096
+            'construction (qualified-metrics construction)
+            'demand (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))
 
 ;; Frozen former public constructor, including its keyword and contract boundary.
 ;; Only shape preparation differs; cells, initialization and revisions are identical.

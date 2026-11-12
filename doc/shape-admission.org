@@ -167,3 +167,68 @@ the optimized Scheme emitted only the selected constructor call in both arms.
 The final study uses two direct call sites, and generated Scheme was checked
 for both =ordinary-layout__%= and =make-slot-layout__%= branches. The invalid
 comparison is retained only in local evidence, never included in these medians.
+
+* Complete cold-path follow-up
+
+At =18e3aad= the unchanged =cold-handoff-test= passes its 100K/1M ABBA,
+author-call counts, ownership lifetime control and full output checks. The 1M
+projected CPU samples are 14.815087 and 14.372015 seconds; the retained samples
+are 16.659267 and 15.151716 seconds. The command exits naturally with final OK
+(88.07 s wall, 74.09 s user). This still includes one author-created POO leaf
+per owner. It is not the SCC discovery kernel and is not a Module EVAL test.
+The earlier revision's measurements are historical, not a paired comparison
+against this revision. No total speedup is inferred from that comparison.
+
+The optional study now also separates complete public root precedence from
+lexical =.o reads:= construction and first/repeated =.get=. Each cold window
+has 4096 fresh receivers; warm demand uses exactly those receivers. No business
+scope, value or precedence is warmed before the cold request. Four windows per
+phase, natural GC retained, before adding the endpoint observer:
+
+| Boundary | CPU median ms | Windows with GC |
+|----------+---------------+-----------------|
+| Lexical leaf construction | 1.0015 | 0/4 |
+| First leaf .get | 43.2615 | 3/4 |
+| Repeated leaf .get | 1.2035 | 0/4 |
+| Complete cold root precedence | 3.0665 | 1/4 |
+
+Inputs are prepared before these windows; these are phase diagnostics, not an
+additive decomposition of a complete Graph request. The GC-free first-demand
+sample is 20.586 ms. Cold root precedence contains the existing cycle hash and
+hooks; the native pure C4 base case alone is a different, much smaller boundary.
+These measurements do not justify skipping hooks or independently required
+read issuance/return checks, or attributing all cold cost to Graph search.
+
+Some zero-GC cold windows still have negative raw allocation. The optional
+endpoint observer records native indices 6 (collections), 7 (allocation total)
+and 9 (statistics-object space), after timing. It is not a POO source observer.
+On this host index 7 itself decreases without a collection, while index 9
+remains 208. Do not treat those windows as byte counts or blame GC alone.
+The formula matches the native compiled-thunk formula in Gambit ea114fc
+[[https://github.com/gambit/gambit/blob/ea114fc/lib/_repl.scm#L5278][_repl.scm]];
+[[https://github.com/gambit/gambit/blob/ea114fc/lib/_kernel.scm#L3999][_kernel.scm]] defines the endpoint layout. The observation does not establish
+the native runtime cause. Existing qualification remains conservative; raw
+endpoints stay local. Endpoint-observed runs are separate diagnostic evidence.
+
+* Static dependency ownership
+
+The first exact-head CI exposed a dynamic/static mismatch: dynamic interfaces
+passed, but representation and property-replay executables failed at
+=slot-layout= initialization with =Operator is not a PROCEDURE=. The static
+source contained unresolved Gambit macro calls. A per-module compiler option
+alone does not carry their definitions into a linked dependency closure.
+
+Following =io.ss=, the module now includes Gambit's standard macro definitions
+through =begin-foreign= in its own static source, alongside std/make's compiler
+configuration. This changes neither the admission contract nor the guards.
+The existing linked-entry and fresh-process property-replay gates are required
+controls; dynamic unit tests alone cannot qualify this optimization.
+
+Local restoration passes the same linked business child (including
+=SERVICE-WORKFLOW-OK=), all 9 representation-entry cases, all 541 Cases in the
+complete property suite (including fresh-process counterexample restoration),
+and all 10 scalar admission controls. Each official harness has final OK and
+natural exit without error/overflow markers. The property command takes
+118.10 s wall including its existing independent-library build/test. No child
+budget or test inventory changes. This is compiler-source conformance evidence,
+not a Lean proof of Gerbil/Gambit compilation or a full new-head CI result.

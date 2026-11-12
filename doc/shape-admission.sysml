@@ -33,4 +33,9 @@ package ShapeAdmission {
                routes on every scalar request. Cold or changed routes fall back.
                Do not create another adapter/cache or retain an obsolete backend. */
     }
+    requirement def StaticDependencyClosure {
+        doc /* Gambit macro definitions belong to the module's generated static
+               source as well as its dynamic compile command. Linked entry and
+               fresh-process replay gates must pass independently of SSI tests. */
+    }
 }
