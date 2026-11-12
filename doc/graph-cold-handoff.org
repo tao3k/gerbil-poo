@@ -1,0 +1,89 @@
+#+title: Cold Graph ownership handoff
+#+language: en
+
+* Contract and correspondence
+
+The former =capture-partition= continuation calls =partition-captured= and
+then reads two fields from its compact capture. This retains the complete
+CSR payload across normalization and the independent certificate. Ownership
+needs only the already admitted position index and direction bits.
+
+[[file:graph-cold-handoff.lean][The standalone Lean contract]] proves
+=handoff_exact= for arbitrary stateful discovery, certification and ownership
+actions, including errors and their observable state. =projection_ignores_payload=
+proves that the projected view has no payload field. Both proofs use no axioms.
+Run =lean doc/graph-cold-handoff.lean= with the installed Lean 4.35.0.
+This is a narrow projection refinement, not a new SCC completeness proof or
+a theorem about compiler root liveness, physical memory or currentness.
+
+[[file:graph-cold-handoff.sysml][The SysML contract]] maps PackedCapture to
+=compact-graph=, OwnershipView to its positions/direction fields, and
+ProjectOwnership to their early lexical binding. No new runtime view object
+is allocated. The private completion continuation closes over these fields,
+keys and symbolic rows. =partition-captured= and =finish-partition= pass this
+continuation through their existing tail handoff. =own-partition= consumes
+the fields directly. Non-owned and local-repair callers retain their default
+single-result protocol. All public entrypoints remain unchanged.
+
+The refinement assumes the admitted capture fields are immutable during the
+pure discovery/certificate interval. Existing discovery writes private state
+vectors, not capture positions, targets, offsets or direction. Author capture
+remains before this interval. Certificate failure still prevents ownership.
+
+* Native validation
+
+=benchmarks/cold-handoff-test.ss= belongs to the explicit development build.
+After ordinary compilation, use =just test-file= on its installed interface.
+The existing Just/Gerbil runner owns heap limits and success markers.
+
+Its bounded diagnostic keeps a weak reference to the actual compact capture,
+forces GC at the post-certificate boundary and compares retained/projected
+continuations. Weak references also cover names, offsets, targets and positions:
+the projected case releases the first four and retains positions. This tests
+the real private discovery/certificate handoff, not interception of the public
+factory. A private-binding interception experiment was ineffective against
+compiled internal calls and was removed; its failed log is not a negative
+control. The bounded contract runs separately through the existing CI Just
+entrypoint, before the unchanged full Graph studies. It adds no runner or job.
+The cold paired study uses the same source, capture, discovery, certificate
+and ownership implementation in ABBA order at 100K and 1M owners. The reference
+keeps the former late field projection. Each arm must call every author and
+retain the same complete certificate work. No GC is forced in timed samples;
+cross-GC allocation deltas remain unqualified. Existing multi-shape/delta and
+publication suites remain independent correctness requirements.
+
+The post-change six-module Graph/recursive-publication integration passes all
+176 cases, including all Module/Harness/final markers and natural exit zero.
+The Lean contract and strict SysML check pass. Native array-lifetime checks
+pass independently. A first benchmark fixture failed due to a POO same-name
+=keys= binding and was corrected. Failed evidence stays in local artifacts.
+
+* Exact-policy native observation
+
+The final standalone source passes both cases, with Module/Harness/final OK
+and natural exit zero. The retained reference includes the same finite-roster
+admission as the former public entry. One ABBA block yields two samples per
+arm and size; complete membership, order, owner and row output is validated
+outside each timed cold-build window and charged separately.
+
+| Owners | Retained CPU median s | Projected CPU median s |
+|--------+-----------------------+------------------------|
+| 100K   |              1.493301 |               1.539924 |
+| 1M     |             18.767117 |              17.372073 |
+
+At 1M, retained samples are 19.940815/17.593418 CPU seconds and 62/46 GCs;
+projected samples are 17.512147/17.231999 seconds and 45/45 GCs. The final
+retained sample is close to the projected samples. At 100K the direction
+reverses. This does not establish a stable CPU improvement. All cold samples
+cross GC, so allocated bytes remain unqualified; signed raw deltas stay in
+local artifacts. The Just execution takes 89.70 s wall and 86.01 s CPU; the
+outer resource window takes 90.51 s wall and 86.07 s CPU, reporting maximum
+RSS 2065924096 bytes. This mixed-arm maximum
+does not attribute RSS savings to either arm and cannot be compared to a
+different multi-shape process.
+
+The demonstrated gain is bounded retention: the private handoff can release
+the capture, names, offsets and targets while retaining positions. This is
+not a solution to the remaining 1M public cold-build cost or Core 10K EVAL.
+Exact-head CI and the unchanged end-to-end gates remain open. No consumer
+pin, release or full Core/Module acceptance follows from these checks.

@@ -99,6 +99,7 @@
     "benchmarks/closure-measure"
     "benchmarks/read-field-test"
     "benchmarks/read-replay-test"
+    "benchmarks/cold-handoff-test"
     "benchmarks/ordered-scc-study"
     "benchmarks/closure-paired-benchmark"
     "benchmarks/closure-paired-suite"

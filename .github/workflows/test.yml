@@ -164,5 +164,6 @@ jobs:
         # Functional suites above still share one process; all benchmark
         # workloads and heap limits stay unchanged.
         run: |
+          just _test -r '^cold-handoff-contract-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/cold-handoff-test.ssi"
           just _test benchmarks/scc-test.ss
           just _test benchmarks/owned-invalidation-test.ss

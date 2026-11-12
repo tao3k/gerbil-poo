@@ -697,22 +697,29 @@
                  (capture-graph keys (lambda (key)
                    (let (code (.call spec .code key)) (if code (.@ code reads) [])))
                    #t 4294967295 'adjacent owned?)))
-    (def part (partition-captured keys reads captured-edges (length keys) declared-edges index owned?))
-    (if owned? (own-partition keys reads index part) part)))
+    ;; Retain only the ownership fields across discovery/certification. Keeping
+    ;; index in this continuation also keeps its packed edges and capture arrays.
+    (def complete
+      (if owned?
+        (let ((positions (and index (compact-graph-positions index)))
+              (direction (and index (compact-graph-direction index))))
+          (lambda (part) (own-partition keys reads positions direction part)))
+        values))
+    (partition-captured keys reads captured-edges (length keys) declared-edges index owned? complete)))
 
 ;; Pure phase over locally captured immutable rows. Production reaches this only
 ;; after validating every author. White-box studies may borrow an already
 ;; certified historical partition, charging zero NEW declaration validation.
 (def (partition-captured keys reads captured-edges validation-owners declared-edges
-                         (index #f) (owned? #f))
+                         (index #f) (owned? #f) (complete values))
   (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
     ;; A tail handoff carries NO packed input or capture construction buffers.
     ;; Keep those roots out of normalization/certificate closure environments.
     (finish-partition keys reads validation-owners declared-edges
-      owners next component examined-edges finished popped owned?)))
+      owners next component examined-edges finished popped owned? complete)))
 
 (def (finish-partition keys reads validation-owners declared-edges
-                       owners next component examined-edges finished popped (owned? #f))
+                       owners next component examined-edges finished popped (owned? #f) (complete values))
     (let-values (((groups members ranks) (normalize keys owners owned?)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
@@ -761,11 +768,11 @@
               (error "invalid SCC spanning certificate" key)))
           (when (and quotient-error (eq? key (car quotient-error)))
             (error "invalid SCC quotient certificate" key (cdr quotient-error))))
-        (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
+        (complete (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
           (work-receipt validation-owners declared-edges (if (zero? finished) 0 next)
             examined-edges finished popped next component
             certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges
-            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners #f))))
+            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners #f)))))
 
 ;; Owned partition keeps the existing SCC result and only adds the indexes
 ;; required to revise that result without rereading a declaration.
@@ -778,12 +785,12 @@
     (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
     #f work #f owned))
 
-(def (own-partition keys reads index part)
-  (def positions (if index (compact-graph-positions index) (make-hash-table-symbolic)))
+(def (own-partition keys reads captured-positions direction part)
+  (def positions (or captured-positions (make-hash-table-symbolic)))
   (def backward (make-hash-table-symbolic))
   (def cycle? (and (pair? keys) (pair? (cdr keys)) (= (hash-length (%partition-members part)) 1)))
   (for ((key keys) (position (in-range (length keys))))
-    (unless index (hash-put! positions key position))
+    (unless captured-positions (hash-put! positions key position))
     (def row (hash-ref reads key))
     (when (and cycle? (not (and (pair? row) (null? (cdr row)))))
       (set! cycle? #f))
@@ -794,8 +801,7 @@
                     ;; Capture already authenticated both rank-direction bits.
                     ;; Carry that structural evidence instead of scanning again.
                     (cond (cycle? 'cycle)
-                          ((and index (positive? (compact-graph-direction index)))
-                           (compact-graph-direction index))
+                          ((and direction (positive? direction)) direction)
                           (else #f)))
     (partition-work part)))
 
