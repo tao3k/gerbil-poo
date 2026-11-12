@@ -124,3 +124,7 @@ wall. This is warm demand, not first business evaluation.
 Cold publication remains a separate unresolved optimization target. The
 route improvement does not close Core 10K Module EVAL or downstream build
 gates, and no downstream revision is promoted on this evidence.
+
+The next [[file:publication-phases.org][actual-callee attribution]] separates source admission, SCC,
+quotient scheduling and value construction; it does not treat full closure
+publication as Module loading or attribute its business work to SCC.

@@ -1,0 +1,105 @@
+#+title: Cold owned publication: actual-callee attribution
+
+* Boundary and fixture
+
+Production reference: =6cf940b=, including the proved quotient-route fusion.
+The optional =benchmarks/publication-phases-test.ss= follows the existing cold
+=graph-action= path with the SAME native capture/partition/scheduling/value/
+guard/admission callees. It retains =with-lens-checks= and the independent
+=%with-component-source= boundary. No source observer or production callback
+hook is installed. No default build/CI workload, loader, cache or runner is added.
+
+The fixture matches =owned-quotient-study=: two scalar anchor/reader groups
+and independent filler groups. Each filler invokes the original real closure
+builder on the anchor equation. Source declaration is prepared outside timing;
+complete publication includes ALL groups, not just name metadata. The final
+reader value must remain zero. This is not 10K Interfaces or first Module .get.
+
+At each fixed 1000/10000 size, complete/staged/staged/complete observations
+run serially with natural GC. The staged path places process-statistics
+snapshots BETWEEN native calls. Extra measurement allocations can move GC;
+these samples do not establish a speedup over the complete path. The outer
+quotient window includes its inner windows; NEVER sum nested windows.
+
+* Uninstrumented build: actual phase diagnosis
+
+Two 10K staged observations from the detailed run, CPU milliseconds:
+
+| Actual phase | First | Second |
+|--------------+-------+--------|
+| Source admission | 13.686 | 5.160 |
+| SCC capture/discovery/certification | 15.862 | 15.396 |
+| Quotient group enumeration | 1.388 | 1.173 |
+| Quotient Computation construction | 19.471 | 19.826 |
+| Quotient Graph scheduling | 293.153 | 254.582 |
+| Value materialization | 1591.700 | 1776.356 |
+| Guard construction | 30.513 | 35.431 |
+| Final admission | 0.020 | 0.022 |
+| Entire staged publication | 1965.991 | 2108.128 |
+
+Value materialization includes 263.955/381.706 ms GC CPU (3/4 collections);
+scheduling includes 62.141/46.645 ms GC CPU (one collection each). Complete
+and staged totals are reported separately in the raw local artifacts. Signed
+allocation deltas across collections are not accepted as allocation cost.
+The diagnostic run passes with all module/case/harness/final markers and
+natural exit: 17.47 s invocation wall, 11.83 user, 0.73 system; peak invocation
+RSS 1,139,949,568 bytes, within the unchanged 2GiB POO heap/180-second watchdog.
+
+SCC is NOT the dominant cost in this publication fixture. The largest phase
+is the existing eager value materializer; it calls the author-supplied group
+builder. Replacing a Graph algorithm cannot be credited with removing work
+that belongs to those complete closure computations.
+
+* Separate timed-build diagnostic
+
+Two additional 10K staged observations wrap only the ORIGINAL build callback
+in =measure=. Both assert exactly 10000 successful builder calls, still pass
+complete native admission, and return the same reader value. The normal
+complete/staged observations are retained separately in that run. Callback
+timing creates extra snapshots and can alter GC, so do not subtract it from
+uninstrumented timings or pool the cohorts.
+
+| Timed mode, CPU milliseconds | First | Second |
+|------------------------------+-------+--------|
+| Entire publication | 2968.390 | 3008.189 |
+| Value materialization | 2565.906 | 2534.857 |
+| Sum of ORIGINAL build callback windows | 1738.199 | 1853.921 |
+| GC CPU within those build windows | 230.908 | 365.962 |
+
+Those build windows account for about 68--73% of their instrumented parent
+value-materialization CPU. This is attribution, not a calibrated framework
+overhead estimate. The remaining interval includes the extra instrumentation.
+Full closure construction is real work in this fixture. Skipping filler
+builders, sharing their receipts across owners, prewarming, or replacing the
+builder with a trivial return would change this workload and cannot qualify
+as its optimization.
+
+The final study passes one case with required markers, natural exit and no
+error/overflow: 50.14 s invocation wall, 19.93 user, 1.25 system; peak invocation
+RSS 1,059,373,056 bytes. The first callback-timing compile had a surplus closing
+parenthesis; its failure is retained locally, corrected before the passing
+native compile/run, and not counted as an algorithm rejection.
+
+* Consequence for further work
+
+Retain this full-publication gate as a closure/approval integration check.
+Do not present it as a name-index or Module-loading benchmark. Native Graph
+scheduling and full closure/value construction remain separate targets.
+Future production changes require Lean contracts for the SPECIFIC interval
+changed, then native paired and refusal/snapshot gates. These timings prove
+no algorithmic equivalence; no production algorithm changes in this study.
+Existing publication, callback and currentness checks stay intact.
+
+The source audit also finds =component-group-builder= checking every member
+with =memq= against its full key family even though its existing =lenses=
+table already indexes that family. Across N singleton groups this can scan
+N(N+1)/2 key cells. This fixture's family has only TWO keys, so its timing
+does NOT measure that scaling problem. A candidate should reuse that native
+index, not add another membership cache. Before adopting, prove the owned
+family/domain equivalence, first refusal and caller/focus-callback mutation
+boundary; the current key list is caller-owned. No such change is adopted here.
+
+Reproduce after compiling the optional test with the existing native Gerbil
+flags: =just _test "$GERBIL_PATH/lib/clan/poo/benchmarks/publication-phases-test.ssi"=.
+Keep the same outer 180-second watchdog and 2GiB Just heap fence. Core's
+10K Module/4GiB and real downstream acceptance are separate, still open gates.
