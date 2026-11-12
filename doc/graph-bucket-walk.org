@@ -1,0 +1,71 @@
+#+title: Stream incident checks from the existing inverse index
+
+* Scope
+
+Unknown-source =reschedule= still authenticates all owner identities. Controlled
+=schedule-revision= binds a ticket to the precise predecessor and forks the
+existing structural indices. This change is inside =repair-order= only: checking
+incoming incident edges previously materialized =reverse-bucket-members= before
+visiting them. The existing =%for-each-reverse-bucket= already visits that exact
+sequence without building the retained-owner list.
+
+* Contract before Scheme
+
+[[file:graph-bucket-walk.lean][Lean]] proves traversal over additions followed by a masked base equals
+traversal over their materialized concatenation. The step can fail and carries
+arbitrary prefix state: first refusal and every preceding counter/trace update
+are preserved. Gerbil's standard =rbtree-for-each= walks left/node/right;
+=rbtree-foldr cons= visits right/node/left while prepending, yielding the same
+ascending sequence. Both forms retain base order. [[file:graph-bucket-walk.sysml][SysML]] records the boundary.
+
+Mask preparation and membership must remain pure on this private immutable
+bucket. No author callback or Gerbil expansion is moved across a check. Public
+bucket/order enumeration, source capture, SCC and publication are unchanged.
+This removes an intermediate list, not the necessary O(degree) incident check.
+
+* Acceptance
+
+Extend the existing deletion/re-addition test with ordered streamed/materialized
+comparison and refusal-prefix comparison for each historical bucket, including
+single and multiple masks. Preserve the construction group's independent order,
+cycle, invalidation and snapshot controls. Use the existing Just/Gerbil entries.
+Runtime performance and exact-head CI are separate from the Lean equivalence.
+
+The optional =inverse-walk-test= in =benchmarks/cold-preparation-test.ss= compares
+the former list-then-visit operation with the existing streaming visitor on the
+same admitted 100K/1M bucket. It retains ABBA/BAAB and A/A/B/B observations,
+natural GC and exact visit counts; it is absent from default builds and CI.
+This kernel is separate from complete rank repair and does not eliminate the
+explicit enumeration cost when a caller actually requests a bucket's members.
+
+* Native results
+
+Lean 4.35.0 accepts all three theorems, with no sorry axiom (only propext for
+the filtered-list equalities). The existing construction group passes all 42
+cases across both modules. Deliberately reversing the plain bucket iterator
+causes a real =ERROR CHECK= at the new ordered-prefix assertion: =(a b c)= versus
+=(c b a)=, exit 1. Restoring and recompiling the implementation restores all
+42 cases and natural exit (4.96 s wall), with Module/Harness/final OK. The
+optional study passes all nine cases and exits naturally (5.71 s wall).
+
+Same-process paired traversal CPU medians, four samples/arm, natural GC:
+
+| Bucket size | Materialize then visit ms | Stream ms | Collections list/stream |
+|-------------+---------------------------+-----------+-------------------------|
+| 100,000 | 1.5825 | 0.9913 | 1 / 0 |
+| 1,000,000 | 45.5575 | 17.6930 | 0 / 0 |
+
+The first 100K list sample includes a 30.209 ms GC and remains in the data.
+100K A/A is 1.549/1.583 ms, B/B 0.975/0.978 ms. 1M A/A is
+41.535/44.106 ms, B/B 15.933/17.260 ms. These are one-deletion wide buckets,
+not a complete multi-shape Graph or Module EVAL claim. Raw signed allocation
+endpoints are retained but not reported as attributable bytes. Peak RSS is not
+measured by this kernel. Full end-to-end and exact-head remote gates remain
+separate; no 180-second/4-GiB requirement is changed or declared satisfied here.
+
+The unchanged existing =benchmarks/scc-test.ss= rank-revision and owned-delta
+suites also pass through the standard Just suite filter: all 32 rank observations
+and 16 controlled/unrestricted observations at 100K/1M, with the original work
+oracles and explicit full-order verification. Module/Harness/final OK and natural
+exit are required. This verifies integration with the existing schedule path;
+it does not turn the wide-bucket kernel result into a complete EVAL speedup.

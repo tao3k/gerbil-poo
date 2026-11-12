@@ -1,6 +1,6 @@
 ;;; Optional native study; deliberately absent from the default development build.
 ;;; Compile with the standard compiler and execute through Just test-file.
-(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test slot-assembly-test constructor-call-test)
+(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test slot-assembly-test constructor-call-test inverse-walk-test)
 (import :std/test :std/iter :clan/poo/object (only-in :std/error Error?)
         (only-in :gerbil/runtime/c3 c4-linearize*)
         (only-in :gerbil/runtime/loader list-modules)
@@ -18,11 +18,36 @@
         (only-in :std/hash/misc hash-ensure-modify!)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/gambit default-random-source))
+(import (only-in :clan/poo/generalized-graph %reverse-bucket-remove %for-each-reverse-bucket))
+(extern namespace: clan/poo/generalized-graph reverse-bucket-members)
 (extern namespace: #f random-source-state-ref random-source-state-set!)
 (extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
         ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)
 (extern namespace: clan/poo/object
   compile-slot-specs slot-spec-discards-super? prepare-declaration-specifications)
+
+;; Separate from complete repair: identical admitted bucket and visitor, natural
+;; GC, no source callbacks. Count all visited owners; retain same-side controls.
+(def inverse-walk-test
+  (test-suite "incident inverse bucket traversal"
+    (test-case "materialized and streamed visits on identical wide buckets"
+      (for (size '(100000 1000000))
+        (def base (for/collect (_ (in-range size)) (gensym 'incident-reader)))
+        (def row (%reverse-bucket-remove base (list-ref base (quotient size 2))))
+        (for* ((schedule '((paired list stream stream list stream list list stream)
+                          (aa list list) (bb stream stream)))
+               (side (cdr schedule)))
+          (defvalues (count clocks)
+            (measure (lambda ()
+              (def count 0)
+              (def (visit _key) (set! count (1+ count)))
+              (if (eq? side 'list)
+                (for-each visit (reverse-bucket-members row))
+                (%for-each-reverse-bucket visit row))
+              count) 1))
+          (check-equal? count (1- size))
+          (displayln (list 'INVERSE-WALK size (car schedule) side
+            (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))
 
 (def (constructor-from-state state constructor)
   (def saved (random-source-state-ref default-random-source))
