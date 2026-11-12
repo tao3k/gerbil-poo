@@ -1,7 +1,8 @@
 ;;; POO-only replay comparison on one authenticated projection and read set.
 ;;; The standard compiler and Just test-file own preparation and execution.
 (export read-replay-test)
-(import :std/test :std/iter :clan/poo/object :clan/poo/slot-observation)
+(import :std/test :std/iter :clan/poo/object :clan/poo/slot-observation
+        (only-in :std/list/list take))
 (extern namespace: clan/poo/object call-with-issued-reads active-read-replays)
 
 ;; Conservative per-record checkpoint on the SAME current topology index.
@@ -26,6 +27,29 @@
   (displayln "READ-REPLAY shape=" shape " phase=" phase " side=" side
     " metrics=" (filter (lambda (entry) (not (eq? (car entry) 'result))) stats))
   result)
+
+(def (measure-root-merge shape roots)
+  (call-with-issued-reads roots
+    (lambda (reads live! _receivers)
+      (for-each live! reads)
+      (def shared (take reads 206))
+      (def owners (take (list-tail reads 206) 8000))
+      (def groups (map (lambda (owner) (cons owner shared)) owners))
+      (def expected (cons (car owners) (append shared (cdr owners))))
+      (def (collector)
+        (defvalues (_ result)
+          (%call-with-recorded-slot-reads
+            (lambda () (for-each %record-slot-reads! groups)) unique-roots?: #t))
+        result)
+      (def (verify observed)
+        (unless (and (= (length expected) (length observed))
+                     (andmap eq? expected observed))
+          (error "read root merge changed first-occurrence order")))
+      (verify (collector))
+      (displayln "READ-ROOT-MERGE-INPUT groups=8000 visits=1656000 unique=8206")
+      (for (_ (in-range 4))
+        (verify (measure shape 'merge-roots 'collector collector))))
+    #t #t))
 
 (def (study count width)
   (def shape (list count width))
@@ -54,6 +78,7 @@
   (def action (lambda (visits) visits))
   (def records (per-record roots action))
   (check-equal? (call-with-current-slot-reads roots action) records)
+  (when (> records 8206) (measure-root-merge shape roots))
   (displayln "READ-REPLAY-INPUT shape=" shape " roots=" (length roots)
     " records=" records " repetitions=12")
   (for (phase '(warm cold-index))

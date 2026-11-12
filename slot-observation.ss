@@ -84,7 +84,9 @@
   ;; Only replay-root consumers opt in. Dependency capture keeps every
   ;; edge occurrence; no signed dependency list is edited or reconstructed.
   (unless (boolean? unique-roots?) (error "invalid root collection policy"))
-  (def frame (make-read-collection (and unique-roots? (make-hash-table-eq)) '()))
+  ;; This private identity membership has no public adapter or callbacks.
+  ;; Keep the original first-occurrence spine and the delivery scope below.
+  (def frame (make-read-collection (and unique-roots? (make-table test: eq?)) '()))
   (def parent (current-read-scope))
   (def value (parameterize ((current-read-scope
     (if (read-scope? parent)
@@ -96,8 +98,8 @@
 (def (record-slot-read! frame read)
   (when frame
     (let (seen (read-collection-seen frame))
-      (unless (and seen (hash-key? seen read))
-        (when seen (hash-put! seen read #t))
+      (unless (and seen (table-ref seen read #f))
+        (when seen (table-set! seen read #t))
         (set! (read-collection-reversed frame)
           (cons read (read-collection-reversed frame)))))))
 ;; Merge an authenticated child capture under one parent-scope lookup, without
