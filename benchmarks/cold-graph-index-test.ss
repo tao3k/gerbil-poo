@@ -1,10 +1,76 @@
 ;;; Optional cold Graph phase study; absent from default build and CI.
-(export cold-topology-test cold-inverse-test)
+(export cold-topology-test cold-inverse-test cold-capacity-test)
 (import :std/test :std/iter
         (only-in :std/list/list-builder with-list-builder)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
+        (only-in :gerbil/runtime/interface interface-instance-object)
+        (only-in :gerbil/runtime/mop object-class slot-ref)
         (only-in :gerbil/runtime/gambit default-random-source))
 (extern namespace: #f random-source-state-ref random-source-state-set!)
+
+(def (fill-capacity keys hinted?)
+  (def result (if hinted? (make-hash-table-symbolic size: (length keys))
+                         (make-hash-table-symbolic)))
+  (for ((key keys) (rank (in-range (length keys)))) (hash-put! result key rank))
+  result)
+
+;; Structural work diagnostic, separate from timing. Native raw-table rehash
+;; scans the old backing vector and initializes the replacement vector.
+(def (capacity-work keys hinted?)
+  (def table (if hinted? (make-hash-table-symbolic size: (length keys))
+                        (make-hash-table-symbolic)))
+  (def backend (interface-instance-object table))
+  (def previous (slot-ref backend 'table))
+  (def rehashes 0)
+  (def scanned 0)
+  (def initialized (vector-length previous))
+  (for ((key keys) (rank (in-range (length keys))))
+    (hash-put! table key rank)
+    (def current (slot-ref backend 'table))
+    (unless (eq? current previous)
+      (set! rehashes (1+ rehashes))
+      (set! scanned (+ scanned (vector-length previous)))
+      (set! initialized (+ initialized (vector-length current)))
+      (set! previous current)))
+  (vector (hash-length table) rehashes scanned initialized))
+
+(def cold-capacity-test
+  (test-suite "known cardinality native table reservation"
+    (test-case "same entries backend and native seed effects on both capacities"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (_ (in-range size)) (gensym 'capacity-owner)))
+        (def state (random-source-state-ref default-random-source))
+        (def original (fill-capacity keys #f))
+        (def after (random-source-state-ref default-random-source))
+        (random-source-state-set! default-random-source state)
+        (def reserved (fill-capacity keys #t))
+        (check-equal? (random-source-state-ref default-random-source) after)
+        (check-eq? (object-class (interface-instance-object original))
+                  (object-class (interface-instance-object reserved)))
+        (check-equal? (slot-ref (interface-instance-object original) 'seed)
+                      (slot-ref (interface-instance-object reserved) 'seed))
+        (for (method '(ref set! for-each))
+          (check-eq? (slot-ref original method) (slot-ref reserved method)))
+        (for (side '(default hinted))
+          (def work (capacity-work keys (eq? side 'hinted)))
+          (check-equal? (vector-ref work 0) size)
+          (when (eq? side 'hinted) (check-equal? (vector-ref work 1) 0))
+          (displayln (list 'COLD-CAPACITY-WORK size side work)))
+        (for* ((schedule '((paired default hinted hinted default hinted default default hinted)
+                          (aa default default) (bb hinted hinted)))
+               (side (cdr schedule)))
+          (defvalues (result clocks)
+            (measure (lambda () (fill-capacity keys (eq? side 'hinted))) 1))
+          (check-equal? (hash-length result) size)
+          (for ((key keys) (rank (in-range size)))
+            (unless (= (hash-ref result key) rank) (error "reserved rank changed" key)))
+          ;; Capacity never admits a name and does not conflate false/absence.
+          (check-eq? (hash-ref result 'unknown-capacity-owner #f) #f)
+          (hash-put! result 'capacity-false #f)
+          (check-eq? (hash-ref result 'capacity-false 'missing) #f)
+          (displayln (list 'COLD-CAPACITY size (car schedule) side
+            (qualified-metrics clocks) 'entries (hash-length result)
+            'raw-allocation (vector-ref clocks 4))))))))
 
 ;; Frozen former schedule-rows traversal, with admitted zero-edge inputs.
 ;; Native constructors are prepared equally on both arms before phase timing.

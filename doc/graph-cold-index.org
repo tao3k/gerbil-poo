@@ -159,3 +159,99 @@ official Just invocation: all three cases and original work/output assertions,
 Module/Harness/final OK, natural exit, 52.59 s wall / 46.58 user / 1.04 system,
 without errors or overflow. The paired version comparison and the larger
 semantic integration gate are distinct evidence, not substituted for each other.
+
+* Native capacity experiment
+
+The remaining support, forward-row and rank tables have known cardinality but
+start with the native default capacity. The installed Gerbil runtime's
+=raw-table-size-hint->size= explicitly rounds a positive hint to a power-of-two
+backing vector to avoid rehashing. Consider only its public =size:= option;
+never derive owner membership or rank bounds from capacity. New Lean lemmas
+preserve point observations for arbitrary ordered writes with different initial
+capacities. Native backend/seed behavior and resource costs are runtime gates.
+The optional =cold-capacity-test= measures 100K/1M fills in the same process,
+with saved-state RNG equality, ABBA/BAAB and same-side controls, and full point
+read/false/missing checks outside timing. Production remains unchanged until
+both that study and complete cold/update comparison justify the hint.
+
+** Capacity semantics and physical work
+
+The three additional Lean lemmas pass with no sorry axiom. Production reserves
+only the existing owned support, forward-row, rank and dense-inverse tables;
+sparse inverse and uncontrolled constructors keep their former size policy.
+All insertions, row capture and domain checks still run. Local revision
+creation adds no roster enumeration; the existing complete-support rebuild
+uses its already enumerated roster size.
+
+The native backend class, ref/set!/for-each method identities, seed and default
+RNG state match. Point reads, rank zero, false and missing values remain
+distinct. A separate untimed diagnostic counts actual backing-vector identity
+changes during the same native insertion sequence:
+
+| Entries | Policy | Rehashes | Old vector slots scanned | Vector slots initialized |
+|---------+--------+----------+--------------------------+--------------------------|
+| 100K | default | 15 | 524272 | 1048560 |
+| 100K | hinted | 0 | 0 | 524288 |
+| 1M | default | 18 | 4194288 | 8388592 |
+| 1M | hinted | 0 | 0 | 4194304 |
+
+This instrumentation is outside CPU timing; it is not an author observer or a
+replacement table implementation. Counts describe this unique-key workload.
+The backing-vector work is derived from the installed native rehash loop,
+which scans the complete old vector and initializes its replacement.
+
+All three invocations are retained. Paired CPU medians ms, four samples/arm:
+
+| Study | 100K default / hinted | 1M default / hinted | Paired collections at 1M |
+|-------+-----------------------+---------------------+--------------------------|
+| Initial | 38.7865 / 13.7130 | 208.0850 / 73.5375 | 1 / 0 |
+| Backend/seed identity | 49.7520 / 25.2560 | 266.9355 / 90.0625 | 1 / 0 |
+| Structural work diagnostic | 63.0945 / 25.2660 | 274.6645 / 85.6945 | 1 / 0 |
+
+The last invocation's 1M A/A is 252.327/257.594 ms; B/B is 83.178/127.246 ms.
+Its 1M wall medians are 521.8215/150.0311 ms. Keep the slower reruns, natural GC
+and every same-side control. They are separate invocations, not one pooled
+sample. Max RSS of that whole invocation is 1,165,377,536 bytes, including both
+arms and fixtures. Signed allocation endpoints remain unqualified. All have
+Module/Harness/final OK and natural exit; final work invocation is 13.99 s
+wall / 7.11 user / 0.59 system. Construction retains 44 cases; SCC/feedback
+retains 55, with no errors or overflow. No other Graph algorithm is replaced.
+
+** Same-program complete preparation
+
+Reference is =23eb329d7762ece64b5e4e3fd087ced20fe5c410=. Both prefixes share
+identical compiled POO and graph-study artifacts; only the Graph unit is
+rebuilt from that Git archive, with one runtime =generalized-graph~0.o1= in
+each prefix. The original suite runs A/B/B/A through Just, retaining every
+16-observation run, original work/full-order assertions and natural exit.
+
+| Nodes | CPU metric ms | Reference | Capacity hints |
+|-------+---------------+-----------+----------------|
+| 100K | complete owned cold setup, median of 2 | 60.5760 | 50.3635 |
+| 1M | complete owned cold setup, median of 2 | 1026.6475 | 884.9160 |
+| 100K | owned update, median of 8 | 0.0935 | 0.1015 |
+| 1M | owned update, median of 8 | 0.1020 | 0.1060 |
+| 100K | uncontrolled update, median of 8 | 56.0805 | 66.0985 |
+| 1M | uncontrolled update, median of 8 | 567.0640 | 587.2355 |
+
+Cold 1M samples are 1070.242/983.053 ms reference and 904.535/865.297 ms
+candidate, one collection in each. Cold wall medians are 1050.0721/1190.1796 ms:
+the candidate wall is slower despite lower CPU. Keep that difference and do
+not attribute it to host load without scheduling evidence. Controlled updates
+still check one owner/footprint and write two ranks/eight patches without full
+index copy/output; no update has GC. This is no claim of an update speedup.
+The unchanged uncontrolled path is also slower in this cohort; its N-owner
+authentication remains intact. Independent explicit order output stays outside
+the update timing.
+
+Whole-process wall/user/system seconds are 65.52/10.05/0.76,
+15.20/10.40/0.75, 12.34/10.03/0.74 and 12.76/10.76/0.76. The first long wall
+sample remains. Capacity helps this cold CPU stage, but substantial preparation
+and the real Module EVAL/10K acceptance remain open.
+
+Final capacity candidate additionally passes the original 100K/1M rank,
+affected-value and local-SCC merge/split integration in one official Just
+invocation: all three cases, 32 rank observations, original work/output
+assertions, Module/Harness/final OK and natural exit, 59.31 s wall / 52.58
+user / 1.34 system. No error or overflow marker is present. This gate is
+separate from the per-table work diagnostic and the old/new cold comparison.

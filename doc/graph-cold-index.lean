@@ -100,6 +100,33 @@ theorem fold_empty (rows : List (List K)) (shape : Shape K) :
     rw [List.foldl_cons, ih, see_empty]
     simp [noEdges, and_assoc]
 
+-- Capacity is a native implementation hint, never a membership certificate.
+-- Only point reads of these private tables are used; schedule order is explicit.
+structure Reserved (K V : Type) where
+  capacity : Nat
+  entries : K → Option V
+
+def reserve (capacity : Nat) : Reserved K V := ⟨capacity, fun _ => none⟩
+def put (table : Reserved K V) (key : K) (value : V) : Reserved K V :=
+  ⟨table.capacity, fun query => if query = key then some value else table.entries query⟩
+
+theorem reserve_empty (a b : Nat) :
+    (reserve a : Reserved K V).entries = (reserve b : Reserved K V).entries := rfl
+
+theorem put_capacity_independent (a b : Reserved K V) (key : K) (value : V)
+    (same : a.entries = b.entries) : (put a key value).entries = (put b key value).entries := by
+  funext query
+  simp [put, same]
+
+theorem batch_capacity_independent (writes : List (K × V)) (a b : Reserved K V)
+    (same : a.entries = b.entries) :
+    (writes.foldl (fun current item => put current item.1 item.2) a).entries =
+      (writes.foldl (fun current item => put current item.1 item.2) b).entries := by
+  induction writes generalizing a b with
+  | nil => exact same
+  | cons item rest ih =>
+    exact ih _ _ (put_capacity_independent a b item.1 item.2 same)
+
 #print axioms initial_same
 #print axioms insert_same
 #print axioms build_same
@@ -108,4 +135,7 @@ theorem fold_empty (rows : List (List K)) (shape : Shape K) :
 #print axioms admitted_empty_order
 #print axioms see_empty
 #print axioms fold_empty
+#print axioms reserve_empty
+#print axioms put_capacity_independent
+#print axioms batch_capacity_independent
 end GraphColdIndex

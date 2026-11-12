@@ -20,4 +20,9 @@ package GraphColdIndex {
                initialization. No key validation or first refusal is removed.
                Native table constructors and author callback ordering remain. */
     }
+    requirement def CardinalityIsOnlyCapacity {
+        doc /* A known owner count may reserve native table capacity. It must
+               not replace membership/admission or infer rank bounds. Native
+               constructor seed effects, point reads and snapshot forks stay. */
+    }
 }
