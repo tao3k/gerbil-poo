@@ -7,10 +7,10 @@ Gerbil 1cfb032 already returns the head directly for zero parent lists in
 =gerbil/runtime/c3.ss=. Do not replace the POO outer cycle/construction/hook
 protocol on the assumption that C4 itself scans a large Graph in this case.
 
-=slot-layout.ss= already owns one weak =shapes= index. On a no-hint construction,
-=shape-for-names= nevertheless builds a symbolic deduplication table, admits
-and deduplicates keys, then queries that index. A shared shape hit does not
-currently avoid the preceding scratch work. Cells remain receiver-local.
+=slot-layout.ss= owns one weak =shapes= index. The former no-hint path always
+built a symbolic deduplication table before querying it. The guarded scalar
+path now avoids that scratch table on an existing-index hit. General requests
+and unrecognized routes retain ordinary admission. Cells remain receiver-local.
 
 The optional [[file:../benchmarks/cold-preparation-test.ss][Scheme study]] is absent from the default build and CI. It uses the
 existing native compiler, measurement helper and heap-fenced Just test runner;
@@ -54,7 +54,7 @@ GC samples. Cross-GC byte deltas remain unqualified, with raw inputs retained
 locally. The allocation contrast identifies an investigation target; it does
 not prove that all scratch work is removable, or transfer to Core 10K EVAL.
 
-* Contract before a Scheme change
+* Admission contract
 
 [[file:shape-admission.lean][Lean]] proves =scalar_selection_exact=: empty and singleton key preparation
 preserve symbol identity and invalid-key position. The reference follows the
@@ -69,7 +69,9 @@ scratch purity. =unsupported_fallback= retains the complete original path.
 The stateful counterexample proves that a shape hit alone cannot justify
 omitting a scratch adapter. These are guarded model laws, not proof that
 Gerbil's current adapters meet the premise. Lean 4.35.0 checks them using
-only standard propext/Quot.sound axioms; no sorry axiom is admitted.
+standard axioms (propext, Quot.sound and Classical.choice for HashMap reasoning);
+no sorry axiom is admitted. Reproduce with
+=lean +leanprover/lean4:v4.35.0 doc/shape-admission.lean=.
 
 Native constructor audit adds a necessary effect: =make-hash-table-symbolic=
 calls =random-integer (macro-max-fixnum32)= for its default seed. Removing the
@@ -82,18 +84,23 @@ and public Gerbil primitives are the relevant mechanisms, not a second RNG.
 The pointwise =seededGuarded_exact= law admits routes AFTER the necessary
 effect. A counterexample changes the route during that effect: retaining a
 previous true guard loses the constructor callback, while fresh admission
-falls back and preserves it. No guard verdict may cross this boundary.
-This model does not yet prove the native prototype-route guard, delayed
-constructor, alias/ownership behavior or state-dependent miss implementation.
+falls back and preserves it. An arbitrary effect cannot carry a guard verdict.
+=framed_seed_guard_shared= separately proves sharing across a primitive that
+preserves route metadata and caller spines. The native fixed Gambit RNG meets
+that premise in the supported serial runtime; an author callback does not.
+=scalar_index_exact= proves the default HashMap offset, including zero.
+The route model selects the current prototype descriptor entry rather than
+assuming that an earlier cached adapter remains unchanged. These are model
+laws; native conformance remains an independently tested implementation claim.
 
-[[file:shape-admission.sysml][SysML]] records the same boundary. Before changing Scheme:
+[[file:shape-admission.sysml][SysML]] records the same implementation obligations:
 
 - Authenticate the actual existing interner and future scratch/constructor
   routes. Keep the original path if callback freedom cannot be established.
   A shape, successful value or unchanged revision is not such authentication.
 - Keep the native seed effect and its ordering, including invalid requests and
-  cache hits. Revalidate after an effect boundary; a seed must not be consumed
-  twice if a fallback or miss needs the ordinary constructor.
+  index hits. A guard may span only the proven metadata-preserving native RNG.
+  Revalidate across arbitrary effects; never consume a miss seed twice.
 - Retain all independent checks around author callbacks and source effects.
   This optimization must stay inside the already closed metadata interval.
 - Own the canonical cache key AND shape name spines. Storing a caller-owned
@@ -103,6 +110,60 @@ constructor, alias/ownership behavior or state-dependent miss implementation.
 - Match failure/effect controls, identity and mutation tests, natural cold/warm
   constructor samples and complete EVAL before adoption.
 
-Scheme production code is unchanged. Native route admission, ownership/alias
-refinement and a corresponding candidate are still pending. Existing Graph
-and publication proofs/QNT transitions are not modified by this diagnostic.
+* Scheme refinement
+
+The private guard reads Gerbil's existing interface prototype cache, physical
+slot map and current interner backend configuration. It neither creates an
+adapter nor retains the old backend. A cold adapter, changed method or unknown
+layout uses the complete ordinary constructor; Gerbil owns adapter creation.
+The native seed is drawn once before symbol admission. A miss passes it through
+the existing =seed:= constructor option. Singleton input is copied before
+interning, so caller mutation cannot edit the canonical key. Every receiver
+still gets fresh cells. This is a closed metadata optimization, with no change
+to issued reads, publication/currentness checks or author callback boundaries.
+
+The ten native =objects/shape-admission-test= cases pass through the heap-fenced
+Just runner. They cover active and cold adapter routes, seed progression on
+empty/hit/miss/error, zero seed, symbol identity, caller-spine ownership, fresh
+cells, reverse refusal order, custom methods, callbacks changing future methods
+and moved physical slot metadata. A failed compile/import is not a passed fault
+control. The build declaration uses std/make's =include-gambit-sharp= for the
+Gambit table macros; default build targets remain core-only.
+
+The optional =scalar-layout-paired-test= compares the frozen former public
+constructor and the selected constructor in balanced ABBA/BAAB windows. Both
+retain contracts, keyword entry, fresh receiver cells and identical checks.
+Hits keep one metadata anchor alive; misses use independent uninterned names
+for each arm. Enumeration is timed separately. All GC samples remain reported;
+unqualified allocation deltas are not converted into allocation claims.
+This microbenchmark does not establish complete Yuanxu 10K EVAL acceptance.
+Existing Graph/publication proofs and QNT transitions are unchanged.
+
+The standard native objects group passes 171 cases (including these ten and
+issued-read/callback controls); the existing Graph suite passes 19 cases,
+including its generated properties and bounded 10000-owner families. Both
+have Module/Harness/final OK and natural exit, without error/overflow markers.
+These focused checks are distinct from the full PR matrix and Core acceptance.
+
+* Paired native candidate result
+
+Same Gerbil/Gambit host, balanced four windows per arm, natural GC retained:
+
+| Regime | Operations/window | Former CPU median ms | Selected CPU median ms |
+|--------+-------------------+----------------------+------------------------|
+| Anchored scalar hit | 16384 | 34.363 | 5.0685 |
+| Independent scalar miss | 1024 | 1.3745 | 1.5300 |
+
+Hit allocation in zero-GC windows drops from approximately 4896 to 288 bytes
+per receiver. Three former hit windows collect; all selected hit windows have
+zero GC. Misses remain full native index construction and are approximately
+11% slower in this small batch: the guard and copied key are additional work.
+This is an optimization for repeated scalar shapes, not a cold miss speed claim.
+The complete optional study exits naturally with Module/Harness/final OK
+(3.14 s wall). Source enumeration is separate in every reported window.
+
+The initial conditional keyword-procedure alias was NOT a valid comparison:
+the optimized Scheme emitted only the selected constructor call in both arms.
+The final study uses two direct call sites, and generated Scheme was checked
+for both =ordinary-layout__%= and =make-slot-layout__%= branches. The invalid
+comparison is retained only in local evidence, never included in these medians.

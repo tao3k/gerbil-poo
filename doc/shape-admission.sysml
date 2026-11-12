@@ -21,10 +21,16 @@ package ShapeAdmission {
     requirement def PreserveSeedEffect {
         doc /* Preserve the native seed draw exactly once before admission.
                Reuse that seed on a miss; a fallback cannot draw it twice.
-               Admit the selected route after the effect, not from an old verdict. */
+               A guard may span the native RNG only under its route/spine frame
+               law. Arbitrary author effects require independent admission. */
     }
     requirement def ReceiverOwnership {
         doc /* Own canonical key spines; every receiver still gets independent cells.
                Metadata sharing never grants currentness or computes a business scope. */
+    }
+    requirement def CurrentAdapter {
+        doc /* Inspect Gerbil's existing descriptor/prototype entry and physical
+               routes on every scalar request. Cold or changed routes fall back.
+               Do not create another adapter/cache or retain an obsolete backend. */
     }
 }

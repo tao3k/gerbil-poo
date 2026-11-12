@@ -94,6 +94,7 @@
     "inferred-declaration-test"
     (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.scm" "method-declaration/cases.scm" "method-declaration/multimethod.scm" "method-declaration/typed-method-declaration.scm"))))
     ("objects"
+    "shape-admission-test"
     "class-diagnostics-test"
     "inheritance-hooks-test"
     "issued-read-test"

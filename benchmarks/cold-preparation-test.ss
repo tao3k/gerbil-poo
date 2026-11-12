@@ -1,12 +1,63 @@
 ;;; Optional native study; deliberately absent from the default development build.
 ;;; Compile with the standard compiler and execute through Just test-file.
-(export root-linearization-test shape-construction-test)
+(export root-linearization-test shape-construction-test scalar-layout-paired-test)
 (import :std/test :std/iter :clan/poo/object
         (only-in :gerbil/runtime/c3 c4-linearize*)
         (only-in :std/values first-value)
-        (only-in :clan/poo/slot-layout make-slot-layout slot-layout-shape)
+        (only-in :clan/poo/slot-layout make-slot-layout slot-layout-shape slot-layout-index slot-layout-set!)
+        (only-in :clan/poo/object-state object-state-revision)
+        (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
-(extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout)
+(extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
+        ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)
+
+;; Frozen former public constructor, including its keyword and contract boundary.
+;; Only shape preparation differs; cells, initialization and revisions are identical.
+(def (ordinary-layout names initial missing previous: (previous #f) state: (state #f))
+  (using (names :~ list?)
+    (def hint (and previous (slot-layout-shape previous)))
+    (def canonical
+      (if (and hint (same-shape-names? names hint)) hint (ordinary-shape-for-names names hint)))
+    (def keys (shape-names canonical))
+    (def result (make-layout canonical (make-vector (length keys) missing) missing 0
+      state (and state (object-state-revision state))))
+    (when initial
+      (for ((name keys) (index (in-range (length keys))))
+        (slot-layout-set! result index (hash-ref initial name missing))))
+    result))
+
+(def scalar-layout-paired-test
+  (test-suite "paired native scalar layout construction"
+    (test-case "balanced hit and independent cold miss, no forced collection"
+      (def anchor (make-slot-layout '(value) #f absent-value))
+      (unless (scalar-shape-routes-current?) (error "native route guard not active"))
+      (for (regime '(hit miss))
+        (for (side '(ordinary selected selected ordinary selected ordinary ordinary selected))
+          ;; Fresh uninterned keys prevent either arm from populating the other's
+          ;; miss workload. Enumeration is outside, and reported separately.
+          (def count (if (eq? regime 'hit) 16384 1024))
+          (defvalues (requests preparation)
+            (measure (lambda ()
+              (for/collect (_ (in-range count))
+                (if (eq? regime 'hit) (list 'value)
+                  (list (string->uninterned-symbol "paired-scalar"))))) 1))
+          (defvalues (last clocks)
+            (measure (lambda ()
+              (for/fold (last #f) (keys requests)
+                ;; Keep distinct direct call sites: the native optimizer can
+                ;; incorrectly specialize a conditional keyword-procedure alias.
+                (let (result (if (eq? side 'ordinary)
+                               (ordinary-layout keys #f absent-value)
+                               (make-slot-layout keys #f absent-value)))
+                  (unless (eqv? (slot-layout-index result (car keys)) 0)
+                    (error "scalar index changed"))
+                  result))) 1))
+          (when (eq? regime 'hit)
+            (check-eq? (slot-layout-shape last) (slot-layout-shape anchor)))
+          (displayln (list 'SCALAR-LAYOUT-PAIRED regime side 'operations count
+            'preparation (qualified-metrics preparation)
+            'construction (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4)))))
+      (check (scalar-shape-routes-current?) ? values))))
 
 ;; This isolates the pure C4 base case, not POO cycle/constructor/hook routing.
 ;; It does not authorize removing any of those potentially effectful operations.

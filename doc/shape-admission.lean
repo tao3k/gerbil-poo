@@ -151,6 +151,117 @@ example : bind changeRoute (fun _ => guarded true (routedAllocation ()) quiet (k
 example : seededGuarded changeRoute (fun _ state => state.1) routedAllocation quiet keepRoute
     (true, 0) = (.ok (), (false, 11)) := rfl
 
+-- Concrete scalar index: the old membership mark is overwritten by offset 0.
+-- Only lookup meaning is shared; no physical HashMap-layout equality is claimed.
+abbrev Entry := Sum Unit Nat
+def eagerIndex (key : Nat) : Std.HashMap Nat Entry :=
+  (({} : Std.HashMap Nat Entry).insert key (.inl ())).insert key (.inr 0)
+def delayedIndex (key : Nat) : Std.HashMap Nat Entry :=
+  ({} : Std.HashMap Nat Entry).insert key (.inr 0)
+theorem scalar_index_exact (key query : Nat) :
+    (eagerIndex key)[query]? = (delayedIndex key)[query]? := by
+  by_cases same : key = query <;>
+    simp [eagerIndex, delayedIndex, same]
+
+-- Caller spines and published key values have different ownership. A native
+-- refinement must copy the scalar pair; retaining a caller address is NOT this model.
+def callerWrite (caller : Nat → List Nat) (address : Nat) (names : List Nat) :=
+  fun query => if query = address then names else caller query
+def publishKey (caller : Nat → List Nat) (address : Nat) := caller address
+theorem captured_key_survives_caller_write (caller : Nat → List Nat) (address : Nat)
+    (replacement : List Nat) :
+    let published := publishKey caller address
+    let _caller := callerWrite caller address replacement
+    published = caller address := rfl
+
+def writeCells (heap : Nat → List (Option Nat)) (owner : Nat) (cells : List (Option Nat)) :=
+  fun query => if query = owner then cells else heap query
+theorem other_receiver_cells_unchanged (heap : Nat → List (Option Nat))
+    (owner other : Nat) (cells : List (Option Nat)) (different : other ≠ owner) :
+    writeCells heap owner cells other = heap other := by
+  simp [writeCells, different]
+theorem fresh_receiver_identity (next : Nat) : next ≠ next + 1 := by omega
+
+-- Native RNG changes its own state, not constructor routes or caller spines.
+-- This frame is NOT granted to arbitrary author callbacks or expansion.
+def framedSeed (step : Action Random E Seed) : Action (Metadata × Random) E Seed :=
+  fun state => let observed := step state.2
+    (observed.1, (state.1, observed.2))
+theorem framed_seed_preserves_metadata (step : Action Random E Seed)
+    (state : Metadata × Random) : (framedSeed step state).2.1 = state.1 := rfl
+
+def checkBeforeSeed (step : Action Random E Seed) (route : Metadata → Bool)
+    (allocate : Seed → Action (Metadata × Random) E Unit)
+    (admit : Action (Metadata × Random) E Keys)
+    (publish : Seed → Keys → Action (Metadata × Random) E Layout) :=
+  fun state => bind (framedSeed step)
+    (fun token => guarded (route state.1) (allocate token) admit (publish token)) state
+
+theorem framed_seed_guard_shared (step : Action Random E Seed) (route : Metadata → Bool)
+    (allocate : Seed → Action (Metadata × Random) E Unit)
+    (admit : Action (Metadata × Random) E Keys)
+    (publish : Seed → Keys → Action (Metadata × Random) E Layout) :
+    checkBeforeSeed step route allocate admit publish =
+      seededGuarded (framedSeed step) (fun _ state => route state.1) allocate admit publish := by
+  funext state
+  cases observed : step state.2 with
+  | mk result next =>
+    cases result <;> cases selected : route state.1 <;>
+      simp [checkBeforeSeed, seededGuarded, framedSeed, guardedAt, guarded, bind, observed, selected]
+
+-- Native routing abstraction: inspect Gerbil's CURRENT cached prototype rather
+-- than creating a substitute adapter or retaining a previous admission verdict.
+inductive Method where
+  | symbolicRead | symbolicWrite | weakRead | weakWrite | author (identity : Nat)
+  deriving DecidableEq, BEq
+structure Prototype where
+  wrapper : Nat
+  refMethod : Method
+  setMethod : Method
+structure Routing where
+  descriptorWrapper : Nat
+  slotOffsets : List Nat
+  cachedCastPath : Bool
+  index : Nat
+  prototypes : Nat → Option Prototype
+  cacheBackendMatches : Bool
+  cacheRef : Method
+  cacheSet : Method
+
+def closedRoutes (wrapper : Nat) (offsets : List Nat) (routing : Routing) : Bool :=
+  decide (routing.descriptorWrapper = wrapper) && decide (routing.slotOffsets = offsets) &&
+    routing.cachedCastPath && routing.cacheBackendMatches &&
+    decide (routing.cacheRef = .weakRead) && decide (routing.cacheSet = .weakWrite) &&
+    match routing.prototypes routing.index with
+    | none => false
+    | some prototype => decide (prototype.wrapper = wrapper) &&
+        decide (prototype.refMethod = .symbolicRead) && decide (prototype.setMethod = .symbolicWrite)
+
+theorem closed_selects_current_methods (wrapper : Nat) (offsets : List Nat) (routing : Routing)
+    (closed : closedRoutes wrapper offsets routing = true) :
+    ∃ prototype, routing.prototypes routing.index = some prototype ∧
+      prototype.wrapper = wrapper ∧ prototype.refMethod = .symbolicRead ∧
+      prototype.setMethod = .symbolicWrite ∧ routing.cacheRef = .weakRead ∧
+      routing.cacheSet = .weakWrite := by
+  cases selected : routing.prototypes routing.index with
+  | none => simp [closedRoutes, selected] at closed
+  | some prototype =>
+    simp only [closedRoutes, selected, Bool.and_eq_true, decide_eq_true_eq] at closed
+    exact ⟨prototype, rfl, closed.2.1.1, closed.2.1.2, closed.2.2,
+      closed.1.1.2, closed.1.2⟩
+
+def methodEffects : Method → List Nat
+  | .author identity => [identity]
+  | _ => []
+theorem closed_method_effects_empty (wrapper : Nat) (offsets : List Nat) (routing : Routing)
+    (closed : closedRoutes wrapper offsets routing = true) :
+    ∃ prototype, routing.prototypes routing.index = some prototype ∧
+      methodEffects prototype.refMethod ++ methodEffects prototype.setMethod ++
+        methodEffects routing.cacheRef ++ methodEffects routing.cacheSet = [] := by
+  obtain ⟨prototype, selected, _, read, write, cacheRead, cacheWrite⟩ :=
+    closed_selects_current_methods wrapper offsets routing closed
+  exact ⟨prototype, selected, by simp [read, write, cacheRead, cacheWrite, methodEffects]⟩
+
 -- A shape hit alone cannot authorize skipping an effectful scratch adapter.
 def effectful : Action Nat Unit Unit := fun state => (.ok (), state + 1)
 def accept : Action Nat Unit Unit := fun state => (.ok (), state)
@@ -163,4 +274,9 @@ example : scalar accept publish 0 = (.ok (), 0) := rfl
 #print axioms unsupported_fallback
 #print axioms seed_effect_preserved
 #print axioms seededGuarded_exact
+#print axioms scalar_index_exact
+#print axioms other_receiver_cells_unchanged
+#print axioms framed_seed_guard_shared
+#print axioms closed_selects_current_methods
+#print axioms closed_method_effects_empty
 end ShapeAdmission

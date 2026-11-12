@@ -150,11 +150,11 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 71)
+        (check (length all) => 72)
         ;; Original roots, byte-I/O, FUN and the two Graph acceptance roots.
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 67)
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 68)
         (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
-                     "objects/class-diagnostics-test"))
+                     "objects/class-diagnostics-test" "objects/shape-admission-test"))
           (check (and (member name (map cadr all)) #t) => #t))
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
