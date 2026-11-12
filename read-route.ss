@@ -5,7 +5,19 @@
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
                       class-slot-offset slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
-           symbolic-table-set! symbolic-hash))
+           symbolic-table-set! symbolic-hash)
+  (only-in :gerbil/runtime/hash HashTable::interface)
+  (only-in :gerbil/runtime/interface &interface-descriptor-type))
+
+;; Private admission for a single callback-free replay sweep. An identity
+;; HashTable conversion cannot reify another interface or invoke author code.
+;; Unsupported descriptors retain the original per-record protocol. The
+;; receiver route itself still has to pass require-read-route! on first use.
+;; As with the existing route guard, this is a serial supported-runtime law,
+;; not protection against concurrent raw writes to runtime implementation data.
+(def %pure-read-sweep?
+  (let (wrapper (read-runtime.object-class (make-hash-table)))
+    (lambda () (eq? wrapper (&interface-descriptor-type HashTable::interface)))))
 
 ;; These are the final record owner's generated physical-field operations,
 ;; not the public copying inspectors or a new lookup through mutable class

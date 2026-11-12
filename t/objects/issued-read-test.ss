@@ -6,6 +6,7 @@
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class
                             class-slot-offset &class-type-slot-table) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
+        (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/expander current-expander-context make-top-context
                  core-import-module module-context-export module-export-name eval-syntax)
         (only-in :std/error Error? Error-message contract-violation-error?))
@@ -16,7 +17,7 @@
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key
-        object-read-dependencies object-read-value)
+        object-read-dependencies object-read-value require-current-read-sweep!)
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
@@ -210,7 +211,8 @@
         object-deliver-value object-issued-read-current? require-object-read-route!
         call-with-issued-reads active-read-replays object-read-key
         object-read-dependencies object-read-value record-key-field
-        record-dependencies-field record-value-field))
+        record-dependencies-field record-value-field
+        require-current-read-sweep! %pure-read-sweep?))
     (check-equal? (and (memq 'object-read-issued? names) #t) #t)
     (check-equal? (and (memq '%issue-read names) #t) #f)
     (def route-names
@@ -220,8 +222,29 @@
     (check-equal? (memq '%issue-read route-names) #f)
     (for-each (lambda (name) (check-equal? (memq name route-names) #f))
       '(record-key-field record-value-field record-current-field
-        record-dependencies-field record-birth-field record-birth-set!))
+        record-dependencies-field record-birth-field record-birth-set! %pure-read-sweep?))
     (check-equal? (and (memq '%issued-read? route-names) #t) #t)
+    ;; A descriptor that cannot use identity conversion takes the original
+    ;; checker. Keep all framework/Test operations outside the temporary edit.
+    (let* ((owner (.o answer: 9))
+           (roots (recorded (cut .get owner answer)))
+           (read (selected roots 'answer))
+           (saved-type (runtime.slot-ref HashTable::interface 'type))
+           (delivered []))
+      (dynamic-wind
+        (lambda () (runtime.slot-set! HashTable::interface 'type (runtime.object-class read)))
+        (lambda ()
+          ;; No receiver map is supplied: fallback must not inspect it.
+          (require-current-read-sweep! (list read) #f '#(0)
+            (lambda (record) (set! delivered (cons record delivered))) #t))
+        (lambda () (runtime.slot-set! HashTable::interface 'type saved-type)))
+      (check-equal? delivered (list read))
+      ;; An index built on the unsupported path remains ordinary even if the
+      ;; descriptor is restored by the time the next check occurs.
+      (set! delivered [])
+      (require-current-read-sweep! (list read) #f #f
+        (lambda (record) (set! delivered (cons record delivered))) #t)
+      (check-equal? delivered (list read)))
     (set! completed (+ completed 1)))
   (test-case "real persistent records authenticate but public copies do not"
     (.def Root port: 5432 unused: (error "unselected branch forced"))
@@ -766,6 +789,13 @@
              (Right (.o b: 2))
              (Root (.o value: (list (.get Left a) (.get Right b) (.get Left c))))
              (roots (recorded (cut .get Root value))))
+        ;; The existing topology set also owns dense stable positions. Flags
+        ;; are absent from this shared index, including after callback return.
+        (call-with-issued-reads roots
+          (lambda (_reads _current! receivers)
+            (def positions (hash-values receivers))
+            (for (index (in-range (hash-length receivers)))
+              (check (memv index positions) ? values))) #t)
         (when warm? (call-with-current-slot-reads roots values))
         (let* ((calls 0) (table (object-%reads Right))
                (saved (runtime.slot-ref table 'ref)))

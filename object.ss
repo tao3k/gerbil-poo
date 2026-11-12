@@ -9,6 +9,7 @@
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
                     object-read-key object-read-dependencies object-read-value
+                    require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
 

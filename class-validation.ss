@@ -1,6 +1,6 @@
 ;;; Recursive Class validation through its current effective Slot protocols.
 (export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class)
-(import (only-in :std/list/list append-map filter-map)
+(import (only-in :std/list/list filter-map)
         (only-in ./object .o .slot? .get .ref .call .all-slots object?)
         (only-in ./validation-rebinding rebind-validation finish-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
@@ -37,9 +37,17 @@
           (filter-map (lambda (name) (and (not (memq name names))
                          (.o kind: 'unknown-field path: (append location (list name)))))
                       (.all-slots candidate)) '())
-        (append-map (lambda (name)
-                      (def slot (.ref slots name))
-                      (.call (.get slot .type) .slot.shape slot name candidate location check-field)) names)))))
+        ;; Keep append-map's callback order and final fold, but allocate its
+        ;; immutable group spine only for non-empty results. A mutable builder
+        ;; would share that spine across captured continuation re-entry.
+        (let collect ((remaining names) (groups '()))
+          (if (pair? remaining)
+            (let* ((name (car remaining))
+                   (rest (cdr remaining))
+                   (slot (.ref slots name))
+                   (group (.call (.get slot .type) .slot.shape slot name candidate location check-field)))
+              (collect rest (if (null? group) groups (cons group groups))))
+            (foldl (lambda (group result) (foldl cons result group)) remaining groups)))))))
 
 ;; Full diagnostics retain custom Class membership and Slot checker refusals.
 ;; Structural traversal alone remains available for wrapping nested refinements.

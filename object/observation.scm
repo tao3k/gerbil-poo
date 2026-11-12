@@ -40,7 +40,7 @@
                         (hash-ref (object-%instance self) key absent-value))))))))
 ;; Trusted implementation access to the one existing writer; it remains absent
 ;; from the read-route public exports. Ordinary consumers receive only checks.
-(extern namespace: clan/poo/read-route %issue-read)
+(extern namespace: clan/poo/read-route %issue-read %pure-read-sweep?)
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
 (def object-read-issuance %read-issuance)
@@ -59,6 +59,32 @@
   (require-read-route! (object-read-key read)
     (object-%reads receiver) (object-%instance receiver)))
 
+;; Only the fixed checker below runs in this sweep. The original key and live
+;; checks stay in record order; no author work or observation is dispatched.
+;; Each invocation owns fresh flags, including the callback-return invocation.
+;; The projection's receiver index stores identities/positions, never approval.
+(def (require-current-read-sweep! reads receivers positions current! authenticate?)
+  (if (or (not positions) (not (%pure-read-sweep?)))
+    (for-each current! reads)
+    (let (seen (make-vector (hash-length receivers) #f))
+      (let loop ((rest reads) (position 0))
+        (unless (null? rest)
+          (let (read (car rest))
+          (when authenticate?
+            (unless (object-read-issued? read) (error "unissued slot dependency")))
+          (let (key (object-read-key read))
+            ;; Bootstrap checks its anchor, not receiver table routes. It must
+            ;; not certify those routes for a later ordinary read of this owner.
+            (require-read-route! key #f #f)
+            (unless (and (pair? key) (eq? (car key) 'bootstrap))
+              (let (index (vector-ref positions position))
+                (unless (vector-ref seen index)
+                  (require-object-read-route! read)
+                  (vector-set! seen index #t))))
+            (unless (object-issued-read-current? read)
+              (error "stale slot dependency" (slot-read-key read)))))
+          (loop (cdr rest) (fx1+ position)))))))
+
 ;; Detect constructor replacement before an internal projection can allocate a receiver.
 (def object-construction-current?
   (let* ((object-init (read-runtime.find-method object::t #f ':init!))
@@ -68,13 +94,13 @@
       (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
-(def call-with-issued-reads
+(defvalues (call-with-issued-reads call-with-current-slot-reads)
   (let ()
     ;; The index owns neither roots nor cache receivers. A live projection keeps
     ;; its ordinary receiver-local cache owner alive; GC eviction is always a cold miss.
     ;; No mutable visitation set or successful validation result is retained.
     (def owners (make-table test: eq? weak-keys: #t weak-values: #t))
-    (defstruct projection (owner roots reads receivers) final: #t)
+    (defstruct projection (owner roots reads receivers positions) final: #t)
     ;; A cold cache owner must not dispatch an injected CLOS initializer during
     ;; authentication. Changed constructor metadata keeps the original DFS path.
     (def construction-current? object-construction-current?)
@@ -92,6 +118,7 @@
         (and (pair? roots) (eq? (car roots) (car saved))
              (same-roots? (cdr roots) (cdr saved)))))
     (def (build owner roots)
+      (def indexed? (%pure-read-sweep?))
       (def seen (make-hash-table-eq))
       (def receivers (make-hash-table-eq))
       (def ordered '())
@@ -99,14 +126,29 @@
         (unless (hash-key? seen read)
           (require-issued! read)
           (hash-put! seen read #t)
-          (hash-put! receivers (slot-read-receiver read) #t)
+          (let (receiver (slot-read-receiver read))
+            (if indexed?
+              (unless (hash-key? receivers receiver)
+                (hash-put! receivers receiver (hash-length receivers)))
+              ;; Unsupported conversion keeps the original calls as well as
+              ;; validation: do not add indexed lookups that could reify it.
+              (hash-put! receivers receiver #t)))
           (set! ordered (cons read ordered))
           (for-each collect (object-read-dependencies read))))
       ;; The cold selector admits a finite root spine before entering this DFS.
       ;; Preserve full issuance preflight and its order for every admitted root.
       ;; Only successful traversal copies roots and publishes a cached value.
       (for-each collect roots)
-      (make-projection owner (map values roots) (reverse ordered) receivers))
+      ;; One final vector, no parallel index list/reversal. Descending slots
+      ;; align this reverse DFS spine with the forward ordered read sequence.
+      (let (positions (and indexed? (make-vector (length ordered))))
+        (when positions
+          (let fill ((rest ordered) (position (fx1- (vector-length positions))))
+            (unless (null? rest)
+              (vector-set! positions position
+                (hash-ref receivers (slot-read-receiver (car rest))))
+              (fill (cdr rest) (fx1- position)))))
+        (make-projection owner (map values roots) (reverse ordered) receivers positions)))
     (def (obtain roots)
       (def owner (table-ref owners roots #f))
       (def instance (and owner (object-%instance owner)))
@@ -135,7 +177,7 @@
               (table-set! owners roots owner)
               next)
             (build #f roots))))))
-    (lambda (roots consume retain? (fixed-result? #f))
+    (def (with-projection roots consume retain? fixed-result?)
       ;; Replay callers can retain roots; a fresh capture has no future lookup
       ;; identity. Reuse the SAME finite DFS without a cache owner or weak entry.
       (def selected (without-observation
@@ -146,11 +188,29 @@
       (if fixed-result?
         ;; Selection already authenticated the whole issued traversal. The
         ;; fixed result has no callback before or after this live check.
-        (consume traversal require-live! (projection-receivers selected))
+        (consume traversal require-live! (projection-receivers selected) (projection-positions selected))
         (parameterize ((active-read-replays
                         (cons (projection-receivers selected) (active-read-replays))))
-          (begin0 (consume traversal require-current! (projection-receivers selected))
-            (without-observation (lambda () (for-each require-current! traversal)))))))))
+          (begin0 (consume traversal require-current! (projection-receivers selected) (projection-positions selected))
+            (without-observation
+              (lambda () (require-current-read-sweep! traversal
+                (projection-receivers selected) (projection-positions selected) require-current! #t)))))))
+    (values
+      ;; Preserve the original private consumer protocol. Positions belong to
+      ;; the existing projection and never escape into author/observer callbacks.
+      (lambda (roots consume retain? (fixed-result? #f))
+        (with-projection roots
+          (lambda (reads current! receivers _positions) (consume reads current! receivers))
+          retain? fixed-result?))
+      (lambda (roots action)
+        (unless (procedure? action) (error "expected a slot-read checkpoint procedure"))
+        (def fixed? (or (eq? action values) (eq? action void)))
+        (without-observation
+          (lambda ()
+            (with-projection roots
+              (lambda (reads current! receivers positions)
+                (require-current-read-sweep! reads receivers positions current! (not fixed?))
+                (action (length reads))) #t fixed?)))))))
 
 ;; Opt in to invalidation from actual observed Slot reads, not hidden callback
 ;; state. Run once, admit the complete captured graph before registering edges,
@@ -188,15 +248,6 @@
 ;; A protected checkpoint authenticates the complete live traversal before
 ;; calling action once. Its native frame verifies the same support at return.
 ;; This operation does not deliver semantic slot reads to an outer observer.
-(def (call-with-current-slot-reads roots action)
-  (unless (procedure? action) (error "expected a slot-read checkpoint procedure"))
-  (without-observation
-    (lambda ()
-      (call-with-issued-reads roots
-        (lambda (reads current! _receivers)
-          (for-each current! reads)
-          (action (length reads)))
-        #t (or (eq? action values) (eq? action void))))))
 
 ;; The Type catalog's warm path delivers ORIGINAL records into its caller's
 ;; frame. Keep the same selected write protection across work and delivery, not
