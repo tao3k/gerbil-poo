@@ -1,0 +1,107 @@
+#+title: Exact SCC repair over a batch of changed rows
+
+The general fixed-support branch of =revise-partition= uses the old forward
+and reverse indices plus added edges. The resulting union =U= is the old
+and new graph's edge union, even when the batch also removes edges. It
+intersects nodes reachable from an edited root in =U= with nodes that can
+reach an edited root in =U=. The roots for the two paths can differ.
+
+[[file:scc-edit-region.lean][Lean]] checks six main obligations:
+
+- =old_with_additions_exact=: the overlay has precisely the union's edges.
+- =outside_membership_exact=: old and new SCC membership agree for a node
+  outside the region. Otherwise a mutual path through a changed row would
+  witness both directions of reachability between that node and a root.
+- =induced_membership_exact=: paths between region vertices can stay inside
+  the region. Restricting to successor edges there preserves mutual reachability.
+- =no_crossing_component=: an old or new SCC touching the region is wholly inside it.
+- =patch_exact=: keeping the old relation outside and using the new induced
+  relation inside yields exactly the cold successor SCC relation for all pairs.
+- =first_representative_exact=: exact membership on the same source roster
+  yields the same first member, independent of discovery order.
+
+The checked two-node counterexample cuts one edge of a cycle. The new-only
+walk misses a vertex whose SCC changes. The proof allows multiple edited
+roots and arbitrary simultaneous additions and deletions; it does not require
+that every admitted root actually changes its edge set.
+
+[[file:scc-edit-region.sysml][SysML]] records the refinement boundary. This is a relational proof for the
+existing general repair branch. It assumes the Scheme walks yield exact
+reachability and the unedited rows agree. It does not prove the native bucket
+iterator, source-order representative construction, or publication. The
+ranked singleton and retained-components laws are recorded in
+[[file:performance/retained-scc-direction.org][Retained SCC direction]].
+Those gates remain separate; a vertex outside the SCC repair region can still
+be a downstream consumer. No Scheme path or QNT transition changes here.
+
+* One changed row and a certified ring cut
+
+| Existing Scheme branch | Lean result | Admission premise |
+|------------------------+-------------+-------------------|
+| =single-removal?= | =single_removal_exact= | One changed row; no added edges. The union is the old graph, so both walks intersect in the cut owner's old SCC. |
+| =functional-cut?= | =functional_replacement_exact= | One old successor per row, one removed edge at the cut row, no added edges, all other rows unchanged. The cut row becomes a sink. |
+| Singleton owner/member projection | =functional_repair_exact= | The old whole component can reach the cut from every owner. A surviving path follows the unique successor and reduces the distance to the sink whenever it reaches another owner. |
+| ='all-representatives= | =every_group_changed= | A whole old component had at least two members. Even the group named by the old representative changes membership. |
+
+The original =own-partition= shape check establishes one whole component
+with at least two owners and one outgoing edge per row. The edit path uses
+that certificate only after exact row differences are admitted. An internal
+chord can retain the old component while invalidating its one-successor
+shape: Lean checks a three-node chord whose cut leaves a nontrivial SCC.
+The native chord cases check that retaining membership retires the shape
+before later deletion. The same suite passed 128 deterministic compound
+edits against cold groups, representatives and rows.
+
+The existing ring and Hub pressure suites were run through Just with the
+prepared Graph study, the =cc319ed= scheduling candidate and the unchanged
+2 GiB heap fence. Both sizes pass the original assertions, including exact
+ordered singleton output and quotient sentinel. CPU milliseconds:
+
+| Shape | Owners | Cold capture | Structural edit | Explicit singleton output | Quotient cut |
+|-------+--------+--------------+-----------------+---------------------------+--------------|
+| Ring | 100K | 1231.275 | 0.086 | 0.671 | 0.077 |
+| Ring | 1M | 16307.569 | 0.077 | 6.581 | 0.091 |
+| Hub | 100K | 902.415 | 0.057 | — | — |
+| Hub | 1M | 12403.762 | 0.068 | — | — |
+
+There are zero old forward/reverse bucket scans or induced-region edge
+visits in these edit windows. Each performs one inverse deletion and no
+reverse bucket rewrite. Ring edits allocate 76,736 bytes without GC;
+explicit 1M singleton output allocates 96,000,288 bytes without GC.
+Cold capture collects, so allocation there is unqualified. The invocation
+exits naturally in 44.61 s wall with Module/Harness/final OK. No peak RSS
+was captured. These are correspondence observations on the current path,
+not a before/after performance claim or a real Module EVAL result.
+
+* Handoff to the quotient and value invalidation
+
+Two different reverse walks serve different purposes:
+
+1. With fixed quotient support, seed every edited reader row (and any value
+   edits). =old_inverse_exact= proves that the old and successor reverse
+   closures agree. A path into the dirty set only needs its prefix to the
+   first dirty vertex; every edge in that prefix has an unedited source.
+   This justifies old-index continuation in
+   =%apply-schedule-revision-with-invalidation= under the authenticated
+   schedule ticket. It does not justify using an old ticket after commit.
+2. When a provider changes representative, look up its readers in the
+   successor's vertex inverse. For a group with unchanged representative,
+   ordered members and ordered rows, =routes_unchanged= proves that unchanged
+   provider representatives preserve the entire ordered route projection.
+   Conversely, =changed_route_requires_remapped_provider= gives an actual
+   provider in the row whose representative changed. The successor inverse
+   must therefore lead back to that reader, even if the reader's SCC was
+   outside the repair region. =changed_group_is_seeded= proves that an exact
+   transpose maps the witness to the reader's successor group. This is the =remapped= walk in
+   =revise-partition=. Membership and direct source edits have their own seeds.
+
+Support edits keep their existing successor-inverse fallback. The existing
+owned split/merge case in
+[[file:../t/components/component-membership/component-requests.scm][component-requests.scm]]
+checks two quotient reader edges, the outside =settlement= recomputation,
+retention of unrelated values, and equality with a cold split. The separate
+10,000-owner rank-repair case checks an outside consumer without requiring an
+SCC change. These tests exercise distinct paths; neither is a real Module
+EVAL fixture. This proof change introduces no new Scheme workload.
+
+Reproduce with =lean +leanprover/lean4:v4.35.0 doc/scc-edit-region.lean=.
