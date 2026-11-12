@@ -208,14 +208,15 @@
                  (loop (cdr current) (1+ index)))))
         (and (pair? current) (eq? (car current) saved) (null? (cdr current)))))
     ;; Receiver state is captured by the caller; ordinary payload identities stay
-    ;; unchanged. The receiver owns the index key; the record owns a separate
-    ;; structural key spine so even a raw edit cannot damage hash placement.
+    ;; unchanged. The receiver owns the index key. The issuer and record
+    ;; retain separate structural spines so neither can rewrite the signature.
     (def (issue self key revision instance value parents checker)
       ;; The producer's name spine is reachable through its ordinary runtime
       ;; metadata. Freeze it before creating the separate exposed presentation.
       (def names (and (equal? key '(names)) value (map values value)))
       (def shown (if names (map values names) value))
-      (def record-key (if (pair? key) (list-copy key) key))
+      (def signed-key (if (pair? key) (list-copy key) key))
+      (def record-key (if (pair? signed-key) (list-copy signed-key) signed-key))
       (def parent-copy
         (cond ((null? parents) '#())
               ((and (null? (cdr parents)) (not (vector? (car parents)))) (car parents))
@@ -235,14 +236,14 @@
             ;; Copy primitive metadata; do not dispatch a mutable class constructor.
             (if (not candidate)
                 (values read
-                  (vector self (if (pair? key) (list-copy key) key) revision instance
+                  (vector self (if (pair? signed-key) (list-copy signed-key) signed-key) revision instance
                     (if names (list-copy names) value)
                     (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
-                  (and (pair? key) (list-copy key)))
+                  (and (pair? signed-key) (list-copy signed-key)))
             (and (eq? candidate read)
                  (eq? (slot-read-receiver read) self)
                  (eq? (read-key read) record-key)
-                 (or (not (pair? key)) (same-list? record-key key))
+                 (or (not (pair? signed-key)) (same-list? record-key signed-key))
                  (= (slot-read-revision read) revision)
                  (eq? (slot-read-instance read) instance)
                  (eq? (read-value read) value)
